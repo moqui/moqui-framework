@@ -1,0 +1,80 @@
+Moqui Framework (http://github.com/moqui/moqui)
+
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+
+===========================================================================
+
+Copyright Waiver
+
+I dedicate any and all copyright interest in this software to the
+public domain. I make this dedication for the benefit of the public at
+large and to the detriment of my heirs and successors. I intend this
+dedication to be an overt act of relinquishment in perpetuity of all
+present and future rights to this software under copyright law.
+
+To the best of my knowledge and belief, my contributions are either
+originally authored by me or are derived from prior works which I have
+verified are also in the public domain and are not subject to claims
+of copyright by other parties.
+
+To the best of my knowledge and belief, no individual, business,
+organization, government, or other entity has any copyright interest
+in my contributions, and I affirm that I will not make contributions
+that are otherwise encumbered.
+
+Signed by git commit adding my legal name and git username:
+
+Written in 2010-2016 by David E. Jones - jonesde
+Written in 2014-2015 by Solomon Bessire - sbessire
+Written in 2014-2015 by Jacopo Cappellato - jacopoc
+Written in 2014-2015 by Abdullah Shaikh - abdullahs
+Written in 2014-2015 by Yao Chunlin - chunlinyao
+Written in 2014-2015 by Jimmy Shen  - shendepu
+Written in 2014-2015 by Dony Zulkarnaen - donniexyz
+Written in 2015 by Sam Hamilton - samhamilton
+Written in 2015 by Leonardo Carvalho - CarvalhoLeonardo
+Written in 2015 by Swapnil M Mane - swapnilmmane
+Written in 2015 by Anton Akhiar - akhiar
+Writter in 2015-2015 by Jens Hardings - jenshp
+
+===========================================================================
+
+Grant of Patent License
+
+I hereby grant to recipients of software a perpetual, worldwide,
+non-exclusive, no-charge, royalty-free, irrevocable (except as stated in
+this section) patent license to make, have made, use, offer to sell, sell,
+import, and otherwise transfer the Work, where such license applies only to
+those patent claims licensable by me that are necessarily infringed by my
+Contribution(s) alone or by combination of my Contribution(s) with the
+Work to which such Contribution(s) was submitted. If any entity institutes
+patent litigation against me or any other entity (including a cross-claim
+or counterclaim in a lawsuit) alleging that my Contribution, or the Work to
+which I have contributed, constitutes direct or contributory patent
+infringement, then any patent licenses granted to that entity under this
+Agreement for that Contribution or Work shall terminate as of the date such
+litigation is filed.
+
+Signed by git commit adding my legal name and git username:
+
+Written in 2010-2016 by David E. Jones - jonesde
+Written in 2014-2015 by Solomon Bessire - sbessire
+Written in 2014-2015 by Jacopo Cappellato - jacopoc
+Written in 2014-2015 by Yao Chunlin - chunlinyao
+Written in 2015 by Dony Zulkarnaen - donniexyz
+Written in 2015 by Swapnil M Mane - swapnilmmane
+Written in 2015 by Jimmy Shen - shendepu
+Written in 2015 by Sam Hamilton - samhamilton
+Written in 2015 by Leonardo Carvalho - CarvalhoLeonardo
+Written in 2015 by Anton Akhiar - akhiar
+Writter in 2015-2015 by Jens Hardings - jenshp

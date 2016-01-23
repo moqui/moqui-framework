@@ -1,0 +1,515 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="common-types-1.6.xsd"/>
+
+    <xs:simpleType name="cache-options">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="true"><xs:annotation><xs:documentation>Use cache during queries by default (code may override this).</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="false"><xs:annotation><xs:documentation>Do not use cache during queries by default (code may override this).</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="never"><xs:annotation><xs:documentation>Do not use cache during queries ever(code may NOT override this).</xs:documentation></xs:annotation></xs:enumeration>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="authorize-skip-options">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+            <xs:enumeration value="create"/>
+            <xs:enumeration value="view"/>
+            <xs:enumeration value="view-create"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="audit-log-options">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+            <xs:enumeration value="update"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="field-type-options">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="id"/>
+            <xs:enumeration value="id-long"/>
+            <xs:enumeration value="date"/>
+            <xs:enumeration value="time"/>
+            <xs:enumeration value="date-time"/>
+            <xs:enumeration value="number-integer"/>
+            <xs:enumeration value="number-decimal"/>
+            <xs:enumeration value="number-float"/>
+            <xs:enumeration value="currency-amount"/>
+            <xs:enumeration value="currency-precise"/>
+            <xs:enumeration value="text-indicator"/>
+            <xs:enumeration value="text-short"/>
+            <xs:enumeration value="text-medium"/>
+            <xs:enumeration value="text-long"/>
+            <xs:enumeration value="text-very-long"/>
+            <xs:enumeration value="binary-very-long"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- ====================== Root Element ======================= -->
+    <xs:element name="entities">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="entity"/>
+                    <xs:element ref="view-entity"/>
+                    <xs:element ref="extend-entity"/>
+                </xs:choice>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ================== entity and extend-entity ===================== -->
+
+    <xs:element name="entity">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element maxOccurs="unbounded" ref="field"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="relationship"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="index"/>
+                <!-- TABLED not to be part of 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="change-set"/> -->
+                <xs:element minOccurs="0" ref="seed-data"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="master"/>
+            </xs:sequence>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="package-name" type="xs:string" use="required"/>
+            <xs:attribute name="table-name" type="xs:string"/>
+            <xs:attribute name="group-name" type="xs:string" use="optional"/>
+            <xs:attribute name="sequence-primary-use-uuid" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Uses java.util.UUID.randomUUID() to get sequenced IDs for this entity.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="sequence-bank-size" type="xs:nonNegativeInteger" default="50"/>
+            <xs:attribute name="sequence-primary-stagger" type="xs:nonNegativeInteger" default="1">
+                <xs:annotation><xs:documentation>The maximum amount to stagger the sequenced ID, if 1 the sequence will
+                    be incremented by 1, otherwise the current sequence ID will be incremented by a value between 1 and
+                    staggerMax.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="sequence-primary-prefix" type="xs:string">
+                <xs:annotation><xs:documentation>Prefix to apply to primary sequenced ID values for this entity.
+                    Can be an expression (string expansion) with the current value added to the context.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="sequence-secondary-padded-length" type="xs:nonNegativeInteger" default="2">
+                <xs:annotation><xs:documentation>If specified front-pads the secondary sequenced value with zeroes
+                    until it is this length. Defaults to 2.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="optimistic-lock" type="boolean" default="false"/>
+            <xs:attribute name="no-update-stamp" type="boolean" default="false">
+                <xs:annotation><xs:documentation>
+                    The Entity Facade by default adds a single field (lastUpdatedStamp) to each entity for use in
+                    optimistic locking and data synchronization. If you do not want it to create that stamp for
+                    this entity then set this attribute to false.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="allow-user-field" type="boolean" default="false"/>
+            <xs:attribute name="cache" type="cache-options" default="false"/>
+            <xs:attribute name="authorize-skip" type="authorize-skip-options" default="false"/>
+            <xs:attribute name="create-only" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true values are immutable, can only be created and not updated
+                    or deleted.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="enable-audit-log" type="audit-log-options">
+                <xs:annotation><xs:documentation>
+                    No default (effectively defaults to false). If set this value will be used for @enable-audit-log
+                    attribute on all fields without a value set (the field level value overrides this value).
+
+                    Note that this also sets the value for the automatically added field lastUpdatedStamp so if enabled
+                    there will be a record of all updates.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="short-alias" type="xs:string">
+                <xs:annotation><xs:documentation>A short alias for the entity, mainly meant for REST URLs but entities
+                    may be referenced by this. Must be unique across all entities defined. If a duplicate is found the
+                    later loading entity will be used. Should be short, start with a lowercase character, and be plural
+                    (ie products, not product).</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="extend-entity">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="field"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="relationship"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="index"/>
+                <xs:element minOccurs="0" ref="seed-data"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="master"/>
+            </xs:sequence>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="package-name" type="xs:string" use="required"/>
+            <xs:attribute name="table-name" type="xs:string"/>
+            <xs:attribute name="group-name" type="xs:string" use="optional"/>
+            <xs:attribute name="sequence-bank-size" type="xs:string"/>
+            <xs:attribute name="sequence-primary-prefix" type="xs:string"/>
+            <xs:attribute name="optimistic-lock" default="false" type="boolean"/>
+            <xs:attribute name="no-update-stamp" default="false" type="boolean"/>
+            <xs:attribute name="cache" default="false" type="cache-options"/>
+            <xs:attribute name="authorize-skip" type="authorize-skip-options" default="false"/>
+            <xs:attribute name="enable-audit-log" type="audit-log-options"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="field">
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" ref="description"/></xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="column-name" type="xs:string"/>
+            <xs:attribute name="type" type="field-type-options" use="required"/>
+            <xs:attribute name="is-pk" default="false" type="boolean"/>
+            <xs:attribute name="encrypt" default="false" type="boolean"/>
+            <xs:attribute name="enable-audit-log" default="false" type="audit-log-options">
+                <xs:annotation><xs:documentation>
+                    Defaults to false. If true whenever the value for this field on a record changes the Entity Facade
+                    will record the change (create or update) in the moqui.entity.EntityAuditLog entity. If set to
+                    update will not create an audit record for the initial create, only for updates.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="enable-localization" default="false" type="boolean">
+                <xs:annotation><xs:documentation>
+                    If true gets on this field will be looked up with the moqui.basic.LocalizedEntityField entity and if there is
+                    a matching record the localized value there will be returned instead of the actual record's value.
+                    Defaults to false for performance reasons, only set to true for fields that will have translations.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default" type="xs:string">
+                <xs:annotation><xs:documentation>
+                    A Groovy expression with the default value of the field. It can be derived from other fields on the
+                    same record, set to a constant, etc. Set during create and update operations, after EECA before
+                    rules are run, and only if the field value is null or an empty String.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="create-only" type="boolean">
+                <xs:annotation><xs:documentation>If true values are immutable, can only be set on create and not update.
+                    Overrides entity.@create-only value, set to false explicitly to allow update of certain fields on
+                    create-only entities.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="relationship">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="key-map"/>
+            </xs:sequence>
+            <xs:attribute name="type" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="one"/>
+                        <xs:enumeration value="many"/>
+                        <xs:enumeration value="one-nofk"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="title" type="xs:string"/>
+            <xs:attribute name="related-entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="fk-name" type="xs:string"/>
+            <xs:attribute name="short-alias" type="xs:string">
+                <xs:annotation><xs:documentation>A short alias for the relationship, mainly meant for REST URLs but
+                    relationships may be referenced by this. Must be unique for relationships within an entity (ie only
+                    has meaning in the context of a particular entity). Should be short, start with a lowercase
+                    character, and be plural (ie products, not product).</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="mutable" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true related record may be modified through create/update auto-service calls with child records.
+                If false relationship is read-only for aggregated records (using master definition or dependent levels).
+                Defaults to false for type one* relationships, to true for type many (many are generally detail or join entities).
+            </xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="key-map">
+        <xs:complexType>
+            <xs:attribute name="field-name" type="xs:string" use="required"/>
+            <xs:attribute name="related-field-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="index">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element maxOccurs="unbounded" ref="index-field"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="unique" default="false" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="index-field">
+        <xs:complexType><xs:attribute name="name" type="xs:string" use="required"/></xs:complexType>
+    </xs:element>
+
+    <!-- TABLED not to be part of 1.0:
+    <xs:element name="change-set">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice maxOccurs="unbounded">
+                    <xs:element name="drop-table">
+                        <xs:complexType>
+                            <xs:attribute name="table-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="rename-table">
+                        <xs:complexType>
+                            <xs:attribute name="old-table-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="rename-column">
+                        <xs:complexType>
+                            <xs:attribute name="old-column-name"/>
+                            <xs:attribute name="field-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="drop-column">
+                        <xs:complexType>
+                            <xs:attribute name="column-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="merge-columns">
+                        <xs:complexType>
+                            <xs:attribute name="column-1-name"/>
+                            <xs:attribute name="column-2-name"/>
+                            <xs:attribute name="field-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="modify-data-type">
+                        <xs:complexType>
+                            <xs:attribute name="field-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="drop-index">
+                        <xs:complexType>
+                            <xs:attribute name="index-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="drop-foreign-key-constraint">
+                        <xs:complexType>
+                            <xs:attribute name="constraint-name"/>
+                        </xs:complexType>
+                    </xs:element>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    -->
+
+    <xs:element name="seed-data">
+        <xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/></xs:sequence></xs:complexType>
+    </xs:element>
+
+    <xs:element name="master">
+        <xs:annotation><xs:documentation>Define the structure of this entity as a master entity for outgoing messages
+            and definitions for incoming messages, though all relationships are supported in incoming/imported data. Also
+            useful for extended query to get all data associated with a master record.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="detail"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" default="default"><xs:annotation><xs:documentation>
+                A name to distinguish multiple master definitions for an entity. Required when there is more than one
+                master definition for an entity.
+            </xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="detail">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="detail"/>
+            </xs:sequence>
+            <xs:attribute name="relationship" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                The relationship linking the master or parent detail to the detail. May be either short-alias or
+                full relationship name (${title}#${related-entity-name} or just related-entity-name if no title).
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="use-master" type="xs:string"><xs:annotation><xs:documentation>
+                The name of a master definition in the related entity to include all detail under this master.
+            </xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ================== view-entity ===================== -->
+
+    <xs:element name="view-entity">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element maxOccurs="unbounded" ref="member-entity"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="alias-all"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="alias"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="relationship"/>
+                <xs:element minOccurs="0" ref="entity-condition"/>
+            </xs:sequence>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="package-name" type="xs:string" use="required"/>
+            <xs:attribute name="cache" default="false" type="cache-options"/>
+            <xs:attribute name="auto-clear-cache" default="true" type="boolean"/>
+            <xs:attribute name="authorize-skip" type="authorize-skip-options" default="false"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="member-entity">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="key-map"/>
+                <xs:element minOccurs="0" ref="entity-condition"/>
+            </xs:sequence>
+            <xs:attribute name="entity-alias" type="xs:string" use="required"/>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="join-from-alias" type="xs:string" use="optional"/>
+            <xs:attribute name="join-optional" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="alias-all">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="exclude"/>
+            </xs:sequence>
+            <xs:attribute name="entity-alias" type="xs:string" use="required"/>
+            <xs:attribute name="prefix" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="exclude">
+        <xs:complexType><xs:attribute name="field" type="xs:string" use="required"/></xs:complexType>
+    </xs:element>
+
+    <xs:element name="alias">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element minOccurs="0" ref="complex-alias"/>
+            </xs:sequence>
+            <xs:attribute name="entity-alias" type="xs:string"/>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="field" type="xs:string"/>
+            <xs:attribute name="function" type="aggregate-function"/>
+            <xs:attribute name="type" type="field-type-options" use="optional">
+                <xs:annotation><xs:documentation>Normally determined automatically from the entity field it is based on
+                    but needs to be specified for complex-alias with a function if you want something other than
+                    number-decimal.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="complex-alias">
+        <xs:annotation>
+            <xs:documentation>
+                In every SELECT statement, the fields that are normally used are really defined to be expressions.
+                This means for example that you can supply an expression like (discountPercent * 100) in place of  just a field name.
+                The complex-alias tag is the way to do this.
+
+                The argument to the right of operator = can be any operator valid for that data type on the database system you are using.
+                For example, *, +, -, and / are commonly available mathematical operators (min, max, sum, avg, count, count-distinct, upper, lower)
+                You can also use any operator on any data type supported on the underlying database system including string and date operators.
+                complex-alias can be as complex as you need by adding nested complex-alias statements and complex-alias-field
+                can use the same functions (min, max, count, count-distinct, sum, avg, upper, and lower) as the alias tag.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="complex-alias"/>
+                <xs:element ref="complex-alias-field"/>
+            </xs:choice>
+            <xs:attribute name="operator" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="complex-alias-field">
+        <xs:complexType>
+            <xs:attribute name="entity-alias" type="xs:string" use="required"/>
+            <xs:attribute name="field" type="xs:string" use="required"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="function" type="aggregate-function"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="entity-condition">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="date-filter"/>
+                    <xs:element ref="econdition"/>
+                    <xs:element ref="econditions"/>
+                </xs:choice>
+                <xs:element minOccurs="0" ref="having-econditions"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="order-by"/>
+            </xs:sequence>
+            <xs:attribute name="distinct" default="false" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="date-filter">
+        <xs:annotation><xs:documentation>Adds a econdition to find to filter by the from and thru dates in each record, comparing them to the valid-date value.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute type="xs:string" name="valid-date">
+                <xs:annotation><xs:documentation>The name of a field in the context to compare each value to. Defaults to now.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute type="xs:string" name="from-field-name" default="fromDate">
+                <xs:annotation><xs:documentation>The name of the entity field to use as the from/beginning effective date. Defaults to fromDate.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute type="xs:string" name="thru-field-name" default="thruDate">
+                <xs:annotation><xs:documentation>The name of the entity field to use as the thru/ending effective date.Defaults to thruDate.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="econdition">
+        <xs:complexType>
+            <xs:attribute name="entity-alias" type="xs:string"/>
+            <xs:attribute name="field-name" type="xs:string" use="required"/>
+            <xs:attribute name="operator" default="equals" type="operator-entity"/>
+            <xs:attribute name="to-entity-alias" type="xs:string"/>
+            <xs:attribute name="to-field-name" type="xs:string"/>
+            <xs:attribute name="value" type="xs:string"/>
+            <xs:attribute name="ignore-case" default="false" type="boolean"/>
+            <xs:attribute name="or-null" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true make a condition specified value or null as valid matches.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="econditions">
+        <xs:complexType>
+            <xs:choice maxOccurs="unbounded">
+                <xs:element ref="date-filter"/>
+                <xs:element ref="econdition"/>
+                <xs:element ref="econditions"/>
+            </xs:choice>
+            <xs:attribute name="combine" default="and">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="and"/>
+                        <xs:enumeration value="or"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="having-econditions">
+        <xs:complexType>
+            <xs:choice maxOccurs="unbounded">
+                <xs:element ref="date-filter"/>
+                <xs:element ref="econdition"/>
+                <xs:element ref="econditions"/>
+            </xs:choice>
+            <xs:attribute name="combine" default="and">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="and"/>
+                        <xs:enumeration value="or"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="order-by">
+        <xs:complexType><xs:attribute name="field-name" type="xs:string" use="required"/></xs:complexType>
+    </xs:element>
+</xs:schema>

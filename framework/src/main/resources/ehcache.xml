@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- No copyright or license for configuration file, details here are not considered a creative work. -->
+
+<!--
+EHCache CacheManager Configuration
+==================================
+See ehcache example XML file (http://ehcache.org/ehcache.xml) or the ehcache schema (ehcache.xsd) for configuration
+details.
+-->
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://ehcache.org/ehcache.xsd"
+         updateCheck="false" dynamicConfig="true" name="MoquiCache">
+
+    <!--
+    Mandatory Default Cache configuration. These settings will be applied to caches
+    created programmtically using CacheManager.add(String cacheName).
+
+    The defaultCache has an implicit name "default" which is a reserved cache name.
+    -->
+    <defaultCache maxElementsInMemory="10000" memoryStoreEvictionPolicy="LRU"
+            eternal="false" timeToIdleSeconds="0" timeToLiveSeconds="0"
+            overflowToDisk="false" diskSpoolBufferSizeMB="10" maxElementsOnDisk="1000000"
+            diskPersistent="false" diskExpiryThreadIntervalSeconds="120"/>
+</ehcache>

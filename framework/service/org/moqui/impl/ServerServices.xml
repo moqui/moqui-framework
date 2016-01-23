@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+    <service verb="get" noun="VisitClientIpData" authenticate="anonymous-all">
+        <description>Gets data from freegeoip.net for client IP address and populates in Visit record</description>
+        <in-parameters><parameter name="visitId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="clientIpPostalCode"/><parameter name="clientIpCity"/><parameter name="clientIpMetroCode"/>
+            <parameter name="clientIpRegionCode"/><parameter name="clientIpRegionName"/><parameter name="clientIpStateProvGeoId"/>
+            <parameter name="clientIpCountryGeoId"/><parameter name="clientIpLatitude"/><parameter name="clientIpLongitude"/>
+            <parameter name="clientIpTimeZone"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.server.Visit" value-field="visit" for-update="true"/>
+            <if condition="!visit"><return message="No visit found with ID ${visitId}"/></if>
+            <if condition="!visit.clientIpAddress"><return message="Visit with ID ${visitId} has no clientIpAddress"/></if>
+
+            <if condition="!visit.clientIpAddress.contains('.')"><return message="IP address not a IPv4 address"/></if>
+            <set field="address" from="InetAddress.getByName(visit.clientIpAddress)"/>
+            <if condition="address.isSiteLocalAddress() || address.isAnyLocalAddress() || address.isLinkLocalAddress() ||
+                    address.isLoopbackAddress() || address.isMulticastAddress()">
+                <return message="IP address is not a public address"/></if>
+
+            <!-- get from http://freegeoip.net/json/${clientIpAddress} -->
+            <script>geoIp = ec.service.rest().method("get").uri("http://freegeoip.net/json/${visit.clientIpAddress}").call().checkError().jsonObject()</script>
+
+            <if condition="!geoIp"><return message="No return from freegeoip.net for IP ${visit.clientIpAddress}"/></if>
+            <set field="mapped" from="[clientIpPostalCode:geoIp.zip_code, clientIpCity:geoIp.city,
+                    clientIpMetroCode:geoIp.metro_code, clientIpRegionCode:geoIp.region_code, clientIpRegionName:geoIp.region_name,
+                    clientIpLatitude:geoIp.latitude, clientIpLongitude:geoIp.longitude, clientIpTimeZone:geoIp.time_zone]"/>
+            <if condition="geoIp.country_code">
+                <entity-find entity-name="moqui.basic.Geo" list="geoList">
+                    <econdition field-name="geoTypeEnumId" value="GEOT_COUNTRY"/>
+                    <econdition field-name="geoCodeAlpha2" from="geoIp.country_code"/></entity-find>
+                <if condition="geoList"><set field="mapped.clientIpCountryGeoId" from="geoList[0].geoId"/></if>
+            </if>
+            <if condition="geoIp.region_code">
+                <entity-find entity-name="moqui.basic.Geo" list="geoList">
+                    <econdition field-name="geoTypeEnumId" operator="in" value="GEOT_STATE,GEOT_PROVINCE,GEOT_TERRITORY"/>
+                    <econdition field-name="geoCodeAlpha2" from="geoIp.region_code"/></entity-find>
+                <if condition="geoList"><set field="mapped.clientIpStateProvGeoId" from="geoList[0].geoId"/></if>
+            </if>
+
+            <script>ec.context.putAll(mapped); visit.putAll(mapped)</script>
+            <entity-update value-field="visit"/>
+        </actions>
+    </service>
+
+    <service verb="clean" noun="ArtifactData" authenticate="false" transaction-timeout="600">
+        <in-parameters><parameter name="daysToKeep" type="Integer" default="90"/></in-parameters>
+        <out-parameters>
+            <parameter name="artifactHitsRemoved" type="Long"/>
+            <parameter name="artifactHitBinsRemoved" type="Long"/>
+        </out-parameters>
+        <actions>
+            <script>
+                import org.moqui.context.ExecutionContext
+                import org.moqui.entity.EntityCondition
+                ExecutionContext ec = context.ec
+                Calendar basisCal = ec.user.getCalendarSafe()
+                basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
+                basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
+                artifactHitsRemoved = ec.entity.find("moqui.server.ArtifactHit")
+                        .condition("startDateTime", EntityCondition.LESS_THAN, basisTimestamp)
+                        .disableAuthz().deleteAll()
+                artifactHitBinsRemoved = ec.entity.find("moqui.server.ArtifactHitBin")
+                        .condition("binEndDateTime", EntityCondition.LESS_THAN, basisTimestamp)
+                        .disableAuthz().deleteAll()
+            </script>
+            <log level="info" message="Removed ${artifactHitsRemoved} ArtifactHit records and ${artifactHitBinsRemoved} ArtifactHitBin records."/>
+        </actions>
+    </service>
+</services>

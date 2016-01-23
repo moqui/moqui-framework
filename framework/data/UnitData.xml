@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed">
+    <!-- =============== Data Size =============== -->
+    <moqui.basic.Uom abbreviation="b" description="Bit" uomId="DATA_b" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Kb" description="Kilobit" uomId="DATA_Kb" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Mb" description="Megabit" uomId="DATA_Mb" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Gb" description="Gigabit" uomId="DATA_Gb" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Tb" description="Terabit" uomId="DATA_Tb" uomTypeEnumId="UT_DATA_MEASURE"/>
+
+    <moqui.basic.Uom abbreviation="B" description="Byte" uomId="DATA_B" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KB" description="Kilobyte" uomId="DATA_KB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MB" description="Megabyte" uomId="DATA_MB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GB" description="Gigabyte" uomId="DATA_GB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TB" description="Terabyte" uomId="DATA_TB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PB" description="Petabyte" uomId="DATA_PB" uomTypeEnumId="UT_DATA_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Kb_b" uomId="DATA_Kb" toUomId="DATA_b" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Mb_Kb" uomId="DATA_Mb" toUomId="DATA_Kb" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Gb_Mb" uomId="DATA_Gb" toUomId="DATA_Mb" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Tb_Gb" uomId="DATA_Tb" toUomId="DATA_Gb" conversionFactor="1024"/>
+
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_B_b" uomId="DATA_B" toUomId="DATA_b" conversionFactor="8"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_KB_B" uomId="DATA_KB" toUomId="DATA_B" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_MB_KB" uomId="DATA_MB" toUomId="DATA_KB" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_GM_MB" uomId="DATA_GB" toUomId="DATA_MB" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_TB_GB" uomId="DATA_TB" toUomId="DATA_GB" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_PB_TB" uomId="DATA_PB" toUomId="DATA_TB" conversionFactor="1024"/>
+
+    <!-- =============== Data Speed =============== -->
+    <moqui.basic.Uom abbreviation="bps" description="Bit-per-second" uomId="DATASPD_bps" uomTypeEnumId="UT_DATASPD_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Kbps" description="Kilobit-per-second" uomId="DATASPD_Kbps" uomTypeEnumId="UT_DATASPD_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Mbps" description="Megabit-per-second" uomId="DATASPD_Mbps" uomTypeEnumId="UT_DATASPD_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Gbps" description="Gigabit-per-second" uomId="DATASPD_Gbps" uomTypeEnumId="UT_DATASPD_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Tbps" description="Terabit-per-second" uomId="DATASPD_Tbps" uomTypeEnumId="UT_DATASPD_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="DATA_SPD_Kbps_bps" uomId="DATASPD_Kbps" toUomId="DATASPD_bps" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SPD_Mbps_Kbps" uomId="DATASPD_Mbps" toUomId="DATASPD_Kbps" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SPD_Gbps_Mbps" uomId="DATASPD_Gbps" toUomId="DATASPD_Mbps" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SPD_Tbps_Gbps" uomId="DATASPD_Tbps" toUomId="DATASPD_Gbps" conversionFactor="1000"/>
+
+    <!-- =============== Time/Frequency =============== -->
+    <moqui.basic.Uom abbreviation="ms" description="Milli-Second" uomId="TF_ms" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="s" description="Second" uomId="TF_s" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="min" description="Minute" uomId="TF_min" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="hr" description="Hour" uomId="TF_hr" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="day" description="Day" uomId="TF_day" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="wk" description="Week" uomId="TF_wk" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mon" description="Month" uomId="TF_mon" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="yr" description="Year" uomId="TF_yr" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="decade" description="Decade" uomId="TF_decade" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="score" description="Score" uomId="TF_score" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="century" description="Century" uomId="TF_century" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="millenium" description="Millenium" uomId="TF_millenium" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_s_ms" uomId="TF_s" toUomId="TF_ms" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_min_s" uomId="TF_min" toUomId="TF_s" conversionFactor="60"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_hr_min" uomId="TF_hr" toUomId="TF_min" conversionFactor="60"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_day_hr" uomId="TF_day" toUomId="TF_hr" conversionFactor="24"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_wk_day" uomId="TF_wk" toUomId="TF_day" conversionFactor="7"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_yr_mon" uomId="TF_yr" toUomId="TF_mon" conversionFactor="12"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_decade_yr" uomId="TF_decade" toUomId="TF_yr" conversionFactor="10"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_score_yr" uomId="TF_score" toUomId="TF_yr" conversionFactor="20"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_century_yr" uomId="TF_century" toUomId="TF_yr" conversionFactor="100"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_mill_yr" uomId="TF_millenium" toUomId="TF_yr" conversionFactor="1000"/>
+    <!-- these should really be dynamic for current year from Calendar class or something -->
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_yr_day" uomId="TF_yr" toUomId="TF_day" conversionFactor="365"/>
+    <moqui.basic.UomConversion uomConversionId="TIME_FREQ_yr_wk" uomId="TF_yr" toUomId="TF_wk" conversionFactor="52.14"/>
+
+    <!-- =============== Length =============== -->
+    <moqui.basic.Uom abbreviation="A" description="Angstrom" uomId="LEN_A" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="cb" description="Cable" uomId="LEN_cb" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="cm" description="Centimeter" uomId="LEN_cm" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="chG" description="Chain (Gunter's/surveyor's)" uomId="LEN_chG" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="chR" description="Chain (Ramden's/engineer's)" uomId="LEN_chR" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="dm" description="Decimeter" uomId="LEN_dm" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="dam" description="Dekameter" uomId="LEN_dam" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="fm" description="Fathom" uomId="LEN_fm" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ft" description="Foot" uomId="LEN_ft" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="fur" description="Furlong" uomId="LEN_fur" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="hand" description="Hand (horse's height)" uomId="LEN_hand" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="in" description="Inch" uomId="LEN_in" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="km" description="Kilometer" uomId="LEN_km" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="league" description="League" uomId="LEN_league" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="lnG" description="Link (Gunter's)" uomId="LEN_lnG" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="lnR" description="Link (Ramden's)" uomId="LEN_lnR" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="m" description="Meter" uomId="LEN_m" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="u" description="Micrometer (Micron)" uomId="LEN_u" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mi" description="Mile (statute/land)" uomId="LEN_mi" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="nmi" description="Mile (nautical/sea)" uomId="LEN_nmi" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mm" description="Millimeter" uomId="LEN_mm" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mil" description="Mil (Milli-inch)" uomId="LEN_mil" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="point" description="Point (type size)" uomId="LEN_point" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="pica" description="Pica (type size)" uomId="LEN_pica" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="rd" description="Rod" uomId="LEN_rd" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.Uom abbreviation="yd" description="Yard" uomId="LEN_yd" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_A_m" uomId="LEN_A" toUomId="LEN_m" conversionFactor="0.0000000001"/> <!-- 10 to the -10 meters -->
+    <moqui.basic.UomConversion uomConversionId="LEN_A_in" uomId="LEN_A" toUomId="LEN_in" conversionFactor="0.000000004"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_cb_fm" uomId="LEN_cb" toUomId="LEN_fm" conversionFactor="120"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_cb_ft" uomId="LEN_cb" toUomId="LEN_ft" conversionFactor="720"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_cm_m" uomId="LEN_cm" toUomId="LEN_m" conversionFactor="0.01"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_chG_ft" uomId="LEN_chG" toUomId="LEN_ft" conversionFactor="66"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_chG_rd" uomId="LEN_chG" toUomId="LEN_rd" conversionFactor="4"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_chR_ft" uomId="LEN_chR" toUomId="LEN_ft" conversionFactor="100"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_dm_m" uomId="LEN_dm" toUomId="LEN_m" conversionFactor="0.1"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_dam_m" uomId="LEN_dam" toUomId="LEN_m" conversionFactor="10"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_fm_ft" uomId="LEN_fm" toUomId="LEN_ft" conversionFactor="6"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_ft_in" uomId="LEN_ft" toUomId="LEN_in" conversionFactor="12"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_ft_m" uomId="LEN_ft" toUomId="LEN_m" conversionFactor="0.3048"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_fur_mi" uomId="LEN_fur" toUomId="LEN_mi" conversionFactor="0.125"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_mi_fur" uomId="LEN_mi" toUomId="LEN_fur" conversionFactor="8"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_hand_in" uomId="LEN_hand" toUomId="LEN_in" conversionFactor="4"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_in_cm" uomId="LEN_in" toUomId="LEN_cm" conversionFactor="2.54"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_in_mm" uomId="LEN_in" toUomId="LEN_mm" conversionFactor="25.4"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_in_u" uomId="LEN_in" toUomId="LEN_u" conversionFactor="25400"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_km_m" uomId="LEN_km" toUomId="LEN_m" conversionFactor="1000"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_league_mi" uomId="LEN_league" toUomId="LEN_mi" conversionFactor="3"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_lnG_in" uomId="LEN_lnG" toUomId="LEN_in" conversionFactor="7.92"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_lnR_in" uomId="LEN_lnR" toUomId="LEN_in" conversionFactor="12"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_m_in" uomId="LEN_m" toUomId="LEN_in" conversionFactor="39.37"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_u_mm" uomId="LEN_u" toUomId="LEN_mm" conversionFactor="0.001"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_mm_u" uomId="LEN_mm" toUomId="LEN_u" conversionFactor="1000"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_mi_km" uomId="LEN_mi" toUomId="LEN_km" conversionFactor="1.609"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_mi_ft" uomId="LEN_mi" toUomId="LEN_ft" conversionFactor="5280"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_nmi_km" uomId="LEN_nmi" toUomId="LEN_km" conversionFactor="1.85"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_nmi_ft" uomId="LEN_nmi" toUomId="LEN_ft" conversionFactor="6076.11549"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_mm_m" uomId="LEN_mm" toUomId="LEN_m" conversionFactor="0.001"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_mil_in" uomId="LEN_mil" toUomId="LEN_in" conversionFactor="0.001"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_point_mm" uomId="LEN_point" toUomId="LEN_mm" conversionFactor="0.351"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_point_in" uomId="LEN_point" toUomId="LEN_in" conversionFactor="0.0138"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_pica_point" uomId="LEN_pica" toUomId="LEN_point" conversionFactor="12"/>
+
+    <moqui.basic.UomConversion uomConversionId="LEN_rd_ft" uomId="LEN_rd" toUomId="LEN_ft" conversionFactor="16.5"/>
+    <moqui.basic.UomConversion uomConversionId="LEN_yd_ft" uomId="LEN_yd" toUomId="LEN_ft" conversionFactor="3"/>
+
+    <!-- =============== Velocity =============== -->
+    <moqui.basic.Uom abbreviation="m/h" description="Meters per hour" uomId="VEL_m_hr" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="m/min" description="Meters per minute" uomId="VEL_m_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="m/s" description="Meters per second" uomId="VEL_m_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ft/hr" description="Feet per hour" uomId="VEL_ft_hr" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ft/min" description="Feet per minute" uomId="VEL_ft_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ft/s" description="Feet per second" uomId="VEL_ft_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="fur/hr" description="Furlongs per hour" uomId="VEL_fur_hr" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="fur/min" description="Furlongs per minute" uomId="VEL_fur_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="fur/s" description="Furlongs per second" uomId="VEL_fur_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="in/hr" description="Inches per hour" uomId="VEL_in_hr" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="in/min" description="Inches per minute" uomId="VEL_in_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="in/s" description="Inches per second" uomId="VEL_in_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="kn" description="Knots" uomId="VEL_kn" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="M" description="Mach" uomId="VEL_M" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MPH" description="Miles per hour" uomId="VEL_MPH" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mi/min" description="Miles per minute" uomId="VEL_mi_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mi/s" description="Miles per second" uomId="VEL_mi_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KPH" description="Kilometers per hour" uomId="VEL_KPH" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="km/min" description="Kilometers per minute" uomId="VEL_km_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="km/s" description="Kilometers per second" uomId="VEL_km_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="VEL_m_hr_m_s" uomId="VEL_m_hr" toUomId="VEL_m_s" conversionFactor="0.0002777778"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_m_min_m_s" uomId="VEL_m_min" toUomId="VEL_m_s" conversionFactor="0.0166666666666667"/>
+    <!-- <moqui.basic.UomConversion uomConversionId="VEL_m_s_m_s" uomId="VEL_m_s" toUomId="VEL_m_s" conversionFactor="1"/> -->
+    <moqui.basic.UomConversion uomConversionId="VEL_ft_hr_m_s" uomId="VEL_ft_hr" toUomId="VEL_m_s" conversionFactor="0.00008466667"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_ft_min_m_s" uomId="VEL_ft_min" toUomId="VEL_m_s" conversionFactor="0.00508"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_ft_s_m_s" uomId="VEL_ft_s" toUomId="VEL_m_s" conversionFactor="0.3048"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_fur_hr_m_s" uomId="VEL_fur_hr" toUomId="VEL_m_s" conversionFactor="0.05588"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_fur_min_m_s" uomId="VEL_fur_min" toUomId="VEL_m_s" conversionFactor="3.3528"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_fur_s_m_s" uomId="VEL_fur_s" toUomId="VEL_m_s" conversionFactor="201.168"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_kn_m_s" uomId="VEL_kn" toUomId="VEL_m_s" conversionFactor="0.514444444444444"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_M_m_s" uomId="VEL_M" toUomId="VEL_m_s" conversionFactor="0.514444444444444"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_MPH_m_s" uomId="VEL_MPH" toUomId="VEL_m_s" conversionFactor="0.44704"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_mi_min_m_s" uomId="VEL_mi_min" toUomId="VEL_m_s" conversionFactor="26.8224"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_mi_s_m_s" uomId="VEL_mi_s" toUomId="VEL_m_s" conversionFactor="1609.344"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_KPH_m_s" uomId="VEL_KPH" toUomId="VEL_m_s" conversionFactor="0.2777777777777778"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_km_min_m_s" uomId="VEL_km_min" toUomId="VEL_m_s" conversionFactor="16.666666666666668"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_km_s_m_s" uomId="VEL_km_s" toUomId="VEL_m_s" conversionFactor="1000"/>
+
+    <!-- =============== Area =============== -->
+    <moqui.basic.Uom abbreviation="A" description="Acre" uomId="AREA_A" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="a" description="Are" uomId="AREA_a" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ha" description="Hectare" uomId="AREA_ha" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="cm2" description="Square Centimeter" uomId="AREA_cm2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ft2" description="Square Foot" uomId="AREA_ft2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="in2" description="Square Inch" uomId="AREA_in2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="km2" description="Square Kilometer" uomId="AREA_km2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="m2" description="Square Meter" uomId="AREA_m2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mi2" description="Square Mile" uomId="AREA_mi2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mm2" description="Square Millimeter" uomId="AREA_mm2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="rd2" description="Square Rod" uomId="AREA_rd2" uomTypeEnumId="UT_AREA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="yd2" description="Square Yard" uomId="AREA_yd2" uomTypeEnumId="UT_AREA_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="AREA_A_ft2" uomId="AREA_A" toUomId="AREA_ft2" conversionFactor="43560"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_a_m2" uomId="AREA_a" toUomId="AREA_m2" conversionFactor="100"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_ha_m2" uomId="AREA_ha" toUomId="AREA_m2" conversionFactor="10000"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_ha_A" uomId="AREA_ha" toUomId="AREA_A" conversionFactor="2.471"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_cm2_mm2" uomId="AREA_cm2" toUomId="AREA_mm2" conversionFactor="100"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_cm2_in2" uomId="AREA_cm2" toUomId="AREA_in2" conversionFactor=".155"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_ft2_in2" uomId="AREA_ft2" toUomId="AREA_in2" conversionFactor="144"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_km2_m2" uomId="AREA_km2" toUomId="AREA_m2" conversionFactor="1000000"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_m2_cm2" uomId="AREA_m2" toUomId="AREA_cm2" conversionFactor="10000"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_mi2_A" uomId="AREA_mi2" toUomId="AREA_A" conversionFactor="639.8"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_rd2_ft2" uomId="AREA_rd2" toUomId="AREA_ft2" conversionFactor="272.25"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_yd2_ft2" uomId="AREA_yd2" toUomId="AREA_ft2" conversionFactor="9"/>
+
+    <!-- =============== Volume (Liquid) =============== -->
+    <moqui.basic.Uom abbreviation="bbl" description="Barrel (US)" uomId="VLIQ_bbl" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="cup" description="Cup" uomId="VLIQ_cup" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="dr" description="Dram (US)" uomId="VLIQ_dr" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="gi" description="Gill (1/4 UK pint)" uomId="VLIQ_gi" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="gal" description="Gallon (UK)" uomId="VLIQ_galUK" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="gal" description="Gallon (US)" uomId="VLIQ_galUS" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="L" description="Liter" uomId="VLIQ_L" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="ml" description="Milliliter" uomId="VLIQ_ml" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="fl. oz (UK)" description="Ounce, fluid (UK)" uomId="VLIQ_ozUK" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="fl. oz (US)" description="Ounce, fluid (US)" uomId="VLIQ_ozUS" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="pt (UK)" description="Pint (UK)" uomId="VLIQ_ptUK" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="pt (US)" description="Pint (US)" uomId="VLIQ_ptUS" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="qt" description="Quart" uomId="VLIQ_qt" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="Tbs" description="Tablespoon" uomId="VLIQ_Tbs" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.Uom abbreviation="tsp" description="Teaspoon" uomId="VLIQ_tsp" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+
+    <moqui.basic.UomConversion uomConversionId="VLIQ_bbl_galUS" uomId="VLIQ_bbl" toUomId="VLIQ_galUS" conversionFactor="31.5"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ozUS_dr" uomId="VLIQ_ozUS" toUomId="VLIQ_dr" conversionFactor="8"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ptUK_gi" uomId="VLIQ_ptUK" toUomId="VLIQ_gi" conversionFactor="4"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_galUK_galUS" uomId="VLIQ_galUK" toUomId="VLIQ_galUS" conversionFactor="1.2009"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_galUS_qt" uomId="VLIQ_galUS" toUomId="VLIQ_qt" conversionFactor="4"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_galUS_L" uomId="VLIQ_galUS" toUomId="VLIQ_L" conversionFactor="3.785"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_L_qt" uomId="VLIQ_L" toUomId="VLIQ_qt" conversionFactor="1.056"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ml_L" uomId="VLIQ_ml" toUomId="VLIQ_L" conversionFactor="0.001"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_L_ml" uomId="VLIQ_L" toUomId="VLIQ_ml" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ozUK_L" uomId="VLIQ_ozUK" toUomId="VLIQ_L" conversionFactor="0.029"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ozUK_ozUS" uomId="VLIQ_ozUK" toUomId="VLIQ_ozUS" conversionFactor="0.96"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ozUS_Tbs" uomId="VLIQ_ozUS" toUomId="VLIQ_Tbs" conversionFactor="2"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_Tbs_tsp" uomId="VLIQ_Tbs" toUomId="VLIQ_tsp" conversionFactor="3"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_cup_Tbs" uomId="VLIQ_cup" toUomId="VLIQ_Tbs" conversionFactor="16"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ptUK_ptUS" uomId="VLIQ_ptUK" toUomId="VLIQ_ptUS" conversionFactor="1.2"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_ptUS_ozUS" uomId="VLIQ_ptUS" toUomId="VLIQ_ozUS" conversionFactor="16"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_qt_ptUS" uomId="VLIQ_qt" toUomId="VLIQ_ptUS" conversionFactor="2"/>
+
+    <!-- =============== Volume (Dry) =============== -->
+    <moqui.basic.Uom abbreviation="cm3" description="Cubic centimeter" uomId="VDRY_cm3" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+    <moqui.basic.Uom abbreviation="ft3" description="Cubic foot" uomId="VDRY_ft3" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+    <moqui.basic.Uom abbreviation="in3" description="Cubic inch" uomId="VDRY_in3" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+    <moqui.basic.Uom abbreviation="m3" description="Cubic meter" uomId="VDRY_m3" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+    <moqui.basic.Uom abbreviation="mm3" description="Cubic millimeter" uomId="VDRY_mm3" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+    <moqui.basic.Uom abbreviation="ST" description="Stere (cubic meter)" uomId="VDRY_ST" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+    <moqui.basic.Uom abbreviation="yd3" description="Cubic yard" uomId="VDRY_yd3" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+
+    <moqui.basic.UomConversion uomConversionId="VLIQ_L_m3" uomId="VLIQ_L" toUomId="VDRY_m3" conversionFactor="0.001"/>
+    <moqui.basic.UomConversion uomConversionId="VLIQ_galUK_m3" uomId="VLIQ_galUK" toUomId="VDRY_m3" conversionFactor="0.4546"/>
+    <moqui.basic.UomConversion uomConversionId="VDRY_cm3_mm3" uomId="VDRY_cm3" toUomId="VDRY_mm3" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="VDRY_cm3_in3" uomId="VDRY_cm3" toUomId="VDRY_in3" conversionFactor="0.061"/>
+    <moqui.basic.UomConversion uomConversionId="VDRY_ft3_in3" uomId="VDRY_ft3" toUomId="VDRY_in3" conversionFactor="1728"/>
+    <moqui.basic.UomConversion uomConversionId="VDRY_ST_m3" uomId="VDRY_ST" toUomId="VDRY_m3" conversionFactor="1"/>
+    <moqui.basic.UomConversion uomConversionId="VDRY_m3_yd3" uomId="VDRY_m3" toUomId="VDRY_yd3" conversionFactor="1.3"/>
+    <moqui.basic.UomConversion uomConversionId="VDRY_yd3_ft3" uomId="VDRY_yd3" toUomId="VDRY_ft3" conversionFactor="27"/>
+
+    <!-- =============== Density =============== -->
+    <moqui.basic.Uom abbreviation="kg/m3" description="Kilogram per cubic meter" uomId="DENS_kg_m3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="g/cm3" description="Gram per cubic centimeter " uomId="DENS_g_cm3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="oz/in3" description="Ounce per cubic inch " uomId="DENS_oz_in3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="oz/gal (UK)" description="Ounce per gallon (UK)" uomId="DENS_oz_galUK" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="oz/gal (US)" description="Ounce per gallon (US)" uomId="DENS_oz_galUS" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="lb/ft3" description="Pound per cubic foot" uomId="DENS_lb_ft3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="lb/in3" description="Pound per cubic inch" uomId="DENS_lb_in3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="lb/yd3" description="Pound per cubic yard" uomId="DENS_lb_yd3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="lb/gal (UK)" description="Pound per gallon (UK)" uomId="DENS_lb_galUK" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="lb/gal (US)" description="Pound per gallon (US)" uomId="DENS_lb_galUS" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="ton/yd3" description="Ton, long, per cubic yard" uomId="DENS_ton_yd3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+
+    <!--<moqui.basic.UomConversion uomConversionId="DENS_kg_m3_kg_m3" uomId="DENS_kg_m3" toUomId="DENS_kg_m3" conversionFactor="1"/>-->
+    <moqui.basic.UomConversion uomConversionId="DENS_g_cm3_kg_m3" uomId="DENS_g_cm3" toUomId="DENS_kg_m3" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_oz_in3_kg_m3" uomId="DENS_oz_in3" toUomId="DENS_kg_m3" conversionFactor="1730"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_oz_galUK_kg_m3" uomId="DENS_oz_galUK" toUomId="DENS_kg_m3" conversionFactor="6.24"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_oz_galUS_kg_m3" uomId="DENS_oz_galUS" toUomId="DENS_kg_m3" conversionFactor="7.49"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_lb_ft3_kg_m3" uomId="DENS_lb_ft3" toUomId="DENS_kg_m3" conversionFactor="16.02"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_lb_in3_kg_m3" uomId="DENS_lb_in3" toUomId="DENS_kg_m3" conversionFactor="27680"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_lb_yd3_kg_m3" uomId="DENS_lb_yd3" toUomId="DENS_kg_m3" conversionFactor="0.593"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_lb_galUK_kg_m3" uomId="DENS_lb_galUK" toUomId="DENS_kg_m3" conversionFactor="99.78"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_lb_galUS_kg_m3" uomId="DENS_lb_galUS" toUomId="DENS_kg_m3" conversionFactor="119.8"/>
+    <moqui.basic.UomConversion uomConversionId="DENS_ton_yd3_kg_m3" uomId="DENS_ton_yd3" toUomId="DENS_kg_m3" conversionFactor="1328.9"/>
+
+    <!-- =============== Weight =============== -->
+    <moqui.basic.Uom abbreviation="dr avdp" description="Dram (avdp)" uomId="WT_dr_avdp" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="gr" description="Grain" uomId="WT_gr" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="g" description="Gram" uomId="WT_g" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="kg" description="Kilogram" uomId="WT_kg" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mg" description="Milligram" uomId="WT_mg" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="oz" description="Ounce (avdp)" uomId="WT_oz" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="oz tr" description="Ounce (troy)" uomId="WT_oz_tr" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="dwt" description="Pennyweight" uomId="WT_dwt" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="lb" description="Pound (avdp)" uomId="WT_lb" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="st" description="Stone" uomId="WT_st" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="lt" description="Ton (long or British)" uomId="WT_lt" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mt" description="Ton (metric)" uomId="WT_mt" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="sh t" description="Ton (short)" uomId="WT_sh_t" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="WT_dr_avdp_oz" uomId="WT_dr_avdp" toUomId="WT_oz" conversionFactor="0.0625"/>
+    <moqui.basic.UomConversion uomConversionId="WT_gr_oz" uomId="WT_gr" toUomId="WT_oz" conversionFactor="0.00229"/>
+    <moqui.basic.UomConversion uomConversionId="WT_gr_g" uomId="WT_gr" toUomId="WT_g" conversionFactor="0.0648"/>
+    <moqui.basic.UomConversion uomConversionId="WT_kg_g" uomId="WT_kg" toUomId="WT_g" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="WT_kg_lb" uomId="WT_kg" toUomId="WT_lb" conversionFactor="2.2046226"/>
+    <moqui.basic.UomConversion uomConversionId="WT_g_mg" uomId="WT_g" toUomId="WT_mg" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="WT_g_oz" uomId="WT_g" toUomId="WT_oz" conversionFactor="0.035273962"/>
+    <moqui.basic.UomConversion uomConversionId="WT_oz_lb" uomId="WT_oz" toUomId="WT_lb" conversionFactor="0.0625"/>
+    <moqui.basic.UomConversion uomConversionId="WT_oz_g" uomId="WT_oz" toUomId="WT_g" conversionFactor="28"/>
+    <moqui.basic.UomConversion uomConversionId="WT_oz_tr_g" uomId="WT_oz_tr" toUomId="WT_g" conversionFactor="30"/>
+    <moqui.basic.UomConversion uomConversionId="WT_dwt_g" uomId="WT_dwt" toUomId="WT_g" conversionFactor="1.555"/>
+    <moqui.basic.UomConversion uomConversionId="WT_lb_oz" uomId="WT_lb" toUomId="WT_oz" conversionFactor="16"/>
+    <moqui.basic.UomConversion uomConversionId="WT_st_lb" uomId="WT_st" toUomId="WT_lb" conversionFactor="14"/>
+    <moqui.basic.UomConversion uomConversionId="WT_lt_mt" uomId="WT_lt" toUomId="WT_mt" conversionFactor="1.02"/>
+    <moqui.basic.UomConversion uomConversionId="WT_lt_lb" uomId="WT_lt" toUomId="WT_lb" conversionFactor="2240"/>
+    <moqui.basic.UomConversion uomConversionId="WT_mt_kg" uomId="WT_mt" toUomId="WT_kg" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="WT_sh_t_lb" uomId="WT_sh_t" toUomId="WT_lb" conversionFactor="2000"/>
+
+    <!-- =============== Power =============== -->
+    <moqui.basic.Uom abbreviation="kw" description="Kilowatt" uomId="PW_kw" uomTypeEnumId="UT_POWER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="w" description="Watt" uomId="PW_w" uomTypeEnumId="UT_POWER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="hp" description="Horsepower (mechanical)" uomId="PW_hp" uomTypeEnumId="UT_POWER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BTU/hr" description="BTU per hour" uomId="PW_BTU_hr" uomTypeEnumId="UT_POWER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="cal/sec" description="Calorie per second" uomId="PW_cal_sec" uomTypeEnumId="UT_POWER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="bhp" description="Boiler horsepower" uomId="PW_bhp" uomTypeEnumId="UT_POWER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ft lb" description="Foot-pound" uomId="EN_ft_lbf" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="PW_kw_w" uomId="PW_kw" toUomId="PW_w" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="PW_hp_w" uomId="PW_hp" toUomId="PW_w" conversionFactor="745.7"/>
+    <moqui.basic.UomConversion uomConversionId="PW_kw_hp" uomId="PW_kw" toUomId="PW_hp" conversionFactor="1.341021858"/>
+    <moqui.basic.UomConversion uomConversionId="PW_kw_BTU_hr" uomId="PW_kw" toUomId="PW_BTU_hr" conversionFactor="3412.14245"/>
+    <moqui.basic.UomConversion uomConversionId="PW_kw_cal_sec" uomId="PW_kw" toUomId="PW_cal_sec" conversionFactor="238.845897"/>
+    <moqui.basic.UomConversion uomConversionId="PW_kw_bhp" uomId="PW_kw" toUomId="PW_bhp" conversionFactor="0.101929972"/>
+
+    <!-- =============== Energy =============== -->
+    <moqui.basic.Uom abbreviation="J" description="Joule (absolute)" uomId="EN_J" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="cal" description="Calorie IT" uomId="EN_cal" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="kcal" description="Kilocalorie" uomId="EN_kcal" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BTU" description="British Thermal Unit" uomId="EN_BTU" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="hp*h" description="Horsepower-hour" uomId="EN_hp_h" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="kw*h" description="Kilowatt-hour" uomId="EN_kw_h" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ft*lbf" description="Foot-pound(force)" uomId="EN_ft_lbf" uomTypeEnumId="UT_ENERGY_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="EN_cal_J" uomId="EN_cal" toUomId="EN_J" conversionFactor="4.1868"/>
+    <moqui.basic.UomConversion uomConversionId="EN_kcal_cal" uomId="EN_kcal" toUomId="EN_cal" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="EN_kw_h_hp_h" uomId="EN_kw_h" toUomId="EN_hp_h" conversionFactor="1.34102209"/>
+    <moqui.basic.UomConversion uomConversionId="EN_kw_h_BTU" uomId="EN_kw_h" toUomId="EN_BTU" conversionFactor="3412.1416416"/>
+    <moqui.basic.UomConversion uomConversionId="EN_kw_h_J" uomId="EN_kw_h" toUomId="EN_J" conversionFactor="3600000"/>
+    <moqui.basic.UomConversion uomConversionId="EN_kw_h_kcal" uomId="EN_kw_h" toUomId="EN_kcal" conversionFactor="859.845228"/>
+    <moqui.basic.UomConversion uomConversionId="EN_kw_h_ft_lbf" uomId="EN_kw_h" toUomId="EN_ft_lbf" conversionFactor="2655223.73748"/>
+
+    <!-- =============== Pressure =============== -->
+    <moqui.basic.Uom abbreviation="atm" description="Atmosphere" uomId="PRES_atm" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="at" description="Atmosphere (Technical)" uomId="PRES_at" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="bar" description="Bar" uomId="PRES_bar" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mbar" description="Millibar" uomId="PRES_mbar" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="hPa" description="Hectopascal" uomId="PRES_hPa" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="inHg" description="Inch of mercury" uomId="PRES_inHg" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mmHg" description="Millimeter of mercury" uomId="PRES_mmHg" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="kg/cm2" description="Kilogram per square centimeter" uomId="PRES_kg_cm2" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="kg/m2" description="Kilogram per square meter" uomId="PRES_kg_m2" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="kPa" description="Kilopascal" uomId="PRES_kPa" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Pa" description="Pascal" uomId="PRES_Pa" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="psf" description="Pound per square foot" uomId="PRES_psf" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="psi" description="Pound per square inch" uomId="PRES_psi" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="torr" description="Torr" uomId="PRES_torr" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="PRES_atm_Pa" uomId="PRES_atm" toUomId="PRES_Pa" conversionFactor="101325"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_at_Pa" uomId="PRES_at" toUomId="PRES_Pa" conversionFactor="98066.49999787736"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_bar_Pa" uomId="PRES_bar" toUomId="PRES_Pa" conversionFactor="100000"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_hPa_Pa" uomId="PRES_hPa" toUomId="PRES_Pa" conversionFactor="100"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_inHg_Pa" uomId="PRES_inHg" toUomId="PRES_Pa" conversionFactor="3386.39"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_kg_cm2_Pa" uomId="PRES_kg_cm2" toUomId="PRES_Pa" conversionFactor="98066.5"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_kg_m2_Pa" uomId="PRES_kg_m2" toUomId="PRES_Pa" conversionFactor="9.80665"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_kPa_Pa" uomId="PRES_kPa" toUomId="PRES_Pa" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_mbar_Pa" uomId="PRES_mbar" toUomId="PRES_Pa" conversionFactor="100"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_mmHg_Pa" uomId="PRES_mmHg" toUomId="PRES_Pa" conversionFactor="133.3223684211"/>
+    <!--<moqui.basic.UomConversion uomConversionId="PRES_Pa_Pa" uomId="PRES_Pa" toUomId="PRES_Pa" conversionFactor="1"/>-->
+    <moqui.basic.UomConversion uomConversionId="PRES_psf_Pa" uomId="PRES_psf" toUomId="PRES_Pa" conversionFactor="47.88020833333"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_psi_Pa" uomId="PRES_psi" toUomId="PRES_Pa" conversionFactor="6894.75"/>
+    <moqui.basic.UomConversion uomConversionId="PRES_torr_Pa" uomId="PRES_torr" toUomId="PRES_Pa" conversionFactor="133.3223684211"/>
+
+    <!-- =============== Temperature =============== -->
+    <moqui.basic.Uom abbreviation="K" description="Kelvin" uomId="TEMP_K" uomTypeEnumId="UT_TEMP_MEASURE"/>
+    <moqui.basic.Uom abbreviation="C" description="Degrees Celsius" uomId="TEMP_C" uomTypeEnumId="UT_TEMP_MEASURE"/>
+    <moqui.basic.Uom abbreviation="F" description="Degrees Fahrenheit" uomId="TEMP_F" uomTypeEnumId="UT_TEMP_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="TEMP_C_K" uomId="TEMP_C" toUomId="TEMP_K" conversionFactor="1" conversionOffset="273.15"/>
+    <moqui.basic.UomConversion uomConversionId="TEMP_C_F" uomId="TEMP_C" toUomId="TEMP_F" conversionFactor="1.8" conversionOffset="32"/>
+
+    <!-- =============== Other =============== -->
+    <moqui.basic.Uom abbreviation="A" description="Ampere - Electric current" uomId="OTH_A" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="cd" description="Candela - Luminosity (intensity of light)" uomId="OTH_cd" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mol" description="Mole - Substance (molecule)" uomId="OTH_mol" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="RPM" description="Revolutions Per Minute" uomId="OTH_RPM" uomTypeEnumId="UT_OTHER_MEASURE"/>
+
+    <moqui.basic.Uom abbreviation="ea" description="Each/Piece" uomId="OTH_ea" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="pp" description="Per Person" uomId="OTH_pp" uomTypeEnumId="UT_OTHER_MEASURE"/>
+</entity-facade-xml>

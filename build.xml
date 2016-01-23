@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+
+<!--
+README: These are just tools for using the Moqui WAR file.
+
+The actual build is done with Gradle.
+ -->
+
+<project name="Moqui WAR Tools" default="run" basedir=".">
+    <property environment="env"/>
+    <property name="version" value="1.6.1"/>
+    <property name="tomcat.home" value="../apache-tomcat-8.0.21"/>
+
+    <property name="moqui.runtime" value="runtime"/>
+    <property name="moqui.conf.dev" value="conf/MoquiDevConf.xml"/>
+    <property name="moqui.conf.production" value="conf/MoquiProductionConf.xml"/>
+
+    <target name="add-runtime">
+        <!-- unzip the "moqui-${version}.war" file to the wartemp directory -->
+        <mkdir dir="wartemp"/>
+        <unzip src="moqui-${version}.war" dest="wartemp"/>
+
+        <copy todir="wartemp">
+            <fileset dir="." includes="${moqui.runtime}/**" excludes="**/*.jar,${moqui.runtime}/lib/**,${moqui.runtime}/classes/**,${moqui.runtime}/log/**"/>
+        </copy>
+        <copy todir="wartemp/WEB-INF/lib"><fileset dir="${moqui.runtime}/lib" includes="*.jar"/></copy>
+        <copy todir="wartemp/WEB-INF/classes"><fileset dir="${moqui.runtime}/classes" includes="**/*"/></copy>
+        <copy todir="wartemp/WEB-INF/lib" flatten="true"><fileset dir="${moqui.runtime}/component-lib" includes="**/*.jar"/></copy>
+        <copy todir="wartemp/WEB-INF/lib" flatten="true"><fileset dir="${moqui.runtime}/component" includes="**/*.jar"/></copy>
+        <copy file="MoquiInit.properties" todir="wartemp/WEB-INF/classes" overwrite="true"/>
+
+        <!-- zip it up again -->
+        <zip destfile="moqui-plus-runtime.war" basedir="wartemp"/>
+
+        <delete verbose="off" failonerror="false" dir="wartemp"/>
+    </target>
+
+    <target name="deploy-tomcat">
+        <delete verbose="on" failonerror="false" dir="${tomcat.home}/runtime"/>
+        <delete verbose="on" failonerror="false" dir="${tomcat.home}/webapps/ROOT"/>
+        <delete verbose="on" failonerror="false" file="${tomcat.home}/webapps/ROOT.war"/>
+        <delete verbose="on" failonerror="false">
+            <fileset dir="${tomcat.home}/logs" includes="*"/>
+        </delete>
+        <copy file="moqui-${version}.war" tofile="${tomcat.home}/webapps/ROOT.war"/>
+    </target>
+
+    <target name="run" description="Run Moqui Web server in dev/default mode with Embedded Winstone (run the executable war file)">
+        <delete verbose="off" failonerror="false" dir="execwartmp"/>
+        <java jar="moqui-${version}.war" fork="true">
+            <jvmarg value="-server"/>
+            <jvmarg value="-Xmx256M"/>
+            <jvmarg value="-XX:MaxPermSize=192m"/>
+            <jvmarg value="-Dmoqui.conf=${moqui.conf.dev}"/>
+            <jvmarg value="-Dmoqui.runtime=${moqui.runtime}"/>
+        </java>
+    </target>
+    <target name="run-production" description="Run Moqui Web server in production mode">
+        <delete verbose="off" failonerror="false" dir="execwartmp"/>
+        <java jar="moqui-${version}.war" fork="true">
+            <jvmarg value="-server"/>
+            <jvmarg value="-Xms512M"/>
+            <jvmarg value="-Xmx512M"/>
+            <jvmarg value="-XX:MaxPermSize=192m"/>
+            <jvmarg value="-Dmoqui.conf=${moqui.conf.production}"/>
+            <jvmarg value="-Dmoqui.runtime=${moqui.runtime}"/>
+        </java>
+    </target>
+    <target name="load" description="Run Moqui data loader (run the executable war file with -load)">
+        <java jar="moqui-${version}.war" fork="true">
+            <jvmarg value="-server"/>
+            <jvmarg value="-Xmx256M"/>
+            <jvmarg value="-XX:MaxPermSize=192m"/>
+            <jvmarg value="-Dmoqui.conf=${moqui.conf.dev}"/>
+            <jvmarg value="-Dmoqui.runtime=${moqui.runtime}"/>
+            <arg value="-load"/>
+        </java>
+    </target>
+    <target name="load-production" description="Run Moqui data loader in production mode">
+        <java jar="moqui-${version}.war" fork="true">
+            <jvmarg value="-server"/>
+            <jvmarg value="-Xmx256M"/>
+            <jvmarg value="-XX:MaxPermSize=192m"/>
+            <jvmarg value="-Dmoqui.conf=${moqui.conf.production}"/>
+            <jvmarg value="-Dmoqui.runtime=${moqui.runtime}"/>
+            <arg value="-load"/>
+        </java>
+    </target>
+</project>

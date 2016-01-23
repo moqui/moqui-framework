@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <!-- Reusable artifacts (abstract elements, groups, attributeGroups -->
+    <xs:element name="description" type="xs:string"/>
+
+    <xs:simpleType name="boolean">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:simpleType name="object-type">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="String"/>
+            <xs:enumeration value="BigDecimal"/>
+            <xs:enumeration value="Float"/>
+            <xs:enumeration value="Integer"/>
+            <xs:enumeration value="Date"/>
+            <xs:enumeration value="Time"/>
+            <xs:enumeration value="Timestamp"/>
+            <xs:enumeration value="Boolean"/>
+            <xs:enumeration value="Object"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="object-type-new">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="String"/>
+            <xs:enumeration value="BigDecimal"/>
+            <xs:enumeration value="Double"/>
+            <xs:enumeration value="Float"/>
+            <xs:enumeration value="List"/>
+            <xs:enumeration value="Long"/>
+            <xs:enumeration value="Integer"/>
+            <xs:enumeration value="Date"/>
+            <xs:enumeration value="Time"/>
+            <xs:enumeration value="Timestamp"/>
+            <xs:enumeration value="Boolean"/>
+            <xs:enumeration value="Object"/>
+            <xs:enumeration value="NewList"/>
+            <xs:enumeration value="NewMap"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="operator">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="less"/>
+            <xs:enumeration value="greater"/>
+            <xs:enumeration value="less-equals"/>
+            <xs:enumeration value="greater-equals"/>
+            <xs:enumeration value="not-equals"/>
+            <xs:enumeration value="not-contains"/>
+            <xs:enumeration value="not-empty"/>
+            <xs:enumeration value="not-matches"/>
+            <xs:enumeration value="equals"/>
+            <xs:enumeration value="contains"/>
+            <xs:enumeration value="empty"/>
+            <xs:enumeration value="matches"><xs:annotation><xs:documentation>Match against the regular expression in the comparison value.</xs:documentation></xs:annotation></xs:enumeration>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="operator-entity">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="less"/>
+            <xs:enumeration value="greater"/>
+            <xs:enumeration value="less-equals"/>
+            <xs:enumeration value="greater-equals"/>
+            <xs:enumeration value="equals"/>
+            <xs:enumeration value="not-equals"/>
+            <xs:enumeration value="in"/>
+            <xs:enumeration value="not-in"/>
+            <xs:enumeration value="between"/>
+            <xs:enumeration value="not-between"/>
+            <xs:enumeration value="like"/>
+            <xs:enumeration value="not-like"/>
+            <xs:enumeration value="is-null"/>
+            <xs:enumeration value="is-not-null"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="url-type">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="transition">
+                <xs:annotation><xs:documentation>The name of a transition in the current screen. URL will be built based
+                    on the transition definition. Technically the same as 'screen' as both are evaluated as a screen path.
+                </xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="screen">
+                <xs:annotation><xs:documentation>The path of a screen relative to the current screen (or the root screen
+                    if begins with '/' or '//' for a sparse path).</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="content">
+                <xs:annotation><xs:documentation>A content location (without the content://). URL will be one that can
+                    access that content.</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="plain">
+                <xs:annotation><xs:documentation>A plain URL to be used literally (may be relative or start with http://
+                    or https://).</xs:documentation></xs:annotation>
+            </xs:enumeration>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="aggregate-function">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="min"/>
+            <xs:enumeration value="max"/>
+            <xs:enumeration value="sum"/>
+            <xs:enumeration value="avg"/>
+            <xs:enumeration value="count"/>
+            <xs:enumeration value="count-distinct"/>
+            <xs:enumeration value="upper"/>
+            <xs:enumeration value="lower"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="isolation-level">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="None"/>
+            <xs:enumeration value="ReadCommitted"/>
+            <xs:enumeration value="ReadUncommitted"/>
+            <xs:enumeration value="RepeatableRead"/>
+            <xs:enumeration value="Serializable"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="transaction-options">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="ignore"><xs:annotation><xs:documentation>Don't do anything with
+                transactions (if one is in place use it, if no transaction in place don't begin one).</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="use-or-begin"><xs:annotation><xs:documentation>Use active transaction or
+                if no active transaction begin one. This is the default.</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="force-new"><xs:annotation><xs:documentation>Always begin a new
+                transaction, pausing/resuming the active transaction if there is one.</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="cache"><xs:annotation><xs:documentation>Like use-or-begin but with a
+                write-through per-transaction cache in place (works even if active TX is in place). See notes and
+                warnings in the JavaDoc comments of the TransactionCache class for details.</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="force-cache"><xs:annotation><xs:documentation>Like force-new with a
+                transaction cache in place like the cache option.</xs:documentation></xs:annotation></xs:enumeration>
+        </xs:restriction>
+    </xs:simpleType>
+</xs:schema>

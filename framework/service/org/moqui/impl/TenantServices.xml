@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+
+    <service verb="provision" noun="Tenant" type="interface">
+        <description>Creates a new Tenant with admin user, database configuration (single database used for all entity
+            groups), and optional host attachment.</description>
+        <implements service="org.moqui.impl.UserServices.create#UserAccount"/>
+        <!-- username, newPassword, newPasswordVerify, userFullName, emailAddress, currencyUomId, locale, timeZone -->
+        <in-parameters>
+            <parameter name="tenantId" required="false"/>
+            <parameter name="tenantName" required="true"/>
+            <parameter name="isEnabled" default-value="Y"/>
+
+            <parameter name="dataLoadTypes"><description>If blank defaults to all (just like the -load -types command line argument)</description></parameter>
+
+            <parameter name="hostName"/>
+            <parameter name="hostAllowOverride" default-value="N"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="tenantId" required="true"/>
+            <parameter name="userId" required="true"/>
+        </out-parameters>
+    </service>
+    <service verb="setup" noun="Tenant">
+        <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
+        <in-parameters>
+            <parameter name="tenantId" required="true"/>
+        </in-parameters>
+        <actions>
+            <!-- add TenantHostDefault record if hostName specified -->
+            <if condition="hostName">
+                <entity-find-one entity-name="moqui.tenant.TenantHostDefault" value-field="thDefault"/>
+                <if condition="thDefault">
+                    <message>Tenant host mapping for host name ${hostName} already exists. Not stopping the tenant setup, but you will need to set up a different tenant host mapping.</message>
+
+                    <else>
+                        <service-call name="create#moqui.tenant.TenantHostDefault" in-map="[hostName:hostName,
+                                tenantId:tenantId, allowOverride:hostAllowOverride]"/>
+                    </else>
+                </if>
+            </if>
+
+
+            <script>
+                import org.moqui.context.ExecutionContext
+                import org.moqui.entity.EntityDataLoader
+                import org.moqui.impl.context.ArtifactExecutionInfoImpl
+
+                ExecutionContext ec = context.ec
+
+                // switch to new Tenant
+                previousTenantId = ec.tenantId
+                previousUsername = ec.user.username
+                ec.changeTenant(tenantId)
+
+                // auth anonymous user, turn off authz for data loading
+                ec.getUser().loginAnonymousIfNoUser()
+                ec.getArtifactExecution().disableAuthz()
+                ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl("loadData", "AT_OTHER", "AUTHZA_ALL")
+                ec.getArtifactExecution().push(aei, false)
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+
+                // load data
+                EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                if (dataLoadTypes) edl.dataTypes(new HashSet(Arrays.asList(dataLoadTypes.split(","))))
+
+                long startTime = System.currentTimeMillis()
+                records = edl.load()
+                totalSeconds = (System.currentTimeMillis() - startTime) / 1000
+            </script>
+            <log level="info" message="Loaded [${records}] records in ${totalSeconds} seconds."/>
+
+            <!-- create admin user -->
+            <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
+            <!-- add to admin UserGroup -->
+            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"/>
+
+            <log level="info" message="Created user [${username}] in ADMIN group."/>
+
+            <script>
+                // turn authz back on, etc
+                ec.getUser().logoutAnonymousOnly()
+                ec.getArtifactExecution().pop(aei)
+                ec.getArtifactExecution().enableAuthz()
+
+                // login previous user, switch back to previous tenantId
+                ec.changeTenant(previousTenantId)
+                ec.user.internalLoginUser(previousUsername, previousTenantId)
+                // NOTE: when running this in the Tools app results in the Login screen showing because
+                //     session auth is lost! (internalLoginUser() doesn't auth in session because we can't through
+                //     Shiro without the password
+            </script>
+            <log level="info" message="Restored login for user [${previousUsername}] in tenant ${previousTenantId}."/>
+        </actions>
+    </service>
+
+    <service verb="provision" noun="TenantDerby">
+        <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
+        <in-parameters>
+            <!-- use tenantId + template for JDBC URI, and admin account username/password for DB un/pw? -->
+            <!--
+            <parameter name="jndiName"/>
+            <parameter name="jdbcUri"/>
+            <parameter name="dbUsername"/>
+            <parameter name="dbPassword"/>
+            <parameter name="useXa" type="Boolean" default="false"/>
+            -->
+        </in-parameters>
+        <actions>
+            <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
+
+            <!-- create TenantDataSource and optionally TenantDataSourceXaProp records -->
+            <service-call name="create#moqui.tenant.TenantDataSource" in-map="[tenantId:tenantId, entityGroupName:'transactional']"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'databaseName',
+                        propValue:('${moqui.runtime}/db/derby/' + tenantId)]"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'createDatabase', propValue:'create']"/>
+
+            <!-- No need to do this for Derby, but the note here for future reference: create database(s), if datasource configured to do so -->
+
+            <!-- call setup#Tenant -->
+            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="provision" noun="TenantH2">
+        <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
+        <in-parameters>
+            <parameter name="user" default-value="sa"/>
+            <parameter name="password" default-value="sa"/>
+        </in-parameters>
+        <actions>
+            <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
+
+            <!-- create TenantDataSource and optionally TenantDataSourceXaProp records -->
+            <service-call name="create#moqui.tenant.TenantDataSource" in-map="[tenantId:tenantId, entityGroupName:'transactional']"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'url',
+                        propValue:('jdbc:h2:${moqui.runtime}/db/h2/' + tenantId)]"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'user', propValue:user]"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'password', propValue:password]"/>
+
+            <!-- No need to do this for Derby, but the note here for future reference: create database(s), if datasource configured to do so -->
+
+            <!-- call setup#Tenant -->
+            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+</services>

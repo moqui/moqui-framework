@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+
+<!-- NOTE: files using this schema are found in the service directory in a component when named *.rest.xml -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:element name="resource">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="method"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="id"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="resource"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="displayName" type="xs:string"/>
+            <xs:attribute name="description" type="xs:string"/>
+            <xs:attribute name="version" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="id">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="method"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="id"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="resource"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="method">
+        <xs:complexType>
+            <xs:choice minOccurs="1" maxOccurs="1">
+                <xs:element ref="service"/>
+                <xs:element ref="entity"/>
+            </xs:choice>
+            <xs:attribute name="type" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="get"/>
+                        <xs:enumeration value="patch"/>
+                        <xs:enumeration value="put"/>
+                        <xs:enumeration value="post"/>
+                        <xs:enumeration value="delete"/>
+                        <xs:enumeration value="options"/>
+                        <xs:enumeration value="head"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="service">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="entity">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="masterName" type="xs:string"/>
+            <xs:attribute name="operation" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="one"/>
+                        <xs:enumeration value="list"/>
+                        <xs:enumeration value="count"/>
+                        <xs:enumeration value="create"/>
+                        <xs:enumeration value="update"/>
+                        <xs:enumeration value="store"/>
+                        <xs:enumeration value="delete"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+ <web-app version="2.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee"
+        xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
+    <display-name>Moqui Root Webapp</display-name>
+
+    <context-param>
+        <description>The name of the Moqui webapp used to lookup configuration in the moqui-conf.webapp-list.webapp.@moqui-name attribute.</description>
+        <param-name>moqui-name</param-name><param-value>webroot</param-value>
+    </context-param>
+
+    <listener><listener-class>org.moqui.impl.webapp.MoquiContextListener</listener-class></listener>
+    <listener><listener-class>org.moqui.impl.webapp.MoquiSessionListener</listener-class></listener>
+    <listener><listener-class>org.apache.commons.fileupload.servlet.FileCleanerCleanup</listener-class></listener>
+
+    <servlet>
+        <description>Moqui Webapp Servlet</description>
+        <display-name>MoquiServlet</display-name><servlet-name>MoquiServlet</servlet-name>
+        <servlet-class>org.moqui.impl.webapp.MoquiServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet>
+        <description>Moqui Webapp FOP Servlet</description>
+        <display-name>MoquiFopServlet</display-name><servlet-name>MoquiFopServlet</servlet-name>
+        <servlet-class>org.moqui.impl.webapp.MoquiFopServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet>
+        <servlet-name>H2Console</servlet-name>
+        <servlet-class>org.h2.server.web.WebServlet</servlet-class>
+        <!-- <init-param><param-name>webAllowOthers</param-name><param-value></param-value></init-param>
+            <init-param><param-name>trace</param-name><param-value></param-value></init-param> -->
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping><servlet-name>MoquiServlet</servlet-name><url-pattern>/*</url-pattern></servlet-mapping>
+    <servlet-mapping><servlet-name>MoquiFopServlet</servlet-name><url-pattern>/fop/*</url-pattern></servlet-mapping>
+    <servlet-mapping><servlet-name>H2Console</servlet-name><url-pattern>/h2/*</url-pattern></servlet-mapping>
+
+    <session-config><session-timeout>15</session-timeout></session-config>
+</web-app>

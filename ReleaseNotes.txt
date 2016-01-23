@@ -1,0 +1,194 @@
+
+Moqui Framework Release Notes
+
+===========================================================================
+Release 1.6.1 - TBD
+===========================================================================
+
+Moqui Framework 1.6.1 is a minor new feature and bug fix release.
+
+This is the first release after the repository reorganization in Moqui 
+Ecosystem. The runtime directory is now in a separate repository. The 
+framework build now gets JAR files from Bintray JCenter instead of having
+them in the framework/lib directory. Overall the result is a small 
+foundation with additional libraries, components, etc added as needed using
+Gradle tasks.
+
+Build Changes
+
+- Gradle tasks to help handle runtime directory in a separate repository
+  from Moqui Framework
+- Added component management features as Gradle tasks
+  - Components available configured in addons.xml
+  - Repositories components come from configured in addons.xml
+  - Get component from current or release archive (getCurrent, getRelease)
+  - Get component from git repositories (getGit)
+  - When getting a component, automatically gets all components it depends
+    on (must be configured in addons.xml so it knows where to get them)
+  - Do a git pull for moqui, runtime, and all components
+- Most JAR files removed, framework build now uses Bintray JCenter
+- JAR files are downloaded as needed on build
+- For convenience in IDEs to copy JAR files to the framework/dependencies
+  directory use: gradle framework:copyDependencies; note that this is not
+  necessary in IntelliJ IDEA (will import dependencies when creating a new
+  project based on the gradle files, use the refresh button in the Gradle
+  tool window to update after updating moqui)
+- If your component builds source or runs Spock tests changes will be
+  needed, see the runtime/base-component/example/build.gradle file
+
+New Features
+
+- The makeCondition(Map) methods now support _comp entry for comparison
+  operator, _join entry for join operator, and _list entry for a list of
+  conditions that will be combined with other fields/values in the Map
+- In FieldValueCondition if the value is a collection and operator is
+  EQUALS set to IN, or if NOT_EQUAL then NOT_IN
+
+Bug Fixes
+
+- Fixed issue with EntityFindBase.condition() where condition break down
+  set ignore case to true
+- Fixed issue with from/thru date where conversion from String was ignored
+- Fixed MySQL date-time type for milliseconds; improved example conf for XA
+- If there are errors in screen actions the error message is displayed
+  instead of rendering the widgets (usually just resulting in more errors)
+
+
+===========================================================================
+Features considered, but may not to be included in 1.x series
+===========================================================================
+
+- XML Screens
+  - Screen section-iterate pagination
+  - Screen form automatic client JS validation for more service in-parameters
+    for: number-range, text-length, text-letters, time-range, credit-card.@types
+  - Dynamic Screens (database-driven: DynamicScreen* entities)
+- Entity Facade
+  - LiquiBase integration (entity.change-set element?)
+  - Add view log, like current change audit log (AuditLogView?)
+  - Improve entity cache auto-clear performance using ehcache search
+    http://ehcache.org/generated/2.9.0/html/ehc-all/#page/Ehcache_Documentation_Set%2Fto-srch_searching_a_cache.html%23
+- Artifact Execution Facade
+  - Call ArtifactExecutionFacade.push() (to track, check authz, etc) for
+    other types of artifacts (if/as determined to be helpful), including:
+    Component, Webapp, Screen Section, Screen Form, Screen Form Field,
+    Template, Script, Entity Field
+  - For record-level authz automatically add constraints to queries if
+    the query follows an adequate pattern and authz requires it, or fail
+    authz if can't add constraint
+- Tools Screens
+  - Auto Screen
+    - Editable data grid, created by form-list, for detail and assoc related entities
+  - Entity
+    - Entity model internal check (relationship, view-link.key-map, ?)
+    - Database meta-data check/report against entity definitions; NOTE: use LiquiBase for this
+  - Script Run (or groovy shell?)
+  - Service
+    - Configure and run chain of services (dynamic wizard)
+  - Artifact Info screens (with in/out references for all)
+    - Screen tree and graph browse screen
+    - Entity usage/reference section
+    - Service usage/reference section on ServiceDetail screen
+  - Screen to install a component (upload and register, load data from it; require special permission for this, not enabled on the demo server)
+
+- Integration
+  - OData (http://www.odata.org) compliant entity auto REST API
+    - like current but use OData URL structure, query parameters, etc
+    - mount on /odata4 as alternative to existing /rest
+    - generate EDMX for all entities (and exported services?)
+  - Generate minimal Data Document based on changes (per TX possible, runs async so not really; from existing doc, like current ES doc)
+  - Update database from Data Document
+  - Data Document UI
+    - show/edit field, rel alias, condition, link
+    - special form for add (edit?) field with 5 drop-downs for relationships, one for field, all updated based on
+      master entity and previous selections
+  - Data Document REST interface
+    - get single by dataDocumentId and PK values for primary entity
+    - search through ElasticSearch for those with associated feed/index
+    - json-schema, RAML, Swagger API defs
+    - generic service for sending Data Document to REST (or other?) end point
+  - Service REST API
+    - allow mapping DataDocument operations as well
+    x Add artifact type for REST Resource, Method
+    x Call ArtifactExecutionFacade.push/pop for RestApi calls
+    x Setup john.doe user with permissions for root of various APIs
+    - Add attribute for resource/method like screen for anonymous and no authz access
+    x Add Service REST API for moqui system admin services
+  - OAuth2 Support
+    - Use Apache Oltu, see https://cwiki.apache.org/confluence/display/OLTU/OAuth+2.0+Authorization+Server
+    - Spec at http://tools.ietf.org/html/rfc6749
+    - http://oltu.apache.org/apidocs/oauth2/reference/org/apache/oltu/oauth2/as/request/package-summary.html
+    - http://search.maven.org/#search|ga|1|org.apache.oltu
+    - https://stormpath.com/blog/build-api-restify-stormpath/
+    - https://github.com/PROCERGS/login-cidadao/blob/master/app/Resources/doc/en/examplejava.md
+    - https://github.com/swagger-api/swagger-ui/issues/807
+    - Add authz and token transitions in rest.xml
+    - Support in Service REST API (and entity/master?)
+    - Add examples of auth and service calls using OAuth2
+    - Add OAuth2 details in Swagger and RAML files
+    - More?
+
+- AS2 Client and Server
+  - use OpenAS2 (http://openas2.sourceforge.net, https://github.com/OpenAS2/OpenAs2App)?
+  - tie into SystemMessage for send/receive (with AS2 service for send, code to receive SystemMessage from AS2 server)
+
+- Atomikos
+  - http://www.atomikos.com/Main/InstallingTransactionsEssentials
+  - http://mvnrepository.com/artifact/com.atomikos
+- Bitronix
+  - https://github.com/bitronix/btm
+  - http://mvnrepository.com/artifact/org.codehaus.btm
+
+- Email verification by random code on registration and email change
+- Login through Google, Facebook, etc
+  - OpenID, SAML, OAuth, ...
+  - https://developers.facebook.com/docs/facebook-login/login-flow-for-web/v2.0
+
+- Workflow that manages activity flow with screens and services attached to
+  activities, and tasks based on them taking users to defined or automatic
+  screen; see BonitaSoft.com Open Source BPM for similar concept; generally
+  workflow without requiring implementation of an entire app once the
+  workflow itself is defined
+
+- Interesting JS plugins
+  - http://arshaw.com/fullcalendar/
+  - http://www.datatables.net
+  - http://www.datatables.net/examples/data_sources/server_side.html
+  - http://code.google.com/p/jquery-datatables-editable/
+  - http://code.drewwilson.com/entry/autosuggest-jquery-plugin
+
+- User Notification
+  - WebSocket clients: track userId, notificationName, connectionKey
+    - Entity (no, keep in memory): VisitClient - visitId*, userId*, topic*, connectionKey*
+    - when sending out WebSocket messages lookup all active Visits for userId and send to each connectionKey
+    - API (with at least an example transition) for WebSocket client registry; set connectionKey on current Visit
+    - use Camel WebSocket? jWebSocket? (how to send message to client connection key)
+    - after more research candidates are (no jWebSocket because it is huge and messy):
+      * java_websocket: smallest (90k), no dependencies on other libraries (like Tomcat or Jetty WS), very simple
+        library so no authc, no pubsub; has JS library for JS client and Flash SWF file for browsers with no WebSocket
+      - Atmosphere: med size (460k), supports variety of transports, but no internal WebSocket (relies on Tomcat, Jetty,
+        etc websocket impls), has pubsub model and sessions built-in, but questionable authc facility
+  x Manual notification:
+    x API pass in notificationName, Map message, userGroupId, boolean queue (true: queue if not connected, false: only send if connected)
+    x API to get all outstanding notifications
+    x Entity: NotificationMessage - notificationMessageId*, topic, userGroupId, messageJson (from message Map)
+    x Entity: NotificationMessageUser - notificationMessageId*, userId*, sentDate, receivedDate
+  - Add Moqui Conf XML elements to configure NotificationMessageListener classes
+  - Listener for Email with XML Screen to layout (and try out using JSON documents as nested Maps from a screen)
+    - where to configure the email and screen to use? use EmailTemplate/emailTemplateId, but where to specify?
+      - for notifications from DataFeeds can add DataFeed.emailTemplateId (or not, what about toAddresses, etc?)
+      - maybe have a more general way to configure details of topics, including emailTemplateId and screenLocation...
+
+- Data Document and Feed
+  - API (or service?) push outstanding data changes (registration/connection, time trigger; tie to SystemMessage)
+  - API (or service?) receive/persist data change messages - going reverse of generation for DataDocuments... should be interesting
+  - Consumer System Registry
+    - feed transport (for each: supports confirmation?)
+      - WebSocket (use Notification system, based on notificationName (and userId?))
+  - Service to send email from DataFeed (ie receive#DataFeed implementation), use XML Screen for email content
+    - don't do this directly, do through NotificationMessage, ie the next item... or maybe not, too many parameters for
+      email from too many places related to a DataDocument, may not be flexible enough and may be quite messy
+  - Service (receive#DataFeed impl) to send documents as User NotificationMessages (one message per DataDocument); this
+    is probably the best way to tie a feed to WebSocket notifications for data updates
+    - Use the dataFeedId as the NotificationMessage topic
+    - Use this in HiveMind to send notifications of project, task, and wiki changes (maybe?)

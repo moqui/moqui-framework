@@ -1,0 +1,31 @@
+<addons>
+    <!-- FUTURE: Configure where to get runtime if not present -->
+    <runtime type="git" url="https://github.com/moqui/runtime.git"/>
+    <runtime type="current" url="https://github.com/moqui/runtime/archive/master.zip"/>
+    <runtime type="release" url="https://github.com/moqui/runtime/archive/v1.6.1.zip"/>
+
+    <repository name="github">
+        <location type="current" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/${component.'@branch'}.zip"/>
+        <location type="release" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/v${component.'@version'}.zip"/>
+        <location type="git" url="https://github.com/${component.'@group'}/${component.'@name'}.git"/>
+    </repository>
+
+    <!-- Mantle Components -->
+    <!-- NOTE: The mantle component locations are invalid until mantle is split into individual component repositories -->
+    <component name="mantle-udm" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
+    <component name="mantle-usl" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
+    <component name="mantle-ubpl" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
+    <component name="mantle-edi" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
+    <component name="mantle-oagis" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
+
+    <!-- Moqui UI Components -->
+    <component name="SimpleScreens" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="HiveMind" group="moqui" version="1.1.3" branch="master" repository="github"/>
+    <component name="PopCommerce" group="moqui" version="1.0.1" branch="master" repository="github"/>
+
+    <!-- Third Party Components -->
+    <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/>
+
+    <!-- Private Components (add yours here) -->
+</addons>

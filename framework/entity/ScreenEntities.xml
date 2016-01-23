@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.6.xsd">
+    <!-- ========================================================= -->
+    <!-- moqui.screen -->
+    <!-- ========================================================= -->
+
+    <!-- ========== Subscreen ========== -->
+    <entity entity-name="SubscreensItem" package-name="moqui.screen" authorize-skip="view" cache="true">
+        <field name="screenLocation" type="text-medium" is-pk="true"/>
+        <field name="subscreenName" type="text-medium" is-pk="true"/>
+        <field name="userGroupId" type="id" is-pk="true" default="'ALL_USERS'">
+            <description>DEPRECATED. While still supported, to control access to subscreens use ArtifactAuthz and
+                related records instead.</description></field>
+        <field name="subscreenLocation" type="text-medium"/>
+        <field name="menuTitle" type="text-medium">
+            <description>The title to show for this subscreen in the menu. Can be used to override subscreen titles in the
+                screen.default-menu-title attribute and the subscreens-item.menu-title attribute.</description>
+        </field>
+        <field name="menuIndex" type="number-integer">
+            <description>Insert this item in subscreens menu at this index (1-based).</description>
+        </field>
+        <field name="menuInclude" type="text-indicator">
+            <description>Defaults to Y. Set to N to not include in the menu for the subscreens. This can be used to hide
+                subscreens from the directory structure or even explicitly declared in the Screen XML file.</description>
+        </field>
+        <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
+    </entity>
+
+    <!-- ========== Theme ========== -->
+    <entity entity-name="ScreenTheme" package-name="moqui.screen" authorize-skip="true" cache="true">
+        <field name="screenThemeId" type="id" is-pk="true"/>
+        <field name="screenThemeTypeEnumId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" title="ScreenThemeType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="screenThemeTypeEnumId"/></relationship>
+        <seed-data>
+            <!-- Screen Themes -->
+            <moqui.basic.EnumerationType description="Screen Theme Type" enumTypeId="ScreenThemeType"/>
+            <moqui.basic.Enumeration description="Internal Applications" enumId="STT_INTERNAL" enumTypeId="ScreenThemeType" enumCode="DEFAULT"/>
+            <moqui.basic.Enumeration description="Public Web Site/etc" enumId="STT_PUBLIC" enumTypeId="ScreenThemeType"/>
+
+            <!-- Default Theme -->
+            <moqui.screen.ScreenTheme screenThemeId="DEFAULT" screenThemeTypeEnumId="STT_INTERNAL"
+                                      description="Moqui Default Theme: simple, flat, default"/>
+            <!-- NOTE: the default webroot component extends this theme, see the WebrootThemeData.xml file for more -->
+        </seed-data>
+    </entity>
+    <entity entity-name="ScreenThemeResource" package-name="moqui.screen" authorize-skip="view" cache="true">
+        <field name="screenThemeId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" is-pk="true"/>
+        <field name="resourceTypeEnumId" type="id"/>
+        <field name="resourceValue" type="text-long">
+            <description>The location, name or other value description the resource.</description></field>
+        <relationship type="one" related-entity-name="moqui.screen.ScreenTheme"/>
+        <relationship type="one" title="ScreenThemeResourceType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="resourceTypeEnumId" related-field-name="enumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Screen Theme Resource Type" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Style Sheet (CSS) URL" enumId="STRT_STYLESHEET" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Script URL" enumId="STRT_SCRIPT" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Shortcut Icon URL" enumId="STRT_SHORTCUT_ICON" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Header Logo URL" enumId="STRT_HEADER_LOGO" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Header Title" enumId="STRT_HEADER_TITLE" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Header Navbar Item" enumId="STRT_HEADER_NAVBAR_ITEM" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Footer Item" enumId="STRT_FOOTER_ITEM" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="HTML Body CSS Class" enumId="STRT_BODY_CLASS" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Theme Preview Screenshot" enumId="STRT_SCREENSHOT" enumTypeId="ScreenThemeResourceType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ScreenThemeIcon" package-name="moqui.screen" cache="true">
+        <field name="screenThemeId" type="id" is-pk="true"/>
+        <field name="textPattern" type="text-medium" is-pk="true"/>
+        <field name="iconClass" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.screen.ScreenTheme"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.screen.form -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="DbForm" package-name="moqui.screen.form">
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="purposeEnumId" type="id"/>
+        <field name="isListForm" type="text-indicator"/>
+        <field name="modifyXmlScreenForm" type="text-medium"><description>The screen location and form name (separated
+            by a hash/pound sign) of XML Screen Form to modify.</description></field>
+        <field name="description" type="text-medium"/>
+        <field name="comments" type="text-long"/>
+        <field name="printTemplateLocation" type="text-medium"/>
+        <field name="acroFormLocation" type="text-medium"/>
+        <field name="printFontSize" type="text-short"/>
+        <field name="printFontFamily" type="text-short"/>
+        <field name="printContainerHeight" type="text-short"/>
+        <field name="printRepeatCount" type="number-integer"/>
+        <field name="printRepeatNewPage" type="text-indicator"/>
+        <relationship type="one" title="DbFormPurpose" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="purposeEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="DB Form Purpose" enumTypeId="DbFormPurpose"/>
+            <moqui.basic.Enumeration description="Other" enumId="DbfpOther" enumTypeId="DbFormPurpose"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="DbFormField" package-name="moqui.screen.form">
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="entryName" type="text-medium"/>
+        <field name="title" type="text-medium"/>
+        <field name="tooltip" type="text-medium"/>
+        <field name="fieldTypeEnumId" type="id"><description>Field type for presentation, validation;
+            always stored as plain text FormResponseAnswer</description></field>
+        <field name="layoutSequenceNum" type="number-integer"/>
+
+        <field name="printTop" type="text-short"/>
+        <field name="printLeft" type="text-short"/>
+        <field name="printBottom" type="text-short"/>
+        <field name="printRight" type="text-short"/>
+        <field name="printWidth" type="text-short"/>
+        <field name="printHeight" type="text-short"/>
+        <field name="printTextAlign" type="text-short"/>
+        <field name="printVerticalAlign" type="text-short"/>
+        <field name="printFontSize" type="text-short"/>
+        <field name="printFontFamily" type="text-short"/>
+
+        <relationship type="one" related-entity-name="moqui.screen.form.DbForm"/>
+        <relationship type="one" title="DbFormFieldType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="fieldTypeEnumId" related-field-name="enumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="DB Form Field Type" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="link" enumId="DBFFT_link" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="image" enumId="DBFFT_image" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="label" enumId="DBFFT_label" enumTypeId="DbFormFieldType"/>
+
+            <moqui.basic.Enumeration description="check" enumId="DBFFT_check" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="date-find" enumId="DBFFT_date-find" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="date-time" enumId="DBFFT_date-time" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="display" enumId="DBFFT_display" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="display-entity" enumId="DBFFT_display-entity" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="drop-down" enumId="DBFFT_drop-down" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="file" enumId="DBFFT_file" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="hidden" enumId="DBFFT_hidden" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="ignored" enumId="DBFFT_ignored" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="password" enumId="DBFFT_password" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="radio" enumId="DBFFT_radio" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="range-find" enumId="DBFFT_range-find" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="reset" enumId="DBFFT_reset" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="submit" enumId="DBFFT_submit" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="text-line" enumId="DBFFT_text-line" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="text-area" enumId="DBFFT_text-area" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="text-find" enumId="DBFFT_text-find" enumTypeId="DbFormFieldType"/>
+            <!-- add special support for these? 
+            <moqui.basic.Enumeration description="Number - Integer" enumId="FftNumberInteger" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="Number - Decimal" enumId="FftNumberDecimal" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="Boolean (Y/N)" enumId="FftBoolean" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="Enumeration" enumId="FftEnumeration" enumTypeId="DbFormFieldType"/>
+            <moqui.basic.Enumeration description="Resource" enumId="FftResource" enumTypeId="DbFormFieldType"/>
+            -->
+        </seed-data>
+    </entity>
+    <entity entity-name="DbFormFieldAttribute" package-name="moqui.screen.form">
+        <description>Used to provide attribute values. For a reference of attributes available for each field type, see
+            the corresponding element in the xml-form-?.xsd file.</description>
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="attributeName" type="text-medium" is-pk="true"/>
+        <field name="value" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbFormField"/>
+    </entity>
+    <entity entity-name="DbFormFieldOption" package-name="moqui.screen.form">
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" is-pk="true"/>
+        <field name="keyValue" type="text-medium"/>
+        <field name="text" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbFormField"/>
+    </entity>
+    <entity entity-name="DbFormFieldEntOpts" package-name="moqui.screen.form">
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" is-pk="true"/>
+        <field name="entityName" type="text-medium"/>
+        <field name="text" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbFormField"/>
+    </entity>
+    <entity entity-name="DbFormFieldEntOptsCond" package-name="moqui.screen.form">
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" is-pk="true"/>
+        <field name="entityFieldName" type="text-medium" is-pk="true"/>
+        <field name="value" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbFormFieldEntOpts"/>
+    </entity>
+    <entity entity-name="DbFormFieldEntOptsOrder" package-name="moqui.screen.form">
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" is-pk="true"/>
+        <field name="orderSequenceNum" type="number-integer" is-pk="true"/>
+        <field name="entityFieldName" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbFormFieldEntOpts"/>
+    </entity>
+    <entity entity-name="DbFormUserGroup" package-name="moqui.screen.form">
+        <field name="formId" type="id" is-pk="true"/>
+        <field name="userGroupId" type="id" is-pk="true"><description>These settings are for a UserGroup. To apply to
+            all users just use the ALL_USERS UserGroup.</description></field>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbForm"/>
+        <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
+    </entity>
+    <view-entity entity-name="DbFormLookup" package-name="moqui.screen.form">
+        <member-entity entity-alias="DBF" entity-name="DbForm"/>
+        <member-entity entity-alias="DBFUG" entity-name="DbFormUserGroup" join-from-alias="DBF">
+            <key-map field-name="formId"/></member-entity>
+        <alias name="formId" entity-alias="DBF"/>
+        <alias name="modifyXmlScreenForm" entity-alias="DBF"/>
+        <alias name="userGroupId" entity-alias="DBFUG"/>
+    </view-entity>
+
+    <entity entity-name="FormResponse" package-name="moqui.screen.form">
+        <field name="formResponseId" type="id" is-pk="true"/>
+        <field name="formLocation" type="text-medium"/>
+        <field name="formId" type="id"/>
+        <field name="userId" type="id-long"/>
+        <field name="responseDate" type="date-time"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbForm"/>
+        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <entity entity-name="FormResponseAnswer" package-name="moqui.screen.form">
+        <field name="formResponseAnswerId" type="id" is-pk="true"/>
+        <field name="formResponseId" type="id"/>
+        <field name="formId" type="id"/>
+        <field name="fieldName" type="text-medium"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="valueText" type="text-long"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.FormResponse"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.DbForm"/>
+        <!-- this is nofk because for forms other than DbForms fieldName may be populated but formId null -->
+        <relationship type="one-nofk" related-entity-name="moqui.screen.form.DbFormField"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.screen.dynscreen -->
+    <!-- ========================================================= -->
+
+    <!-- Tabled for now, not to be part of 1.0:
+    <entity entity-name="DynamicScreen" package-name="moqui.screen.dynscreen">
+        <field name="screenId" type="id" is-pk="true"/>
+        <field name="screenName" type="text-medium"/>
+        <field name="userGroupId" type="id">
+            <description>These settings are for a UserGroup. To apply to all users just use the ALL_USERS UserGroup.</description>
+        </field>
+        <field name="modifyXmlScreen" type="text-medium">
+            <description>The location of XML Screen to modify.</description>
+        </field>
+    </entity>
+    <entity entity-name="DynamicScreenInclude" package-name="moqui.screen.dynscreen">
+        <field name="screenId" type="id" is-pk="true"/>
+        <field name="includeSeqId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="panelSeqId" type="id"/>
+        <field name="areaEnumId" type="id">
+            <description>Options include: header, left, center, right, and footer.</description>
+        </field>
+        <field name="screenLocation" type="text-medium"/>
+    </entity>
+    <entity entity-name="DynamicScreenIncludeParam" package-name="moqui.screen.dynscreen">
+        <field name="screenId" type="id" is-pk="true"/>
+        <field name="includeSeqId" type="id" is-pk="true"/>
+        <field name="parameterName" type="text-medium" is-pk="true"/>
+        <field name="parameterValue" type="text-medium"/>
+    </entity>
+    <entity entity-name="DynamicScreenPanel" package-name="moqui.screen.dynscreen">
+        <field name="screenId" type="id" is-pk="true"/>
+        <field name="panelSeqId" type="id" is-pk="true"/>
+        <field name="areaSizeUnit" type="id">
+            <description>Options include: px, and em (defaults to px).</description>
+        </field>
+    </entity>
+    <entity entity-name="DynamicScreenPanelArea" package-name="moqui.screen.dynscreen">
+        <field name="screenId" type="id" is-pk="true"/>
+        <field name="panelSeqId" type="id" is-pk="true"/>
+        <field name="areaEnumId" type="id" is-pk="true">
+            <description>Options include: header, left, center, right, and footer.</description>
+        </field>
+        <field name="areaSize" type="number-decimal"/>
+        <field name="draggable" type="text-indicator">
+            <description>Options include: Y or N, defaults to N.</description>
+        </field>
+    </entity>
+    -->
+</entities>

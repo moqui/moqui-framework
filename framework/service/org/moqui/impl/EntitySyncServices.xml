@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+    <service verb="run" noun="EntitySyncAll" transaction="ignore" authenticate="anonymous-all">
+        <actions>
+            <entity-find entity-name="moqui.entity.sync.EntitySync" list="entitySyncList">
+                <econdition field-name="statusId" operator="not-equals" value="EsRunning"/></entity-find>
+            <iterate list="entitySyncList" entry="entitySync">
+                <!-- NOTE: currently calls async, consider transaction="force-new" if there are multiple large syncs to
+                    avoid running out of memory, etc -->
+                <service-call name="org.moqui.impl.EntitySyncServices.run#EntitySync"
+                        in-map="[entitySyncId:entitySync.entitySyncId]" async="true"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="run" noun="EntitySync" authenticate="anonymous-all">
+        <in-parameters><parameter name="entitySyncId" required="true"/></in-parameters>
+        <actions>
+            <set field="startDate" from="new Timestamp(System.currentTimeMillis())"/>
+
+            <!-- lock the EntitySync record, only one sync at a time -->
+            <entity-find-one entity-name="moqui.entity.sync.EntitySync" value-field="entitySync" for-update="true"/>
+            <!-- if already running quit, unless lastStartDate was more than 24 hours ago -->
+            <if condition="entitySync.statusId == 'EsRunning' &amp;&amp;
+                    entitySync.lastStartDate.getTime() &gt; (System.currentTimeMillis() - (24*60*60*1000))">
+                <return/></if>
+
+            <!-- make sure delayBufferMillis have passed since lastSuccessfulSyncTime -->
+            <if condition="entitySync.lastSuccessfulSyncTime &amp;&amp;
+                    entitySync.lastSuccessfulSyncTime.getTime() &gt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
+                <return/></if>
+
+            <!-- validations done, save that we're running and get started! -->
+            <set field="entitySync.lastStartDate" from="startDate"/>
+            <set field="entitySync.statusId" value="EsRunning"/>
+            <entity-update value-field="entitySync"/>
+
+            <!-- the main stuff should be done in a separate transaction so it is independent of updating status, etc -->
+            <service-call name="org.moqui.impl.EntitySyncServices.internalRun#EntitySync" out-map="context" in-map="context"/>
+
+            <!-- save results, update status -->
+            <if condition="errorMessage">
+                <set field="entitySync.statusId" value="EsOtherError"/>
+
+                <else>
+                    <set field="entitySync.statusId" value="EsComplete"/>
+                    <set field="entitySync.lastSuccessfulSyncTime" from="inclusiveThruTime"/>
+                </else>
+            </if>
+            <entity-update value-field="entitySync"/>
+
+            <set field="finishLong" from="System.currentTimeMillis()"/>
+            <set field="runningTimeMillis" from="finishLong - startDate.getTime()"/>
+            <service-call name="create#moqui.entity.sync.EntitySyncHistory"
+                    in-map="[entitySyncId:entitySyncId, statusId:entitySync.statusId, startDate:startDate,
+                        finishDate:new Timestamp(finishLong), exclusiveFromTime:exclusiveFromTime,
+                        inclusiveThruTime:inclusiveThruTime, recordsStored:recordsStored,
+                        runningTimeMillis:runningTimeMillis, errorMessage:errorMessage]"/>
+
+            <log level="info" message="EntitySync [${entitySyncId}] finished: startDate=${startDate}, lastSuccessfulSyncTime=${entitySync.lastSuccessfulSyncTime}, recordsStored=${recordsStored}, errorMessage=${errorMessage}"/>
+
+            <!-- if not yet up to delayBufferMillis trigger another async run -->
+            <if condition="entitySync.lastSuccessfulSyncTime &amp;&amp;
+                    entitySync.lastSuccessfulSyncTime.getTime() &lt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
+                <service-call name="org.moqui.impl.EntitySyncServices.run#EntitySync"
+                        in-map="[entitySyncId:entitySyncId]" async="true"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="internalRun" noun="EntitySync" transaction="force-new">
+        <in-parameters>
+            <parameter name="entitySync" type="EntityValue" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="errorMessage"/>
+            <parameter name="exclusiveFromTime" type="Timestamp"/>
+            <parameter name="inclusiveThruTime" type="Timestamp"/>
+            <parameter name="recordsStored" type="Long"/>
+        </out-parameters>
+        <actions>
+            <set field="entitySyncId" from="entitySync.entitySyncId"/>
+
+            <set field="remoteInMap" from="[authUsername:entitySync.targetUsername, authPassword:entitySync.targetPassword,
+                    authTenantId:entitySync.targetTenantId]"/>
+
+            <service-call name="org.moqui.impl.EntitySyncServices.get#EntitySyncIncludeList" out-map="context" in-map="context"/>
+            <set field="getInMap" from="[entityIncludeList:entityIncludeList, lastSuccessfulSyncTime:entitySync.lastSuccessfulSyncTime,
+                    syncSplitMillis:entitySync.syncSplitMillis, recordThreshold:entitySync.recordThreshold,
+                    delayBufferMillis:entitySync.delayBufferMillis]"/>
+
+            <if condition="entitySync.forPull == 'Y'">
+                <!-- get remotely, set locally -->
+                <!-- remote call -->
+                <set field="inMap" from="remoteInMap + getInMap"/>
+                <set field="serviceName" value="org.moqui.impl.EntitySyncServices.get#EntitySyncData"/>
+                <script>
+                    Map outMap = ec.service.callJsonRpc(entitySync.targetServerUrl, serviceName, inMap)
+                    if (outMap) context.putAll(outMap)
+                </script>
+
+                <if condition="recordCount">
+                    <service-call name="org.moqui.impl.EntitySyncServices.put#EntitySyncData" out-map="context"
+                            in-map="[entityData:entityData]"/>
+
+                    <else>
+                        <!-- no records to store, don't do the remote call -->
+                        <set field="recordsStored" from="0"/>
+                    </else>
+                </if>
+
+                <else>
+                    <!-- get locally, set remotely -->
+                    <service-call name="org.moqui.impl.EntitySyncServices.get#EntitySyncData" out-map="context"
+                            in-map="getInMap"/>
+
+                    <!-- remote call -->
+                    <if condition="recordCount">
+                        <set field="inMap" from="remoteInMap + [entityData:entityData]"/>
+                        <set field="serviceName" value="org.moqui.impl.EntitySyncServices.put#EntitySyncData"/>
+                        <!-- <log level="warn" message="======= internalRun#EntitySync remote call inMap=${inMap}"/> -->
+                        <script>
+                            Map outMap = ec.service.callJsonRpc(entitySync.targetServerUrl, serviceName, inMap)
+                            if (outMap) context.putAll(outMap)
+                        </script>
+
+                        <else>
+                            <!-- no records to store, don't do the remote call -->
+                            <set field="recordsStored" from="0"/>
+                        </else>
+                    </if>
+                </else>
+            </if>
+
+            <if condition="ec.message.hasError()">
+                <set field="errorMessage" from="ec.message.getErrorsString()"/>
+                <script>ec.message.clearErrors()</script>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="put" noun="EntitySyncData" transaction="ignore" allow-remote="true">
+        <in-parameters>
+            <parameter name="entityData" required="true" allow-html="any"/><!-- this is XML coming in, don't validate as HTML -->
+            <parameter name="timeout" type="Integer" default="600"/>
+            <parameter name="dummyFks" type="Boolean" default="true"/>
+            <parameter name="useTryInsert" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="recordsStored" type="Long"/>
+        </out-parameters>
+        <actions>
+            <script><![CDATA[
+                org.moqui.entity.EntityDataLoader edl = ec.entity.makeDataLoader()
+                edl.xmlText(entityData)
+                edl.transactionTimeout(timeout)
+                edl.dummyFks(dummyFks)
+                edl.useTryInsert(useTryInsert)
+                recordsStored = edl.load()
+            ]]></script>
+        </actions>
+    </service>
+    <service verb="get" noun="EntitySyncData" allow-remote="true">
+        <in-parameters>
+            <parameter name="entityIncludeList" type="List">
+                <parameter name="entryMap" type="Map">
+                    <parameter name="entityName"/>
+                    <parameter name="includeFilterList" type="List">
+                        <description>List of Maps to be ORed together</description>
+                        <parameter name="filterMap" type="Map"/>
+                    </parameter>
+                    <parameter name="dependents" type="Boolean"/>
+                </parameter>
+            </parameter>
+            <parameter name="lastSuccessfulSyncTime" type="Timestamp"/>
+            <parameter name="syncSplitMillis" type="Long" default="1000"/>
+            <parameter name="recordThreshold" type="Long" default="1000"/>
+            <parameter name="delayBufferMillis" type="Long" default="300000"/><!-- default to 5 minutes -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="entityData"/>
+            <parameter name="recordCount" type="Long"/>
+            <parameter name="exclusiveFromTime" type="Timestamp"/>
+            <parameter name="inclusiveThruTime" type="Timestamp"/>
+        </out-parameters>
+        <actions>
+            <script><![CDATA[
+                import org.moqui.context.ExecutionContext
+                import org.moqui.entity.EntityCondition
+                import org.moqui.entity.EntityFind
+                import org.moqui.entity.EntityList
+                import org.moqui.entity.EntityListIterator
+
+                // TODO: current approach gets data for all time up to now - delayBufferMillis if no lastSuccessfulSyncTime
+                // TODO:    for bootstrapping, consider a better approach, maybe find oldest record and do splits from
+                // TODO:    there to avoid a huge chunk of data? issue: start too early do a LOT of empty splits
+                long maxSyncLong = System.currentTimeMillis() - delayBufferMillis
+                long startingLong = lastSuccessfulSyncTime?.getTime() ?: 0
+                long lastSyncLong = startingLong
+                long splitFromLong = lastSyncLong
+                long splitThruLong = lastSuccessfulSyncTime ? (splitFromLong + syncSplitMillis) : maxSyncLong
+
+                Writer entityWriter = new StringWriter()
+                entityWriter.append("<entity-facade-xml>")
+
+                ExecutionContext ec = context.ec
+
+                recordCount = 0
+                // ec.logger.warn("======== recordThreshold=${recordThreshold}, splitThruLong=${splitThruLong}, maxSyncLong=${maxSyncLong}, beforeMaxSync=${splitThruLong <= maxSyncLong}, entityIncludeList=${entityIncludeList}")
+                while (recordCount < recordThreshold && splitThruLong <= maxSyncLong) {
+                    for (Map entryMap in entityIncludeList) {
+                        EntityFind find = ec.entity.makeFind((String) entryMap.entityName)
+                        find.condition("lastUpdatedStamp", EntityCondition.GREATER_THAN, new Timestamp(splitFromLong))
+                        find.condition("lastUpdatedStamp", EntityCondition.LESS_THAN_EQUAL_TO, new Timestamp(splitThruLong))
+
+                        List includeCondList = []
+                        for (Map filterMap in includeFilterList)
+                            includeCondList.add(ec.entity.conditionFactory.makeCondition(filterMap))
+                        if (includeCondList)
+                            find.condition(ec.entity.conditionFactory.makeCondition(includeCondList, EntityCondition.OR))
+
+                        long currentCount = find.count()
+                        // TODO: see if currentCount is way too big and abort in advance?
+                        recordCount += currentCount
+
+                        // ec.logger.warn("=========== get#EntitySyncData entityName=${entryMap.entityName} count=${currentCount} find=${find}")
+
+                        if (currentCount > 0) {
+                            EntityListIterator resultEli = find.iterator()
+                            try {
+                                int levels = entryMap.dependents ? 2 : 0
+                                resultEli.writeXmlText((Writer) entityWriter, null, levels)
+                            } finally {
+                                resultEli.close()
+                            }
+                        }
+                    }
+
+                    // increment the split times
+                    splitFromLong = splitThruLong
+                    splitThruLong = splitFromLong + syncSplitMillis
+                }
+
+                entityWriter.append("</entity-facade-xml>")
+                entityData = entityWriter.toString()
+
+                exclusiveFromTime = new Timestamp(startingLong)
+                inclusiveThruTime = new Timestamp(splitThruLong)
+            ]]></script>
+        </actions>
+    </service>
+
+    <service verb="get" noun="EntitySyncIncludeList">
+        <in-parameters><parameter name="entitySyncId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="entityIncludeList" type="List">
+                <parameter name="entryMap" type="Map">
+                    <parameter name="entityName"/>
+                    <parameter name="includeFilterList" type="List">
+                        <description>List of Maps to be ORed together</description>
+                        <parameter name="filterMap" type="Map"/>
+                    </parameter>
+                    <parameter name="dependents" type="Boolean"/>
+                </parameter>
+            </parameter>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.entity.sync.EntitySyncArtifactDetail" list="esadList">
+                <econdition field-name="artifactTypeEnumId" value="AT_ENTITY"/>
+                <econdition field-name="entitySyncId"/></entity-find>
+            <!-- <log level="warn" message="====== EntitySyncIncludeList esadList=${esadList}"/> -->
+
+            <!-- Maps with entity name as key, value as List or filter Maps (or empty List for no filter) -->
+            <set field="includeMap" from="new HashMap()"/>
+            <set field="excludeMap" from="new HashMap()"/>
+            <set field="alwaysMap" from="new HashMap()"/>
+            <set field="withDependentsSet" from="new HashSet()"/>
+            <!-- get this once, iterate as needed for nameIsPattern -->
+            <set field="allEntitySet" from="ec.entity.getAllNonViewEntityNames()"/>
+            <iterate list="esadList" entry="esad">
+                <set field="nameSet" from="new HashSet()"/>
+                <if condition="esad.nameIsPattern == 'Y'">
+                    <iterate list="allEntitySet" entry="entityName"><if condition="entityName.matches(esad.artifactName)">
+                        <script>nameSet.add(entityName)</script></if></iterate>
+                    <else><script>nameSet.add(esad.artifactName)</script></else>
+                </if>
+                <!-- <log level="warn" message="======== nameSet=${nameSet}, esad=${esad}"/> -->
+
+                <iterate list="nameSet" entry="entityName">
+                    <!-- add to Map based on applEnumId of EsaaInclude, EsaaExclude, EsaaAlways -->
+                    <set field="curMap" from="esad.applEnumId == 'EsaaExclude' ? excludeMap : (esad.applEnumId == 'EsaaAlways' ? alwaysMap : includeMap)"/>
+                    <set field="curMapList" from="curMap.get(entityName) ?: []"/>
+                    <if condition="esad.filterMap">
+                        <script>curMapList.add(ec.resource.expression(esad.filterMap, null))</script></if>
+                    <script>curMap.put(entityName, curMapList)</script>
+                    <script>if (esad.dependents == 'Y') withDependentsSet.add(entityName)</script>
+                </iterate>
+            </iterate>
+
+            <!-- <log level="warn" message="========= PRE includeMap=${includeMap}, excludeMap=${excludeMap}, alwaysMap=${alwaysMap}"/> -->
+            <!-- remove excludeMap entries from includeMap -->
+            <iterate list="excludeMap" entry="curMapList" key="entityName">
+                <script>includeMap.remove(entityName)</script></iterate>
+            <!-- now add always entries to the includeMap and use it to create the entityIncludeList -->
+            <iterate list="alwaysMap" entry="curMapList" key="entityName">
+                <script>
+                    if (includeMap.containsKey(entityName)) {
+                        List incMapList = includeMap.get(entityName)
+                        incMapList.addAll(curMapList)
+                    } else {
+                        includeMap.put(entityName, curMapList)
+                    }
+                </script>
+            </iterate>
+            <!-- <log level="warn" message="========= POST includeMap=${includeMap}"/> -->
+
+
+            <set field="entityIncludeList" from="[]"/>
+            <iterate list="includeMap" entry="incMapList" key="entityName">
+                <script>entityIncludeList.add([entityName:entityName, includeFilterList:incMapList,
+                                               dependents:(withDependentsSet.contains(entityName) ? 'Y' : 'N')])</script>
+            </iterate>
+            <!-- <log level="warn" message="====== EntitySyncIncludeList entityIncludeList=${entityIncludeList}"/> -->
+        </actions>
+    </service>
+</services>

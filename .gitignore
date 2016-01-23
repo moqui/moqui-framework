@@ -1,0 +1,82 @@
+# gradle/build files
+build/
+.gradle
+/framework/dependencies
+
+# build generated files
+/moqui-*.war
+/SaveDEFAULT.zip
+/SaveTenant.zip
+/SaveTransactional.zip
+/SaveAnalytical.zip
+/SaveH2.zip
+/SaveOrientDb.zip
+/SaveElasticSearch.zip
+
+# runtime generated files
+/runtime/db/derby/MoquiDEFAULT/
+/runtime/db/derby/MoquiTenant/
+/runtime/db/derby/MoquiTransactional/
+/runtime/db/derby/MoquiAnalytical/
+/runtime/db/derby/EXAMPLE1/
+/runtime/db/derby/CustJqp/
+/runtime/db/derby/derby.log
+/runtime/db/h2/
+/runtime/db/orientdb/databases/
+/runtime/elasticsearch/data/
+/runtime/elasticsearch/log/
+/runtime/elasticsearch/work/
+/runtime/log/
+/runtime/tmp/
+/runtime/txlog/
+/execwartmp/
+
+# common runtime added files
+/runtime/lib/*.jar
+/runtime/component/
+/runtime/component-lib/
+/runtime/mantle/
+/runtime/base-component/example/lib/example-*.jar
+
+# IntelliJ IDEA files
+.idea/
+out/
+*.ipr
+*.iws
+*.iml
+
+# Eclipse files (and some general ones also used by Eclipse)
+.metadata
+.gradle
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+
+# NetBeans files
+nbproject/private/
+nbbuild/
+.nb-gradle/
+dist/
+nbdist/
+nbactions.xml
+nb-configuration.xml
+
+# OSX auto files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows auto files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux auto files
+*~

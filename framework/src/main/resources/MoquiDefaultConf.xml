@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- No copyright or license for configuration file, details here are not considered a creative work. -->
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-1.6.xsd">
+
+    <!-- Settings in this file can be overridden in a runtime conf file that has a any of the desired sub-elements. -->
+
+    <tools enable-elasticsearch="true" enable-camel="true"/>
+
+    <cache-list warm-on-start="true">
+        <!-- Production mode by default - No expiration of conf and impl artifacts. -->
+        <cache name="entity.definition" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
+        <cache name="entity.location" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
+        <cache name="entity.tables.checked" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
+        <!-- this is info for each entity for real-time push DataFeeds; expires every 15 min to get DataFeed and DataDocument updates -->
+        <cache name="entity.data.feed.info." expire-time-idle="0" expire-time-live="900" max-elements="2000"/>
+
+        <cache name="entity.record.one." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.one_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.count." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
+
+        <cache name="service.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="service.java.class" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+
+        <cache name="kie.component.releaseId" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+
+        <cache name="screen.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="screen.location.perm" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="screen.info" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="screen.template.mode" expire-time-idle="0" expire-time-live="0" max-elements="100"/>
+        <cache name="screen.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100"/>
+        <cache name="screen.find.path" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="screen.form.db.node" expire-time-idle="0" expire-time-live="0" max-elements="1000"/>
+
+        <cache name="resource.xml-actions.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.groovy.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.groovy.expression" expire-time-idle="0" expire-time-live="0" max-elements="50000"/>
+        <cache name="resource.javascript.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+
+        <cache name="resource.ftl.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.gstring.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.wiki.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.markdown.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.text.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.reference.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+
+        <cache name="l10n.message" expire-time-idle="0" expire-time-live="0" max-elements="50000"/>
+
+        <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
+        <cache name="artifact.tarpit.hits" expire-time-idle="900" expire-time-live="0" max-elements="10000"/>
+    </cache-list>
+    <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true">
+        <artifact-stats type="screen" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="screen-content" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="transition" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="service" persist-bin="true" persist-hit="false"/>
+        <artifact-stats type="entity" persist-bin="false"/>
+    </server-stats>
+
+    <webapp-list>
+        <!-- The webapp.@name attribute value is looked up based on the value of the moqui-name context-param in
+        the web.xml file. This configuration will allow the framework to do various things for that webapp. -->
+        <webapp name="webroot" http-port="" http-host="" https-port="" https-host=""
+                https-enabled="false" require-session-token="true">
+            <!-- root screen for OOTB runtime directory: <root-screen host=".*" location="component://webroot/screen/webroot.xml"/> -->
+            <!-- example only, no default actions right now:
+            <first-hit-in-visit><actions><log level="info" message="========================== first-hit-in-visit actions"/></actions></first-hit-in-visit>
+            <before-request><actions><log level="info" message="========================== before-request actions"/></actions></before-request>
+            <after-request><actions><log level="info" message="========================== after-request actions"/></actions></after-request>
+            <after-login><actions><log level="info" message="========================== after-login actions"/></actions></after-login>
+            <before-logout><actions><log level="info" message="========================== before-logout actions"/></actions></before-logout>
+            <after-startup><actions><log level="info" message="========================== after-startup actions"/></actions></after-login>
+            <before-shutdown><actions><log level="info" message="========================== before-shutdown actions"/></actions></before-logout>
+            -->
+        </webapp>
+    </webapp-list>
+
+    <artifact-execution-facade>
+        <artifact-execution type="AT_XML_SCREEN" authz-enabled="true" tarpit-enabled="true"/>
+        <artifact-execution type="AT_XML_SCREEN_TRANS" authz-enabled="true" tarpit-enabled="true"/>
+        <artifact-execution type="AT_SERVICE" authz-enabled="true" tarpit-enabled="true"/>
+        <!-- NOTE: entity tarpit disabled by default for performance and tracking overhead reasons -->
+        <artifact-execution type="AT_ENTITY" authz-enabled="true" tarpit-enabled="false"/>
+    </artifact-execution-facade>
+    <user-facade>
+        <password encrypt-hash-type="SHA-256" min-length="6" min-digits="1" min-others="1"
+                  history-limit="5" change-weeks="26" email-require-change="true" email-expire-hours="48"/>
+        <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
+        <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="true"/>
+    </user-facade>
+
+    <transaction-facade use-transaction-cache="true">
+        <!-- Use this one for the internal transaction manager -->
+        <!-- <transaction-internal class="org.moqui.impl.context.TransactionInternalAtomikos"/> -->
+        <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/>
+
+        <!-- if this is not present the default JNDI server will be used -->
+        <!-- <server-jndi context-provider-url="rmi://127.0.0.1:1099"
+                     initial-context-factory="com.sun.jndi.rmi.registry.RegistryContextFactory"
+                     url-pkg-prefixes="java.naming.rmi.security.manager"
+                     security-principal="" security-credentials=""/> -->
+
+        <!-- Use this one for getting the JTA objects from JNDI -->
+        <!-- <transaction-jndi transaction-manager-jndi-name="java:comp/UserTransaction"
+                             user-transaction-jndi-name="java:comp/UserTransaction"/> -->
+        <!-- UserTransaction JNDI name for most servers: java:comp/UserTransaction (most servers: Resin, Orion, OC4J, etc)
+            JBoss (separate objects): "java:comp/UserTransaction" and "java:comp/TransactionManager"
+        -->
+    </transaction-facade>
+
+    <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl">
+        <!-- resource reference class needs to implement the org.moqui.context.ResourceReference interface -->
+        <resource-reference scheme="http" class="org.moqui.impl.context.reference.UrlResourceReference"/>
+        <resource-reference scheme="https" class="org.moqui.impl.context.reference.UrlResourceReference"/>
+        <resource-reference scheme="file" class="org.moqui.impl.context.reference.UrlResourceReference"/>
+        <resource-reference scheme="ftp" class="org.moqui.impl.context.reference.UrlResourceReference"/>
+        <resource-reference scheme="jar" class="org.moqui.impl.context.reference.UrlResourceReference"/>
+        <resource-reference scheme="bundleresource" class="org.moqui.impl.context.reference.UrlResourceReference"/>
+        <resource-reference scheme="wsjar" class="org.moqui.impl.context.reference.UrlResourceReference"/>
+        <resource-reference scheme="classpath" class="org.moqui.impl.context.reference.ClasspathResourceReference"/>
+        <resource-reference scheme="component" class="org.moqui.impl.context.reference.ComponentResourceReference"/>
+        <resource-reference scheme="content" class="org.moqui.impl.context.reference.ContentResourceReference"/>
+        <resource-reference scheme="dbresource" class="org.moqui.impl.context.reference.DbResourceReference"/>
+
+        <!-- renderer class needs to implement the org.moqui.context.TemplateRenderer interface -->
+        <template-renderer extension=".ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
+        <template-renderer extension=".html.ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
+        <template-renderer extension=".gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
+        <template-renderer extension=".html.gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
+
+        <template-renderer extension=".cwiki" class="org.moqui.impl.context.renderer.WikiTemplateRenderer"/>
+        <template-renderer extension=".cwiki.ftl" class="org.moqui.impl.context.renderer.FtlCwikiTemplateRenderer"/>
+        <template-renderer extension=".confluence" class="org.moqui.impl.context.renderer.WikiTemplateRenderer"/>
+        <template-renderer extension=".mediawiki" class="org.moqui.impl.context.renderer.WikiTemplateRenderer"/>
+        <template-renderer extension=".textile" class="org.moqui.impl.context.renderer.WikiTemplateRenderer"/>
+        <template-renderer extension=".tracwiki" class="org.moqui.impl.context.renderer.WikiTemplateRenderer"/>
+        <template-renderer extension=".twiki" class="org.moqui.impl.context.renderer.WikiTemplateRenderer"/>
+
+        <template-renderer extension=".md" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
+        <template-renderer extension=".markdown" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
+        <template-renderer extension=".md.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
+        <template-renderer extension=".markdown.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
+
+        <!-- a renderer for .html isn't necessary because the default is to write the text as-is, however this is useful
+            so that the extension becomes a default extension and doesn't have to be in the URL -->
+        <template-renderer extension=".html" class="org.moqui.impl.context.renderer.NoTemplateRenderer"/>
+
+        <!-- this is just an example, always use the ScriptRunner interface instead of javax.script because javax.script
+            does not support compiling class scripts and running methods within the class, but Groovy does
+        <script-runner extension=".groovy" engine="groovy"/>
+        -->
+        <script-runner extension=".groovy" class="org.moqui.impl.context.runner.GroovyScriptRunner"/>
+        <script-runner extension=".xml" class="org.moqui.impl.context.runner.XmlActionsScriptRunner"/>
+
+        <!-- the javascript engine (Rhino) is built into Java starting with version 6, so we can support it without extra libs -->
+        <script-runner extension=".js" engine="javascript"/>
+    </resource-facade>
+
+    <screen-facade boundary-comments="false" default-autocomplete-rows="20" default-paginate-rows="20">
+        <screen-text-output type="csv" mime-type="text/csv"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.csv.ftl"/>
+        <screen-text-output type="html" mime-type="text/html"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.html.ftl"/>
+        <screen-text-output type="text" mime-type="text/plain"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
+        <screen-text-output type="xml" mime-type="text/xml"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
+        <screen-text-output type="xsl-fo" mime-type="text/xml"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
+    </screen-facade>
+
+    <service-facade>
+        <!-- NOTE: service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
+
+        <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>
+        <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
+
+        <!-- runner-class needs to implement the org.moqui.impl.service.ServiceRunner interface -->
+        <service-type name="inline" runner-class="org.moqui.impl.service.runner.InlineServiceRunner"/>
+        <service-type name="entity-auto" runner-class="org.moqui.impl.service.runner.EntityAutoServiceRunner"/>
+        <service-type name="script" runner-class="org.moqui.impl.service.runner.ScriptServiceRunner"/>
+        <service-type name="java" runner-class="org.moqui.impl.service.runner.JavaServiceRunner"/>
+        <service-type name="remote-xml-rpc" runner-class="org.moqui.impl.service.runner.RemoteXmlrpcServiceRunner"/>
+        <service-type name="remote-json-rpc" runner-class="org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner"/>
+        <service-type name="camel" runner-class="org.moqui.impl.service.runner.CamelServiceRunner"/>
+
+        <!-- These are not needed for running classpath services, but are for service reference (known services) -->
+        <service-file location="classpath://service/org/moqui/EmailServices.xml"/>
+        <service-file location="classpath://service/org/moqui/EntityServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/BasicServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ElFinderServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/EmailServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/EntityServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/EntitySyncServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/PrintServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ScreenServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ServerServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ServiceServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/SystemMessageServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/TenantServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/UserServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
+    </service-facade>
+
+    <entity-facade default-group-name="transactional" distributed-cache-clear-enabled="false"
+                   entity-eca-enabled="true" sequenced-id-prefix=""
+                   crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
+        <!-- note: no crypt-pass attribute by default, must specify in your conf file! -->
+
+        <!-- if this is not present the default JNDI server will be used -->
+        <!-- <server-jndi context-provider-url="rmi://127.0.0.1:1099"
+                     initial-context-factory="com.sun.jndi.rmi.registry.RegistryContextFactory"
+                     url-pkg-prefixes="java.naming.rmi.security.manager"
+                     security-principal="" security-credentials=""/> -->
+
+        <!--
+        The configurations below will use the XADataSource directly to connect, which is required for proper
+        transaction handling with multiple data sources.
+
+        For details about WHY to do it this way see:
+        http://www.atomikos.com/Documentation/NonXaDataSource#Caveats
+
+        For details about properties for different databases see:
+        http://www.atomikos.com/Documentation/ConfiguringTransactionsEssentials
+
+        To use the non-XA variety just specify the normal JDBC parameters (like jdbc-uri, etc) and leave out the
+        xa-properties element. If the xa-properties element is present the normal JDBC parameters will be ignored.
+        -->
+
+        <datasource group-name="transactional" database-conf-name="h2" schema-name=""
+                start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui.runtime}/db/h2">
+            <!-- with this setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT" user="sa" password="sa"/>
+            </inline-jdbc>
+            <!-- <inline-jdbc jdbc-uri="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT"
+                         jdbc-username="sa" jdbc-password="sa" pool-minsize="5" pool-maxsize="50"/> -->
+            <!-- <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/> -->
+        </datasource>
+        <!-- The entity-facade.default-group-name=transactional, so if other entity groups do not have a data source
+            the transactional group's datasource will be used. -->
+
+        <!-- leave these commented to use the MoquiDEFAULT database for all entity groups:
+        <datasource group-name="analytical" database-conf-name="h2" schema-name="">
+            <inline-jdbc pool-minsize="2" pool-maxsize="10">
+                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiAnalyticalDEFAULT" user="sa" password=""/>
+            </inline-jdbc>
+        </datasource>
+        <datasource group-name="nosql" database-conf-name="h2" schema-name="">
+            <inline-jdbc pool-minsize="2" pool-maxsize="10">
+                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiNoSqlDEFAULT" user="sa" password=""/>
+            </inline-jdbc>
+        </datasource>
+        -->
+        <!-- Above the nosql group is in the transactional db by default. To use OrientDB use this instead: -->
+        <!-- NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX -->
+        <!--
+        <datasource group-name="nosql" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory"
+                startup-add-missing="true">
+            <inline-other uri="plocal:${ORIENTDB_HOME}/databases/MoquiNoSql" username="admin" password="admin"/>
+        </datasource>
+        -->
+
+        <!-- The tenantcommon group can also in the same DB, but MUST have a separate definition for multi-tenant to work -->
+        <datasource group-name="tenantcommon" database-conf-name="h2" schema-name="">
+            <inline-jdbc pool-minsize="2" pool-maxsize="10">
+                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT" user="sa" password="sa"/>
+            </inline-jdbc>
+        </datasource>
+
+
+        <!-- ===== some examples of how other databases would be configured ===== -->
+
+        <!-- Derby
+        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties databaseName="${moqui.runtime}/db/derby/MoquiDEFAULT" createDatabase="create"/>
+            </inline-jdbc>
+            <!- - <inline-jdbc jdbc-uri="jdbc:derby:MoquiDEFAULT;create=true"
+                         jdbc-username="moqui" jdbc-password="moqui" pool-minsize="5" pool-maxsize="50"/> - ->
+        </datasource>
+        -->
+        <!-- DB2
+        <datasource group-name="transactional" database-conf-name="db2" schema-name="" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5021" driverType="4"
+                               databaseName="MoquiDEFAULT"/>
+            </inline-jdbc>
+            <!- - <inline-jdbc jdbc-uri="jdbc:db2://localhost:5021/MoquiDEFAULT"
+                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+        </datasource>
+        -->
+        <!-- H2
+        <datasource group-name="transactional" database-conf-name="h2" schema-name="">
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT" user="sa" password=""/>
+            </inline-jdbc>
+            <!- - <inline-jdbc jdbc-uri="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT"
+                         jdbc-username="sa" jdbc-password="" pool-minsize="5" pool-maxsize="50"/> - ->
+        </datasource>
+        -->
+        <!-- MS SQL Server
+        <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433" databaseName="MoquiDEFAULT"/>
+            </inline-jdbc>
+            <!- - <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=MoquiDEFAULT"
+                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+        </datasource>
+        -->
+        <!-- MySQL
+        <datasource group-name="transactional" database-conf-name="mysql" schema-name="">
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties user="moqui" password="moqui" pinGlobalTxToPhysicalConnection="true"
+                        serverName="127.0.0.1" port="3306" databaseName="MoquiDEFAULT" autoReconnectForPools="true"
+                        useUnicode="true" encoding="UTF-8"/>
+            </inline-jdbc>
+            <!- - <inline-jdbc jdbc-uri="jdbc:mysql://127.0.0.1:3306/MoquiDEFAULT?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8"
+                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+        </datasource>
+        -->
+        <!-- Oracle
+        <datasource group-name="transactional" database-conf-name="oracle" schema-name="MOQUI">
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties user="moqui" password="moqui" URL="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT"/>
+            </inline-jdbc>
+            <!- - <inline-jdbc jdbc-uri="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT"
+                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+        </datasource>
+        -->
+        <!-- PostgreSQL
+        <datasource group-name="transactional" database-conf-name="postgres" schema-name="public" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc pool-minsize="5" pool-maxsize="50">
+                <xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5432"
+                               databaseName="MoquiDEFAULT"/>
+            </inline-jdbc>
+            <!- - <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/MoquiDEFAULT"
+                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+        </datasource>
+        -->
+
+        <!-- Refer to these explicitly instead of by directory name convention as is done in components.
+             There is no reliable way to search within directories on the classpath (if in a file or jar is fine, but
+             not in a war/ear file or from special ClassLoaders) -->
+        <!-- in framework/entity -->
+        <load-entity location="classpath://entity/BasicEntities.xml"/>
+        <load-entity location="classpath://entity/EntityEntities.xml"/>
+        <load-entity location="classpath://entity/OlapEntities.xml"/>
+        <load-entity location="classpath://entity/ResourceEntities.xml"/>
+        <load-entity location="classpath://entity/ScreenEntities.xml"/>
+        <load-entity location="classpath://entity/SecurityEntities.xml"/>
+        <load-entity location="classpath://entity/ServerEntities.xml"/>
+        <load-entity location="classpath://entity/ServiceEntities.xml"/>
+        <load-entity location="classpath://entity/TenantEntities.xml"/>
+        <!-- in framework/data -->
+        <load-data location="classpath://data/CommonL10nData.xml"/>
+        <load-data location="classpath://data/CurrencyData.xml"/>
+        <load-data location="classpath://data/EntityTypeData.xml"/>
+        <load-data location="classpath://data/GeoCountryData.xml"/>
+        <load-data location="classpath://data/SecurityTypeData.xml"/>
+        <load-data location="classpath://data/ServiceTypeData.xml"/>
+        <load-data location="classpath://data/TenantDefaultData.xml"/>
+        <load-data location="classpath://data/UnitData.xml"/>
+    </entity-facade>
+    <database-list>
+        <dictionary-type type="id" java-type="java.lang.String" default-sql-type="VARCHAR(40)"/>
+        <dictionary-type type="id-long" java-type="java.lang.String" default-sql-type="VARCHAR(255)"/>
+
+        <dictionary-type type="date" java-type="java.sql.Date" default-sql-type="DATE"/>
+        <dictionary-type type="time" java-type="java.sql.Time" default-sql-type="TIME"/>
+        <dictionary-type type="date-time" java-type="java.sql.Timestamp" default-sql-type="TIMESTAMP"/>
+
+        <dictionary-type type="number-integer" java-type="java.lang.Long" default-sql-type="NUMERIC(20,0)"/>
+        <dictionary-type type="number-decimal" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(26,6)"/>
+        <dictionary-type type="number-float" java-type="java.lang.Double" default-sql-type="DOUBLE"/>
+
+        <dictionary-type type="currency-amount" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(22,2)"/>
+        <dictionary-type type="currency-precise" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(23,3)"/>
+
+        <dictionary-type type="text-indicator" java-type="java.lang.String" default-sql-type="CHAR(1)"/>
+        <dictionary-type type="text-short" java-type="java.lang.String" default-sql-type="VARCHAR(63)"/>
+        <dictionary-type type="text-medium" java-type="java.lang.String" default-sql-type="VARCHAR(255)"/>
+        <!-- text-long was 32000, but changed to 4095 because MySQL max size is 21K or so for a VARCHAR, and 64K for a
+            row (not including text-very-long), and it seems that the limit is bytes, not characters, so 4K characters
+            is 12K bytes... just like the old annoying column size which is now in characters, but the row size still
+            in bytes -->
+        <dictionary-type type="text-long" java-type="java.lang.String" default-sql-type="VARCHAR(4095)"/>
+        <dictionary-type type="text-very-long" java-type="java.lang.String" default-sql-type="CLOB"/>
+
+        <dictionary-type type="binary-very-long" java-type="java.sql.Blob" default-sql-type="BLOB"/>
+
+        <database name="db2" join-style="ansi" offset-style="limit" default-isolation-level="ReadCommitted"
+                  use-schema-for-all="true" use-indexes-unique="false"
+                  default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
+                  default-jdbc-driver="com.ibm.db2.jcc.DB2Driver"
+                  default-xa-ds-class="com.ibm.db2.jcc.DB2XADataSource">
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+
+            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+        </database>
+        <database name="db2i" join-style="ansi" offset-style="cursor" default-isolation-level="ReadCommitted"
+                  use-schema-for-all="true" use-indexes-unique-where-not-null="true"
+                  default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
+                  default-jdbc-driver="com.ibm.as400.access.AS400JDBCDriver"
+                  default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource">
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+
+            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+        </database>
+        <database name="derby"
+                use-pk-constraint-names="false" use-indexes-unique="false" default-isolation-level="ReadCommitted"
+                default-jdbc-driver="org.apache.derby.jdbc.EmbeddedDriver"
+                default-xa-ds-class="org.apache.derby.jdbc.EmbeddedXADataSource">
+            <!-- default-test-query="???" maybe like SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0 -->
+        </database>
+        <database name="h2"
+                use-pk-constraint-names="false" use-indexes-unique="true" default-isolation-level="ReadCommitted"
+                default-jdbc-driver="org.h2.Driver"
+                default-xa-ds-class="org.h2.jdbcx.JdbcDataSource">
+        </database>
+        <database name="hsql" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
+                default-isolation-level="ReadUncommitted" default-jdbc-driver="org.hsqldb.jdbcDriver"
+                default-test-query="SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0">
+            <database-type type="id" sql-type="VARCHAR"/>
+            <database-type type="id-long" sql-type="VARCHAR"/>
+
+            <database-type type="number-integer" sql-type="BIGINT"/>
+            <database-type type="number-decimal" sql-type="DOUBLE"/>
+            <database-type type="number-float" sql-type="DOUBLE"/>
+
+            <database-type type="currency-amount" sql-type="DOUBLE"/>
+            <database-type type="currency-precise" sql-type="DOUBLE"/>
+
+            <database-type type="text-indicator" sql-type="CHAR"/>
+            <database-type type="text-short" sql-type="VARCHAR"/>
+            <database-type type="text-medium" sql-type="VARCHAR"/>
+            <database-type type="text-long" sql-type="VARCHAR"/>
+            <database-type type="text-very-long" sql-type="VARCHAR"/>
+
+            <database-type type="binary-very-long" sql-type="OBJECT" sql-type-alias="OTHER"/>
+        </database>
+        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="cursor"
+                default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver"
+                default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource">
+            <!-- NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior -->
+            <database-type type="id" sql-type="NVARCHAR(40)"/>
+            <database-type type="id-long" sql-type="NVARCHAR(255)"/>
+
+            <database-type type="date" sql-type="DATETIME"/>
+            <database-type type="time" sql-type="DATETIME"/>
+            <database-type type="date-time" sql-type="DATETIME"/>
+
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+
+            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+
+            <database-type type="text-indicator" sql-type="CHAR(1)"/>
+            <database-type type="text-short" sql-type="NVARCHAR(63)"/>
+            <database-type type="text-medium" sql-type="NVARCHAR(255)"/>
+            <database-type type="text-long" sql-type="NVARCHAR(4000)"/>
+            <database-type type="text-very-long" sql-type="TEXT"/>
+
+            <database-type type="binary-very-long" sql-type="IMAGE"/>
+        </database>
+        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
+                table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
+                default-isolation-level="ReadCommitted" default-jdbc-driver="com.mysql.jdbc.Driver"
+                default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
+                default-test-query="SELECT 1">
+            <!-- use DATETIME instead of TIMESTAMP so can be null and gets no default value; issue with newer MySQL versions -->
+            <database-type type="date-time" sql-type="DATETIME(3)"/>
+
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+
+            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+
+            <database-type type="text-very-long" sql-type="LONGTEXT"/>
+
+            <database-type type="binary-very-long" sql-type="LONGBLOB"/>
+        </database>
+        <database name="oracle" join-style="ansi" default-isolation-level="ReadCommitted"
+                  default-test-query="SELECT 1 FROM DUAL" default-jdbc-driver="oracle.jdbc.driver.OracleDriver"
+                  default-xa-ds-class="oracle.jdbc.xa.client.OracleXADataSource">
+            <database-type type="id" sql-type="VARCHAR2(40)"/>
+            <database-type type="id-long" sql-type="VARCHAR2(255)"/>
+
+            <database-type type="number-integer" sql-type="NUMBER(20,0)"/>
+            <database-type type="number-decimal" sql-type="NUMBER(26,6)"/>
+            <database-type type="number-float" sql-type="NUMBER(32,12)"/>
+
+            <database-type type="currency-amount" sql-type="NUMBER(22,2)"/>
+            <database-type type="currency-precise" sql-type="NUMBER(23,3)"/>
+
+            <database-type type="text-short" sql-type="VARCHAR2(10)"/>
+            <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
+            <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
+        </database>
+        <!-- for future reference: <database name="orientdb"
+                use-pk-constraint-names="false" default-isolation-level="ReadCommitted"
+                default-jdbc-driver="com.orientechnologies.orient.jdbc.OrientJdbcDriver"
+                default-xa-ds-class="">
+        </database> -->
+        <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
+                  default-isolation-level="ReadCommitted" default-test-query="SELECT 1"
+                  default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource">
+            <database-type type="number-float" sql-type="FLOAT8"/>
+
+            <database-type type="text-medium" sql-type="TEXT"/>
+            <database-type type="text-long" sql-type="TEXT"/>
+            <database-type type="text-very-long" sql-type="TEXT"/>
+
+            <database-type type="binary-very-long" sql-type="BYTEA"/>
+        </database>
+    </database-list>
+    <repository-list>
+        <!-- No JCR repo by default, but here are some examples: -->
+        <!-- <repository name="main" location="http://localhost:8081/rmi" type="rmi" workspace="default"
+                    username="admin" password="admin"/> -->
+        <!-- <repository name="main" location="http://localhost:8081/server" type="davex" workspace="default"/> -->
+        <!-- <repository name="main" location="java:comp/env/jcr/repository" type="jndi" workspace="default"/> -->
+    </repository-list>
+    <component-list>
+        <component-dir location="base-component"/>
+        <component-dir location="mantle"/>
+        <component-dir location="component-lib"/>
+        <component-dir location="component"/>
+        <!-- Here are some examples of explicitly loading the example component in different ways: -->
+        <!-- <component name="example" location="component/example"/> -->
+        <!-- <component name="example" location="content://main/component/example"/> -->
+    </component-list>
+</moqui-conf>

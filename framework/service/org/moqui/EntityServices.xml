@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+    <service verb="receive" noun="DataFeed" type="interface">
+        <description>Services named in the DataFeed.feedReceiveServiceName field should implement this interface.</description>
+        <in-parameters>
+            <parameter name="dataFeedId" required="true"/>
+            <parameter name="feedStamp" type="Timestamp" required="true"/>
+            <parameter name="documentList" type="List" required="true">
+                <parameter name="document" type="Map">
+                    <parameter name="_id" required="true"><description>The combined PK field values of the primary
+                        entity in the DataDocument. If there is more than one PK field the values are separated with a
+                        double-colon ("::").</description></parameter>
+                    <parameter name="_type" required="true"><description>The DataDocument.dataDocumentId that defines
+                        the document structure, etc.</description></parameter>
+                    <parameter name="_index"><description>From DataDocument.indexName, if specified.</description></parameter>
+                    <parameter name="_timestamp"><description>Document timestamp in the format yyyy-MM-dd'T'HH:mm:ss</description></parameter>
+                </parameter>
+            </parameter>
+        </in-parameters>
+    </service>
+    <service verb="add" noun="ManualDocumentData" type="interface">
+        <description>Services named in the DataDocument.manualDataServiceName field should implement this interface.</description>
+        <in-parameters>
+            <parameter name="dataDocumentId" type="String" required="true"/>
+            <parameter name="document" type="Map"><description>For details see document parameter in receive#DataFeed.</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="document" type="Map"><description>For details see document parameter in receive#DataFeed.</description></parameter>
+        </out-parameters>
+    </service>
+</services>

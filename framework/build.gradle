@@ -1,0 +1,312 @@
+/*
+ * This software is in the public domain under CC0 1.0 Universal plus a
+ * Grant of Patent License.
+ *
+ * To the extent possible under law, the author(s) have dedicated all
+ * copyright and related and neighboring rights to this software to the
+ * public domain worldwide. This software is distributed without any
+ * warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication
+ * along with this software (see the LICENSE.md file). If not, see
+ * <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked"
+}
+
+// Leaving this commented out, REALLY slows things down (about 10x in Java 1.7.0_71 and 1.7.0_75, about 6x in 1.8.0_40, all on Mac)
+// tasks.withType(GroovyCompile) { groovyOptions.optimizationOptions.indy = true }
+
+apply plugin: 'groovy'
+apply plugin: 'war'
+
+// to run use "gradle dependencyUpdates"
+apply plugin: 'com.github.ben-manes.versions'
+buildscript {
+  repositories { jcenter() }
+  dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0' }
+}
+
+sourceCompatibility = '1.7'
+archivesBaseName = 'moqui'
+
+sourceSets {
+    start
+    api
+    execWar
+}
+
+// maybe in the future: repositories { mavenCentral() }
+// NOTE: packages should still match group, name, version found at http://mvnrepository.com
+repositories {
+    flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
+    jcenter()
+}
+
+dependencies {
+    // Groovy for api and compile
+    apiCompile group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.4.5' // Apache 2.0
+    compile group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.4.5' // Apache 2.0
+
+    compile group: 'org.owasp.antisamy', name: 'antisamy', version: '1.5.3' // New BSD
+    // NOTE: this is a moqui-specific build to handle log4j2
+    compile group: 'org.owasp.esapi', name: 'esapi-moqui', version: '2.1.0' // New BSD
+
+    // Atomikos Transaction Manager
+    compile group: 'com.atomikos', name: 'transactions', version: '4.0.0M4' // Apache 2.0
+    compile group: 'com.atomikos', name: 'transactions-jdbc', version: '4.0.0M4' // Apache 2.0
+    compile group: 'com.atomikos', name: 'transactions-jta', version: '4.0.0M4' // Apache 2.0
+    // Bitronix is an alternative to Atomikos
+    compile group: 'org.codehaus.btm', name: 'btm', version: '3.0.0-SNAPSHOT' // Apache 2.0
+
+
+    apiCompile group: 'org.apache.camel', name: 'camel-core', version: '2.16.1' // Apache 2.0
+    compile group: 'org.apache.camel', name: 'camel-core', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-csv', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-freemarker', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-groovy', version: '2.16.1' // Apache 2.0
+    /* Depends on org.apache.geronimo.specs:geronimo-servlet_3.0_spec:1.0, must be required so can't remove and
+        conflicts with the Servlet 2.5 jar which Moqui currently uses, (Winstone relies on this too?)
+    runtime ('org.apache.camel:camel-http-common:2.16.1') { exclude group: 'org.apache.geronimo.specs' } // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-http4', version: '2.16.1' // Apache 2.0
+    */
+    // NOTE: camel-jms uses spring-jms and a bunch of other spring stuff, significant bloat
+    // runtime group: 'org.apache.camel', name: 'camel-jms', version: '2.16.1' // Apache 2.0
+    /* Uncomment these as desired for use in Camel:
+    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-mail', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-mqtt', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-quartz2', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-shiro', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-xmlrpc', version: '2.16.1' // Apache 2.0
+    */
+
+    compile group: 'org.apache.commons', name: 'commons-csv', version: '1.2' // Apache 2.0
+    compile group: 'org.apache.commons', name: 'commons-email', version: '1.4' // Apache 2.0
+    compile group: 'commons-codec', name: 'commons-codec', version: '1.10' // Apache 2.0
+    compile group: 'commons-collections', name: 'commons-collections', version: '3.2.2' // Apache 2.0
+    compile group: 'commons-fileupload', name: 'commons-fileupload', version: '1.3.1' // Apache 2.0
+    compile group: 'commons-io', name: 'commons-io', version: '2.4' // Apache 2.0
+    compile group: 'commons-logging', name: 'commons-logging', version: '1.2' // Apache 2.0
+    compile group: 'commons-validator', name: 'commons-validator', version: '1.5.0' // Apache 2.0
+    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.1' // Apache 2.0
+    compile group: 'org.apache.httpcomponents', name: 'httpcore', version: '4.4.4' // Apache 2.0
+
+    compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
+
+    compile group: 'net.sf.ehcache', name: 'ehcache', version: '2.10.1' // Apache 2.0
+    compile group: 'org.freemarker', name: 'freemarker', version: '2.3.23' // Apache 2.0
+
+    compile group: 'org.apache.geronimo.specs', name: 'geronimo-j2ee-connector_1.5_spec', version: '2.0.0' // Apache 2.0
+    compile group: 'org.apache.geronimo.specs', name: 'geronimo-jms_1.1_spec', version: '1.1.1' // Apache 2.0
+    apiCompile group: 'org.apache.geronimo.specs', name: 'geronimo-jta_1.1_spec', version: '1.1.1' // Apache 2.0
+    compile group: 'org.apache.geronimo.specs', name: 'geronimo-jta_1.1_spec', version: '1.1.1' // Apache 2.0
+    apiCompile group: 'org.apache.geronimo.specs', name: 'geronimo-servlet_2.5_spec', version: '1.2' // Apache 2.0
+    providedCompile group: 'org.apache.geronimo.specs', name: 'geronimo-servlet_2.5_spec', version: '1.2' // Apache 2.0
+
+    compile group: 'com.h2database', name: 'h2', version: '1.4.191' // MPL 2.0, EPL 1.0
+
+    compile group: 'org.apache.jackrabbit', name: 'jackrabbit-api', version: '2.11.3' // Apache 2.0
+    compile group: 'org.apache.jackrabbit', name: 'jackrabbit-jcr-rmi', version: '2.11.3' // Apache 2.0
+    // Uncomment for WebDAV, along with code using Jcr2davRepositoryFactory in ResourceFacadeImpl
+    // compile group: 'org.apache.jackrabbit', name: 'jackrabbit-jcr2dav', version: '2.11.3' // Apache 2.0
+
+    compile group: 'com.sun.mail', name: 'javax.mail', version: '1.5.5' // CDDL
+    compile group: 'javax.jcr', name: 'jcr', version: '2.0' // Apache 2.0???
+    compile group: 'net.java.dev.jna', name: 'jna', version: '4.2.1' // Apache 2.0
+    compile group: 'net.java.dev.jna', name: 'jna-platform', version: '4.2.1' // Apache 2.0
+    compile group: 'jaxb', name: 'jsr173_api', version: '1.0' // ???
+    compile group: 'org.liquibase', name: 'liquibase-core', version: '3.4.2' // Apache 2.0
+
+    compile group: 'org.commonjava.googlecode.markdown4j', name: 'markdown4j', version: '2.2-cj-1.0' // BSD
+    compile name: 'org.eclipse.mylyn.wikitext.core_1.8.0.I20121130-0624', version: '' // EPL
+    compile name: 'org.eclipse.mylyn.wikitext.confluence.core_1.8.0.I20121130-0624', version: '' // EPL
+    compile name: 'org.eclipse.mylyn.wikitext.mediawiki.core_1.8.0.I20121130-0624', version: '' // EPL
+    compile name: 'org.eclipse.mylyn.wikitext.textile.core_1.8.0.I20121130-0624', version: '' // EPL
+    compile name: 'org.eclipse.mylyn.wikitext.tracwiki.core_1.8.0.I20121130-0624', version: '' // EPL
+    compile name: 'org.eclipse.mylyn.wikitext.twiki.core_1.8.0.I20121130-0624', version: '' // EPL
+
+    // OrientDB
+    compile group: 'com.orientechnologies', name: 'orientdb-client', version: '2.1.4' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-core', version: '2.1.4' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-enterprise', version: '2.1.4' // Apache 2.0
+    compile('com.orientechnologies:orientdb-graphdb:2.1.4') { // Apache 2.0
+        exclude group: 'com.tinkerpop.gremlin'
+        exclude group: 'com.orientechnologies'
+        exclude group: 'com.fasterxml.jackson.core'
+    }
+    compile group: 'com.orientechnologies', name: 'orientdb-server', version: '2.1.4' // Apache 2.0
+    compile('com.tinkerpop.gremlin:gremlin-java:2.6.0') // BSD
+    compile('com.tinkerpop.gremlin:gremlin-groovy:2.6.0') {
+        exclude group: 'org.codehaus.groovy'
+        exclude group: 'org.apache.ant'
+        exclude group: 'org.apache.ivy'
+        exclude group: 'org.fusesource.jansi'
+        exclude group: 'jline'
+    } // BSD
+    // NOTE: explicit dependency to get latest version, older versions cause serious runtime errors
+    compile group: 'org.javassist', name: 'javassist', version: '3.20.0-GA' // Apache 2.0
+    // runtime group: 'com.orientechnologies', name: 'orientdb-jdbc', version: '2.1.4' // Apache 2.0
+
+    // Quartz Scheduler (NOTE: depends on c3p0 (with a different group) and slf4j, but we include those elsewhere, so use module)
+    apiCompile module('org.quartz-scheduler:quartz:2.2.2') // Apache 2.0
+    compile module('org.quartz-scheduler:quartz:2.2.2') // Apache 2.0
+    compile group: 'org.quartz-scheduler', name: 'quartz-jobs', version: '2.2.2' // Apache 2.0
+
+    compile group: 'org.yaml', name: 'snakeyaml', version: '1.16' // Apache 2.0
+
+    compile group: 'org.apache.xmlrpc', name: 'xmlrpc-client', version: '3.1.3' // Apache 2.0
+    compile group: 'org.apache.xmlrpc', name: 'xmlrpc-server', version: '3.1.3' // Apache 2.0
+
+    compile group: 'org.apache.shiro', name: 'shiro-core', version: '1.2.4' // Apache 2.0
+    compile group: 'org.apache.shiro', name: 'shiro-web', version: '1.2.4' // Apache 2.0
+
+    apiCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.13'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.13'
+    runtime group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.5'
+    runtime group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.5'
+    runtime group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.5'
+    // runtime group: 'org.apache.logging.log4j', name: 'log4j-1.2-api', version: '2.5'
+
+    apiCompile module('org.intelligents-ia.winstone:winstone:1.7.0') // CDDL
+    // winstone is in providedCompile so that it won't be included in the war file WEB-INF/lib
+    providedCompile('org.intelligents-ia.winstone:winstone:1.7.0') // CDDL
+
+    compile('org.apache.xmlgraphics:fop:2.1') { // Apache 2.0
+        exclude group: 'xalan'
+    }
+    // barcode4j as a module to avoid required dependency on ant
+    compile module('net.sf.barcode4j:barcode4j:2.1')
+    compile module('net.sf.barcode4j:barcode4j-fop-ext:2.1')
+
+    // ElasticSearch Libraries, including Lucene
+    apiCompile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.1.1' // Apache 2.0
+    compile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.1.1' // Apache 2.0
+    // NOTE: jts explicit dependency because doesn't get picked up in elasticsearch but without has runtime error
+    runtime group: 'com.vividsolutions', name: 'jts', version: '1.13' // LGPL (runtime only, needed by spatial4j)
+    // NOTE: elasticsearch-groovy 2.0.0 seems to not work with ES 2.1.1
+    // compile group: 'org.elasticsearch', name: 'elasticsearch-groovy', version: '2.0.0' // Apache 2.0
+
+    // Rules Libraries: Drools/jBPM/etc
+    apiCompile('org.kie:kie-api:6.3.0.Final') // Apache 2.0
+    compile('org.kie:kie-api:6.3.0.Final') // Apache 2.0
+    compile('org.drools:drools-core:6.3.0.Final') // Apache 2.0
+    compile('org.drools:drools-compiler:6.3.0.Final') // Apache 2.0
+    compile('org.drools:drools-decisiontables:6.3.0.Final') // Apache 2.0
+    compile('org.drools:drools-jsr94:6.3.0.Final') // Apache 2.0
+    compile group: 'jsr94', name: 'jsr94', version: '1.1' // ???
+    // NOTE: janino in place for issues with ecj
+    runtime group: 'org.codehaus.janino', name: 'janino', version: '2.7.8' // New BSD
+    runtime group: 'org.codehaus.janino', name: 'commons-compiler', version: '2.7.8' // New BSD
+    // NOTE: poi-ooxml-schemas is a required dependency for drools-decisiontables,  but it's a huge file and runs fine without it
+    providedCompile ('org.apache.poi:poi-ooxml-schemas:3.13') // Apache 2.0
+
+    // ========== runtime-only dependencies ==========
+
+    // Uncomment this to add Derby
+    // runtime group: 'org.apache.derby', name: 'derby', version: '10.12.1.1' // Apache 2.0
+
+    runtime group: 'oro', name: 'oro', version: '2.0.8' // Apache 2.0
+
+    // shiro-ehcache is good for caching auth in distributed environments, but has some quirks so not enabled by default (see shiro.ini)
+    // runtime name: 'shiro-ehcache', version: '1.2.4' // Apache 2.0
+    // runtime name: 'shiro-quartz', version: '1.2.4' // Apache 2.0
+
+    // ========== test dependencies ==========
+    testCompile group: 'org.spockframework', name: 'spock-core', version: '1.0-groovy-2.4' // Apache 2.0
+    testCompile group: 'junit', name: 'junit', version: '4.12' // Apache 2.0
+    testCompile group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3' // BSD 3-Clause
+
+    // ========== executable war dependencies ==========
+    execWarCompile ('org.intelligents-ia.winstone:winstone:1.7.0') { // CDDL
+        exclude group: 'org.slf4j'
+        exclude group: 'javax.servlet'
+        // NOTE: winstone jndi is a dependency so included automatically
+    }
+    execWarCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.13'
+    execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.5'
+    execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.5'
+    execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.5'
+    execWarCompile group: 'org.apache.geronimo.specs', name: 'geronimo-servlet_2.5_spec', version: '1.2' // Apache 2.0
+}
+
+task apiJavadoc(type: Javadoc) {
+    source sourceSets.api.allJava
+    classpath = sourceSets.main.compileClasspath
+    destinationDir = file(docsDir.absolutePath + '/apiJavadoc')
+}
+
+// setup task dependencies to make sure the start and api sourceSets always get run
+compileJava.dependsOn startClasses
+compileJava.dependsOn apiClasses
+// add the classes directory for the api SourceSet to the main compile classpath so that dependent classes are available
+sourceSets.main.compileClasspath += files(sourceSets.api.output.classesDir)
+
+compileTestGroovy.dependsOn apiClasses
+compileTestGroovy.dependsOn classes
+sourceSets.test.compileClasspath += files(sourceSets.api.output.classesDir)
+sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDir)
+
+// by default the Java plugin runs test on build, change to not do that (only run test if explicit task)
+check.dependsOn.remove(test)
+
+test {
+    systemProperty 'moqui.runtime', '../runtime'
+    systemProperty 'moqui.conf', 'conf/MoquiDevTestConf.xml'
+    systemProperty 'moqui.init.static', 'true'
+    maxHeapSize = "512M"
+    jvmArgs '-XX:MaxPermSize=192m'
+
+    testLogging.showStandardStreams = true
+
+    classpath += files(sourceSets.api.output.classesDir)
+    classpath += files(sourceSets.main.output.classesDir)
+    classpath += files(projectDir.absolutePath)
+    //classpath += fileTree(dir: projectDir.absolutePath,
+    //        includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**', 'xsd/**'])
+
+    beforeTest { descriptor ->
+        logger.lifecycle("Running test: ${descriptor}")
+    }
+}
+
+jar {
+    // this is necessary otherwise jar won't build when war plugin is applied
+    enabled = true
+    appendix = 'framework'
+    manifest { attributes 'Implementation-Title': 'Moqui Framework', 'Implementation-Version': version }
+    from sourceSets.api.output
+    from sourceSets.main.output
+    // get all of the "resources" that are in component-standard directories instead of src/main/resources
+    from fileTree(dir: projectDir.absolutePath,
+            includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**', 'xsd/**'])
+}
+
+war {
+    dependsOn jar
+    // put the war file in the parent directory, ie the moqui dir instead of the framework dir
+    destinationDir = file(projectDir.absolutePath + '/..')
+    // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
+    from(fileTree(dir: projectDir.absolutePath + '/..', includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+    // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
+    classpath = configurations.runtime - configurations.providedCompile
+    classpath file(jar.archivePath)
+
+    // put start classes and winstone in the root of the war file for the executable war/jar mode of operation
+    from sourceSets.start.output
+    from configurations.execWarCompile
+    from file(projectDir.absolutePath + '/src/main/resources/log4j2.xml')
+    // setup the manifest for the executable war/jar mode
+    manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Framework',
+            'Implementation-Version': version, 'Main-Class': 'MoquiStart' }
+}
+
+task copyDependencies << {
+    delete file(projectDir.absolutePath + '/dependencies')
+    copy { from configurations.apiCompile; into file(projectDir.absolutePath + '/dependencies') }
+    copy { from configurations.compile; into file(projectDir.absolutePath + '/dependencies') }
+    copy { from configurations.testCompile; into file(projectDir.absolutePath + '/dependencies') }
+}

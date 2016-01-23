@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+  -->
+<entity-facade-xml type="seed">
+    <!-- For currency code reference see:
+        http://www.iso.org/iso/support/faqs/faqs_widely_used_standards/widely_used_standards_other/currency_codes/currency_codes_list-1.htm -->
+    <moqui.basic.Uom abbreviation="BTC" description="Bitcoin" uomId="BTC" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CRC" description="Costa Rica Colon" uomId="CRC" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="COP" description="Colombian Peso" uomId="COP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CNY" description="Chinese Yuan Renminbi" uomId="CNY" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CLP" description="Chilean Peso" uomId="CLP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CHF" description="Swiss Franc" uomId="CHF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CDP" description="Santo Domiongo" uomId="CDP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CAD" description="Canadian Dollar" uomId="CAD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BZD" description="Belize Dollar" uomId="BZD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BYR" description="Belorussian Ruble" uomId="BYR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BWP" description="Botswana Pula" uomId="BWP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BSD" description="Bahaman Dollar" uomId="BSD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BRR" description="Brazil" uomId="BRR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BRL" description="Brazilian Real" uomId="BRL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BOB" description="Bolivian Boliviano" uomId="BOB" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BND" description="Brunei Dollar" uomId="BND" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BMD" description="Bermudan Dollar" uomId="BMD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BIF" description="Burundi Franc" uomId="BIF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BHD" description="Bahrain Dinar" uomId="BHD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BGN" description="Bulgarian Lev" uomId="BGN" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BDT" description="Bangladesh Taka" uomId="BDT" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BBD" description="Barbados Dollar" uomId="BBD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="BAD" description="Bosnia-Herzogovinian Dinar" uomId="BAD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="AZM" description="Azerbaijan Manat" uomId="AZM" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="AWG" description="Aruban Guilder" uomId="AWG" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="AUD" description="Australian Dollar" uomId="AUD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ARS" description="Argentina Peso" uomId="ARS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ARA" description="Argentinian Austral" uomId="ARA" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="AOK" description="Angolan Kwanza" uomId="AOK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ANG" description="West Indian Guilder" uomId="ANG" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="AMD" description="Armenian Dram" uomId="AMD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ALL" description="Albanian Lek" uomId="ALL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="AFA" description="Afghani" uomId="AFA" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="AED" description="United Arab Emirates Dirham" uomId="AED" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ADP" description="Andoran peseta" uomId="ADP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CUP" description="Cuban Peso" uomId="CUP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CVE" description="Cape Verde Escudo" uomId="CVE" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CYP" description="Cyprus Pound" uomId="CYP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CZK" description="Czech Krona" uomId="CZK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="DJF" description="Djibouti Franc" uomId="DJF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="DKK" description="Danish Krone" uomId="DKK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="DOP" description="Dominican Peso" uomId="DOP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="DRP" description="Dominican Republic Peso" uomId="DRP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="DZD" description="Algerian Dinar" uomId="DZD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ECS" description="Ecuador Sucre" uomId="ECS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="EEK" description="Estonian Krone" uomId="EEK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="EGP" description="Egyptian Pound" uomId="EGP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ETB" description="Ethiopian Birr" uomId="ETB" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="EUR" description="Euro" uomId="EUR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="FJD" description="Fiji Dollar" uomId="FJD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="FKP" description="Falkland Pound" uomId="FKP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GBP" description="British Pound" uomId="GBP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GEK" description="Georgian Kupon" uomId="GEK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GHC" description="Ghanian Cedi" uomId="GHC" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GIP" description="Gibraltar Pound" uomId="GIP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GMD" description="Gambian Dalasi" uomId="GMD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GNF" description="Guinea Franc" uomId="GNF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GTQ" description="Guatemalan Quedzal" uomId="GTQ" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GWP" description="Guinea Peso" uomId="GWP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GYD" description="Guyanese Dollar" uomId="GYD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="HKD" description="Hong Kong Dollar" uomId="HKD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="HNL" description="Honduran Lempira" uomId="HNL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="HRD" description="Croatian Dinar" uomId="HRD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="HTG" description="Haitian Gourde" uomId="HTG" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="HUF" description="Hungarian forint" uomId="HUF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="IDR" description="Indonesian Rupiah" uomId="IDR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ILS" description="Israeli Scheckel" uomId="ILS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="INR" description="Indian Rupee" uomId="INR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="IQD" description="Iraqui Dinar" uomId="IQD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="IRR" description="Iranian Rial" uomId="IRR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ISK" description="Iceland Krona" uomId="ISK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="JMD" description="Jamaican Dollar" uomId="JMD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="JOD" description="Jordanian Dinar" uomId="JOD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="JPY" description="Japanese Yen" uomId="JPY" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KES" description="Kenyan Shilling" uomId="KES" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KHR" description="Cambodian Riel" uomId="KHR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KIS" description="Kirghizstan Som" uomId="KIS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KMF" description="Comoros Franc" uomId="KMF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KPW" description="North Korean Won" uomId="KPW" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KRW" description="South Korean Won" uomId="KRW" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KWD" description="Kuwaiti Dinar" uomId="KWD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KYD" description="Cayman Dollar" uomId="KYD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="KZT" description="Kazakhstani Tenge" uomId="KZT" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LAK" description="Laotian Kip" uomId="LAK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LBP" description="Lebanese Pound" uomId="LBP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LKR" description="Sri Lankan Rupee" uomId="LKR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LRD" description="Liberian Dollar" uomId="LRD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LSL" description="Lesotho Loti" uomId="LSL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LTL" description="Lithuanian Lita" uomId="LTL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LVL" description="Latvian Lat" uomId="LVL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="LYD" description="Libyan Dinar" uomId="LYD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MAD" description="Moroccan Dirham" uomId="MAD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MDL" description="Moldavian Lei" uomId="MDL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MGF" description="Madagascan Franc" uomId="MGF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MNT" description="Mongolian Tugrik" uomId="MNT" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MOP" description="Macao Pataca" uomId="MOP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MRO" description="Mauritanian Ouguiya" uomId="MRO" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MTL" description="Maltese Lira" uomId="MTL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MUR" description="Mauritius Rupee" uomId="MUR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MVR" description="Maldive Rufiyaa" uomId="MVR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MWK" description="Malawi Kwacha" uomId="MWK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MXN" description="Mexican Peso (new)" uomId="MXN" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MXP" description="Mexican Peso (old)" uomId="MXP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MYR" description="Malaysian Ringgit" uomId="MYR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MZM" description="Mozambique Metical" uomId="MZM" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="NGN" description="Nigerian Naira" uomId="NGN" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="NIC" description="Nicaragua" uomId="NIC" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="NIO" description="Nicaraguan Cordoba" uomId="NIO" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="NIS" description="New Israeli Shekel" uomId="NIS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="NOK" description="Norwegian Krone" uomId="NOK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="NPR" description="Nepalese Rupee" uomId="NPR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="NZD" description="New Zealand Dollar" uomId="NZD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="OMR" description="Omani Rial" uomId="OMR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PAB" description="Panamanian Balboa" uomId="PAB" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PEI" description="Peruvian Inti" uomId="PEI" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PEN" description="Peruvian Sol - New" uomId="PEN" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PES" description="Peruvian Sol" uomId="PES" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PGK" description="Papua New Guinea Kina" uomId="PGK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PHP" description="Philippino Peso" uomId="PHP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PKR" description="Pakistan Rupee" uomId="PKR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PLN" description="Polish Zloty" uomId="PLN" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PLZ" description="Poland" uomId="PLZ" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PYG" description="Paraguayan Guarani" uomId="PYG" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="QAR" description="Qatar Riyal" uomId="QAR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ROL" description="Romanian Leu" uomId="ROL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="RUR" description="Russian Rouble" uomId="RUR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="RWF" description="Rwanda Franc" uomId="RWF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SAR" description="Saudi Riyal" uomId="SAR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SBD" description="Solomon Islands Dollar" uomId="SBD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SCR" description="Seychelles Rupee" uomId="SCR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SDP" description="Sudanese Pound" uomId="SDP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SEK" description="Swedish Krona" uomId="SEK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SGD" description="Singapore Dollar" uomId="SGD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SHP" description="St.Helena Pound" uomId="SHP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SLL" description="Leone" uomId="SLL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SOL" description="Peru" uomId="SOL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SOS" description="Somalian Shilling" uomId="SOS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SRG" description="Surinam Guilder" uomId="SRG" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="STD" description="Sao Tome / Principe Dobra" uomId="STD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SUR" description="Russian Ruble (old)" uomId="SUR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SVC" description="El Salvador Colon" uomId="SVC" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SYP" description="Syrian Pound" uomId="SYP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="SZL" description="Swaziland Lilangeni" uomId="SZL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="THB" description="Thailand Baht" uomId="THB" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TJR" description="Tadzhikistani Ruble" uomId="TJR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TMM" description="Turkmenistani Manat" uomId="TMM" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TND" description="Tunisian Dinar" uomId="TND" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TOP" description="Tongan Pa&apos;anga" uomId="TOP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TPE" description="Timor Escudo" uomId="TPE" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TRY" description="Turkish Lira" uomId="TRY" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TTD" description="Trinidad and Tobago Dollar" uomId="TTD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TWD" description="New Taiwan Dollar" uomId="TWD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TZS" description="Tanzanian Shilling" uomId="TZS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="UAH" description="Ukrainian Hryvnia" uomId="UAH" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="UGS" description="Ugandan Shilling" uomId="UGS" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="USD" description="United States Dollar" uomId="USD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="UYP" description="Uruguayan New Peso" uomId="UYP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="UYU" description="Uruguay" uomId="UYU" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="VEB" description="Venezuelan Bolivar" uomId="VEB" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="VND" description="Vietnamese Dong" uomId="VND" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="VUV" description="Vanuatu Vatu" uomId="VUV" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="WST" description="Samoan Tala" uomId="WST" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="XAF" description="Gabon C.f.A Franc" uomId="XAF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="XCD" description="East Carribean Dollar" uomId="XCD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="XOF" description="Benin C.f.A. Franc" uomId="XOF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="YER" description="Yemeni Ryal" uomId="YER" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ZAR" description="South African Rand" uomId="ZAR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ZMK" description="Zambian Kwacha" uomId="ZMK" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ZRZ" description="Zaire" uomId="ZRZ" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ZWD" description="Zimbabwean Dollar" uomId="ZWD" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+</entity-facade-xml>

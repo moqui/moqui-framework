@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="xml-actions-1.6.xsd"/>
+
+    <xs:element name="emecas">
+        <xs:complexType><xs:sequence><xs:element maxOccurs="unbounded" ref="emeca"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="emeca">
+        <xs:annotation>
+            <xs:documentation>
+                Whenever an email message is received the actions will be run if the condition is met.
+
+                The context for the condition and actions will include a "headers" Map with all of the
+                email headers in it (either String, or List of String if there are more than one of the header), a
+                "fields" Map with the following: toList, ccList, bccList, from, subject, sentDate, and receivedDate,
+                a "flags Map, and a bodyPartList which is a List of Map with info for each body part.
+
+                For a full description of the structure see the org.moqui.EmailServices.process#EmailEca service
+                interface. If a single service is used to process the email it should implement this interface.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="condition"/>
+                <xs:element ref="actions"/>
+            </xs:sequence>
+            <xs:attribute name="rule-name" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

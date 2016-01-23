@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed">
+    <moqui.basic.LocalizedMessage original="Add" locale="es" localized="Añadir"/>
+    <moqui.basic.LocalizedMessage original="Add" locale="fr" localized="Ajouter"/>
+    <moqui.basic.LocalizedMessage original="Add" locale="it" localized="Aggiungi"/>
+    <moqui.basic.LocalizedMessage original="Add" locale="zh" localized="新建"/>
+
+    <moqui.basic.LocalizedMessage original="Create" locale="es" localized="Crear"/>
+    <moqui.basic.LocalizedMessage original="Create" locale="fr" localized="Créer"/>
+    <moqui.basic.LocalizedMessage original="Create" locale="it" localized="Creare"/>
+    <moqui.basic.LocalizedMessage original="Create" locale="zh" localized="新建"/>
+
+    <moqui.basic.LocalizedMessage original="Delete" locale="es" localized="Eliminar"/>
+    <moqui.basic.LocalizedMessage original="Delete" locale="fr" localized="Supprimer"/>
+    <moqui.basic.LocalizedMessage original="Delete" locale="it" localized="Cancella"/>
+    <moqui.basic.LocalizedMessage original="Delete" locale="zh" localized="删除"/>
+
+    <moqui.basic.LocalizedMessage original="Description" locale="es" localized="Descripción"/>
+    <moqui.basic.LocalizedMessage original="Description" locale="fr" localized="Description"/>
+    <moqui.basic.LocalizedMessage original="Description" locale="it" localized="Descrizione"/>
+    <moqui.basic.LocalizedMessage original="Description" locale="zh" localized="描述"/>
+
+    <moqui.basic.LocalizedMessage original="Find" locale="es" localized="Buscar"/>
+    <moqui.basic.LocalizedMessage original="Find" locale="fr" localized="Rechercher"/>
+    <moqui.basic.LocalizedMessage original="Find" locale="it" localized="Ricerca"/>
+    <moqui.basic.LocalizedMessage original="Find" locale="zh" localized="查找"/>
+
+    <moqui.basic.LocalizedMessage original="Name" locale="es" localized="Nombre"/>
+    <moqui.basic.LocalizedMessage original="Name" locale="fr" localized="Nom"/>
+    <moqui.basic.LocalizedMessage original="Name" locale="it" localized="Nome"/>
+    <moqui.basic.LocalizedMessage original="Name" locale="zh" localized="名称"/>
+
+    <moqui.basic.LocalizedMessage original="Status" locale="es" localized="Estado"/>
+    <moqui.basic.LocalizedMessage original="Status" locale="fr" localized="Statut"/>
+    <moqui.basic.LocalizedMessage original="Status" locale="it" localized="Stato"/>
+    <moqui.basic.LocalizedMessage original="Status" locale="zh" localized="状态"/>
+
+    <moqui.basic.LocalizedMessage original="Type" locale="es" localized="Tipo"/>
+    <moqui.basic.LocalizedMessage original="Type" locale="fr" localized="Type"/>
+    <moqui.basic.LocalizedMessage original="Type" locale="it" localized="Tipo"/>
+    <moqui.basic.LocalizedMessage original="Type" locale="zh" localized="类型"/>
+
+    <moqui.basic.LocalizedMessage original="Update" locale="es" localized="Actualizar"/>
+    <moqui.basic.LocalizedMessage original="Update" locale="fr" localized="Màj"/>
+    <moqui.basic.LocalizedMessage original="Update" locale="it" localized="Aggiorna"/>
+    <moqui.basic.LocalizedMessage original="Update" locale="zh" localized="更新"/>
+
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_CITY" locale="es" localized="Ciudad"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_CITY" locale="fr" localized="Ville"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_CITY" locale="it" localized="Città"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_CITY" locale="zh" localized="市"/>
+
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_STATE" locale="es" localized="Estado"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_STATE" locale="fr" localized="Etat"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_STATE" locale="it" localized="Stato"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_STATE" locale="zh" localized="州"/>
+
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_COUNTRY" locale="es" localized="País"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_COUNTRY" locale="fr" localized="Pays"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_COUNTRY" locale="it" localized="Paese"/>
+    <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_COUNTRY" locale="zh" localized="国家"/>
+
+    <!-- Message templates for formatting common sets of entity fields (generally for a view-entity) -->
+    <moqui.basic.LocalizedMessage locale="default" original="StatusTransitionNameTemplate"
+                                  localized="${transitionName} (${description})"/>
+    <moqui.basic.LocalizedMessage locale="default" original="UomNameTemplate"
+                                  localized="${description?:''} (${abbreviation?:uomId})"/>
+    <moqui.basic.LocalizedMessage locale="default" original="UserGroupNameTemplate"
+                                  localized="${description} [${userGroupId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="UsernameTemplate"
+                                  localized="${userFullName ?: (lastName ? (firstName ? firstName + ' ' : '') + lastName : '')} [${username?:userId?:''}]"/>
+</entity-facade-xml>

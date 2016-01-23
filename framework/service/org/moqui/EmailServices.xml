@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+
+    <service verb="send" noun="EmailTemplate" type="interface">
+        <description>Send Email with settings in EmailTemplate entity record</description>
+        <in-parameters>
+            <parameter name="emailTemplateId" required="true"/>
+            <parameter name="toAddresses" type="String" required="true">
+                <description>Comma separated list of to email addresses</description></parameter>
+            <parameter name="ccAddresses" type="String"><description>Comma separated list of CC email addresses</description></parameter>
+            <parameter name="bccAddresses" type="String"><description>Comma separated list of BCC email addresses</description></parameter>
+            <parameter name="bodyParameters" type="Map"/>
+            <parameter name="createEmailMessage" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="messageId"><description>From the Message-ID email header field.</description></parameter>
+            <parameter name="emailMessageId"><description>If createEmailMessage=true the ID of the EmailMessage record.</description></parameter>
+        </out-parameters>
+    </service>
+    
+    <service verb="process" noun="EmailEca" type="interface">
+        <description>Defines input parameters matching what is available when an Email ECA rule is called.</description>
+        <in-parameters>
+            <parameter name="emailServerId"/>
+            <parameter name="message" type="javax.mail.internet.MimeMessage"/>
+            <parameter name="fields" type="Map">
+                <parameter name="toList" type="List" allow-html="any"/>
+                <parameter name="ccList" type="List" allow-html="any"/>
+                <parameter name="bccList" type="List" allow-html="any"/>
+                <parameter name="from" allow-html="any"/>
+                <parameter name="subject"/>
+                <parameter name="sentDate" type="Timestamp"/>
+                <parameter name="receivedDate" type="Timestamp"/>
+            </parameter>
+            <parameter name="bodyPartList" type="List">
+                <description>List of Map for each body part. If the message is not multi-part will have a single entry.</description>
+                <parameter name="bodyPartMap" type="Map">
+                    <parameter name="contentType"/>
+                    <parameter name="filename"/>
+                    <parameter name="disposition"/>
+                    <parameter name="contentText" allow-html="any"/>
+                    <parameter name="contentBytes" type="byte[]"/>
+                </parameter>
+            </parameter>
+            <parameter name="headers" type="Map" allow-html="any"><description>All header names (keys) are converted to
+                lower case for consistency. If multiple values for a header name are found they will be put in a List.</description></parameter>
+            <parameter name="flags" type="Map">
+                <parameter name="answered" type="Boolean"/>
+                <parameter name="deleted" type="Boolean"/>
+                <parameter name="draft" type="Boolean"/>
+                <parameter name="flagged" type="Boolean"/>
+                <parameter name="recent" type="Boolean"/>
+                <parameter name="seen" type="Boolean"/>
+            </parameter>
+        </in-parameters>
+    </service>
+</services>

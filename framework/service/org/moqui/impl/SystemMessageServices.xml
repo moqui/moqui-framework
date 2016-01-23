@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+
+    <!-- =========== Interfaces =========== -->
+
+    <service verb="receive" noun="SystemMessage" type="interface">
+        <in-parameters>
+            <parameter name="systemMessageTypeId" required="true"/>
+            <parameter name="messageText" required="true"/>
+            <parameter name="remoteMessageId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="systemMessageIdList" type="List"><parameter name="systemMessageId"/></parameter>
+        </out-parameters>
+    </service>
+    <service verb="consume" noun="SystemMessage" type="interface">
+        <in-parameters><parameter name="systemMessageId" required="true"/></in-parameters>
+        <out-parameters><parameter name="noStatusUpdate" type="Boolean"/></out-parameters>
+    </service>
+    <service verb="produce" noun="AckSystemMessage" type="interface">
+        <in-parameters>
+            <parameter name="systemMessageId" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>If not specified comes from SystemMessage.systemMessageRemoteId</description></parameter>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+    </service>
+    <service verb="send" noun="SystemMessage" type="interface">
+        <in-parameters><parameter name="systemMessageId" required="true"/></in-parameters>
+        <out-parameters><parameter name="remoteMessageId"/></out-parameters>
+    </service>
+
+    <!-- =========== Send Services =========== -->
+
+    <service verb="queue" noun="SystemMessage">
+        <description>Queue an outgoing message. Creates a SystemMessage record for the outgoing message in the
+            Produced status. If sendNow=true (default) will attempt to send it immediately (though asynchronously),
+            otherwise the message will be picked up the next time the send#ProducedSystemMessages service runs.</description>
+        <in-parameters>
+            <parameter name="systemMessageId"><description>Sequenced if null, may be passed in (sequenced value
+                determined in advance) because sometimes this is needed as a reference ID inside a message.</description></parameter>
+
+            <auto-parameters entity-name="moqui.service.message.SystemMessage" include="nonpk"/>
+
+            <parameter name="systemMessageTypeId" required="true"/>
+            <parameter name="messageText" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>Required if the send service
+                (SystemMessageType.sendServiceName) requires it. The send#SystemMessageJsonRpc service does require it.</description></parameter>
+            <parameter name="statusId" default-value="SmsgProduced"/>
+            <parameter name="isOutgoing" default-value="Y"/>
+            <parameter name="initDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+
+            <parameter name="sendNow" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <service-call name="create#moqui.service.message.SystemMessage" in-map="context" out-map="context" transaction="force-new"/>
+
+            <if condition="sendNow">
+                <service-call name="org.moqui.impl.SystemMessageServices.send#ProducedSystemMessage"
+                        in-map="[systemMessageId:systemMessageId]" async="true"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="queue" noun="AckSystemMessage">
+        <description>Call the service to produce an async acknowledgement message (SystemMessageType.produceAckServiceName).
+            If sendNow=true (default) will attempt to send it immediately (though asynchronously),
+            otherwise the message will be picked up the next time the send#ProducedSystemMessages service runs.</description>
+        <implements service="org.moqui.impl.SystemMessageServices.produce#AckSystemMessage"/>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="origMessage"/>
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="origMessage.systemMessageRemoteId"/></if>
+
+            <if condition="origMessage.ackMessageId">
+                <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="ackMessage">
+                    <field-map field-name="systemMessageId" from="origMessage.ackMessageId"/></entity-find-one>
+                <if condition="ackMessage.statusId != 'SmsgCancelled'">
+                    <return error="true" message="Ack message already sent [${origMessage.ackMessageId}] for SystemMessage [${systemMessageId}]"/></if>
+            </if>
+            <if condition="!(origMessage.statusId in ['SmsgConsuming', 'SmsgConsumed', 'SmsgRejected', 'SmsgError'])">
+                <return error="true" message="Cannot send ack for SystemMessage [${systemMessageId}], in status [${origMessage.statusId}] and must be in Consuming, Consumed, Rejected, or Error"/></if>
+
+            <set field="systemMessageType" from="origMessage.'moqui.service.message.SystemMessageType'"/>
+            <set field="produceAckServiceName" from="systemMessageType.produceAckServiceName"/>
+
+            <if condition="!produceAckServiceName">
+                <return error="true" message="While queueing ack message for system message [${systemMessageId}], type [${systemMessageType.systemMessageTypeId}] has no produceAckServiceName, not queueing."/></if>
+
+            <service-call name="${produceAckServiceName}" out-map="produceOut"
+                    in-map="[systemMessageId:systemMessageId, systemMessageRemoteId:systemMessageRemoteId]"/>
+            <set field="systemMessageId" from="produceOut.systemMessageId"/>
+
+            <if condition="sendNow">
+                <service-call name="org.moqui.impl.SystemMessageServices.send#ProducedSystemMessage" async="true"
+                        in-map="[systemMessageId:systemMessageId]"/>
+            </if>
+        </actions>
+    </service>
+
+
+    <!-- TODO: this service called async by an anonymous-all scheduled job so needs anonymous-all here too, but should
+        find a way to restrict it when not called through the scheduled service so no anonymous-all service exists to do
+        this, tighten security on it a bit -->
+    <service verb="send" noun="ProducedSystemMessage" authenticate="anonymous-all">
+        <description>Calls the send service (SystemMessageType.sendServiceName). Sets the SystemMessage status to
+            SmsgSending while sending, then to SmsgSent if successful or back to original status if not. If the initial
+            status is not SmsgProduced or SmsgError returns an error (generally means message already sent). If you
+            want to resend a message that is in a later status, first change the status to SmsgProduced.</description>
+        <in-parameters><parameter name="systemMessageId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="initialStatusId" from="systemMessage.statusId"/>
+
+            <if condition="systemMessage.statusId != 'SmsgProduced' &amp;&amp; systemMessage.statusId != 'SmsgError'">
+                <return error="true" message="System message [${systemMessageId}] has status [${systemMessage.statusId}] and must be either SmsgProduced or SmsgError, not sending."/></if>
+
+            <if condition="!systemMessage.systemMessageTypeId">
+                <return error="true" message="System message [${systemMessageId}] has no systemMessageTypeId, not sending."/></if>
+            <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
+            <set field="sendServiceName" from="systemMessageType.sendServiceName"/>
+
+            <if condition="systemMessage.systemMessageRemoteId">
+                <set field="systemMessageRemote" from="systemMessage.'moqui.service.message.SystemMessageRemote'"/>
+                <if condition="systemMessageRemote.sendServiceName">
+                    <set field="sendServiceName" from="systemMessageRemote.sendServiceName"/></if>
+            </if>
+
+            <if condition="!sendServiceName">
+                <return error="true" message="While sending system message [${systemMessageId}] system message type [${systemMessageType.systemMessageTypeId}] has no sendServiceName, not sending."/></if>
+
+            <!-- update the status to SmsgSending, in a separate TX -->
+            <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                    in-map="[systemMessageId:systemMessageId, statusId:'SmsgSending', lastAttemptDate:ec.user.nowTimestamp]"/>
+
+            <!-- put this in a try block with the follow up below in a finally and a Throwable catch to add message facade errors -->
+            <script>try {</script>
+            <service-call name="${sendServiceName}" in-map="[systemMessageId:systemMessageId]"
+                    out-map="sendOut" transaction="force-new" ignore-error="true"/>
+            <script>} catch (Throwable t) { ec.message.addError(t.toString()) } finally {</script>
+
+            <!-- if successful set status to SmsgSent, otherwise set back to previous status -->
+            <set field="nowDate" from="ec.user.nowTimestamp"/>
+            <if condition="ec.message.hasError()">
+                <then>
+                    <set field="errorText" from="ec.message.getErrorsString()"/>
+                    <!-- clear errors before calling services so they'll go through, and so this service won't blow up -->
+                    <script>ec.message.clearErrors()</script>
+                    <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                            in-map="[systemMessageId:systemMessageId, statusId:initialStatusId, lastAttemptDate:nowDate,
+                                failCount:((systemMessage.failCount ?: 0) + 1)]"/>
+                    <service-call name="create#moqui.service.message.SystemMessageError" transaction="force-new"
+                            in-map="[systemMessageId:systemMessageId, errorDate:nowDate, attemptedStatusId:'SmsgSent',
+                                errorText:errorText]"/>
+                </then>
+                <else>
+                    <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                            in-map="[systemMessageId:systemMessageId, statusId:'SmsgSent',
+                                remoteMessageId:sendOut.remoteMessageId, processedDate:nowDate, lastAttemptDate:nowDate]"/>
+                </else>
+            </if>
+            <script>}</script>
+        </actions>
+    </service>
+    <service verb="send" noun="SystemMessageJsonRpc">
+        <implements service="org.moqui.impl.SystemMessageServices.send#SystemMessage"/>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
+
+            <if condition="!systemMessage.systemMessageRemoteId">
+                <return error="true" message="System message [${systemMessageId}] has no systemMessageRemoteId, not sending."/></if>
+            <set field="systemMessageRemote" from="systemMessage.'moqui.service.message.SystemMessageRemote'"/>
+
+            <set field="serviceName" from="systemMessageType.receiveServiceName ?: 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'"/>
+            <set field="inMap" from="[systemMessageTypeId:systemMessageType.systemMessageTypeId,
+                    remoteMessageId:systemMessageId, messageText:systemMessage.messageText,
+                    authUsername:systemMessageRemote.username, authPassword:systemMessageRemote.password,
+                    authTenantId:systemMessageRemote.tenantId]"/>
+            <script>receiveOutMap = ec.service.callJsonRpc(systemMessageRemote.sendUrl, serviceName, inMap)</script>
+            <set field="remoteMessageId" from="receiveOutMap?.systemMessageIdList?.first()"/>
+        </actions>
+    </service>
+    <service verb="send" noun="SystemMessageDirectLocal">
+        <implements service="org.moqui.impl.SystemMessageServices.send#SystemMessage"/>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
+
+            <if condition="!systemMessage.systemMessageRemoteId">
+                <return error="true" message="System message [${systemMessageId}] has no systemMessageRemoteId, not sending."/></if>
+            <set field="systemMessageRemote" from="systemMessage.'moqui.service.message.SystemMessageRemote'"/>
+
+            <set field="serviceName" from="systemMessageType.receiveServiceName ?: 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'"/>
+            <set field="inMap" from="[systemMessageTypeId:systemMessageType.systemMessageTypeId,
+                    remoteMessageId:systemMessageId, messageText:systemMessage.messageText,
+                    authUsername:systemMessageRemote.username, authPassword:systemMessageRemote.password,
+                    authTenantId:systemMessageRemote.tenantId]"/>
+            <script>receiveOutMap = ec.service.sync().name(serviceName).parameters(inMap).call()</script>
+            <set field="remoteMessageId" from="receiveOutMap?.systemMessageIdList?.first()"/>
+        </actions>
+    </service>
+
+    <!-- =========== Receive Services =========== -->
+
+    <service verb="receive" noun="IncomingSystemMessage" allow-remote="true">
+        <description>Call to receive a message (often through a remote interface). If there is a
+            SystemMessageType.receiveServiceName calls that service to save the message, otherwise creates a
+            SystemMessage record for the incoming message (in the Received status). Either way after saving
+            asynchronously calls the consume service based on the message type.</description>
+        <implements service="org.moqui.impl.SystemMessageServices.receive#SystemMessage"/>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessageType" value-field="systemMessageType"/>
+            <if condition="systemMessageType.receiveServiceName &amp;&amp;
+                    systemMessageType.receiveServiceName != 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'">
+                <then>
+                    <service-call name="${systemMessageType.receiveServiceName}" out-map="context" transaction="force-new"
+                        in-map="context"/>
+                </then>
+                <else>
+                    <!-- while it shouldn't happen that the consume service is called before the tx for this service is
+                        committed, run it in a separate tx to make sure -->
+                    <service-call name="create#moqui.service.message.SystemMessage" out-map="context" transaction="force-new"
+                        in-map="context + [statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+                    <set field="systemMessageIdList" from="[systemMessageId]"/>
+                </else>
+            </if>
+            <!-- run consume async for each message -->
+            <iterate list="systemMessageIdList" entry="systemMessageId">
+                <service-call name="org.moqui.impl.SystemMessageServices.consume#ReceivedSystemMessage"
+                    in-map="[systemMessageId:systemMessageId, allowError:false]" async="true"/>
+            </iterate>
+        </actions>
+    </service>
+
+    <!-- TODO: this service called async by an anonymous-all scheduled job so needs anonymous-all here too, but should
+        find a way to restrict it when not called through the scheduled service so no anonymous-all service exists to do
+        this, tighten security on it a bit -->
+    <service verb="consume" noun="ReceivedSystemMessage" authenticate="anonymous-all" allow-remote="false">
+        <description>Calls the consume service (SystemMessageType.consumeServiceName). Sets the SystemMessage status to
+            SmsgConsuming while consuming, then to SmsgConsumed if successful or back to original status if not. If the initial
+            status is not SmsgReceived or SmsgError returns an error (generally means message already consumed). If you
+            want to resend a message that is in a later status, first change the status to SmsgReceived.</description>
+        <in-parameters>
+            <parameter name="systemMessageId" required="true"/>
+            <parameter name="allowError" type="Boolean" default="false"/>
+        </in-parameters>
+        <actions>
+            <!-- NOTE: done use for-update, status updates are done in separate transactions so they are always done regardless of errors -->
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="initialStatusId" from="systemMessage.statusId"/>
+
+            <if condition="!(systemMessage.statusId == 'SmsgReceived' || (allowError &amp;&amp; systemMessage.statusId == 'SmsgError'))">
+                <return error="true" message="System message [${systemMessageId}] has status [${systemMessage.statusId}] and must be either SmsgReceived (or SmsgError if allowed), not consuming."/></if>
+
+            <if condition="!systemMessage.systemMessageTypeId">
+                <return error="true" message="System message [${systemMessageId}] has no systemMessageTypeId, not consuming."/></if>
+            <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
+
+            <if condition="!systemMessageType.consumeServiceName">
+                <return error="true" message="While consuming system message [${systemMessageId}] system message type [${systemMessageType.systemMessageTypeId}] has no consumeServiceName, not consuming."/></if>
+
+            <!-- update the status to SmsgSending, in a separate TX -->
+            <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                    in-map="[systemMessageId:systemMessageId, statusId:'SmsgConsuming', lastAttemptDate:ec.user.nowTimestamp]"/>
+
+            <!-- put this in a try block with the follow up below in a finally and a Throwable catch to add message facade errors -->
+            <script>try {</script>
+            <service-call name="${systemMessageType.consumeServiceName}" in-map="[systemMessageId:systemMessageId]"
+                    out-map="consumeOut" transaction="force-new"/>
+            <script>} catch (Throwable t) { ec.message.addError(t.toString()) } finally {</script>
+
+            <!-- if successful set status to SmsgConsumed, otherwise set back to previous status -->
+            <set field="nowDate" from="ec.user.nowTimestamp"/>
+            <if condition="ec.message.hasError()">
+                <then>
+                    <set field="errorText" from="ec.message.getErrorsString()"/>
+                    <!-- clear errors before calling services so they'll go through, and so this service won't blow up -->
+                    <script>ec.message.clearErrors()</script>
+                    <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                            in-map="[systemMessageId:systemMessageId, statusId:initialStatusId, lastAttemptDate:nowDate,
+                                failCount:((systemMessage.failCount ?: 0) + 1)]"/>
+                    <service-call name="create#moqui.service.message.SystemMessageError" transaction="force-new"
+                            in-map="[systemMessageId:systemMessageId, errorDate:nowDate, attemptedStatusId:'SmsgConsumed',
+                                errorText:errorText]"/>
+                </then>
+                <else>
+                    <if condition="!consumeOut.noStatusUpdate">
+                        <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                                in-map="[systemMessageId:systemMessageId, statusId:'SmsgConsumed',
+                                    processedDate:nowDate, lastAttemptDate:nowDate]"/>
+                        <if condition="systemMessageType.produceAckServiceName &amp;&amp; systemMessageType.produceAckOnConsumed == 'Y'">
+                            <service-call name="${systemMessageType.produceAckServiceName}"
+                                    in-map="[systemMessageId:systemMessageId]" transaction="force-new"/>
+                        </if>
+                    </if>
+                </else>
+            </if>
+            <script>}</script>
+        </actions>
+    </service>
+
+    <!-- ========== Scheduled services to handle incoming and outgoing messages ========== -->
+
+    <service verb="send" noun="AllProducedSystemMessages" authenticate="anonymous-all">
+        <description>Meant to be run scheduled, this service tries to send outgoing (isOutgoing=Y) messages in the
+            SmsgProduced status. After retryLimit attempts will change the status to SmsgError.</description>
+        <in-parameters>
+            <parameter name="retryMinutes" type="BigDecimal" default="60"/>
+            <parameter name="retryLimit" type="Integer" default="24"/><!-- by default try for 1 day -->
+        </in-parameters>
+        <actions>
+            <set field="retryTimestamp" from="new Timestamp((System.currentTimeMillis() - (retryMinutes * 60000)) as long)"/>
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="smList" limit="200">
+                <econdition field-name="statusId" value="SmsgProduced"/>
+                <econdition field-name="isOutgoing" value="Y"/>
+                <econdition field-name="lastAttemptDate" operator="less" from="retryTimestamp" or-null="true"/>
+                <order-by field-name="initDate"/><!-- get oldest first -->
+            </entity-find>
+            <iterate list="smList" entry="sm">
+                <if condition="sm.failCount &lt; retryLimit">
+                    <service-call name="org.moqui.impl.SystemMessageServices.send#ProducedSystemMessage"
+                            in-map="[systemMessageId:sm.systemMessageId]" async="true"/>
+                    <else>
+                        <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                                in-map="[systemMessageId:sm.systemMessageId, statusId:'SmsgError',
+                                    lastAttemptDate:ec.user.nowTimestamp]"/>
+                    </else>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="consume" noun="AllReceivedSystemMessages" authenticate="anonymous-all">
+        <description>Consume incoming (isOutgoing=N) SystemMessage records not already consumed (in the SmsgReceived
+            status). Messages in this state will normally have had an error in consuming. After retryLimit attempts
+            will change the status to SmsgError.</description>
+        <in-parameters>
+            <parameter name="retryMinutes" type="BigDecimal" default="10"/>
+            <parameter name="retryLimit" type="Integer" default="3"/>
+        </in-parameters>
+        <actions>
+            <set field="retryTimestamp" from="new Timestamp((System.currentTimeMillis() - (retryMinutes * 60000)) as long)"/>
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="smList" limit="200">
+                <econdition field-name="statusId" value="SmsgReceived"/>
+                <econdition field-name="isOutgoing" value="N"/>
+                <econdition field-name="lastAttemptDate" operator="less" from="retryTimestamp" or-null="true"/>
+                <order-by field-name="initDate"/><!-- get oldest first -->
+            </entity-find>
+            <iterate list="smList" entry="sm">
+                <if condition="sm.failCount &lt; retryLimit">
+                    <service-call name="org.moqui.impl.SystemMessageServices.consume#ReceivedSystemMessage"
+                            in-map="[systemMessageId:sm.systemMessageId]" async="true"/>
+                    <else>
+                        <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                                in-map="[systemMessageId:sm.systemMessageId, statusId:'SmsgError',
+                                    lastAttemptDate:ec.user.nowTimestamp]"/>
+                    </else>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="reset" noun="SystemMessageInError">
+        <in-parameters><parameter name="systemMessageId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <if condition="systemMessage.statusId != 'SmsgError'"><return/></if>
+            <service-call name="update#moqui.service.message.SystemMessage" in-map="[systemMessageId:systemMessageId,
+                    statusId:(systemMessage.isOutgoing == 'Y' ? 'SmsgProduced' : 'SmsgReceived'), failCount:0]"/>
+        </actions>
+    </service>
+</services>

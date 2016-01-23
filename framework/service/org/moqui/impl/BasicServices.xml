@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+
+    <!-- ========== Geo Services ========== -->
+    <service verb="get" noun="GeoRegionsForDropDown" allow-remote="true">
+        <in-parameters>
+            <parameter name="geoId"/>
+            <parameter name="geoAssocTypeEnumId" default-value="GAT_REGIONS"/>
+            <parameter name="geoTypeEnumId"/>
+        </in-parameters>
+        <out-parameters><parameter name="resultList" type="List"><parameter name="result" type="Map"/></parameter></out-parameters>
+        <actions>
+            <set field="resultList" from="[]"/>
+            <if condition="geoId">
+                <entity-find entity-name="moqui.basic.GeoAssocAndToDetail" list="geoList">
+                    <econdition field-name="geoId"/><econdition field-name="geoAssocTypeEnumId"/>
+                    <econdition field-name="geoTypeEnumId" ignore-if-empty="true"/>
+                    <order-by field-name="geoName"/>
+                </entity-find>
+                <script>for (def geo in geoList) resultList.add([geoId:geo.toGeoId, label:"${geo.geoName}"])</script>
+            </if>
+        </actions>
+    </service>
+
+    <!-- ========== Status Services ========== -->
+    <service verb="find" noun="StatusItem" allow-remote="true">
+        <in-parameters>
+            <parameter name="statusTypeId" required="true"/>
+            <parameter name="orderByField" default-value="sequenceNum"/>
+        </in-parameters>
+        <out-parameters><parameter name="statusItemList" type="List"/></out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.basic.StatusItem" list="statusItemList" cache="true">
+                <econdition field-name="statusTypeId"/>
+                <order-by field-name="${orderByField}"/>
+            </entity-find>
+        </actions>
+    </service>
+    <service verb="find" noun="StatusFlowTransitionToDetail" allow-remote="true">
+        <description>Key in results is toStatusId. Recommended display expression is "${transitionName} (${description})".</description>
+        <in-parameters>
+            <parameter name="statusId" required="true"/>
+            <parameter name="statusFlowId"/>
+            <parameter name="orderByField" default-value="sequenceNum"/>
+        </in-parameters>
+        <out-parameters><parameter name="statusDetailList"/></out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.basic.StatusFlowTransitionToDetail" list="statusDetailList">
+                <econdition field-name="statusId"/>
+                <econdition field-name="statusFlowId" ignore-if-empty="true"/>
+                <order-by field-name="${orderByField}"/>
+            </entity-find>
+        </actions>
+    </service>
+
+    <!-- ========== Enumeration Services ========== -->
+    <service verb="find" noun="Enumeration" allow-remote="true">
+        <in-parameters>
+            <parameter name="enumTypeId" required="true"/>
+            <parameter name="orderByField" default-value="description"/>
+        </in-parameters>
+        <out-parameters><parameter name="enumerationList" type="List"/></out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.basic.Enumeration" list="enumerationList" cache="true">
+                <econdition field-name="enumTypeId"/>
+                <order-by field-name="${orderByField}"/>
+            </entity-find>
+        </actions>
+    </service>
+    <service verb="find" noun="EnumerationByParent" allow-remote="true">
+        <in-parameters>
+            <parameter name="parentEnumId" required="true"/>
+            <parameter name="includeParent" type="Boolean" default="true"/>
+            <parameter name="orderByField" default-value="description"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="enumerationList" type="List"/>
+            <parameter name="enumIdSet" type="Set"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.basic.Enumeration" list="enumerationList" cache="true">
+                <econdition field-name="parentEnumId"/>
+                <order-by field-name="${orderByField}"/>
+            </entity-find>
+            <if condition="includeParent">
+                <set field="enumerationList" from="enumerationList.cloneList()"/>
+                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="parentEnum">
+                    <field-map field-name="enumId" from="parentEnumId"/></entity-find-one>
+                <script>enumerationList.add(0, parentEnum)</script>
+            </if>
+            <set field="enumIdSet" from="new TreeSet()"/>
+            <iterate list="enumerationList" entry="enumeration"><script>enumIdSet.add(enumeration.enumId)</script></iterate>
+        </actions>
+    </service>
+    <service verb="get" noun="EnumsByTypeForDropDown" allow-remote="true">
+        <in-parameters><parameter name="enumTypeId"/></in-parameters>
+        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <actions>
+            <set field="resultList" from="[]"/>
+            <if condition="enumTypeId">
+                <entity-find entity-name="moqui.basic.Enumeration" list="enumList">
+                    <econdition field-name="enumTypeId"/>
+                    <order-by field-name="sequenceNum,description"/>
+                </entity-find>
+                <script>for (def enumEntry in enumList)
+                    resultList.add([enumId:enumEntry.enumId, label:"${enumEntry.description} [${enumEntry.enumId}]"])</script>
+            </if>
+        </actions>
+    </service>
+
+    <!-- ========== Uom Services ========== -->
+    <service verb="create" noun="UomConversion" type="entity-auto">
+        <in-parameters><auto-parameters entity-name="moqui.basic.UomConversion" include="nonpk"/></in-parameters>
+        <out-parameters><parameter name="uomConversionId"/></out-parameters>
+    </service>
+    <service verb="update" noun="UomConversion" type="entity-auto">
+        <in-parameters><auto-parameters entity-name="moqui.basic.UomConversion" include="all"/></in-parameters>
+    </service>
+
+    <service verb="convert" noun="Uom">
+        <description>Converts amount and returns convertedAmount. The factor is multiplied first, then the offset is added.
+            If no UomConversion record is found for uomId and toUomId tries the reverse. When converting in the reverse
+            direction the offset is subtracted first, then divided by the factor.</description>
+        <in-parameters>
+            <parameter name="uomId" required="true"/>
+            <parameter name="toUomId" required="true"/>
+            <parameter name="effectiveDate" default="ec.user.nowTimestamp" type="Timestamp"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="convertedAmount"/>
+        </out-parameters>
+        <actions>
+            <if condition="uomId == toUomId">
+                <set field="convertedAmount" from="amount"/>
+                <return/>
+            </if>
+
+            <entity-find entity-name="moqui.basic.UomConversion" list="uomConversionList">
+                <date-filter valid-date="effectiveDate"/>
+                <econdition field-name="uomId"/><econdition field-name="toUomId"/>
+                <order-by field-name="-fromDate"/><order-by field-name="-uomConversionId"/>
+            </entity-find>
+            <if condition="uomConversionList">
+                <set field="uomConversion" from="uomConversionList.first"/>
+                <set field="convertedAmount" from="amount"/>
+                <if condition="uomConversion.conversionFactor"><set field="convertedAmount"
+                        from="convertedAmount * uomConversion.conversionFactor"/></if>
+                <if condition="uomConversion.conversionOffset"><set field="convertedAmount"
+                        from="convertedAmount + uomConversion.conversionOffset"/></if>
+                <return/>
+            </if>
+            <if condition="!uomConversionList">
+                <!-- try going backwards -->
+                <entity-find entity-name="moqui.basic.UomConversion" list="uomConversionList">
+                    <date-filter valid-date="effectiveDate"/>
+                    <econdition field-name="uomId" from="toUomId"/><econdition field-name="toUomId" from="uomId"/>
+                    <order-by field-name="-fromDate"/><order-by field-name="-uomConversionId"/>
+                </entity-find>
+                <if condition="uomConversionList">
+                    <set field="uomConversion" from="uomConversionList.first"/>
+                    <set field="convertedAmount" from="amount"/>
+                    <if condition="uomConversion.conversionOffset"><set field="convertedAmount"
+                            from="convertedAmount - uomConversion.conversionOffset"/></if>
+                    <if condition="uomConversion.conversionFactor"><set field="convertedAmount"
+                            from="convertedAmount / uomConversion.conversionFactor"/></if>
+                    <return/>
+                </if>
+            </if>
+            <if condition="!uomConversionList">
+                <return error="true" message="Could not convert from [${uomId}] to [${toUomId}], no UOM Conversion found."/></if>
+        </actions>
+    </service>
+</services>

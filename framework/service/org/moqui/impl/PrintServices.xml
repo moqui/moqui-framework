@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+
+    <service verb="get" noun="ServerPrinters">
+        <!-- org.moqui.impl.PrintServices.get#ServerPrinters -->
+        <description>Get printers from print server and create a moqui.basic.print.NetworkPrinter record for each.</description>
+        <in-parameters>
+            <parameter name="serverHost" required="true"/>
+            <parameter name="serverPort" type="Integer" default="631"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="networkPrinterIdList" type="List"><parameter name="networkPrinterId"/></parameter>
+        </out-parameters>
+        <actions>
+            <set field="networkPrinterIdList" from="[]"/>
+
+            <!-- lookup existing printers for this server, don't create them again but include them in the result -->
+            <set field="printerNameSet" from="new HashSet()"/>
+            <entity-find entity-name="moqui.basic.print.NetworkPrinter" list="networkPrinterList">
+                <econdition field-name="serverHost"/><econdition field-name="serverPort"/></entity-find>
+            <iterate list="networkPrinterList" entry="networkPrinter">
+                <script>networkPrinterIdList.add(networkPrinter.networkPrinterId)</script>
+                <script>printerNameSet.add(networkPrinter.printerName)</script>
+            </iterate>
+
+            <set field="cupsClient" from="new org.cups4j.CupsClient(serverHost, serverPort)"/>
+            <set field="printerList" from="cupsClient.getPrinters()"/>
+            <iterate list="printerList" entry="cupsPrinter">
+                <if condition="!printerNameSet.contains(cupsPrinter.getName())">
+                    <service-call name="create#moqui.basic.print.NetworkPrinter" out-map="npOut"
+                            in-map="[serverHost:serverHost, serverPort:serverPort, printerName:cupsPrinter.getName(),
+                            description:cupsPrinter.getDescription(), location:cupsPrinter.getLocation()]"/>
+                    <script>networkPrinterIdList.add(npOut.networkPrinterId)</script>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="print" noun="DocumentInterface">
+        <in-parameters>
+            <parameter name="networkPrinterId" required="true"/>
+            <parameter name="createdDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="username"/>
+            <parameter name="jobName"/>
+            <parameter name="copies" type="Integer" default="1"/>
+            <parameter name="duplex" default-value="N"/>
+            <parameter name="pageRanges"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="printJobId"/>
+            <parameter name="jobId" type="Integer"/>
+        </out-parameters>
+    </service>
+    <service verb="print" noun="Document">
+        <description>Create a moqui.basic.print.PrintJob record and send it to the specified NetworkPrinter</description>
+        <implements service="org.moqui.impl.PrintServices.print#DocumentInterface"/>
+        <in-parameters>
+            <parameter name="storeDocument" type="Boolean" default="true"/>
+            <parameter name="contentType"/>
+
+            <parameter name="inputStream" type="java.io.InputStream"><description>The document may be passed in this
+                parameter as an InputStream or in the serialBlob field as a wrapped byte[].</description></parameter>
+            <parameter name="serialBlob" type="javax.sql.rowset.serial.SerialBlob">
+                <description>Use SerialBlob as a wrapper for byte[].</description></parameter>
+        </in-parameters>
+        <actions>
+            <if condition="serialBlob == null &amp;&amp; inputStream == null">
+                <return error="true" message="Both inputStream and serialBlob are null, must specify one or the other"/></if>
+            <if condition="storeDocument">
+                <!-- for storing the document we'll always use a byte[] (not SerialBlob, so can be used below too) -->
+                <if condition="serialBlob != null">
+                    <set field="document" from="serialBlob.getBytes(1, (int) serialBlob.length())"/>
+                    <else><set field="document" from="org.apache.commons.io.IOUtils.toByteArray(inputStream)"/></else>
+                </if>
+            </if>
+            <set field="statusId" value="PtjNotSent"/>
+            <service-call name="create#moqui.basic.print.PrintJob" in-map="context" out-map="context" transaction="force-new"/>
+            <if condition="!storeDocument">
+                <!-- for sending the printJob we want a byte[] or InputStream -->
+                <set field="document" from="serialBlob != null ? serialBlob.getBytes(1, (int) serialBlob.length()) : inputStream"/>
+            </if>
+
+            <service-call name="org.moqui.impl.PrintServices.send#PrintJobInternal"
+                    in-map="[printJob:new HashMap(context)]" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="print" noun="ResourceDocument">
+        <!-- org.moqui.impl.PrintServices.print#ResourceDocument -->
+        <implements service="org.moqui.impl.PrintServices.print#DocumentInterface"/>
+        <in-parameters>
+            <parameter name="resourceLocation" required="true"/>
+        </in-parameters>
+        <actions>
+            <set field="resourceReference" from="ec.resource.getLocationReference(resourceLocation)"/>
+            <if condition="resourceReference == null || !resourceReference.getExists()">
+                <return error="true" message="Could not find resource at [${resourceLocation}]"/>
+            </if>
+            <set field="inputStream" from="resourceReference.openStream()"/>
+            <service-call name="org.moqui.impl.PrintServices.print#Document" out-map="context"
+                    in-map="context + [inputStream:inputStream, contentType:resourceReference.getContentType(), storeDocument:false]"/>
+        </actions>
+    </service>
+    <service verb="print" noun="ScreenDocument">
+        <!-- org.moqui.impl.PrintServices.print#ScreenDocument -->
+        <implements service="org.moqui.impl.PrintServices.print#DocumentInterface"/>
+        <in-parameters>
+            <parameter name="screenLocation" required="true"/>
+            <parameter name="screenParameters" type="Map"/>
+            <parameter name="screenParametersStr"><description>Groovy expression that evaluates to a Map</description></parameter>
+            <parameter name="contentType" default-value="application/pdf"/>
+            <parameter name="webappName" default-value="webroot"/>
+            <parameter name="storeDocument" type="Boolean" default="true"/>
+        </in-parameters>
+        <actions>
+            <script>
+                import org.moqui.context.ExecutionContext
+                import org.moqui.impl.screen.ScreenDefinition
+                import javax.sql.rowset.serial.SerialBlob
+                import javax.xml.transform.stream.StreamSource
+
+                ExecutionContext ec = context.ec
+                ScreenDefinition screedDef = ec.getScreen().getScreenDefinition(screenLocation)
+                if (screedDef == null) {
+                    ec.message.addError("Screen not found at [${screenLocation}]")
+                    return
+                }
+                Map parmMap = [:]
+                if (screenParameters) parmMap.putAll(screenParameters)
+                if (screenParametersStr) parmMap.putAll(ec.resource.expression(screenParametersStr, ""))
+                context.putAll(parmMap)
+                String xslFoText = ec.screen.makeRender().rootScreen(screenLocation).webappName(webappName).renderMode("xsl-fo").render()
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()
+                ec.resource.xslFoTransform(new StreamSource(new StringReader(xslFoText)), null, baos, contentType)
+                serialBlob = new SerialBlob(baos.toByteArray())
+
+                if (!jobName) {
+                    StringBuilder jobNameSb = new StringBuilder()
+                    jobNameSb.append(screedDef.getScreenName())
+                    for (Map.Entry entry in parmMap) jobNameSb.append(" ").append(entry.getValue())
+                    jobName = jobNameSb.toString()
+                }
+
+                /* some test code to write a PDF to a file
+                File testFile = new File('test.pdf')
+                testFile.createNewFile()
+                FileOutputStream fos = new FileOutputStream(testFile)
+                org.apache.commons.io.IOUtils.write(baos.toByteArray(), fos)
+                */
+            </script>
+            <service-call name="org.moqui.impl.PrintServices.print#Document" out-map="context" in-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="send" noun="PrintJob">
+        <in-parameters><parameter name="printJobId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.basic.print.PrintJob" value-field="printJob"/>
+            <service-call name="org.moqui.impl.PrintServices.send#PrintJobInternal"
+                    in-map="[printJob:printJob]" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="send" noun="PrintJobInternal">
+        <in-parameters><parameter name="printJob" type="Map" required="true"/></in-parameters>
+        <actions>
+            <!-- <log level="warn" message="====== printJob=${printJob}"/> -->
+            <service-call name="org.moqui.impl.PrintServices.make#CupsPrinter"
+                    in-map="[networkPrinterId:printJob.networkPrinterId]" out-map="context"/>
+
+            <script>
+                import org.cups4j.CupsPrinter
+                import org.cups4j.PrintJob
+                import org.cups4j.PrintRequestResult
+
+                errMsg = null
+                try {
+                    CupsPrinter cupsPrinter = context.cupsPrinter
+                    PrintJob.Builder pjb = new PrintJob.Builder(printJob.document)
+                    if (printJob.username) pjb.userName(printJob.username)
+                    if (printJob.jobName) pjb.jobName(printJob.jobName)
+                    if (printJob.copies) pjb.copies(printJob.copies)
+                    if (printJob.duplex) pjb.duplex(printJob.duplex == 'Y')
+                    if (printJob.pageRanges) pjb.pageRanges(printJob.pageRanges)
+                    PrintJob pj = pjb.build()
+                    PrintRequestResult prr = cupsPrinter.print(pj)
+                    jobId = prr.getJobId()
+                    if (!prr.isSuccessfulResult()) errMsg = prr.getResultDescription()
+                } catch (Exception e) {
+                    errMsg = e.getMessage()
+                }
+            </script>
+            <if condition="errMsg">
+                <service-call name="update#moqui.basic.print.PrintJob" transaction="force-new"
+                        in-map="[printJobId:printJob.printJobId, jobId:jobId, statusId:'PtjSendFailed', errorMessage:errMsg]"/>
+                <return error="true" message="${errMsg}"/>
+                <else>
+                    <service-call name="update#moqui.basic.print.PrintJob" transaction="force-new"
+                            in-map="[printJobId:printJob.printJobId, jobId:jobId, statusId:'PtjPending']"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="get" noun="PrintJobDetailsFromServer">
+        <!-- org.moqui.impl.PrintServices.get#PrintJobDetailsFromServer -->
+        <description>Gets known local job details (from PrintJob record) job details/attributes from the print server,
+            updating PrintJob record for status and just returning the rest.</description>
+        <in-parameters><parameter name="printJobId"/></in-parameters>
+        <out-parameters>
+            <auto-parameters entity-name="moqui.basic.print.PrintJob" include="nonpk"/>
+
+            <parameter name="completeTime" type="Timestamp"/>
+            <parameter name="createTime" type="Timestamp"/>
+            <parameter name="jobUrl"/>
+            <parameter name="pagesPrinted" type="Integer"/>
+            <parameter name="printerUrl"/>
+            <parameter name="size" type="Integer"/>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
+                    in-map="[printJobId:printJobId]" out-map="context"/>
+            <script>
+                import org.cups4j.CupsClient
+                import org.cups4j.JobStateEnum
+                import org.cups4j.PrintJobAttributes
+
+                Map stateMap = ['aborted':'PtjAborted', 'canceled':'PtjCanceled', 'completed':'PtjCompleted',
+                                'pending':'PtjPending', 'pending-held':'PtjPendingHeld',
+                                'processing':'PtjProcessing', 'processing-stopped':'PtjProcessingStopped']
+
+                context.putAll(printJob)
+
+                CupsClient cupsClient = context.cupsClient
+                PrintJobAttributes pja = cupsClient.getJobAttributes((int) printJob.jobId)
+
+                statusId = stateMap.get(pja.getJobState().toString())
+                if (pja.getJobCompleteTime()) completeTime = new Timestamp(pja.getJobCompleteTime().getTime())
+                if (pja.getJobCreateTime()) createTime = new Timestamp(pja.getJobCreateTime().getTime())
+                jobUrl = pja.getJobURL()
+                pagesPrinted = pja.getPagesPrinted()
+                printerUrl = pja.getPrinterURL()
+                size = pja.getSize()
+            </script>
+            <if condition="statusId != printJob.statusId">
+                <service-call name="update#moqui.basic.print.PrintJob"
+                        in-map="[printJobId:printJob.printJobId, statusId:statusId]"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="hold" noun="PrintJob">
+        <!-- org.moqui.impl.PrintServices.hold#PrintJob -->
+        <in-parameters><parameter name="printJobId"/></in-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
+                    in-map="[printJobId:printJobId]" out-map="context"/>
+            <if condition="!cupsClient.holdJob((int) printJob.jobId)">
+                <message>Could not hold job [${printJob.jobId}] on print server at [${networkPrinter.serverHost}] for PrintJob [${printJobId}]</message>
+                <else>
+                    <service-call name="update#moqui.basic.print.PrintJob"
+                            in-map="[printJobId:printJobId, statusId:'PtjPendingHeld']"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+    <service verb="release" noun="PrintJob">
+        <!-- org.moqui.impl.PrintServices.release#PrintJob -->
+        <in-parameters><parameter name="printJobId"/></in-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
+                    in-map="[printJobId:printJobId]" out-map="context"/>
+            <if condition="!cupsClient.releaseJob((int) printJob.jobId)">
+                <message>Could not release job [${printJob.jobId}] on print server at [${networkPrinter.serverHost}] for PrintJob [${printJobId}]</message>
+                <else>
+                    <service-call name="update#moqui.basic.print.PrintJob"
+                            in-map="[printJobId:printJobId, statusId:'PtjPending']"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+    <service verb="cancel" noun="PrintJob">
+        <!-- org.moqui.impl.PrintServices.cancel#PrintJob -->
+        <in-parameters><parameter name="printJobId"/></in-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
+                    in-map="[printJobId:printJobId]" out-map="context"/>
+            <if condition="!cupsClient.cancelJob((int) printJob.jobId)">
+                <message>Could not cancel job [${printJob.jobId}] on print server at [${networkPrinter.serverHost}] for PrintJob [${printJobId}]</message>
+                <else>
+                    <service-call name="update#moqui.basic.print.PrintJob"
+                            in-map="[printJobId:printJobId, statusId:'PtjCanceled']"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="make" noun="CupsPrinter">
+        <in-parameters><parameter name="networkPrinterId"/></in-parameters>
+        <out-parameters>
+            <parameter name="cupsClient" type="org.cups4j.CupsClient"/>
+            <parameter name="cupsPrinter" type="org.cups4j.CupsPrinter"/>
+            <parameter name="networkPrinter" type="EntityValue"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.basic.print.NetworkPrinter" value-field="networkPrinter"/>
+            <if condition="networkPrinter == null">
+                <return error="true" message="Could not find NetworkPrinter [${networkPrinterId}]"/></if>
+            <script><![CDATA[
+                import org.cups4j.CupsPrinter
+                import org.cups4j.CupsClient
+
+                String printerName = networkPrinter.printerName
+                cupsClient = new CupsClient((String) networkPrinter.serverHost, (int) networkPrinter.serverPort ?: 631)
+                if (printerName) {
+                    printerList = cupsClient.getPrinters()
+                    for (CupsPrinter curPrinter in printerList) {
+                        if (curPrinter.getName() == printerName) {
+                            cupsPrinter = curPrinter
+                            break
+                        }
+                    }
+                } else {
+                    cupsPrinter = cupsClient.getDefaultPrinter()
+                }
+                ]]></script>
+            <if condition="cupsPrinter == null">
+                <return error="true" message="Print not found with name [${printerName}] on server [${networkPrinter.serverHost}] for NetworkPrinter [${networkPrinterId}]"/></if>
+        </actions>
+    </service>
+    <service verb="make" noun="CupsClient">
+        <in-parameters><parameter name="printJobId"/></in-parameters>
+        <out-parameters>
+            <parameter name="cupsClient" type="org.cups4j.CupsClient"/>
+            <parameter name="printJob" type="EntityValue"/>
+            <parameter name="networkPrinter" type="EntityValue"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.basic.print.PrintJob" value-field="printJob"/>
+            <set field="networkPrinterId" from="printJob.networkPrinterId"/>
+            <entity-find-one entity-name="moqui.basic.print.NetworkPrinter" value-field="networkPrinter"/>
+            <set field="cupsClient" from="new org.cups4j.CupsClient((String) networkPrinter.serverHost, (int) networkPrinter.serverPort ?: 631)"/>
+        </actions>
+    </service>
+</services>

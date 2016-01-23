@@ -1,0 +1,971 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="common-types-1.6.xsd"/>
+    <xs:include schemaLocation="xml-actions-1.6.xsd"/>
+
+    <xs:element name="AllWidgets" abstract="true"/>
+    <xs:element name="StandaloneFields" abstract="true"/>
+
+    <xs:simpleType name="auto-field-type">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="edit"/>
+            <xs:enumeration value="find"/>
+            <xs:enumeration value="display"/>
+            <xs:enumeration value="find-display"/>
+            <xs:enumeration value="hidden"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- ================== Widget Templates ==================== -->
+
+    <xs:element name="widget-templates">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="widget-template"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="widget-template">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice>
+                    <xs:element minOccurs="0" ref="SubFields"/>
+                    <xs:element minOccurs="0" ref="AllWidgets"/>
+                </xs:choice>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ================== form ==================== -->
+    <xs:element name="form-single" substitutionGroup="AllWidgets">
+        <xs:annotation><xs:documentation>A single form is used to view or edit fields of a single map/hash/record/etc.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element minOccurs="0" ref="auto-fields-service"/>
+                    <xs:element minOccurs="0" ref="auto-fields-entity"/>
+                    <xs:element minOccurs="0" ref="field"/>
+                </xs:choice>
+                <xs:element minOccurs="0" ref="field-layout"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The name of the form. Used to reference the form along with the XML Screen
+                    file location. For HTML output this is the form name and id, and for other output may also be used to identify the
+                    part of the output corresponding to the form.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="extends" type="xs:string">
+                <xs:annotation><xs:documentation>The location and name separated by a hash/pound sign (#) of the form to
+                    extend. If there is no location it is treated as a form name in the current screen.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="transition" type="xs:string">
+                <xs:annotation><xs:documentation>The transition in the current screen to submit the form to.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="map" type="xs:string" default="fieldValues">
+                <xs:annotation><xs:documentation>The Map to get field values from. Is often a EntityValue object or a
+                    Map with data pulled from various places to populate in the form. Map keys are matched against field
+                    names. This is ignored if the field.entry-name attribute is used, that is evaluated against the
+                    context in place at the time each field is rendered. Defaults to "fieldValues".</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="focus-field" type="xs:string">
+                <xs:annotation><xs:documentation>The name of the field to focus on when the form is rendered.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="skip-start" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Skip the starting rendered elements of the form. When used after a form
+                    with skip-end=true this will effectively combine the forms into one.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="skip-end" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Skip the ending rendered elements of the form. Use this to leave a form
+                    open so that additional forms can be combined with it.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="dynamic" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true this form will be considered dynamic and the internal
+                    definition will be built up each time it is used instead of only when first referred to. This is
+                    necessary when auto-fields-* elements have ${} string expansion for service or entity names.</xs:documentation></xs:annotation>
+            </xs:attribute>
+
+            <xs:attribute name="background-submit" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Submit the form in the background without reloading the screen.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="background-reload-id" type="xs:string">
+                <xs:annotation><xs:documentation>After the form is submitted in the background reload the
+                    dynamic-container with this id.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="background-hide-id" type="xs:string">
+                <xs:annotation><xs:documentation>After the form is submitted in the background hide the element (usually
+                    a dialog) with the specified id.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="background-message" type="xs:string">
+                <xs:annotation><xs:documentation>After the form is submitted in the background show this message in a dialog.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+
+    <xs:element name="form-list" substitutionGroup="AllWidgets">
+        <xs:annotation><xs:documentation>
+            A list form is a list of individual forms in a table (could be called a tabular form), it has a list of
+            sets of values and creates one form for each list element.
+
+            A variation on the list form is the multi form (set the attribute multi=true). In the multi mode all
+            list elements will be put into a single large form with suffixes on each field for each row, with a
+            single submit button at the bottom instead of a submit button on each row.
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="row-actions"/>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element minOccurs="0" ref="auto-fields-service"/>
+                    <xs:element minOccurs="0" ref="auto-fields-entity"/>
+                    <xs:element minOccurs="0" ref="field"/>
+                </xs:choice>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="form-list-column"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The name of the form. Used to reference the form along with the XML Screen
+                    file location. For HTML output this is the form name and id, and for other output may also be used to identify the
+                    part of the output corresponding to the form.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="extends" type="xs:string">
+                <xs:annotation><xs:documentation>The location and name separated by a hash/pound sign (#) of the form to
+                    extend. If there is no location it is treated as a form name in the current screen.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="transition" type="xs:string">
+                <xs:annotation><xs:documentation>The transition in the current screen to submit the form to.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="multi" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Make the form a multi-submit form where all rows on a page are
+                    submitted together in a single request with a "_${rowNumber}" suffix on each field. Also passes a
+                    _isMulti=true parameter so the Service Facade knows to run the service (a single service-call in a
+                    transition) for each row. Defaults to true, so set to false to disable this behavior and have a
+                    separate form (submitted separately) for each row.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="list" type="xs:string">
+                <xs:annotation><xs:documentation>An expression that evaluates to a list to iterate over.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="list-entry" type="xs:string">
+                <xs:annotation><xs:documentation>If specified each list entry will be put in the context with this
+                    name, otherwise the list entry must be a Map and the entries in the Map will be put into the context
+                    for each row.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="paginate" type="xs:string" default="true">
+                <xs:annotation><xs:documentation>Indicate if this form should paginate or not. Defaults to true.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="paginate-always-show" type="xs:string" default="true">
+                <xs:annotation><xs:documentation>Always show the pagination control with count of rows, even when there
+                    is only one page? Defaults to true.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="skip-start" type="boolean" default="false"/>
+            <xs:attribute name="skip-end" type="boolean" default="false"/>
+            <xs:attribute name="skip-form" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Make the output a plain table, not submittable (in HTML don't generate
+                    'form' elements). Useful for view-only list forms to minimize output.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="skip-header" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Skip the table header element.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="dynamic" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal
+                    definition will be built up each time it is used instead of only when first referred to.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="row-actions">
+        <xs:complexType>
+            <xs:sequence><xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/></xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="auto-fields-service">
+        <xs:complexType>
+            <xs:attribute name="service-name" type="xs:string" use="required"/>
+            <xs:attribute name="field-type" default="edit" type="auto-field-type"/>
+            <xs:attribute name="include" default="in">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="in"/>
+                        <xs:enumeration value="out"/>
+                        <xs:enumeration value="all"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="auto-fields-entity">
+        <xs:complexType>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="include" default="all">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="pk"/>
+                        <xs:enumeration value="nonpk"/>
+                        <xs:enumeration value="all"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="field-type" default="find-display" type="auto-field-type"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="field-layout">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="field-group"/>
+                <xs:element ref="field-row"/>
+                <xs:element ref="field-row-big"/>
+                <xs:element ref="field-ref"/>
+                <xs:element ref="fields-not-referenced"/>
+            </xs:choice>
+            <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="collapsible" type="boolean"/>
+            <xs:attribute name="active" type="xs:string"><xs:annotation><xs:documentation>If collapsible=true use this
+                to specify the accordion section index to be open, or false for all to be closed.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="field-group">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="field-ref"/>
+                <xs:element ref="fields-not-referenced"/>
+                <xs:element ref="field-row"/>
+            </xs:choice>
+            <xs:attribute name="title" type="xs:string" use="required"/>
+            <xs:attribute name="style" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="field-row">
+        <xs:annotation><xs:documentation>Fields in the field-row will be split into two columns. If you want more than
+            two fields in a row, use field-row-big.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="2" ref="field-ref"/></xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="field-row-big">
+        <xs:annotation><xs:documentation>All fields go in a single column, with an optional title column first. Fields
+            will be "floated" left so that they stack up on a single line as long as them will fit, and then will
+            overflow to the next line, etc.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
+            <xs:attribute name="title" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="form-list-column">
+        <xs:annotation><xs:documentation>Fields in this set will be in the same column in the list form table.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
+            <xs:attribute name="style" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="field-ref">
+        <xs:complexType><xs:attribute name="name" type="xs:string" use="required"/></xs:complexType>
+    </xs:element>
+    <xs:element name="fields-not-referenced">
+        <xs:annotation><xs:documentation>Fields not explicitly referenced will be inserted where this element is. If
+            this element is left out the non-referenced fields will not be displayed.</xs:documentation></xs:annotation>
+    </xs:element>
+
+    <!-- ================== Standalone Fields ==================== -->
+    <xs:element name="link" substitutionGroup="StandaloneFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
+                <xs:element minOccurs="0" ref="image"/>
+            </xs:sequence>
+
+            <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="link-type" default="auto">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="auto"><xs:annotation><xs:documentation>
+                            If selected the hidden-form type will be used if the url-mode is transition and the
+                            transition has actions, otherwise the anchor-button type will be used.
+                        </xs:documentation></xs:annotation></xs:enumeration>
+                        <xs:enumeration value="anchor"/>
+                        <xs:enumeration value="anchor-button"/>
+                        <xs:enumeration value="hidden-form"/>
+                        <xs:enumeration value="hidden-form-link"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="url" type="xs:string" use="required"/>
+            <xs:attribute name="url-type" type="url-type" default="transition"><xs:annotation><xs:documentation>
+                The type for the url attribute. Defaults to transition (on this screen).
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="url-noparam" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true don't add parameters to the URL (mainly for anchors).</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text" type="xs:string"/>
+            <xs:attribute name="text-map" type="xs:string">
+                <xs:annotation><xs:documentation>An expression that evaluates to a Map in the context that will be used
+                    in addition to the context when expanding the @text value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="encode" type="boolean" default="true">
+                <xs:annotation><xs:documentation>
+                    If true text will be encoded so that it does not interfere with markup of the target output.
+
+                    For example, if output is HTML then data presented will be HTML encoded so that all
+                    HTML-specific characters are escaped.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="icon" type="xs:string"><xs:annotation><xs:documentation>Icon name, actually an icon
+                style used in an 'i' element in HTML output.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="tooltip" type="xs:string"/>
+            <xs:attribute name="target-window" type="xs:string"/>
+            <xs:attribute name="confirmation" type="xs:string"><xs:annotation><xs:documentation>
+                If there is a message here it will show in a confirmation box when the link is clicked on.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>
+                A Map to get parameter names and values from in addition to the parameter sub-elements.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="expand-transition-url" default="true" type="boolean">
+                <xs:annotation><xs:documentation>If this target transition has no condition, no actions, no
+                    conditional responses and the default-response type is "url" and url-type is "screen-path" then
+                    URLs to this transition may be expanded. Set this to true to expand them to what the
+                    default-response points to instead of a URL to this transition.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="style" type="xs:string"/>
+            <xs:attribute name="dynamic-load-id" type="xs:string"><xs:annotation><xs:documentation>
+                If specified URL will be loaded into the dynamic-container with this ID.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="condition" type="xs:string"><xs:annotation><xs:documentation>
+                If specified and evaluates to false link is not rendered.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="entity-name" type="xs:string"/>
+            <xs:attribute name="entity-key-name" type="xs:string"/>
+            <xs:attribute name="entity-use-cache" default="true" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="image" substitutionGroup="StandaloneFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="url" type="xs:string" use="required"/>
+            <xs:attribute name="url-type" type="url-type" default="content"/>
+            <xs:attribute name="width" type="xs:string"/>
+            <xs:attribute name="height" type="xs:string"/>
+            <xs:attribute name="alt" type="xs:string"/>
+            <xs:attribute name="style" type="xs:string"/>
+            <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>
+                A Map to get parameter names and values from in addition to the parameter sub-elements.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="condition" type="xs:string"><xs:annotation><xs:documentation>
+                If specified and evaluates to false image is not rendered.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="label" substitutionGroup="StandaloneFields">
+        <xs:complexType>
+            <xs:attribute name="text" type="xs:string" use="required"/>
+            <xs:attribute name="text-map" type="xs:string">
+                <xs:annotation><xs:documentation>An expression that evaluates to a Map in the context that will be used
+                    in addition to the context when expanding the @text value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="type" default="span">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="p"/>
+                    <xs:enumeration value="pre"/>
+                    <xs:enumeration value="code"/>
+                    <xs:enumeration value="div"/>
+                    <xs:enumeration value="span"/>
+                    <xs:enumeration value="strong"/>
+                    <xs:enumeration value="h1"/>
+                    <xs:enumeration value="h2"/>
+                    <xs:enumeration value="h3"/>
+                    <xs:enumeration value="h4"/>
+                    <xs:enumeration value="h5"/>
+                    <xs:enumeration value="h6"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="encode" type="boolean" default="true">
+                <xs:annotation><xs:documentation>
+                    If true text will be encoded so that it does not interfere with markup of the target output.
+
+                    For example, if output is HTML then data presented will be HTML encoded so that all
+                    HTML-specific characters are escaped.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="display-if-empty" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Generate text container even if text value is empty (or just whitespace)?
+                    Defaults to false.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="style" type="xs:string"/>
+            <xs:attribute name="condition" type="xs:string"><xs:annotation><xs:documentation>
+                If specified and evaluates to false label is not rendered.
+            </xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="editable" substitutionGroup="StandaloneFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
+                <xs:element minOccurs="0" ref="editable-load"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string" use="required"/>
+            <xs:attribute name="text" type="xs:string" use="required"/>
+            <xs:attribute name="type" default="span">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="p"/>
+                    <xs:enumeration value="pre"/>
+                    <xs:enumeration value="span"/>
+                    <xs:enumeration value="strong"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="widget-type" default="textarea">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="textarea"/>
+                    <xs:enumeration value="select"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="encode" type="boolean" default="false">
+                <xs:annotation><xs:documentation>
+                    If true text will be encoded so that it does not interfere with markup of the target output.
+
+                    For example, if output is HTML then data presented will be HTML encoded so that all
+                    HTML-specific characters are escaped.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="display-if-empty" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Generate text container even if text value is empty (or just whitespace)?
+                    Defaults to false.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="transition" type="xs:string" use="required"/>
+            <xs:attribute name="parameter-name" type="xs:string" default="value"><xs:annotation><xs:documentation>The name of the
+                parameter to pass the edited value in.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
+                names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="editable-load">
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/></xs:sequence>
+            <xs:attribute name="transition" type="xs:string" use="required"/>
+            <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
+                names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="parameter">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="from" type="xs:string"/>
+            <xs:attribute name="value" type="xs:string"/>
+            <xs:attribute name="required" default="false" type="boolean"><xs:annotation><xs:documentation>The parameter
+                element is used in many places, only some (such as screen.parameter) use this attribute.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+  <!-- ================== Input Fields ==================== -->
+    <xs:element name="SubFields" abstract="true"/>
+    <xs:element name="field">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="header-field"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="conditional-field"/>
+                <xs:element minOccurs="0" ref="default-field"/>
+                <!-- tabled, not to be part of 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="visible-when"/> -->
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>A unique name for this field. Used for the parameter name, referencing
+                    the field in other places, etc.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="entry-name" type="xs:string">
+                <xs:annotation><xs:documentation>The name of the entry in the context that contains the value to use for
+                    this field. By default will use the field name and look in the context and if not found in the
+                    context then in a map called "fieldValues" (ie: "fieldValues.${name}"). With this convention when
+                    you do an entity find to get a recard to edit, use "fieldValues" for the value-field.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="hide" type="boolean">
+                <xs:annotation><xs:documentation>If false field will always be visible (at least the title if nothing
+                    else). If true will always be hidden regardless of title and widgets defined. If empty (default)
+                    will guess based on definition of field.
+
+                    Note that for form-list fields this governs the entire column for the field, and not just a single
+                    row.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="validate-service" type="xs:string"/>
+            <xs:attribute name="validate-parameter" type="xs:string"/>
+            <xs:attribute name="validate-entity" type="xs:string"/>
+            <xs:attribute name="validate-field" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="header-field">
+        <xs:annotation><xs:documentation>
+            Only applicable to fields until a form-list element.
+            Used to show a field to filter the results by (instead of a separate search form), and/or to show the
+            order-by option in the header.
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice>
+                    <xs:element minOccurs="0" ref="SubFields"/>
+                    <xs:element minOccurs="0" maxOccurs="unbounded" ref="AllWidgets"/>
+                </xs:choice>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
+            </xs:sequence>
+            <xs:attribute name="title" type="xs:string">
+                <xs:annotation><xs:documentation>The name of this field that will be shown to the user; can use the ${}
+                    and map.key (dot) syntax to insert values from the context.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="show-order-by" default="false">
+                <xs:annotation><xs:documentation>Only applicable to multi and list type forms. If true header links for
+                    ordering by this field will be displayed.</xs:documentation></xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="true"/>
+                        <xs:enumeration value="false"/>
+                        <xs:enumeration value="case-insensitive"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="container-style" type="xs:string"><xs:annotation><xs:documentation>A style (HTML class)
+                for the container around the field (table cell, etc).</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="conditional-field">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
+                <xs:choice>
+                    <xs:element minOccurs="0" ref="SubFields"/>
+                    <xs:element minOccurs="0" maxOccurs="unbounded" ref="AllWidgets"/>
+                </xs:choice>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
+            </xs:sequence>
+            <xs:attribute name="condition" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>A boolean expression in Groovy.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attributeGroup ref="attlist.conditional-field"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="default-field">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
+                <xs:choice>
+                    <xs:element minOccurs="0" ref="SubFields"/>
+                    <xs:element minOccurs="0" maxOccurs="unbounded" ref="AllWidgets"/>
+                </xs:choice>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
+            </xs:sequence>
+            <xs:attributeGroup ref="attlist.conditional-field"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:attributeGroup name="attlist.conditional-field">
+        <xs:attribute name="title" type="xs:string">
+            <xs:annotation><xs:documentation>The name of this field that will be shown to the user; can use the ${}
+                and map.key (dot) syntax to insert values from the context.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="tooltip" type="xs:string">
+            <xs:annotation><xs:documentation>The text to show on mouse over or help for more information; can use
+                the ${} and map.key (dot) syntax to insert values from the context.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="red-when" default="by-name">
+            <xs:annotation><xs:documentation>The widget/interaction part will be red if the date value is before-now
+                (for thruDate), after-now (for fromDate), or by-name (if the field's name or entry-name or fromDate
+                or thruDate the corresponding action will be done); only applicable when the field is a timestamp.</xs:documentation></xs:annotation>
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="never"/>
+                    <xs:enumeration value="before-now"/>
+                    <xs:enumeration value="after-now"/>
+                    <xs:enumeration value="by-name"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="container-style" type="xs:string"><xs:annotation><xs:documentation>A style (HTML class) for
+            the container around the field (table cell, etc).</xs:documentation></xs:annotation></xs:attribute>
+    </xs:attributeGroup>
+    <!-- TABLED, not to be part of 1.0:
+    <xs:element name="visible-when">
+        <xs:annotation><xs:documentation>
+            Used to dynamically show or hide a field based on the value of another field (usually a drop-down).
+            If any of these elements are present the field is hidden unless one of the field/value pairs is a match.
+            For more complex conditions on visibility custom event handling should be used (ie JavaScript for HTML/Web
+                pages, Java/Groovy for Desktop UI, etc).
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="field" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The name of the field (usually a drop-down) used to determine if this
+                    field should be visible or not.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="value" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The value the field should match in order for this to be visible.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    -->
+
+  <!-- ================== Field Sub-Elements ==================== -->
+    <xs:element name="auto-widget-service" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="service-name" type="xs:string" use="required"/>
+            <xs:attribute name="parameter-name" type="xs:string"/>
+            <xs:attribute name="field-type" default="edit" type="auto-field-type"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="auto-widget-entity" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="field-name" type="xs:string"/>
+            <xs:attribute name="field-type" default="find-display" type="auto-field-type"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="widget-template-include" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
+            </xs:sequence>
+            <xs:attribute name="location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="check" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="entity-options"/>
+                <xs:element ref="list-options"/>
+                <xs:element ref="option"/>
+            </xs:choice>
+            <xs:attribute name="no-current-selected-key" type="xs:string"/>
+            <xs:attribute name="all-checked" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="date-find" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="type" default="timestamp">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="timestamp"/>
+                        <xs:enumeration value="date-time"/>
+                        <xs:enumeration value="date"/>
+                        <xs:enumeration value="time"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Time/Date/Timestamp objects. With
+                    auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default-value-from" type="xs:string"/>
+            <xs:attribute name="default-value-thru" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="date-period" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="allow-empty" default="true" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="date-time" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="type" default="timestamp">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="timestamp"/>
+                        <xs:enumeration value="date-time"/>
+                        <xs:enumeration value="date"/>
+                        <xs:enumeration value="time"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Time/Date/Timestamp objects. With
+                    auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="size" type="xs:positiveInteger"/>
+            <xs:attribute name="max-length" type="xs:positiveInteger"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="display" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="also-hidden" default="true" type="boolean">
+                <xs:annotation><xs:documentation>If set to true, a hidden form field is also rendered, with the name of
+                    the field and its value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text" type="xs:string">
+                <xs:annotation><xs:documentation>Specifies the string to display, can use the ${} syntax to insert
+                    context values; if empty the value of the field will be printed for a default.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text-map" type="xs:string">
+                <xs:annotation><xs:documentation>An expression that evaluates to a Map in the context that will be used
+                    in addition to the context when expanding the @text value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="currency-unit-field" type="xs:string">
+                <xs:annotation><xs:documentation>Specifies the currency uomId (ISO code) used to format the value.
+                Will only format as currency if this is specified.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
+                    With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="encode" default="true" type="boolean">
+                <xs:annotation><xs:documentation>
+                    If true the text will be encoded so that it does not interfere with markup of the target output.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="display-entity" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="key-field-name" type="xs:string"/>
+            <xs:attribute name="use-cache" default="true" type="boolean"/>
+            <xs:attribute name="text" type="xs:string" default="${description}"/>
+            <xs:attribute name="also-hidden" default="true" type="boolean"/>
+            <xs:attribute name="encode" default="true" type="boolean">
+                <xs:annotation><xs:documentation>
+                    If true text will be encoded so that it does not interfere with markup of the target output.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="drop-down" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice>
+                    <xs:element ref="dynamic-options"/>
+                    <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element ref="entity-options"/>
+                        <xs:element ref="list-options"/>
+                        <xs:element ref="option"/>
+                    </xs:choice>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="allow-empty" type="xs:string" default="false"/>
+            <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
+            <xs:attribute name="size" type="xs:integer" default="1"/>
+            <xs:attribute name="current" default="first-in-list">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="first-in-list"/>
+                        <xs:enumeration value="selected"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="no-current-selected-key" type="xs:string">
+                <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="current-description" type="xs:string"/>
+            <xs:attribute name="combo-box" type="boolean" default="false"/>
+            <xs:attribute name="search" type="boolean" default="true"/>
+            <xs:attribute name="style" type="xs:string">
+                <xs:annotation><xs:documentation>This should only be used in an emergency, such as the issue with Chosen in a popup.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="file" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="hidden" substitutionGroup="SubFields">
+        <xs:complexType><xs:attribute name="default-value" type="xs:string"/></xs:complexType>
+    </xs:element>
+    <xs:element name="ignored" substitutionGroup="SubFields"><xs:complexType/></xs:element>
+    <!-- TABLED, not to be part of 1.0:
+    <xs:element name="lookup" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="target-screen" type="xs:string" use="required"/>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="disabled" default="false" type="boolean"/>
+            <xs:attribute name="secondary-field" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    -->
+    <xs:element name="password" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="radio" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="entity-options"/>
+                <xs:element ref="list-options"/>
+                <xs:element ref="option"/>
+            </xs:choice>
+            <xs:attribute name="no-current-selected-key" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="range-find" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:positiveInteger" default="10"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value-from" type="xs:string"/>
+            <xs:attribute name="default-value-thru" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="reset" substitutionGroup="SubFields"><xs:complexType/></xs:element>
+    <xs:element name="submit" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="image"/>
+            </xs:sequence>
+            <xs:attribute name="confirmation" type="xs:string"><xs:annotation><xs:documentation>
+                If there is a message here it will show in a confirmation box when the button is clicked on.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="icon" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="text-line" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="disabled" default="false" type="boolean"/>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
+                    With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ac-transition" type="xs:string" use="optional">
+                <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
+                    this transition as the source of the auto-complete options.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ac-delay" type="xs:positiveInteger" default="300"/>
+            <xs:attribute name="ac-min-length" type="xs:positiveInteger" default="1"/>
+            <xs:attribute name="ac-show-value" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true the value of the currently selected option will show next to
+                    the autocomplete input box.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ac-initial-text" type="xs:string" use="optional"/>
+            <xs:attribute name="ac-use-actual" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true the value enterred in the input box will be used even if no
+                    autocomplete option is selected.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string">
+                <xs:annotation><xs:documentation>A Map to get parameter names and values from for autocomplete requests.
+                    This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="text-area" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="cols" type="xs:positiveInteger" default="60"/>
+            <xs:attribute name="rows" type="xs:positiveInteger" default="3"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="read-only" default="false" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="text-find" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="ignore-case" default="true" type="boolean"/>
+            <xs:attribute name="default-operator" default="contains">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="equals"/>
+                        <xs:enumeration value="like"/>
+                        <xs:enumeration value="contains"/>
+                        <xs:enumeration value="begins"/>
+                        <xs:enumeration value="empty"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="hide-options" default="false">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="true"/>
+                        <xs:enumeration value="false"/>
+                        <xs:enumeration value="ignore-case"/>
+                        <xs:enumeration value="operator"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ================== Field Sub-Sub-Elements ==================== -->
+    <xs:element name="entity-options">
+        <xs:annotation><xs:documentation>Look up options for the field using the named entity.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="entity-find"/>
+            </xs:sequence>
+            <xs:attribute name="key" type="xs:string">
+                <xs:annotation><xs:documentation>The text representing the key. Use the ${} syntax to insert entries
+                    from the entity value or from the context. If empty will use the first primary key field name to
+                    lookup a value in the context.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text" type="xs:string">
+                <xs:annotation><xs:documentation>Actual text shown to the user. Use the ${} syntax to insert variables.
+                    If empty defaults to the value of the key.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="list-options">
+        <xs:annotation><xs:documentation>Create options based on data in a List of Maps.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="list" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The name of the list to iterate through to get values.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="key" type="xs:string">
+                <xs:annotation><xs:documentation>The text representing the key. Use the ${} syntax to insert entries
+                    from a Map in the list or from the context. If empty and the List contains EntityValue instances
+                    then will use the first primary key field name to lookup a value in the context, otherwise will
+                    use the name of the field to lookup a value in the context.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text" type="xs:string">
+                <xs:annotation><xs:documentation>Actual text shown to the user. Use the ${} syntax to insert entries
+                    from a Map in the list or from the context. If empty defaults to the value of the key.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="option">
+        <xs:complexType>
+            <xs:attribute name="key" type="xs:string" use="required"/>
+            <xs:attribute name="text" type="xs:string">
+                <xs:annotation><xs:documentation>What the user will see in the widget; defaults to the value of the key
+                    attribute.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="dynamic-options">
+        <xs:annotation><xs:documentation>Look up options for the field using a JSON over HTTP call to a server.
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="depends-on">
+                    <xs:annotation><xs:documentation>When getting data from the server the value of this field will be
+                        passed in the request. When the field named here changes these options will be updated.</xs:documentation></xs:annotation>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="transition" type="xs:string">
+                <xs:annotation><xs:documentation>The transition in this screen to get the option list from.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="value-field" type="xs:string" default="value">
+                <xs:annotation><xs:documentation>The field in the result that represents the value (key) for the option.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="label-field" type="xs:string" default="label">
+                <xs:annotation><xs:documentation>The field in the result that represents the label for the option.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="depends-on">
+        <xs:complexType>
+            <xs:attribute name="field" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

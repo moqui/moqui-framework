@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.6.xsd">
+
+    <!-- ========================================================= -->
+    <!-- moqui.basic -->
+    <!-- moqui.basic.email -->
+    <!-- moqui.basic.print -->
+    <!-- ========================================================= -->
+
+    <!-- ========== DataSource ========== -->
+    <entity entity-name="DataSource" package-name="moqui.basic" cache="true">
+        <field name="dataSourceId" type="id" is-pk="true"/>
+        <field name="dataSourceTypeEnumId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" title="DataSourceType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="dataSourceTypeEnumId"/></relationship>
+        <seed-data>
+            <!-- =========================== Data Source Type Data ==================== -->
+            <moqui.basic.EnumerationType description="Data Source Type" enumTypeId="DataSourceType"/>
+            <moqui.basic.Enumeration description="Purchased Data" enumId="DST_PURCHASED_DATA" enumTypeId="DataSourceType"/>
+            <moqui.basic.Enumeration description="Customer Data Entry" enumId="DST_CUSTOMER_ENTRY" enumTypeId="DataSourceType"/>
+            <moqui.basic.Enumeration description="Internal Data Entry (employees, etc)" enumId="DST_INTERNAL_ENTRY" enumTypeId="DataSourceType"/>
+            <moqui.basic.Enumeration description="Mailing List Sign-up" enumId="DST_MAILING_SIGNUP" enumTypeId="DataSourceType"/>
+        </seed-data>
+    </entity>
+
+    <!-- ========== Enumeration ========== -->
+    <entity entity-name="Enumeration" package-name="moqui.basic" short-alias="enums" cache="true">
+        <field name="enumId" type="id" is-pk="true"/>
+        <field name="enumTypeId" type="id-long"/>
+        <field name="parentEnumId" type="id"/>
+        <field name="enumCode" type="text-medium"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="description" type="text-medium" enable-localization="true"/>
+        <field name="relatedEnumId" type="id"/>
+        <relationship type="one" related-entity-name="moqui.basic.EnumerationType" short-alias="type"/>
+        <relationship type="one-nofk" title="Parent" related-entity-name="moqui.basic.Enumeration" short-alias="parent">
+            <key-map field-name="parentEnumId"/></relationship>
+        <relationship type="one-nofk" title="Related" related-entity-name="moqui.basic.Enumeration" short-alias="related">
+            <key-map field-name="relatedEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
+            <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="Not Applicable"/>
+        </seed-data>
+        <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
+    </entity>
+    <entity entity-name="EnumerationType" package-name="moqui.basic" short-alias="enumerationTypes" cache="true">
+        <field name="enumTypeId" type="id-long" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+    </entity>
+
+    <!-- ========== Geo ========== -->
+    <entity entity-name="Geo" package-name="moqui.basic" short-alias="geos" cache="true">
+        <field name="geoId" type="id" is-pk="true"/>
+        <field name="geoTypeEnumId" type="id"/>
+        <field name="geoName" type="text-medium"/>
+        <field name="geoNameLocal" type="text-medium"/>
+        <field name="geoCodeAlpha2" type="text-short"/>
+        <field name="geoCodeAlpha3" type="text-short"/>
+        <field name="geoCodeNumeric" type="text-short"/>
+        <field name="wellKnownText" type="text-very-long"/>
+        <relationship type="one" title="GeoType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="geoTypeEnumId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.basic.GeoAssoc" short-alias="assocs">
+            <key-map field-name="geoId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.basic.GeoAssoc" short-alias="toAssocs">
+            <key-map field-name="geoId" related-field-name="toGeoId"/></relationship>
+        <seed-data>
+            <!-- A placeholder for when there is no Geo -->
+            <moqui.basic.Geo geoId="_NA_" geoName="Not Applicable" geoCodeAlpha3="_NA" geoCodeAlpha2="_N"/>
+
+            <!-- =========================== Geo Type Data ============================ -->
+            <moqui.basic.EnumerationType description="Geo Type" enumTypeId="GeoType"/>
+
+            <!-- General Geographic Groupings -->
+            <moqui.basic.Enumeration description="Group" enumId="GEOT_GROUP" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Region" enumId="GEOT_REGION" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Sales Region" enumId="GEOT_SALES_REGION" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Service Region" enumId="GEOT_SERVICE_REGION" enumTypeId="GeoType"/>
+
+            <!-- Legal/Governmental Geographic Groupings based on Juris-diction -->
+            <moqui.basic.Enumeration description="City" enumId="GEOT_CITY" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="State" enumId="GEOT_STATE" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Postal Code" enumId="GEOT_POSTAL_CODE" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Country" enumId="GEOT_COUNTRY" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="County" enumId="GEOT_COUNTY" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="County-City" enumId="GEOT_COUNTY_CITY" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Municipality" enumId="GEOT_MUNICIPALITY" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Province" enumId="GEOT_PROVINCE" enumTypeId="GeoType"/>
+            <moqui.basic.Enumeration description="Territory" enumId="GEOT_TERRITORY" enumTypeId="GeoType"/>
+        </seed-data>
+        <master>
+            <detail relationship="type"/>
+            <detail relationship="assocs"><detail relationship="toGeo"/><detail relationship="type"/></detail>
+            <detail relationship="toAssocs"><detail relationship="geo"/><detail relationship="type"/></detail>
+        </master>
+    </entity>
+    <view-entity entity-name="GeoAndType" package-name="moqui.basic">
+        <member-entity entity-alias="GEO" entity-name="moqui.basic.Geo"/>
+        <member-entity entity-alias="GTE" entity-name="moqui.basic.Enumeration" join-from-alias="GEO">
+            <key-map field-name="geoTypeEnumId" related-field-name="enumId"/></member-entity>
+        <alias-all entity-alias="GEO"/>
+        <alias-all entity-alias="GTE" prefix="type"/>
+    </view-entity>
+    <entity entity-name="GeoAssoc" package-name="moqui.basic" cache="true">
+        <field name="geoId" type="id" is-pk="true"/>
+        <field name="toGeoId" type="id" is-pk="true"/>
+        <field name="geoAssocTypeEnumId" type="id"/>
+        <relationship type="one" title="Main" related-entity-name="moqui.basic.Geo" short-alias="geo"/>
+        <relationship type="one" title="Assoc" related-entity-name="moqui.basic.Geo" short-alias="toGeo">
+            <key-map field-name="toGeoId"/></relationship>
+        <relationship type="one" title="GeoAssocType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="geoAssocTypeEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Geo Assoc Type" enumTypeId="GeoAssocType"/>
+            <moqui.basic.Enumeration description="Geo Group Member" enumId="GAT_GROUP_MEMBER" enumTypeId="GeoAssocType"/>
+            <moqui.basic.Enumeration description="Region of a Larger Geo" enumId="GAT_REGIONS" enumTypeId="GeoAssocType"/>
+            <moqui.basic.Enumeration description="Administrative City" enumId="GAT_COUNTY_SEAT" enumTypeId="GeoAssocType"/>
+        </seed-data>
+    </entity>
+    <view-entity entity-name="GeoAssocAndToDetail" package-name="moqui.basic">
+        <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc"/>
+        <member-entity entity-alias="GEOTO" entity-name="moqui.basic.Geo" join-from-alias="GEOA">
+            <key-map field-name="toGeoId" related-field-name="geoId"/></member-entity>
+        <alias-all entity-alias="GEOA"/>
+        <alias-all entity-alias="GEOTO"><exclude field="geoId"/></alias-all>
+    </view-entity>
+    <view-entity entity-name="GeoAssocAndFromDetail" package-name="moqui.basic">
+        <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc"/>
+        <member-entity entity-alias="GEOFR" entity-name="moqui.basic.Geo" join-from-alias="GEOA">
+            <key-map field-name="geoId"/></member-entity>
+        <alias-all entity-alias="GEOA"/>
+        <alias-all entity-alias="GEOFR"><exclude field="geoId"/></alias-all>
+    </view-entity>
+    <entity entity-name="GeoPoint" package-name="moqui.basic" short-alias="geoPoints">
+        <field name="geoPointId" type="id" is-pk="true"/>
+        <field name="geoPointTypeEnumId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <field name="dataSourceId" type="id"/>
+        <field name="latitude" type="number-float"/>
+        <field name="longitude" type="number-float"/>
+        <field name="elevation" type="number-float"/>
+        <field name="elevationUomId" type="id"/>
+        <field name="information" type="text-medium"/>
+        <relationship type="one" title="GeoPointType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="geoPointTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="moqui.basic.DataSource" short-alias="dataSource"/>
+        <relationship type="one" title="Elevation" related-entity-name="moqui.basic.Uom" short-alias="elevationUom">
+            <key-map field-name="elevationUomId"/></relationship>
+        <master><detail relationship="type"/><detail relationship="dataSource"/><detail relationship="elevationUom"/></master>
+    </entity>
+
+    <!-- ========== Localized ========== -->
+    <entity entity-name="LocalizedMessage" package-name="moqui.basic" cache="true" authorize-skip="view">
+        <field name="original" type="text-medium" is-pk="true"/>
+        <field name="locale" type="text-short" is-pk="true"/>
+        <field name="localized" type="text-long"/>
+    </entity>
+    <entity entity-name="LocalizedEntityField" package-name="moqui.basic" cache="true" authorize-skip="view">
+        <field name="entityName" type="text-medium" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="pkValue" type="text-medium" is-pk="true"/>
+        <field name="locale" type="text-short" is-pk="true"/>
+        <field name="localized" type="text-long"/>
+    </entity>
+
+    <!-- ========== Status ========== -->
+    <entity entity-name="StatusItem" package-name="moqui.basic" short-alias="statuses" cache="true">
+        <field name="statusId" type="id" is-pk="true"/>
+        <field name="statusTypeId" type="id-long"/>
+        <field name="statusCode" type="text-medium"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="description" type="text-medium" enable-localization="true"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusType" short-alias="type"/>
+        <relationship type="many" related-entity-name="moqui.basic.StatusFlowItem" short-alias="flows">
+            <key-map field-name="statusId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.basic.StatusFlowTransition" short-alias="transitions">
+            <key-map field-name="statusId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.basic.StatusFlowTransition" short-alias="toTransitions">
+            <key-map field-name="statusId" related-field-name="toStatusId"/></relationship>
+        <seed-data>
+            <moqui.basic.StatusType statusTypeId="_NA_" description="Not Applicable"/>
+            <moqui.basic.StatusItem statusId="_NA_" statusTypeId="_NA_" description="Not Applicable"/>
+        </seed-data>
+        <master>
+            <detail relationship="type"/>
+            <detail relationship="flows"><detail relationship="flow"/></detail>
+            <detail relationship="transitions"><detail relationship="flow"/><detail relationship="toStatus"/></detail>
+            <detail relationship="toTransitions"><detail relationship="flow"/><detail relationship="status"/></detail>
+        </master>
+    </entity>
+    <entity entity-name="StatusType" package-name="moqui.basic" short-alias="statusTypes">
+        <field name="statusTypeId" type="id-long" is-pk="true"/>
+        <field name="parentTypeId" type="id-long"/>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" title="Parent" related-entity-name="moqui.basic.StatusType">
+            <!-- NOTE: the related-field-name is necessary here because it is a reference back to the same entity and
+                 will find the parentTypeId as the related field because it matches by name. -->
+            <key-map field-name="parentTypeId" related-field-name="statusTypeId"/>
+        </relationship>
+    </entity>
+    <!-- Deprecated for a long time, now removed: StatusValidChange, StatusValidChangeToDetail -->
+    <entity entity-name="StatusFlow" package-name="moqui.basic">
+        <field name="statusFlowId" type="id-long" is-pk="true"/>
+        <field name="statusTypeId" type="id-long"><description>Optional. If specified uses status items with this type.</description></field>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusType" short-alias="type"/>
+        <seed-data>
+            <moqui.basic.StatusFlow statusFlowId="Default" description="Default status flow across entire system."/>
+        </seed-data>
+    </entity>
+    <entity entity-name="StatusFlowItem" package-name="moqui.basic">
+        <field name="statusFlowId" type="id-long" is-pk="true"/>
+        <field name="statusId" type="id" is-pk="true"/>
+        <field name="isInitial" type="text-indicator"><description>If true can be an initial status in this flow.</description></field>
+        <relationship type="one" related-entity-name="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+    </entity>
+    <entity entity-name="StatusFlowTransition" package-name="moqui.basic" cache="true">
+        <field name="statusFlowId" type="id-long" is-pk="true"/>
+        <field name="statusId" type="id" is-pk="true"/>
+        <field name="toStatusId" type="id" is-pk="true"/>
+        <field name="transitionSequence" type="number-integer"/>
+        <field name="transitionName" type="text-medium"/>
+        <field name="conditionExpression" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="To" related-entity-name="moqui.basic.StatusItem" short-alias="toStatus">
+            <key-map field-name="toStatusId" related-field-name="statusId"/></relationship>
+    </entity>
+    <view-entity entity-name="StatusFlowTransitionToDetail" package-name="moqui.basic">
+        <member-entity entity-alias="SFT" entity-name="moqui.basic.StatusFlowTransition"/>
+        <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFT">
+            <key-map field-name="toStatusId" related-field-name="statusId"/></member-entity>
+        <alias-all entity-alias="SFT"/>
+        <alias-all entity-alias="SI"><exclude field="statusId"/></alias-all>
+        <entity-condition><order-by field-name="sequenceNum"/></entity-condition>
+    </view-entity>
+
+    <!-- ========== Uom ========== -->
+    <entity entity-name="Uom" package-name="moqui.basic" short-alias="uoms" cache="true">
+        <field name="uomId" type="id" is-pk="true"/>
+        <field name="uomTypeEnumId" type="id"/>
+        <field name="abbreviation" type="text-short"/>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" title="UomType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="uomTypeEnumId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.basic.UomConversion" short-alias="conversions">
+            <key-map field-name="uomId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.basic.UomConversion" short-alias="toConversions">
+            <key-map field-name="uomId" related-field-name="toUomId"/></relationship>
+        <seed-data>
+            <!-- =========================== UOM Type Data ============================ -->
+            <moqui.basic.EnumerationType description="UOM Type" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Currency" enumId="UT_CURRENCY_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Data Size" enumId="UT_DATA_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Data Speed" enumId="UT_DATASPD_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Time/Frequency" enumId="UT_TIME_FREQ_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Length" enumId="UT_LENGTH_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Velocity" enumId="UT_VELOCITY_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Area" enumId="UT_AREA_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Liquid Volume" enumId="UT_VOLUME_LIQ_MEAS" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Dry Volume" enumId="UT_VOLUME_DRY_MEAS" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Density" enumId="UT_DENSITY_MEAS" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Weight" enumId="UT_WEIGHT_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Energy" enumId="UT_ENERGY_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Power" enumId="UT_POWER_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Pressure" enumId="UT_PRESSURE_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Temperature" enumId="UT_TEMP_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Other" enumId="UT_OTHER_MEASURE" enumTypeId="UomType"/>
+        </seed-data>
+        <master>
+            <detail relationship="type"/>
+            <detail relationship="conversions"><detail relationship="toUom"/></detail>
+            <detail relationship="toConversions"><detail relationship="uom"/></detail>
+        </master>
+    </entity>
+    <view-entity entity-name="UomAndType" package-name="moqui.basic" cache="true">
+        <member-entity entity-alias="UOM" entity-name="moqui.basic.Uom"/>
+        <member-entity entity-alias="UTE" entity-name="moqui.basic.Enumeration" join-from-alias="UOM">
+            <key-map field-name="uomTypeEnumId" related-field-name="enumId"/></member-entity>
+        <alias entity-alias="UOM" name="uomId"/>
+        <alias entity-alias="UOM" name="uomTypeEnumId"/>
+        <alias entity-alias="UOM" name="description"/>
+        <alias entity-alias="UOM" name="abbreviation"/>
+        <alias entity-alias="UTE" name="typeDescription" field="description"/>
+    </view-entity>
+    <entity entity-name="UomConversion" package-name="moqui.basic" cache="true">
+        <field name="uomConversionId" type="id" is-pk="true"/>
+        <field name="uomId" type="id"/>
+        <field name="toUomId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="conversionFactor" type="number-decimal"/>
+        <field name="conversionOffset" type="number-decimal">
+            <description>The factor is multiplied first, then the offset is added. When converting in the reverse
+                direction the offset is subtracted first, then divided by the factor.
+            </description>
+        </field>
+        <relationship type="one" related-entity-name="moqui.basic.Uom" short-alias="uom"/>
+        <relationship type="one" title="To" related-entity-name="moqui.basic.Uom" short-alias="toUom">
+            <key-map field-name="toUomId" related-field-name="uomId"/></relationship>
+    </entity>
+    <view-entity entity-name="UomConversionAndToDetail" package-name="moqui.basic">
+        <member-entity entity-alias="UOMC" entity-name="moqui.basic.UomConversion"/>
+        <member-entity entity-alias="UOMTO" entity-name="moqui.basic.Uom" join-from-alias="UOMC">
+            <key-map field-name="toUomId" related-field-name="uomId"/></member-entity>
+        <alias-all entity-alias="UOMC"/>
+        <alias-all entity-alias="UOMTO"><exclude field="uomId"/></alias-all>
+    </view-entity>
+    <view-entity entity-name="UomConversionAndFromDetail" package-name="moqui.basic">
+        <member-entity entity-alias="UOMC" entity-name="moqui.basic.UomConversion"/>
+        <member-entity entity-alias="UOMFR" entity-name="moqui.basic.Uom" join-from-alias="UOMC">
+            <key-map field-name="uomId"/></member-entity>
+        <alias-all entity-alias="UOMC"/>
+        <alias-all entity-alias="UOMFR"><exclude field="uomId"/></alias-all>
+    </view-entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.basic.email -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="EmailMessage" package-name="moqui.basic.email" short-alias="emailMessages" cache="false">
+        <field name="emailMessageId" type="id" is-pk="true"/>
+        <field name="rootEmailMessageId" type="id">
+            <description>For threaded messages, this points to the message that started the thread.</description></field>
+        <field name="parentEmailMessageId" type="id">
+            <description>For threaded messages, this points to the previous message in the thread.</description></field>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="emailTypeEnumId" type="id"/>
+        <field name="sentDate" type="date-time"/>
+        <field name="receivedDate" type="date-time"/>
+        <field name="subject" type="text-long"/>
+        <field name="body" type="text-very-long"/>
+        <field name="note" type="text-long"/>
+        <field name="headersString" type="text-very-long"/>
+        <field name="fromAddress" type="text-medium"/>
+        <field name="toAddresses" type="text-long"/>
+        <field name="ccAddresses" type="text-long"/>
+        <field name="bccAddresses" type="text-long"/>
+        <field name="contentType" type="text-medium"/>
+        <field name="messageId" type="text-medium"/>
+        <field name="fromUserId" type="id-long"/>
+        <field name="toUserId" type="id-long"/>
+        <field name="emailTemplateId" type="id">
+            <description>For outgoing messages that came from an EmailTemplate.</description></field>
+        <field name="emailServerId" type="id"/>
+
+        <relationship type="one" title="EmailMessage" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="EmailType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="emailTypeEnumId"/></relationship>
+        <relationship type="one" title="Root" related-entity-name="moqui.basic.email.EmailMessage" short-alias="root">
+            <key-map field-name="rootEmailMessageId" related-field-name="emailMessageId"/></relationship>
+        <relationship type="one" title="Parent" related-entity-name="moqui.basic.email.EmailMessage" short-alias="parent">
+            <key-map field-name="parentEmailMessageId" related-field-name="emailMessageId"/></relationship>
+        <relationship type="many" title="Child" related-entity-name="moqui.basic.email.EmailMessage" short-alias="children">
+            <key-map field-name="emailMessageId" related-field-name="parentEmailMessageId"/></relationship>
+        <relationship type="one" title="From" related-entity-name="moqui.security.UserAccount" short-alias="fromUser">
+            <key-map field-name="fromUserId"/></relationship>
+        <relationship type="one" title="To" related-entity-name="moqui.security.UserAccount" short-alias="toUser">
+            <key-map field-name="toUserId"/></relationship>
+        <relationship type="one" related-entity-name="moqui.basic.email.EmailTemplate" short-alias="template"/>
+        <relationship type="one" related-entity-name="moqui.basic.email.EmailServer" short-alias="server"/>
+
+        <index name="EMAIL_MSG_ID"><index-field name="messageId"/></index>
+
+        <seed-data>
+            <!-- Email Message Status -->
+            <moqui.basic.StatusType description="Email Message Status" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusItem description="Draft" sequenceNum="1" statusId="ES_DRAFT" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusItem description="Ready" sequenceNum="2" statusId="ES_READY" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusItem description="Sent" sequenceNum="3" statusId="ES_SENT" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusItem description="Received" sequenceNum="4" statusId="ES_RECEIVED" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusItem description="Viewed" sequenceNum="5" statusId="ES_VIEWED" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusItem description="Bounced" sequenceNum="8" statusId="ES_BOUNCED" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="9" statusId="ES_CANCELLED" statusTypeId="EmailMessage"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_DRAFT" toStatusId="ES_READY" transitionName="Ready"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_READY" toStatusId="ES_SENT" transitionName="Send"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_READY" toStatusId="ES_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_RECEIVED" transitionName="Received"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_VIEWED" transitionName="Viewed"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_BOUNCED" transitionName="Bounced"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_RECEIVED" toStatusId="ES_VIEWED" transitionName="Viewed"/>
+
+            <!-- Email Type -->
+            <moqui.basic.EnumerationType description="Email Type" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="System" enumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Password Reset" enumId="EMT_PWD_RESET" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Error Notice" enumId="EMT_ERROR_NOTICE" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+
+            <moqui.basic.Enumeration description="Registration Confirmation" enumId="EMT_REG_CONFIRM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Update Personal Info Confirmation" enumId="EMT_UPD_INFO_CONFIRM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Email Address Verification" enumId="EMT_EMAIL_VERIFY" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Account Invitation" enumId="EMT_ACCOUNT_INVITE" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Contact Us Notification" enumId="EMT_CONACT_US_NOT" enumTypeId="EmailType"/>
+        </seed-data>
+        <master>
+            <detail relationship="status"/><detail relationship="type"/>
+            <detail relationship="root" use-master="default"/><detail relationship="parent" use-master="default"/>
+            <detail relationship="children" use-master="default"/>
+            <detail relationship="fromUser"/><detail relationship="toUser"/>
+            <detail relationship="template"/><detail relationship="server"/>
+        </master>
+    </entity>
+    <entity entity-name="EmailServer" package-name="moqui.basic.email" cache="true">
+        <field name="emailServerId" type="id" is-pk="true"/>
+        <field name="smtpHost" type="text-medium"/>
+        <field name="smtpPort" type="text-short"/>
+        <field name="smtpStartTls" type="text-indicator"/>
+        <field name="smtpSsl" type="text-indicator"/>
+        <field name="storeHost" type="text-medium"/>
+        <field name="storePort" type="text-short"/>
+        <field name="storeProtocol" type="text-short"/>
+        <field name="storeFolder" type="text-medium"><description>Defaults to INBOX</description></field>
+        <field name="storeDelete" type="text-indicator"/>
+        <field name="storeMarkSeen" type="text-indicator"/>
+        <field name="storeSkipSeen" type="text-indicator"/>
+        <field name="mailUsername" type="text-medium"/>
+        <field name="mailPassword" type="text-medium" encrypt="true"/>
+        <seed-data>
+            <!-- NOTE: these are skeleton settings and some fields need to be filled in (probably best with another data file)
+                for your specific installation in order to be functional -->
+            <moqui.basic.email.EmailServer emailServerId="SYSTEM"
+                         smtpHost="" smtpPort="465" smtpStartTls="N" smtpSsl="Y"
+                         storeHost="" storePort="993" storeProtocol="imaps" storeFolder=""
+                         storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
+                         mailUsername="" mailPassword=""/>
+            <!-- Other common values:
+                smtpPort="25" (std) smtpPort="465" (ssmtp) smtpPort="587" (ssmtp?)
+                storeProtocol="imap" storePort="143" (std) storePort="585" (imap4-ssl) storePort="993" (imaps)
+                storeProtocol="pop3" storePort="110" (std) storePort="995" (ssl-pop)
+            -->
+        </seed-data>
+    </entity>
+    <entity entity-name="EmailTemplate" package-name="moqui.basic.email" short-alias="emailTemplates" cache="true">
+        <field name="emailTemplateId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="emailServerId" type="id"/>
+        <field name="fromAddress" type="text-medium"/>
+        <field name="fromName" type="text-medium"/>
+        <field name="replyToAddresses" type="text-medium"><description>Comma separated list of reply to email addresses</description></field>
+        <field name="bounceAddress" type="text-medium"/>
+        <field name="ccAddresses" type="text-medium"><description>Comma separated list of CC email addresses</description></field>
+        <field name="bccAddresses" type="text-medium"><description>Comma separated list of BCC email addresses</description></field>
+        <field name="subject" type="text-long"/>
+        <field name="bodyScreenLocation" type="text-medium"/>
+        <field name="webappName" type="text-medium"/>
+        <field name="sendPartial" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.basic.email.EmailServer" short-alias="server"/>
+        <relationship type="many" related-entity-name="moqui.basic.email.EmailTemplateAttachment"
+                short-alias="attachments" mutable="true">
+            <key-map field-name="emailTemplateId"/></relationship>
+        <master><detail relationship="server"/><detail relationship="attachments"/></master>
+    </entity>
+    <entity entity-name="EmailTemplateAttachment" package-name="moqui.basic.email" cache="true">
+        <field name="emailTemplateId" type="id" is-pk="true"/>
+        <field name="fileName" type="text-medium" is-pk="true"/>
+        <field name="attachmentLocation" type="text-medium"/>
+        <field name="screenRenderMode" type="text-short">
+            <description>Used to determine the MIME/content type, and which screen render template to use.
+                Can be used to generate XSL:FO that is transformed to a PDF and attached to the email with
+                screenRenderMode=xsl-fo.
+                If empty the content at attachmentLocation will be sent over without rendering and its MIME type will
+                be based on its extension.
+            </description>
+        </field>
+        <relationship type="one" related-entity-name="moqui.basic.email.EmailTemplate"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.basic.print -->
+    <!-- ========================================================= -->
+    
+    <entity entity-name="NetworkPrinter" package-name="moqui.basic.print">
+        <field name="networkPrinterId" type="id" is-pk="true"/>
+        <field name="serverHost" type="text-medium"/>
+        <field name="serverPort" type="number-integer"><description>Defaults to 631</description></field>
+        <field name="printerName" type="text-medium"><description>Leave empty to use default printer on print server</description></field>
+        <field name="description" type="text-medium"/>
+        <field name="location" type="text-medium"/>
+    </entity>
+    <entity entity-name="PrintJob" package-name="moqui.basic.print" short-alias="printJobs">
+        <field name="printJobId" type="id" is-pk="true"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="createdDate" type="date-time"/>
+        <field name="errorMessage" type="text-long"/>
+        <field name="networkPrinterId" type="id"/>
+        <field name="username" type="text-short"/>
+        <field name="jobId" type="number-integer"/>
+        <field name="jobName" type="text-medium"/>
+        <field name="copies" type="number-integer"/>
+        <field name="duplex" type="text-indicator"/>
+        <field name="pageRanges" type="text-short"/>
+        <field name="contentType" type="text-short"/>
+        <field name="document" type="binary-very-long"/>
+        <relationship type="one" related-entity-name="moqui.basic.print.NetworkPrinter" short-alias="printer"/>
+        <relationship type="one" title="PrintJob" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <seed-data>
+            <!-- Print Job Status -->
+            <moqui.basic.StatusType description="Print Job Status" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Not Sent" sequenceNum="1" statusId="PtjNotSent" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Send Failed" sequenceNum="2" statusId="PtjSendFailed" statusTypeId="PrintJob"/>
+
+            <moqui.basic.StatusItem description="Pending" sequenceNum="11" statusId="PtjPending" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Pending Held" sequenceNum="12" statusId="PtjPendingHeld" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Processing" sequenceNum="13" statusId="PtjProcessing" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Processing Stopped" sequenceNum="14" statusId="PtjProcessingStopped" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Completed" sequenceNum="15" statusId="PtjCompleted" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Aborted" sequenceNum="18" statusId="PtjAborted" statusTypeId="PrintJob"/>
+            <moqui.basic.StatusItem description="Canceled" sequenceNum="19" statusId="PtjCanceled" statusTypeId="PrintJob"/>
+
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjNotSent" toStatusId="PtjPending" transitionName="Send"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjNotSent" toStatusId="PtjSendFailed" transitionName="Failed"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjSendFailed" toStatusId="PtjPending" transitionName="Send"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPending" toStatusId="PtjProcessing" transitionName="Process"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjProcessing" toStatusId="PtjCompleted" transitionName="Complete"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPending" toStatusId="PtjCompleted" transitionName="Complete"/>
+
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPending" toStatusId="PtjPendingHeld" transitionName="Hold"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPendingHeld" toStatusId="PtjPending" transitionName="Release"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjProcessing" toStatusId="PtjProcessingStopped" transitionName="Stop"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjProcessingStopped" toStatusId="PtjProcessing" transitionName="Resume"/>
+
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPending" toStatusId="PtjAborted" transitionName="Abort"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPendingHeld" toStatusId="PtjAborted" transitionName="Abort"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjProcessing" toStatusId="PtjAborted" transitionName="Abort"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjProcessingStopped" toStatusId="PtjAborted" transitionName="Abort"/>
+
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPending" toStatusId="PtjCanceled" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjPendingHeld" toStatusId="PtjCanceled" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjProcessing" toStatusId="PtjCanceled" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PtjProcessingStopped" toStatusId="PtjCanceled" transitionName="Cancel"/>
+        </seed-data>
+        <master><detail relationship="printer"/><detail relationship="status"/></master>
+    </entity>
+</entities>

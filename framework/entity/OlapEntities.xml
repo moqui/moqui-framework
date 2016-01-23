@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.6.xsd">
+    <entity entity-name="DateDayDimension" package-name="moqui.olap" group-name="analytical">
+        <description>Date Day Dimension. The natural key is [dateValue]</description>
+        <field name="dimensionId" type="id" is-pk="true"/>
+        <field name="dateValue" type="date"/>
+        <field name="description" type="text-medium"/>
+        <field name="dayName" type="text-medium"/>
+        <field name="dayOfMonth" type="number-integer"/>
+        <field name="dayOfYear" type="number-integer"/>
+        <field name="monthName" type="text-medium"/>
+        <field name="monthOfYear" type="number-integer"/>
+        <field name="yearName" type="number-integer"/>
+        <field name="weekOfMonth" type="number-integer"/>
+        <field name="weekOfYear" type="number-integer"/>
+        <field name="yearMonthDay" type="text-medium"><description>Format: YYYY-MM-DD</description></field>
+        <field name="yearAndMonth" type="text-medium"><description>Format: YYYY-MM</description></field>
+        <field name="isWeekEnd" type="text-indicator"/>
+    </entity>
+    <entity entity-name="CurrencyDimension" package-name="moqui.olap" group-name="analytical">
+        <description>Currency Dimension. The natural key is [currencyId]</description>
+        <field name="dimensionId" type="id" is-pk="true"/>
+        <field name="currencyId" type="id"/>
+        <field name="description" type="text-medium"/>
+    </entity>
+</entities>

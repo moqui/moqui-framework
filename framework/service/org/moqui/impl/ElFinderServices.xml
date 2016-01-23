@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+    <service verb="run" noun="Command">
+        <description>See elFinder API docs at: https://github.com/Studio-42/elFinder/wiki/Client-Server-API-2.0</description>
+        <in-parameters>
+            <parameter name="cmd" required="true"/>
+            <parameter name="target"/>
+            <parameter name="otherParameters" type="Map"/>
+            <parameter name="resourceRoot" default-value="dbresource://"/>
+            <!-- TODO: map to resourceRoot somehow? is a 3 char string that is a prefix to the hash -->
+            <parameter name="volumeId" default-value="db_"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="responseMap" type="Map"/>
+            <parameter name="fileLocation"/>
+            <parameter name="fileInline" type="Boolean"/>
+        </out-parameters>
+        <actions>
+            <set field="elFinderConnector" from="new org.moqui.impl.context.reference.ElFinderConnector(ec, resourceRoot, volumeId)"/>
+            <log level="info" message="elFinder cmd=${cmd}, target=${target}:${elFinderConnector.unhash(target)}:${elFinderConnector.getLocation(target)}"/>
+            <script>elFinderConnector.runCommand()</script>
+            <!-- <log level="warn" message="============ fileLocation=${fileLocation}"/> -->
+            <!-- <log level="warn" message="============ responseMap=${responseMap}"/> -->
+        </actions>
+    </service>
+</services>

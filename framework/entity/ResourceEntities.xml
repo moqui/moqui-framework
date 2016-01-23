@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.6.xsd">
+
+    <!-- ========================================================= -->
+    <!-- moqui.resource -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="DbResource" package-name="moqui.resource">
+        <field name="resourceId" type="id" is-pk="true"/>
+        <field name="parentResourceId" type="id"/>
+        <field name="filename" type="text-medium"/>
+        <field name="isFile" type="text-indicator"/>
+        <index name="DB_RES_PARENT"><index-field name="parentResourceId"/></index>
+        <index name="DB_RES_PAR_FN" unique="true"><index-field name="parentResourceId"/><index-field name="filename"/></index>
+    </entity>
+    <entity entity-name="DbResourceFile" package-name="moqui.resource">
+        <field name="resourceId" type="id" is-pk="true"/>
+        <field name="mimeType" type="text-medium"/>
+        <field name="fileData" type="binary-very-long"/>
+        <relationship type="one" related-entity-name="moqui.resource.DbResource"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.resource.wiki -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="WikiPage" package-name="moqui.resource.wiki">
+        <field name="wikiPageId" type="id" is-pk="true"/>
+        <field name="wikiSpaceId" type="id"/>
+        <field name="pagePath" type="text-medium"/>
+        <field name="parentWikiPageId" type="id"/>
+        <field name="createdByUserId" type="id-long"/>
+        <field name="restrictView" type="text-indicator"/>
+        <field name="restrictUpdate" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.resource.wiki.WikiSpace" short-alias="space"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user">
+            <key-map field-name="createdByUserId" related-field-name="userId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
+            <key-map field-name="wikiPageId"/></relationship>
+        <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
+    </entity>
+    <entity entity-name="WikiPageHistory" package-name="moqui.resource.wiki">
+        <field name="wikiPageId" type="id" is-pk="true"/>
+        <field name="historySeqId" type="id" is-pk="true"/>
+        <field name="oldPagePath" type="text-medium"/>
+        <field name="userId" type="id-long"/>
+        <field name="changeDateTime" type="date-time"/>
+        <!-- TODO: add rev data for pages in JCR -->
+        <relationship type="one" related-entity-name="moqui.resource.wiki.WikiPage" short-alias="page"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
+    </entity>
+    <entity entity-name="WikiPageUser" package-name="moqui.resource.wiki">
+        <field name="wikiPageId" type="id" is-pk="true"/>
+        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="receiveNotifications" type="text-indicator"/>
+        <field name="allowView" type="text-indicator"/>
+        <field name="allowUpdate" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.resource.wiki.WikiPage"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <view-entity entity-name="WikiPageAndUser" package-name="moqui.resource.wiki">
+        <member-entity entity-alias="WKPG" entity-name="moqui.resource.wiki.WikiPage"/>
+        <member-entity entity-alias="WPU" entity-name="moqui.resource.wiki.WikiPageUser" join-from-alias="WKPG" join-optional="true">
+            <key-map field-name="wikiPageId"/>
+        </member-entity>
+        <alias-all entity-alias="WKPG"/>
+        <alias-all entity-alias="WPU"/>
+    </view-entity>
+
+    <entity entity-name="WikiSpace" package-name="moqui.resource.wiki">
+        <field name="wikiSpaceId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <field name="rootPageLocation" type="text-medium"/>
+        <field name="decoratorScreenLocation" type="text-medium"/>
+        <field name="restrictView" type="text-indicator"/>
+        <field name="restrictUpdate" type="text-indicator"/>
+    </entity>
+    <entity entity-name="WikiSpaceUser" package-name="moqui.resource.wiki">
+        <field name="wikiSpaceId" type="id" is-pk="true"/>
+        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="receiveNotifications" type="text-indicator"/>
+        <field name="allowAdmin" type="text-indicator"/>
+        <field name="allowView" type="text-indicator"/>
+        <field name="allowUpdate" type="text-indicator"/>
+        <relationship type="one" related-entity-name="WikiSpace"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <view-entity entity-name="WikiSpaceAndUser" package-name="moqui.resource.wiki">
+        <member-entity entity-alias="WKSP" entity-name="moqui.resource.wiki.WikiSpace"/>
+        <member-entity entity-alias="WSU" entity-name="moqui.resource.wiki.WikiSpaceUser" join-from-alias="WKSP" join-optional="true">
+            <key-map field-name="wikiSpaceId"/>
+        </member-entity>
+        <alias-all entity-alias="WKSP"/>
+        <alias-all entity-alias="WSU"/>
+    </view-entity>
+</entities>

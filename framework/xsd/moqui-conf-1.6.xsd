@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="common-types-1.6.xsd"/>
+    <xs:include schemaLocation="xml-actions-1.6.xsd"/>
+
+    <xs:element name="moqui-conf">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="tools"/>
+                <xs:element minOccurs="0" ref="cache-list"/>
+                <xs:element minOccurs="0" ref="server-stats"/>
+                <xs:element minOccurs="0" ref="webapp-list"/>
+                <xs:element minOccurs="0" ref="artifact-execution-facade"/>
+                <xs:element minOccurs="0" ref="user-facade"/>
+                <xs:element minOccurs="0" ref="transaction-facade"/>
+                <xs:element minOccurs="0" ref="resource-facade"/>
+                <xs:element minOccurs="0" ref="screen-facade"/>
+                <xs:element minOccurs="0" ref="service-facade"/>
+                <xs:element minOccurs="0" ref="entity-facade"/>
+                <xs:element minOccurs="0" ref="database-list"/>
+                <xs:element minOccurs="0" ref="repository-list"/>
+                <xs:element minOccurs="0" ref="component-list"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="tools">
+        <xs:complexType>
+            <xs:attribute name="enable-elasticsearch" type="boolean" default="true"/>
+            <xs:attribute name="enable-camel" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ===================== Cache Conf Root ===================== -->
+    <xs:element name="cache-list">
+        <xs:complexType>
+            <xs:sequence><xs:element maxOccurs="unbounded" ref="cache"/></xs:sequence>
+            <xs:attribute name="warm-on-start" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="cache">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="expire-time-idle" type="xs:nonNegativeInteger" use="optional">
+                <xs:annotation><xs:documentation>Idle expire time in seconds.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="expire-time-live" type="xs:nonNegativeInteger" use="optional">
+                <xs:annotation><xs:documentation>Live expire time in seconds.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="max-elements" type="xs:nonNegativeInteger" use="optional"/>
+            <xs:attribute name="eviction-strategy" use="optional">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="least-recently-used"/>
+                        <xs:enumeration value="least-frequently-used"/>
+                        <xs:enumeration value="least-recently-added"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="server-stats">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="artifact-stats"/>
+            </xs:sequence>
+            <xs:attribute name="bin-length-seconds" type="xs:positiveInteger" default="900">
+                <xs:annotation><xs:documentation>The bin length should be less than or equal to one hour and evenly
+                    divisible into an hour, the default is 900 seconds (15 minutes)</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="visit-enabled" type="boolean" default="true"/>
+            <xs:attribute name="visit-ip-info-on-login" type="boolean" default="true"/>
+            <xs:attribute name="visitor-enabled" type="boolean" default="true"/>
+            <xs:attribute name="stats-skip-condition" type="xs:string">
+                <xs:annotation><xs:documentation>If evaluates to true skips creating visit and visitor, and doesn't
+                    track ArtifactHit for screens.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="artifact-stats">
+        <xs:complexType>
+            <xs:attribute name="type" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="screen"/>
+                        <xs:enumeration value="screen-content"/>
+                        <xs:enumeration value="transition"/>
+                        <xs:enumeration value="service"/>
+                        <xs:enumeration value="entity"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="sub-type" type="xs:string"/>
+            <xs:attribute name="persist-hit" type="boolean" default="false"/>
+            <xs:attribute name="persist-bin" type="boolean" default="false"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ===================== Webapp Conf Root ===================== -->
+    <xs:element name="webapp-list">
+        <xs:complexType><xs:sequence><xs:element maxOccurs="unbounded" ref="webapp"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="webapp">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="root-screen"/>
+                <xs:element minOccurs="0" ref="first-hit-in-visit"/>
+                <xs:element minOccurs="0" ref="before-request"/>
+                <xs:element minOccurs="0" ref="after-request"/>
+                <xs:element minOccurs="0" ref="after-login"/>
+                <xs:element minOccurs="0" ref="before-logout"/>
+                <xs:element minOccurs="0" ref="after-startup"/>
+                <xs:element minOccurs="0" ref="before-shutdown"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>
+                    Matched against value of a context-param -> param-value element in the web.xml file where the
+                    param-name is "moqui-name".
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="root-screen-location" type="xs:string"/>
+            <xs:attribute name="https-enabled" default="true" type="boolean"/>
+            <xs:attribute name="https-port" type="xs:string"/>
+            <xs:attribute name="https-host" type="xs:string"/>
+            <xs:attribute name="http-port" type="xs:string"/>
+            <xs:attribute name="http-host" type="xs:string"/>
+            <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
+                If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to all
+                screen/transition requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
+            <!-- Content URL prefixes to make it easy to move the serving load for static content to other machines -->
+            <!-- TODO use in code
+            <xs:attribute name="content-prefix-secure" type="xs:string"/> -->
+            <!-- TODO use in code
+            <xs:attribute name="content-prefix-standard" type="xs:string"/> -->
+            <!-- TODO use in code
+            <xs:attribute name="cookie-domain" type="xs:string"/> -->
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="root-screen">
+        <xs:complexType>
+            <xs:attribute name="host" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>A pattern to match the host name against (from ServletRequest.getServerName())</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="location" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The location of the root screen XML file</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="first-hit-in-visit">
+        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="after-request">
+        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="before-request">
+        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="after-login">
+        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="before-logout">
+        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="after-startup">
+        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="before-shutdown">
+        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+
+    <!-- ====================== Artifact Execution Facade Conf Root ======================= -->
+    <xs:element name="artifact-execution-facade">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="artifact-execution"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="artifact-execution">
+        <xs:complexType>
+            <xs:attribute name="type" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="AT_XML_SCREEN"/>
+                        <xs:enumeration value="AT_XML_SCREEN_TRANS"/>
+                        <xs:enumeration value="AT_SERVICE"/>
+                        <xs:enumeration value="AT_ENTITY"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="authz-enabled" type="boolean" default="true"/>
+            <xs:attribute name="tarpit-enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ====================== User Facade Conf Root ======================= -->
+    <xs:element name="user-facade">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="password"/>
+                <xs:element ref="login-key"/>
+                <xs:element ref="login"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="password">
+        <xs:complexType>
+            <xs:attribute name="encrypt-hash-type" default="SHA-256">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="SHA-256"/>
+                    <xs:enumeration value="SHA-384"/>
+                    <xs:enumeration value="SHA-512"/>
+                    <xs:enumeration value="SHA"/>
+                    <xs:enumeration value="MD5"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="6">
+                <xs:annotation><xs:documentation>Minimum length of password</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="min-digits" type="xs:nonNegativeInteger" default="1">
+                <xs:annotation><xs:documentation>Minimum number of digits (numeric characters) in the password</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="min-others" type="xs:nonNegativeInteger" default="1">
+                <xs:annotation><xs:documentation>Minimum number of other (non-alpha/numeric, not letters or digits) characters in the password</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="history-limit" type="xs:nonNegativeInteger" default="5">
+                <xs:annotation><xs:documentation>Number of old passwords to save that cannot be reused (0 means don't save any history)</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="change-weeks" type="xs:decimal" default="12">
+                <xs:annotation><xs:documentation>Require password change after this many months (0 means don't ever require change)</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="email-require-change" type="boolean" default="true">
+                <xs:annotation><xs:documentation>Require password change after a password reset email?</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="email-expire-hours" type="xs:nonNegativeInteger" default="48">
+                <!-- TODO use in impl -->
+                <xs:annotation><xs:documentation>How long will the new password be valid from the password reset email?</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="login-key">
+        <xs:complexType>
+            <xs:attribute name="encrypt-hash-type" default="SHA-256">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="SHA-256"/>
+                    <xs:enumeration value="SHA-384"/>
+                    <xs:enumeration value="SHA-512"/>
+                    <xs:enumeration value="SHA"/>
+                    <xs:enumeration value="MD5"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="expire-hours" type="xs:nonNegativeInteger" default="144">
+                <xs:annotation><xs:documentation>Expire key after this many hours</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="login">
+        <xs:complexType>
+            <xs:attribute name="max-failures" type="xs:nonNegativeInteger" default="3">
+                <xs:annotation><xs:documentation>Account is disabled after max failures</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="disable-minutes" type="xs:nonNegativeInteger" default="30">
+                <xs:annotation><xs:documentation>How long to disable the account (0 means no limit, ie forever)</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="history-store" type="boolean" default="true">
+                <xs:annotation><xs:documentation>Store records of login attempts?</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="history-incorrect-password" type="boolean" default="true">
+                <xs:annotation><xs:documentation>Store incorrect passwords in login attempt history?</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <!-- Future security settings:
+    # NOTE: LDAP auth settings
+
+    # - - allow x509 certificate login
+    login.cert.allow=true
+
+    # - - HTTP header based ID (for integrations; make sure client can't send this with some sort of filter)
+    #login.http.header=REMOTE_USER
+
+    # - - HttpServletRequest.getRemoteUser() based ID (for integration; uncomment to enable)
+    # Use for external authentication solutions like CAS which overload the getRemoteUser method.
+    #login.http.servlet.getRemoteUser.allow=true
+    -->
+
+    <!-- ====================== Transaction Facade Conf Root ======================= -->
+    <xs:element name="transaction-facade">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="server-jndi">
+                    <xs:annotation><xs:documentation>If not present the default JNDI server will be used.</xs:documentation></xs:annotation>
+                </xs:element>
+                <xs:choice minOccurs="0">
+                    <xs:element minOccurs="0" ref="transaction-jndi"/>
+                    <xs:element minOccurs="0" ref="transaction-internal"/>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="use-transaction-cache" default="true" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="transaction-jndi">
+        <xs:complexType>
+            <xs:attribute name="user-transaction-jndi-name" type="xs:string" use="required"/>
+            <xs:attribute name="transaction-manager-jndi-name" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="transaction-internal">
+        <xs:complexType>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ====================== Resource Facade Conf Root ================= -->
+    <xs:element name="resource-facade">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="resource-reference"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="template-renderer"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="script-runner"/>
+            </xs:sequence>
+            <xs:attribute name="xml-actions-template-location" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="resource-reference">
+        <xs:complexType>
+            <xs:attribute name="scheme" type="xs:string" use="required"/>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="template-renderer">
+        <xs:complexType>
+            <xs:attribute name="extension" type="xs:string" use="required"/>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="script-runner">
+        <xs:complexType>
+            <xs:attribute name="extension" type="xs:string" use="required"/>
+            <xs:attribute name="class" type="xs:string" use="optional">
+                <xs:annotation><xs:documentation>If specified should point to a class that implements the
+                    org.moqui.context.ScriptRunner interface.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="engine" type="xs:string" use="optional">
+                <xs:annotation><xs:documentation>The JSR-223 engine name, i.e. the name passed to the
+                    javax.script.ScriptEngine.getEngineByName() method. If you use this attribute do not use the class
+                    attribute as that will override this setting.
+
+                    NOTE: If you use a default extension supported in JSR-223 for the desired scripting language you do
+                    not need a script-runner element. The ScriptEngine will be looked up using the
+                    ScriptEngineManager.getEngineByExtension() method and the script (pre-compiled if supported) will
+                    be cached in the "resource.script${extension}.location" cache.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ====================== Screen Facade Conf Root =================== -->
+    <xs:element name="screen-facade">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="screen-text-output"/>
+            </xs:sequence>
+            <xs:attribute name="boundary-comments" default="false" type="boolean"/>
+            <xs:attribute name="default-paginate-rows" type="xs:string" default="20"/>
+            <xs:attribute name="default-autocomplete-rows" type="xs:string" default="10"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="screen-text-output">
+        <xs:complexType>
+            <xs:attribute name="type" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>Can be anything. Default supported values include: text, html, xsl-fo,
+                    xml, and csv.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="mime-type" type="xs:string" use="optional"/>
+            <xs:attribute name="macro-template-location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ====================== Service Facade Conf Root ======================= -->
+    <xs:element name="service-facade">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="service-location"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="service-type"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="service-file"/>
+                <!-- leaving this out for now, not easily supported by Quartz Scheduler: <xs:element minOccurs="0" ref="thread-pool"/> -->
+                <!-- TABLED: not to include in 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="jms-service"/> -->
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="service-location">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="service-type">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="runner-class" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>
+                    Fully qualified name of class that implements the org.moqui.impl.service.ServiceRunner interface.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="service-file">
+        <xs:complexType>
+            <xs:attribute name="location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="server-jndi">
+        <xs:complexType>
+            <xs:attribute name="context-provider-url" type="xs:string"/>
+            <xs:attribute name="initial-context-factory" type="xs:string"/>
+            <xs:attribute name="url-pkg-prefixes" type="xs:string"/>
+            <xs:attribute name="security-principal" type="xs:string"><xs:annotation><xs:documentation>The username</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="security-credentials" type="xs:string"><xs:annotation><xs:documentation>The password</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ===================== Entity Facade Conf Root ===================== -->
+    <xs:element name="entity-facade">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="server-jndi">
+                    <xs:annotation><xs:documentation>If not present the default JNDI server will be used.</xs:documentation></xs:annotation>
+                </xs:element>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="datasource"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="load-entity"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="load-data"/>
+            </xs:sequence>
+            <xs:attribute name="entity-eca-enabled" default="true" type="boolean"/>
+            <xs:attribute name="distributed-cache-clear-enabled" default="false" type="boolean"/>
+            <xs:attribute name="sequenced-id-prefix" type="xs:string"/>
+            <xs:attribute name="default-group-name" type="xs:string"/>
+            <xs:attribute name="database-time-zone" type="xs:string"/>
+            <xs:attribute name="database-locale" type="xs:string"/>
+            <xs:attribute name="crypt-pass" type="xs:string"/>
+            <xs:attribute name="crypt-salt" type="xs:string"/>
+            <xs:attribute name="crypt-iter" type="xs:string"/>
+            <xs:attribute name="crypt-algo" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="datasource">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice minOccurs="1" maxOccurs="1">
+                    <xs:element minOccurs="0" maxOccurs="1" ref="jndi-jdbc"/>
+                    <xs:element minOccurs="0" maxOccurs="1" ref="inline-jdbc"/>
+                    <xs:element minOccurs="0" maxOccurs="1" ref="inline-other"/>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="group-name" type="xs:string" use="required"/>
+            <xs:attribute name="database-conf-name" type="xs:string">
+                <xs:annotation><xs:documentation>This is only required for JDBC/SQL datasources.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="schema-name" type="xs:string"/>
+            <xs:attribute name="startup-add-missing" default="false" type="boolean"/>
+            <xs:attribute name="runtime-add-missing" default="true" type="boolean"/>
+            <xs:attribute name="runtime-add-fks" default="false" type="boolean"/>
+            <xs:attribute name="object-factory" type="xs:string" default="org.moqui.impl.entity.EntityDatasourceFactoryImpl">
+                <xs:annotation><xs:documentation>The references class must implement the
+                    org.moqui.entity.EntityDatasourceFactory interface.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="sequence-primary-use-uuid" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Uses java.util.UUID.randomUUID() to get sequenced IDs for all entities in this datasource.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="start-server-args" type="xs:string">
+                <xs:annotation><xs:documentation>Currently only for the H2 database. Start a remote access server for
+                    the embedded DB using these arguments. See the main() method at
+                    http://www.h2database.com/javadoc/org/h2/tools/Server.html for details.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="inline-jdbc">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="1" ref="xa-properties"/>
+            </xs:sequence>
+            <xs:attribute name="jdbc-uri" type="xs:string" use="optional"/>
+            <xs:attribute name="jdbc-username" type="xs:string" use="optional"/>
+            <xs:attribute name="jdbc-password" type="xs:string" use="optional"/>
+            <xs:attribute name="jdbc-driver" type="xs:string" use="optional"/>
+            <xs:attribute name="xa-ds-class" type="xs:string" use="optional"/>
+            <xs:attribute name="isolation-level" type="isolation-level"/>
+            <xs:attribute name="pool-maxsize" type="xs:nonNegativeInteger" default="50"/>
+            <xs:attribute name="pool-minsize" type="xs:nonNegativeInteger" default="5"/>
+            <xs:attribute name="pool-time-idle" type="xs:nonNegativeInteger">
+                <xs:annotation><xs:documentation>Maximum time in seconds that unused excess connections should stay in
+                    the pool.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="pool-time-reap" type="xs:nonNegativeInteger">
+                <xs:annotation><xs:documentation>Time in seconds that the connection pool will allow a connection to be
+                    in use, before claiming it back. Defaults to no limit.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="pool-time-maint" type="xs:nonNegativeInteger">
+                <xs:annotation><xs:documentation>Running interval in seconds for the pool maintenance thread.
+                    Defaults to 60 seconds.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="pool-time-wait" type="xs:nonNegativeInteger">
+                <xs:annotation><xs:documentation>Sets the maximum amount of time in seconds the pool will block
+                    waiting for a connection to become available in the pool when it is empty. Defaults to 30 seconds.
+                    Zero means no waiting.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="pool-test-query" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="jndi-jdbc">
+        <xs:complexType>
+            <xs:attribute name="jndi-name" type="xs:string" use="required"/>
+            <xs:attribute name="isolation-level" type="isolation-level"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="xa-properties">
+        <xs:complexType><xs:anyAttribute processContents="skip"/></xs:complexType>
+    </xs:element>
+    <xs:element name="inline-other">
+        <xs:complexType><xs:anyAttribute processContents="skip"/></xs:complexType>
+    </xs:element>
+    <xs:element name="load-entity">
+        <xs:annotation><xs:documentation>Most resources should be loaded by directory convention (convention over
+            configuration) within a component so this should only be used rarely. Sometimes that is not possible such
+            as remote locations or on a classpath that is inside a war or ear file, or that is from a special
+            ClassLoader.</xs:documentation></xs:annotation>
+        <xs:complexType><xs:attribute name="location" type="xs:string" use="required"/></xs:complexType>
+    </xs:element>
+    <xs:element name="load-data">
+        <xs:annotation><xs:documentation>Most resources should be loaded by directory convention (convention over
+            configuration) within a component so this should only be used rarely. Sometimes that is not possible such
+            as remote locations or on a classpath that is inside a war or ear file, or that is from a special
+            ClassLoader.</xs:documentation></xs:annotation>
+        <xs:complexType><xs:attribute name="location" type="xs:string" use="required"/></xs:complexType>
+    </xs:element>
+
+    <!-- ====================== Database Conf Root ======================= -->
+    <xs:element name="database-list">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="dictionary-type"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="database"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="database">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="database-type"/>
+            </xs:sequence>
+
+            <xs:attribute name="name" type="xs:string" use="required"/>
+
+            <!-- TODO use in code -->
+            <xs:attribute name="use-schemas" default="true" type="boolean"/>
+            <xs:attribute name="use-pk-constraint-names" default="true" type="boolean"/>
+            <xs:attribute name="constraint-name-clip-length" default="30" type="xs:nonNegativeInteger"/>
+            <!-- TODO use in code -->
+            <xs:attribute name="result-fetch-size" default="-1" type="xs:integer"/>
+            <xs:attribute name="use-foreign-keys" default="true" type="boolean"/>
+            <xs:attribute name="use-foreign-key-indexes" default="true" type="boolean"/>
+            <xs:attribute name="fk-style" default="name_constraint">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="name_constraint"/>
+                        <xs:enumeration value="name_fk"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="use-fk-initially-deferred" default="false" type="boolean"/>
+            <xs:attribute name="use-indexes" default="true" type="boolean">
+                <xs:annotation><xs:documentation>Use manually declared indexes?</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="use-indexes-unique" default="true" type="boolean">
+                <xs:annotation><xs:documentation>For manually declared indexes (if used), use the unique constraint?</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="use-indexes-unique-where-not-null" default="false" type="boolean">
+                <xs:annotation><xs:documentation>For manually declared indexes (if used), unique constraints should disregard null values?</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="join-style" default="ansi">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="ansi"/>
+                    <xs:enumeration value="ansi-no-parenthesis"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="offset-style" default="fetch">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="fetch"><xs:annotation>
+                        <xs:documentation>Use the SQL2008 syntax (OFFSET ? ROWS FETCH FIRST ? ROWS ONLY)</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                    <xs:enumeration value="limit"><xs:annotation>
+                        <xs:documentation>Use the basic limit/offset syntax (LIMIT ? OFFSET ?)</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                    <xs:enumeration value="cursor"><xs:annotation>
+                        <xs:documentation>Don't use an SQL syntax, use a database cursor through the
+                            EntityListIterator.getPartialList() method. Note that there may be different behavior when
+                            calling EntityFind.iterator() as it only seeks to the offset but doesn't restrict by the
+                            limit.</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="always-use-constraint-keyword" default="false" type="boolean"/>
+            <xs:attribute name="use-schema-for-all" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Set to true to include the schema name for primary keys, foreign keys, and indexes.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="table-engine" type="xs:string"/>
+            <xs:attribute name="character-set" type="xs:string"/>
+            <xs:attribute name="collate" type="xs:string"/>
+            <xs:attribute name="default-isolation-level">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="None"/>
+                    <xs:enumeration value="ReadCommitted"/>
+                    <xs:enumeration value="ReadUncommitted"/>
+                    <xs:enumeration value="RepeatableRead"/>
+                    <xs:enumeration value="Serializable"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="default-jdbc-driver" type="xs:string"/>
+            <xs:attribute name="default-xa-ds-class" type="xs:string"/>
+            <xs:attribute name="default-test-query" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="dictionary-type">
+        <xs:complexType>
+            <xs:attribute name="type" type="xs:string" use="required"/>
+            <xs:attribute name="java-type" type="xs:string" use="required"/>
+            <xs:attribute name="default-sql-type" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="database-type">
+        <xs:complexType>
+            <xs:attribute name="type" type="xs:string" use="required"/>
+            <xs:attribute name="sql-type" type="xs:string" use="required"/>
+            <xs:attribute name="sql-type-alias" type="xs:string"/>
+            <xs:attribute name="java-type" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ================== Repository (JCR) Conf Root ==================== -->
+    <xs:element name="repository-list">
+        <xs:complexType><xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="repository"/></xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="repository">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+
+            <xs:attribute name="location" type="xs:string" use="required"/>
+            <xs:attribute name="conf-location" type="xs:string">
+                <xs:annotation><xs:documentation>Defaults to: [${location}/repository.xml]; only used for local</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="type" use="required">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <!-- this path is relative to the active Moqui runtime directory; start with a forward-slash for an absolute path -->
+                        <!-- how to support this type? <repository name="default" location="rep/jackrabbit" type="local" workspace="default"/> -->
+                        <!-- <xs:enumeration value="local"/> -->
+                        <xs:enumeration value="jndi"/>
+                        <xs:enumeration value="rmi"/>
+                        <xs:enumeration value="davex"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+
+            <xs:attribute name="workspace" type="xs:string">
+                <xs:annotation><xs:documentation>Defaults to the repository's default workspace.</xs:documentation></xs:annotation>
+            </xs:attribute>
+
+            <xs:attribute name="username" type="xs:string"/>
+            <xs:attribute name="password" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ================= Additional Component Locations ================= -->
+    <xs:element name="component-list">
+        <xs:annotation><xs:documentation>Use this to specify components to load in addition to those in the
+            runtime/component directory. This is useful for components in JCR repositories or wherever.
+            The location needs to use a Resource Facade protocol/schema that supports looking at sub-directories, etc
+            (like content:, file:, etc).</xs:documentation></xs:annotation>
+        <xs:complexType><xs:sequence>
+            <xs:choice maxOccurs="unbounded">
+                <xs:element ref="component-dir"/>
+                <xs:element ref="component"/>
+            </xs:choice>
+        </xs:sequence></xs:complexType>
+    </xs:element>
+    <xs:element name="component-dir">
+        <xs:complexType>
+            <xs:attribute name="location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="component">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="depends-on" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="optional"/>
+            <xs:attribute name="location" type="xs:string" use="optional"><xs:annotation><xs:documentation>
+                Required when under component-list (in Moqui Conf XML file or a components.xml file), optional
+                when component element is in a component.xml file within a component.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="version" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="depends-on">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="version" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

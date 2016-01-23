@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed">
+    <moqui.basic.EnumerationType description="Entity Comparison Operator" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="less" enumCode="LESS" enumId="ENTCO_LESS" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="greater" enumCode="GREATER" enumId="ENTCO_GREATER" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="less-equals" enumCode="LESS_EQ" enumId="ENTCO_LESS_EQ" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="greater-equals" enumCode="GREATER_EQ" enumId="ENTCO_GREATER_EQ" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="equals" enumCode="EQUALS" enumId="ENTCO_EQUALS" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="not-equals" enumCode="NOT_EQUALS" enumId="ENTCO_NOT_EQUALS" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="in" enumCode="IN" enumId="ENTCO_IN" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="not-in" enumCode="NOT_IN" enumId="ENTCO_NOT_IN" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="between" enumCode="BETWEEN" enumId="ENTCO_BETWEEN" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="not-between" enumCode="NOT_BETWEEN" enumId="ENTCO_NOT_BETWEEN" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="like" enumCode="LIKE" enumId="ENTCO_LIKE" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="not-like" enumCode="NOT_LIKE" enumId="ENTCO_NOT_LIKE" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="is-null" enumCode="IS_NULL" enumId="ENTCO_IS_NULL" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="is-not-null" enumCode="IS_NOT_NULL" enumId="ENTCO_IS_NOT_NULL" enumTypeId="ComparisonOperator"/>
+</entity-facade-xml>

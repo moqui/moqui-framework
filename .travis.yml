@@ -1,0 +1,13 @@
+language: groovy
+
+jdk:
+  - oraclejdk7
+  - openjdk7
+  - oraclejdk8
+
+env:
+  - TERM=dumb
+
+script:
+  - gradle load
+  - gradle test --info

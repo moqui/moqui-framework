@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+
+    <service verb="send" noun="Email" type="script"
+             location="classpath://org/moqui/impl/sendEmailTemplate.groovy" allow-remote="false">
+        <implements service="org.moqui.EmailServices.send#EmailTemplate"/>
+    </service>
+    <service verb="send" noun="EmailTemplate" authenticate="anonymous-view" type="script"
+             location="classpath://org/moqui/impl/sendEmailTemplate.groovy" allow-remote="false">
+        <description>NOTE: this service is meant for internal use and authentication is not required. Do not export or
+            allow this service to be called remotely.</description>
+        <implements service="org.moqui.EmailServices.send#EmailTemplate"/>
+    </service>
+
+    <service verb="poll" noun="EmailServer" authenticate="anonymous-all" type="script" transaction-timeout="600"
+             location="classpath://org/moqui/impl/pollEmailServer.groovy">
+        <!-- org.moqui.impl.EmailServices.poll#EmailServer -->
+        <description>
+            Poll an email server (IMAP or POP3) to receive messages. Each new message is processed using
+            the Email-ECA rules. Messages are flagged as seen (if supported). Messages are deleted if the storeDelete
+            flag is set on the moqui.basic.email.EmailServer record.
+
+            This is meant to be called as a scheduled service, run as often as you want to poll for new messages on a
+            particular server (configured in the corresponding moqui.basic.email.EmailServer record).
+        </description>
+        <in-parameters>
+            <parameter name="emailServerId" required="true"/>
+        </in-parameters>
+    </service>
+    
+    <service verb="save" noun="EcaEmailMessage">
+        <!-- org.moqui.impl.EmailServices.save#EcaEmailMessage -->
+        <implements service="org.moqui.EmailServices.process#EmailEca"/>
+        <in-parameters>
+            <parameter name="statusId" default-value="ES_RECEIVED"/>
+        </in-parameters>
+        <out-parameters><parameter name="emailMessageId"/></out-parameters>
+        <actions>
+            <set field="messageId" from="headers.get('message-id')"/>
+            <if condition="messageId">
+                <entity-find entity-name="moqui.basic.email.EmailMessage" list="emailMessageList">
+                    <econdition field-name="emailServerId" ignore-if-empty="true"/>
+                    <econdition field-name="messageId"/>
+                </entity-find>
+                <if condition="emailMessageList">
+                    <return message="Found duplicate message with Message-ID [${messageId}] from server [${emailServerId}]"/></if>
+            </if>
+
+            <set field="body" from="bodyPartList ? bodyPartList[0].contentText : null"/>
+            <service-call name="create#moqui.basic.email.EmailMessage" out-map="context"
+                in-map="[sentDate:fields.sentDate, receivedDate:fields.receivedDate, statusId:statusId,
+                    subject:fields.subject, body:body,
+                    fromAddress:fields.from, toAddresses:fields.toList?.toString(),
+                    ccAddresses:fields.ccList?.toString(), bccAddresses:fields.bccList?.toString(),
+                    messageId:messageId, emailServerId:emailServerId]"/>
+        </actions>
+    </service>
+</services>

@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.6.xsd">
+
+    <!-- ========================================================= -->
+    <!-- moqui.entity -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="EntityAuditLog" package-name="moqui.entity" authorize-skip="create">
+        <field name="auditHistorySeqId" type="id" is-pk="true"/>
+        <field name="changedEntityName" type="text-medium"/>
+        <field name="changedFieldName" type="text-medium"/>
+        <field name="pkPrimaryValue" type="text-medium"/>
+        <field name="pkSecondaryValue" type="text-medium"/>
+        <field name="pkRestCombinedValue" type="text-medium"/>
+        <field name="oldValueText" type="text-long"/>
+        <field name="newValueText" type="text-long"/>
+        <field name="changedDate" type="date-time"/>
+        <field name="changedByUserId" type="text-medium"/>
+        <field name="changedInVisitId" type="text-medium"/>
+        <field name="artifactStack" type="text-long"/>
+        <index name="ENTAUDLOG_FLD1PK"><index-field name="changedEntityName"/><index-field name="changedFieldName"/>
+            <index-field name="pkPrimaryValue"/></index>
+    </entity>
+
+    <entity entity-name="SequenceValueItem" package-name="moqui.entity" authorize-skip="true">
+        <field name="seqName" type="id-long" is-pk="true"/>
+        <field name="seqNum" type="number-integer"/>
+    </entity>
+    <!-- Deprecated, bad idea in the first place, better to use service name directly in data load files:
+    <entity entity-name="ServiceTrigger" package-name="moqui.entity">
+        <description>The service will be called just after the record is created and the status updated with the result.</description>
+        <field name="serviceTriggerId" type="id" is-pk="true"/>
+        <field name="serviceName" type="text-medium"/>
+        <field name="mapString" type="text-long"><description>A Groovy expression that evaluates to a Map to pass to the service</description></field>
+        <field name="statusId" type="id"/>
+        <relationship type="one" title="ServiceTrigger" related-entity-name="moqui.basic.StatusItem"/>
+        <seed-data>
+            <moqui.basic.StatusType description="Service Trigger" statusTypeId="ServiceTrigger"/>
+            <moqui.basic.StatusItem description="Not Run" sequenceNum="1" statusId="SrtrNotRun" statusTypeId="ServiceTrigger"/>
+            <moqui.basic.StatusItem description="Run Success" sequenceNum="2" statusId="SrtrRunSuccess" statusTypeId="ServiceTrigger"/>
+            <moqui.basic.StatusItem description="Run Error" sequenceNum="3" statusId="SrtrRunError" statusTypeId="ServiceTrigger"/>
+        </seed-data>
+    </entity>
+    -->
+
+    <entity entity-name="UserField" package-name="moqui.entity" cache="true">
+        <field name="entityName" type="text-medium" is-pk="true">
+            <description>This should be the full entity name, ie like "${package-name}.${entity-name}"</description></field>
+        <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="userGroupId" type="id" is-pk="true">
+            <description>These settings are for a UserGroup. To apply to all users just use the ALL_USERS UserGroup.</description></field>
+        <field name="fieldType" type="text-medium"/>
+        <field name="enableAuditLog" type="text-indicator"/>
+        <field name="enableLocalization" type="text-indicator"/>
+        <field name="encrypt" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
+    </entity>
+    <entity entity-name="UserFieldValue" package-name="moqui.entity">
+        <field name="fieldValueSeqId" type="id" is-pk="true"/>
+        <field name="entityName" type="text-medium"/>
+        <field name="fieldName" type="text-medium"/>
+        <field name="userGroupId" type="id"/>
+        <field name="pkPrimaryValue" type="text-medium"/>
+        <field name="pkSecondaryValue" type="text-medium"/>
+        <field name="pkRestCombinedValue" type="text-medium"/>
+        <field name="valueText" type="text-long"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.entity.view -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="DbViewEntity" package-name="moqui.entity.view" cache="true" authorize-skip="view">
+        <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
+        <field name="packageName" type="text-medium"/>
+        <field name="cache" type="text-indicator"/>
+        <field name="isDataView" type="text-indicator"/>
+    </entity>
+    <entity entity-name="DbViewEntityMember" package-name="moqui.entity.view" cache="true" authorize-skip="view">
+        <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
+        <field name="entityAlias" type="text-short" is-pk="true"/>
+        <field name="entityName" type="text-medium"/>
+        <field name="joinFromAlias" type="text-short"/>
+        <field name="joinOptional" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntity"/>
+        <relationship type="one" title="JoinFrom" related-entity-name="moqui.entity.view.DbViewEntityMember">
+            <key-map field-name="dbViewEntityName"/>
+            <key-map field-name="joinFromAlias" related-field-name="entityAlias"/>
+        </relationship>
+    </entity>
+    <entity entity-name="DbViewEntityAlias" package-name="moqui.entity.view" cache="true" authorize-skip="view">
+        <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
+        <field name="fieldAlias" type="text-medium" is-pk="true"/>
+        <field name="entityAlias" type="text-short"/>
+        <field name="fieldName" type="text-medium"/>
+        <field name="functionName" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntity"/>
+        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntityMember"/>
+    </entity>
+    <entity entity-name="DbViewEntityKeyMap" package-name="moqui.entity.view" cache="true" authorize-skip="view">
+        <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
+        <field name="joinFromAlias" type="text-short" is-pk="true"/>
+        <field name="entityAlias" type="text-short" is-pk="true"/>
+        <field name="fieldName" type="text-medium" is-pk="true">
+            <description>The name of the field corresponding to the joinFromAlias.</description></field>
+        <field name="relatedFieldName" type="text-medium">
+            <description>The name of the field corresponding to the entityAlias, ie the related field.</description></field>
+        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntity"/>
+        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntityMember"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.entity.document -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="DataDocument" package-name="moqui.entity.document" short-alias="dataDocuments">
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="documentName" type="text-medium"><description>The name of the document for display in search
+            results and such.</description></field>
+        <field name="documentTitle" type="text-medium"><description>A title for each document instance for display in
+            search results or other places. Meant to be string expanded using a "flattened" version of the document
+            (see the StupidUtilities.flattenNestedMap() method).</description></field>
+        <field name="indexName" type="text-medium"><description>This should be specified for documents that will be indexed by
+            ElasticSearch and must be lower-case (ElasticSearch requires all lower-case).</description></field>
+        <field name="primaryEntityName" type="text-medium"/>
+        <field name="manualDataServiceName" type="text-medium"><description>Name of a service to call to get additional
+            data to include in the document. This service should implement the
+            org.moqui.impl.EntityServices.add#ManualDocumentData interface.</description></field>
+
+        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentField" short-alias="fields">
+            <key-map field-name="dataDocumentId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentRelAlias" short-alias="relAliases">
+            <key-map field-name="dataDocumentId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentCondition" short-alias="conditions">
+            <key-map field-name="dataDocumentId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentLink" short-alias="links">
+            <key-map field-name="dataDocumentId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.entity.feed.DataFeedDocument" short-alias="feeds">
+            <key-map field-name="dataDocumentId"/></relationship>
+        <master>
+            <detail relationship="fields"/><detail relationship="relAliases"/>
+            <detail relationship="conditions"/><detail relationship="links"/>
+            <detail relationship="feeds"><detail relationship="feed"/></detail>
+        </master>
+    </entity>
+    <entity entity-name="DataDocumentField" package-name="moqui.entity.document">
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="fieldPath" type="text-medium" is-pk="true"><description>String formatted like
+            "RelationshipName:RelationshipName:fieldName" with zero or more relationship names. If there is no
+            relationship name the field is on the primary entity. More than one relationship names means follow that
+            path of relationships to get to the field. For DataFeed to work properly all relationship names should
+            include a hash (#) between the title and related entity name, and a fully qualified related entity name (ie
+            with entity package).</description></field>
+        <field name="fieldNameAlias" type="text-medium"><description>Alias to put in document output for field name
+            (ie final part of fieldPath only). Defaults to final part of fieldPath. Must be unique within the document
+            and can be used in EntityCondition passed into the EntityFacade.findDataDocuments() method.</description></field>
+        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+    </entity>
+    <entity entity-name="DataDocumentRelAlias" package-name="moqui.entity.document">
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="relationshipName" type="text-medium" is-pk="true"><description>The name of a relationship used in
+            any fieldPath to be aliased in the output document.</description></field>
+        <field name="documentAlias" type="text-medium"><description>Alias to put in document output instead of the full
+            relationship name.</description></field>
+        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+    </entity>
+    <entity entity-name="DataDocumentCondition" package-name="moqui.entity.document">
+        <description>This is a very simple sort of condition to constrain data document output.</description>
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="fieldNameAlias" type="text-medium" is-pk="true"/>
+        <field name="fieldValue" type="text-medium"/>
+        <field name="operator" type="text-short"><description>Must be a valid value like those in the
+            econdition.@operator attribute. Ignored if postQuery=Y. Defaults (like that attribute) to 'equals'.</description></field>
+        <field name="postQuery" type="text-indicator"><description>If Y condition is applied after the query is done
+            instead of being added to the query as a condition. Must match at least one nested field with the specified
+            fieldNameAlias. The fieldValue String will be compared to the Object from the database field after
+            conversion using the Groovy asType() method.</description></field>
+        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+    </entity>
+    <entity entity-name="DataDocumentLink" package-name="moqui.entity.document">
+        <description>This is a very simple sort of condition to constrain data document output.</description>
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="label" type="text-short" is-pk="true"/>
+        <field name="linkUrl" type="text-medium"/>
+        <field name="urlType" type="text-short" default="'plain'">
+            <description>Must match an option for the XML Screen link.@url-type attribute. Defaults to 'plain'.</description></field>
+        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.entity.feed -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="DataFeed" package-name="moqui.entity.feed">
+        <field name="dataFeedId" type="id" is-pk="true"/>
+        <field name="dataFeedTypeEnumId" type="id"/>
+        <field name="feedName" type="text-medium"/>
+        <field name="feedReceiveServiceName" type="text-medium"><description>The service named here should implement the
+            org.moqui.EntityServices.receive#DataFeed interface.</description></field>
+        <field name="lastFeedStamp" type="date-time"><description>Used only for periodic feeds.</description></field>
+        <relationship type="one" title="DataFeedType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="dataFeedTypeEnumId"/></relationship>
+        <relationship type="many" related-entity-name="moqui.entity.feed.DataFeedDocument" short-alias="documents">
+            <key-map field-name="dataFeedId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Data Feed Type" enumTypeId="DataFeedType"/>
+            <moqui.basic.Enumeration description="Real-time Service Push" enumId="DTFDTP_RT_PUSH" enumTypeId="DataFeedType"/>
+            <moqui.basic.Enumeration description="Manual Pull (through API)" enumId="DTFDTP_MAN_PULL" enumTypeId="DataFeedType"/>
+            <!-- <moqui.basic.Enumeration description="Periodic Service Push" enumId="DTFDTP_PER_PUSH" enumTypeId="DataFeedType"/> -->
+        </seed-data>
+    </entity>
+    <entity entity-name="DataFeedDocument" package-name="moqui.entity.feed">
+        <field name="dataFeedId" type="id" is-pk="true"/>
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="moqui.entity.feed.DataFeed" short-alias="feed"/>
+        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument" short-alias="document"/>
+    </entity>
+    <view-entity entity-name="DataFeedAndDocument" package-name="moqui.entity.feed">
+        <member-entity entity-alias="DTFD" entity-name="moqui.entity.feed.DataFeed"/>
+        <member-entity entity-alias="DFD" entity-name="moqui.entity.feed.DataFeedDocument" join-from-alias="DTFD">
+            <key-map field-name="dataFeedId"/></member-entity>
+        <alias-all entity-alias="DTFD"/>
+        <alias entity-alias="DFD" name="dataDocumentId"/>
+    </view-entity>
+
+    <!-- ========================================================= -->
+    <!-- moqui.entity.sync -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="EntitySync" package-name="moqui.entity.sync" short-alias="entitySyncs">
+        <field name="entitySyncId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="statusId" type="id"/>
+        <field name="lastStartDate" type="date-time"/>
+        <field name="lastSuccessfulSyncTime" type="date-time"/>
+        <field name="syncSplitMillis" type="number-integer"/>
+        <field name="recordThreshold" type="number-integer"><description>Keep retrieving time splits until the number of
+            records is greater then this threshold.</description></field>
+        <field name="delayBufferMillis" type="number-integer"><description>Newer retrieve records newer than this many
+            milliseconds in the past (leave a delay buffer for transactions in progress).</description></field>
+        <field name="targetServerUrl" type="text-medium"/>
+        <field name="targetUsername" type="text-medium"/>
+        <field name="targetPassword" type="text-medium" encrypt="true"/>
+        <field name="targetTenantId" type="text-medium"/>
+        <field name="keepRemoveInfoHours" type="number-decimal"/>
+        <field name="forPull" type="text-indicator"><description>If Y this record tracks data pulled from a remote
+            system, otherwise it tracks data pushed from this system.</description></field>
+        <relationship type="one" title="EntitySync" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="many" related-entity-name="moqui.entity.sync.EntitySyncArtifact" short-alias="artifacts">
+            <key-map field-name="entitySyncId"/></relationship>
+        <seed-data>
+            <moqui.basic.StatusType description="Entity Sync" parentTypeId="" statusTypeId="EntitySync"/>
+            <moqui.basic.StatusItem description="Not Started" sequenceNum="1" statusId="EsNotStarted" statusTypeId="EntitySync"/>
+            <moqui.basic.StatusItem description="Running" sequenceNum="2" statusId="EsRunning" statusTypeId="EntitySync"/>
+            <moqui.basic.StatusItem description="Complete" sequenceNum="4" statusId="EsComplete" statusTypeId="EntitySync"/>
+            <moqui.basic.StatusItem description="Other Error" sequenceNum="98" statusId="EsOtherError" statusTypeId="EntitySync"/>
+            <!-- support these later?
+            <moqui.basic.StatusItem description="Offline Pending" sequenceNum="3" statusId="EsOfflinePending" statusTypeId="EntitySync"/>
+            <moqui.basic.StatusItem description="Data Error" sequenceNum="99" statusId="EsDataError" statusTypeId="EntitySync"/>
+            -->
+
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="EsNotStarted" toStatusId="EsRunning" transitionName="Running"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="EsRunning" toStatusId="EsComplete" transitionName="Complete"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="EsRunning" toStatusId="EsOtherError" transitionName="Error"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="EsRunning" toStatusId="EsNotStarted" transitionName="Reset Not Started"/>
+
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="EsComplete" toStatusId="EsRunning" transitionName="Running"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="EsOtherError" toStatusId="EsRunning" transitionName="Running"/>
+        </seed-data>
+        <master>
+            <detail relationship="status"/>
+            <detail relationship="artifacts">
+                <detail relationship="group"><detail relationship="artifacts"/></detail>
+                <detail relationship="applType"/>
+            </detail>
+        </master>
+    </entity>
+    <entity entity-name="EntitySyncArtifact" package-name="moqui.entity.sync">
+        <description>
+            Associates a set of entities through ArtifactGroupMember records associated with an ArtifactGroup.
+            ArtifactGroupMember records may have filterMap value and may have nameIsPattern=Y.
+            The filterMap is ignored when the application type is Exclude, it simply excludes the entity altogether.
+            To exclude records use a filterMap on an include.
+            If there are multiple ArtifactGroupMember records with filterMap value for an entity it will OR them together.
+            If include and exclude filters create condition with combined include AND NOT combined exclude.
+        </description>
+        <field name="entitySyncId" type="id" is-pk="true"/>
+        <field name="artifactGroupId" type="id" is-pk="true"><description>Only entity artifacts (artifactTypeEnumId=AT_ENTITY) will
+            be used, all others ignored.</description></field>
+        <field name="applEnumId" type="id"/>
+        <field name="dependents" type="text-indicator"><description>If Y also include dependents of records, will apply
+            to all records for applicable entities.</description></field>
+        <relationship type="one" related-entity-name="moqui.entity.sync.EntitySync" short-alias="entitySync"/>
+        <relationship type="one" related-entity-name="moqui.security.ArtifactGroup" short-alias="group" mutable="true"/>
+        <relationship type="one" title="EntitySyncArtifactAppl" related-entity-name="moqui.basic.Enumeration" short-alias="applType">
+            <key-map field-name="applEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Entity Sync Artifact Application Type" enumTypeId="EntitySyncArtifactAppl"/>
+            <moqui.basic.Enumeration description="Include" enumId="EsaaInclude" sequenceNum="1" enumTypeId="EntitySyncArtifactAppl"/>
+            <moqui.basic.Enumeration description="Exclude" enumId="EsaaExclude" sequenceNum="2" enumTypeId="EntitySyncArtifactAppl"/>
+            <moqui.basic.Enumeration description="Always Include" enumId="EsaaAlways" sequenceNum="3" enumTypeId="EntitySyncArtifactAppl"/>
+        </seed-data>
+    </entity>
+    <view-entity entity-name="EntitySyncArtifactDetail" package-name="moqui.entity.sync">
+        <member-entity entity-alias="ESA" entity-name="moqui.entity.sync.EntitySyncArtifact"/>
+        <member-entity entity-alias="AGM" entity-name="moqui.security.ArtifactGroupMember" join-from-alias="ESA">
+            <key-map field-name="artifactGroupId"/></member-entity>
+        <alias-all entity-alias="ESA"/>
+        <alias-all entity-alias="AGM"/>
+    </view-entity>
+    <entity entity-name="EntitySyncHistory" package-name="moqui.entity.sync">
+        <field name="entitySyncId" type="id" is-pk="true"/>
+        <field name="startDate" type="date-time" is-pk="true"/>
+        <field name="finishDate" type="date-time"/>
+        <field name="statusId" type="id"/>
+        <field name="exclusiveFromTime" type="date-time"/>
+        <field name="inclusiveThruTime" type="date-time"/>
+        <field name="recordsStored" type="number-integer"/>
+        <field name="toRemoveDeleted" type="number-integer"/>
+        <field name="toRemoveAlreadyDeleted" type="number-integer"/>
+        <field name="runningTimeMillis" type="number-integer"/>
+        <field name="errorMessage" type="text-long"/>
+        <relationship type="one" related-entity-name="moqui.entity.sync.EntitySync"/>
+        <relationship type="one" title="EntitySync" related-entity-name="moqui.basic.StatusItem"/>
+    </entity>
+    <entity entity-name="EntitySyncRemove" package-name="moqui.entity.sync">
+        <field name="entitySyncRemoveId" type="id" is-pk="true"/>
+        <field name="entityName" type="text-medium" is-pk="true"/>
+        <field name="primaryKeyRemoved" type="text-long"/>
+    </entity>
+</entities>

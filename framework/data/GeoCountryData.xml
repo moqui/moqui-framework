@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed">
+    <!--
+        Based on ISO 3166: http://www.iso.org/iso/en/prods-services/iso3166ma/index.html
+        See also: http://en.wikipedia.org/wiki/ISO_3166-1_alpha-3
+                  http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
+                  http://en.wikipedia.org/wiki/ISO_3166-1_numeric
+    -->
+    <Geo geoCodeAlpha3="AFG" geoCodeAlpha2="AF" geoId="AFG" geoName="Afghanistan" geoCodeNumeric="004" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ALB" geoCodeAlpha2="AL" geoId="ALB" geoName="Albania" geoCodeNumeric="008" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="DZA" geoCodeAlpha2="DZ" geoId="DZA" geoName="Algeria" geoCodeNumeric="012" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ASM" geoCodeAlpha2="AS" geoId="ASM" geoName="American Samoa" geoCodeNumeric="016" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="AND" geoCodeAlpha2="AD" geoId="AND" geoName="Andorra" geoCodeNumeric="020" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="AGO" geoCodeAlpha2="AO" geoId="AGO" geoName="Angola" geoCodeNumeric="024" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="AIA" geoCodeAlpha2="AI" geoId="AIA" geoName="Anguilla" geoCodeNumeric="660" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ATA" geoCodeAlpha2="AQ" geoId="ATA" geoName="Antarctica" geoCodeNumeric="010" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ATG" geoCodeAlpha2="AG" geoId="ATG" geoName="Antigua And Barbuda" geoCodeNumeric="028" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ARG" geoCodeAlpha2="AR" geoId="ARG" geoName="Argentina" geoCodeNumeric="032" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ARM" geoCodeAlpha2="AM" geoId="ARM" geoName="Armenia" geoCodeNumeric="051" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ABW" geoCodeAlpha2="AW" geoId="ABW" geoName="Aruba" geoCodeNumeric="533" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="AUS" geoCodeAlpha2="AU" geoId="AUS" geoName="Australia" geoCodeNumeric="036" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="AUT" geoCodeAlpha2="AT" geoId="AUT" geoName="Austria" geoCodeNumeric="040" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="AZE" geoCodeAlpha2="AZ" geoId="AZE" geoName="Azerbaijan" geoCodeNumeric="031" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BHS" geoCodeAlpha2="BS" geoId="BHS" geoName="Bahamas" geoCodeNumeric="044" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BHR" geoCodeAlpha2="BH" geoId="BHR" geoName="Bahrain" geoCodeNumeric="048" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BGD" geoCodeAlpha2="BD" geoId="BGD" geoName="Bangladesh" geoCodeNumeric="050" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BRB" geoCodeAlpha2="BB" geoId="BRB" geoName="Barbados" geoCodeNumeric="052" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BLR" geoCodeAlpha2="BY" geoId="BLR" geoName="Belarus" geoCodeNumeric="112" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BEL" geoCodeAlpha2="BE" geoId="BEL" geoName="Belgium" geoCodeNumeric="056" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BLZ" geoCodeAlpha2="BZ" geoId="BLZ" geoName="Belize" geoCodeNumeric="084" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BEN" geoCodeAlpha2="BJ" geoId="BEN" geoName="Benin" geoCodeNumeric="204" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BMU" geoCodeAlpha2="BM" geoId="BMU" geoName="Bermuda" geoCodeNumeric="060" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BTN" geoCodeAlpha2="BT" geoId="BTN" geoName="Bhutan" geoCodeNumeric="064" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BOL" geoCodeAlpha2="BO" geoId="BOL" geoName="Bolivia" geoCodeNumeric="068" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BIH" geoCodeAlpha2="BA" geoId="BIH" geoName="Bosnia And Herzegowina" geoCodeNumeric="070" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BWA" geoCodeAlpha2="BW" geoId="BWA" geoName="Botswana" geoCodeNumeric="072" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BVT" geoCodeAlpha2="BV" geoId="BVT" geoName="Bouvet Island" geoCodeNumeric="074" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BRA" geoCodeAlpha2="BR" geoId="BRA" geoName="Brazil" geoCodeNumeric="076" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="IOT" geoCodeAlpha2="IO" geoId="IOT" geoName="British Indian Ocean Territory" geoCodeNumeric="086" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BRN" geoCodeAlpha2="BN" geoId="BRN" geoName="Brunei Darussalam" geoCodeNumeric="096" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BGR" geoCodeAlpha2="BG" geoId="BGR" geoName="Bulgaria" geoCodeNumeric="100" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BFA" geoCodeAlpha2="BF" geoId="BFA" geoName="Burkina Faso" geoCodeNumeric="854" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="BDI" geoCodeAlpha2="BI" geoId="BDI" geoName="Burundi" geoCodeNumeric="108" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KHM" geoCodeAlpha2="KH" geoId="KHM" geoName="Cambodia" geoCodeNumeric="116" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CMR" geoCodeAlpha2="CM" geoId="CMR" geoName="Cameroon" geoCodeNumeric="120" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CAN" geoCodeAlpha2="CA" geoId="CAN" geoName="Canada" geoCodeNumeric="124" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CPV" geoCodeAlpha2="CV" geoId="CPV" geoName="Cape Verde" geoCodeNumeric="132" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CYM" geoCodeAlpha2="KY" geoId="CYM" geoName="Cayman Islands" geoCodeNumeric="136" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CAF" geoCodeAlpha2="CF" geoId="CAF" geoName="Central African Republic" geoCodeNumeric="140" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TCD" geoCodeAlpha2="TD" geoId="TCD" geoName="Chad" geoCodeNumeric="148" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CHL" geoCodeAlpha2="CL" geoId="CHL" geoName="Chile" geoCodeNumeric="152" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CHN" geoCodeAlpha2="CN" geoId="CHN" geoName="China" geoCodeNumeric="156" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CXR" geoCodeAlpha2="CX" geoId="CXR" geoName="Christmas Island" geoCodeNumeric="162" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CCK" geoCodeAlpha2="CC" geoId="CCK" geoName="Cocos (keeling) Islands" geoCodeNumeric="166" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="COL" geoCodeAlpha2="CO" geoId="COL" geoName="Colombia" geoCodeNumeric="170" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="COM" geoCodeAlpha2="KM" geoId="COM" geoName="Comoros" geoCodeNumeric="174" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="COG" geoCodeAlpha2="CG" geoId="COG" geoName="Congo" geoCodeNumeric="178" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="COD" geoCodeAlpha2="CD" geoId="COD" geoName="Congo, The Democratic Republic Of The" geoCodeNumeric="180" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="COK" geoCodeAlpha2="CK" geoId="COK" geoName="Cook Islands" geoCodeNumeric="184" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CRI" geoCodeAlpha2="CR" geoId="CRI" geoName="Costa Rica" geoCodeNumeric="188" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CIV" geoCodeAlpha2="CI" geoId="CIV" geoName="Cote D&apos;ivoire" geoCodeNumeric="384" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="HRV" geoCodeAlpha2="HR" geoId="HRV" geoName="Croatia (local Name: Hrvatska)" geoCodeNumeric="191" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CUB" geoCodeAlpha2="CU" geoId="CUB" geoName="Cuba" geoCodeNumeric="192" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CYP" geoCodeAlpha2="CY" geoId="CYP" geoName="Cyprus" geoCodeNumeric="196" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CZE" geoCodeAlpha2="CZ" geoId="CZE" geoName="Czech Republic" geoCodeNumeric="203" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="DNK" geoCodeAlpha2="DK" geoId="DNK" geoName="Denmark" geoCodeNumeric="208" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="DJI" geoCodeAlpha2="DJ" geoId="DJI" geoName="Djibouti" geoCodeNumeric="262" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="DMA" geoCodeAlpha2="DM" geoId="DMA" geoName="Dominica" geoCodeNumeric="212" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="DOM" geoCodeAlpha2="DO" geoId="DOM" geoName="Dominican Republic" geoCodeNumeric="214" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TLS" geoCodeAlpha2="TL" geoId="TLS" geoName="East Timor" geoCodeNumeric="626" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ECU" geoCodeAlpha2="EC" geoId="ECU" geoName="Ecuador" geoCodeNumeric="218" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="EGY" geoCodeAlpha2="EG" geoId="EGY" geoName="Egypt" geoCodeNumeric="818" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SLV" geoCodeAlpha2="SV" geoId="SLV" geoName="El Salvador" geoCodeNumeric="222" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GNQ" geoCodeAlpha2="GQ" geoId="GNQ" geoName="Equatorial Guinea" geoCodeNumeric="226" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ERI" geoCodeAlpha2="ER" geoId="ERI" geoName="Eritrea" geoCodeNumeric="232" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="EST" geoCodeAlpha2="EE" geoId="EST" geoName="Estonia" geoCodeNumeric="233" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ETH" geoCodeAlpha2="ET" geoId="ETH" geoName="Ethiopia" geoCodeNumeric="231" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="FLK" geoCodeAlpha2="FK" geoId="FLK" geoName="Falkland Islands (malvinas)" geoCodeNumeric="238" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="FRO" geoCodeAlpha2="FO" geoId="FRO" geoName="Faroe Islands" geoCodeNumeric="234" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="FJI" geoCodeAlpha2="FJ" geoId="FJI" geoName="Fiji" geoCodeNumeric="242" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="FIN" geoCodeAlpha2="FI" geoId="FIN" geoName="Finland" geoCodeNumeric="246" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="FXX" geoCodeAlpha2="FX" geoId="FXX" geoName="France, Metropolitan" geoCodeNumeric="249" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="FRA" geoCodeAlpha2="FR" geoId="FRA" geoName="France" geoCodeNumeric="250" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GUF" geoCodeAlpha2="GF" geoId="GUF" geoName="French Guiana" geoCodeNumeric="254" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PYF" geoCodeAlpha2="PF" geoId="PYF" geoName="French Polynesia" geoCodeNumeric="258" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ATF" geoCodeAlpha2="TF" geoId="ATF" geoName="French Southern Territories" geoCodeNumeric="260" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GAB" geoCodeAlpha2="GA" geoId="GAB" geoName="Gabon" geoCodeNumeric="266" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GMB" geoCodeAlpha2="GM" geoId="GMB" geoName="Gambia" geoCodeNumeric="270" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GEO" geoCodeAlpha2="GE" geoId="GEO" geoName="Georgia" geoCodeNumeric="268" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="DEU" geoCodeAlpha2="DE" geoId="DEU" geoName="Germany" geoCodeNumeric="276" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GHA" geoCodeAlpha2="GH" geoId="GHA" geoName="Ghana" geoCodeNumeric="288" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GIB" geoCodeAlpha2="GI" geoId="GIB" geoName="Gibraltar" geoCodeNumeric="292" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GRC" geoCodeAlpha2="GR" geoId="GRC" geoName="Greece" geoCodeNumeric="300" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GRL" geoCodeAlpha2="GL" geoId="GRL" geoName="Greenland" geoCodeNumeric="304" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GRD" geoCodeAlpha2="GD" geoId="GRD" geoName="Grenada" geoCodeNumeric="308" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GLP" geoCodeAlpha2="GP" geoId="GLP" geoName="Guadeloupe" geoCodeNumeric="312" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GUM" geoCodeAlpha2="GU" geoId="GUM" geoName="Guam" geoCodeNumeric="316" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GTM" geoCodeAlpha2="GT" geoId="GTM" geoName="Guatemala" geoCodeNumeric="320" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GIN" geoCodeAlpha2="GN" geoId="GIN" geoName="Guinea" geoCodeNumeric="324" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GNB" geoCodeAlpha2="GW" geoId="GNB" geoName="Guinea-bissau" geoCodeNumeric="624" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GUY" geoCodeAlpha2="GY" geoId="GUY" geoName="Guyana" geoCodeNumeric="328" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="HTI" geoCodeAlpha2="HT" geoId="HTI" geoName="Haiti" geoCodeNumeric="332" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="HMD" geoCodeAlpha2="HM" geoId="HMD" geoName="Heard And Mc Donald Islands" geoCodeNumeric="334" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="VAT" geoCodeAlpha2="VA" geoId="VAT" geoName="Holy See (vatican City State)" geoCodeNumeric="336" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="HND" geoCodeAlpha2="HN" geoId="HND" geoName="Honduras" geoCodeNumeric="340" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="HKG" geoCodeAlpha2="HK" geoId="HKG" geoName="Hong Kong" geoCodeNumeric="344" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="HUN" geoCodeAlpha2="HU" geoId="HUN" geoName="Hungary" geoCodeNumeric="348" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ISL" geoCodeAlpha2="IS" geoId="ISL" geoName="Iceland" geoCodeNumeric="352" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="IND" geoCodeAlpha2="IN" geoId="IND" geoName="India" geoCodeNumeric="356" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="IDN" geoCodeAlpha2="ID" geoId="IDN" geoName="Indonesia" geoCodeNumeric="360" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="IRN" geoCodeAlpha2="IR" geoId="IRN" geoName="Iran (islamic Republic Of)" geoCodeNumeric="364" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="IRQ" geoCodeAlpha2="IQ" geoId="IRQ" geoName="Iraq" geoCodeNumeric="368" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="IRL" geoCodeAlpha2="IE" geoId="IRL" geoName="Ireland" geoCodeNumeric="372" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ISR" geoCodeAlpha2="IL" geoId="ISR" geoName="Israel" geoCodeNumeric="376" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ITA" geoCodeAlpha2="IT" geoId="ITA" geoName="Italy" geoCodeNumeric="380" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="JAM" geoCodeAlpha2="JM" geoId="JAM" geoName="Jamaica" geoCodeNumeric="388" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="JPN" geoCodeAlpha2="JP" geoId="JPN" geoName="Japan" geoCodeNumeric="392" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="JOR" geoCodeAlpha2="JO" geoId="JOR" geoName="Jordan" geoCodeNumeric="400" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KAZ" geoCodeAlpha2="KZ" geoId="KAZ" geoName="Kazakhstan" geoCodeNumeric="398" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KEN" geoCodeAlpha2="KE" geoId="KEN" geoName="Kenya" geoCodeNumeric="404" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KIR" geoCodeAlpha2="KI" geoId="KIR" geoName="Kiribati" geoCodeNumeric="296" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PRK" geoCodeAlpha2="KP" geoId="PRK" geoName="Korea, Democratic People&apos;s Republic Of" geoCodeNumeric="408" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KOR" geoCodeAlpha2="KR" geoId="KOR" geoName="Korea, Republic Of" geoCodeNumeric="410" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KWT" geoCodeAlpha2="KW" geoId="KWT" geoName="Kuwait" geoCodeNumeric="414" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KGZ" geoCodeAlpha2="KG" geoId="KGZ" geoName="Kyrgyzstan" geoCodeNumeric="417" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LAO" geoCodeAlpha2="LA" geoId="LAO" geoName="Lao People&apos;s Democratic Republic" geoCodeNumeric="418" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LVA" geoCodeAlpha2="LV" geoId="LVA" geoName="Latvia" geoCodeNumeric="428" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LBN" geoCodeAlpha2="LB" geoId="LBN" geoName="Lebanon" geoCodeNumeric="422" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LSO" geoCodeAlpha2="LS" geoId="LSO" geoName="Lesotho" geoCodeNumeric="426" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LBR" geoCodeAlpha2="LR" geoId="LBR" geoName="Liberia" geoCodeNumeric="430" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LBY" geoCodeAlpha2="LY" geoId="LBY" geoName="Libyan Arab Jamahiriya" geoCodeNumeric="434" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LIE" geoCodeAlpha2="LI" geoId="LIE" geoName="Liechtenstein" geoCodeNumeric="438" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LTU" geoCodeAlpha2="LT" geoId="LTU" geoName="Lithuania" geoCodeNumeric="440" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LUX" geoCodeAlpha2="LU" geoId="LUX" geoName="Luxembourg" geoCodeNumeric="442" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MAC" geoCodeAlpha2="MO" geoId="MAC" geoName="Macau" geoCodeNumeric="446" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MKD" geoCodeAlpha2="MK" geoId="MKD" geoName="Macedonia, The Former Yugoslav Republic Of" geoCodeNumeric="807" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MDG" geoCodeAlpha2="MG" geoId="MDG" geoName="Madagascar" geoCodeNumeric="450" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MWI" geoCodeAlpha2="MW" geoId="MWI" geoName="Malawi" geoCodeNumeric="454" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MYS" geoCodeAlpha2="MY" geoId="MYS" geoName="Malaysia" geoCodeNumeric="458" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MDV" geoCodeAlpha2="MV" geoId="MDV" geoName="Maldives" geoCodeNumeric="462" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MLI" geoCodeAlpha2="ML" geoId="MLI" geoName="Mali" geoCodeNumeric="466" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MLT" geoCodeAlpha2="MT" geoId="MLT" geoName="Malta" geoCodeNumeric="470" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MHL" geoCodeAlpha2="MH" geoId="MHL" geoName="Marshall Islands" geoCodeNumeric="584" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MTQ" geoCodeAlpha2="MQ" geoId="MTQ" geoName="Martinique" geoCodeNumeric="474" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MRT" geoCodeAlpha2="MR" geoId="MRT" geoName="Mauritania" geoCodeNumeric="478" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MUS" geoCodeAlpha2="MU" geoId="MUS" geoName="Mauritius" geoCodeNumeric="480" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MYT" geoCodeAlpha2="YT" geoId="MYT" geoName="Mayotte" geoCodeNumeric="175" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MEX" geoCodeAlpha2="MX" geoId="MEX" geoName="Mexico" geoCodeNumeric="484" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="FSM" geoCodeAlpha2="FM" geoId="FSM" geoName="Micronesia, Federated States Of" geoCodeNumeric="583" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MDA" geoCodeAlpha2="MD" geoId="MDA" geoName="Moldova, Republic Of" geoCodeNumeric="498" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MCO" geoCodeAlpha2="MC" geoId="MCO" geoName="Monaco" geoCodeNumeric="492" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MNG" geoCodeAlpha2="MN" geoId="MNG" geoName="Mongolia" geoCodeNumeric="496" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MNE" geoCodeAlpha2="ME" geoId="MNE" geoName="Montenegro" geoCodeNumeric="499" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MSR" geoCodeAlpha2="MS" geoId="MSR" geoName="Montserrat" geoCodeNumeric="500" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MAR" geoCodeAlpha2="MA" geoId="MAR" geoName="Morocco" geoCodeNumeric="504" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MOZ" geoCodeAlpha2="MZ" geoId="MOZ" geoName="Mozambique" geoCodeNumeric="508" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MMR" geoCodeAlpha2="MM" geoId="MMR" geoName="Myanmar" geoCodeNumeric="104" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NAM" geoCodeAlpha2="NA" geoId="NAM" geoName="Namibia" geoCodeNumeric="516" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NRU" geoCodeAlpha2="NR" geoId="NRU" geoName="Nauru" geoCodeNumeric="520" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NPL" geoCodeAlpha2="NP" geoId="NPL" geoName="Nepal" geoCodeNumeric="524" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NLD" geoCodeAlpha2="NL" geoId="NLD" geoName="Netherlands" geoCodeNumeric="528" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ANT" geoCodeAlpha2="AN" geoId="ANT" geoName="Netherlands Antilles" geoCodeNumeric="530" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NCL" geoCodeAlpha2="NC" geoId="NCL" geoName="New Caledonia" geoCodeNumeric="540" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NZL" geoCodeAlpha2="NZ" geoId="NZL" geoName="New Zealand" geoCodeNumeric="554" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NIC" geoCodeAlpha2="NI" geoId="NIC" geoName="Nicaragua" geoCodeNumeric="558" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NER" geoCodeAlpha2="NE" geoId="NER" geoName="Niger" geoCodeNumeric="562" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NGA" geoCodeAlpha2="NG" geoId="NGA" geoName="Nigeria" geoCodeNumeric="566" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NIU" geoCodeAlpha2="NU" geoId="NIU" geoName="Niue" geoCodeNumeric="570" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NFK" geoCodeAlpha2="NF" geoId="NFK" geoName="Norfolk Island" geoCodeNumeric="574" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="MNP" geoCodeAlpha2="MP" geoId="MNP" geoName="Northern Mariana Islands" geoCodeNumeric="580" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="NOR" geoCodeAlpha2="NO" geoId="NOR" geoName="Norway" geoCodeNumeric="578" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="OMN" geoCodeAlpha2="OM" geoId="OMN" geoName="Oman" geoCodeNumeric="512" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PAK" geoCodeAlpha2="PK" geoId="PAK" geoName="Pakistan" geoCodeNumeric="586" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PLW" geoCodeAlpha2="PW" geoId="PLW" geoName="Palau" geoCodeNumeric="585" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PSE" geoCodeAlpha2="PS" geoId="PSE" geoName="Palestinian Territory, Occupied" geoCodeNumeric="275" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PAN" geoCodeAlpha2="PA" geoId="PAN" geoName="Panama" geoCodeNumeric="591" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PNG" geoCodeAlpha2="PG" geoId="PNG" geoName="Papua New Guinea" geoCodeNumeric="598" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PRY" geoCodeAlpha2="PY" geoId="PRY" geoName="Paraguay" geoCodeNumeric="600" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PER" geoCodeAlpha2="PE" geoId="PER" geoName="Peru" geoCodeNumeric="604" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PHL" geoCodeAlpha2="PH" geoId="PHL" geoName="Philippines" geoCodeNumeric="608" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PCN" geoCodeAlpha2="PN" geoId="PCN" geoName="Pitcairn" geoCodeNumeric="612" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="POL" geoCodeAlpha2="PL" geoId="POL" geoName="Poland" geoCodeNumeric="616" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PRT" geoCodeAlpha2="PT" geoId="PRT" geoName="Portugal" geoCodeNumeric="620" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="PRI" geoCodeAlpha2="PR" geoId="PRI" geoName="Puerto Rico" geoCodeNumeric="630" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="QAT" geoCodeAlpha2="QA" geoId="QAT" geoName="Qatar" geoCodeNumeric="634" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="REU" geoCodeAlpha2="RE" geoId="REU" geoName="Reunion" geoCodeNumeric="638" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ROU" geoCodeAlpha2="RO" geoId="ROU" geoName="Romania" geoCodeNumeric="642" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="RUS" geoCodeAlpha2="RU" geoId="RUS" geoName="Russian Federation" geoCodeNumeric="643" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="RWA" geoCodeAlpha2="RW" geoId="RWA" geoName="Rwanda" geoCodeNumeric="646" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="KNA" geoCodeAlpha2="KN" geoId="KNA" geoName="Saint Kitts And Nevis" geoCodeNumeric="659" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LCA" geoCodeAlpha2="LC" geoId="LCA" geoName="Saint Lucia" geoCodeNumeric="662" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="VCT" geoCodeAlpha2="VC" geoId="VCT" geoName="Saint Vincent And The Grenadines" geoCodeNumeric="670" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="WSM" geoCodeAlpha2="WS" geoId="WSM" geoName="Samoa" geoCodeNumeric="882" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SMR" geoCodeAlpha2="SM" geoId="SMR" geoName="San Marino" geoCodeNumeric="674" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="STP" geoCodeAlpha2="ST" geoId="STP" geoName="Sao Tome And Principe" geoCodeNumeric="678" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SAU" geoCodeAlpha2="SA" geoId="SAU" geoName="Saudi Arabia" geoCodeNumeric="682" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SEN" geoCodeAlpha2="SN" geoId="SEN" geoName="Senegal" geoCodeNumeric="686" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SRB" geoCodeAlpha2="RS" geoId="SRB" geoName="Serbia" geoCodeNumeric="688" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SYC" geoCodeAlpha2="SC" geoId="SYC" geoName="Seychelles" geoCodeNumeric="690" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SLE" geoCodeAlpha2="SL" geoId="SLE" geoName="Sierra Leone" geoCodeNumeric="694" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SGP" geoCodeAlpha2="SG" geoId="SGP" geoName="Singapore" geoCodeNumeric="702" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SVK" geoCodeAlpha2="SK" geoId="SVK" geoName="Slovakia (slovak Republic)" geoCodeNumeric="703" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SVN" geoCodeAlpha2="SI" geoId="SVN" geoName="Slovenia" geoCodeNumeric="705" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SLB" geoCodeAlpha2="SB" geoId="SLB" geoName="Solomon Islands" geoCodeNumeric="090" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SOM" geoCodeAlpha2="SO" geoId="SOM" geoName="Somalia" geoCodeNumeric="706" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SGS" geoCodeAlpha2="GS" geoId="SGS" geoName="South Georgia And The South Sandwich Islands" geoCodeNumeric="239" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ZAF" geoCodeAlpha2="ZA" geoId="ZAF" geoName="South Africa" geoCodeNumeric="710" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ESP" geoCodeAlpha2="ES" geoId="ESP" geoName="Spain" geoCodeNumeric="724" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="LKA" geoCodeAlpha2="LK" geoId="LKA" geoName="Sri Lanka" geoCodeNumeric="144" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SHN" geoCodeAlpha2="SH" geoId="SHN" geoName="St. Helena" geoCodeNumeric="654" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SPM" geoCodeAlpha2="PM" geoId="SPM" geoName="St. Pierre And Miquelon" geoCodeNumeric="666" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SDN" geoCodeAlpha2="SD" geoId="SDN" geoName="Sudan" geoCodeNumeric="736" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SUR" geoCodeAlpha2="SR" geoId="SUR" geoName="Suriname" geoCodeNumeric="740" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SJM" geoCodeAlpha2="SJ" geoId="SJM" geoName="Svalbard And Jan Mayen Islands" geoCodeNumeric="744" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SWZ" geoCodeAlpha2="SZ" geoId="SWZ" geoName="Swaziland" geoCodeNumeric="748" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SWE" geoCodeAlpha2="SE" geoId="SWE" geoName="Sweden" geoCodeNumeric="752" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CHE" geoCodeAlpha2="CH" geoId="CHE" geoName="Switzerland" geoCodeNumeric="756" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SYR" geoCodeAlpha2="SY" geoId="SYR" geoName="Syrian Arab Republic" geoCodeNumeric="760" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TWN" geoCodeAlpha2="TW" geoId="TWN" geoName="Taiwan" geoCodeNumeric="158" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TJK" geoCodeAlpha2="TJ" geoId="TJK" geoName="Tajikistan" geoCodeNumeric="762" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TZA" geoCodeAlpha2="TZ" geoId="TZA" geoName="Tanzania, United Republic Of" geoCodeNumeric="834" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="THA" geoCodeAlpha2="TH" geoId="THA" geoName="Thailand" geoCodeNumeric="764" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TGO" geoCodeAlpha2="TG" geoId="TGO" geoName="Togo" geoCodeNumeric="768" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TKL" geoCodeAlpha2="TK" geoId="TKL" geoName="Tokelau" geoCodeNumeric="772" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TON" geoCodeAlpha2="TO" geoId="TON" geoName="Tonga" geoCodeNumeric="776" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TTO" geoCodeAlpha2="TT" geoId="TTO" geoName="Trinidad And Tobago" geoCodeNumeric="780" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TUN" geoCodeAlpha2="TN" geoId="TUN" geoName="Tunisia" geoCodeNumeric="788" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TUR" geoCodeAlpha2="TR" geoId="TUR" geoName="Turkey" geoCodeNumeric="792" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TKM" geoCodeAlpha2="TM" geoId="TKM" geoName="Turkmenistan" geoCodeNumeric="795" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TCA" geoCodeAlpha2="TC" geoId="TCA" geoName="Turks And Caicos Islands" geoCodeNumeric="796" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="TUV" geoCodeAlpha2="TV" geoId="TUV" geoName="Tuvalu" geoCodeNumeric="798" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="UGA" geoCodeAlpha2="UG" geoId="UGA" geoName="Uganda" geoCodeNumeric="800" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="UKR" geoCodeAlpha2="UA" geoId="UKR" geoName="Ukraine" geoCodeNumeric="804" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="USA" geoCodeAlpha2="US" geoId="USA" geoName="United States" geoCodeNumeric="840" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="UMI" geoCodeAlpha2="UM" geoId="UMI" geoName="United States Minor Outlying Islands" geoCodeNumeric="581" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ARE" geoCodeAlpha2="AE" geoId="ARE" geoName="United Arab Emirates" geoCodeNumeric="784" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="GBR" geoCodeAlpha2="GB" geoId="GBR" geoName="United Kingdom" geoCodeNumeric="826" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="URY" geoCodeAlpha2="UY" geoId="URY" geoName="Uruguay" geoCodeNumeric="858" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="UZB" geoCodeAlpha2="UZ" geoId="UZB" geoName="Uzbekistan" geoCodeNumeric="860" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="VUT" geoCodeAlpha2="VU" geoId="VUT" geoName="Vanuatu" geoCodeNumeric="548" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="VEN" geoCodeAlpha2="VE" geoId="VEN" geoName="Venezuela" geoCodeNumeric="862" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="VNM" geoCodeAlpha2="VN" geoId="VNM" geoName="Viet Nam" geoCodeNumeric="704" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="VGB" geoCodeAlpha2="VG" geoId="VGB" geoName="Virgin Islands (british)" geoCodeNumeric="092" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="VIR" geoCodeAlpha2="VI" geoId="VIR" geoName="Virgin Islands (u.s.)" geoCodeNumeric="850" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="WLF" geoCodeAlpha2="WF" geoId="WLF" geoName="Wallis And Futuna Islands" geoCodeNumeric="876" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ESH" geoCodeAlpha2="EH" geoId="ESH" geoName="Western Sahara" geoCodeNumeric="732" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="YEM" geoCodeAlpha2="YE" geoId="YEM" geoName="Yemen" geoCodeNumeric="887" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="YUG" geoCodeAlpha2="YU" geoId="YUG" geoName="Yugoslavia" geoCodeNumeric="891" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ZMB" geoCodeAlpha2="ZM" geoId="ZMB" geoName="Zambia" geoCodeNumeric="894" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="ZWE" geoCodeAlpha2="ZW" geoId="ZWE" geoName="Zimbabwe" geoCodeNumeric="716" geoTypeEnumId="GEOT_COUNTRY"/>
+</entity-facade-xml>
