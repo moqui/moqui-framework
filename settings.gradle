@@ -1,11 +1,15 @@
 
 String[] getDirectoryProjects(String relativePath) {
-    return new File(relativePath).listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == 'build.gradle' } }
+    File runtimeDir = new File('runtime')
+    if (!runtimeDir.exists()) return new String[0]
+    File compsDir = new File('runtime/' + relativePath)
+    if (!compsDir.exists()) return new String[0]
+    return compsDir.listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == 'build.gradle' } }
             .collect { "${relativePath}/${it.getName()}" } as String[]
 }
 
 include 'framework'
-include getDirectoryProjects('runtime/base-component')
-include getDirectoryProjects('runtime/mantle')
-include getDirectoryProjects('runtime/component-lib')
-include getDirectoryProjects('runtime/component')
+include getDirectoryProjects('base-component')
+include getDirectoryProjects('mantle')
+include getDirectoryProjects('component-lib')
+include getDirectoryProjects('component')

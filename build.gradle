@@ -47,7 +47,7 @@ def getComponentTestTasks() {
 
 task clean(type: Delete) { delete file(warName); delete file(execTempDir) }
 task cleanTempDir(type: Delete) { delete file(execTempDir) }
-task cleanDb(type: Delete) { delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties'); delete file(moquiRuntime+'/db/h2') }
+task cleanDb << { if (!file(moquiRuntime).exists()) return; delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties'); delete file(moquiRuntime+'/db/h2') }
 task cleanOrientDb(type: Delete) { delete file(moquiRuntime+'/db/orientdb/databases') }
 task cleanElasticSearch(type: Delete) { delete file(moquiRuntime+'/elasticsearch/data') }
 task cleanLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/log', include: '*') }
@@ -62,13 +62,13 @@ task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanOrientDb, cleanEla
 
 // ========== check/update tasks ==========
 
-def checkRuntimeDir(String locationType) {
+def checkRuntimeDir(String locType) {
     File runtimeDir = file('runtime')
     if (runtimeDir.exists()) return
-    if (!locationType) locationType = file('.git').exists() ? 'git' : 'release'
+    if (!locType) locType = file('.git').exists() ? 'git' : 'release'
     Node addons = parseAddons()
-    Node runtimeNode = addons.runtime.find({ it."@type" == locationType })
-    if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found (for type ${locationType}) in addons.xml")
+    Node runtimeNode = addons.runtime.find({ it."@type" == locType })
+    if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found (for type ${locType}) in addons.xml")
     String type = runtimeNode.'@type' ?: 'git'
     String url = runtimeNode.'@url'
     if (type == 'current' || type == 'release') {
