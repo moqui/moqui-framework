@@ -12,12 +12,12 @@
 
     <!-- Mantle Components -->
     <!-- NOTE: The mantle component locations are invalid until mantle is split into individual component repositories -->
-    <component name="mantle-udm" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
-    <component name="mantle-usl" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
-    <component name="mantle-ubpl" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
-    <component name="mantle-edi" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
-    <component name="mantle-oagis" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
-    <component name="AuthorizeDotNet" group="moqui" version="1.2.0" branch="master" repository="github" skip-get="true"/>
+    <component name="mantle-udm" group="moqui" version="1.2.1" branch="master" repository="github"/>
+    <component name="mantle-usl" group="moqui" version="1.2.1" branch="master" repository="github"/>
+    <component name="mantle-ubpl" group="moqui" version="1.2.1" branch="master" repository="github"/>
+    <component name="mantle-edi" group="moqui" version="1.2.1" branch="master" repository="github"/>
+    <component name="mantle-oagis" group="moqui" version="1.2.1" branch="master" repository="github"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.2.1" branch="master" repository="github"/>
 
     <!-- Moqui UI Components -->
     <component name="SimpleScreens" group="moqui" version="1.0.0" branch="master" repository="github"/>
