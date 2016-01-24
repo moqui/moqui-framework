@@ -4,7 +4,7 @@
 [![build](https://travis-ci.org/moqui/moqui-framework.svg)](https://travis-ci.org/moqui/moqui-framework)
 [![release](http://img.shields.io/github/release/moqui/moqui-framework.svg)](https://github.com/moqui/moqui-framework/releases)
 [![commits since release](http://img.shields.io/github/commits-since/moqui/moqui-framework/v1.6.1.svg)](https://github.com/moqui/moqui-framework/commits/master)
-[![downloads](http://img.shields.io/github/downloads/moqui/moqui-framework/latest/total.svg)](https://github.com/moqui/moqui-framework/releases)
+[![downloads](http://img.shields.io/github/downloads/moqui/moqui-framework/total.svg)](https://github.com/moqui/moqui-framework/releases)
 
 For details about running and deploying Moqui see:
 
