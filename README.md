@@ -1,17 +1,17 @@
 ## Welcome to Moqui Framework
 
-[![license](http://img.shields.io/badge/license-CC0%201.0%20Universal-blue.svg)](https://github.com/moqui/moqui/blob/master/LICENSE.md)
-[![build](https://travis-ci.org/moqui/moqui.svg)](https://travis-ci.org/moqui/moqui)
-[![release](http://img.shields.io/github/release/moqui/moqui.svg)](https://github.com/moqui/moqui/releases)
-[![commits since release](http://img.shields.io/github/commits-since/moqui/moqui/v1.6.0.svg)](https://github.com/moqui/moqui/commits/master)
-[![downloads](http://img.shields.io/github/downloads/moqui/moqui/latest/total.svg)](https://github.com/moqui/moqui/releases)
+[![license](http://img.shields.io/badge/license-CC0%201.0%20Universal-blue.svg)](https://github.com/moqui/moqui-framework/blob/master/LICENSE.md)
+[![build](https://travis-ci.org/moqui/moqui-framework.svg)](https://travis-ci.org/moqui/moqui-framework)
+[![release](http://img.shields.io/github/release/moqui/moqui-framework.svg)](https://github.com/moqui/moqui-framework/releases)
+[![commits since release](http://img.shields.io/github/commits-since/moqui/moqui-framework/v1.6.1.svg)](https://github.com/moqui/moqui-framework/commits/master)
+[![downloads](http://img.shields.io/github/downloads/moqui/moqui/latest/total.svg)](https://github.com/moqui/moqui-framework/releases)
 
 For details about running and deploying Moqui see:
 
 <http://www.moqui.org/framework/docs/RunDeploy.html>
 
 For information about the current and near future status of Moqui Framework
-see the [ReleaseNotes.txt](https://github.com/moqui/moqui/blob/master/ReleaseNotes.txt) file.
+see the [ReleaseNotes.txt](https://github.com/moqui/moqui-framework/blob/master/ReleaseNotes.txt) file.
 
 For an overview of features see:
 
