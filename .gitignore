@@ -13,30 +13,9 @@ build/
 /SaveOrientDb.zip
 /SaveElasticSearch.zip
 
-# runtime generated files
-/runtime/db/derby/MoquiDEFAULT/
-/runtime/db/derby/MoquiTenant/
-/runtime/db/derby/MoquiTransactional/
-/runtime/db/derby/MoquiAnalytical/
-/runtime/db/derby/EXAMPLE1/
-/runtime/db/derby/CustJqp/
-/runtime/db/derby/derby.log
-/runtime/db/h2/
-/runtime/db/orientdb/databases/
-/runtime/elasticsearch/data/
-/runtime/elasticsearch/log/
-/runtime/elasticsearch/work/
-/runtime/log/
-/runtime/tmp/
-/runtime/txlog/
+# runtime directory (separate repository so ignore directory entirely)
+/runtime/
 /execwartmp/
-
-# common runtime added files
-/runtime/lib/*.jar
-/runtime/component/
-/runtime/component-lib/
-/runtime/mantle/
-/runtime/base-component/example/lib/example-*.jar
 
 # IntelliJ IDEA files
 .idea/
