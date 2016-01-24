@@ -5,6 +5,8 @@ jdk:
   - openjdk7
   - oraclejdk8
 
+install: true
+
 env:
   - TERM=dumb
 
