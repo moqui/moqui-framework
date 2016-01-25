@@ -111,6 +111,28 @@ task gitStatusAll {
         }
     }
 }
+task gitUpstreamAll {
+    description "Do a git pull upstream:master for moqui, runtime, and each installed component (for each where a .git directory is found and has a remote called upstream)"
+    doLast {
+        String remoteName = project.hasProperty('remote') ? remote : 'upstream'
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+        for (String gitDir in gitDirectories) {
+            def curGrgit = Grgit.open(dir: gitDir)
+            if (curGrgit.remote.list().find({ it.name == remoteName})) {
+                logger.lifecycle("\nGit merge ${remoteName} for ${gitDir}")
+                curGrgit.pull(remote: remoteName, branch: 'master')
+            } else {
+                logger.lifecycle("\nNo ${remoteName} remote for ${gitDir}")
+            }
+
+        }
+    }
+}
 
 // ========== run tasks ==========
 
