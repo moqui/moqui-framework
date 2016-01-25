@@ -67,20 +67,10 @@ def checkRuntimeDir(String locType) {
     if (runtimeDir.exists()) return
     if (!locType) locType = file('.git').exists() ? 'git' : 'current'
     Node addons = parseAddons()
-    Node runtimeNode = addons.runtime.find({ it."@type" == locType })
-    if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found (for type ${locType}) in addons.xml")
-    String type = runtimeNode.'@type' ?: 'git'
-    String url = runtimeNode.'@url'
-    if (type == 'current' || type == 'release') {
-        File zipFile = file("runtime.zip")
-        ant.get(src: url, dest: zipFile)
-        // the eachFile closure removes the first path from each file, moving everything up a directory
-        copy { from zipTree(zipFile); into runtimeDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
-        delete zipFile
-    } else if (type == 'git') {
-        Grgit.clone(dir: runtimeDir, uri: url)
-    }
-    logger.lifecycle("Downloaded runtime from ${url}")
+    Node runtimeNode = addons.runtime[0]
+    if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found in addons.xml")
+    downloadComponent("runtime", locType, runtimeNode, addons)
+    // logger.lifecycle("Downloaded runtime from ${url}")
 }
 task checkRuntime {
     description "If the runtime directory does not exist get it using settings in addons.xml"
@@ -282,14 +272,7 @@ File getComponent(String compName, String type, Node addons, Set compsChecked) {
     Node component = addons.component.find({ it."@name" == compName })
     if (component == null) { throw new InvalidUserDataException("Component ${compName} not found in addons.xml") }
     if (component.'@skip-get' == 'true') { logger.lifecycle("Skipping get component ${compName} (skip-get=true)"); return }
-    String repositoryName = (component.'@repository' ?: 'github')
-    Node repository = addons.repository.find({ it."@name" == repositoryName })
-    if (repository == null) { throw new InvalidUserDataException("Repository ${repositoryName} not found in addons.xml") }
-    Node location = repository.location.find({ it."@type" == type })
-    if (location == null) { throw new InvalidUserDataException("Location for type ${type} now found in repository ${repositoryName} in addons.xml") }
-    String url = Eval.me('component', component, '"""' + location.'@url' + '"""')
-    logger.lifecycle("Component ${compName}, type ${type}, url: ${url}")
-    File componentDir = downloadComponent(compName, type, url)
+    File componentDir = downloadComponent("runtime/component/${compName}", type, component, addons)
 
     checkComponentDependencies(compName, type, addons, compsChecked)
     return componentDir
@@ -310,20 +293,34 @@ def checkComponentDependencies(String compName, String type, Node addons, Set co
         }
     }
 }
-File downloadComponent(String compName, String type, String url) {
-    File compDir = file("runtime/component/${compName}")
-    if (compDir.exists()) { logger.lifecycle("Component ${compName} already exists at ${compDir}"); return compDir }
+def downloadComponent(String targetDirPath, String type, Node component, Node addons) {
+    String compName = component.'@name'
+    String repositoryName = (component.'@repository' ?: 'github')
+    Node repository = addons.repository.find({ it."@name" == repositoryName })
+    if (repository == null) { throw new InvalidUserDataException("Repository ${repositoryName} not found in addons.xml") }
+    Node location = repository.location.find({ it."@type" == type })
+    if (location == null) { throw new InvalidUserDataException("Location for type ${type} now found in repository ${repositoryName} in addons.xml") }
+
+    String url = Eval.me('component', component, '"""' + location.'@url' + '"""')
+    logger.lifecycle("Getting ${compName} (type ${type}) from ${url} to ${targetDirPath}")
+
+    File targetDir = file(targetDirPath)
+    if (targetDir.exists()) { logger.lifecycle("Component ${compName} already exists at ${targetDir}"); return targetDir }
     if (type == 'current' || type == 'release') {
-        File zipFile = file("runtime/component/${compName}.zip")
+        File zipFile = file("${targetDirPath}.zip")
         ant.get(src: url, dest: zipFile)
         // the eachFile closure removes the first path from each file, moving everything up a directory
-        copy { from zipTree(zipFile); into compDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
+        copy { from zipTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
         delete zipFile
+        // delete the empty directories left over from zip expansion with first path removed
+        String archiveName = url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'))
+        // logger.lifecycle("Deleting dir ${targetDirPath}/${compName}-${archiveName}")
+        delete file("${targetDirPath}/${compName}-${archiveName}")
     } else if (type == 'git') {
-        Grgit.clone(dir: compDir, uri: url)
+        Grgit.clone(dir: targetDir, uri: url)
     }
-    logger.lifecycle("Downloaded component ${compName} to ${compDir}")
-    return compDir
+    logger.lifecycle("Downloaded ${compName} to ${targetDirPath}")
+    return targetDir
 }
 
 // ========== combined tasks ==========

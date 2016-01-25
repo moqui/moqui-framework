@@ -1,8 +1,6 @@
 <addons>
     <!-- Configure where to get runtime if not present -->
-    <runtime type="git" url="https://github.com/moqui/moqui-runtime.git"/>
-    <runtime type="current" url="https://github.com/moqui/moqui-runtime/archive/master.zip"/>
-    <runtime type="release" url="https://github.com/moqui/moqui-runtime/archive/v1.6.1.zip"/>
+    <runtime name="moqui-runtime" group="moqui" version="1.6.1" branch="master" repository="github"/>
 
     <repository name="github">
         <location type="current" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/${component.'@branch'}.zip"/>
