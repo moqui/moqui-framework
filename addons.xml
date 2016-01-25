@@ -7,6 +7,11 @@
         <location type="release" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/v${component.'@version'}.zip"/>
         <location type="git" url="https://github.com/${component.'@group'}/${component.'@name'}.git"/>
     </repository>
+    <repository name="github-ssh">
+        <location type="current" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/${component.'@branch'}.zip"/>
+        <location type="release" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/v${component.'@version'}.zip"/>
+        <location type="git" url="git@github.com:${component.'@group'}/${component.'@name'}.git"/>
+    </repository>
 
     <!-- Mantle Components -->
     <component name="mantle-udm" group="moqui" version="1.0.0" branch="master" repository="github"/>
