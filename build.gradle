@@ -313,9 +313,10 @@ def downloadComponent(String targetDirPath, String type, Node component, Node ad
         copy { from zipTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
         delete zipFile
         // delete the empty directories left over from zip expansion with first path removed
-        String archiveName = url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'))
-        // logger.lifecycle("Deleting dir ${targetDirPath}/${compName}-${archiveName}")
-        delete file("${targetDirPath}/${compName}-${archiveName}")
+        String archiveDirName = compName + '-'
+        if (type == 'current') { archiveDirName += component.'@branch' } else { archiveDirName += component.'@version' }
+        // logger.lifecycle("Deleting dir ${targetDirPath}/${archiveDirName}")
+        delete file("${targetDirPath}/${archiveDirName}")
     } else if (type == 'git') {
         Grgit.clone(dir: targetDir, uri: url)
     }
