@@ -65,7 +65,7 @@ task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanOrientDb, cleanEla
 def checkRuntimeDir(String locType) {
     File runtimeDir = file('runtime')
     if (runtimeDir.exists()) return
-    if (!locType) locType = file('.git').exists() ? 'git' : 'release'
+    if (!locType) locType = file('.git').exists() ? 'git' : 'current'
     Node addons = parseAddons()
     Node runtimeNode = addons.runtime.find({ it."@type" == locType })
     if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found (for type ${locType}) in addons.xml")
@@ -227,7 +227,7 @@ task addRuntimeTomcat {
 task getComponent {
     description "Get a component using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to release)"
     doLast {
-        String curLocationType = file('.git').exists() ? 'git' : 'release'
+        String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
         getComponentTop(curLocationType)
     }
