@@ -1,3 +1,6 @@
+# addons.xml, ignored so won't be accidently committed (common file to change)
+addons.xml
+
 # gradle/build files
 build/
 .gradle

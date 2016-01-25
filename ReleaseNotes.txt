@@ -2,7 +2,21 @@
 Moqui Framework Release Notes
 
 ===========================================================================
-Release 1.6.1 - TBD
+Release 1.6.2 - TBD
+===========================================================================
+
+Moqui Framework 1.6.2 is a minor new feature and bug fix release.
+
+TODO
+
+New Features
+
+
+Bug Fixes
+
+
+===========================================================================
+Release 1.6.1 - 24 Jan 2016
 ===========================================================================
 
 Moqui Framework 1.6.1 is a minor new feature and bug fix release.
@@ -10,7 +24,7 @@ Moqui Framework 1.6.1 is a minor new feature and bug fix release.
 This is the first release after the repository reorganization in Moqui 
 Ecosystem. The runtime directory is now in a separate repository. The 
 framework build now gets JAR files from Bintray JCenter instead of having
-them in the framework/lib directory. Overall the result is a small 
+them in the framework/lib directory. Overall the result is a small
 foundation with additional libraries, components, etc added as needed using
 Gradle tasks.
 
@@ -55,7 +69,7 @@ Bug Fixes
 
 
 ===========================================================================
-Features considered, but may not to be included in 1.x series
+Long Term To Do List
 ===========================================================================
 
 - XML Screens
