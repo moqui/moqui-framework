@@ -1489,7 +1489,7 @@ public class EntityDefinition {
 
     @CompileStatic
     Map cloneMapRemoveFields(Map theMap, Boolean pks) {
-        Map newMap = new HashMap(theMap)
+        Map newMap = new LinkedHashMap(theMap)
         ArrayList<String> fieldNameList = (pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames())
         int size = fieldNameList.size()
         for (int i = 0; i < size; i++) {
