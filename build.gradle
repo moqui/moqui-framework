@@ -100,7 +100,8 @@ task gitStatusAll {
             gitDirectories.add(compDir.path)
         for (String gitDir in gitDirectories) {
             logger.lifecycle("\nGit status for ${gitDir}")
-            def curStatus = Grgit.open(dir: gitDir).status()
+            def curGrgit = Grgit.open(dir: gitDir)
+            def curStatus = curGrgit.status()
             if (curStatus.isClean()) logger.lifecycle("* Working directory clean")
             if (curStatus.staged.added) logger.lifecycle("Staged added: ${curStatus.staged.added}")
             if (curStatus.staged.modified) logger.lifecycle("Staged modified: ${curStatus.staged.modified}")
@@ -108,6 +109,13 @@ task gitStatusAll {
             if (curStatus.unstaged.added) logger.lifecycle("Unstaged added: ${curStatus.unstaged.added}")
             if (curStatus.unstaged.modified) logger.lifecycle("Unstaged modified: ${curStatus.unstaged.modified}")
             if (curStatus.unstaged.removed) logger.lifecycle("Unstaged removed: ${curStatus.unstaged.removed}")
+            def history = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/origin/master'), curGrgit.resolve.toCommit('HEAD') }
+            logger.lifecycle("${history.size()} commits unpushed")
+            for (Commit commit in history) logger.lifecycle(" - ${commit.getAbbreviatedId(8)} - ${commit.shortMessage}")
+            if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
+                def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
+                if (upstreamAhead) logger.lifecycle("Origin ${upstreamAhead.size()} commits ahead of upstream")
+            }
         }
     }
 }
