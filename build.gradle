@@ -67,13 +67,14 @@ def checkRuntimeDir(String locType) {
     if (runtimeDir.exists()) return
     if (!locType) locType = file('.git').exists() ? 'git' : 'current'
     Node addons = parseAddons()
-    Node runtimeNode = addons.runtime[0]
-    if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found in addons.xml")
-    downloadComponent("runtime", locType, runtimeNode, addons)
-    // logger.lifecycle("Downloaded runtime from ${url}")
+    Node myaddons = parseMyaddons()
+    Node runtimeNode = myaddons != null && myaddons.runtime ? (Node) myaddons.runtime[0] : null
+    if (runtimeNode == null) runtimeNode = addons != null && addons.runtime ? (Node) addons.runtime[0] : null
+    if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found in myaddons.xml or addons.xml")
+    downloadComponent("runtime", locType, runtimeNode, addons, myaddons)
 }
-task checkRuntime {
-    description "If the runtime directory does not exist get it using settings in addons.xml"
+task getRuntime {
+    description "If the runtime directory does not exist get it using settings in myaddons.xml or addons.xml"
     doLast { checkRuntimeDir(null) }
 }
 task gitPullAll {
@@ -114,20 +115,20 @@ task gitStatusAll {
 // ========== run tasks ==========
 
 task run(type: JavaExec) {
-    dependsOn checkRuntime, allBuildTasks, cleanTempDir
+    dependsOn getRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m', '-XX:-OmitStackTraceInFastThrow']; maxHeapSize = '256M'
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
     main = '-jar'; args = [warName]
 }
 task runStaging(type: JavaExec) {
-    dependsOn checkRuntime, allBuildTasks, cleanTempDir
+    dependsOn getRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m', '-Xms512M']; maxHeapSize = '512M'
     systemProperties = ['moqui.conf':'conf/MoquiStagingConf.xml', 'moqui.runtime':moquiRuntime]
     main = '-jar'; args = [warName]
 }
 task runProduction(type: JavaExec) {
-    dependsOn checkRuntime, allBuildTasks, cleanTempDir
+    dependsOn getRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m', '-Xms1024M']; maxHeapSize = '1024M'
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     main = '-jar'; args = [warName]
@@ -135,7 +136,7 @@ task runProduction(type: JavaExec) {
 
 task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types and tenant use something like: gradle load -Ptypes=seed -PtenantId=EXAMPLE1"
-    dependsOn checkRuntime, allBuildTasks
+    dependsOn getRuntime, allBuildTasks
     workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m']; maxHeapSize = '512M'
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     main = '-jar'
@@ -145,7 +146,7 @@ task load(type: JavaExec) {
     args = argList
 }
 task loadProduction(type: JavaExec) {
-    dependsOn checkRuntime, allBuildTasks
+    dependsOn getRuntime, allBuildTasks
     workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m']; maxHeapSize = '512M'
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     main = '-jar'
@@ -195,7 +196,7 @@ task deployTomcat << {
 
 task addRuntime {
     description "Create a moqui-plus-runtime.war file with the Moqui WAR and the runtime directory embedded in it"
-    dependsOn checkRuntime, allBuildTasks
+    dependsOn getRuntime, allBuildTasks
     doLast {
         // unzip the "moqui-${version}.war" file to the wartemp directory
         //directory { dir = file('wartemp') }
@@ -236,7 +237,7 @@ task addRuntimeTomcat {
 // ========== component tasks ==========
 
 task getComponent {
-    description "Get a component using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to release)"
+    description "Get a component using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
     doLast {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
@@ -255,51 +256,47 @@ task getGit {
     description "Clone the git repository for a component, also check each component it depends on and if not present clone its git repository; requires component property"
     doLast { getComponentTop('git') }
 }
+task getDepends {
+    description "Check/Get all dependencies for all components in runtime/component; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    doLast {
+        String curLocationType = file('.git').exists() ? 'git' : 'current'
+        if (project.hasProperty('locationType')) curLocationType = locationType
+        checkAllComponentDependencies(curLocationType)
+    }
+}
 
 Node parseAddons() { new XmlParser().parse(file('addons.xml')) }
+Node parseMyaddons() { if (file('myaddons.xml').exists()) { new XmlParser().parse(file('myaddons.xml')) } else { null } }
 def getComponentTop(String locationType) {
     if (project.hasProperty('component')) {
         checkRuntimeDir(locationType)
         Set compsChecked = new TreeSet()
-        File componentDir = getComponent(component, locationType, parseAddons(), compsChecked)
+        File componentDir = getComponent(component, locationType, parseAddons(), parseMyaddons(), compsChecked)
         if (componentDir.exists()) logger.lifecycle("Got component ${component}, dependent components checked: ${compsChecked}")
     } else {
         throw new InvalidUserDataException("No component property specified")
     }
 }
-File getComponent(String compName, String type, Node addons, Set compsChecked) {
+File getComponent(String compName, String type, Node addons, Node myaddons, Set compsChecked) {
     // get the component
-    Node component = addons.component.find({ it."@name" == compName })
-    if (component == null) { throw new InvalidUserDataException("Component ${compName} not found in addons.xml") }
+    Node component = myaddons != null ? (Node) myaddons.component.find({ it."@name" == compName }) : null
+    if (component == null) component = (Node) addons.component.find({ it."@name" == compName })
+    if (component == null) throw new InvalidUserDataException("Component ${compName} not found in myaddons.xml or addons.xml")
     if (component.'@skip-get' == 'true') { logger.lifecycle("Skipping get component ${compName} (skip-get=true)"); return }
-    File componentDir = downloadComponent("runtime/component/${compName}", type, component, addons)
+    File componentDir = downloadComponent("runtime/component/${compName}", type, component, addons, myaddons)
 
-    checkComponentDependencies(compName, type, addons, compsChecked)
+    checkComponentDependencies(compName, type, addons, myaddons, compsChecked)
     return componentDir
 }
-def checkComponentDependencies(String compName, String type, Node addons, Set compsChecked) {
-    File componentDir = file("runtime/component/${compName}")
-    if (!componentDir.exists()) return
-    compsChecked.add(compName)
-    File compXmlFile = file("${componentDir.path}/component.xml")
-    if (!compXmlFile.exists()) return
-    Node compXml = new XmlParser().parse(compXmlFile)
-    for (Node dependsOn in compXml.'depends-on') {
-        String depCompName = dependsOn.'@name'
-        if (file("runtime/component/${depCompName}").exists()) {
-            if (!compsChecked.contains(depCompName)) checkComponentDependencies(depCompName, type, addons, compsChecked)
-        } else {
-            getComponent(depCompName, type, addons, compsChecked)
-        }
-    }
-}
-def downloadComponent(String targetDirPath, String type, Node component, Node addons) {
+def downloadComponent(String targetDirPath, String type, Node component, Node addons, Node myaddons) {
     String compName = component.'@name'
+
     String repositoryName = (component.'@repository' ?: 'github')
-    Node repository = addons.repository.find({ it."@name" == repositoryName })
-    if (repository == null) { throw new InvalidUserDataException("Repository ${repositoryName} not found in addons.xml") }
-    Node location = repository.location.find({ it."@type" == type })
-    if (location == null) { throw new InvalidUserDataException("Location for type ${type} now found in repository ${repositoryName} in addons.xml") }
+    Node repository = myaddons != null ? (Node) myaddons.repository.find({ it."@name" == repositoryName }) : null
+    if (repository == null) repository = (Node) addons.repository.find({ it."@name" == repositoryName })
+    if (repository == null) throw new InvalidUserDataException("Repository ${repositoryName} not found in myaddons.xml or addons.xml")
+    Node location = (Node) repository.location.find({ it."@type" == type })
+    if (location == null) throw new InvalidUserDataException("Location for type ${type} now found in repository ${repositoryName}")
 
     String url = Eval.me('component', component, '"""' + location.'@url' + '"""')
     logger.lifecycle("Getting ${compName} (type ${type}) from ${url} to ${targetDirPath}")
@@ -322,6 +319,31 @@ def downloadComponent(String targetDirPath, String type, Node component, Node ad
     }
     logger.lifecycle("Downloaded ${compName} to ${targetDirPath}")
     return targetDir
+}
+def checkComponentDependencies(String compName, String type, Node addons, Node myaddons, Set compsChecked) {
+    File componentDir = file("runtime/component/${compName}")
+    if (!componentDir.exists()) return
+    compsChecked.add(compName)
+    File compXmlFile = file("${componentDir.path}/component.xml")
+    if (!compXmlFile.exists()) return
+    Node compXml = new XmlParser().parse(compXmlFile)
+    for (Node dependsOn in compXml.'depends-on') {
+        String depCompName = dependsOn.'@name'
+        if (file("runtime/component/${depCompName}").exists()) {
+            if (!compsChecked.contains(depCompName)) checkComponentDependencies(depCompName, type, addons, myaddons, compsChecked)
+        } else {
+            getComponent(depCompName, type, addons, myaddons, compsChecked)
+        }
+    }
+}
+def checkAllComponentDependencies(String type) {
+    Node addons = parseAddons()
+    Node myaddons = parseMyaddons()
+    Set compsChecked = new TreeSet()
+    for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == 'component.xml' } }) {
+        checkComponentDependencies(compDir.name, type, addons, myaddons, compsChecked)
+    }
+    logger.lifecycle("Dependent components checked: ${compsChecked}")
 }
 
 // ========== combined tasks ==========

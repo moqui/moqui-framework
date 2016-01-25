@@ -1,5 +1,5 @@
-# addons.xml, ignored so won't be accidently committed (common file to change)
-addons.xml
+# separate addons file to add/override components
+myaddons.xml
 
 # gradle/build files
 build/
