@@ -98,6 +98,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     org.elasticsearch.node.Node elasticSearchNode
     Client elasticSearchClient
 
+    /* Jackrabbit fields */
+    Process jackrabbitProcess
+
     /* KIE fields */
     protected final Cache kieComponentReleaseIdCache
     protected final Cache kieSessionComponentCache
@@ -258,6 +261,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // everything else ready to go, init Camel
         initCamel()
 
+        // init Jackrabbit standalone instance
+        initJackrabbit()
+
         // init KIE (build modules for all components)
         initKie()
 
@@ -377,6 +383,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // stop ElasticSearch
         if (elasticSearchNode != null) elasticSearchNode.close()
+
+        // Stop Jackrabbit process
+        if (jackrabbitProcess != null) jackrabbitProcess.destroy()
 
         // persist any remaining bins in artifactHitBinByType
         Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
@@ -552,6 +561,42 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
+    protected void initJackrabbit() {
+        if (confXmlRoot."tools"[0]."@run-jackrabbit" == "true") {
+            Properties jackrabbitProperties = new Properties()
+            URL jackrabbitProps = this.class.getClassLoader().getResource("jackrabbit_moqui.properties")
+            if (jackrabbitProps != null) {
+                InputStream is = jackrabbitProps.openStream(); jackrabbitProperties.load(is); is.close();
+            }
+
+            String jackrabbitWorkingDir = System.getProperty("moqui.jackrabbit_working_dir")
+            if (!jackrabbitWorkingDir) jackrabbitWorkingDir = jackrabbitProperties.getProperty("moqui.jackrabbit_working_dir")
+            if (!jackrabbitWorkingDir) jackrabbitWorkingDir = "jackrabbit"
+
+            String jackrabbitJar = System.getProperty("moqui.jackrabbit_jar")
+            if (!jackrabbitJar) jackrabbitJar = jackrabbitProperties.getProperty("moqui.jackrabbit_jar")
+            if (!jackrabbitJar) throw new IllegalArgumentException(
+                    "No moqui.jackrabbit_jar property found in jackrabbit_moqui.ini or in a system property (with: -Dmoqui.jackrabbit_jar=... on the command line)")
+            String jackrabbitJarFullPath = this.runtimePath + "/" + jackrabbitWorkingDir + "/" + jackrabbitJar
+
+            String jackrabbitConfFile = System.getProperty("moqui.jackrabbit_configuration_file")
+            if (!jackrabbitConfFile)
+                jackrabbitConfFile = jackrabbitProperties.getProperty("moqui.jackrabbit_configuration_file")
+            if (!jackrabbitConfFile) jackrabbitConfFile = "repository.xml"
+            String jackrabbitConfFileFullPath = this.runtimePath + "/" + jackrabbitWorkingDir + "/" + jackrabbitConfFile
+
+            String jackrabbitPort = System.getProperty("moqui.jackrabbit_port")
+            if (!jackrabbitPort)
+                jackrabbitPort = jackrabbitProperties.getProperty("moqui.jackrabbit_port")
+            if (!jackrabbitPort) jackrabbitPort = "8081"
+
+            logger.info("Starting Jackrabbit")
+
+            ProcessBuilder pb = new ProcessBuilder("java", "-jar", jackrabbitJarFullPath, "-p", jackrabbitPort, "-c", jackrabbitConfFileFullPath)
+            pb.directory(new File(this.runtimePath + "/" + jackrabbitWorkingDir))
+            jackrabbitProcess = pb.start();
+        }
+    }
 
     // =============== KIE Methods ===============
     protected void initKie() {

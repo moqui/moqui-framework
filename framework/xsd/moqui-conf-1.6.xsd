@@ -41,6 +41,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:attribute name="enable-elasticsearch" type="boolean" default="true"/>
             <xs:attribute name="enable-camel" type="boolean" default="true"/>
+            <xs:attribute name="run-jackrabbit" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 
