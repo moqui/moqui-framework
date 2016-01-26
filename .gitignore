@@ -1,8 +1,8 @@
-# addons.xml, ignored so won't be accidently committed (common file to change)
-addons.xml
+# separate addons file to add/override components
+myaddons.xml
 
 # gradle/build files
-build/
+build
 .gradle
 /framework/dependencies
 
@@ -17,35 +17,33 @@ build/
 /SaveElasticSearch.zip
 
 # runtime directory (separate repository so ignore directory entirely)
-/runtime/
-/execwartmp/
+/runtime
+/execwartmp
 
 # IntelliJ IDEA files
-.idea/
-out/
+.idea
+out
 *.ipr
 *.iws
 *.iml
 
 # Eclipse files (and some general ones also used by Eclipse)
 .metadata
-.gradle
-bin/
-tmp/
+bin
+tmp
 *.tmp
 *.bak
 *.swp
 *~.nib
 local.properties
-.settings/
+.settings
 .loadpath
 
 # NetBeans files
-nbproject/private/
-nbbuild/
-.nb-gradle/
-dist/
-nbdist/
+nbproject/private
+nbbuild
+.nb-gradle
+nbdist
 nbactions.xml
 nb-configuration.xml
 
