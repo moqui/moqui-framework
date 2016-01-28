@@ -54,32 +54,35 @@ class FieldValueCondition extends EntityConditionImplBase {
     @Override
     void makeSqlWhere(EntityQueryBuilder eqb) {
         StringBuilder sql = eqb.getSqlTopLevel()
-        int typeValue = -1
-        if (ignoreCase) {
-            typeValue = field.getFieldInfo(eqb.getMainEd())?.typeValue ?: 1
-            if (typeValue == 1) sql.append("UPPER(")
-        }
-
-        sql.append(field.getColumnName(eqb.getMainEd()))
-        if (ignoreCase && typeValue == 1) sql.append(')')
-        sql.append(' ')
-
         boolean valueDone = false
-        if (value == null) {
-            if (operator == EQUALS || operator == LIKE || operator == IN || operator == BETWEEN) {
-                sql.append(" IS NULL")
-                valueDone = true
-            } else if (operator == NOT_EQUAL || operator == NOT_LIKE || operator == NOT_IN || operator == NOT_BETWEEN) {
-                sql.append(" IS NOT NULL")
-                valueDone = true
-            }
-        } else if (value instanceof Collection && ((Collection) value).isEmpty()) {
+
+        if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {
                 sql.append(" 1 = 2 ")
                 valueDone = true
             } else if (operator == NOT_IN) {
                 sql.append(" 1 = 1 ")
                 valueDone = true
+            }
+        } else {
+            int typeValue = -1
+            if (ignoreCase) {
+                typeValue = field.getFieldInfo(eqb.getMainEd())?.typeValue ?: 1
+                if (typeValue == 1) sql.append("UPPER(")
+            }
+
+            sql.append(field.getColumnName(eqb.getMainEd()))
+            if (ignoreCase && typeValue == 1) sql.append(')')
+            sql.append(' ')
+
+            if (value == null) {
+                if (operator == EQUALS || operator == LIKE || operator == IN || operator == BETWEEN) {
+                    sql.append(" IS NULL")
+                    valueDone = true
+                } else if (operator == NOT_EQUAL || operator == NOT_LIKE || operator == NOT_IN || operator == NOT_BETWEEN) {
+                    sql.append(" IS NOT NULL")
+                    valueDone = true
+                }
             }
         }
         if (operator == IS_NULL || operator == IS_NOT_NULL) {
