@@ -11,6 +11,8 @@ TODO
 
 New Features
 
+- Added tenants allowed on SubscreensItem entity and subscreens-item
+  element, makes more sense to filter apps by tenant than in screen
 
 Bug Fixes
 

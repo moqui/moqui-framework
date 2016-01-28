@@ -595,8 +595,19 @@ class ScreenRenderImpl implements ScreenRender {
                 aeiList = new ArrayList<ArtifactExecutionInfo>(screenUrlInfo.renderPathDifference)
                 for (int i = 0; i < screenUrlInfo.renderPathDifference; i++) {
                     ScreenDefinition permSd = screenUrlInfo.screenPathDefList.get(i)
+
                     if (permSd.getTenantsAllowed() && !permSd.getTenantsAllowed().contains(ec.getTenantId()))
                         throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+                    // check the subscreens item for this screen (valid in context)
+                    if (i > 0) {
+                        String curPathName = screenUrlInfo.fullPathNameList.get(i)
+                        ScreenDefinition parentScreen = screenUrlInfo.screenPathDefList.get(i - 1)
+                        SubscreensItem ssi = parentScreen.getSubscreensItem(curPathName)
+                        logger.info("======== parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${permSd.getScreenName()}")
+                        if (!ssi.isValidInCurrentContext())
+                            throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available")
+                    }
+
                     ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(permSd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
                     ec.artifactExecution.push(aei, false)
                     aeiList.add(aei)
@@ -781,8 +792,21 @@ class ScreenRenderImpl implements ScreenRender {
             }
         }
 
+        ScreenDefinition screenDef = screenUrlInfo.screenRenderDefList.get(screenPathIndex + 1)
+        if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId()))
+            throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+        // check the subscreens item for this screen (valid in context)
+        int i = screenPathIndex + screenUrlInfo.renderPathDifference
+        if (i > 0) {
+            String curPathName = screenUrlInfo.fullPathNameList.get(i)
+            ScreenDefinition parentScreen = screenUrlInfo.screenPathDefList.get(i)
+            SubscreensItem ssi = parentScreen.getSubscreensItem(curPathName)
+            // logger.info("======== parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${screenDef.getScreenName()}")
+            if (!ssi.isValidInCurrentContext())
+                throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available")
+        }
+
         screenPathIndex++
-        ScreenDefinition screenDef = screenUrlInfo.screenRenderDefList.get(screenPathIndex)
         try {
             if (!stopRenderScreenLocations.contains(screenDef.getLocation())) {
                 writer.flush()

@@ -87,7 +87,7 @@ class ScreenUrlInfo {
     /** The last screen found in the path list */
     ScreenDefinition targetScreen = null
     String targetTransitionActualName = null
-    List<String> preTransitionPathNameList = new ArrayList<String>()
+    ArrayList<String> preTransitionPathNameList = new ArrayList<String>()
 
     protected ScreenUrlInfo() { }
 
@@ -301,8 +301,8 @@ class ScreenUrlInfo {
         return urlBuilder.toString()
     }
 
-    List<String> getPreTransitionPathNameList() { return preTransitionPathNameList }
-    List<String> getExtraPathNameList() { return extraPathNameList }
+    ArrayList<String> getPreTransitionPathNameList() { return preTransitionPathNameList }
+    ArrayList<String> getExtraPathNameList() { return extraPathNameList }
 
     ScreenUrlInfo addParameter(Object name, Object value) {
         if (!name || value == null) return this

@@ -36,6 +36,10 @@ along with this software (see the LICENSE.md file). If not, see
             <description>Defaults to Y. Set to N to not include in the menu for the subscreens. This can be used to hide
                 subscreens from the directory structure or even explicitly declared in the Screen XML file.</description>
         </field>
+        <field name="tenantsAllowed" type="text-medium">
+            <description>Comma-separated set of Tenant IDs allowed to use this screen. If empty (default) all tenants
+                can use the screen.</description>
+        </field>
         <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
     </entity>
 
