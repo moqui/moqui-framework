@@ -367,7 +367,8 @@ class ScreenRenderImpl implements ScreenRender {
                         wfi.removeScreenLastParameters(ri.type == "screen-last")
                     } else {
                         // try screen history when no last was saved
-                        Map historyMap = wfi.getScreenHistory()?.get(0)
+                        List historyList = wfi.getScreenHistory()
+                        Map historyMap = historyList ? historyList.first() : null
                         if (historyMap) {
                             url = ri.type == "screen-last" ? historyMap.url : historyMap.urlNoParams
                             urlType = "plain"
