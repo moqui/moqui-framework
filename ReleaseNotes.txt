@@ -11,6 +11,8 @@ TODO
 
 New Features
 
+- Added run-jackrabbit option to run Apache Jackrabbit locally when Moqui
+  starts and stop is when Moqui stops, with conf/etc in runtime/jackrabbit
 - Added tenants allowed on SubscreensItem entity and subscreens-item
   element, makes more sense to filter apps by tenant than in screen
 - Added SubscreensDefault entity and supporting code to override default
