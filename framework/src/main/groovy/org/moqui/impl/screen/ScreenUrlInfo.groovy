@@ -19,6 +19,9 @@ import org.moqui.BaseException
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
+import org.moqui.entity.EntityCondition
+import org.moqui.entity.EntityList
+import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -89,6 +92,8 @@ class ScreenUrlInfo {
     String targetTransitionActualName = null
     ArrayList<String> preTransitionPathNameList = new ArrayList<String>()
 
+    boolean reusable = true
+
     protected ScreenUrlInfo() { }
 
     /** Stub mode for ScreenUrlInfo, represent a plain URL and not a screen URL */
@@ -128,7 +133,7 @@ class ScreenUrlInfo {
         if (cached != null) return cached
 
         ScreenUrlInfo newSui = new ScreenUrlInfo(sri.getSfi(), rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
-        screenUrlCache.put(cacheKey, newSui)
+        if (newSui.reusable) screenUrlCache.put(cacheKey, newSui)
         return newSui
     }
 
@@ -419,12 +424,27 @@ class ScreenUrlInfo {
         // beyond the last screenPathName, see if there are any screen.default-item values (keep following until none found)
         int defaultSubScreenCount = 0
         while (targetTransitionActualName == null && fileResourceRef == null && lastSd.getDefaultSubscreensItem()) {
-            String subscreenName = lastSd.getDefaultSubscreensItem()
             if (lastSd.getSubscreensNode()?.attribute('always-use-full-path') == "true") alwaysUseFullPath = true
             // logger.warn("TOREMOVE lastSd ${minimalPathNameList} subscreens: ${lastSd.screenNode?.subscreens}, alwaysUseFullPath=${alwaysUseFullPath}, from ${lastSd.screenNode."subscreens"?."@always-use-full-path"?.getAt(0)}, subscreenName=${subscreenName}")
 
+            // determine the subscreen name
+            String subscreenName = null
+
+            // check SubscreensDefault records
+            EntityCondition tenantCond = ecfi.entity.conditionFactory.makeCondition(
+                    ecfi.entity.conditionFactory.makeCondition("tenantId", EntityCondition.EQUALS, ecfi.eci.tenantId),
+                    EntityCondition.OR,
+                    ecfi.entity.conditionFactory.makeCondition("tenantId", EntityCondition.EQUALS, null))
+            EntityList subscreensDefaultList = ecfi.entity.find("moqui.screen.SubscreensDefault").condition(tenantCond)
+                    .condition("screenLocation", lastSd.location).useCache(true).disableAuthz().list()
+            for (int i = 0; i < subscreensDefaultList.size(); i++) {
+                EntityValue subscreensDefault = subscreensDefaultList.get(i)
+                String condStr = (String) subscreensDefault.condition
+                if (condStr && !ecfi.getResource().condition(condStr, "SubscreensDefault_condition")) continue
+                subscreenName = subscreensDefault.subscreenName
+            }
+
             // if any conditional-default.@condition eval to true, use that conditional-default.@item instead
-            // TODO: this does a ecfi.getResource().condition() on condStr which may depend on current context making this SUI non-reusable
             NodeList condDefaultList = (NodeList) lastSd.getSubscreensNode()?.get("conditional-default")
             if (condDefaultList) for (Object conditionalDefaultObj in condDefaultList) {
                 Node conditionalDefaultNode = (Node) conditionalDefaultObj
@@ -435,6 +455,11 @@ class ScreenUrlInfo {
                     break
                 }
             }
+
+            // whether we got a hit or not there are conditional defaults for this path, so can't reuse this instance
+            if (subscreensDefaultList || condDefaultList) reusable = false
+
+            if (!subscreenName) subscreenName = lastSd.getDefaultSubscreensItem()
 
             String nextLoc = lastSd.getSubscreensItem(subscreenName)?.location
             if (!nextLoc) {

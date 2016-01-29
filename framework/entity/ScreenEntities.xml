@@ -42,6 +42,15 @@ along with this software (see the LICENSE.md file). If not, see
         </field>
         <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
     </entity>
+    <entity entity-name="SubscreensDefault" package-name="moqui.screen" cache="true">
+        <field name="screenLocation" type="text-medium" is-pk="true"/>
+        <field name="defaultSeqId" type="id" is-pk="true"/>
+        <field name="condition" type="text-medium"/>
+        <field name="tenantId" type="id"/>
+        <field name="subscreenName" type="text-medium"/>
+        <!-- nofk because generally in a different DB -->
+        <relationship type="one-nofk" related-entity-name="moqui.tenant.Tenant"/>
+    </entity>
 
     <!-- ========== Theme ========== -->
     <entity entity-name="ScreenTheme" package-name="moqui.screen" authorize-skip="true" cache="true">
