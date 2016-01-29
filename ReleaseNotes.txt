@@ -18,6 +18,8 @@ New Features
 
 Bug Fixes
 
+- Fixed issue with conditional default subscreen URL caching
+
 
 ===========================================================================
 Release 1.6.1 - 24 Jan 2016
