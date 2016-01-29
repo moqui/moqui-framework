@@ -600,11 +600,11 @@ class ScreenRenderImpl implements ScreenRender {
                         throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
                     // check the subscreens item for this screen (valid in context)
                     if (i > 0) {
-                        String curPathName = screenUrlInfo.fullPathNameList.get(i)
+                        String curPathName = screenUrlInfo.fullPathNameList.get(i - 1) // one lower in path as it doesn't have root screen
                         ScreenDefinition parentScreen = screenUrlInfo.screenPathDefList.get(i - 1)
                         SubscreensItem ssi = parentScreen.getSubscreensItem(curPathName)
                         if (ssi == null) {
-                            logger.warn("Couldn't find SubscreenItem: parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${permSd.getScreenName()}")
+                            logger.warn("Couldn't find SubscreenItem: parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${permSd.getScreenName()}\npath list: ${screenUrlInfo.fullPathNameList}\nscreen list: ${screenUrlInfo.screenPathDefList}")
                         } else {
                             if (!ssi.isValidInCurrentContext())
                                 throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available")
@@ -801,11 +801,11 @@ class ScreenRenderImpl implements ScreenRender {
         // check the subscreens item for this screen (valid in context)
         int i = screenPathIndex + screenUrlInfo.renderPathDifference
         if (i > 0) {
-            String curPathName = screenUrlInfo.fullPathNameList.get(i)
+            String curPathName = screenUrlInfo.fullPathNameList.get(i) // current one lower in path as it doesn't have root screen
             ScreenDefinition parentScreen = screenUrlInfo.screenPathDefList.get(i)
             SubscreensItem ssi = parentScreen.getSubscreensItem(curPathName)
             if (ssi == null) {
-                logger.warn("Couldn't find SubscreenItem: parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${screenDef.getScreenName()}")
+                logger.warn("Couldn't find SubscreenItem (render): parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${screenDef.getScreenName()}\npath list: ${screenUrlInfo.fullPathNameList}\nscreen list: ${screenUrlInfo.screenPathDefList}")
             } else {
                 if (!ssi.isValidInCurrentContext())
                     throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available")
