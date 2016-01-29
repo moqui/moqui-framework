@@ -603,9 +603,12 @@ class ScreenRenderImpl implements ScreenRender {
                         String curPathName = screenUrlInfo.fullPathNameList.get(i)
                         ScreenDefinition parentScreen = screenUrlInfo.screenPathDefList.get(i - 1)
                         SubscreensItem ssi = parentScreen.getSubscreensItem(curPathName)
-                        logger.info("======== parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${permSd.getScreenName()}")
-                        if (!ssi.isValidInCurrentContext())
-                            throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available")
+                        if (ssi == null) {
+                            logger.warn("Couldn't find SubscreenItem: parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${permSd.getScreenName()}")
+                        } else {
+                            if (!ssi.isValidInCurrentContext())
+                                throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available")
+                        }
                     }
 
                     ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(permSd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
@@ -801,9 +804,12 @@ class ScreenRenderImpl implements ScreenRender {
             String curPathName = screenUrlInfo.fullPathNameList.get(i)
             ScreenDefinition parentScreen = screenUrlInfo.screenPathDefList.get(i)
             SubscreensItem ssi = parentScreen.getSubscreensItem(curPathName)
-            // logger.info("======== parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${screenDef.getScreenName()}")
-            if (!ssi.isValidInCurrentContext())
-                throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available")
+            if (ssi == null) {
+                logger.warn("Couldn't find SubscreenItem: parent ${parentScreen.getScreenName()}, curPathName ${curPathName}, current ${screenDef.getScreenName()}")
+            } else {
+                if (!ssi.isValidInCurrentContext())
+                    throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available")
+            }
         }
 
         screenPathIndex++
