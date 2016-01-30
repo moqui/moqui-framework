@@ -27,6 +27,7 @@ import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.StupidUtilities
 import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ContextBinding
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 
@@ -412,9 +413,9 @@ class ScreenDefinition {
 
         for (SubscreensItem si in allItems) {
             // check the menu include flag
-            if (!si.getMenuInclude()) continue
-            // if the subscreens item is limited to a UserGroup make sure user is in that group
-            if (si.getUserGroupId() && !(si.getUserGroupId() in sfi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet())) continue
+            if (!si.menuInclude) continue
+            // valid in current context? (user group, tenant, etc)
+            if (!si.isValidInCurrentContext()) continue
             // made it through the checks? add it in...
             filteredList.add(si)
         }
@@ -784,6 +785,7 @@ class ScreenDefinition {
         protected boolean menuInclude
         protected Class disableWhenGroovy = null
         protected String userGroupId = null
+        protected Set<String> tenantsAllowed = null
 
         SubscreensItem(String name, String location, GPathResult screen, ScreenDefinition parentScreen) {
             this.parentScreen = parentScreen
@@ -804,6 +806,10 @@ class ScreenDefinition {
 
             if (subscreensItem."@disable-when") disableWhenGroovy = new GroovyClassLoader().parseClass(
                     (String) subscreensItem."@disable-when", "${parentScreen.location}.subscreens_item_${name}.disable_when")
+            if (subscreensItem."@tenants-allowed") {
+                String tenantsAllowedStr = subscreensItem."@tenants-allowed"
+                tenantsAllowed = new TreeSet(tenantsAllowedStr.split(',') as List)
+            }
         }
 
         SubscreensItem(EntityValue subscreensItem, ScreenDefinition parentScreen) {
@@ -814,6 +820,10 @@ class ScreenDefinition {
             menuIndex = subscreensItem.menuIndex ? subscreensItem.menuIndex as Integer : null
             menuInclude = (subscreensItem.menuInclude == "Y")
             userGroupId = subscreensItem.userGroupId
+            if (subscreensItem.tenantsAllowed) {
+                String tenantsAllowedStr = subscreensItem.tenantsAllowed
+                tenantsAllowed = new TreeSet(tenantsAllowedStr.split(',') as List)
+            }
         }
 
         @CompileStatic
@@ -843,6 +853,15 @@ class ScreenDefinition {
         }
         @CompileStatic
         String getUserGroupId() { return userGroupId }
+        boolean isValidInCurrentContext() {
+            ExecutionContextImpl eci = parentScreen.sfi.getEcfi().getEci()
+            // if the subscreens item is limited to a UserGroup make sure user is in that group
+            if (userGroupId && !(userGroupId in eci.getUser().getUserGroupIdSet())) return false
+            // if limited to tenants make sure active tenant is one of them
+            if (tenantsAllowed != null && !(tenantsAllowed.contains(eci.getTenantId()))) return false
+
+            return true
+        }
     }
 
     static class SubscreensItemComparator implements Comparator<SubscreensItem> {

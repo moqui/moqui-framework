@@ -50,7 +50,7 @@ class RestApi {
                     Node rootNode = new XmlParser().parseText(rr.getText())
                     ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
                     rootResourceMap.put(rn.name, rn)
-                    logger.info("Loaded REST API from ${rr.getLocation()}")
+                    logger.info("Loaded REST API from ${rr.getLocation()}; paths: ${rn.childPaths}, methods: ${rn.childMethods}")
                     // logger.info(rn.toString())
                 }
             } else {
@@ -131,7 +131,7 @@ class RestApi {
 
         int methodsCount = 0
         for (Map rsMap in paths.values()) methodsCount += rsMap.size()
-        logger.info("Generated Swagger for ${rootPathList}; ${paths.size()} paths with ${methodsCount} methods, ${definitions.size()} definitions")
+        logger.info("Generated Swagger for ${rootPathList}; ${paths.size()} (${resourceNode.childPaths}) paths with ${methodsCount} (${resourceNode.childMethods}) methods, ${definitions.size()} definitions")
 
         return swaggerMap
     }
@@ -493,6 +493,9 @@ class RestApi {
         List<String> fullPathList = []
         Set<String> pathParameters = new LinkedHashSet<String>()
 
+        int childPaths = 0
+        int childMethods = 0
+
         PathNode(Node node, PathNode parent, ExecutionContextFactoryImpl ecfi, boolean isId) {
             this.ecfi = ecfi
             this.parent = parent
@@ -529,6 +532,18 @@ class RestApi {
                         idNode = new IdNode(childNode, this, ecfi)
                     }
                 }
+            }
+
+            childMethods += methodMap.size()
+            for (ResourceNode rn in resourceMap.values()) {
+                childPaths++
+                childPaths += rn.childPaths
+                childMethods += rn.childMethods
+            }
+            if (idNode != null) {
+                childPaths++
+                childPaths += idNode.childPaths
+                childMethods += idNode.childMethods
             }
         }
 

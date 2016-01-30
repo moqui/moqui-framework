@@ -13,38 +13,26 @@
  */
 package org.moqui.impl.util
 
-import org.moqui.entity.EntityException
-import org.moqui.impl.context.ExecutionContextImpl
-
-import java.sql.Timestamp
-
-import org.apache.shiro.authc.AuthenticationInfo
-import org.apache.shiro.authc.AuthenticationToken
-import org.apache.shiro.authc.AuthenticationException
+import org.apache.shiro.authc.*
 import org.apache.shiro.authc.credential.CredentialsMatcher
-import org.apache.shiro.authc.IncorrectCredentialsException
-import org.apache.shiro.authc.SaltedAuthenticationInfo
-import org.apache.shiro.authc.SimpleAuthenticationInfo
-import org.apache.shiro.authc.UsernamePasswordToken
-import org.apache.shiro.authc.UnknownAccountException
-import org.apache.shiro.authc.ExpiredCredentialsException
-import org.apache.shiro.authc.DisabledAccountException
-import org.apache.shiro.authc.CredentialsException
-import org.apache.shiro.authc.ExcessiveAttemptsException
 import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
 
-import org.moqui.entity.EntityValue
-import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.UserFacadeImpl
-import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.Moqui
+import org.moqui.entity.EntityException
+import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ArtifactExecutionFacadeImpl
+import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.UserFacadeImpl
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import java.sql.Timestamp
 
 class MoquiShiroRealm implements Realm {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiShiroRealm.class)
@@ -76,8 +64,106 @@ class MoquiShiroRealm implements Realm {
         return token != null && authenticationTokenClass.isAssignableFrom(token.getClass())
     }
 
+    static void loginPrePassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
+        // no account found?
+        if (newUserAccount == null) throw new UnknownAccountException("Username [${newUserAccount.username}] and/or password incorrect.")
+
+        // check for disabled account before checking password (otherwise even after disable could determine if
+        //    password is correct or not
+        if (newUserAccount.disabled == "Y") {
+            if (newUserAccount.disabledDateTime != null) {
+                // account temporarily disabled (probably due to excessive attempts
+                Integer disabledMinutes = eci.ecfi.confXmlRoot."user-facade"[0]."login"[0]."@disable-minutes" as Integer ?: 30
+                Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes*60*1000))
+                if (reEnableTime > eci.user.nowTimestamp) {
+                    // only blow up if the re-enable time is not passed
+                    eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
+                            .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
+                    throw new ExcessiveAttemptsException("Authenticate failed for user [${newUserAccount.username}] because account is disabled and will not be re-enabled until [${reEnableTime}] [DISTMP].")
+                }
+            } else {
+                // account permanently disabled
+                eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
+                        .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
+                throw new DisabledAccountException("Authenticate failed for user [${newUserAccount.username}] because account is disabled and is not schedule to be automatically re-enabled [DISPRM].")
+            }
+        }
+    }
+
+    static void loginPostPassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
+        // the password did match, but check a few additional things
+        if (newUserAccount.requirePasswordChange == "Y") {
+            // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
+            throw new CredentialsException("Authenticate failed for user [${newUserAccount.username}] because account requires password change [PWDCHG].")
+        }
+        // check time since password was last changed, if it has been too long (user-facade.password.@change-weeks default 12) then fail
+        if (newUserAccount.passwordSetDate) {
+            int changeWeeks = (eci.ecfi.confXmlRoot."user-facade"[0]."password"[0]."@change-weeks" ?: 12) as int
+            if (changeWeeks > 0) {
+                int wksSinceChange = (eci.user.nowTimestamp.time - newUserAccount.passwordSetDate.time) / (7*24*60*60*1000)
+                if (wksSinceChange > changeWeeks) {
+                    // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
+                    throw new ExpiredCredentialsException("Authenticate failed for user [${newUserAccount.username}] because password was changed [${wksSinceChange}] weeks ago and must be changed every [${changeWeeks}] weeks [PWDTIM].")
+                }
+            }
+        }
+
+        // no more auth failures? record the various account state updates, hasLoggedOut=N
+        if (newUserAccount.successiveFailedLogins != 0 || newUserAccount.disabled != "N" ||
+                newUserAccount.disabledDateTime != null || newUserAccount.hasLoggedOut != "N") {
+            Map<String, Object> uaParameters = [userId:newUserAccount.userId, successiveFailedLogins:0,
+                    disabled:"N", disabledDateTime:null, hasLoggedOut:"N"]
+            eci.service.sync().name("update", "moqui.security.UserAccount").parameters(uaParameters).disableAuthz().call()
+        }
+
+        // update visit if no user in visit yet
+        EntityValue visit = eci.user.visit
+        if (visit) {
+            if (!visit.userId) {
+                eci.service.sync().name("update", "moqui.server.Visit")
+                        .parameters((Map<String, Object>) [visitId:visit.visitId, userId:newUserAccount.userId]).disableAuthz().call()
+            }
+            if (!visit.clientIpCountryGeoId && !visit.clientIpTimeZone) {
+                Node ssNode = (Node) eci.ecfi.confXmlRoot."server-stats"[0]
+                if (ssNode.attribute("visit-ip-info-on-login") != "false") {
+                    eci.service.async().name("org.moqui.impl.ServerServices.get#VisitClientIpData")
+                            .parameter("visitId", visit.visitId).call()
+                }
+            }
+        }
+    }
+
+    static void loginAfterAlways(ExecutionContextImpl eci, String userId, String passwordUsed, boolean successful) {
+        // track the UserLoginHistory, whether the above succeeded or failed (ie even if an exception was thrown)
+        if (!eci.getSkipStats()) {
+            Node loginNode = (Node) eci.ecfi.confXmlRoot."user-facade"[0]."login"[0]
+            if (userId != null && loginNode.attribute("history-store") != "false") {
+                Timestamp fromDate = eci.getUser().getNowTimestamp()
+                EntityValue curUlh = eci.entity.find("moqui.security.UserLoginHistory")
+                        .condition([userId:userId, fromDate:fromDate]).disableAuthz().one()
+                if (curUlh == null) {
+                    Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
+                            visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")]
+                    if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
+                    try {
+                        eci.service.sync().name("create", "moqui.security.UserLoginHistory").parameters(ulhContext)
+                                .requireNewTransaction(true).disableAuthz().call()
+                        // we want to ignore errors from this, may happen in high-volume inserts where we don't care about the records so much anyway
+                        eci.getMessage().clearErrors()
+                    } catch (EntityException ee) {
+                        // this blows up on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
+                        logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                    }
+                } else {
+                    logger.warn("Not creating UserLoginHistory, found existing record for userId [${userId}] and fromDate [${fromDate}]")
+                }
+            }
+        }
+    }
+
     @Override
     AuthenticationInfo getAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
+        ExecutionContextImpl eci = ecfi.getEci()
         String username = token.principal
         String userId = null
         boolean successful = false
@@ -85,40 +171,13 @@ class MoquiShiroRealm implements Realm {
         EntityValue newUserAccount = null
         SaltedAuthenticationInfo info = null
         try {
-            boolean alreadyDisabled = ecfi.executionContext.artifactExecution.disableAuthz()
-            try {
-                newUserAccount = ecfi.entityFacade.find("moqui.security.UserAccount").condition("username", username).useCache(true).one()
-            } finally {
-                if (!alreadyDisabled) ecfi.executionContext.artifactExecution.enableAuthz()
-            }
+            newUserAccount = ecfi.entityFacade.find("moqui.security.UserAccount").condition("username", username)
+                    .useCache(true).disableAuthz().one()
 
-            // no account found?
-            if (newUserAccount == null) throw new UnknownAccountException("Username [${username}] and/or password incorrect.")
-
+            loginPrePassword(eci, newUserAccount)
             userId = newUserAccount.userId
 
-            // check for disabled account before checking password (otherwise even after disable could determine if
-            //    password is correct or not
-            if (newUserAccount.disabled == "Y") {
-                if (newUserAccount.disabledDateTime != null) {
-                    // account temporarily disabled (probably due to excessive attempts
-                    Integer disabledMinutes = ecfi.confXmlRoot."user-facade"[0]."login"[0]."@disable-minutes" as Integer ?: 30
-                    Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes*60*1000))
-                    if (reEnableTime > ecfi.executionContext.user.nowTimestamp) {
-                        // only blow up if the re-enable time is not passed
-                        ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
-                                .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                        throw new ExcessiveAttemptsException("Authenticate failed for user [${username}] because account is disabled and will not be re-enabled until [${reEnableTime}] [DISTMP].")
-                    }
-                } else {
-                    // account permanently disabled
-                    ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
-                            .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                    throw new DisabledAccountException("Authenticate failed for user [${username}] because account is disabled and is not schedule to be automatically re-enabled [DISPRM].")
-                }
-            }
-
-            // create the SaltedAuthenticationInfo object
+            // create the salted SimpleAuthenticationInfo object
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
                     newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null,
                     realmName)
@@ -126,89 +185,17 @@ class MoquiShiroRealm implements Realm {
             CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType)
             if (!cm.doCredentialsMatch(token, info)) {
                 // if failed on password, increment in new transaction to make sure it sticks
-                ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
+                ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                         .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                 throw new IncorrectCredentialsException("Username [${username}] and/or password incorrect.")
             }
 
-            // the password did match, but check a few additional things
-            if (newUserAccount.requirePasswordChange == "Y") {
-                // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
-                throw new CredentialsException("Authenticate failed for user [${username}] because account requires password change [PWDCHG].")
-            }
-            // check time since password was last changed, if it has been too long (user-facade.password.@change-weeks default 12) then fail
-            if (newUserAccount.passwordSetDate) {
-                int changeWeeks = (ecfi.confXmlRoot."user-facade"[0]."password"[0]."@change-weeks" ?: 12) as int
-                if (changeWeeks > 0) {
-                    int wksSinceChange = (ecfi.executionContext.user.nowTimestamp.time - newUserAccount.passwordSetDate.time) / (7*24*60*60*1000)
-                    if (wksSinceChange > changeWeeks) {
-                        // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
-                        throw new ExpiredCredentialsException("Authenticate failed for user [${username}] because password was changed [${wksSinceChange}] weeks ago and must be changed every [${changeWeeks}] weeks [PWDTIM].")
-                    }
-                }
-            }
+            loginPostPassword(eci, newUserAccount)
 
             // at this point the user is successfully authenticated
             successful = true
-
-            // NOTE: special case, for this thread only and for the section of code below need to turn off artifact
-            //     authz since normally the user above would have authorized with something higher up, but that can't
-            //     be done at this point
-            alreadyDisabled = ecfi.executionContext.artifactExecution.disableAuthz()
-            try {
-                // no more auth failures? record the various account state updates, hasLoggedOut=N
-                if (newUserAccount.successiveFailedLogins != 0 || newUserAccount.disabled != "N" ||
-                        newUserAccount.disabledDateTime != null || newUserAccount.hasLoggedOut != "N") {
-                    Map<String, Object> uaParameters = [userId:userId, successiveFailedLogins:0,
-                            disabled:"N", disabledDateTime:null, hasLoggedOut:"N"]
-                    ecfi.serviceFacade.sync().name("update", "moqui.security.UserAccount").parameters(uaParameters).call()
-                }
-
-                // update visit if no user in visit yet
-                EntityValue visit = ecfi.executionContext.user.visit
-                if (visit) {
-                    if (!visit.userId) {
-                        ecfi.serviceFacade.sync().name("update", "moqui.server.Visit")
-                                .parameters((Map<String, Object>) [visitId:visit.visitId, userId:userId]).call()
-                    }
-                    if (!visit.clientIpCountryGeoId && !visit.clientIpTimeZone) {
-                        Node ssNode = (Node) ecfi.confXmlRoot."server-stats"[0]
-                        if (ssNode.attribute("visit-ip-info-on-login") != "false") {
-                            ecfi.serviceFacade.async().name("org.moqui.impl.ServerServices.get#VisitClientIpData")
-                                    .parameter("visitId", visit.visitId).call()
-                        }
-                    }
-                }
-            } finally {
-                if (!alreadyDisabled) ecfi.executionContext.artifactExecution.enableAuthz()
-            }
         } finally {
-            // track the UserLoginHistory, whether the above succeeded or failed (ie even if an exception was thrown)
-            ExecutionContextImpl eci = ecfi.getEci()
-            if (!eci.getSkipStats()) {
-                Node loginNode = (Node) ecfi.confXmlRoot."user-facade"[0]."login"[0]
-                if (userId != null && loginNode."@history-store" != "false") {
-                    Timestamp fromDate = eci.getUser().getNowTimestamp()
-                    EntityValue curUlh = ecfi.getEntityFacade().find("moqui.security.UserLoginHistory")
-                            .condition([userId:userId, fromDate:fromDate]).disableAuthz().one()
-                    if (curUlh == null) {
-                        Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
-                                visitId:ecfi.executionContext.user.visitId, successfulLogin:(successful?"Y":"N")]
-                        if (!successful && loginNode."@history-incorrect-password" != "false") ulhContext.passwordUsed = token.credentials
-                        try {
-                            ecfi.getServiceFacade().sync().name("create", "moqui.security.UserLoginHistory").parameters(ulhContext)
-                                    .requireNewTransaction(true).disableAuthz().call()
-                            // we want to ignore errors from this, may happen in high-volume inserts where we don't care about the records so much anyway
-                            ecfi.getExecutionContext().getMessage().clearErrors()
-                        } catch (EntityException ee) {
-                            // this blows up on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
-                            logger.warn("UserLoginHistory create failed: ${ee.toString()}")
-                        }
-                    } else {
-                        logger.warn("Not creating UserLoginHistory, found existing record for userId [${userId}] and fromDate [${fromDate}]")
-                    }
-                }
-            }
+            loginAfterAlways(eci, userId, token.credentials as String, successful)
         }
 
         return info;
