@@ -20,7 +20,7 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="org.moqui.impl.UserServices.create#UserAccount"/>
         <!-- username, newPassword, newPasswordVerify, userFullName, emailAddress, currencyUomId, locale, timeZone -->
         <in-parameters>
-            <parameter name="tenantId" required="false"><description>Sequenced ID used if none specified, must be simple name (letters, digits, underscore)</description></parameter>
+            <parameter name="tenantId"><description>Sequenced ID used if none specified, must be simple name (letters, digits, underscore)</description></parameter>
             <parameter name="tenantName" required="true"/>
             <parameter name="isEnabled" default-value="Y"/>
 
@@ -34,6 +34,28 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="userId" required="true"/>
         </out-parameters>
     </service>
+
+    <service verb="provision" noun="TenantConf">
+        <description>Provision a tenant, calling service for database based on datasource.@database-conf-name in Moqui XML Conf file</description>
+        <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
+        <in-parameters>
+            <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
+            <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
+        </in-parameters>
+        <actions>
+            <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
+            <if condition="datasourceNode.'@database-conf-name' == 'h2'"><then>
+                <service-call name="org.moqui.impl.TenantServices.provision#TenantH2" in-map="context" out-map="context"/>
+            </then><else-if condition="datasourceNode.'@database-conf-name' == 'derby'">
+                <service-call name="org.moqui.impl.TenantServices.provision#TenantDerby" in-map="context" out-map="context"/>
+            </else-if><else-if condition="datasourceNode.'@database-conf-name' == 'mysql'">
+                <service-call name="org.moqui.impl.TenantServices.provision#TenantMySQL" in-map="context" out-map="context"/>
+            </else-if><else>
+                <return error="true" message="Cannot provision tenant for database ${datasourceNode.'@database-conf-name'}"/>
+            </else></if>
+        </actions>
+    </service>
+
     <service verb="setup" noun="Tenant">
         <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
         <in-parameters>
@@ -130,8 +152,6 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
                     in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'createDatabase', propValue:'create']"/>
 
-            <!-- No need to do this for Derby, but the note here for future reference: create database(s), if datasource configured to do so -->
-
             <!-- call setup#Tenant -->
             <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
         </actions>
@@ -139,23 +159,58 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="provision" noun="TenantH2">
         <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
         <in-parameters>
-            <parameter name="user" default-value="sa"/>
-            <parameter name="password" default-value="sa"/>
+            <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
+            <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
         </in-parameters>
         <actions>
+            <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
+            <set field="xaProperties" from="datasourceNode.'inline-jdbc'?.first?.'xa-properties'?.first"/>
+            <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.'@user' : 'sa'"/></if>
+            <if condition="!dbPassword"><set field="dbUser" from="xaProperties ? xaProperties.'@password' : 'sa'"/></if>
+
             <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
 
             <!-- create TenantDataSource and optionally TenantDataSourceXaProp records -->
             <service-call name="create#moqui.tenant.TenantDataSource" in-map="[tenantId:tenantId, entityGroupName:'transactional']"/>
+            <set field="dbName" from="tenantId.charAt(0).isDigit() ? 'T' + tenantId : tenantId"/>
             <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
                     in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'url',
-                        propValue:('jdbc:h2:${moqui.runtime}/db/h2/' + tenantId)]"/>
+                        propValue:('jdbc:h2:${moqui.runtime}/db/h2/' + dbName)]"/>
             <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
-                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'user', propValue:user]"/>
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'user', propValue:dbUser]"/>
             <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
-                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'password', propValue:password]"/>
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'password', propValue:dbPassword]"/>
 
-            <!-- No need to do this for Derby, but the note here for future reference: create database(s), if datasource configured to do so -->
+            <!-- call setup#Tenant -->
+            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="provision" noun="TenantMySQL">
+        <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
+        <in-parameters>
+            <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
+            <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
+        </in-parameters>
+        <actions>
+            <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
+            <set field="xaProperties" from="datasourceNode.'inline-jdbc'?.first?.'xa-properties'?.first"/>
+            <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.'@user' : 'moqui'"/></if>
+            <if condition="!dbPassword"><set field="dbUser" from="xaProperties ? xaProperties.'@password' : 'moqui'"/></if>
+
+            <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
+
+            <!-- create TenantDataSource and optionally TenantDataSourceXaProp records -->
+            <service-call name="create#moqui.tenant.TenantDataSource" in-map="[tenantId:tenantId, entityGroupName:'transactional']"/>
+
+            <set field="dbName" from="tenantId.charAt(0).isDigit() ? 'T' + tenantId : tenantId"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'databaseName', propValue:dbName]"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'user', propValue:dbUser]"/>
+            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'password', propValue:dbPassword]"/>
+
+            <!-- TODO: create database -->
 
             <!-- call setup#Tenant -->
             <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
