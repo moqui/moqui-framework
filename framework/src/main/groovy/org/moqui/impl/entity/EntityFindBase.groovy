@@ -440,15 +440,23 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind selectField(String fieldToSelect) {
-        if (!this.fieldsToSelect) this.fieldsToSelect = new ArrayList<String>()
-        if (fieldToSelect) this.fieldsToSelect.add(fieldToSelect)
+        if (!fieldToSelect) return this
+        if (this.fieldsToSelect == null) this.fieldsToSelect = new ArrayList<String>()
+        if (fieldToSelect.contains(",")) {
+            for (String ftsPart in fieldToSelect.split(",")) {
+                String selectName = ftsPart.trim()
+                if (getEntityDef().isField(selectName)) this.fieldsToSelect.add(selectName)
+            }
+        } else {
+            if (getEntityDef().isField(fieldToSelect)) this.fieldsToSelect.add(fieldToSelect)
+        }
         return this
     }
 
     @Override
     EntityFind selectFields(Collection<String> fieldsToSelect) {
-        if (!this.fieldsToSelect) this.fieldsToSelect = new ArrayList<String>()
-        if (fieldsToSelect) this.fieldsToSelect.addAll(fieldsToSelect)
+        if (!fieldsToSelect) return this
+        for (String fieldToSelect in fieldsToSelect) selectField(fieldToSelect)
         return this
     }
 
@@ -458,7 +466,7 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityFind orderBy(String orderByFieldName) {
         if (!orderByFieldName) return this
-        if (!this.orderByFields) this.orderByFields = new ArrayList()
+        if (this.orderByFields == null) this.orderByFields = new ArrayList()
         if (orderByFieldName.contains(",")) {
             for (String obsPart in orderByFieldName.split(",")) {
                 String orderByName = obsPart.trim()
@@ -475,8 +483,13 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityFind orderBy(List<String> orderByFieldNames) {
         if (!orderByFieldNames) return this
-        if (!this.orderByFields) this.orderByFields = new ArrayList()
-        for (String orderByFieldName in orderByFieldNames) orderBy(orderByFieldName)
+        if (orderByFieldNames instanceof RandomAccess) {
+            // avoid creating an iterator if possible
+            int listSize = orderByFieldNames.size()
+            for (int i = 0; i < listSize; i++) orderBy(orderByFieldNames.get(i))
+        } else {
+            for (String orderByFieldName in orderByFieldNames) orderBy(orderByFieldName)
+        }
         return this
     }
 
