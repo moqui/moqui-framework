@@ -308,6 +308,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="field-map"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-field"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-fields"/>
             </xs:sequence>
             <xs:attribute name="entity-name" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>Name of the entity to find an instance of.</xs:documentation></xs:annotation>
@@ -356,6 +357,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <xs:element minOccurs="0" ref="having-econditions"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-field"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-fields"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="order-by"/>
                 <xs:choice minOccurs="0">
                     <xs:element ref="limit-range"/>
@@ -541,6 +543,15 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
         </xs:complexType>
     </xs:element>
+    <xs:element name="select-fields">
+        <xs:annotation><xs:documentation>Used to specify fields to select. If there are none of these elements all
+            fields will be selected.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="fields" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>Names of fields to select.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
     <xs:element name="order-by">
         <xs:annotation><xs:documentation>Defines a field to order the results by.</xs:documentation></xs:annotation>
         <xs:complexType>
@@ -613,6 +624,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
                 <xs:element minOccurs="0" ref="having-econditions"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-field"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-fields"/>
             </xs:sequence>
             <xs:attribute name="entity-name" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>Name of entity to search in.</xs:documentation></xs:annotation>

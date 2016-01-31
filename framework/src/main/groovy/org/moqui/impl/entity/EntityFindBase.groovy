@@ -403,6 +403,7 @@ abstract class EntityFindBase implements EntityFind {
         String limit = node.attribute('limit')
         if (limit) this.limit(limit as Integer)
         for (Node sf in (Collection<Node>) node["select-field"]) this.selectField((String) sf["@field-name"])
+        for (Node sf in (Collection<Node>) node["select-fields"]) this.selectFields((Collection<String>) efi.getEcfi().getResourceFacade().expression(sf["@fields"], ""))
         for (Node ob in (Collection<Node>) node["order-by"]) this.orderBy((String) ob["@field-name"])
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
