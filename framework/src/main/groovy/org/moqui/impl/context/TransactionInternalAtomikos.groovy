@@ -23,8 +23,6 @@ import com.atomikos.jdbc.nonxa.AtomikosNonXADataSourceBean
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.TransactionInternal
 import org.moqui.entity.EntityFacade
-import org.moqui.entity.EntityList
-import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityFacadeImpl
 
 import javax.sql.DataSource
@@ -65,92 +63,44 @@ class TransactionInternalAtomikos implements TransactionInternal {
         // NOTE: this is called during EFI init, so use the passed one and don't try to get from ECFI
         EntityFacadeImpl efi = (EntityFacadeImpl) ef
 
-        EntityValue tenant = null
-        EntityFacadeImpl defaultEfi = null
-        if (tenantId != "DEFAULT" && datasourceNode."@group-name" != "tenantcommon") {
-            defaultEfi = ecfi.getEntityFacade("DEFAULT")
-            tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).one()
-        }
-
-        EntityValue tenantDataSource = null
-        EntityList tenantDataSourceXaPropList = null
-        if (tenant != null) {
-            boolean alreadyDisabled = ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", tenantId)
-                        .condition("entityGroupName", datasourceNode."@group-name").one()
-                if (tenantDataSource == null) {
-                    // if there is no TenantDataSource for this group, look for one for the default-group-name
-                    tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", tenantId)
-                            .condition("entityGroupName", efi.getDefaultGroupName()).one()
-                }
-                tenantDataSourceXaPropList = tenantDataSource?.findRelated("moqui.tenant.TenantDataSourceXaProp", null, null, false, false)
-            } finally {
-                if (!alreadyDisabled) ecfi.getExecutionContext().getArtifactExecution().enableAuthz()
-            }
-        }
-
-        Node inlineJdbc = datasourceNode."inline-jdbc"[0]
-        Node xaProperties = inlineJdbc."xa-properties"[0]
-        Node database = efi.getDatabaseNode((String) datasourceNode."@group-name")
+        EntityFacadeImpl.DatasourceInfo dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
 
         AbstractDataSourceBean ads
-        if (xaProperties) {
+        if (dsi.xaDsClass) {
             AtomikosDataSourceBean ds = new AtomikosDataSourceBean()
-            ds.setUniqueResourceName(tenantId + '_' + datasourceNode."@group-name" + '_DS')
-            String xsDsClass = inlineJdbc."@xa-ds-class" ? inlineJdbc."@xa-ds-class" : database."@default-xa-ds-class"
-            ds.setXaDataSourceClassName(xsDsClass)
-
-            Properties p = new Properties()
-            if (tenantDataSourceXaPropList) {
-                for (EntityValue tenantDataSourceXaProp in tenantDataSourceXaPropList) {
-                    String propValue = tenantDataSourceXaProp.propValue
-                    // NOTE: consider changing this to expand for all system properties using groovy or something
-                    if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
-                    p.setProperty((String) tenantDataSourceXaProp.propName, propValue)
-                }
-            } else {
-                for (Map.Entry<String, String> entry in xaProperties.attributes().entrySet()) {
-                    // the Derby "databaseName" property has a ${moqui.runtime} which is a System property, others may have it too
-                    String propValue = entry.getValue()
-                    // NOTE: consider changing this to expand for all system properties using groovy or something
-                    if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
-                    p.setProperty(entry.getKey(), propValue)
-                }
-            }
-            ds.setXaProperties(p)
+            ds.setUniqueResourceName(dsi.uniqueName)
+            ds.setXaDataSourceClassName(dsi.xaDsClass)
+            ds.setXaProperties(dsi.xaProps)
 
             ads = ds
         } else {
             AtomikosNonXADataSourceBean ds = new AtomikosNonXADataSourceBean()
-            ds.setUniqueResourceName(tenantId + '_' + datasourceNode."@group-name" + '_DS')
-            String driver = inlineJdbc."@jdbc-driver" ? inlineJdbc."@jdbc-driver" : database."@default-jdbc-driver"
-            ds.setDriverClassName(driver)
-            ds.setUrl(tenantDataSource ? (String) tenantDataSource.jdbcUri : inlineJdbc."@jdbc-uri")
-            ds.setUser(tenantDataSource ? (String) tenantDataSource.jdbcUsername : inlineJdbc."@jdbc-username")
-            ds.setPassword(tenantDataSource ? (String) tenantDataSource.jdbcPassword : inlineJdbc."@jdbc-password")
+            ds.setUniqueResourceName(dsi.uniqueName)
+            ds.setDriverClassName(dsi.jdbcDriver)
+            ds.setUrl(dsi.jdbcUri)
+            ds.setUser(dsi.jdbcUsername)
+            ds.setPassword(dsi.jdbcPassword)
 
             ads = ds
         }
 
         String txIsolationLevel = inlineJdbc."@isolation-level" ? inlineJdbc."@isolation-level" : database."@default-isolation-level"
-        if (txIsolationLevel && efi.getTxIsolationFromString(txIsolationLevel) != -1) {
+        if (txIsolationLevel && efi.getTxIsolationFromString(txIsolationLevel) != -1)
             ads.setDefaultIsolationLevel(efi.getTxIsolationFromString(txIsolationLevel))
-        }
 
         // no need for this, just sets min and max sizes: ads.setPoolSize
-        if (inlineJdbc."@pool-minsize") ads.setMinPoolSize(inlineJdbc."@pool-minsize" as int)
-        if (inlineJdbc."@pool-maxsize") ads.setMaxPoolSize(inlineJdbc."@pool-maxsize" as int)
+        if (dsi.inlineJdbc."@pool-minsize") ads.setMinPoolSize(dsi.inlineJdbc."@pool-minsize" as int)
+        if (dsi.inlineJdbc."@pool-maxsize") ads.setMaxPoolSize(dsi.inlineJdbc."@pool-maxsize" as int)
 
-        if (inlineJdbc."@pool-time-idle") ads.setMaxIdleTime(inlineJdbc."@pool-time-idle" as int)
-        if (inlineJdbc."@pool-time-reap") ads.setReapTimeout(inlineJdbc."@pool-time-reap" as int)
-        if (inlineJdbc."@pool-time-maint") ads.setMaintenanceInterval(inlineJdbc."@pool-time-maint" as int)
-        if (inlineJdbc."@pool-time-wait") ads.setBorrowConnectionTimeout(inlineJdbc."@pool-time-wait" as int)
+        if (dsi.inlineJdbc."@pool-time-idle") ads.setMaxIdleTime(dsi.inlineJdbc."@pool-time-idle" as int)
+        if (dsi.inlineJdbc."@pool-time-reap") ads.setReapTimeout(dsi.inlineJdbc."@pool-time-reap" as int)
+        if (dsi.inlineJdbc."@pool-time-maint") ads.setMaintenanceInterval(dsi.inlineJdbc."@pool-time-maint" as int)
+        if (dsi.inlineJdbc."@pool-time-wait") ads.setBorrowConnectionTimeout(dsi.inlineJdbc."@pool-time-wait" as int)
 
-        if (inlineJdbc."@pool-test-query") {
-            ads.setTestQuery((String) inlineJdbc."@pool-test-query")
-        } else if (database."@default-test-query") {
-            ads.setTestQuery((String) database."@default-test-query")
+        if (dsi.inlineJdbc."@pool-test-query") {
+            ads.setTestQuery((String) dsi.inlineJdbc."@pool-test-query")
+        } else if (dsi.database."@default-test-query") {
+            ads.setTestQuery((String) dsi.database."@default-test-query")
         }
 
         adsList.add(ads)

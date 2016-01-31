@@ -193,6 +193,92 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
+    static class DatasourceInfo {
+        EntityFacadeImpl efi
+        Node datasourceNode
+
+        String uniqueName
+
+        String jndiName
+        Node serverJndi
+
+        String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null
+
+        String xaDsClass = null
+        Properties xaProps = null
+
+        Node inlineJdbc = null
+        Node database = null
+
+        DatasourceInfo(EntityFacadeImpl efi, Node datasourceNode) {
+            this.efi = efi
+            this.datasourceNode = datasourceNode
+
+            String tenantId = efi.tenantId
+            uniqueName = tenantId + '_' + datasourceNode."@group-name" + '_DS'
+
+            EntityValue tenant = null
+            EntityFacadeImpl defaultEfi = null
+            if (tenantId != "DEFAULT" && datasourceNode."@group-name" != "tenantcommon") {
+                defaultEfi = efi.ecfi.getEntityFacade("DEFAULT")
+                tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).one()
+            }
+
+            EntityValue tenantDataSource = null
+            EntityList tenantDataSourceXaPropList = null
+            if (tenant != null) {
+                tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", tenantId)
+                        .condition("entityGroupName", datasourceNode."@group-name").disableAuthz().one()
+                if (tenantDataSource == null) {
+                    // if there is no TenantDataSource for this group, look for one for the default-group-name
+                    tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", tenantId)
+                            .condition("entityGroupName", efi.getDefaultGroupName()).disableAuthz().one()
+                }
+                tenantDataSourceXaPropList = tenantDataSource != null ? defaultEfi.find("moqui.tenant.TenantDataSourceXaProp")
+                        .condition("tenantId", tenantId) .condition("entityGroupName", efi.getDefaultGroupName()).disableAuthz().list() : null
+            }
+
+            inlineJdbc = (Node) datasourceNode."inline-jdbc"[0]
+            Node xaProperties = (Node) inlineJdbc."xa-properties"[0]
+            database = efi.getDatabaseNode((String) datasourceNode."@group-name")
+
+            if (datasourceNode."jndi-jdbc") {
+                serverJndi = (Node) efi.ecfi.getConfXmlRoot()."entity-facade"[0]."server-jndi"[0]
+                jndiName = tenantDataSource ? tenantDataSource.jndiName : datasourceNode."jndi-jdbc"[0]."@jndi-name"
+            } else if (xaProperties || tenantDataSourceXaPropList) {
+                xaDsClass = inlineJdbc."@xa-ds-class" ? inlineJdbc."@xa-ds-class" : database."@default-xa-ds-class"
+
+                xaProps = new Properties()
+                if (tenantDataSourceXaPropList) {
+                    for (EntityValue tenantDataSourceXaProp in tenantDataSourceXaPropList) {
+                        String propValue = tenantDataSourceXaProp.propValue
+                        // NOTE: consider changing this to expand for all system properties using groovy or something
+                        if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
+                        xaProps.setProperty((String) tenantDataSourceXaProp.propName, propValue)
+                    }
+                }
+                // always set default properties for the given data
+                if (!tenantDataSourceXaPropList || tenantDataSource?.defaultToConfProps == "Y") {
+                    for (Map.Entry<String, String> entry in xaProperties.attributes().entrySet()) {
+                        // don't over write existing properties, from tenantDataSourceXaPropList or redundant attributes (shouldn't be allowed)
+                        if (xaProps.containsKey(entry.getKey())) continue
+                        // the Derby "databaseName" property has a ${moqui.runtime} which is a System property, others may have it too
+                        String propValue = entry.getValue()
+                        // NOTE: consider changing this to expand for all system properties using groovy or something
+                        if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
+                        xaProps.setProperty(entry.getKey(), propValue)
+                    }
+                }
+            } else {
+                jdbcDriver = inlineJdbc."@jdbc-driver" ? inlineJdbc."@jdbc-driver" : database."@default-jdbc-driver"
+                jdbcUri = tenantDataSource ? (String) tenantDataSource.jdbcUri : inlineJdbc."@jdbc-uri"
+                if (jdbcUri.contains("\${moqui.runtime}")) jdbcUri = jdbcUri.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
+                jdbcUsername = tenantDataSource ? (String) tenantDataSource.jdbcUsername : inlineJdbc."@jdbc-username"
+                jdbcPassword = tenantDataSource ? (String) tenantDataSource.jdbcPassword : inlineJdbc."@jdbc-password"
+            }
+        }
+    }
+
     void loadFrameworkEntities() {
         // load framework entity definitions (moqui.*)
         long startTime = System.nanoTime()

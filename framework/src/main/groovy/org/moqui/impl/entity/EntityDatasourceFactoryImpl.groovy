@@ -49,46 +49,28 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
         // init the DataSource
 
         if (datasourceNode."jndi-jdbc") {
-            EntityValue tenant = null
-            EntityFacadeImpl defaultEfi = null
-            if (this.tenantId != "DEFAULT" && datasourceNode."@group-name" != "tenantcommon") {
-                defaultEfi = efi.ecfi.getEntityFacade("DEFAULT")
-                tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", this.tenantId).one()
-            }
+            EntityFacadeImpl.DatasourceInfo dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
 
-            EntityValue tenantDataSource = null
-            if (tenant != null) {
-                tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", this.tenantId)
-                        .condition("entityGroupName", datasourceNode."@group-name").one()
-                if (tenantDataSource == null) {
-                    // if there is no TenantDataSource for this group, look for one for the default-group-name
-                    tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", this.tenantId)
-                            .condition("entityGroupName", efi.getDefaultGroupName()).one()
-                }
-            }
-
-            Node serverJndi = efi.ecfi.getConfXmlRoot()."entity-facade"[0]."server-jndi"[0]
             try {
                 InitialContext ic;
-                if (serverJndi) {
+                if (dsi.serverJndi) {
                     Hashtable<String, Object> h = new Hashtable<String, Object>()
-                    h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi."@initial-context-factory")
-                    h.put(Context.PROVIDER_URL, serverJndi."@context-provider-url")
-                    if (serverJndi."@url-pkg-prefixes") h.put(Context.URL_PKG_PREFIXES, serverJndi."@url-pkg-prefixes")
-                    if (serverJndi."@security-principal") h.put(Context.SECURITY_PRINCIPAL, serverJndi."@security-principal")
-                    if (serverJndi."@security-credentials") h.put(Context.SECURITY_CREDENTIALS, serverJndi."@security-credentials")
+                    h.put(Context.INITIAL_CONTEXT_FACTORY, dsi.serverJndi."@initial-context-factory")
+                    h.put(Context.PROVIDER_URL, dsi.serverJndi."@context-provider-url")
+                    if (dsi.serverJndi."@url-pkg-prefixes") h.put(Context.URL_PKG_PREFIXES, dsi.serverJndi."@url-pkg-prefixes")
+                    if (dsi.serverJndi."@security-principal") h.put(Context.SECURITY_PRINCIPAL, dsi.serverJndi."@security-principal")
+                    if (dsi.serverJndi."@security-credentials") h.put(Context.SECURITY_CREDENTIALS, dsi.serverJndi."@security-credentials")
                     ic = new InitialContext(h)
                 } else {
                     ic = new InitialContext()
                 }
 
-                String jndiName = tenantDataSource ? tenantDataSource.jndiName : datasourceNode."jndi-jdbc"[0]."@jndi-name"
-                this.dataSource = (DataSource) ic.lookup(jndiName)
+                this.dataSource = (DataSource) ic.lookup(dsi.jndiName)
                 if (this.dataSource == null) {
-                    logger.error("Could not find DataSource with name [${datasourceNode."jndi-jdbc"[0]."@jndi-name"}] in JNDI server [${serverJndi ? serverJndi."@context-provider-url" : "default"}] for datasource with group-name [${datasourceNode."@group-name"}].")
+                    logger.error("Could not find DataSource with name [${datasourceNode."jndi-jdbc"[0]."@jndi-name"}] in JNDI server [${dsi.serverJndi ? dsi.serverJndi."@context-provider-url" : "default"}] for datasource with group-name [${datasourceNode."@group-name"}].")
                 }
             } catch (NamingException ne) {
-                logger.error("Error finding DataSource with name [${datasourceNode."jndi-jdbc"[0]."@jndi-name"}] in JNDI server [${serverJndi ? serverJndi."@context-provider-url" : "default"}] for datasource with group-name [${datasourceNode."@group-name"}].", ne)
+                logger.error("Error finding DataSource with name [${datasourceNode."jndi-jdbc"[0]."@jndi-name"}] in JNDI server [${dsi.serverJndi ? dsi.serverJndi."@context-provider-url" : "default"}] for datasource with group-name [${datasourceNode."@group-name"}].", ne)
             }
         } else if (datasourceNode."inline-jdbc") {
             // special thing for embedded derby, just set an system property; for derby.log, etc
