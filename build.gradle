@@ -100,14 +100,46 @@ task gitStatusAll {
             gitDirectories.add(compDir.path)
         for (String gitDir in gitDirectories) {
             logger.lifecycle("\nGit status for ${gitDir}")
-            def curStatus = Grgit.open(dir: gitDir).status()
-            if (curStatus.isClean()) logger.lifecycle("* Working directory clean")
-            if (curStatus.staged.added) logger.lifecycle("Staged added: ${curStatus.staged.added}")
-            if (curStatus.staged.modified) logger.lifecycle("Staged modified: ${curStatus.staged.modified}")
-            if (curStatus.staged.removed) logger.lifecycle("Staged removed: ${curStatus.staged.removed}")
-            if (curStatus.unstaged.added) logger.lifecycle("Unstaged added: ${curStatus.unstaged.added}")
-            if (curStatus.unstaged.modified) logger.lifecycle("Unstaged modified: ${curStatus.unstaged.modified}")
-            if (curStatus.unstaged.removed) logger.lifecycle("Unstaged removed: ${curStatus.unstaged.removed}")
+            def curGrgit = Grgit.open(dir: gitDir)
+            if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
+                def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
+                if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
+            }
+            def unpushed = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/origin/master'), curGrgit.resolve.toCommit('HEAD') }
+            if (unpushed) logger.lifecycle("--- ${unpushed.size()} commits unpushed (ahead of origin/master)")
+            for (Commit commit in unpushed) logger.lifecycle(" - ${commit.getAbbreviatedId(8)} - ${commit.shortMessage}")
+            def curStatus = curGrgit.status()
+            if (curStatus.isClean()) logger.lifecycle("* nothing to commit, working directory clean")
+            if (curStatus.staged.added || curStatus.staged.modified || curStatus.staged.removed) logger.lifecycle("--- Changes to be committed::")
+            for (String fn in curStatus.staged.added)    logger.lifecycle("       added: ${fn}")
+            for (String fn in curStatus.staged.modified) logger.lifecycle("    modified: ${fn}")
+            for (String fn in curStatus.staged.removed)  logger.lifecycle("     removed: ${fn}")
+            if (curStatus.unstaged.added || curStatus.unstaged.modified || curStatus.unstaged.removed) logger.lifecycle("--- Changes not staged for commit:")
+            for (String fn in curStatus.unstaged.added)    logger.lifecycle("       added: ${fn}")
+            for (String fn in curStatus.unstaged.modified) logger.lifecycle("    modified: ${fn}")
+            for (String fn in curStatus.unstaged.removed)  logger.lifecycle("     removed: ${fn}")
+        }
+    }
+}
+task gitUpstreamAll {
+    description "Do a git pull upstream:master for moqui, runtime, and each installed component (for each where a .git directory is found and has a remote called upstream)"
+    doLast {
+        String remoteName = project.hasProperty('remote') ? remote : 'upstream'
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+        for (String gitDir in gitDirectories) {
+            def curGrgit = Grgit.open(dir: gitDir)
+            if (curGrgit.remote.list().find({ it.name == remoteName})) {
+                logger.lifecycle("\nGit merge ${remoteName} for ${gitDir}")
+                curGrgit.pull(remote: remoteName, branch: 'master')
+            } else {
+                logger.lifecycle("\nNo ${remoteName} remote for ${gitDir}")
+            }
+
         }
     }
 }

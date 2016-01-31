@@ -511,6 +511,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>This condition is run the subscreens menu is rendered to see if the
                     item is available (otherwise the button/link/etc is disabled).</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="tenants-allowed" type="xs:string">
+                <xs:annotation><xs:documentation>Comma-separated set of Tenant IDs allowed to use this screen. If empty
+                    (default) all tenants can use the screen.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="subscreens-menu" substitutionGroup="AllWidgets">

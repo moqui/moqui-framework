@@ -20,7 +20,7 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="org.moqui.impl.UserServices.create#UserAccount"/>
         <!-- username, newPassword, newPasswordVerify, userFullName, emailAddress, currencyUomId, locale, timeZone -->
         <in-parameters>
-            <parameter name="tenantId" required="false"/>
+            <parameter name="tenantId" required="false"><description>Sequenced ID used if none specified, must be simple name (letters, digits, underscore)</description></parameter>
             <parameter name="tenantName" required="true"/>
             <parameter name="isEnabled" default-value="Y"/>
 

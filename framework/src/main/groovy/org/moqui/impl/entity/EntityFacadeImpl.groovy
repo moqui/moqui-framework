@@ -954,7 +954,8 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    List<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly, boolean excludeViewEntities) {
+    List<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
+                                                 boolean excludeViewEntities, boolean excludeTenantCommon) {
         if (masterEntitiesOnly) createAllAutoReverseManyRelationships()
 
         List<Map<String, Object>> eil = new LinkedList()
@@ -965,18 +966,19 @@ class EntityFacadeImpl implements EntityFacade {
             try { ed = getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
             if (ed == null) continue
             if (excludeViewEntities && ed.isViewEntity()) continue
+            if (excludeTenantCommon && ed.getEntityGroupName() == "tenantcommon") continue
 
             if (masterEntitiesOnly) {
-                if (!(ed.entityNode."@has-dependents" == "true") || en.endsWith("Type") ||
+                if (!(ed.entityNode.attribute("has-dependents") == "true") || en.endsWith("Type") ||
                         en == "moqui.basic.Enumeration" || en == "moqui.basic.StatusItem") continue
                 if (ed.getPkFieldNames().size() > 1) continue
             }
 
-            eil.add([entityName:ed.entityName, "package":ed.entityNode."@package-name",
+            eil.add([entityName:ed.entityName, "package":ed.entityNode.attribute("package-name"),
                     isView:(ed.isViewEntity() ? "true" : "false"), fullEntityName:ed.fullEntityName])
         }
 
-        if (orderByField) StupidUtilities.orderMapList((List<Map>) eil, [orderByField])
+        if (orderByField) StupidUtilities.orderMapList(eil, [orderByField])
         return eil
     }
 
