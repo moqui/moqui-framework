@@ -223,6 +223,9 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     void changeTenant(String tenantId) {
+        // make sure an entity facade instance for the tenant exists
+        ecfi.getEntityFacade(tenantId)
+        // check for moqui.tenantAllowOverride flag set elsewhere
         if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
             throw new IllegalArgumentException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
         // logout the current user, won't be valid in other tenant
