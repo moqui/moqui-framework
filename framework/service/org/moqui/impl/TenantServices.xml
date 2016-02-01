@@ -166,7 +166,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
             <set field="xaProperties" from="datasourceNode.'inline-jdbc'?.first?.'xa-properties'?.first"/>
             <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.'@user' : 'sa'"/></if>
-            <if condition="!dbPassword"><set field="dbUser" from="xaProperties ? xaProperties.'@password' : 'sa'"/></if>
+            <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.'@password' : 'sa'"/></if>
 
             <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
 
@@ -195,13 +195,14 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
             <set field="xaProperties" from="datasourceNode.'inline-jdbc'?.first?.'xa-properties'?.first"/>
             <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.'@user' : 'moqui'"/></if>
-            <if condition="!dbPassword"><set field="dbUser" from="xaProperties ? xaProperties.'@password' : 'moqui'"/></if>
+            <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.'@password' : 'moqui'"/></if>
 
             <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
 
             <!-- create TenantDataSource and optionally TenantDataSourceXaProp records -->
             <service-call name="create#moqui.tenant.TenantDataSource" in-map="[tenantId:tenantId, entityGroupName:'transactional']"/>
 
+            <!-- NOTE: does not set other properties, default to those on the inline-jdbc.xa-properties element at runtime -->
             <set field="dbName" from="tenantId.charAt(0).isDigit() ? 'T' + tenantId : tenantId"/>
             <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
                     in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'databaseName', propValue:dbName]"/>
