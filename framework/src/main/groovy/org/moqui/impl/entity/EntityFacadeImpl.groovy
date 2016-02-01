@@ -235,7 +235,8 @@ class EntityFacadeImpl implements EntityFacade {
                             .condition("entityGroupName", efi.getDefaultGroupName()).disableAuthz().one()
                 }
                 tenantDataSourceXaPropList = tenantDataSource != null ? defaultEfi.find("moqui.tenant.TenantDataSourceXaProp")
-                        .condition("tenantId", tenantId) .condition("entityGroupName", efi.getDefaultGroupName()).disableAuthz().list() : null
+                        .condition("tenantId", tenantId) .condition("entityGroupName", tenantDataSource.entityGroupName)
+                        .disableAuthz().list() : null
             }
 
             inlineJdbc = (Node) datasourceNode."inline-jdbc"[0]
@@ -252,6 +253,10 @@ class EntityFacadeImpl implements EntityFacade {
                 if (tenantDataSourceXaPropList) {
                     for (EntityValue tenantDataSourceXaProp in tenantDataSourceXaPropList) {
                         String propValue = tenantDataSourceXaProp.propValue
+                        if (!propValue) {
+                            logger.warn("TenantDataSourceXaProp value empty in ${tenantDataSourceXaProp}")
+                            continue
+                        }
                         // NOTE: consider changing this to expand for all system properties using groovy or something
                         if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
                         xaProps.setProperty((String) tenantDataSourceXaProp.propName, propValue)
