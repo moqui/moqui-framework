@@ -64,9 +64,12 @@ class MoquiShiroRealm implements Realm {
         return token != null && authenticationTokenClass.isAssignableFrom(token.getClass())
     }
 
-    static void loginPrePassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
+    static EntityValue loginPrePassword(ExecutionContextImpl eci, String username) {
+        EntityValue newUserAccount = eci.entity.find("moqui.security.UserAccount").condition("username", username)
+                .useCache(true).disableAuthz().one()
+
         // no account found?
-        if (newUserAccount == null) throw new UnknownAccountException("Username [${newUserAccount.username}] and/or password incorrect.")
+        if (newUserAccount == null) throw new UnknownAccountException("Username [${username}] and/or password incorrect.")
 
         // check for disabled account before checking password (otherwise even after disable could determine if
         //    password is correct or not
@@ -88,6 +91,8 @@ class MoquiShiroRealm implements Realm {
                 throw new DisabledAccountException("Authenticate failed for user [${newUserAccount.username}] because account is disabled and is not schedule to be automatically re-enabled [DISPRM].")
             }
         }
+
+        return newUserAccount
     }
 
     static void loginPostPassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
@@ -171,10 +176,7 @@ class MoquiShiroRealm implements Realm {
         EntityValue newUserAccount = null
         SaltedAuthenticationInfo info = null
         try {
-            newUserAccount = ecfi.entityFacade.find("moqui.security.UserAccount").condition("username", username)
-                    .useCache(true).disableAuthz().one()
-
-            loginPrePassword(eci, newUserAccount)
+            newUserAccount = loginPrePassword(eci, username)
             userId = newUserAccount.userId
 
             // create the salted SimpleAuthenticationInfo object
