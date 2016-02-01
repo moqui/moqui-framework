@@ -221,7 +221,7 @@ class EntityFacadeImpl implements EntityFacade {
             EntityFacadeImpl defaultEfi = null
             if (tenantId != "DEFAULT" && datasourceNode."@group-name" != "tenantcommon") {
                 defaultEfi = efi.ecfi.getEntityFacade("DEFAULT")
-                tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).one()
+                tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().one()
             }
 
             EntityValue tenantDataSource = null
