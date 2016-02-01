@@ -22,6 +22,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="tenantName" type="text-medium"/>
         <field name="isEnabled" type="text-indicator"/>
+        <field name="disabledDate" type="date-time"/>
 
         <!-- Localization Defaults -->
         <field name="defaultCurrencyUomId" type="id"/>

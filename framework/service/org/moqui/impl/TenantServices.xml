@@ -14,6 +14,29 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
+    <service verb="disable" noun="Tenant">
+        <in-parameters><parameter name="tenantId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.tenant.Tenant" value-field="tenant"/>
+            <if condition="tenant.isEnabled != 'N'">
+                <set field="tenant.isEnabled" value="N"/>
+                <set field="tenant.disabledDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="tenant"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="enable" noun="Tenant">
+        <in-parameters><parameter name="tenantId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.tenant.Tenant" value-field="tenant"/>
+            <if condition="tenant.isEnabled == 'N'">
+                <set field="tenant.isEnabled" value="Y"/>
+                <set field="tenant.disabledDate" from="null"/>
+                <entity-update value-field="tenant"/>
+            </if>
+        </actions>
+    </service>
+
     <service verb="provision" noun="Tenant" type="interface">
         <description>Creates a new Tenant with admin user, database configuration (single database used for all entity
             groups), and optional host attachment.</description>
