@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entity-facade-xml type="seed">
+<entity-facade-xml type="seed-tenant">
     <!-- The DEFAULT Tenant is used when no other tenant is active, ie this is for the base database. -->
     <moqui.tenant.Tenant tenantId="DEFAULT" tenantName="My Company" isEnabled="Y"
             defaultCurrencyUomId="USD" defaultLocale="en" defaultTimeZone="" defaultCountryGeoId="USA"/>
