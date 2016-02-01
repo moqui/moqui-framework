@@ -493,6 +493,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     EntityFacadeImpl getEntityFacade(String tenantId) {
         EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
         if (efi == null) efi = initEntityFacade(tenantId)
+
         return efi
     }
     @CompileStatic

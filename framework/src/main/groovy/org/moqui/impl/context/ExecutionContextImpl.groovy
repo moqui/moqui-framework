@@ -18,9 +18,11 @@ import org.elasticsearch.client.Client
 import org.kie.api.runtime.KieContainer
 import org.kie.api.runtime.KieSession
 import org.kie.api.runtime.StatelessKieSession
+import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
+import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.slf4j.Logger
@@ -223,11 +225,18 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     void changeTenant(String tenantId) {
+        if (tenantId == this.tenantId) return
+
+        EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
+        EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(false).one()
+        if (tenant == null) throw new BaseException("Tenant not found with ID ${tenantId}")
+        if (tenant.isEnabled == 'N') throw new BaseException("Tenant ${tenantId} was disabled at ${l10n.format(tenant.disabledDate, null)}")
+
         // make sure an entity facade instance for the tenant exists
         ecfi.getEntityFacade(tenantId)
         // check for moqui.tenantAllowOverride flag set elsewhere
         if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
-            throw new IllegalArgumentException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
+            throw new BaseException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
         // logout the current user, won't be valid in other tenant
         if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
         this.tenantId = tenantId
