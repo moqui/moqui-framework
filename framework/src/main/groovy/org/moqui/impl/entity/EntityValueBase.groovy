@@ -18,6 +18,7 @@ import org.apache.commons.codec.binary.Base64
 import org.apache.commons.collections.set.ListOrderedSet
 
 import org.moqui.Moqui
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
@@ -1050,6 +1051,9 @@ abstract class EntityValueBase implements EntityValue {
         ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
         ExecutionContext ec = ecfi.getExecutionContext()
 
+        if (ed.entityGroupName == 'tenantcommon' && ec.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${ec.tenantId}")
+
         // check/set defaults
         if (ed.hasFieldDefaults()) checkSetFieldDefaults(ed, ec, null)
 
@@ -1140,6 +1144,9 @@ abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = getEntityDefinition()
         ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
         ExecutionContext ec = ecfi.getExecutionContext()
+
+        if (ed.entityGroupName == 'tenantcommon' && ec.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${ec.tenantId}")
 
         // check/set defaults for pk fields, do this first to fill in optional pk fields
         if (ed.hasFieldDefaults()) checkSetFieldDefaults(ed, ec, true)
@@ -1311,6 +1318,9 @@ abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = getEntityDefinition()
         ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
         ExecutionContext ec = ecfi.getExecutionContext()
+
+        if (ed.entityGroupName == 'tenantcommon' && ec.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${ec.tenantId}")
 
         if (ed.createOnly()) throw new EntityException("Entity [${getEntityName()}] is create-only (immutable), cannot be deleted.")
 
