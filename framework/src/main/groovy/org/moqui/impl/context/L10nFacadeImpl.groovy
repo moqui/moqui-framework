@@ -52,13 +52,15 @@ public class L10nFacadeImpl implements L10nFacade {
     @Override
     String getLocalizedMessage(String original) { return localize(original) }
     @Override
-    String localize(String original) {
+    String localize(String original) { return localize(original, getLocale()) }
+    @Override
+    String localize(String original, Locale locale) {
         if (!original) return ""
         if (original.length() > 255) {
             throw new IllegalArgumentException("Original String cannot be more than 255 characters long, passed in string was [${original.length()}] characters long")
         }
 
-        String localeString = getLocale().toString()
+        String localeString = locale.toString()
 
         String cacheKey = original + "::" + localeString
         String lmsg = l10nMessage.get(cacheKey)
@@ -98,6 +100,10 @@ public class L10nFacadeImpl implements L10nFacade {
 
     @Override
     String formatCurrency(Object amount, String uomId, Integer fractionDigits) {
+        return formatCurrency(amount, uomId, fractionDigits, getLocale())
+    }
+    @Override
+    String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale) {
         if (amount == null) return ""
         if (amount instanceof CharSequence) {
             if (amount.length() == 0) {
@@ -144,9 +150,9 @@ public class L10nFacadeImpl implements L10nFacade {
 
         return null
     }
-    String formatTime(Time input, String format) {
+    static String formatTime(Time input, String format, Locale locale, TimeZone tz) {
         if (!format) format = "HH:mm:ss"
-        String timeStr = calendarValidator.format(input, format, getLocale(), getTimeZone())
+        String timeStr = calendarValidator.format(input, format, locale, tz)
         // logger.warn("============= formatTime input=${input} timeStr=${timeStr} long=${input.getTime()}")
         return timeStr
     }
@@ -191,11 +197,11 @@ public class L10nFacadeImpl implements L10nFacade {
 
         return null
     }
-    String formatDate(Date input, String format) {
+    static String formatDate(Date input, String format, Locale locale, TimeZone tz) {
         if (!format) format = "yyyy-MM-dd"
         // See comment in parseDate for why we are ignoring the time zone
         // String dateStr = calendarValidator.format(input, format, getLocale(), getTimeZone())
-        String dateStr = calendarValidator.format(input, format, getLocale())
+        String dateStr = calendarValidator.format(input, format, locale)
         // logger.warn("============= formatDate input=${input} dateStr=${dateStr} long=${input.getTime()}")
         return dateStr
     }
@@ -247,38 +253,44 @@ public class L10nFacadeImpl implements L10nFacade {
 
         return null
     }
-    String formatTimestamp(Timestamp input, String format) {
+    static String formatTimestamp(Timestamp input, String format, Locale locale, TimeZone tz) {
         if (!format) format = "yyyy-MM-dd HH:mm"
-        return calendarValidator.format(input, format, getLocale(), getTimeZone())
+        return calendarValidator.format(input, format, locale, tz)
     }
 
     @Override
     Calendar parseDateTime(String input, String format) {
         return calendarValidator.validate(input, format, getLocale(), getTimeZone())
     }
-    String formatDateTime(Calendar input, String format) {
-        return calendarValidator.format(input, format, getLocale(), getTimeZone())
+    static String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+        return calendarValidator.format(input, format, locale, tz)
     }
 
     @Override
     BigDecimal parseNumber(String input, String format) {
         return bigDecimalValidator.validate(input, format, getLocale())
     }
-    String formatNumber(Number input, String format) {
-        return bigDecimalValidator.format(input, format, getLocale())
+    static String formatNumber(Number input, String format, Locale locale) {
+        return bigDecimalValidator.format(input, format, locale)
     }
 
     @Override
     String formatValue(Object value, String fmt) { return format(value, fmt) }
     @Override
     String format(Object value, String format) {
+        return this.format(value, format, getLocale(), getTimeZone())
+    }
+    @Override
+    String format(Object value, String format, Locale locale, TimeZone tz) {
         if (value == null) return ""
-        if (value instanceof String) return value
-        if (value instanceof Number) return formatNumber(value, format)
-        if (value instanceof Timestamp) return formatTimestamp(value, format)
-        if (value instanceof Date) return formatDate(value, format)
-        if (value instanceof Time) return formatTime(value, format)
-        if (value instanceof Calendar) return formatDateTime(value, format)
+        Class valueClass = value.getClass()
+        if (valueClass == String.class) return value
+        if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz)
+        if (valueClass == Date.class) return formatDate((Date) value, format, locale, tz)
+        if (valueClass == Time.class) return formatTime((Time) value, format, locale, tz)
+        if (valueClass == Calendar.class) return formatDateTime((Calendar) value, format, locale, tz)
+        // this one needs to be instanceof to include the many sub-classes of Number
+        if (value instanceof Number) return formatNumber(value, format, locale)
         return value as String
     }
 }
