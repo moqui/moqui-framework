@@ -28,8 +28,13 @@ import org.moqui.entity.EntityException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.locks.ReentrantLock
+
 class EntityDbMeta {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDbMeta.class)
+
+    static final boolean useTxForMetaData = false
+    static final boolean suspendTx = false
 
     // this keeps track of when tables are checked and found to exist or are created
     protected Map entityTablesChecked = new HashMap()
@@ -37,7 +42,6 @@ class EntityDbMeta {
     protected Map<String, Boolean> entityTablesExist = new HashMap<>()
 
     protected Map<String, Boolean> runtimeAddMissingMap = new HashMap<>()
-    protected boolean useTxForMetaData = false
 
     protected EntityFacadeImpl efi
 
@@ -109,7 +113,7 @@ class EntityDbMeta {
         if (!tableExists(ed)) {
             boolean suspendedTransaction = false
             try {
-                if (efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
+                if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
 
                 createTable(ed)
                 // create explicit and foreign key auto indexes
@@ -125,7 +129,7 @@ class EntityDbMeta {
             if (mcs) {
                 boolean suspendedTransaction = false
                 try {
-                    if (efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
+                    if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
 
                     for (String fieldName in mcs) addColumn(ed, fieldName)
                 } finally {
@@ -155,7 +159,7 @@ class EntityDbMeta {
         Boolean dbResult = null
         boolean suspendedTransaction = false
         try {
-            if (efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
+            if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
 
             if (ed.isViewEntity()) {
                 boolean anyExist = false
@@ -206,7 +210,7 @@ class EntityDbMeta {
             if (mcs) {
                 suspendedTransaction = false
                 try {
-                    if (efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
+                    if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
 
                     for (String fieldName in mcs) addColumn(ed, fieldName)
                 } finally {
@@ -280,7 +284,7 @@ class EntityDbMeta {
 
         boolean suspendedTransaction = false
         try {
-            if (efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
+            if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
 
             String groupName = ed.getEntityGroupName()
             Connection con = null
@@ -632,9 +636,7 @@ class EntityDbMeta {
 
             boolean suspendedTransaction = false
             try {
-                if (efi.ecfi.transactionFacade.isTransactionInPlace()) {
-                    suspendedTransaction = efi.ecfi.transactionFacade.suspend()
-                }
+                if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
 
                 runSqlUpdate(sql, groupName)
             } finally {
@@ -656,23 +658,38 @@ class EntityDbMeta {
         }
     }
 
-    void runSqlUpdate(StringBuilder sql, String groupName) {
-        Connection con = null
-        Statement stmt = null
-
-        // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
-        boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
+    static final ReentrantLock sqlLock = new ReentrantLock()
+    int runSqlUpdate(CharSequence sql, String groupName) {
+        // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
+        sqlLock.lock()
+        int records = 0
         try {
-            con = efi.getConnection(groupName)
-            stmt = con.createStatement()
-            stmt.executeUpdate(sql.toString())
-        } catch (SQLException e) {
-            logger.error("SQL Exception while executing the following SQL [${sql.toString()}]: ${e.toString()}")
-            efi.ecfi.transactionFacade.rollback(beganTx, "SQL meta data update failed; SQL [${sql.toString()}]", e)
+            // separate thread to avoid suspend/resume transaction
+            Thread sqlThread = Thread.start('DbMetaSql', {
+                Connection con = null
+                Statement stmt = null
+
+                // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
+                boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
+                try {
+                    con = efi.getConnection(groupName)
+                    stmt = con.createStatement()
+                    records = stmt.executeUpdate(sql.toString())
+                } catch (SQLException e) {
+                    logger.error("SQL Exception while executing the following SQL [${sql.toString()}]: ${e.toString()}")
+                    if (useTxForMetaData) efi.ecfi.transactionFacade.rollback(beganTx, "SQL meta data update failed; SQL [${sql.toString()}]", e)
+                } finally {
+                    if (stmt != null) stmt.close()
+                    if (con != null) con.close()
+                    if (beganTx) efi.ecfi.transactionFacade.commit()
+                }
+            } )
+            // wait for thread to finish, following operations often depend on this being done
+            // 10 seconds, shouldn't have DB operations longer than this, but want some sort of timeout
+            sqlThread.join(10000)
         } finally {
-            if (stmt != null) stmt.close()
-            if (con != null) con.close()
-            if (beganTx) efi.ecfi.transactionFacade.commit()
+            sqlLock.unlock()
         }
+        return records
     }
 }
