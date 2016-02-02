@@ -234,7 +234,20 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
                     in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'password', propValue:dbPassword]"/>
 
-            <!-- TODO: create database -->
+            <!-- create database; as with other code above assumes on same server as DEFAULT tenant, so connects to that and creates the database -->
+            <script><![CDATA[
+                import org.moqui.context.ExecutionContext
+                ExecutionContext ec = context.ec
+
+                String groupName = 'transactional'
+                rowsAffected = 0
+                rowsAffected += ec.entity.entityDbMeta.runSqlUpdate("CREATE DATABASE IF NOT EXISTS `${dbName}` DEFAULT CHARACTER SET utf8", groupName)
+                // NOTE: not calling CREATE USER because IF NOT EXISTS returns an error instead of warning in MySQL 5.7.* (at least 5.7.10)
+                // rowsAffected += ec.entity.entityDbMeta.runSqlUpdate("CREATE USER IF NOT EXISTS '${dbUser}' IDENTIFIED BY '${dbPassword}'", groupName)
+                // NOTE: because of issue above user must already exist, often the case (using same user to access all tenant DBs; may create separate users to access only a single tenant DB)
+                rowsAffected += ec.entity.entityDbMeta.runSqlUpdate("GRANT ALL ON ${dbName}.* TO '${dbUser}'", groupName)
+            ]]></script>
+            <log level="info" message="Created MySQL database ${dbName} with user ${dbUser}, rows affected: ${rowsAffected}"/>
 
             <!-- call setup#Tenant -->
             <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
