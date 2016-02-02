@@ -75,7 +75,7 @@ def checkRuntimeDir(String locType) {
 }
 task getRuntime {
     description "If the runtime directory does not exist get it using settings in myaddons.xml or addons.xml"
-    doLast { checkRuntimeDir(null) }
+    doLast { checkRuntimeDir(project.hasProperty('locationType') ? locationType : null) }
 }
 task gitPullAll {
     description "Do a git pull to update moqui, runtime, and each installed component (for each where a .git directory is found)"
