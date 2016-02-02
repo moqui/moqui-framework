@@ -60,7 +60,7 @@ public class BaseException extends RuntimeException {
         if (t.getCause() != null) filterStackTrace(t.getCause());
     }
     public static StackTraceElement[] filterStackTrace(StackTraceElement[] orig) {
-        List<StackTraceElement> newList = new ArrayList<>(orig.length);
+        List<StackTraceElement> newList = new ArrayList<StackTraceElement>(orig.length);
         for (StackTraceElement ste: orig) {
             String cn = ste.getClassName();
             if (cn.startsWith("freemarker.core.") || cn.startsWith("freemarker.ext.beans.") ||

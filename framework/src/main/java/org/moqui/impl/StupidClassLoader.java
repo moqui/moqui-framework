@@ -61,12 +61,12 @@ public class StupidClassLoader extends ClassLoader {
         return m;
     }
 
-    protected final ArrayList<JarFile> jarFileList = new ArrayList<>();
-    protected final ArrayList<File> classesDirectoryList = new ArrayList<>();
+    protected final ArrayList<JarFile> jarFileList = new ArrayList<JarFile>();
+    protected final ArrayList<File> classesDirectoryList = new ArrayList<File>();
     // This Map contains either a Class or a ClassNotFoundException, cached for fast access because Groovy hits a LOT of
     //     weird invalid class names resulting in expensive new ClassNotFoundException instances
-    protected final Map<String, Object> classCache = new HashMap<>();
-    protected final Map<String, URL> resourceCache = new HashMap<>();
+    protected final Map<String, Object> classCache = new HashMap<String, Object>();
+    protected final Map<String, URL> resourceCache = new HashMap<String, URL>();
     protected ProtectionDomain pd;
 
     public StupidClassLoader(ClassLoader parent) {
@@ -170,7 +170,7 @@ public class StupidClassLoader extends ClassLoader {
     /** @see java.lang.ClassLoader#findResources(java.lang.String) */
     @Override
     public Enumeration<URL> findResources(String resourceName) throws IOException {
-        List<URL> urlList = new ArrayList<>();
+        List<URL> urlList = new ArrayList<URL>();
         int classesDirectoryListSize = classesDirectoryList.size();
         for (int i = 0; i < classesDirectoryListSize; i++) {
             File classesDir = classesDirectoryList.get(i);
@@ -218,7 +218,7 @@ public class StupidClassLoader extends ClassLoader {
         return loadClassInternal(className, resolve);
     }
 
-    static final ArrayList<String> ignoreSuffixes = new ArrayList<>(Arrays.asList("Customizer", "BeanInfo"));
+    static final ArrayList<String> ignoreSuffixes = new ArrayList<String>(Arrays.asList("Customizer", "BeanInfo"));
     static final int ignoreSuffixesSize = ignoreSuffixes.size();
     protected synchronized Class<?> loadClassInternal(String className, boolean resolve) throws ClassNotFoundException {
         /* This may be a good idea, Groovy looks for all sorts of bogus class name but there may be a reason so not doing this or looking for other patterns:
