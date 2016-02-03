@@ -292,7 +292,8 @@ public class L10nFacadeImpl implements L10nFacade {
         if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz)
         if (valueClass == Date.class) return formatDate((Date) value, format, locale, tz)
         if (valueClass == Time.class) return formatTime((Time) value, format, locale, tz)
-        if (valueClass == Calendar.class) return formatDateTime((Calendar) value, format, locale, tz)
+        // Calendar is an abstract class, so must use instanceof here as well
+        if (value instanceof Calendar) return formatDateTime((Calendar) value, format, locale, tz)
         // this one needs to be instanceof to include the many sub-classes of Number
         if (value instanceof Number) return formatNumber(value, format, locale)
         return value as String
