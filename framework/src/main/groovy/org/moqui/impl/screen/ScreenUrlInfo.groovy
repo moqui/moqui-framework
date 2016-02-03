@@ -771,7 +771,7 @@ class ScreenUrlInfo {
             Map<String, String> pm = this.getParameterMap()
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.value) continue
-                if (pme.key.equals("moquiSessionToken")) continue
+                if (pme.key == "moquiSessionToken") continue
                 if (ps.length() > 0) ps.append("&")
                 ps.append(pme.key).append("=").append(urlCodec.encode(pme.value))
             }
