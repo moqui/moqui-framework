@@ -15,6 +15,10 @@ New Features
   starts and stop is when Moqui stops, with conf/etc in runtime/jackrabbit
 - Added SubscreensDefault entity and supporting code to override default
   subscreens by tenant and/or condition with database records
+- Now using the VERSION_2_3_23 version for FreeMarker instead of a
+  previous release compatibility version
+- Added methods to L10nFacade that accept a Locale when something other
+  than the current user's locale is needed
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
@@ -23,6 +27,11 @@ New Features
     element, makes more sense to filter apps by tenant than in screen
   - Improvements to tenant provisioning services, new MySQL provisioning,
     and enable/disable tenant services along with enable check on switch
+- Entity Facade
+  - DB meta data (create tables, etc) and primary sequenced ID queries now
+    use a separate thread to run in a different transaction instead of
+    suspend/resume as some databases have issues with that, especially
+    nested which happens when service and framework code suspends
 
 Bug Fixes
 
