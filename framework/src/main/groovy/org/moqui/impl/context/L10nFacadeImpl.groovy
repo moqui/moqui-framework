@@ -60,6 +60,7 @@ public class L10nFacadeImpl implements L10nFacade {
             throw new IllegalArgumentException("Original String cannot be more than 255 characters long, passed in string was [${original.length()}] characters long")
         }
 
+        if (locale == null) locale = getLocale()
         String localeString = locale.toString()
 
         String cacheKey = original + "::" + localeString
@@ -114,6 +115,7 @@ public class L10nFacadeImpl implements L10nFacade {
         }
 
         if (fractionDigits == null) fractionDigits = 2
+        if (locale == null) locale = getLocale()
         NumberFormat nf = NumberFormat.getCurrencyInstance(locale)
         if (uomId) nf.setCurrency(Currency.getInstance(uomId))
         nf.setMaximumFractionDigits(fractionDigits)
@@ -282,6 +284,8 @@ public class L10nFacadeImpl implements L10nFacade {
     }
     @Override
     String format(Object value, String format, Locale locale, TimeZone tz) {
+        if (locale == null) locale = getLocale()
+        if (tz == null) tz = getTimeZone()
         if (value == null) return ""
         Class valueClass = value.getClass()
         if (valueClass == String.class) return value
