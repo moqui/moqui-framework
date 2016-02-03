@@ -1496,10 +1496,9 @@ class EntityFacadeImpl implements EntityFacade {
                     this.entitySequenceBankCache.put(bankCacheKey, bank)
                 }
 
-                TransactionFacade tf = this.ecfi.getTransactionFacade()
-                boolean suspendedTransaction = false
-                try {
-                    if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
+                // separate thread to avoid suspend/resume transaction
+                Thread sqlThread = Thread.start('SequencedIdPrimary', {
+                    TransactionFacade tf = this.ecfi.getTransactionFacade()
                     boolean beganTransaction = tf.begin(null)
                     try {
                         EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
@@ -1524,11 +1523,10 @@ class EntityFacadeImpl implements EntityFacade {
                     } finally {
                         if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
                     }
-                } catch (TransactionException e) {
-                    throw e
-                } finally {
-                    if (suspendedTransaction) tf.resume()
-                }
+                } )
+                // wait for thread to finish, following operations often depend on this being done
+                // 10 seconds, shouldn't have DB operations longer than this, but want some sort of timeout
+                sqlThread.join(10000)
             }
 
             long seqNum = bank[0]
