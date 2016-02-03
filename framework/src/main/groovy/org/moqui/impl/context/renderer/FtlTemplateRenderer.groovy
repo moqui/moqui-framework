@@ -91,8 +91,8 @@ class FtlTemplateRenderer implements TemplateRenderer {
     public Configuration getFtlConfiguration() { return defaultFtlConfiguration }
 
     protected static Configuration makeFtlConfiguration(ExecutionContextFactoryImpl ecfi) {
-        Configuration newConfig = new MoquiConfiguration(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS, ecfi)
-        BeansWrapper defaultWrapper = new BeansWrapperBuilder(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS).build()
+        Configuration newConfig = new MoquiConfiguration(Configuration.VERSION_2_3_23, ecfi)
+        BeansWrapper defaultWrapper = new BeansWrapperBuilder(Configuration.VERSION_2_3_23).build()
         newConfig.setObjectWrapper(defaultWrapper)
         newConfig.setSharedVariable("Static", defaultWrapper.getStaticModels())
 
