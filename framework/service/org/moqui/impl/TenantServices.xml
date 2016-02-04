@@ -47,7 +47,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tenantName" required="true"/>
             <parameter name="isEnabled" default-value="Y"/>
 
-            <parameter name="dataLoadTypes"><description>If blank defaults to all (just like the -load -types command line argument)</description></parameter>
+            <parameter name="dataLoadTypes" default-value="seed,install">
+                <description>If blank defaults to all (just like the -load -types command line argument)</description></parameter>
 
             <parameter name="hostName"/>
             <parameter name="hostAllowOverride" default-value="N"/>
@@ -88,16 +89,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- add TenantHostDefault record if hostName specified -->
             <if condition="hostName">
                 <entity-find-one entity-name="moqui.tenant.TenantHostDefault" value-field="thDefault"/>
-                <if condition="thDefault">
+                <if condition="thDefault"><then>
                     <message>Tenant host mapping for host name ${hostName} already exists. Not stopping the tenant setup, but you will need to set up a different tenant host mapping.</message>
-
-                    <else>
-                        <service-call name="create#moqui.tenant.TenantHostDefault" in-map="[hostName:hostName,
-                                tenantId:tenantId, allowOverride:hostAllowOverride]"/>
-                    </else>
-                </if>
+                </then><else>
+                    <service-call name="create#moqui.tenant.TenantHostDefault" in-map="[hostName:hostName,
+                            tenantId:tenantId, allowOverride:hostAllowOverride]"/>
+                </else></if>
             </if>
-
 
             <script>
                 import org.moqui.context.ExecutionContext
