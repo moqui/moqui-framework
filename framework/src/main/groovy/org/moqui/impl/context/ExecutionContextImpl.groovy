@@ -224,8 +224,10 @@ class ExecutionContextImpl implements ExecutionContext {
         return skipStats
     }
 
-    void changeTenant(String tenantId) {
-        if (tenantId == this.tenantId) return
+    final LinkedList<String> tenantIdStack = new LinkedList<String>()
+    @Override
+    boolean changeTenant(String tenantId) {
+        if (tenantId == this.tenantId) return false
 
         EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
         EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(false).one()
@@ -240,8 +242,19 @@ class ExecutionContextImpl implements ExecutionContext {
         // logout the current user, won't be valid in other tenant
         if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
         this.tenantId = tenantId
+        this.tenantIdStack.addFirst(tenantId)
         if (webFacade != null) webFacade.session.setAttribute("moqui.tenantId", tenantId)
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("Changed tenant to ${tenantId}")
+        return true
+    }
+    @Override
+    boolean popTenant() {
+        String lastTenantId = tenantIdStack ? tenantIdStack.removeFirst() : null
+        if (lastTenantId) {
+            return changeTenant(lastTenantId)
+        } else {
+            return false
+        }
     }
 
     @Override
