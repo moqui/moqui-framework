@@ -170,7 +170,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
-        this.entityFacadeByTenantMap.put("DEFAULT", new EntityFacadeImpl(this, "DEFAULT"))
+        initEntityFacade("DEFAULT")
         logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
@@ -216,7 +216,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
-        this.entityFacadeByTenantMap.put("DEFAULT", new EntityFacadeImpl(this, "DEFAULT"))
+        initEntityFacade("DEFAULT")
         logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
@@ -491,6 +491,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     EntityFacadeImpl getEntityFacade() { return getEntityFacade(getExecutionContext().getTenantId()) }
     @CompileStatic
     EntityFacadeImpl getEntityFacade(String tenantId) {
+        // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now
+        if (tenantId == null) throw new IllegalArgumentException("For getEntityFacade tenantId cannot be null")
         EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
         if (efi == null) efi = initEntityFacade(tenantId)
 
