@@ -74,7 +74,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
-            <script>ec.changeTenant(tenantId)</script>
+            <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
 
             <!-- TODO get perm from ? -->
             <set field="hasPwAdminPermission" from="false"/>
@@ -125,7 +125,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
                 in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify, tenantId:tenantId]"/>
 
-            <script>ec.popTenant()</script>
+            <script>if (changedTenant) ec.popTenant()</script>
         </actions>
     </service>
     <service verb="update" noun="PasswordInternal" authenticate="false" allow-remote="false">
@@ -137,7 +137,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
-            <script>ec.changeTenant(tenantId)</script>
+            <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
 
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
 
@@ -170,8 +170,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- if password is same as current don't allow it -->
             <set field="hashedNewPassword" from="ec.ecfi.getSimpleHash(newPassword, userAccount.passwordSalt, userAccount.passwordHashType)"/>
             <if condition="userAccount.currentPassword == hashedNewPassword">
-                <message error="true">New password is same as current password</message>
-            </if>
+                <message error="true">New password is same as current password</message></if>
 
             <!-- if password is in the history don't allow it -->
             <set field="historyLimit" from="passwordNode.'@history-limit'" default-value="5" type="Integer"/>
@@ -215,7 +214,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <message>Password updated for user ${userAccount.username} in tenant ${tenantId}</message>
 
-            <script>ec.popTenant()</script>
+            <script>if (changedTenant) ec.popTenant()</script>
         </actions>
     </service>
 
@@ -256,7 +255,7 @@ along with this software (see the LICENSE.md file). If not, see
             <message>A reset password was sent by email to ${userAccount.emailAddress}. This password may only be used to change your password. Your current password is still valid.</message>
             <if condition="userAccount.requirePasswordChange == 'Y'"><message>You must change your password before login.</message></if>
 
-            <script>ec.popTenant()</script>
+            <script>if (changedTenant) ec.popTenant()</script>
         </actions>
     </service>
 </services>

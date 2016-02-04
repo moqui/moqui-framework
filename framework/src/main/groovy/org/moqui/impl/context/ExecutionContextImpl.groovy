@@ -40,7 +40,7 @@ class ExecutionContextImpl implements ExecutionContext {
     protected ExecutionContextFactoryImpl ecfi
 
     protected ContextStack context = new ContextStack()
-    protected String tenantId = null
+    protected String tenantId = "DEFAULT"
 
     protected WebFacade webFacade = null
     protected UserFacadeImpl userFacade = null
@@ -68,7 +68,7 @@ class ExecutionContextImpl implements ExecutionContext {
     Map<String, Object> getContextRoot() { return context.getRootMap() }
 
     @Override
-    String getTenantId() { tenantId ?: "DEFAULT" }
+    String getTenantId() { return tenantId }
     @Override
     EntityValue getTenant() {
         boolean alreadyDisabled = getArtifactExecution().disableAuthz()
@@ -229,6 +229,7 @@ class ExecutionContextImpl implements ExecutionContext {
     boolean changeTenant(String tenantId) {
         if (tenantId == this.tenantId) return false
 
+        logger.info("Changing to tenant ${tenantId} (from tenant ${this.tenantId})")
         EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
         EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(false).one()
         if (tenant == null) throw new BaseException("Tenant not found with ID ${tenantId}")
