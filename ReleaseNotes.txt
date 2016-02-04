@@ -27,6 +27,9 @@ New Features
     element, makes more sense to filter apps by tenant than in screen
   - Improvements to tenant provisioning services, new MySQL provisioning,
     and enable/disable tenant services along with enable check on switch
+  - Added ALL_TENANTS option for scheduled services, set on system
+    maintenance services in quartz_data.xml by default; runs the service
+    for each known tenant (by moqui.tenant.Tenant records)
 - Entity Facade
   - DB meta data (create tables, etc) and primary sequenced ID queries now
     use a separate thread to run in a different transaction instead of
