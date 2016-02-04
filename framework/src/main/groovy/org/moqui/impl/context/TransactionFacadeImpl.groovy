@@ -493,16 +493,10 @@ class TransactionFacadeImpl implements TransactionFacade {
         RollbackInfo rollbackOnlyInfo = null
         Transaction suspendedTx = null
         Exception suspendedTxLocation = null
-        protected Map<String, XAResource> activeXaResourceMap = null
-        protected Map<String, Synchronization> activeSynchronizationMap = null
-        Map<String, XAResource> getActiveXaResourceMap() {
-            if (activeXaResourceMap == null) activeXaResourceMap = [:]
-            return activeXaResourceMap
-        }
-        Map<String, Synchronization> getActiveSynchronizationMap() {
-            if (activeSynchronizationMap == null) activeSynchronizationMap = [:]
-            return activeSynchronizationMap
-        }
+        protected Map<String, XAResource> activeXaResourceMap = [:]
+        protected Map<String, Synchronization> activeSynchronizationMap = [:]
+        Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap }
+        Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap }
     }
 
     // ========== Initialize/Populate Methods ==========
