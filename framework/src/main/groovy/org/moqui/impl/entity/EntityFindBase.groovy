@@ -16,6 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
@@ -604,10 +605,10 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityValue one() throws EntityException {
-        boolean enableAuthz = disableAuthz ? !efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz() : false
+        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        boolean enableAuthz = disableAuthz ? !ec.getArtifactExecution().disableAuthz() : false
         try {
             EntityDefinition ed = this.getEntityDef()
-            ExecutionContextImpl ec = efi.getEcfi().getEci()
 
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW")
                     .setActionDetail("one").setParameters(simpleAndMap)
@@ -620,7 +621,7 @@ abstract class EntityFindBase implements EntityFind {
                 ec.getArtifactExecution().pop(aei)
             }
         } finally {
-            if (enableAuthz) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            if (enableAuthz) ec.getArtifactExecution().enableAuthz()
         }
     }
     protected EntityValue oneInternal(ExecutionContextImpl ec) throws EntityException {
@@ -630,6 +631,9 @@ abstract class EntityFindBase implements EntityFind {
         long startTimeNanos = System.nanoTime()
         EntityDefinition ed = this.getEntityDef()
         Node entityNode = ed.getEntityNode()
+
+        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         if (ed.isViewEntity() && (!entityNode.get("member-entity") || !entityNode.get("alias")))
             throw new EntityException("Cannot do find for view-entity with name [${entityName}] because it has no member entities or no aliased fields.")
@@ -731,10 +735,10 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     Map<String, Object> oneMaster(String name) {
-        boolean enableAuthz = disableAuthz ? !efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz() : false
+        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        boolean enableAuthz = disableAuthz ? !ec.getArtifactExecution().disableAuthz() : false
         try {
             EntityDefinition ed = this.getEntityDef()
-            ExecutionContextImpl ec = efi.getEcfi().getEci()
 
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("one")
             ec.getArtifactExecution().push(aei, !ed.authorizeSkipView())
@@ -747,16 +751,16 @@ abstract class EntityFindBase implements EntityFind {
                 ec.getArtifactExecution().pop(aei)
             }
         } finally {
-            if (enableAuthz) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            if (enableAuthz) ec.getArtifactExecution().enableAuthz()
         }
     }
 
     @Override
     EntityList list() throws EntityException {
-        boolean enableAuthz = disableAuthz ? !efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz() : false
+        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        boolean enableAuthz = disableAuthz ? !ec.getArtifactExecution().disableAuthz() : false
         try {
             EntityDefinition ed = this.getEntityDef()
-            ExecutionContextImpl ec = efi.getEcfi().getEci()
 
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("list")
             ec.getArtifactExecution().push(aei, !ed.authorizeSkipView())
@@ -767,7 +771,7 @@ abstract class EntityFindBase implements EntityFind {
                 ec.getArtifactExecution().pop(aei)
             }
         } finally {
-            if (enableAuthz) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            if (enableAuthz) ec.getArtifactExecution().enableAuthz()
         }
     }
     protected EntityList listInternal(ExecutionContextImpl ec) throws EntityException {
@@ -775,6 +779,9 @@ abstract class EntityFindBase implements EntityFind {
         long startTimeNanos = System.nanoTime()
         EntityDefinition ed = this.getEntityDef()
         Node entityNode = ed.getEntityNode()
+
+        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         if (ed.isViewEntity() && (!entityNode.get("member-entity") || !entityNode.get("alias")))
             throw new EntityException("Cannot do find for view-entity with name [${entityName}] because it has no member entities or no aliased fields.")
@@ -867,10 +874,10 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     List<Map<String, Object>> listMaster(String name) {
-        boolean enableAuthz = disableAuthz ? !efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz() : false
+        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        boolean enableAuthz = disableAuthz ? !ec.getArtifactExecution().disableAuthz() : false
         try {
             EntityDefinition ed = this.getEntityDef()
-            ExecutionContextImpl ec = efi.getEcfi().getEci()
 
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("list")
             ec.getArtifactExecution().push(aei, !ed.authorizeSkipView())
@@ -882,7 +889,7 @@ abstract class EntityFindBase implements EntityFind {
                 ec.getArtifactExecution().pop(aei)
             }
         } finally {
-            if (enableAuthz) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            if (enableAuthz) ec.getArtifactExecution().enableAuthz()
         }
     }
 
@@ -901,6 +908,9 @@ abstract class EntityFindBase implements EntityFind {
         EntityDefinition ed = this.getEntityDef()
         Node entityNode = ed.getEntityNode()
         ExecutionContextImpl ec = efi.getEcfi().getEci()
+
+        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         if (ed.isViewEntity() && (!entityNode.get("member-entity") || !entityNode.get("alias")))
             throw new EntityException("Cannot do find for view-entity with name [${entityName}] because it has no member entities or no aliased fields.")
@@ -992,9 +1002,11 @@ abstract class EntityFindBase implements EntityFind {
         Node entityNode = ed.getEntityNode()
         ExecutionContextImpl ec = efi.getEcfi().getEci()
 
-        String authorizeSkip = (String) entityNode.attribute('authorize-skip')
+        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
+
         ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("count")
-        ec.getArtifactExecution().push(aei, (authorizeSkip != "true" && !authorizeSkip?.contains("view")))
+        ec.getArtifactExecution().push(aei, !ed.authorizeSkipView())
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", true)
@@ -1061,7 +1073,10 @@ abstract class EntityFindBase implements EntityFind {
         // NOTE: this code isn't very efficient, but will do the trick and cause all EECAs to be fired
         // NOTE: consider expanding this to do a bulk update in the DB if there are no EECAs for the entity
 
-        if (getEntityDef().createOnly()) throw new EntityException("Entity [${getEntityDef().getFullEntityName()}] is create-only (immutable), cannot be updated.")
+        EntityDefinition ed = getEntityDef()
+        if (ed.createOnly()) throw new EntityException("Entity [${getEntityDef().getFullEntityName()}] is create-only (immutable), cannot be updated.")
+        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${efi.ecfi.eci.tenantId}")
 
         this.useCache(false)
         long totalUpdated = 0
@@ -1095,7 +1110,10 @@ abstract class EntityFindBase implements EntityFind {
     protected long deleteAllInternal() {
         // NOTE: this code isn't very efficient (though eli.remove() is a little bit more), but will do the trick and cause all EECAs to be fired
 
-        if (getEntityDef().createOnly()) throw new EntityException("Entity [${getEntityDef().getFullEntityName()}] is create-only (immutable), cannot be deleted.")
+        EntityDefinition ed = getEntityDef()
+        if (ed.createOnly()) throw new EntityException("Entity [${getEntityDef().getFullEntityName()}] is create-only (immutable), cannot be deleted.")
+        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${efi.ecfi.eci.tenantId}")
 
         // if there are no EECAs for the entity OR there is a TransactionCache in place just call ev.delete() on each
         boolean useEvDelete = txCache != null || efi.hasEecaRules(this.getEntityDef().getFullEntityName())

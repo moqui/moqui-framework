@@ -72,12 +72,13 @@ class StupidUtilities {
 
     static String toPlainString(Object obj) {
         if (obj == null) return ""
+        Class objClass = obj.getClass()
         // BigDecimal toString() uses scientific notation, annoying, so use toPlainString()
-        if (obj instanceof BigDecimal) return ((BigDecimal) obj).toPlainString()
+        if (objClass == BigDecimal.class) return ((BigDecimal) obj).toPlainString()
         // handle the special case of timestamps used for primary keys, make sure we avoid TZ, etc problems
-        if (obj instanceof Timestamp) return ((Timestamp) obj).getTime() as String
-        if (obj instanceof java.sql.Date) return ((java.sql.Date) obj).getTime() as String
-        if (obj instanceof Time) return ((Time) obj).getTime() as String
+        if (objClass == Timestamp.class) return ((Timestamp) obj).getTime() as String
+        if (objClass == java.sql.Date.class) return ((java.sql.Date) obj).getTime() as String
+        if (objClass == Time.class) return ((Time) obj).getTime() as String
 
         // no special case? do a simple toString()
         return obj.toString()
@@ -101,7 +102,7 @@ class StupidUtilities {
         if (value1 instanceof CharSequence && value2 instanceof CharSequence) {
             // first escape the characters that would be interpreted as part of the regular expression
             int length2 = value2.length()
-            StringBuilder sb = new StringBuilder(length2 * 2)
+            StringBuilder sb = new StringBuilder(length2 * 2I)
             for (int i = 0; i < length2; i++) {
                 char c = value2.charAt(i)
                 if ("[](){}.*+?\$^|#\\".indexOf((int) c.charValue()) != -1) {

@@ -376,7 +376,7 @@ class TransactionCache implements Synchronization {
     void listPut(EntityDefinition ed, EntityCondition whereCondition, EntityListImpl eli) {
         Map<EntityCondition, EntityListImpl> entityListCache = getEntityListCache(ed.getFullEntityName())
         // don't need to do much else here; list will already have values created/updated/deleted in this TX Cache
-        entityListCache.put(whereCondition, eli)
+        entityListCache.put(whereCondition, (EntityListImpl) eli.cloneList())
     }
 
     // NOTE: no need to filter EntityList or EntityListIterator, they do it internally by calling this method

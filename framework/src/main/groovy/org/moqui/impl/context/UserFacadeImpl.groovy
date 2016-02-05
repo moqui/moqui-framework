@@ -439,7 +439,7 @@ class UserFacadeImpl implements UserFacade {
             eci.message.addError("No password specified")
             return false
         }
-        if (tenantId) {
+        if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
             this.visitId = null
             if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
@@ -495,9 +495,7 @@ class UserFacadeImpl implements UserFacade {
 
         // since this doesn't go through the Shiro realm and do validations, do them now
         try {
-            EntityValue newUserAccount = eci.entity.find("moqui.security.UserAccount").condition("username", username)
-                    .useCache(true).disableAuthz().one()
-            MoquiShiroRealm.loginPrePassword(eci, newUserAccount)
+            EntityValue newUserAccount = MoquiShiroRealm.loginPrePassword(eci, username)
             MoquiShiroRealm.loginPostPassword(eci, newUserAccount)
             // don't save the history, this is used for async/scheduled service calls and often has ms time conflicts
             // also used in REST and other API calls with login key, high volume and better not to save

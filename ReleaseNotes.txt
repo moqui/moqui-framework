@@ -13,16 +13,38 @@ New Features
 
 - Added run-jackrabbit option to run Apache Jackrabbit locally when Moqui
   starts and stop is when Moqui stops, with conf/etc in runtime/jackrabbit
-- Added tenants allowed on SubscreensItem entity and subscreens-item
-  element, makes more sense to filter apps by tenant than in screen
 - Added SubscreensDefault entity and supporting code to override default
   subscreens by tenant and/or condition with database records
+- Now using the VERSION_2_3_23 version for FreeMarker instead of a
+  previous release compatibility version
+- Added methods to L10nFacade that accept a Locale when something other
+  than the current user's locale is needed
+- Multi Tenant
+  - Entity find and CrUD operations for entities in the tenantcommon group
+    are restricted to the DEFAULT instance, protects REST API and so on
+    regardless of admin permissions a tenant admin might assign
+  - Added tenants allowed on SubscreensItem entity and subscreens-item
+    element, makes more sense to filter apps by tenant than in screen
+  - Improvements to tenant provisioning services, new MySQL provisioning,
+    and enable/disable tenant services along with enable check on switch
+  - Added ALL_TENANTS option for scheduled services, set on system
+    maintenance services in quartz_data.xml by default; runs the service
+    for each known tenant (by moqui.tenant.Tenant records)
+- Entity Facade
+  - DB meta data (create tables, etc) and primary sequenced ID queries now
+    use a separate thread to run in a different transaction instead of
+    suspend/resume as some databases have issues with that, especially
+    nested which happens when service and framework code suspends
 
 Bug Fixes
 
 - Fixed issue with conditional default subscreen URL caching
 - Internal login from login/api key and async/scheduled services now checks
   for disabled accounts, expired passwords, etc just like normal login
+- Fixed issue with entity lists in TransactionCache, were not cloned so
+  new/updated records changed lists that calling code might use
+- Entities in the tenantcommon group no longer available for find and CrUD
+  operations outside the DEFAULT instance (protect tenant data)
 
 
 ===========================================================================

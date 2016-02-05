@@ -72,6 +72,6 @@ class ToolsRestApiTests extends Specification {
         "s1/moqui/basic/geos/USA" | "United States" | "Country"
         "s1/moqui/basic/geos/USA/regions" | "" | ""
         "s1/moqui/email/templates" | "PASSWORD_RESET" | "classpath://screen/PasswordReset.xml"
-        "s1/moqui/entity/syncs/EXAMPLE" | "Example sync to EXAMPLE1 tenant" | "example\\\\..*"
+        // TODO "s1/moqui/entity/syncs/EXAMPLE" | "Example sync to EXAMPLE1 tenant" | "example\\\\..*"
     }
 }
