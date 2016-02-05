@@ -11,6 +11,8 @@ TODO
 
 New Features
 
+- Changes to run tests without example component in place (now a component
+  separate from moqui-runtime), using the moqui.test and other entities
 - Added run-jackrabbit option to run Apache Jackrabbit locally when Moqui
   starts and stop is when Moqui stops, with conf/etc in runtime/jackrabbit
 - Added SubscreensDefault entity and supporting code to override default
