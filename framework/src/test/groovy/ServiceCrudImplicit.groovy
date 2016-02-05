@@ -39,51 +39,48 @@ class ServiceCrudImplicit extends Specification {
         ec.artifactExecution.enableAuthz()
     }
 
-    def "create and find Example SVCTST1 with service"() {
+    def "create and find TestEntity SVCTST1 with service"() {
         when:
-        // do a "store" to create or update
-        ec.service.sync().name("store#moqui.example.Example").parameters([exampleId:"SVCTST1", exampleName:"Test Name"]).call()
+        ec.service.sync().name("create#moqui.test.TestEntity").parameters([testId:"SVCTST1", testMedium:"Test Name"]).call()
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition([testId:"SVCTST1"]).one()
 
         then:
-        EntityValue example = ec.entity.find("moqui.example.Example").condition([exampleId:"SVCTST1"]).one()
-        example.exampleName == "Test Name"
+        testEntity.testMedium == "Test Name"
     }
 
-    def "update Example SVCTST1 with service"() {
+    def "update TestEntity SVCTST1 with service"() {
         when:
-        ec.service.sync().name("update#moqui.example.Example").parameters([exampleId:"SVCTST1", exampleName:"Test Name 2"]).call()
+        ec.service.sync().name("update#moqui.test.TestEntity").parameters([testId:"SVCTST1", testMedium:"Test Name 2"]).call()
+        EntityValue testEntityCheck = ec.entity.find("moqui.test.TestEntity").condition([testId:"SVCTST1"]).one()
 
         then:
-        EntityValue exampleCheck = ec.entity.find("moqui.example.Example").condition([exampleId:"SVCTST1"]).one()
-        exampleCheck.exampleName == "Test Name 2"
+        testEntityCheck.testMedium == "Test Name 2"
     }
 
-    def "store update Example SVCTST1 with service"() {
+    def "store update TestEntity SVCTST1 with service"() {
         when:
-        ec.service.sync().name("store#moqui.example.Example").parameters([exampleId:"SVCTST1", exampleName:"Test Name 3"]).call()
+        ec.service.sync().name("store#moqui.test.TestEntity").parameters([testId:"SVCTST1", testMedium:"Test Name 3"]).call()
+        EntityValue testEntityCheck = ec.entity.find("moqui.test.TestEntity").condition([testId:"SVCTST1"]).one()
 
         then:
-        EntityValue exampleCheck = ec.entity.find("moqui.example.Example").condition([exampleId:"SVCTST1"]).one()
-        exampleCheck.exampleName == "Test Name 3"
+        testEntityCheck.testMedium == "Test Name 3"
     }
 
-    def "delete Example SVCTST1 with service"() {
+    def "delete TestEntity SVCTST1 with service"() {
         when:
-        ec.service.sync().name("delete#moqui.example.Example").parameters([exampleId:"SVCTST1"]).call()
+        ec.service.sync().name("delete#moqui.test.TestEntity").parameters([testId:"SVCTST1"]).call()
+        EntityValue testEntityCheck = ec.entity.find("moqui.test.TestEntity").condition([testId:"SVCTST1"]).one()
 
         then:
-        EntityValue exampleCheck = ec.entity.find("moqui.example.Example").condition([exampleId:"SVCTST1"]).one()
-        exampleCheck == null
+        testEntityCheck == null
     }
 
-    /* No real point to this, muddies data
-    def "store create Example TEST_A with service"() {
+    def "store create TestEntity TEST_A with service"() {
         when:
-        ec.service.sync().name("store#moqui.example.Example").parameters([exampleId:"TEST_A", exampleName:"Test Name A"]).call()
+        ec.service.sync().name("store#moqui.test.TestEntity").parameters([testId:"SVCTSTA", testMedium:"Test Name A"]).call()
+        EntityValue testEntityCheck = ec.entity.find("moqui.test.TestEntity").condition([testId:"SVCTSTA"]).one()
 
         then:
-        EntityValue exampleCheck = ec.entity.find("moqui.example.Example").condition([exampleId:"TEST_A"]).one()
-        exampleCheck.exampleName == "Test Name A"
+        testEntityCheck.testMedium == "Test Name A"
     }
-    */
 }

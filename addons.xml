@@ -1,6 +1,11 @@
 <addons>
-    <!-- DO NOT MODIFY THIS FILE -->
-    <!-- To add or override repository, runtime, and component elements use a "myaddons.xml" file -->
+    <!--
+    ========== MODIFYING THIS FILE NOT RECOMMENDED ==========
+
+    Contains known open source Moqui components, those in the GitHub 'moqui' group and others.
+
+    To add or override repository, runtime, and component elements use a "myaddons.xml" file.
+    -->
 
     <repository name="github">
         <location type="current" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/${component.'@branch'}.zip"/>
@@ -15,6 +20,9 @@
 
     <!-- Where to get runtime directory if not present -->
     <runtime name="moqui-runtime" group="moqui" version="1.6.1" branch="master" repository="github"/>
+
+    <!-- Example Component -->
+    <component name="example" group="moqui" version="" branch="master" repository="github"/>
 
     <!-- Mantle Components -->
     <component name="mantle-udm" group="moqui" version="1.0.0" branch="master" repository="github"/>

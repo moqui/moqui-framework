@@ -47,8 +47,8 @@ class ResourceFacadeTests extends Specification {
 
         where:
         location | scheme | host | fileName | contentType | exists | isFile | isDirectory
-        "component://example/screen/ExampleApp.xml" | "file" | null | "ExampleApp.xml" | "text/xml" | true | true | false
-        "component://example/screen/ExampleAppFoo.xml" | "file" | null | "ExampleAppFoo.xml" | "text/xml" | false | false | false
+        "component://tools/screen/Tools.xml" | "file" | null | "Tools.xml" | "text/xml" | true | true | false
+        "component://tools/screen/ToolsFoo.xml" | "file" | null | "ToolsFoo.xml" | "text/xml" | false | false | false
         "classpath://entity/BasicEntities.xml" | "file" | null | "BasicEntities.xml" | "text/xml" | true | true | false
         "classpath://jta.properties" | "file" | null | "jta.properties" | "text/x-java-properties" | true | true | false
         "classpath://shiro.ini" | "file" | null | "shiro.ini" | "text/plain" | true | true | false
@@ -64,7 +64,7 @@ class ResourceFacadeTests extends Specification {
 
         where:
         location | contents
-        "component://example/screen/ExampleApp.xml" | "<subscreens default-item=\"Example\">"
+        "component://tools/screen/Tools.xml" | "<subscreens default-item=\"dashboard\">"
         "classpath://shiro.ini" | "org.moqui.impl.util.MoquiShiroRealm"
     }
 

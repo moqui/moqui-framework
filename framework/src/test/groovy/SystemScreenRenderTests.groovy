@@ -71,10 +71,10 @@ class SystemScreenRenderTests extends Specification {
         "dashboard" | "" | ""
 
         // ArtifactHit screens
-        "ArtifactHitSummary?artifactName=example&artifactName_op=contains" | "moqui.example.ExampleItem" | "entity"
-        "ArtifactHitBins?artifactName=example&artifactName_op=contains" | "moqui.example.Example" | "create"
+        "ArtifactHitSummary?artifactName=basic&artifactName_op=contains" | "moqui.basic.Enumeration" | "entity"
+        "ArtifactHitBins?artifactName=basic&artifactName_op=contains" | "moqui.basic.Enumeration" | "create"
         // AuditLog screen
-        "AuditLog?changedEntityName=example&changedEntityName_op=contains" | "statusId" | "EXST_IN_DESIGN"
+        // TODO "AuditLog?changedEntityName=example&changedEntityName_op=contains" | "statusId" | "EXST_IN_DESIGN"
         // Cache screens
         "Cache/CacheList" | "entity.definition" | "screen.location"
         "Cache/CacheElements?orderByField=key&cacheName=l10n.message" | "\${artifactName}::en_US" | "evictionStrategy"
@@ -86,8 +86,8 @@ class SystemScreenRenderTests extends Specification {
         "DataDocument/Export" | "" | ""
 
         // EntitySync screens
-        "EntitySync/EntitySyncList" | "Example sync" | ""
-        "EntitySync/EntitySyncDetail?entitySyncId=EXAMPLE" | "EXAMPLE1" | "moqui.example.ExampleItem"
+        // TODO "EntitySync/EntitySyncList" | "Example sync" | ""
+        // TODO "EntitySync/EntitySyncDetail?entitySyncId=EXAMPLE" | "EXAMPLE1" | "moqui.example.ExampleItem"
 
         // Localization screens
         "Localization/Messages" | "Add" | "Añadir"
@@ -110,12 +110,12 @@ class SystemScreenRenderTests extends Specification {
         "Scheduler/History" | "Job Scheduled" | "clean_ArtifactData_daily"
 
         // Security screens
-        "Security/UserAccount/UserAccountList" | "example.viewer" | "Example Limited User"
+        // TODO "Security/UserAccount/UserAccountList" | "example.viewer" | "Example Limited User"
         "Security/UserAccount/UserAccountDetail?userId=EX_JOHN_DOE" |
                 "john.doe@test.com" | "Administrators (full access)"
-        "Security/UserGroup/UserGroupList" | "Administrators (full access)" | "Example Viewers (view only)"
+        "Security/UserGroup/UserGroupList" | "Administrators (full access)" | ""
         "Security/UserGroup/UserGroupDetail?userGroupId=ADMIN" |
-                "ExamplePerm - Example Permission" | "System App (via root screen)"
+                "" | "System App (via root screen)"
         "Security/UserGroup/GroupUsers?userGroupId=ADMIN" | "john.doe - John Doe" | ""
         "Security/ArtifactGroup/ArtifactGroupList" | "All Screens" | ""
         "Security/ArtifactGroup/ArtifactGroupDetail?artifactGroupId=SYSTEM_APP" |
@@ -123,6 +123,7 @@ class SystemScreenRenderTests extends Specification {
 
         // SystemMessage screens
         // send a message using Tools/Service/ServiceRun (note that this does not work as an external URL, gets caught by security stuff)
+        /* TODO build alternative for these example tests:
         "../tools/Service/ServiceRun/run?serviceName=moqui.example.ExampleServices.produce#ExampleMessage&systemMessageRemoteId=Example1Direct&exampleId=TEST1" | "" | ""
         "SystemMessage/Message/SystemMessageList" | "Example Message" | "Example1Local"
         "SystemMessage/Message/SystemMessageDetail?systemMessageId=100000" | "Sent" | "100001"
@@ -135,11 +136,13 @@ class SystemScreenRenderTests extends Specification {
                 "moqui.example.ExampleServices.consume#ExampleMessage"
         "SystemMessage/Type/MessageTypeDetail?systemMessageTypeId=ExampleMessage" |
                 "Example Message" | "moqui.example.ExampleServices.produce#ExampleMessage"
+        */
 
         // Visit screens
-        // NOTE: this relies on demo data in the example component
+        /* TODO: this relies on demo data in the example component
         "Visit/VisitList" | "john.doe" | "apps/system/SystemMessage"
         "Visit/VisitDetail?visitId=EX_VISIT" | "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1)" |
                 "component://tools/screen/Tools/Service/ServiceRun.xml#run"
+        */
     }
 }
