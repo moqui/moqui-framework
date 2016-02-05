@@ -82,6 +82,7 @@ class L10nFacadeTests extends Specification {
         "GEOT_COUNTRY" | "es" | ""  | "Pa\u00EDs"
     }
 
+    /* TODO alternative for example
     def "localized message with variable expansion"() {
         // test localized message with variable expansion (ensure translate then expand)
         // NOTE: this relies on a LocalizedMessage record in ExampleL10nData.xml
@@ -89,6 +90,7 @@ class L10nFacadeTests extends Specification {
         ec.l10n.localize("Test expansion \${ec.user.locale} original") == "Test expansion \${ec.tenantId} localized"
         ec.resource.expand("Test expansion \${ec.user.locale} original", "") == "Test expansion DEFAULT localized"
     }
+    */
 
     def "format USD and GBP currency in US and UK locales"() {
         expect:

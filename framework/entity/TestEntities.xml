@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.6.xsd">
+
+    <!-- ========================================================= -->
+    <!-- moqui.test -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="TestEntity" package-name="moqui.test" sequence-bank-size="100">
+        <field name="testId" type="id-long" is-pk="true"/>
+        <field name="testMedium" type="text-medium"/>
+        <field name="testLong" type="text-long"/>
+        <field name="testIndicator" type="text-indicator"/>
+        <field name="testDate" type="date"/>
+        <field name="testDateTime" type="date-time"/>
+        <field name="testTime" type="time"/>
+        <field name="testNumberInteger" type="number-integer"/>
+        <field name="testNumberDecimal" type="number-decimal"/>
+        <field name="testNumberFloat" type="number-float"/>
+        <field name="testCurrencyAmount" type="currency-amount"/>
+        <field name="testCurrencyPrecise" type="currency-precise"/>
+    </entity>
+    <entity entity-name="TestNoSqlEntity" package-name="moqui.test" sequence-bank-size="100" group-name="nosql">
+        <field name="testId" type="id-long" is-pk="true"/>
+        <field name="testMedium" type="text-medium"/>
+        <field name="testLong" type="text-long"/>
+        <field name="testIndicator" type="text-indicator"/>
+        <field name="testDate" type="date"/>
+        <field name="testDateTime" type="date-time"/>
+        <field name="testTime" type="time"/>
+        <field name="testNumberInteger" type="number-integer"/>
+        <field name="testNumberDecimal" type="number-decimal"/>
+        <field name="testNumberFloat" type="number-float"/>
+        <field name="testCurrencyAmount" type="currency-amount"/>
+        <field name="testCurrencyPrecise" type="currency-precise"/>
+    </entity>
+</entities>

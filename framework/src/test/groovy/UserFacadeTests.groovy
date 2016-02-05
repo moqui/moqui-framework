@@ -100,11 +100,13 @@ class UserFacadeTests extends Specification {
         ec.user.isInGroup("ADMIN")
     }
 
+    /* TODO replacement for this
     def "check default admin group permission ExamplePerm"() {
         expect:
         ec.user.hasPermission("ExamplePerm")
         !ec.user.hasPermission("BogusPerm")
     }
+    */
 
     def "not in web context so no visit"() {
         expect:

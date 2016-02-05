@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
 import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.util.MoquiShiroRealm
 
 import java.security.SecureRandom
 import java.sql.Timestamp
@@ -438,7 +439,7 @@ class UserFacadeImpl implements UserFacade {
             eci.message.addError("No password specified")
             return false
         }
-        if (tenantId) {
+        if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
             this.visitId = null
             if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
@@ -490,6 +491,22 @@ class UserFacadeImpl implements UserFacade {
             eci.changeTenant(tenantId)
             this.visitId = null
             if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
+        }
+
+        // since this doesn't go through the Shiro realm and do validations, do them now
+        try {
+            EntityValue newUserAccount = MoquiShiroRealm.loginPrePassword(eci, username)
+            MoquiShiroRealm.loginPostPassword(eci, newUserAccount)
+            // don't save the history, this is used for async/scheduled service calls and often has ms time conflicts
+            // also used in REST and other API calls with login key, high volume and better not to save
+            // MoquiShiroRealm.loginAfterAlways(eci, (String) newUserAccount.userId, null, true)
+        } catch (AuthenticationException ae) {
+            // others to consider handling differently (these all inherit from AuthenticationException):
+            //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
+            //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
+            eci.message.addError(ae.message)
+            logger.warn("Login failure: ${eci.message.errorsString}", ae)
+            return false
         }
 
         // do this first so that the rest will be done as this user

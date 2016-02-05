@@ -16,7 +16,10 @@
             <group>org.moqui.impl.ServerServices.clean#ArtifactData</group>
             <description>Clean Artifact Data: ArtifactHit, ArtifactHitBin</description>
             <job-class>org.moqui.impl.service.ServiceQuartzJob</job-class>
-            <job-data-map><entry><key>daysToKeep</key><value>30</value></entry></job-data-map>
+            <job-data-map>
+                <entry><key>daysToKeep</key><value>30</value></entry>
+                <entry><key>ALL_TENANTS</key><value>true</value></entry>
+            </job-data-map>
         </job>
         <trigger>
             <cron>
@@ -34,7 +37,10 @@
             <group>org.moqui.impl.ServiceServices.clean#SchedulerHistory</group>
             <description>Clean SchedulerHistory Data</description>
             <job-class>org.moqui.impl.service.ServiceQuartzJob</job-class>
-            <job-data-map><entry><key>daysToKeep</key><value>7</value></entry></job-data-map>
+            <job-data-map>
+                <entry><key>daysToKeep</key><value>7</value></entry>
+                <entry><key>ALL_TENANTS</key><value>true</value></entry>
+            </job-data-map>
         </job>
         <trigger>
             <cron>
@@ -46,6 +52,7 @@
             </cron>
         </trigger>
     </schedule>
+
     <!-- Uncomment this to run the EntitySync job
     <schedule>
         <job>
@@ -53,6 +60,9 @@
             <group>org.moqui.impl.EntitySyncServices.run#EntitySyncAll</group>
             <description>Run All EntitySync</description>
             <job-class>org.moqui.impl.service.ServiceQuartzJob</job-class>
+            <job-data-map>
+                <entry><key>ALL_TENANTS</key><value>true</value></entry>
+            </job-data-map>
         </job>
         <trigger>
             <cron>
@@ -73,6 +83,9 @@
             <group>org.moqui.impl.SystemMessageServices.send#AllProducedSystemMessages</group>
             <description>Send All Produced SystemMessages</description>
             <job-class>org.moqui.impl.service.ServiceQuartzJob</job-class>
+            <job-data-map>
+                <entry><key>ALL_TENANTS</key><value>true</value></entry>
+            </job-data-map>
         </job>
         <trigger>
             <cron>
@@ -90,6 +103,9 @@
             <group>org.moqui.impl.SystemMessageServices.consume#AllReceivedSystemMessages</group>
             <description>Consume All Received SystemMessages</description>
             <job-class>org.moqui.impl.service.ServiceQuartzJob</job-class>
+            <job-data-map>
+                <entry><key>ALL_TENANTS</key><value>true</value></entry>
+            </job-data-map>
         </job>
         <trigger>
             <cron>
@@ -107,18 +123,21 @@
     <schedule>
         <job>
             <name>poll_EmailServer_single</name>
-            <group>org.moqui.impl.EntitySyncServices.poll#EmailServer</group>
+            <group>org.moqui.impl.EmailServices.poll#EmailServer</group>
             <description>Run All EntitySync</description>
             <job-class>org.moqui.impl.service.ServiceQuartzJob</job-class>
-            <job-data-map><entry><key>emailServerId</key><value>SYSTEM</value></entry></job-data-map>
+            <job-data-map>
+                <entry><key>emailServerId</key><value>SYSTEM</value></entry>
+                <entry><key>ALL_TENANTS</key><value>true</value></entry>
+            </job-data-map>
         </job>
         <trigger>
             <cron>
                 <name>poll_EmailServer_frequent</name>
                 <group>EntitySyncServices</group>
                 <job-name>poll_EmailServer_single</job-name>
-                <job-group>org.moqui.impl.EntitySyncServices.poll#EmailServer</job-group>
-                <cron-expression>0 0/15 * * * ?</cron-expression>
+                <job-group>org.moqui.impl.EmailServices.poll#EmailServer</job-group>
+                <cron-expression>0 0/1 * * * ?</cron-expression>
             </cron>
         </trigger>
     </schedule>

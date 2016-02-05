@@ -22,6 +22,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="tenantName" type="text-medium"/>
         <field name="isEnabled" type="text-indicator"/>
+        <field name="disabledDate" type="date-time"/>
 
         <!-- Localization Defaults -->
         <field name="defaultCurrencyUomId" type="id"/>
@@ -81,14 +82,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="jndiName" type="text-medium"/>
         <field name="jdbcUri" type="text-medium"/>
         <field name="jdbcUsername" type="text-medium"/>
-        <field name="jdbcPassword" type="text-medium"/>
+        <field name="jdbcPassword" type="text-medium" encrypt="true"/>
+        <field name="defaultToConfProps" type="text-indicator"><description>If Y and using XA properties, copy any
+            properties not specified in TenantDataSourceXaProp from the XML conf element</description></field>
         <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
     </entity>
     <entity entity-name="TenantDataSourceXaProp" package-name="moqui.tenant" group-name="tenantcommon">
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="entityGroupName" type="text-medium" is-pk="true"/>
         <field name="propName" type="text-medium" is-pk="true"/>
-        <field name="propValue" type="text-medium"/>
+        <field name="propValue" type="text-medium" encrypt="true"/>
         <relationship type="one" related-entity-name="moqui.tenant.TenantDataSource"/>
     </entity>
     <entity entity-name="TenantHostDefault" package-name="moqui.tenant" group-name="tenantcommon">
