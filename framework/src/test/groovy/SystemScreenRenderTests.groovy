@@ -70,24 +70,14 @@ class SystemScreenRenderTests extends Specification {
         screenPath | containsText1 | containsText2
         "dashboard" | "" | ""
 
+        // NOTE: see AuditLog, DataDocument, EntitySync, SystemMessage, Visit screen tests in SystemScreenRenderTests in the example component
+
         // ArtifactHit screens
         "ArtifactHitSummary?artifactName=basic&artifactName_op=contains" | "moqui.basic.Enumeration" | "entity"
         "ArtifactHitBins?artifactName=basic&artifactName_op=contains" | "moqui.basic.Enumeration" | "create"
-        // AuditLog screen
-        // TODO "AuditLog?changedEntityName=example&changedEntityName_op=contains" | "statusId" | "EXST_IN_DESIGN"
         // Cache screens
         "Cache/CacheList" | "entity.definition" | "screen.location"
         "Cache/CacheElements?orderByField=key&cacheName=l10n.message" | "\${artifactName}::en_US" | "evictionStrategy"
-
-        // DataDocument screens
-        // NOTE: nothing specific to test in DataDocument screens unless at least mantle is in place
-        "DataDocument/Search" | "" | ""
-        "DataDocument/Index" | "" | ""
-        "DataDocument/Export" | "" | ""
-
-        // EntitySync screens
-        // TODO "EntitySync/EntitySyncList" | "Example sync" | ""
-        // TODO "EntitySync/EntitySyncDetail?entitySyncId=EXAMPLE" | "EXAMPLE1" | "moqui.example.ExampleItem"
 
         // Localization screens
         "Localization/Messages" | "Add" | "Añadir"
@@ -110,7 +100,7 @@ class SystemScreenRenderTests extends Specification {
         "Scheduler/History" | "Job Scheduled" | "clean_ArtifactData_daily"
 
         // Security screens
-        // TODO "Security/UserAccount/UserAccountList" | "example.viewer" | "Example Limited User"
+        "Security/UserAccount/UserAccountList" | "john.doe" | "John Doe"
         "Security/UserAccount/UserAccountDetail?userId=EX_JOHN_DOE" |
                 "john.doe@test.com" | "Administrators (full access)"
         "Security/UserGroup/UserGroupList" | "Administrators (full access)" | ""
@@ -120,29 +110,5 @@ class SystemScreenRenderTests extends Specification {
         "Security/ArtifactGroup/ArtifactGroupList" | "All Screens" | ""
         "Security/ArtifactGroup/ArtifactGroupDetail?artifactGroupId=SYSTEM_APP" |
                 "component://tools/screen/System.xml" | "Administrators (full access)"
-
-        // SystemMessage screens
-        // send a message using Tools/Service/ServiceRun (note that this does not work as an external URL, gets caught by security stuff)
-        /* TODO build alternative for these example tests:
-        "../tools/Service/ServiceRun/run?serviceName=moqui.example.ExampleServices.produce#ExampleMessage&systemMessageRemoteId=Example1Direct&exampleId=TEST1" | "" | ""
-        "SystemMessage/Message/SystemMessageList" | "Example Message" | "Example1Local"
-        "SystemMessage/Message/SystemMessageDetail?systemMessageId=100000" | "Sent" | "100001"
-        "SystemMessage/Message/SystemMessageDetail/EditMessageText?systemMessageId=100000" |
-                "Test Example Name" | "EXST_IN_DESIGN"
-        "SystemMessage/Remote/MessageRemoteList" | "Example Local" | "john.doe"
-        "SystemMessage/Remote/MessageRemoteDetail?systemMessageRemoteId=Example1Local" |
-                "Example Local" | "http://localhost:8080/rpc/json"
-        "SystemMessage/Type/MessageTypeList" | "Example Message" |
-                "moqui.example.ExampleServices.consume#ExampleMessage"
-        "SystemMessage/Type/MessageTypeDetail?systemMessageTypeId=ExampleMessage" |
-                "Example Message" | "moqui.example.ExampleServices.produce#ExampleMessage"
-        */
-
-        // Visit screens
-        /* TODO: this relies on demo data in the example component
-        "Visit/VisitList" | "john.doe" | "apps/system/SystemMessage"
-        "Visit/VisitDetail?visitId=EX_VISIT" | "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1)" |
-                "component://tools/screen/Tools/Service/ServiceRun.xml#run"
-        */
     }
 }
