@@ -416,7 +416,7 @@ abstract class EntityValueBase implements EntityValue {
             //     after the line that calls put() in the EntityDefinition.setString() method; theory is that groovy
             //     is doing something that results in fields getting set to null, probably a call to a method on
             //     EntityValueBase or EntityValueImpl that is not expected to be called
-            EntityFind ef = getEntityFacadeImpl().find(getEntityName()).condition(otherPkMap)
+            EntityFind ef = getEntityFacadeImpl().find(getEntityName()).selectField(seqFieldName).condition(otherPkMap)
             // logger.warn("TOREMOVE in setSequencedIdSecondary ef WHERE=${ef.getWhereEntityCondition()}")
             allValues = ef.list()
         } finally {
