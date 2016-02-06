@@ -26,7 +26,7 @@ import java.util.jar.Manifest;
 public class StupidClassLoader extends ClassLoader {
     public static final Map<String, Class<?>> commonJavaClassesMap = createCommonJavaClassesMap();
     protected static Map<String, Class<?>> createCommonJavaClassesMap() {
-        Map<String, Class<?>> m = new HashMap<String, Class<?>>();
+        Map<String, Class<?>> m = new HashMap<>();
         m.put("java.lang.String",java.lang.String.class); m.put("String", java.lang.String.class);
         m.put("java.lang.CharSequence",java.lang.CharSequence.class); m.put("CharSequence", java.lang.CharSequence.class);
         m.put("java.sql.Timestamp", java.sql.Timestamp.class); m.put("Timestamp", java.sql.Timestamp.class);

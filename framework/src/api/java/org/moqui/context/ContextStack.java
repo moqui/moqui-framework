@@ -19,8 +19,8 @@ public class ContextStack implements Map<String, Object> {
     protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ContextStack.class);
 
     // Using ArrayList for more efficient iterating, this alone eliminate about 40% of the run time in get()
-    protected final ArrayList<ArrayList<Map<String, Object>>> contextStack = new ArrayList<ArrayList<Map<String, Object>>>();
-    protected ArrayList<Map<String, Object>> stackList = new ArrayList<Map<String, Object>>();
+    protected final ArrayList<ArrayList<Map<String, Object>>> contextStack = new ArrayList<>();
+    protected ArrayList<Map<String, Object>> stackList = new ArrayList<>();
     protected Map<String, Object> firstMap = null;
 
     public ContextStack() {
@@ -31,7 +31,7 @@ public class ContextStack implements Map<String, Object> {
     /** Push (save) the entire context, ie the whole Map stack, to create an isolated empty context. */
     public ContextStack pushContext() {
         contextStack.add(0, stackList);
-        stackList = new ArrayList<Map<String, Object>>();
+        stackList = new ArrayList<>();
         firstMap = null;
         push();
         return this;
@@ -48,7 +48,7 @@ public class ContextStack implements Map<String, Object> {
      * @return Returns reference to this ContextStack
      */
     public ContextStack push() {
-        Map<String, Object> newMap = new HashMap<String, Object>();
+        Map<String, Object> newMap = new HashMap<>();
         stackList.add(0, newMap);
         firstMap = newMap;
         return this;
@@ -125,7 +125,7 @@ public class ContextStack implements Map<String, Object> {
     public boolean containsValue(Object value) {
         // this keeps track of keys looked at for values at each level of the stack so that the same key is not
         // considered more than once (the earlier Maps overriding later ones)
-        Set<Object> keysObserved = new HashSet<Object>();
+        Set<Object> keysObserved = new HashSet<>();
         int size = stackList.size();
         for (int i = 0; i < size; i++) {
             Map<String, Object> curMap = stackList.get(i);
@@ -200,7 +200,7 @@ public class ContextStack implements Map<String, Object> {
     public void clear() { firstMap.clear(); }
 
     public Set<String> keySet() {
-        Set<String> resultSet = new HashSet<String>();
+        Set<String> resultSet = new HashSet<>();
         resultSet.add("context");
         int size = stackList.size();
         for (int i = 0; i < size; i++) {
@@ -211,8 +211,8 @@ public class ContextStack implements Map<String, Object> {
     }
 
     public Collection<Object> values() {
-        Set<Object> keysObserved = new HashSet<Object>();
-        List<Object> resultValues = new LinkedList<Object>();
+        Set<Object> keysObserved = new HashSet<>();
+        List<Object> resultValues = new LinkedList<>();
         int size = stackList.size();
         for (int i = 0; i < size; i++) {
             Map<String, Object> curMap = stackList.get(i);
@@ -228,8 +228,8 @@ public class ContextStack implements Map<String, Object> {
 
     /** @see java.util.Map#entrySet() */
     public Set<Map.Entry<String, Object>> entrySet() {
-        Set<Object> keysObserved = new HashSet<Object>();
-        Set<Map.Entry<String, Object>> resultEntrySet = new HashSet<Map.Entry<String, Object>>();
+        Set<Object> keysObserved = new HashSet<>();
+        Set<Map.Entry<String, Object>> resultEntrySet = new HashSet<>();
         int size = stackList.size();
         for (int i = 0; i < size; i++) {
             Map<String, Object> curMap = stackList.get(i);
