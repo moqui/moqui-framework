@@ -100,4 +100,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="allowOverride" type="text-indicator"/>
         <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
     </entity>
+    <view-entity entity-name="TenantAndHostDefault" package-name="moqui.tenant">
+        <member-entity entity-alias="TNT" entity-name="moqui.tenant.Tenant"/>
+        <member-entity entity-alias="THD" entity-name="moqui.tenant.TenantHostDefault" join-from-alias="TNT">
+            <key-map field-name="tenantId"/></member-entity>
+        <alias-all entity-alias="TNT"/><alias-all entity-alias="THD"/>
+    </view-entity>
 </entities>
