@@ -342,7 +342,7 @@ class ScreenRenderImpl implements ScreenRender {
                 }
             }
 
-            if (ri == null) throw new IllegalArgumentException("No response found for transition [${screenUrlInstance.targetTransition.name}] on screen [${screenUrlInfo.targetScreen.location}]")
+            if (ri == null) throw new IllegalArgumentException("No response found for transition [${screenUrlInstance.targetTransition.name}] on screen ${screenUrlInfo.targetScreen.location}")
 
             if (ri.saveCurrentScreen && ec.getWeb() != null) {
                 StringBuilder screenPath = new StringBuilder()
@@ -350,7 +350,10 @@ class ScreenRenderImpl implements ScreenRender {
                 ((WebFacadeImpl) ec.getWeb()).saveScreenLastInfo(screenPath.toString(), null)
             }
 
-            if (ri.type == "none") return
+            if (ri.type == "none") {
+                logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds.")
+                return
+            }
 
             String url = ri.url ?: ""
             String urlType = ri.urlType ?: "screen-path"
