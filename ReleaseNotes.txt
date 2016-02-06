@@ -9,6 +9,12 @@ Moqui Framework 1.6.2 is a minor new feature and bug fix release.
 
 TODO
 
+Non Backward Compatible Changes
+
+- Removed the TenantCurrency, TenantLocale, TenantTimeZone, and
+  TenantCountry entities; they aren't generally used and better not to have
+  business settings in these restricted technical config entities
+
 New Features
 
 - Changes to run tests without example component in place (now a component
