@@ -181,7 +181,7 @@ class ExecutionContextImpl implements ExecutionContext {
         String sessionTenantId = request.session.getAttribute("moqui.tenantId")
         if (!sessionTenantId) {
             EntityValue tenantHostDefault = ecfi.getEntityFacade("DEFAULT").find("moqui.tenant.TenantHostDefault")
-                    .condition("hostName", request.getServerName()).useCache(true).disableAuthz().one()
+                    .condition("hostName", wfi.getHostName(false)).useCache(true).disableAuthz().one()
             if (tenantHostDefault) {
                 sessionTenantId = tenantHostDefault.tenantId
                 request.session.setAttribute("moqui.tenantId", sessionTenantId)
