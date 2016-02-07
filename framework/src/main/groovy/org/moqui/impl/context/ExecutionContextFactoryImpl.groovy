@@ -82,9 +82,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<String, ComponentInfo>()
     protected ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<ExecutionContextImpl>()
     protected Map<String, EntityFacadeImpl> entityFacadeByTenantMap = new HashMap<String, EntityFacadeImpl>()
-    protected Map<String, WebappInfo> webappInfoMap = new HashMap()
+    protected Map<String, WebappInfo> webappInfoMap = new HashMap<>()
     protected List<NotificationMessageListener> registeredNotificationMessageListeners = []
+
     protected Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
+    protected Map<String, Boolean> artifactTypeAuthzEnabled = new HashMap<>()
+    protected Map<String, Boolean> artifactTypeTarpitEnabled = new HashMap<>()
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
@@ -993,6 +996,27 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             artifactPersistBinByType.put(cacheKey, pb)
         }
         return pb
+    }
+
+    @CompileStatic
+    boolean isAuthzEnabled(String artifactTypeEnumId) {
+        Boolean en = artifactTypeAuthzEnabled.get(artifactTypeEnumId)
+        if (en == null) {
+            Node aeNode = getArtifactExecutionNode(artifactTypeEnumId)
+            en = aeNode != null ? !(aeNode.attribute('authz-enabled') == "false") : true
+            artifactTypeAuthzEnabled.put(artifactTypeEnumId, en)
+        }
+        return en
+    }
+    @CompileStatic
+    boolean isTarpitEnabled(String artifactTypeEnumId) {
+        Boolean en = artifactTypeTarpitEnabled.get(artifactTypeEnumId)
+        if (en == null) {
+            Node aeNode = getArtifactExecutionNode(artifactTypeEnumId)
+            en = aeNode != null ? !(aeNode.attribute('tarpit-enabled') == "false") : true
+            artifactTypeTarpitEnabled.put(artifactTypeEnumId, en)
+        }
+        return en
     }
 
     protected Node getArtifactStatsNode(String artifactType, String artifactSubType) {

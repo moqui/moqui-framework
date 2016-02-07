@@ -41,6 +41,7 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected ContextStack context = new ContextStack()
     protected String activeTenantId = "DEFAULT"
+    protected LinkedList<String> tenantIdStack = null
 
     protected WebFacade webFacade = null
     protected UserFacadeImpl userFacade = null
@@ -54,7 +55,7 @@ class ExecutionContextImpl implements ExecutionContext {
         // NOTE: no WebFacade init here, wait for call in to do that
         // NOTE: don't init userFacade, messageFacade, artifactExecutionFacade here, lazy init when first used instead
         // put reference to this in the context root
-        contextRoot.put("ec", this)
+        getContextRoot().put("ec", this)
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl initialized")
     }
@@ -149,7 +150,7 @@ class ExecutionContextImpl implements ExecutionContext {
     }
     @Override
     void registerNotificationMessageListener(NotificationMessageListener nml) {
-        getEcfi().registerNotificationMessageListener(nml)
+        ecfi.registerNotificationMessageListener(nml)
     }
 
 
@@ -216,12 +217,11 @@ class ExecutionContextImpl implements ExecutionContext {
         return skipStats
     }
 
-    final LinkedList<String> tenantIdStack = new LinkedList<String>()
     @Override
     boolean changeTenant(String tenantId) {
-        if (tenantId == this.activeTenantId) return false
+        if (tenantId == activeTenantId) return false
 
-        logger.info("Changing to tenant ${tenantId} (from tenant ${this.activeTenantId})")
+        logger.info("Changing to tenant ${tenantId} (from tenant ${activeTenantId})")
         EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
         EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(true).one()
         if (tenant == null) throw new BaseException("Tenant not found with ID ${tenantId}")
@@ -229,15 +229,22 @@ class ExecutionContextImpl implements ExecutionContext {
 
         // make sure an entity facade instance for the tenant exists
         ecfi.getEntityFacade(tenantId)
+
         // check for moqui.tenantAllowOverride flag set elsewhere
         if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
             throw new BaseException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
+
         // logout the current user, won't be valid in other tenant
         if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
-        this.activeTenantId = tenantId
-        this.tenantIdStack.addFirst(tenantId)
+
+        activeTenantId = tenantId
+        if (tenantIdStack == null) {
+            tenantIdStack = new LinkedList<>()
+            tenantIdStack.addFirst(tenantId)
+        } else {
+            if (tenantIdStack.size() > 0 && tenantIdStack.getFirst() != tenantId) tenantIdStack.addFirst(tenantId)
+        }
         if (webFacade != null) webFacade.session.setAttribute("moqui.tenantId", tenantId)
-        if (loggerDirect.isTraceEnabled()) loggerDirect.trace("Changed tenant to ${tenantId}")
         return true
     }
     @Override
@@ -267,5 +274,5 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    String toString() { return "ExecutionContext" }
+    String toString() { return "ExecutionContext in tenant ${activeTenantId}" }
 }

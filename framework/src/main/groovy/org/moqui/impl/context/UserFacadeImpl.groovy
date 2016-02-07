@@ -66,7 +66,7 @@ class UserFacadeImpl implements UserFacade {
     protected String noUserCurrencyUomId = null
     // if one of these is set before login, set it on the account on login? probably best not...
 
-    protected final Map<String, Object> userContext = [:]
+    protected Map<String, Object> userContext = null
 
     protected Calendar calendarForTzLcOnly = null
 
@@ -375,7 +375,10 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    Map<String, Object> getContext() { return userContext }
+    Map<String, Object> getContext() {
+        if (userContext == null) userContext = new HashMap<>()
+        return userContext
+    }
 
     @Override
     Timestamp getNowTimestamp() {
