@@ -37,13 +37,8 @@ import java.sql.Connection
 /** This is a per-transaction cache that basically pretends to be the database for the scope of the transaction.
  * Test your code well when using this as it doesn't support everything.
  *
- * Some known limitations:
- * - find list and iterate don't cache results (but do filter and add to results aside from limitations below)
- * - EntityListIterator.getPartialList() and iterating through results with next/previous does not add created values
- * - find with DB limit will return wrong number of values if deleted values were in the results
- * - find count doesn't add for created values, subtract for deleted values, and for updates if old matched and new doesn't subtract and vice-versa
- * - view-entities won't work, they don't incorporate results from TX Cache
- * - if a value is created or update, then a record with FK is created, then the value is updated again commit writes may fail with FK violation (see update() method for other notes)
+ * See notes on limitations in the JavaDoc for ServiceCallSync.useTransactionCache()
+ *
  */
 @CompileStatic
 class TransactionCache implements Synchronization {

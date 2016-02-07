@@ -37,6 +37,12 @@ New Features
     use a separate thread to run in a different transaction instead of
     suspend/resume as some databases have issues with that, especially
     nested which happens when service and framework code suspends
+- Service Facade
+  - Added separateThread option to sync service call as an alternative to
+    requireNewTransaction which does a suspend/resume, runs service in a
+    separate thread and waits for the service to complete
+  - Added service.@semaphore-parameter attribute which creates a distinct
+    semaphore per value of that parameter
 
 Bug Fixes
 
