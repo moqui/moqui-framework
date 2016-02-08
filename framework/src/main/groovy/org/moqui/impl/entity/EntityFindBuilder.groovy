@@ -18,6 +18,8 @@ import groovy.transform.CompileStatic
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 import org.moqui.entity.EntityException
 
 import org.slf4j.Logger
@@ -60,7 +62,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
     void makeDistinct() { this.sqlTopLevel.append("DISTINCT ") }
 
-    void makeCountFunction(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
+    void makeCountFunction(ArrayList<FieldInfo> fieldInfoList) {
         NodeList entityConditionList = (NodeList) this.mainEntityDefinition.getEntityNode().get("entity-condition")
         Node entityConditionNode = entityConditionList ? (Node) entityConditionList.get(0) : null
         boolean isDistinct = this.entityFindBase.getDistinct() || (this.mainEntityDefinition.isViewEntity() &&
@@ -105,38 +107,23 @@ class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    // protected static final int openParenInt = Character.getNumericValue('(' as char)
-    // protected static final int caretInt = Character.getNumericValue('^' as char)
-    void makeSqlSelectFields(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
+    void makeSqlSelectFields(ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) {
         int size = fieldInfoList.size()
         if (size > 0) {
             for (int i = 0; i < size; i++) {
-                EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+                FieldInfo fi = fieldInfoList.get(i)
                 if (fi.isUserField) continue
 
-                /* no longer supported, don't believe was ever used anyway:
-                FieldOrderOptions foo = null
-                if (fieldName.indexOf(openParenInt) >= 0 || fieldName.indexOf(caretInt) >= 0) {
-                    foo = new FieldOrderOptions(fieldNameFull)
-                    fieldName = foo.fieldName
-                }
-
-                int typeValue = 1
-                EntityDefinition.FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName)
-                if (fieldInfo == null) throw new EntityException("Making SELECT clause, could not find field [${fieldName}] in entity [${getMainEd().getFullEntityName()}]")
-                typeValue = fieldInfo.typeValue
-
-                if (foo != null && foo.caseUpperLower != null && typeValue == 1)
-                    this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
-                */
-
                 if (i > 0) this.sqlTopLevel.append(", ")
+
+                FieldOrderOptions foo = fieldOptionsList != null ? fieldOptionsList.get(i) : null
+                if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1)
+                    this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+
                 this.sqlTopLevel.append(fi.getFullColumnName(false))
 
-                /*
-                if (foo != null && foo.caseUpperLower != null && typeValue == 1)
+                if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1)
                     this.sqlTopLevel.append(")")
-                */
             }
         } else {
             this.sqlTopLevel.append("*")
@@ -162,10 +149,10 @@ class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    void makeSqlFromClause(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
+    void makeSqlFromClause(ArrayList<FieldInfo> fieldInfoList) {
         makeSqlFromClause(this.mainEntityDefinition, fieldInfoList, this.sqlTopLevel, null)
     }
-    void makeSqlFromClause(EntityDefinition localEntityDefinition, ArrayList<EntityDefinition.FieldInfo> fieldInfoList,
+    void makeSqlFromClause(EntityDefinition localEntityDefinition, ArrayList<FieldInfo> fieldInfoList,
                            StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ")
 
@@ -193,7 +180,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 ((EntityConditionImplBase) entityFindBase.havingEntityCondition).getAllAliases(entityAliasUsedSet, fieldUsedSet)
 
             for (int i = 0; i < fieldInfoList.size(); i++) {
-                EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+                FieldInfo fi = fieldInfoList.get(i)
                 if (!fi.isUserField) fieldUsedSet.add(fi.name)
             }
 
@@ -359,7 +346,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
     /* void makeSqlViewTableName(StringBuilder localBuilder) {
         makeSqlViewTableName(this.mainEntityDefinition, localBuilder)
     } */
-    void makeSqlViewTableName(EntityDefinition localEntityDefinition, ArrayList<EntityDefinition.FieldInfo> fieldInfoList, StringBuilder localBuilder) {
+    void makeSqlViewTableName(EntityDefinition localEntityDefinition, ArrayList<FieldInfo> fieldInfoList, StringBuilder localBuilder) {
         if (localEntityDefinition.isViewEntity()) {
             localBuilder.append("(SELECT ")
 
@@ -414,7 +401,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
         this.sqlTopLevel.append(" WHERE ")
     }
 
-    void makeGroupByClause(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
+    void makeGroupByClause(ArrayList<FieldInfo> fieldInfoList) {
         if (this.mainEntityDefinition.isViewEntity()) {
             StringBuilder gbClause = new StringBuilder()
             if (this.mainEntityDefinition.hasFunctionAlias()) {
@@ -446,22 +433,23 @@ class EntityFindBuilder extends EntityQueryBuilder {
         this.sqlTopLevel.append(" HAVING ")
     }
 
-    void makeOrderByClause(List orderByFieldList) {
+    void makeOrderByClause(ArrayList<String> orderByFieldList) {
         if (orderByFieldList) {
             this.sqlTopLevel.append(" ORDER BY ")
         }
-        boolean isFirst = true
-        for (String fieldName in orderByFieldList) {
-            if (!fieldName) continue
+        int obflSize = orderByFieldList.size()
+        for (int i = 0; i < obflSize; i++) {
+            String fieldName = orderByFieldList.get(i)
+            if (fieldName == null || fieldName.length() == 0) continue
 
-            if (isFirst) isFirst = false else this.sqlTopLevel.append(", ")
+            if (i > 0) this.sqlTopLevel.append(", ")
 
             // Parse the fieldName (can have other stuff in it, need to tear down to just the field name)
             FieldOrderOptions foo = new FieldOrderOptions(fieldName)
             fieldName = foo.fieldName
 
             int typeValue = 1
-            EntityDefinition.FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName)
+            FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName)
             if (fieldInfo != null) {
                 typeValue = fieldInfo.typeValue
             } else {

@@ -23,6 +23,8 @@ import org.moqui.entity.EntityDynamicView
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -37,7 +39,7 @@ class EntityFindImpl extends EntityFindBase {
 
     @Override
     EntityDynamicView makeEntityDynamicView() {
-        if (this.dynamicView) return this.dynamicView
+        if (this.dynamicView != null) return this.dynamicView
         this.dynamicView = new EntityDynamicViewImpl(this)
         return this.dynamicView
     }
@@ -45,7 +47,8 @@ class EntityFindImpl extends EntityFindBase {
     // ======================== Run Find Methods ==============================
 
     @Override
-    EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<EntityDefinition.FieldInfo> fieldInfoList) throws EntityException {
+    EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<FieldInfo> fieldInfoList,
+                                ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
         EntityDefinition ed = this.getEntityDef()
 
         // table doesn't exist, just return null
@@ -54,7 +57,7 @@ class EntityFindImpl extends EntityFindBase {
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 
         // SELECT fields
-        efb.makeSqlSelectFields(fieldInfoList)
+        efb.makeSqlSelectFields(fieldInfoList, fieldOptionsList)
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoList)
 
@@ -86,7 +89,7 @@ class EntityFindImpl extends EntityFindBase {
                 newEntityValue = new EntityValueImpl(this.entityDef, this.efi)
                 int size = fieldInfoList.size()
                 for (int i = 0; i < size; i++) {
-                    EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+                    FieldInfo fi = fieldInfoList.get(i)
                     if (fi.isUserField) continue
                     EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, this.efi)
                 }
@@ -107,7 +110,8 @@ class EntityFindImpl extends EntityFindBase {
 
     @Override
     EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                                        List<String> orderByExpanded, ArrayList<EntityDefinition.FieldInfo> fieldInfoList) throws EntityException {
+                                        ArrayList<String> orderByExpanded, ArrayList<FieldInfo> fieldInfoList,
+                                        ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
         EntityDefinition ed = this.getEntityDef()
 
         // table doesn't exist, just return empty ELI
@@ -117,7 +121,7 @@ class EntityFindImpl extends EntityFindBase {
         if (this.getDistinct()) efb.makeDistinct()
 
         // select fields
-        efb.makeSqlSelectFields(fieldInfoList)
+        efb.makeSqlSelectFields(fieldInfoList, fieldOptionsList)
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoList)
 
@@ -170,7 +174,7 @@ class EntityFindImpl extends EntityFindBase {
 
     @Override
     long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                       ArrayList<EntityDefinition.FieldInfo> fieldInfoList) throws EntityException {
+                       ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
         EntityDefinition ed = this.getEntityDef()
 
         // table doesn't exist, just return 0
