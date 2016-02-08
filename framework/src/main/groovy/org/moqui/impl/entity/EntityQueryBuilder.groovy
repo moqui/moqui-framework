@@ -20,16 +20,10 @@ import org.moqui.impl.StupidJavaUtilities
 import org.moqui.entity.EntityException
 import org.moqui.impl.entity.EntityDefinition.FieldInfo
 
-import java.nio.ByteBuffer
-import java.sql.Blob
-import java.sql.Clob
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.SQLException
-import java.sql.Time
-import java.sql.Timestamp
-import java.sql.Types
 
 import javax.crypto.Cipher
 import javax.crypto.SecretKey

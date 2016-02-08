@@ -112,6 +112,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
         if (size > 0) {
             for (int i = 0; i < size; i++) {
                 EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+                if (fi.isUserField) continue
 
                 /* no longer supported, don't believe was ever used anyway:
                 FieldOrderOptions foo = null
@@ -191,7 +192,10 @@ class EntityFindBuilder extends EntityQueryBuilder {
             if (entityFindBase.havingEntityCondition != null)
                 ((EntityConditionImplBase) entityFindBase.havingEntityCondition).getAllAliases(entityAliasUsedSet, fieldUsedSet)
 
-            for (int i = 0; i < fieldInfoList.size(); i++) fieldUsedSet.add(fieldInfoList.get(i).name)
+            for (int i = 0; i < fieldInfoList.size(); i++) {
+                EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+                if (!fi.isUserField) fieldUsedSet.add(fi.name)
+            }
 
             if (entityFindBase.orderByFields) for (String orderByField in entityFindBase.orderByFields) {
                 FieldOrderOptions foo = new FieldOrderOptions(orderByField)
