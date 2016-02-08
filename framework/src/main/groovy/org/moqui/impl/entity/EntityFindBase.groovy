@@ -46,7 +46,8 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityConditionImplBase whereEntityCondition = null
     protected EntityConditionImplBase havingEntityCondition = null
 
-    protected ArrayList<String> fieldsToSelect = null
+    // always initialize this as it's always used in finds (even if populated with default of all fields)
+    protected ArrayList<String> fieldsToSelect = new ArrayList<>()
     protected List<String> orderByFields = null
 
     protected Boolean useCache = null
@@ -441,8 +442,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind selectField(String fieldToSelect) {
-        if (!fieldToSelect) return this
-        if (this.fieldsToSelect == null) this.fieldsToSelect = new ArrayList<String>()
+        if (fieldToSelect == null || fieldToSelect.length() == 0) return this
         if (fieldToSelect.contains(",")) {
             for (String ftsPart in fieldToSelect.split(",")) {
                 String selectName = ftsPart.trim()
@@ -466,16 +466,16 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind orderBy(String orderByFieldName) {
-        if (!orderByFieldName) return this
+        if (orderByFieldName == null || orderByFieldName.length() == 0) return this
         if (this.orderByFields == null) this.orderByFields = new ArrayList()
         if (orderByFieldName.contains(",")) {
             for (String obsPart in orderByFieldName.split(",")) {
                 String orderByName = obsPart.trim()
-                EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByName)
+                EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByName)
                 if (getEntityDef().isField(foo.fieldName)) this.orderByFields.add(orderByName)
             }
         } else {
-            EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByFieldName)
+            EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByFieldName)
             if (getEntityDef().isField(foo.fieldName)) this.orderByFields.add(orderByFieldName)
         }
         return this
@@ -625,7 +625,7 @@ abstract class EntityFindBase implements EntityFind {
         }
     }
     protected EntityValue oneInternal(ExecutionContextImpl ec) throws EntityException {
-        if (this.dynamicView) throw new IllegalArgumentException("Dynamic View not supported for 'one' find.")
+        if (this.dynamicView != null) throw new IllegalArgumentException("Dynamic View not supported for 'one' find.")
 
         long startTime = System.currentTimeMillis()
         long startTimeNanos = System.nanoTime()
@@ -652,7 +652,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // no condition means no condition/parameter set, so return null for find.one()
-        if (!whereCondition) return null
+        if (whereCondition == null) return null
 
         // try the TX cache before the entity cache, may be more up-to-date
         EntityValueBase txcValue = txCache != null ? txCache.oneGet(this) : null
@@ -665,8 +665,8 @@ abstract class EntityFindBase implements EntityFind {
         if (doCache && txcValue == null) cacheHit = efi.getEntityCache().getFromOneCache(ed, whereCondition, entityOneCache)
 
         // we always want fieldsToSelect populated so that we know the order of the results coming back
-        if (!this.fieldsToSelect || (txCache != null && txcValue == null) || (doCache && cacheHit == null))
-            this.selectFields(ed.getFieldNames(true, true, false))
+        if (this.fieldsToSelect.size() == 0 || (txCache != null && txcValue == null) || (doCache && cacheHit == null))
+            this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
 
 
         // if (ed.getEntityName() == "Asset") logger.warn("=========== find one of Asset ${this.simpleAndMap.get('assetId')}", new Exception("Location"))
@@ -823,15 +823,17 @@ abstract class EntityFindBase implements EntityFind {
             el = cacheList
         } else {
             // order by fields need to be selected (at least on some databases, Derby is one of them)
-            if (this.fieldsToSelect && getDistinct() && orderByExpanded) {
+            if (getDistinct() && this.fieldsToSelect.size() > 0 && orderByExpanded) {
                 for (String orderByField in orderByExpanded) {
-                    //EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByField)
+                    //EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByField)
                     //fieldsToSelect.add(foo.fieldName)
                     fieldsToSelect.add(orderByField)
                 }
             }
             // we always want fieldsToSelect populated so that we know the order of the results coming back
-            if (!this.fieldsToSelect || txCache != null || doEntityCache) this.selectFields(ed.getFieldNames(true, true, false))
+            if (this.fieldsToSelect.size() == 0 || txCache != null || doEntityCache)
+                this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
+
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
             EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
@@ -934,7 +936,7 @@ abstract class EntityFindBase implements EntityFind {
         if (entityConditionNode?.attribute('distinct') == "true") this.distinct(true)
 
         // order by fields need to be selected (at least on some databases, Derby is one of them)
-        if (this.fieldsToSelect && getDistinct() && orderByExpanded) {
+        if (getDistinct() && this.fieldsToSelect != null && this.fieldsToSelect.size() > 0 && orderByExpanded) {
             for (String orderByField in orderByExpanded) {
                 //EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByField)
                 //fieldsToSelect.add(foo.fieldName)
@@ -942,7 +944,7 @@ abstract class EntityFindBase implements EntityFind {
             }
         }
         // we always want fieldsToSelect populated so that we know the order of the results coming back
-        if (!this.fieldsToSelect) this.selectFields(ed.getFieldNames(true, true, false))
+        if (this.fieldsToSelect.size() == 0) this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
         // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
@@ -1026,7 +1028,7 @@ abstract class EntityFindBase implements EntityFind {
             count = cacheCount
         } else {
             // select all pk and nonpk fields to match what list() or iterator() would do
-            if (!this.fieldsToSelect) this.selectFields(ed.getFieldNames(true, true, false))
+            if (this.fieldsToSelect.size() == 0) this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
             NodeList entityConditionList = (NodeList) entityNode.get("entity-condition")

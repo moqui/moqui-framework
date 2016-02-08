@@ -521,4 +521,95 @@ class EntityQueryBuilder {
             throw new EntityException("Error while setting value: " + e.toString(), e)
         }
     }
+
+    @CompileStatic
+    static class FieldOrderOptions {
+        protected final static char spaceChar = ' ' as char
+        protected final static char minusChar = '-' as char
+        protected final static char plusChar = '+' as char
+        protected final static char caretChar = '^' as char
+        protected final static char openParenChar = '(' as char
+        protected final static char closeParenChar = ')' as char
+
+        String fieldName = null
+        Boolean nullsFirstLast = null
+        boolean descending = false
+        Boolean caseUpperLower = null
+
+        FieldOrderOptions(String orderByName) {
+            StringBuilder fnSb = new StringBuilder(40)
+            // simple first parse pass, single run through and as fast as possible
+            boolean containsSpace = false
+            boolean foundNonSpace = false
+            boolean containsOpenParen = false
+            int obnLength = orderByName.length()
+            for (int i = 0; i < obnLength; i++) {
+                char curChar = orderByName.charAt(i)
+                if (curChar == spaceChar) {
+                    if (foundNonSpace) {
+                        containsSpace = true
+                        fnSb.append(curChar)
+                    }
+                    // otherwise ignore the space
+                } else {
+                    // leading characters (-,+,^), don't consider them non-spaces so we'll remove spaces after
+                    if (curChar == minusChar) {
+                        descending = true
+                    } else if (curChar == plusChar) {
+                        descending = false
+                    } else if (curChar == caretChar) {
+                        caseUpperLower = true
+                    } else {
+                        foundNonSpace = true
+                        fnSb.append(curChar)
+                        if (curChar == openParenChar) containsOpenParen = true
+                    }
+                }
+            }
+
+            if (fnSb.length() == 0) return
+
+            if (containsSpace) {
+                // trim ending spaces
+                while (fnSb.charAt(fnSb.length() - 1) == spaceChar) fnSb.delete(fnSb.length() - 1, fnSb.length())
+
+                String orderByUpper = fnSb.toString().toUpperCase()
+                int fnSbLength = fnSb.length()
+                if (orderByUpper.endsWith(" NULLS FIRST")) {
+                    nullsFirstLast = true
+                    fnSb.delete(fnSbLength - 12, fnSbLength)
+                    // remove from orderByUpper as we'll use it below
+                    orderByUpper = orderByUpper.substring(0, orderByName.length() - 12)
+                } else if (orderByUpper.endsWith(" NULLS LAST")) {
+                    nullsFirstLast = false
+                    fnSb.delete(fnSbLength - 11, fnSbLength)
+                    // remove from orderByUpper as we'll use it below
+                    orderByUpper = orderByUpper.substring(0, orderByName.length() - 11)
+                }
+
+                fnSbLength = fnSb.length()
+                if (orderByUpper.endsWith(" DESC")) {
+                    descending = true
+                    fnSb.delete(fnSbLength - 5, fnSbLength)
+                } else if (orderByUpper.endsWith(" ASC")) {
+                    descending = false
+                    fnSb.delete(fnSbLength - 4, fnSbLength)
+                }
+            }
+            if (containsOpenParen) {
+                String upperText = fnSb.toString().toUpperCase()
+                if (upperText.startsWith("UPPER(")) {
+                    caseUpperLower = true
+                    fnSb.delete(0, 6)
+                } else if (upperText.startsWith("LOWER(")) {
+                    caseUpperLower = false
+                    fnSb.delete(0, 6)
+                }
+                int fnSbLength = fnSb.length()
+                if (fnSb.charAt(fnSbLength - 1) == closeParenChar) fnSb.delete(fnSbLength - 1, fnSbLength)
+            }
+
+            fieldName = fnSb.toString()
+        }
+    }
 }

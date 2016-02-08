@@ -819,13 +819,15 @@ public class EntityDefinition {
 
     @CompileStatic
     boolean containsPrimaryKey(Map fields) {
-        if (!fields) return false
+        // low level code, avoid Groovy booleanUnbox
+        if (fields == null || fields.size() == 0) return false
         ArrayList<String> fieldNameList = this.getPkFieldNames()
         if (!fieldNameList) return false
         int size = fieldNameList.size()
         for (int i = 0; i < size; i++) {
             String fieldName = fieldNameList.get(i)
-            if (!fields.get(fieldName)) return false
+            Object fieldValue = fields.get(fieldName)
+            if (StupidUtilities.isEmpty(fieldValue)) return false
         }
         return true
     }

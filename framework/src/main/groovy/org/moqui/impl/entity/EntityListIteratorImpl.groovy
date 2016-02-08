@@ -136,7 +136,7 @@ class EntityListIteratorImpl implements EntityListIterator {
         int size = fieldsSelected.size()
         for (int i = 0; i < size; i++) {
             String fieldNameFull = fieldsSelected.get(i)
-            EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(fieldNameFull)
+            EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(fieldNameFull)
             String fieldName = foo.fieldName
 
             EntityQueryBuilder.getResultSetValue(rs, i+1, entityDefinition.getFieldInfo(fieldName), newEntityValue, efi)

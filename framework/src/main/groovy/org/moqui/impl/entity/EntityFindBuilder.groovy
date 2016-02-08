@@ -106,23 +106,33 @@ class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
+    protected static final int openParenInt = Character.getNumericValue('(' as char)
+    protected static final int caretInt = Character.getNumericValue('^' as char)
     void makeSqlSelectFields(ArrayList<String> fieldsToSelect) {
         if (fieldsToSelect.size() > 0) {
             int size = fieldsToSelect.size()
             for (int i = 0; i < size; i++) {
                 String fieldNameFull = fieldsToSelect.get(i)
-                FieldOrderOptions foo = new FieldOrderOptions(fieldNameFull)
-                String fieldName = foo.fieldName
+                String fieldName = fieldNameFull
+                FieldOrderOptions foo = null
+                if (fieldName.indexOf(openParenInt) >= 0 || fieldName.indexOf(caretInt) >= 0) {
+                    foo = new FieldOrderOptions(fieldNameFull)
+                    fieldName = foo.fieldName
+                }
+
                 int typeValue = 1
                 EntityDefinition.FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName)
                 if (fieldInfo == null) throw new EntityException("Making SELECT clause, could not find field [${fieldName}] in entity [${getMainEd().getFullEntityName()}]")
-
                 typeValue = fieldInfo.typeValue
 
                 if (i > 0) this.sqlTopLevel.append(", ")
-                if (foo.caseUpperLower != null && typeValue == 1) this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+                if (foo != null && foo.caseUpperLower != null && typeValue == 1)
+                    this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+
                 this.sqlTopLevel.append(fieldInfo.getFullColumnName(false))
-                if (foo.caseUpperLower != null && typeValue == 1) this.sqlTopLevel.append(")")
+
+                if (foo != null && foo.caseUpperLower != null && typeValue == 1)
+                    this.sqlTopLevel.append(")")
             }
         } else {
             this.sqlTopLevel.append("*")
@@ -451,96 +461,6 @@ class EntityFindBuilder extends EntityQueryBuilder {
             this.sqlTopLevel.append(foo.descending ? " DESC" : " ASC")
 
             if (foo.nullsFirstLast != null) this.sqlTopLevel.append(foo.nullsFirstLast ? " NULLS FIRST" : " NULLS LAST")
-        }
-    }
-
-    protected final static char spaceChar = ' ' as char
-    protected final static char minusChar = '-' as char
-    protected final static char plusChar = '+' as char
-    protected final static char caretChar = '^' as char
-    protected final static char openParenChar = '(' as char
-    protected final static char closeParenChar = ')' as char
-    @CompileStatic
-    static class FieldOrderOptions {
-        String fieldName = null
-        Boolean nullsFirstLast = null
-        boolean descending = false
-        Boolean caseUpperLower = null
-
-        FieldOrderOptions(String orderByName) {
-            StringBuilder fnSb = new StringBuilder(40)
-            // simple first parse pass, single run through and as fast as possible
-            boolean containsSpace = false
-            boolean foundNonSpace = false
-            boolean containsOpenParen = false
-            int obnLength = orderByName.length()
-            for (int i = 0; i < obnLength; i++) {
-                char curChar = orderByName.charAt(i)
-                if (curChar == spaceChar) {
-                    if (foundNonSpace) {
-                        containsSpace = true
-                        fnSb.append(curChar)
-                    }
-                    // otherwise ignore the space
-                } else {
-                    // leading characters (-,+,^), don't consider them non-spaces so we'll remove spaces after
-                    if (curChar == minusChar) {
-                        descending = true
-                    } else if (curChar == plusChar) {
-                        descending = false
-                    } else if (curChar == caretChar) {
-                        caseUpperLower = true
-                    } else {
-                        foundNonSpace = true
-                        fnSb.append(curChar)
-                        if (curChar == openParenChar) containsOpenParen = true
-                    }
-                }
-            }
-
-            if (fnSb.length() == 0) return
-
-            if (containsSpace) {
-                // trim ending spaces
-                while (fnSb.charAt(fnSb.length() - 1) == spaceChar) fnSb.delete(fnSb.length() - 1, fnSb.length())
-
-                String orderByUpper = fnSb.toString().toUpperCase()
-                int fnSbLength = fnSb.length()
-                if (orderByUpper.endsWith(" NULLS FIRST")) {
-                    nullsFirstLast = true
-                    fnSb.delete(fnSbLength - 12, fnSbLength)
-                    // remove from orderByUpper as we'll use it below
-                    orderByUpper = orderByUpper.substring(0, orderByName.length() - 12)
-                } else if (orderByUpper.endsWith(" NULLS LAST")) {
-                    nullsFirstLast = false
-                    fnSb.delete(fnSbLength - 11, fnSbLength)
-                    // remove from orderByUpper as we'll use it below
-                    orderByUpper = orderByUpper.substring(0, orderByName.length() - 11)
-                }
-
-                fnSbLength = fnSb.length()
-                if (orderByUpper.endsWith(" DESC")) {
-                    descending = true
-                    fnSb.delete(fnSbLength - 5, fnSbLength)
-                } else if (orderByUpper.endsWith(" ASC")) {
-                    descending = false
-                    fnSb.delete(fnSbLength - 4, fnSbLength)
-                }
-            }
-            if (containsOpenParen) {
-                String upperText = fnSb.toString().toUpperCase()
-                if (upperText.startsWith("UPPER(")) {
-                    caseUpperLower = true
-                    fnSb.delete(0, 6)
-                } else if (upperText.startsWith("LOWER(")) {
-                    caseUpperLower = false
-                    fnSb.delete(0, 6)
-                }
-                int fnSbLength = fnSb.length()
-                if (fnSb.charAt(fnSbLength - 1) == closeParenChar) fnSb.delete(fnSbLength - 1, fnSbLength)
-            }
-
-            fieldName = fnSb.toString()
         }
     }
 
