@@ -14,6 +14,8 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
+import groovy.transform.TypeCheckingMode
 import org.apache.commons.codec.binary.Base64
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.impl.StupidUtilities
@@ -38,6 +40,7 @@ import org.moqui.BaseException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 public class EntityDefinition {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDefinition.class)
 
@@ -83,15 +86,20 @@ public class EntityDefinition {
         this.efi = efi
         // copy the entityNode because we may be modifying it
         this.internalEntityNode = StupidUtilities.deepCopyNode(entityNode)
-        this.internalEntityName = (internalEntityNode."@entity-name").intern()
-        this.fullEntityName = (internalEntityNode."@package-name" + "." + this.internalEntityName).intern()
-        this.shortAlias = internalEntityNode."@short-alias" ?: null
-        this.sequencePrimaryPrefix = internalEntityNode."@sequence-primary-prefix" ?: ""
-        if (internalEntityNode."@sequence-primary-stagger")
-            this.sequencePrimaryStagger = internalEntityNode."@sequence-primary-stagger" as long
-        if (internalEntityNode."@sequence-bank-size")
-            this.sequenceBankSize = internalEntityNode."@sequence-bank-size" as long
+        this.internalEntityName = ((String) internalEntityNode.attribute("entity-name")).intern()
+        this.fullEntityName = ((String) internalEntityNode.attribute("package-name") + "." + this.internalEntityName).intern()
+        this.shortAlias = internalEntityNode.attribute("short-alias") ?: null
+        this.sequencePrimaryPrefix = internalEntityNode.attribute("sequence-primary-prefix") ?: ""
+        if (internalEntityNode.attribute("sequence-primary-stagger"))
+            this.sequencePrimaryStagger = internalEntityNode.attribute("sequence-primary-stagger") as long
+        if (internalEntityNode.attribute("sequence-bank-size"))
+            this.sequenceBankSize = internalEntityNode.attribute("sequence-bank-size") as long
 
+        postInit()
+    }
+
+    @TypeChecked(TypeCheckingMode.SKIP)
+    void postInit() {
         if (isViewEntity()) {
             memberEntityFieldAliases = [:]
             memberEntityAliasMap = [:]
@@ -136,14 +144,14 @@ public class EntityDefinition {
                 fieldInfoMap.put(fieldName, new FieldInfo(this, aliasNode))
             }
         } else {
-            if (internalEntityNode."@no-update-stamp" != "true") {
+            if (internalEntityNode.attribute("no-update-stamp") != "true") {
                 // automatically add the lastUpdatedStamp field
                 internalEntityNode.appendNode("field", [name:"lastUpdatedStamp", type:"date-time"])
             }
-            if (internalEntityNode."@allow-user-field" == "true") allowUserField = true
+            if (internalEntityNode.attribute("allow-user-field") == "true") allowUserField = true
 
             for (Node fieldNode in this.internalEntityNode.field) {
-                String fieldName = (String) fieldNode."@name"
+                String fieldName = (String) fieldNode.attribute("name")
                 fieldNodeMap.put(fieldName, fieldNode)
                 fieldInfoMap.put(fieldName, new FieldInfo(this, fieldNode))
             }
@@ -165,12 +173,14 @@ public class EntityDefinition {
         if (isView == null) isView = (this.internalEntityNode.name() == "view-entity")
         return isView.booleanValue()
     }
+    @TypeChecked(TypeCheckingMode.SKIP)
     boolean hasFunctionAlias() { return isViewEntity() && this.internalEntityNode."alias".find({ it."@function" }) }
     @CompileStatic
     Map<String, ArrayList<Node>> getMemberFieldAliases(String memberEntityName) {
         return memberEntityFieldAliases?.get(memberEntityName)
     }
 
+    @TypeChecked(TypeCheckingMode.SKIP)
     String getEntityGroupName() {
         if (groupName == null) {
             if (internalEntityNode."@is-dynamic-view" == "true") {
@@ -497,7 +507,7 @@ public class EntityDefinition {
         if (!this.expandedRelationshipList) {
             // make sure this is done before as this isn't done by default
             if (!hasReverseRelationships) efi.createAllAutoReverseManyRelationships()
-            this.expandedRelationshipList = this.internalEntityNode."relationship"
+            this.expandedRelationshipList = this.internalEntityNode.getAt("relationship") as List<Node>
         }
 
         List<RelationshipInfo> infoList = []
@@ -508,6 +518,7 @@ public class EntityDefinition {
         relationshipInfoList = infoList
     }
 
+    @CompileStatic
     static class RelationshipInfo {
         String type
         boolean isTypeOne
@@ -526,11 +537,17 @@ public class EntityDefinition {
 
         RelationshipInfo(Node relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
             this.relNode = relNode
+            this.fromEd = fromEd
+            postInit(efi)
+        }
+
+        // getting weird runtime errors if this is CompileStatic
+        @TypeChecked(TypeCheckingMode.SKIP)
+        void postInit(EntityFacadeImpl efi) {
             type = relNode.attribute('type')
             isTypeOne = type.startsWith("one")
             title = relNode.attribute('title') ?: ''
             relatedEntityName = relNode.attribute('related-entity-name')
-            this.fromEd = fromEd
             relatedEd = efi.getEntityDefinition(relatedEntityName)
             if (relatedEd == null) throw new EntityNotFoundException("Invalid entity relationship, ${relatedEntityName} not found in definition for entity ${getFullEntityName()}")
             relatedEntityName = relatedEd.getFullEntityName()
@@ -549,6 +566,7 @@ public class EntityDefinition {
             }
         }
 
+        @TypeChecked(TypeCheckingMode.SKIP)
         private boolean hasReverse() {
             Node reverseRelNode = (Node) relatedEd.internalEntityNode."relationship".find(
                     { ((it."@related-entity-name" == fromEd.internalEntityName || it."@related-entity-name" == fromEd.fullEntityName)
@@ -582,6 +600,7 @@ public class EntityDefinition {
         if (masterDefinitionMap == null) makeMasterDefinitionMap()
         return masterDefinitionMap
     }
+    @TypeChecked(TypeCheckingMode.SKIP)
     private synchronized void makeMasterDefinitionMap() {
         Map<String, MasterDefinition> defMap = [:]
         for (Node masterNode in internalEntityNode."master") {
@@ -742,7 +761,7 @@ public class EntityDefinition {
     protected String getBasicFieldColName(Node entityNode, String entityAlias, String fieldName) {
         Node memberEntity = memberEntityAliasMap.get(entityAlias)
         if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias [${entityAlias}] in view-entity [${getFullEntityName()}]")
-        EntityDefinition memberEd = this.efi.getEntityDefinition((String) memberEntity."@entity-name")
+        EntityDefinition memberEd = this.efi.getEntityDefinition((String) memberEntity.attribute("entity-name"))
         return memberEd.getColumnName(fieldName, false)
     }
 
@@ -753,13 +772,13 @@ public class EntityDefinition {
             if (isFirst) isFirst=false else colNameBuilder.append(' ').append(operator).append(' ')
 
             if (childNode.name() == "complex-alias") {
-                buildComplexAliasName(childNode, (String) childNode."@operator", colNameBuilder)
+                buildComplexAliasName(childNode, (String) childNode.attribute("operator"), colNameBuilder)
             } else if (childNode.name() == "complex-alias-field") {
-                String entityAlias = childNode."@entity-alias"
-                String basicColName = getBasicFieldColName(internalEntityNode, entityAlias, (String) childNode."@field")
+                String entityAlias = childNode.attribute("entity-alias")
+                String basicColName = getBasicFieldColName(internalEntityNode, entityAlias, (String) childNode.attribute("field"))
                 String colName = entityAlias + "." + basicColName
-                String defaultValue = childNode."@default-value"
-                String function = childNode."@function"
+                String defaultValue = childNode.attribute("default-value")
+                String function = childNode.attribute("function")
 
                 if (defaultValue) {
                     colName = "COALESCE(" + colName + "," + defaultValue + ")"
@@ -1005,7 +1024,7 @@ public class EntityDefinition {
              [name:'orderByField', in:'query', required:false, type:'string', description:'Field name to order by (or comma separated names)'],
              [name:'pageNoLimit', in:'query', required:false, type:'string', description:'If true don\'t limit page size (no pagination)'],
              [name:'dependentLevels', in:'query', required:false, type:'number', format:'int32', description:'Levels of dependent child records to include']
-            ]
+            ] as List<Map>
 
     @CompileStatic
     List<String> getFieldEnums(FieldInfo fi) {
@@ -1209,10 +1228,9 @@ public class EntityDefinition {
         }
 
         Map properties = [:]
-        Map<String, Object> typeMap = [displayName:prettyName, type:'object', properties:properties]
+        Map<String, Object> typeMap = [displayName:prettyName, type:'object', properties:properties] as Map<String, Object>
 
-        if (typesMap != null && !typesMap.containsKey(name))
-            typesMap.put(refName, typeMap)
+        if (typesMap != null && !typesMap.containsKey(name)) typesMap.put(refName, typeMap)
 
         // add field properties
         ArrayList<String> allFields = pkOnly ? getPkFieldNames() : getAllFieldNames(true)
@@ -1388,7 +1406,7 @@ public class EntityDefinition {
         String nodeName = this.isViewEntity() ? "alias" : "field"
         for (Object nodeObj in (NodeList) this.internalEntityNode.get(nodeName)) {
             Node node = (Node) nodeObj
-            if ((includePk && node."@is-pk" == "true") || (includeNonPk && node."@is-pk" != "true")) {
+            if ((includePk && node.attribute("is-pk") == "true") || (includeNonPk && node.attribute("is-pk") != "true")) {
                 nodeList.add(node)
             }
         }
@@ -1414,6 +1432,7 @@ public class EntityDefinition {
         return nodeList
     }
 
+    @TypeChecked(TypeCheckingMode.SKIP)
     Map getMePkFieldToAliasNameMap(String entityAlias) {
         if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new HashMap<String, Map>()
         Map mePkFieldToAliasNameMap = mePkFieldToAliasNameMapMap.get(entityAlias)
@@ -1691,6 +1710,7 @@ public class EntityDefinition {
         return outValue
     }
 
+    @TypeChecked(TypeCheckingMode.SKIP)
     protected void expandAliasAlls() {
         if (!isViewEntity()) return
         for (Node aliasAll: this.internalEntityNode."alias-all") {
@@ -1764,12 +1784,14 @@ public class EntityDefinition {
         }
     }
 
+    @TypeChecked(TypeCheckingMode.SKIP)
     EntityConditionImplBase makeViewWhereCondition() {
         if (!this.isViewEntity()) return null
         // add the view-entity.entity-condition.econdition(s)
         Node entityCondition = (Node) this.internalEntityNode."entity-condition"[0]
         return makeViewListCondition(entityCondition)
     }
+    @TypeChecked(TypeCheckingMode.SKIP)
     protected EntityConditionImplBase makeViewListCondition(Node conditionsParent) {
         if (conditionsParent == null) return null
         List<EntityConditionImplBase> condList = new ArrayList()
@@ -1835,6 +1857,7 @@ public class EntityDefinition {
         return entityCondition
     }
 
+    @TypeChecked(TypeCheckingMode.SKIP)
     EntityConditionImplBase makeViewHavingCondition() {
         if (!this.isViewEntity()) return null
         // add the view-entity.entity-condition.having-econditions

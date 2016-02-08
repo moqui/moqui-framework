@@ -83,7 +83,7 @@ abstract class EntityValueBase implements EntityValue {
         return efi
     }
     TransactionCache getTxCache() {
-        if (txCache == null) txCache = (TransactionCache) efi.getEcfi().getTransactionFacade().getActiveSynchronization("TransactionCache")
+        if (txCache == null) txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
         return txCache
     }
 

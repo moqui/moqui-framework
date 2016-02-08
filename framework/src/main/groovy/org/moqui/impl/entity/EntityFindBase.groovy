@@ -47,7 +47,7 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityConditionImplBase havingEntityCondition = null
 
     // always initialize this as it's always used in finds (even if populated with default of all fields)
-    protected ArrayList<String> fieldsToSelect = new ArrayList<>()
+    protected ArrayList<String> fieldsToSelect = new ArrayList<String>()
     protected List<String> orderByFields = null
 
     protected Boolean useCache = null
@@ -67,7 +67,7 @@ abstract class EntityFindBase implements EntityFind {
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
-        this.txCache = (TransactionCache) efi.getEcfi().getTransactionFacade().getActiveSynchronization("TransactionCache")
+        this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
     }
 
     EntityFacadeImpl getEfi() { return efi }

@@ -56,7 +56,7 @@ class EntityListIteratorImpl implements EntityListIterator {
         this.rs = rs
         this.entityDefinition = entityDefinition
         this.fieldsSelected = fieldsSelected
-        this.txCache = (TransactionCache) efi.getEcfi().getTransactionFacade().getActiveSynchronization("TransactionCache")
+        this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
     }
 
     void setQueryCondition(EntityCondition ec) { this.queryCondition = ec }

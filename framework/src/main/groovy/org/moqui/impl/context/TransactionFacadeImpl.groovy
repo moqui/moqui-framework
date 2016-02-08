@@ -28,6 +28,7 @@ import javax.naming.InitialContext
 import javax.naming.NamingException
 import javax.sql.XAConnection
 import javax.transaction.*
+import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
 import java.sql.Connection
 import java.sql.SQLException
@@ -290,11 +291,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
             if (isTransactionInPlace()) rollback("Commit failed, rolling back to clean up", null)
 
-            txStackInfo.rollbackOnlyInfo = null
-            txStackInfo.transactionBegin = null
-            txStackInfo.transactionBeginStartTime = null
-            txStackInfo.activeXaResourceMap.clear()
-            txStackInfo.activeSynchronizationMap.clear()
+            txStackInfo.clearCurrent()
         }
     }
 
@@ -328,11 +325,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             // NOTE: should this really be in finally? maybe we only want to do this if there is a successful rollback
             // to avoid removing things that should still be there, or maybe here in finally it will match up the adds
             // and removes better
-            txStackInfo.rollbackOnlyInfo = null
-            txStackInfo.transactionBegin = null
-            txStackInfo.transactionBeginStartTime = null
-            txStackInfo.activeXaResourceMap.clear()
-            txStackInfo.activeSynchronizationMap.clear()
+            getTxStackInfo().clearCurrent()
         }
     }
 
@@ -458,18 +451,28 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void initTransactionCache() {
-        if (useTransactionCache && !isTransactionCacheActive()) {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        if (useTransactionCache && txStackInfo.txCache == null) {
             if (logger.isInfoEnabled()) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
                 for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append("\n").append(infoAei)
                 logger.info(infoString.toString())
             }
-            new TransactionCache(this.ecfi).enlist()
+
+            TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
+            if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
+            Transaction tx = tm.getTransaction()
+            if (tx == null) throw new XAException(XAException.XAER_NOTA)
+
+            TransactionCache txCache = new TransactionCache(this.ecfi, tx)
+            txStackInfo.txCache = txCache
+            registerSynchronization(txCache)
         }
     }
     @Override
-    boolean isTransactionCacheActive() { return getActiveSynchronization("TransactionCache") != null }
+    boolean isTransactionCacheActive() { return getTxStackInfo().txCache != null }
+    TransactionCache getTransactionCache() { return getTxStackInfo().txCache }
 
     @CompileStatic
     static class RollbackInfo {
@@ -495,8 +498,17 @@ class TransactionFacadeImpl implements TransactionFacade {
         Exception suspendedTxLocation = null
         protected Map<String, XAResource> activeXaResourceMap = [:]
         protected Map<String, Synchronization> activeSynchronizationMap = [:]
+        TransactionCache txCache = null
         Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap }
         Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap }
+        void clearCurrent() {
+            rollbackOnlyInfo = null
+            transactionBegin = null
+            transactionBeginStartTime = null
+            activeXaResourceMap.clear()
+            activeSynchronizationMap.clear()
+            txCache = null
+        }
     }
 
     // ========== Initialize/Populate Methods ==========
