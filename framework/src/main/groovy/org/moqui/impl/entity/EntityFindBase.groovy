@@ -671,7 +671,9 @@ abstract class EntityFindBase implements EntityFind {
         } else {
             fieldInfoList = new ArrayList(ftsSize)
             for (int i = 0; i < ftsSize; i++) {
-                FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                String fieldName = this.fieldsToSelect.get(i)
+                FieldInfo fi = ed.getFieldInfo(fieldName)
+                if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
                 fieldInfoList.add(fi)
             }
         }
@@ -849,7 +851,9 @@ abstract class EntityFindBase implements EntityFind {
             } else {
                 fieldInfoList = new ArrayList(ftsSize)
                 for (int i = 0; i < ftsSize; i++) {
-                    FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                    String fieldName = this.fieldsToSelect.get(i)
+                    FieldInfo fi = ed.getFieldInfo(fieldName)
+                    if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
                     fieldInfoList.add(fi)
                 }
             }
@@ -956,7 +960,7 @@ abstract class EntityFindBase implements EntityFind {
         if (entityConditionNode?.attribute('distinct') == "true") this.distinct(true)
 
         // order by fields need to be selected (at least on some databases, Derby is one of them)
-        if (getDistinct() && this.fieldsToSelect != null && this.fieldsToSelect.size() > 0 && orderByExpanded) {
+        if (getDistinct() && this.fieldsToSelect.size() > 0 && orderByExpanded) {
             for (String orderByField in orderByExpanded) {
                 //EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByField)
                 //fieldsToSelect.add(foo.fieldName)
@@ -972,7 +976,9 @@ abstract class EntityFindBase implements EntityFind {
         } else {
             fieldInfoList = new ArrayList(ftsSize)
             for (int i = 0; i < ftsSize; i++) {
-                FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                String fieldName = this.fieldsToSelect.get(i)
+                FieldInfo fi = ed.getFieldInfo(fieldName)
+                if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
                 fieldInfoList.add(fi)
             }
         }
@@ -1067,7 +1073,9 @@ abstract class EntityFindBase implements EntityFind {
             } else {
                 fieldInfoList = new ArrayList(ftsSize)
                 for (int i = 0; i < ftsSize; i++) {
-                    FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                    String fieldName = this.fieldsToSelect.get(i)
+                    FieldInfo fi = ed.getFieldInfo(fieldName)
+                    if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
                     fieldInfoList.add(fi)
                 }
             }
