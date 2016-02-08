@@ -82,7 +82,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind condition(String fieldName, Object value) {
-        if (!this.simpleAndMap) this.simpleAndMap = new LinkedHashMap()
+        if (this.simpleAndMap == null) this.simpleAndMap = new LinkedHashMap()
         this.simpleAndMap.put(fieldName, value)
         return this
     }
@@ -106,7 +106,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind condition(Map<String, Object> fields) {
-        if (!fields) return this
+        if (fields == null || fields.size() == 0) return this
         if (this.simpleAndMap == null) this.simpleAndMap = new HashMap<String, Object>()
         getEntityDef().setFields(fields, this.simpleAndMap, true, null, null)
         return this
@@ -154,7 +154,7 @@ abstract class EntityFindBase implements EntityFind {
             }
         }
 
-        if (whereEntityCondition) {
+        if (whereEntityCondition != null) {
             // use ListCondition instead of ANDing two at a time to avoid a bunch of nested ANDs
             if (whereEntityCondition instanceof ListCondition &&
                     ((ListCondition) whereEntityCondition).getOperator() == EntityCondition.AND) {
@@ -179,8 +179,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind havingCondition(EntityCondition condition) {
-        if (!condition) return this
-        if (havingEntityCondition) {
+        if (condition == null) return this
+        if (havingEntityCondition != null) {
             // use ListCondition instead of ANDing two at a time to avoid a bunch of nested ANDs
             if (havingEntityCondition instanceof ListCondition) {
                 ((ListCondition) havingEntityCondition).addCondition((EntityConditionImplBase) condition)
@@ -198,7 +198,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityCondition getWhereEntityCondition() {
-        if (this.simpleAndMap) {
+        if (this.simpleAndMap != null && this.simpleAndMap.size() > 0) {
             EntityConditionImplBase simpleAndMapCond = this.efi.conditionFactoryImpl
                     .makeCondition(this.simpleAndMap, EntityCondition.EQUALS, EntityCondition.AND, null, null, false)
 
@@ -262,9 +262,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     @Override
-    EntityCondition getHavingEntityCondition() {
-        return this.havingEntityCondition
-    }
+    EntityCondition getHavingEntityCondition() { return this.havingEntityCondition }
 
     @Override
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate) {
@@ -281,7 +279,7 @@ abstract class EntityFindBase implements EntityFind {
         // to avoid issues with entities that have cache=true, if no cache value is specified for this set it to false (avoids pagination errors, etc)
         if (useCache == null) useCache(false)
 
-        if (inf) for (String fn in ed.getAllFieldNames()) {
+        if (inf != null && inf.size() > 0) for (String fn in ed.getAllFieldNames()) {
             // NOTE: do we need to do type conversion here?
 
             // this will handle text-find
@@ -367,7 +365,7 @@ abstract class EntityFindBase implements EntityFind {
 
         // always look for an orderByField parameter too
         String orderByString = inf?.get("orderByField") ?: defaultOrderBy
-        if (orderByString) {
+        if (orderByString != null && orderByString.length() > 0) {
             ec.context.put("orderByField", orderByString)
             this.orderBy(orderByString)
         }
@@ -582,10 +580,10 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     public boolean shouldCache() {
-        if (this.dynamicView) return false
+        if (this.dynamicView != null) return false
         if (this.havingEntityCondition != null) return false
         if (this.limit != null || this.offset != null) return false
-        if (this.useCache != null && !this.useCache) return false
+        if (this.useCache != null && this.useCache == Boolean.FALSE) return false
         String entityCache = this.getEntityDef().getUseCache()
         return ((this.useCache == Boolean.TRUE && entityCache != "never") || entityCache == "true")
     }
@@ -706,7 +704,7 @@ abstract class EntityFindBase implements EntityFind {
             if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
         }
 
-        if (logger.traceEnabled) logger.trace("Find one on entity [${ed.fullEntityName}] with condition [${whereCondition}] found value [${newEntityValue}]")
+        // if (logger.traceEnabled) logger.trace("Find one on entity [${ed.fullEntityName}] with condition [${whereCondition}] found value [${newEntityValue}]")
 
         // final ECA trigger
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), newEntityValue, "find-one", false)
@@ -722,11 +720,13 @@ abstract class EntityFindBase implements EntityFind {
         //     part of the original where to use for the cache
         EntityConditionImplBase conditionForQuery
         EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
-        if (viewWhere) {
-            if (whereCondition) conditionForQuery = (EntityConditionImplBase) efi.getConditionFactory()
+        if (viewWhere != null) {
+            if (whereCondition != null) conditionForQuery = (EntityConditionImplBase) efi.getConditionFactory()
                     .makeCondition(whereCondition, EntityCondition.JoinOperator.AND, viewWhere)
             else conditionForQuery = viewWhere
-        } else { conditionForQuery = whereCondition }
+        } else {
+            conditionForQuery = whereCondition
+        }
 
         return conditionForQuery
     }

@@ -212,9 +212,9 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     boolean getSkipStats() {
-        if (skipStats != null) return skipStats
+        if (skipStats != null) return skipStats.booleanValue()
         skipStats = ecfi.getSkipStats()
-        return skipStats
+        return skipStats.booleanValue()
     }
 
     @Override

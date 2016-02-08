@@ -162,7 +162,7 @@ class FieldValueCondition extends EntityConditionImplBase {
         return curHashCode
     }
     protected int createHashCode() {
-        return (field ? field.hashCode() : 0) + operator.hashCode() + (value ? value.hashCode() : 0) + (ignoreCase ? 1 : 0)
+        return (field != null ? field.hashCode() : 0) + operator.hashCode() + (value != null ? value.hashCode() : 0) + (ignoreCase ? 1 : 0)
     }
 
     @Override

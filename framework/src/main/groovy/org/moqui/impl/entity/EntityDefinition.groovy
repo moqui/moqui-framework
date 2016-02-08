@@ -163,7 +163,7 @@ public class EntityDefinition {
     @CompileStatic
     boolean isViewEntity() {
         if (isView == null) isView = (this.internalEntityNode.name() == "view-entity")
-        return isView
+        return isView.booleanValue()
     }
     boolean hasFunctionAlias() { return isViewEntity() && this.internalEntityNode."alias".find({ it."@function" }) }
     @CompileStatic
@@ -200,29 +200,29 @@ public class EntityDefinition {
 
     @CompileStatic
     boolean createOnly() {
-        if (createOnlyVal != null) return createOnlyVal
+        if (createOnlyVal != null) return createOnlyVal.booleanValue()
         createOnlyVal = "true".equals(internalEntityNode.attribute('create-only'))
-        return createOnlyVal
+        return createOnlyVal.booleanValue()
     }
 
     @CompileStatic
     boolean optimisticLock() {
-        if (optimisticLockVal != null) return optimisticLockVal
+        if (optimisticLockVal != null) return optimisticLockVal.booleanValue()
         optimisticLockVal = "true".equals(internalEntityNode.attribute('optimistic-lock'))
-        return optimisticLockVal
+        return optimisticLockVal.booleanValue()
     }
 
     @CompileStatic
     boolean authorizeSkipView() {
-        if (authorizeSkipViewVal != null) return authorizeSkipViewVal
+        if (authorizeSkipViewVal != null) return authorizeSkipViewVal.booleanValue()
         String authorizeSkip = (String) internalEntityNode.attribute('authorize-skip')
         authorizeSkipViewVal = authorizeSkip == "true" || authorizeSkip?.contains("view")
-        return authorizeSkipViewVal
+        return authorizeSkipViewVal.booleanValue()
     }
 
     @CompileStatic
     boolean needsAuditLog() {
-        if (needsAuditLogVal != null) return needsAuditLogVal
+        if (needsAuditLogVal != null) return needsAuditLogVal.booleanValue()
 
         boolean tempVal = false
         for (FieldInfo fi in getAllFieldInfoList()) {
@@ -233,12 +233,12 @@ public class EntityDefinition {
         }
 
         needsAuditLogVal = tempVal
-        return needsAuditLogVal
+        return tempVal
     }
 
     @CompileStatic
     boolean needsEncrypt() {
-        if (needsEncryptVal != null) return needsEncryptVal
+        if (needsEncryptVal != null) return needsEncryptVal.booleanValue()
         needsEncryptVal = false
         for (Node fieldNode in getFieldNodes(true, true, false)) {
             if (fieldNode.attribute('encrypt') == "true") needsEncryptVal = true
@@ -249,7 +249,7 @@ public class EntityDefinition {
             if (fieldNode.attribute('encrypt') == "true") needsEncryptVal = true
         }
 
-        return needsEncryptVal
+        return needsEncryptVal.booleanValue()
     }
 
     @CompileStatic
@@ -780,26 +780,30 @@ public class EntityDefinition {
     }
 
     /** Returns the table name, ie table-name or converted entity-name */
+    @CompileStatic
     String getTableName() {
-        if (this.internalEntityNode."@table-name") {
-            return this.internalEntityNode."@table-name"
+        String tableNameAttr = this.internalEntityNode.attribute("table-name")
+        if (tableNameAttr != null && tableNameAttr.length() > 0) {
+            return tableNameAttr
         } else {
-            return camelCaseToUnderscored((String) this.internalEntityNode."@entity-name")
+            return camelCaseToUnderscored(getEntityName())
         }
     }
 
+    @CompileStatic
     String getFullTableName() {
-        if (efi.getDatabaseNode(getEntityGroupName())?."@use-schemas" != "false") {
+        if (efi.getDatabaseNode(getEntityGroupName())?.attribute("use-schemas") != "false") {
             String schemaName = getSchemaName()
-            return schemaName ? schemaName + "." + getTableName() : getTableName()
+            return schemaName != null && schemaName.length() > 0 ? schemaName + "." + getTableName() : getTableName()
         } else {
             return getTableName()
         }
     }
 
+    @CompileStatic
     String getSchemaName() {
-        String schemaName = efi.getDatasourceNode(getEntityGroupName())?."@schema-name"
-        return schemaName ?: null
+        String schemaName = efi.getDatasourceNode(getEntityGroupName())?.attribute("schema-name")
+        return schemaName != null && schemaName.length() > 0 ? schemaName : null
     }
 
     @CompileStatic
@@ -822,7 +826,6 @@ public class EntityDefinition {
         // low level code, avoid Groovy booleanUnbox
         if (fields == null || fields.size() == 0) return false
         ArrayList<String> fieldNameList = this.getPkFieldNames()
-        if (!fieldNameList) return false
         int size = fieldNameList.size()
         for (int i = 0; i < size; i++) {
             String fieldName = fieldNameList.get(i)
@@ -865,7 +868,7 @@ public class EntityDefinition {
         if (!includeUserFields) return baseList
 
         ListOrderedSet userFieldNames = getUserFieldNames()
-        if (userFieldNames) {
+        if (userFieldNames != null && userFieldNames.size() > 0) {
             List<String> returnList = new ArrayList<String>()
             returnList.addAll(baseList)
             returnList.addAll(userFieldNames.asList())
@@ -889,7 +892,7 @@ public class EntityDefinition {
     @CompileStatic
     protected ListOrderedSet getUserFieldNames() {
         ListOrderedSet userFieldNames = null
-        if (allowUserField && !this.isViewEntity() && (hasUserFields == null || hasUserFields)) {
+        if (allowUserField && !this.isViewEntity() && (hasUserFields == null || hasUserFields == Boolean.TRUE)) {
             boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
             try {
                 EntityList userFieldList = efi.find("moqui.entity.UserField").condition("entityName", getFullEntityName()).useCache(true).list()
@@ -933,7 +936,7 @@ public class EntityDefinition {
         if (!includeUserFields) return allFieldNameList
 
         ListOrderedSet userFieldNames = getUserFieldNames()
-        if (userFieldNames) {
+        if (userFieldNames != null && userFieldNames.size() > 0) {
             List<String> returnList = new ArrayList<>(allFieldNameList.size() + userFieldNames.size())
             returnList.addAll(allFieldNameList)
             returnList.addAll(userFieldNames.asList())
@@ -1507,7 +1510,7 @@ public class EntityDefinition {
         boolean destIsEntityValueBase = dest instanceof EntityValueBase
         EntityValueBase destEvb = destIsEntityValueBase ? (EntityValueBase) dest : null
 
-        boolean hasNamePrefix = namePrefix as boolean
+        boolean hasNamePrefix = namePrefix != null && namePrefix.length() > 0
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
         ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
@@ -1764,7 +1767,7 @@ public class EntityDefinition {
     EntityConditionImplBase makeViewWhereCondition() {
         if (!this.isViewEntity()) return null
         // add the view-entity.entity-condition.econdition(s)
-        Node entityCondition = this.internalEntityNode."entity-condition"[0]
+        Node entityCondition = (Node) this.internalEntityNode."entity-condition"[0]
         return makeViewListCondition(entityCondition)
     }
     protected EntityConditionImplBase makeViewListCondition(Node conditionsParent) {
@@ -1856,9 +1859,9 @@ public class EntityDefinition {
     protected static Map<String, String> camelToUnderscoreMap = new HashMap()
     @CompileStatic
     static String camelCaseToUnderscored(String camelCase) {
-        if (!camelCase) return ""
+        if (camelCase == null || camelCase.length() == 0) return ""
         String usv = camelToUnderscoreMap.get(camelCase)
-        if (usv) return usv
+        if (usv != null) return usv
 
         StringBuilder underscored = new StringBuilder()
         underscored.append(Character.toUpperCase(camelCase.charAt(0)))

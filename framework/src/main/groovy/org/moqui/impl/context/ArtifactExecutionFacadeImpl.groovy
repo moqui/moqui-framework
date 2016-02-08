@@ -243,7 +243,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         try {
             // see if there is a UserAccount for the username, and if so get its userId as a more permanent identifier
             EntityValue ua = ufi.getUserAccount()
-            if (ua) userId = ua.userId
+            if (ua != null) userId = ua.userId
 
             if (countTarpit && ecfi.isTarpitEnabled(aeii.getTypeEnumId())) {
                 // record and check velocity limit (tarpit)
@@ -265,7 +265,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 }
                 // if (aeii.getTypeEnumId() == "AT_XML_SCREEN")
                 //     logger.warn("TOREMOVE about to check tarpit [${tarpitKey}], userGroupIdSet=${userGroupIdSet}, artifactTarpitList=${artifactTarpitList}")
-                if (artifactTarpitCheckList) {
+                if (artifactTarpitCheckList != null && artifactTarpitCheckList.size() > 0) {
                     String tarpitKey = userId + '@' + aeii.getTypeEnumId() + ':' + aeii.getName()
                     List<Long> hitTimeList = null
                     for (int i = 0; i < artifactTarpitCheckList.size(); i++) {
@@ -403,7 +403,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     // add explicit conditions
                     EntityList condList = efi.find('moqui.security.ArtifactAuthzRecordCond')
                             .condition('artifactAuthzId', aacv.get('artifactAuthzId')).useCache(true).list()
-                    if (condList) {
+                    if (condList.size() > 0) {
                         if (aeii.parameters) eci.context.push(aeii.parameters)
                         try {
                             for (EntityValue cond in condList) {

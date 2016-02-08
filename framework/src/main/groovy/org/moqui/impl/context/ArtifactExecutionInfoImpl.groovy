@@ -43,7 +43,7 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     ArtifactExecutionInfoImpl(String name, String typeEnumId, String actionEnumId) {
         this.name = name
         this.typeEnumId = typeEnumId
-        this.actionEnumId = actionEnumId ?: "AUTHZA_ALL"
+        this.actionEnumId = actionEnumId != null && actionEnumId.length() > 0 ? actionEnumId : "AUTHZA_ALL"
         //createdLocation = new Exception("Create AEII location for ${name}, type ${typeEnumId}, action ${actionEnumId}")
         this.startTime = System.nanoTime()
     }

@@ -148,13 +148,13 @@ class EntityDbMeta {
     @CompileStatic
     boolean tableExists(EntityDefinition ed) {
         Boolean exists = entityTablesExist.get(ed.getFullEntityName())
-        if (exists != null) return exists
+        if (exists != null) return exists.booleanValue()
 
         return tableExistsInternal(ed)
     }
     synchronized boolean tableExistsInternal(EntityDefinition ed) {
         Boolean exists = entityTablesExist.get(ed.getFullEntityName())
-        if (exists != null) return exists
+        if (exists != null) return exists.booleanValue()
 
         Boolean dbResult = null
         boolean suspendedTransaction = false

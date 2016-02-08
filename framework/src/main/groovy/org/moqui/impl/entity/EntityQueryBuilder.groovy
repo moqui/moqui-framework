@@ -86,7 +86,7 @@ class EntityQueryBuilder {
     }
 
     PreparedStatement makePreparedStatement() {
-        if (!this.connection) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
+        if (this.connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
         String sql = this.getSqlTopLevel().toString()
         // if (this.mainEntityDefinition.getFullEntityName().contains("foo")) logger.warn("========= making crud PreparedStatement for SQL: ${sql}")
         if (logger.isDebugEnabled()) logger.debug("making crud PreparedStatement for SQL: ${sql}")
@@ -99,7 +99,7 @@ class EntityQueryBuilder {
     }
 
     ResultSet executeQuery() throws EntityException {
-        if (!this.ps) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
+        if (this.ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
             this.rs = this.ps.executeQuery()
@@ -111,7 +111,7 @@ class EntityQueryBuilder {
     }
 
     public int executeUpdate() throws EntityException {
-        if (!this.ps) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place")
+        if (this.ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place")
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
             int rows = ps.executeUpdate()
@@ -327,7 +327,7 @@ class EntityQueryBuilder {
         }
 
         // if field is to be encrypted, do it now
-        if (value && fieldInfo.encrypt) {
+        if (fieldInfo.encrypt && value != null) {
             if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityValueImpl.getEntityName()}]")
             String original = value.toString()
             try {

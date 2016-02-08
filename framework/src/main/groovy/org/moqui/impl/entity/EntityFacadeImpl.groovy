@@ -1027,7 +1027,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     @CompileStatic
     EntityDefinition getEntityDefinition(String entityName) {
-        if (!entityName) return null
+        if (entityName == null || entityName.length() == 0) return null
         EntityDefinition ed = (EntityDefinition) this.frameworkEntityDefinitions.get(entityName)
         if (ed != null) return ed
         ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
@@ -1165,7 +1165,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @CompileStatic
-    EntityDbMeta getEntityDbMeta() { return dbMeta ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
+    EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
 
     /* ========================= */
     /* Interface Implementations */
@@ -1189,7 +1189,8 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     @CompileStatic
     EntityValue makeValue(String entityName) {
-        if (!entityName) throw new EntityException("No entityName passed to EntityFacade.makeValue")
+        if (entityName == null || entityName.length() == 0)
+            throw new EntityException("No entityName passed to EntityFacade.makeValue")
         EntityDatasourceFactory edf = getDatasourceFactory(getEntityGroupName(entityName))
         return edf.makeEntityValue(entityName)
     }
@@ -1200,7 +1201,8 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     @CompileStatic
     EntityFind find(String entityName) {
-        if (!entityName) throw new EntityException("No entityName passed to EntityFacade.makeFind")
+        if (entityName == null || entityName.length() == 0)
+            throw new EntityException("No entityName passed to EntityFacade.makeFind")
         EntityDatasourceFactory edf = getDatasourceFactory(getEntityGroupName(entityName))
         return edf.makeEntityFind(entityName)
     }
@@ -1209,12 +1211,12 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     @CompileStatic
     Object rest(String operation, List<String> entityPath, Map parameters, boolean masterNameInPath) {
-        if (!operation) throw new EntityException("Operation (method) must be specified")
+        if (operation == null || operation.length() == 0) throw new EntityException("Operation (method) must be specified")
         operation = operationByMethod.get(operation.toLowerCase()) ?: operation
         if (!(operation in ['find', 'create', 'store', 'update', 'delete']))
             throw new EntityException("Operation [${operation}] not supported, must be one of: get, post, put, patch, or delete for HTTP request methods or find, create, store, update, or delete for direct entity operations")
 
-        if (!entityPath) throw new EntityException("No entity name or alias specified in path")
+        if (entityPath == null || entityPath.size() == 0) throw new EntityException("No entity name or alias specified in path")
 
         boolean dependents = (parameters.dependents == 'true' || parameters.dependents == 'Y')
         int dependentLevels = (parameters.dependentLevels ?: (dependents ? '2' : '0')) as int
@@ -1229,7 +1231,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         // look for a master definition name as the next path element
         if (masterNameInPath) {
-            if (!masterName) {
+            if (masterName == null || masterName.length() == 0) {
                 if (localPath.size() > 0 && firstEd.getMasterDefinition(localPath.get(0)) != null) {
                     masterName = localPath.remove(0)
                 } else {
@@ -1241,11 +1243,11 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         // if there are more path elements use one for each PK field of the entity
-        if (localPath) {
+        if (localPath.size() > 0) {
             for (String pkFieldName in firstEd.getPkFieldNames()) {
                 String pkValue = localPath.remove(0)
                 if (!StupidUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
-                if (!localPath) break
+                if (localPath.size() == 0) break
             }
         }
 
@@ -1267,14 +1269,14 @@ class EntityFacadeImpl implements EntityFacade {
             // TODO:     operations?
 
             // if there are more path elements use one for each PK field of the entity
-            if (localPath) {
+            if (localPath.size() > 0) {
                 for (String pkFieldName in relEd.getPkFieldNames()) {
                     // do we already have a value for this PK field? if so skip it...
                     if (parameters.containsKey(pkFieldName)) continue
 
                     String pkValue = localPath.remove(0)
                     if (!StupidUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
-                    if (!localPath) break
+                    if (localPath.size() == 0) break
                 }
             }
 
@@ -1288,7 +1290,7 @@ class EntityFacadeImpl implements EntityFacade {
                 Map pkValues = [:]
                 lastEd.setFields(parameters, pkValues, false, null, true)
 
-                if (masterName) {
+                if (masterName != null && masterName.length() > 0) {
                     Map resultMap = find(lastEd.getFullEntityName()).condition(pkValues).oneMaster(masterName)
                     if (resultMap == null) throw new EntityValueNotFoundException("No value found for entity [${lastEd.getShortAlias()?:''}:${lastEd.getFullEntityName()}] with key ${pkValues}")
                     return resultMap
@@ -1320,7 +1322,7 @@ class EntityFacadeImpl implements EntityFacade {
                 parameters.put('xPageRangeLow', pageRangeLow)
                 parameters.put('xPageRangeHigh', pageRangeHigh)
 
-                if (masterName) {
+                if (masterName != null && masterName.length() > 0) {
                     List resultList = ef.listMaster(masterName)
                     return resultList
                 } else {
@@ -1338,8 +1340,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     @CompileStatic
     EntityList getValueListFromPlainMap(Map value, String entityName) {
-        if (!entityName) entityName = value."_entity"
-        if (!entityName) throw new EntityException("No entityName passed and no _entity field in value Map")
+        if (entityName == null || entityName.length() == 0) entityName = value."_entity"
+        if (entityName == null || entityName.length() == 0) throw new EntityException("No entityName passed and no _entity field in value Map")
 
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityNotFoundException("Not entity found with name ${entityName}")
@@ -1360,13 +1362,13 @@ class EntityFacadeImpl implements EntityFacade {
         for (EntityDefinition.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             Object relParmObj = value.get(relInfo.shortAlias)
             String relKey = null
-            if (relParmObj) {
+            if (relParmObj != null && !StupidUtilities.isEmpty(relParmObj)) {
                 relKey = relInfo.shortAlias
             } else {
                 relParmObj = value.get(relInfo.relationshipName)
                 if (relParmObj) relKey = relInfo.relationshipName
             }
-            if (relParmObj) {
+            if (relParmObj != null && !StupidUtilities.isEmpty(relParmObj)) {
                 if (relParmObj instanceof Map) {
                     // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
                     //     allow them to be left out of related records

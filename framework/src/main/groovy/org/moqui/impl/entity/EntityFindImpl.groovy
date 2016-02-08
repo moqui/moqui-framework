@@ -59,7 +59,7 @@ class EntityFindImpl extends EntityFindBase {
         efb.makeSqlFromClause()
 
         // WHERE clause only for one/pk query
-        if (whereCondition) {
+        if (whereCondition != null) {
             efb.startWhereClause()
             whereCondition.makeSqlWhere(efb)
         }
@@ -121,14 +121,14 @@ class EntityFindImpl extends EntityFindBase {
         efb.makeSqlFromClause()
 
         // WHERE clause
-        if (whereCondition) {
+        if (whereCondition != null) {
             efb.startWhereClause()
             whereCondition.makeSqlWhere(efb)
         }
         // GROUP BY clause
         efb.makeGroupByClause(this.fieldsToSelect)
         // HAVING clause
-        if (havingCondition) {
+        if (havingCondition != null) {
             efb.startHavingClause()
             havingCondition.makeSqlWhere(efb)
         }
@@ -183,14 +183,14 @@ class EntityFindImpl extends EntityFindBase {
         efb.makeSqlFromClause()
 
         // WHERE clause
-        if (whereCondition) {
+        if (whereCondition != null) {
             efb.startWhereClause()
             whereCondition.makeSqlWhere(efb)
         }
         // GROUP BY clause
         efb.makeGroupByClause(this.fieldsToSelect)
         // HAVING clause
-        if (havingCondition) {
+        if (havingCondition != null) {
             efb.startHavingClause()
             havingCondition.makeSqlWhere(efb)
         }

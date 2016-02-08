@@ -383,7 +383,7 @@ class UserFacadeImpl implements UserFacade {
     @Override
     Timestamp getNowTimestamp() {
         // NOTE: review Timestamp and nowTimestamp use, have things use this by default (except audit/etc where actual date/time is needed
-        return this.effectiveTime ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
+        return ((Object) this.effectiveTime != null) ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
     }
 
     @Override

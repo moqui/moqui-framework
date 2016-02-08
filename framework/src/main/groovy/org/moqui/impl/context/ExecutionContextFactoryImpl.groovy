@@ -984,7 +984,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ph = 'true'.equals(artifactStats.attribute('persist-hit'))
             artifactPersistHitByType.put(cacheKey, ph)
         }
-        return ph
+        return ph.booleanValue()
     }
     @CompileStatic
     protected boolean artifactPersistBin(String artifactType, String artifactSubType) {
@@ -995,7 +995,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             pb = 'true'.equals(artifactStats.attribute('persist-bin'))
             artifactPersistBinByType.put(cacheKey, pb)
         }
-        return pb
+        return pb.booleanValue()
     }
 
     @CompileStatic
@@ -1006,7 +1006,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             en = aeNode != null ? !(aeNode.attribute('authz-enabled') == "false") : true
             artifactTypeAuthzEnabled.put(artifactTypeEnumId, en)
         }
-        return en
+        return en.booleanValue()
     }
     @CompileStatic
     boolean isTarpitEnabled(String artifactTypeEnumId) {
@@ -1016,7 +1016,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             en = aeNode != null ? !(aeNode.attribute('tarpit-enabled') == "false") : true
             artifactTypeTarpitEnabled.put(artifactTypeEnumId, en)
         }
-        return en
+        return en.booleanValue()
     }
 
     protected Node getArtifactStatsNode(String artifactType, String artifactSubType) {
