@@ -18,6 +18,8 @@ import com.orientechnologies.orient.core.record.impl.ODocument
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery
 import groovy.transform.CompileStatic
 import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 import org.moqui.entity.*
 import org.moqui.impl.entity.*
 
@@ -41,7 +43,8 @@ class OrientEntityFind extends EntityFindBase {
     }
 
     @Override
-    EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<EntityDefinition.FieldInfo> fieldInfoList) throws EntityException {
+    EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<FieldInfo> fieldInfoList,
+                                ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
         EntityDefinition ed = this.getEntityDef()
 
         // NOTE: the native Java query API does not used indexes and such, so use the OSQL approach
@@ -54,7 +57,7 @@ class OrientEntityFind extends EntityFindBase {
             EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 
             // SELECT fields
-            // NOTE: for OrientDB don't bother listing fields to select: efb.makeSqlSelectFields(this.fieldsToSelect)
+            // NOTE: for OrientDB don't bother listing fields to select: efb.makeSqlSelectFields(fieldInfoList, fieldOptionsList)
 
             // FROM Clause
             efb.makeSqlFromClause(fieldInfoList)
@@ -99,7 +102,8 @@ class OrientEntityFind extends EntityFindBase {
 
     @Override
     EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                                        List<String> orderByExpanded, ArrayList<EntityDefinition.FieldInfo> fieldInfoList) throws EntityException {
+                                        ArrayList<String> orderByExpanded, ArrayList<FieldInfo> fieldInfoList,
+                                        ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
         EntityDefinition ed = this.getEntityDef()
 
         // NOTE: see syntax at https://github.com/orientechnologies/orientdb/wiki/SQL-Query
@@ -108,7 +112,7 @@ class OrientEntityFind extends EntityFindBase {
         if (this.getDistinct()) efb.makeDistinct()
 
         // select fields
-        efb.makeSqlSelectFields(fieldInfoList)
+        efb.makeSqlSelectFields(fieldInfoList, fieldOptionsList)
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoList)
 
@@ -172,7 +176,7 @@ class OrientEntityFind extends EntityFindBase {
 
     @Override
     long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                       ArrayList<EntityDefinition.FieldInfo> fieldInfoList) throws EntityException {
+                       ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
         EntityDefinition ed = this.getEntityDef()
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 

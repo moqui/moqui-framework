@@ -26,6 +26,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.entity.condition.*
 import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -470,11 +471,11 @@ abstract class EntityFindBase implements EntityFind {
         if (orderByFieldName.contains(",")) {
             for (String obsPart in orderByFieldName.split(",")) {
                 String orderByName = obsPart.trim()
-                EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByName)
+                FieldOrderOptions foo = new FieldOrderOptions(orderByName)
                 if (getEntityDef().isField(foo.fieldName)) this.orderByFields.add(orderByName)
             }
         } else {
-            EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByFieldName)
+            FieldOrderOptions foo = new FieldOrderOptions(orderByFieldName)
             if (getEntityDef().isField(foo.fieldName)) this.orderByFields.add(orderByFieldName)
         }
         return this
@@ -666,15 +667,26 @@ abstract class EntityFindBase implements EntityFind {
         // we always want fieldsToSelect populated so that we know the order of the results coming back
         int ftsSize = this.fieldsToSelect.size()
         ArrayList<FieldInfo> fieldInfoList
+        ArrayList<FieldOrderOptions> fieldOptionsList = null
         if (ftsSize == 0 || (txCache != null && txcValue == null) || (doCache && cacheHit == null)) {
             fieldInfoList = ed.getAllFieldInfoList()
         } else {
-            fieldInfoList = new ArrayList(ftsSize)
+            fieldInfoList = new ArrayList<>(ftsSize)
+            fieldOptionsList = new ArrayList<>(ftsSize)
             for (int i = 0; i < ftsSize; i++) {
                 String fieldName = this.fieldsToSelect.get(i)
                 FieldInfo fi = ed.getFieldInfo(fieldName)
-                if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
-                fieldInfoList.add(fi)
+                if (fi == null) {
+                    FieldOrderOptions foo = new FieldOrderOptions(fieldName)
+                    fi = ed.getFieldInfo(foo.fieldName)
+                    if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
+
+                    fieldInfoList.add(fi)
+                    fieldOptionsList.add(foo)
+                } else {
+                    fieldInfoList.add(fi)
+                    fieldOptionsList.add(null)
+                }
             }
         }
 
@@ -691,7 +703,7 @@ abstract class EntityFindBase implements EntityFind {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result
                 if (forUpdate && !txCache.isTxCreate(txcValue)) {
-                    oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList)
+                    oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
                     // if (ed.getEntityName() == "Asset") logger.warn("======== doing find and ignoring result to pass through for update, for: ${txcValue}")
                 }
                 newEntityValue = txcValue
@@ -706,7 +718,7 @@ abstract class EntityFindBase implements EntityFind {
 
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
-            newEntityValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList)
+            newEntityValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
 
             // it didn't come from the txCache so put it there
             if (txCache != null) txCache.onePut(newEntityValue)
@@ -743,7 +755,8 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     /** The abstract oneExtended method to implement */
-    abstract EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<FieldInfo> fieldInfoList) throws EntityException
+    abstract EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<FieldInfo> fieldInfoList,
+                                         ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException
 
     @Override
     Map<String, Object> oneMaster(String name) {
@@ -846,15 +859,26 @@ abstract class EntityFindBase implements EntityFind {
             // we always want fieldsToSelect populated so that we know the order of the results coming back
             int ftsSize = this.fieldsToSelect.size()
             ArrayList<FieldInfo> fieldInfoList
+            ArrayList<FieldOrderOptions> fieldOptionsList = null
             if (ftsSize == 0 || txCache != null || doEntityCache) {
                 fieldInfoList = ed.getAllFieldInfoList()
             } else {
-                fieldInfoList = new ArrayList(ftsSize)
+                fieldInfoList = new ArrayList<>(ftsSize)
+                fieldOptionsList = new ArrayList<>(ftsSize)
                 for (int i = 0; i < ftsSize; i++) {
                     String fieldName = this.fieldsToSelect.get(i)
                     FieldInfo fi = ed.getFieldInfo(fieldName)
-                    if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
-                    fieldInfoList.add(fi)
+                    if (fi == null) {
+                        FieldOrderOptions foo = new FieldOrderOptions(fieldName)
+                        fi = ed.getFieldInfo(foo.fieldName)
+                        if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
+
+                        fieldInfoList.add(fi)
+                        fieldOptionsList.add(foo)
+                    } else {
+                        fieldInfoList.add(fi)
+                        fieldOptionsList.add(null)
+                    }
                 }
             }
 
@@ -870,7 +894,8 @@ abstract class EntityFindBase implements EntityFind {
                     .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
 
             // call the abstract method
-            EntityListIterator eli = this.iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoList)
+            EntityListIterator eli = this.iteratorExtended(whereCondition, havingCondition, orderByExpanded,
+                    fieldInfoList, fieldOptionsList)
             // these are used by the TransactionCache methods to augment the resulting list and maintain the sort order
             eli.setQueryCondition(whereCondition)
             eli.setOrderByFields(orderByExpanded)
@@ -947,7 +972,7 @@ abstract class EntityFindBase implements EntityFind {
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", true)
 
-        List<String> orderByExpanded = new ArrayList()
+        ArrayList<String> orderByExpanded = new ArrayList()
         // add the manually specified ones, then the ones in the view entity's entity-condition
         if (this.getOrderBy()) orderByExpanded.addAll(this.getOrderBy())
 
@@ -971,15 +996,26 @@ abstract class EntityFindBase implements EntityFind {
         // we always want fieldsToSelect populated so that we know the order of the results coming back
         int ftsSize = this.fieldsToSelect.size()
         ArrayList<FieldInfo> fieldInfoList
+        ArrayList<FieldOrderOptions> fieldOptionsList = null
         if (ftsSize == 0) {
             fieldInfoList = ed.getAllFieldInfoList()
         } else {
-            fieldInfoList = new ArrayList(ftsSize)
+            fieldInfoList = new ArrayList<>(ftsSize)
+            fieldOptionsList = new ArrayList<>(ftsSize)
             for (int i = 0; i < ftsSize; i++) {
                 String fieldName = this.fieldsToSelect.get(i)
                 FieldInfo fi = ed.getFieldInfo(fieldName)
-                if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
-                fieldInfoList.add(fi)
+                if (fi == null) {
+                    FieldOrderOptions foo = new FieldOrderOptions(fieldName)
+                    fi = ed.getFieldInfo(foo.fieldName)
+                    if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
+
+                    fieldInfoList.add(fi)
+                    fieldOptionsList.add(foo)
+                } else {
+                    fieldInfoList.add(fi)
+                    fieldOptionsList.add(null)
+                }
             }
         }
 
@@ -999,7 +1035,7 @@ abstract class EntityFindBase implements EntityFind {
                 .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
 
         // call the abstract method
-        EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoList)
+        EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoList, fieldOptionsList)
         eli.setQueryCondition(whereCondition)
         eli.setOrderByFields(orderByExpanded)
 
@@ -1023,8 +1059,9 @@ abstract class EntityFindBase implements EntityFind {
         return eli
     }
 
-    abstract EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition,
-            EntityConditionImplBase havingCondition, List<String> orderByExpanded, ArrayList<FieldInfo> fieldInfoList)
+    abstract EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
+                                                 ArrayList<String> orderByExpanded, ArrayList<FieldInfo> fieldInfoList,
+                                                 ArrayList<FieldOrderOptions> fieldOptionsList)
 
     @Override
     long count() throws EntityException {
@@ -1068,15 +1105,26 @@ abstract class EntityFindBase implements EntityFind {
             // select all pk and nonpk fields to match what list() or iterator() would do
             int ftsSize = this.fieldsToSelect.size()
             ArrayList<FieldInfo> fieldInfoList
+            ArrayList<FieldOrderOptions> fieldOptionsList = null
             if (ftsSize == 0) {
                 fieldInfoList = ed.getAllFieldInfoList()
             } else {
-                fieldInfoList = new ArrayList(ftsSize)
+                fieldInfoList = new ArrayList<>(ftsSize)
+                fieldOptionsList = new ArrayList<>(ftsSize)
                 for (int i = 0; i < ftsSize; i++) {
                     String fieldName = this.fieldsToSelect.get(i)
                     FieldInfo fi = ed.getFieldInfo(fieldName)
-                    if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
-                    fieldInfoList.add(fi)
+                    if (fi == null) {
+                        FieldOrderOptions foo = new FieldOrderOptions(fieldName)
+                        fi = ed.getFieldInfo(foo.fieldName)
+                        if (fi == null) throw new EntityException("Field to select ${fieldName} not found in entity ${ed.getFullEntityName()}")
+
+                        fieldInfoList.add(fi)
+                        fieldOptionsList.add(foo)
+                    } else {
+                        fieldInfoList.add(fi)
+                        fieldOptionsList.add(null)
+                    }
                 }
             }
 
@@ -1096,7 +1144,7 @@ abstract class EntityFindBase implements EntityFind {
                     .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
 
             // call the abstract method
-            count = countExtended(whereCondition, havingCondition, fieldInfoList)
+            count = countExtended(whereCondition, havingCondition, fieldInfoList, fieldOptionsList)
 
             if (doCache && whereCondition != null) entityCountCache.put(whereCondition, count)
         }
@@ -1112,7 +1160,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     abstract long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                                ArrayList<FieldInfo> fieldInfoList) throws EntityException
+                                ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException
 
     @Override
     long updateAll(Map<String, ?> fieldsToSet) {
