@@ -139,6 +139,7 @@ class EntityFacadeImpl implements EntityFacade {
     TimeZone getDatabaseTimeZone() { return databaseTimeZone }
     @CompileStatic
     Locale getDatabaseLocale() { return databaseLocale }
+    @Override
     @CompileStatic
     Calendar getCalendarForTzLc() {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc

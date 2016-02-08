@@ -333,7 +333,7 @@ public class EntityDefinition {
     }
 
     @CompileStatic
-    static class FieldInfo {
+    public static class FieldInfo {
         EntityDefinition ed
         Node fieldNode
         String name
