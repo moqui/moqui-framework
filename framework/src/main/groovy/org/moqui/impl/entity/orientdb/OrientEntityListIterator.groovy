@@ -45,7 +45,7 @@ class OrientEntityListIterator implements EntityListIterator {
     protected int internalIndex = -1
 
     protected EntityDefinition entityDefinition
-    protected ArrayList<String> fieldsSelected
+    protected ArrayList<EntityDefinition.FieldInfo> fieldInfoList
     protected EntityCondition queryCondition = null
     protected List<String> orderByFields = null
 
@@ -55,13 +55,14 @@ class OrientEntityListIterator implements EntityListIterator {
     protected boolean closed = false
 
     OrientEntityListIterator(OrientDatasourceFactory odf, ODatabaseDocumentTx oddt, List<ODocument> documentList,
-                             EntityDefinition entityDefinition, ArrayList<String> fieldsSelected, EntityFacadeImpl efi) {
+                             EntityDefinition entityDefinition, ArrayList<EntityDefinition.FieldInfo> fieldInfoList,
+                             EntityFacadeImpl efi) {
         this.efi = efi
         this.odf = odf
         this.oddt = oddt
         this.documentList = documentList
         this.entityDefinition = entityDefinition
-        this.fieldsSelected = fieldsSelected
+        this.fieldInfoList = fieldInfoList
         this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
     }
 

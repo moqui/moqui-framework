@@ -25,6 +25,7 @@ import org.moqui.impl.context.CacheImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.entity.condition.*
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -663,9 +664,17 @@ abstract class EntityFindBase implements EntityFind {
         if (doCache && txcValue == null) cacheHit = efi.getEntityCache().getFromOneCache(ed, whereCondition, entityOneCache)
 
         // we always want fieldsToSelect populated so that we know the order of the results coming back
-        if (this.fieldsToSelect.size() == 0 || (txCache != null && txcValue == null) || (doCache && cacheHit == null))
-            this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
-
+        int ftsSize = this.fieldsToSelect.size()
+        ArrayList<FieldInfo> fieldInfoList
+        if (ftsSize == 0 || (txCache != null && txcValue == null) || (doCache && cacheHit == null)) {
+            fieldInfoList = ed.getAllFieldInfoList()
+        } else {
+            fieldInfoList = new ArrayList(ftsSize)
+            for (int i = 0; i < ftsSize; i++) {
+                FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                fieldInfoList.add(fi)
+            }
+        }
 
         // if (ed.getEntityName() == "Asset") logger.warn("=========== find one of Asset ${this.simpleAndMap.get('assetId')}", new Exception("Location"))
 
@@ -680,7 +689,7 @@ abstract class EntityFindBase implements EntityFind {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result
                 if (forUpdate && !txCache.isTxCreate(txcValue)) {
-                    oneExtended(getConditionForQuery(ed, whereCondition))
+                    oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList)
                     // if (ed.getEntityName() == "Asset") logger.warn("======== doing find and ignoring result to pass through for update, for: ${txcValue}")
                 }
                 newEntityValue = txcValue
@@ -695,7 +704,7 @@ abstract class EntityFindBase implements EntityFind {
 
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
-            newEntityValue = oneExtended(getConditionForQuery(ed, whereCondition))
+            newEntityValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList)
 
             // it didn't come from the txCache so put it there
             if (txCache != null) txCache.onePut(newEntityValue)
@@ -731,7 +740,8 @@ abstract class EntityFindBase implements EntityFind {
         return conditionForQuery
     }
 
-    abstract EntityValueBase oneExtended(EntityConditionImplBase whereCondition) throws EntityException
+    /** The abstract oneExtended method to implement */
+    abstract EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<FieldInfo> fieldInfoList) throws EntityException
 
     @Override
     Map<String, Object> oneMaster(String name) {
@@ -830,9 +840,19 @@ abstract class EntityFindBase implements EntityFind {
                     fieldsToSelect.add(orderByField)
                 }
             }
+
             // we always want fieldsToSelect populated so that we know the order of the results coming back
-            if (this.fieldsToSelect.size() == 0 || txCache != null || doEntityCache)
-                this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
+            int ftsSize = this.fieldsToSelect.size()
+            ArrayList<FieldInfo> fieldInfoList
+            if (ftsSize == 0 || txCache != null || doEntityCache) {
+                fieldInfoList = ed.getAllFieldInfoList()
+            } else {
+                fieldInfoList = new ArrayList(ftsSize)
+                for (int i = 0; i < ftsSize; i++) {
+                    FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                    fieldInfoList.add(fi)
+                }
+            }
 
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
@@ -846,7 +866,7 @@ abstract class EntityFindBase implements EntityFind {
                     .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
 
             // call the abstract method
-            EntityListIterator eli = this.iteratorExtended(whereCondition, havingCondition, orderByExpanded)
+            EntityListIterator eli = this.iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoList)
             // these are used by the TransactionCache methods to augment the resulting list and maintain the sort order
             eli.setQueryCondition(whereCondition)
             eli.setOrderByFields(orderByExpanded)
@@ -943,8 +963,20 @@ abstract class EntityFindBase implements EntityFind {
                 fieldsToSelect.add(orderByField)
             }
         }
+
         // we always want fieldsToSelect populated so that we know the order of the results coming back
-        if (this.fieldsToSelect.size() == 0) this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
+        int ftsSize = this.fieldsToSelect.size()
+        ArrayList<FieldInfo> fieldInfoList
+        if (ftsSize == 0) {
+            fieldInfoList = ed.getAllFieldInfoList()
+        } else {
+            fieldInfoList = new ArrayList(ftsSize)
+            for (int i = 0; i < ftsSize; i++) {
+                FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                fieldInfoList.add(fi)
+            }
+        }
+
         // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
@@ -961,7 +993,7 @@ abstract class EntityFindBase implements EntityFind {
                 .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
 
         // call the abstract method
-        EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded)
+        EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoList)
         eli.setQueryCondition(whereCondition)
         eli.setOrderByFields(orderByExpanded)
 
@@ -986,7 +1018,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     abstract EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition,
-            EntityConditionImplBase havingCondition, List<String> orderByExpanded)
+            EntityConditionImplBase havingCondition, List<String> orderByExpanded, ArrayList<FieldInfo> fieldInfoList)
 
     @Override
     long count() throws EntityException {
@@ -1028,7 +1060,18 @@ abstract class EntityFindBase implements EntityFind {
             count = cacheCount
         } else {
             // select all pk and nonpk fields to match what list() or iterator() would do
-            if (this.fieldsToSelect.size() == 0) this.fieldsToSelect.addAll(ed.getAllFieldNames(false))
+            int ftsSize = this.fieldsToSelect.size()
+            ArrayList<FieldInfo> fieldInfoList
+            if (ftsSize == 0) {
+                fieldInfoList = ed.getAllFieldInfoList()
+            } else {
+                fieldInfoList = new ArrayList(ftsSize)
+                for (int i = 0; i < ftsSize; i++) {
+                    FieldInfo fi = ed.getFieldInfo(this.fieldsToSelect.get(i))
+                    fieldInfoList.add(fi)
+                }
+            }
+
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
             NodeList entityConditionList = (NodeList) entityNode.get("entity-condition")
@@ -1045,7 +1088,7 @@ abstract class EntityFindBase implements EntityFind {
                     .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
 
             // call the abstract method
-            count = countExtended(whereCondition, havingCondition)
+            count = countExtended(whereCondition, havingCondition, fieldInfoList)
 
             if (doCache && whereCondition != null) entityCountCache.put(whereCondition, count)
         }
@@ -1059,8 +1102,9 @@ abstract class EntityFindBase implements EntityFind {
 
         return count
     }
-    abstract long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition)
-            throws EntityException
+
+    abstract long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
+                                ArrayList<FieldInfo> fieldInfoList) throws EntityException
 
     @Override
     long updateAll(Map<String, ?> fieldsToSet) {

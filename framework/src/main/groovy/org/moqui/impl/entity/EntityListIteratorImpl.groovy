@@ -40,7 +40,7 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected final ResultSet rs
 
     protected final EntityDefinition entityDefinition
-    protected final ArrayList<String> fieldsSelected
+    protected final ArrayList<EntityDefinition.FieldInfo> fieldInfoList
     protected EntityCondition queryCondition = null
     protected List<String> orderByFields = null
 
@@ -50,12 +50,12 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected boolean closed = false
 
     EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition,
-                           ArrayList<String> fieldsSelected, EntityFacadeImpl efi) {
+                           ArrayList<EntityDefinition.FieldInfo> fieldInfoList, EntityFacadeImpl efi) {
         this.efi = efi
         this.con = con
         this.rs = rs
         this.entityDefinition = entityDefinition
-        this.fieldsSelected = fieldsSelected
+        this.fieldInfoList = fieldInfoList
         this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
     }
 
@@ -133,13 +133,10 @@ class EntityListIteratorImpl implements EntityListIterator {
     @Override
     EntityValue currentEntityValue() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi)
-        int size = fieldsSelected.size()
+        int size = fieldInfoList.size()
         for (int i = 0; i < size; i++) {
-            String fieldNameFull = fieldsSelected.get(i)
-            EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(fieldNameFull)
-            String fieldName = foo.fieldName
-
-            EntityQueryBuilder.getResultSetValue(rs, i+1, entityDefinition.getFieldInfo(fieldName), newEntityValue, efi)
+            EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+            EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, efi)
         }
 
         this.haveMadeValue = true

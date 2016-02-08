@@ -1413,8 +1413,9 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            ArrayList<String> fieldLos = new ArrayList<String>(fieldList)
-            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fieldLos, this)
+            ArrayList<EntityDefinition.FieldInfo> fiList = new ArrayList<>()
+            for (String fieldName in fieldList) fiList.add(ed.getFieldInfo(fieldName))
+            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiList, this)
             return eli
         } catch (SQLException e) {
             throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)
