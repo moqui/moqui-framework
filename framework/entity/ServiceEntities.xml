@@ -26,6 +26,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="lockThread" type="text-medium"/>
         <field name="lockTime" type="date-time"/>
     </entity>
+    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore">
+        <field name="serviceName" type="text-medium" is-pk="true"/>
+        <field name="parameterValue" type="text-medium" is-pk="true"/>
+        <field name="lockThread" type="text-medium"/>
+        <field name="lockTime" type="date-time"/>
+    </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.service.scheduler -->

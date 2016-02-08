@@ -15,6 +15,7 @@ package org.moqui.entity;
 
 import java.sql.Connection;
 import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import org.w3c.dom.Element;
@@ -162,4 +163,6 @@ public interface EntityFacade {
      * @return EntityValue object populated with data from the element.
      */
     EntityValue makeValue(Element element);
+
+    Calendar getCalendarForTzLc();
 }

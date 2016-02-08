@@ -119,7 +119,7 @@
     </schedule>
     -->
 
-    <!-- Uncomment this to run the poll EmailServer job; note emailServerId=SYSTEM, change if needed
+    <!-- Uncomment this to run the poll EmailServer job; NOTE emailServerId=SYSTEM, change if needed along with run frequency
     <schedule>
         <job>
             <name>poll_EmailServer_single</name>

@@ -89,7 +89,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
     @Override
     EntityCondition makeCondition(List<EntityCondition> conditionList, JoinOperator operator) {
-        if (!conditionList) return null
+        if (conditionList == null || conditionList.size() == 0) return null
         ArrayList<EntityConditionImplBase> newList = new ArrayList()
 
         if (conditionList instanceof RandomAccess) {
@@ -112,7 +112,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 else throw new IllegalArgumentException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
             }
         }
-        if (!newList) return null
+        if (newList == null || newList.size() == 0) return null
         if (newList.size() == 1) {
             return newList.get(0)
         } else {
@@ -122,7 +122,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     @Override
     EntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator) {
-        if (!conditionList) return null
+        if (conditionList == null || conditionList.size() == 0) return null
 
         JoinOperator listJoin = listOperator ? getJoinOperator(listOperator) : JoinOperator.AND
         ComparisonOperator mapComparison = mapComparisonOperator ? getComparisonOperator(mapComparisonOperator) : ComparisonOperator.EQUALS
@@ -167,7 +167,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
     EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
             JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<Node>> memberFieldAliases, boolean excludeNulls) {
-        if (!fieldMap) return null
+        if (fieldMap == null || fieldMap.size() == 0) return null
 
         JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND
         ComparisonOperator compOp = comparisonOperator != null ? comparisonOperator : ComparisonOperator.EQUALS
@@ -223,10 +223,11 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 String fieldName = fieldValue.key
                 Object value = fieldValue.value
 
-                if (memberFieldAliases) {
+                if (memberFieldAliases != null && memberFieldAliases.size() > 0) {
                     // we have a view entity, more complex
                     ArrayList<Node> aliases = memberFieldAliases.get(fieldName)
-                    if (!aliases) throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}")
+                    if (aliases == null || aliases.size() == 0)
+                        throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}")
 
                     for (int k = 0; k < aliases.size(); k++) {
                         Node aliasNode = aliases.get(k)
@@ -241,10 +242,10 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
         }
 
-        if (!condList) return null
+        if (condList == null || condList.size() == 0) return null
 
         if (condList.size() == 1) {
-            return condList[0]
+            return condList.get(0)
         } else {
             return new ListCondition(this, condList, joinOp)
         }

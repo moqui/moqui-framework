@@ -66,7 +66,7 @@ class UserFacadeImpl implements UserFacade {
     protected String noUserCurrencyUomId = null
     // if one of these is set before login, set it on the account on login? probably best not...
 
-    protected final Map<String, Object> userContext = [:]
+    protected Map<String, Object> userContext = null
 
     protected Calendar calendarForTzLcOnly = null
 
@@ -375,12 +375,15 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    Map<String, Object> getContext() { return userContext }
+    Map<String, Object> getContext() {
+        if (userContext == null) userContext = new HashMap<>()
+        return userContext
+    }
 
     @Override
     Timestamp getNowTimestamp() {
         // NOTE: review Timestamp and nowTimestamp use, have things use this by default (except audit/etc where actual date/time is needed
-        return this.effectiveTime ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
+        return ((Object) this.effectiveTime != null) ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
     }
 
     @Override

@@ -19,7 +19,7 @@ public class ContextStack implements Map<String, Object> {
     protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ContextStack.class);
 
     // Using ArrayList for more efficient iterating, this alone eliminate about 40% of the run time in get()
-    protected final ArrayList<ArrayList<Map<String, Object>>> contextStack = new ArrayList<>();
+    protected ArrayList<ArrayList<Map<String, Object>>> contextStack = null;
     protected ArrayList<Map<String, Object>> stackList = new ArrayList<>();
     protected Map<String, Object> firstMap = null;
 
@@ -30,6 +30,7 @@ public class ContextStack implements Map<String, Object> {
 
     /** Push (save) the entire context, ie the whole Map stack, to create an isolated empty context. */
     public ContextStack pushContext() {
+        if (contextStack == null) contextStack = new ArrayList<>();
         contextStack.add(0, stackList);
         stackList = new ArrayList<>();
         firstMap = null;
@@ -39,6 +40,7 @@ public class ContextStack implements Map<String, Object> {
 
     /** Pop (restore) the entire context, ie the whole Map stack, undo isolated empty context and get the original one. */
     public ContextStack popContext() {
+        if (contextStack == null || contextStack.size() == 0) throw new IllegalStateException("Cannot pop context, no context pushed");
         stackList = contextStack.remove(0);
         firstMap = stackList.get(0);
         return this;
