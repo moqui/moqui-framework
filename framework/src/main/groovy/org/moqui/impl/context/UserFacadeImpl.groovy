@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
 import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.util.MoquiShiroRealm
 
 import java.security.SecureRandom
@@ -52,7 +53,7 @@ class UserFacadeImpl implements UserFacade {
 
     protected Deque<String> usernameStack = new LinkedList()
     // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
-    protected EntityValue internalUserAccount = null
+    protected EntityValueBase internalUserAccount = null
     protected Set<String> internalUserGroupIdSet = null
     // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
     protected EntityList internalArtifactTarpitCheckList = null
@@ -250,7 +251,7 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue userAccountClone = userAccount.cloneValue()
                 userAccountClone.set("locale", locale.toString())
                 userAccountClone.update()
-                internalUserAccount = userAccountClone
+                internalUserAccount = (EntityValueBase) userAccountClone
             } catch (Throwable t) {
                 eci.transaction.rollback(beganTransaction, "Error saving timeZone", t)
             } finally {
@@ -300,7 +301,7 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue userAccountClone = userAccount.cloneValue()
                 userAccountClone.set("timeZone", tz.getID())
                 userAccountClone.update()
-                internalUserAccount = userAccountClone
+                internalUserAccount = (EntityValueBase) userAccountClone
             } catch (Throwable t) {
                 eci.transaction.rollback(beganTransaction, "Error saving timeZone", t)
             } finally {
@@ -325,7 +326,7 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue userAccountClone = userAccount.cloneValue()
                 userAccountClone.set("currencyUomId", uomId)
                 userAccountClone.update()
-                internalUserAccount = userAccountClone
+                internalUserAccount = (EntityValueBase) userAccountClone
             } catch (Throwable t) {
                 eci.transaction.rollback(beganTransaction, "Error saving currencyUomId", t)
             } finally {
@@ -705,7 +706,11 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    String getUserId() { return getUserAccount()?.userId }
+    String getUserId() {
+        // faster get userId for authz, etc called frequently
+        if (internalUserAccount != null) return internalUserAccount.getValueMap().get('userId')
+        return getUserAccount()?.userId
+    }
 
     @Override
     String getUsername() { return this.usernameStack.peekFirst() }
@@ -714,7 +719,7 @@ class UserFacadeImpl implements UserFacade {
     EntityValue getUserAccount() {
         if (this.usernameStack.size() == 0) return null
         if (internalUserAccount == null) {
-            internalUserAccount = eci.getEntity().find("moqui.security.UserAccount")
+            internalUserAccount = (EntityValueBase) eci.getEntity().find("moqui.security.UserAccount")
                     .condition("username", this.getUsername()).useCache(true).disableAuthz().one()
             // this is necessary as temporary values may have been set before the UserAccount was retrieved
             clearPerUserValues()

@@ -238,13 +238,12 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
         UserFacadeImpl ufi = eci.getUserFacade()
 
+        // see if there is a UserAccount for the username, and if so get its userId as a more permanent identifier
+        String curUserId = ufi.getUserId()
+        if (curUserId != null) userId = curUserId
 
         boolean alreadyDisabled = disableAuthz()
         try {
-            // see if there is a UserAccount for the username, and if so get its userId as a more permanent identifier
-            EntityValue ua = ufi.getUserAccount()
-            if (ua != null) userId = ua.userId
-
             if (countTarpit && ecfi.isTarpitEnabled(aeii.getTypeEnumId())) {
                 // record and check velocity limit (tarpit)
                 boolean recordHitTime = false
