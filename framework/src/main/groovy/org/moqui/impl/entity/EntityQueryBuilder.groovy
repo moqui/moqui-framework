@@ -129,9 +129,7 @@ class EntityQueryBuilder {
         }
     }
 
-    /** Only close the PreparedStatement, leave the ResultSet and Connection open, but null references to them
-     * NOTE: this should be called in a finally clause to make sure things are closed
-     */
+    /** For when closing to be done in other places, like a EntityListIteratorImpl */
     void releaseAll() {
         this.ps = null
         this.rs = null

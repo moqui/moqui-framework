@@ -115,17 +115,13 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     @CompileStatic
     EntityValue makeEntityValue(String entityName) {
         EntityDefinition entityDefinition = efi.getEntityDefinition(entityName)
-        if (!entityDefinition) {
-            throw new EntityException("Entity not found for name [${entityName}]")
-        }
+        if (entityDefinition == null) throw new EntityException("Entity not found for name [${entityName}]")
         return new EntityValueImpl(entityDefinition, efi)
     }
 
     @Override
     @CompileStatic
-    EntityFind makeEntityFind(String entityName) {
-        return new EntityFindImpl(efi, entityName)
-    }
+    EntityFind makeEntityFind(String entityName) { return new EntityFindImpl(efi, entityName) }
 
     @Override
     @CompileStatic

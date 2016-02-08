@@ -42,7 +42,10 @@ class FieldValueCondition extends EntityConditionImplBase {
         // default to EQUALS
         EntityCondition.ComparisonOperator tempOp = operator != null ? operator : EQUALS
         // if EQUALS and we have a Collection value the IN operator is implied, similar with NOT_EQUAL
-        if ((tempOp == EQUALS || tempOp == NOT_EQUAL) && value instanceof Collection) tempOp = tempOp == EQUALS ? IN : NOT_IN
+        if (value instanceof Collection) {
+            if (tempOp == EQUALS) tempOp = IN
+            else if (tempOp == NOT_EQUAL) tempOp = NOT_IN
+        }
         this.operator = tempOp
     }
 
@@ -159,7 +162,7 @@ class FieldValueCondition extends EntityConditionImplBase {
     @Override
     int hashCode() {
         if (curHashCode == null) curHashCode = createHashCode()
-        return curHashCode
+        return curHashCode.intValue()
     }
     protected int createHashCode() {
         return (field != null ? field.hashCode() : 0) + operator.hashCode() + (value != null ? value.hashCode() : 0) + (ignoreCase ? 1 : 0)

@@ -27,16 +27,15 @@ class ConditionField {
     protected int curHashCode
 
     ConditionField(String fieldName) {
-        if (fieldName == null || fieldName.length() == 0) throw new BaseException("Empty fieldName not allowed")
-        this.fieldName = fieldName.intern()
-        curHashCode = createHashCode()
+        if (fieldName == null) throw new BaseException("Empty fieldName not allowed")
+        this.fieldName = fieldName
+        curHashCode = fieldName.hashCode()
     }
     ConditionField(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
-        if (fieldName == null || fieldName.length() == 0) throw new BaseException("Empty fieldName not allowed")
-        this.entityAlias = entityAlias.intern()
-        this.fieldName = fieldName.intern()
+        if (fieldName == null) throw new BaseException("Empty fieldName not allowed")
+        this.entityAlias = entityAlias
+        this.fieldName = fieldName
         this.aliasEntityDef = aliasEntityDef
-        // NOTE: this is already intern()'ed
         if (aliasEntityDef != null) aliasEntityName = aliasEntityDef.getFullEntityName()
         curHashCode = createHashCode()
     }
@@ -45,7 +44,7 @@ class ConditionField {
         StringBuilder colName = new StringBuilder()
         // NOTE: this could have issues with view-entities as member entities where they have functions/etc; we may
         // have to pass the prefix in to have it added inside functions/etc
-        if (entityAlias != null && entityAlias.length() > 0) colName.append(entityAlias).append('.')
+        if (entityAlias != null) colName.append(entityAlias).append('.')
         if (aliasEntityDef != null) {
             colName.append(aliasEntityDef.getColumnName(fieldName, false))
         } else {

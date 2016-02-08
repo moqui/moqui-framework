@@ -49,8 +49,8 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityConditionImplBase havingEntityCondition = null
 
     // always initialize this as it's always used in finds (even if populated with default of all fields)
-    protected ArrayList<String> fieldsToSelect = new ArrayList<String>()
-    protected List<String> orderByFields = null
+    protected ArrayList<String> fieldsToSelect = new ArrayList<>()
+    protected ArrayList<String> orderByFields = null
 
     protected Boolean useCache = null
 
@@ -467,7 +467,7 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityFind orderBy(String orderByFieldName) {
         if (orderByFieldName == null || orderByFieldName.length() == 0) return this
-        if (this.orderByFields == null) this.orderByFields = new ArrayList()
+        if (this.orderByFields == null) this.orderByFields = new ArrayList<>()
         if (orderByFieldName.contains(",")) {
             for (String obsPart in orderByFieldName.split(",")) {
                 String orderByName = obsPart.trim()
@@ -495,7 +495,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     @Override
-    List<String> getOrderBy() { return this.orderByFields ? Collections.unmodifiableList(this.orderByFields) : null }
+    List<String> getOrderBy() { return this.orderByFields != null ? Collections.unmodifiableList(this.orderByFields) : null }
 
     @Override
     EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
@@ -816,7 +816,7 @@ abstract class EntityFindBase implements EntityFind {
 
         ArrayList<String> orderByExpanded = new ArrayList()
         // add the manually specified ones, then the ones in the view entity's entity-condition
-        if (this.getOrderBy()) orderByExpanded.addAll(this.getOrderBy())
+        if (this.orderByFields != null) orderByExpanded.addAll(this.orderByFields)
 
         NodeList entityConditionList = (NodeList) entityNode.get("entity-condition")
         Node entityConditionNode = entityConditionList ? (Node) entityConditionList.get(0) : null
@@ -974,7 +974,7 @@ abstract class EntityFindBase implements EntityFind {
 
         ArrayList<String> orderByExpanded = new ArrayList()
         // add the manually specified ones, then the ones in the view entity's entity-condition
-        if (this.getOrderBy()) orderByExpanded.addAll(this.getOrderBy())
+        if (this.orderByFields != null) orderByExpanded.addAll(this.orderByFields)
 
         NodeList entityConditionList = (NodeList) entityNode.get("entity-condition")
         Node entityConditionNode = entityConditionList ? (Node) entityConditionList.get(0) : null

@@ -13,10 +13,12 @@
  */
 package org.moqui.impl.entity.condition
 
-import org.moqui.impl.entity.EntityConditionFactoryImpl
+import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityQueryBuilder
 
+@CompileStatic
 abstract class EntityConditionImplBase implements EntityCondition {
     EntityConditionFactoryImpl ecFactoryImpl
 

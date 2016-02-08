@@ -14,6 +14,8 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
+import groovy.transform.TypeCheckingMode
 import org.kie.api.KieServices
 import org.kie.api.builder.KieBuilder
 import org.kie.api.builder.Message
@@ -66,6 +68,7 @@ import org.elasticsearch.client.Client
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
     
@@ -239,9 +242,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected void preFacadeInit() {
-        serverStatsNode = (Node) confXmlRoot.'server-stats'[0]
-        skipStatsCond = serverStatsNode."@stats-skip-condition"
-        hitBinLengthMillis = (serverStatsNode."@bin-length-seconds" as Integer)*1000 ?: 900000
+        serverStatsNode = StupidUtilities.nodeChild(confXmlRoot, 'server-stats')
+        skipStatsCond = serverStatsNode.attribute("stats-skip-condition")
+        hitBinLengthMillis = (serverStatsNode.attribute("bin-length-seconds") as Integer)*1000 ?: 900000
 
         try {
             localhostAddress = InetAddress.getLocalHost()
@@ -284,7 +287,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
         this.entityFacade.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
-        if (confXmlRoot."cache-list"[0]."@warm-on-start" != "false") warmCache()
+        if (StupidUtilities.nodeChild(confXmlRoot, "cache-list").attribute("warm-on-start") != "false") warmCache()
 
         logger.info("Moqui ExecutionContextFactory Initialization Complete")
     }
@@ -320,7 +323,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected void initComponents() {
         // init components referred to in component-list.component and component-dir elements in the conf file
-        for (Node childNode in confXmlRoot."component-list"[0].children()) {
+        for (Object childObj in StupidUtilities.nodeChild(confXmlRoot, "component-list").children()) {
+            Node childNode = (Node) childObj
             if (childNode.name() == "component") {
                 addComponent(new ComponentInfo(null, childNode, this))
             } else if (childNode.name() == "component-dir") {
@@ -428,8 +432,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     Node getConfXmlRoot() { return confXmlRoot }
     Node getServerStatsNode() { return serverStatsNode }
     Node getArtifactExecutionNode(String artifactTypeEnumId) {
-        return (Node) eci.ecfi.confXmlRoot."artifact-execution-facade"[0]."artifact-execution"
-                .find({ it."@type" == artifactTypeEnumId })
+        return (Node) StupidUtilities.nodeChild(eci.ecfi.confXmlRoot, "artifact-execution-facade").get("artifact-execution")
+                .find({ Node it -> it.attribute("type") == artifactTypeEnumId })
     }
 
     InetAddress getLocalhostAddress() { return localhostAddress }
@@ -466,7 +470,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @CompileStatic
     static String getRandomSalt() { return StupidUtilities.getRandomString(8) }
     String getPasswordHashType() {
-        Node passwordNode = (Node) confXmlRoot."user-facade"[0]."password"[0]
+        Node passwordNode = StupidUtilities.nodeChild(StupidUtilities.nodeChild(confXmlRoot, "user-facade"), "password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
     @CompileStatic
@@ -477,11 +481,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     String getLoginKeyHashType() {
-        Node loginKeyNode = (Node) confXmlRoot."user-facade"[0]."login-key"[0]
+        Node loginKeyNode = StupidUtilities.nodeChild(StupidUtilities.nodeChild(confXmlRoot, "user-facade"), "login-key")
         return loginKeyNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
     int getLoginKeyExpireHours() {
-        Node loginKeyNode = (Node) confXmlRoot."user-facade"[0]."login-key"[0]
+        Node loginKeyNode = StupidUtilities.nodeChild(StupidUtilities.nodeChild(confXmlRoot, "user-facade"), "login-key")
         return (loginKeyNode.attribute("expire-hours") ?: "144") as int
     }
 
@@ -540,7 +544,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     MoquiServiceConsumer getCamelConsumer(String uri) { return camelConsumerByUriMap.get(uri) }
 
     protected void initCamel() {
-        if (confXmlRoot."tools"[0]."@enable-camel" != "false") {
+        if (StupidUtilities.nodeChild(confXmlRoot, "tools").attribute("enable-camel") != "false") {
             logger.info("Starting Camel")
             moquiServiceComponent = new MoquiServiceComponent(this)
             camelContext.addComponent("moquiservice", moquiServiceComponent)
@@ -558,7 +562,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected void initElasticSearch() {
         // set the ElasticSearch home directory
         System.setProperty("es.path.home", runtimePath + "/elasticsearch")
-        if (confXmlRoot."tools"[0]."@enable-elasticsearch" != "false") {
+        if (StupidUtilities.nodeChild(confXmlRoot, "tools").attribute("enable-elasticsearch") != "false") {
             logger.info("Starting ElasticSearch")
             elasticSearchNode = NodeBuilder.nodeBuilder().node()
             elasticSearchClient = elasticSearchNode.client()
@@ -568,7 +572,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected void initJackrabbit() {
-        if (confXmlRoot."tools"[0]."@run-jackrabbit" == "true") {
+        if (StupidUtilities.nodeChild(confXmlRoot, "tools").attribute("run-jackrabbit") == "true") {
             Properties jackrabbitProperties = new Properties()
             URL jackrabbitProps = this.class.getClassLoader().getResource("jackrabbit_moqui.properties")
             if (jackrabbitProps != null) {
@@ -688,9 +692,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         //     module they are in, then add convenience methods to get any KieBase or KieSession by name
         ResourceReference kmoduleRr = kieRr.findChildFile("src/main/resources/META-INF/kmodule.xml")
         Node kmoduleNode = new XmlParser().parseText(kmoduleRr.getText())
-        for (Node kbaseNode in kmoduleNode."kbase") {
-            for (Node ksessionNode in kbaseNode."ksession") {
-                String ksessionName = ksessionNode."@name"
+        for (Object kbObj in kmoduleNode.get("kbase")) {
+            Node kbaseNode = (Node) kbObj
+            for (Object ksObj in kbaseNode.get("ksession")) {
+                Node ksessionNode = (Node) ksObj
+                String ksessionName = (String) ksessionNode.attribute("name")
                 String existingComponentName = kieSessionComponentCache.get(ksessionName)
                 if (existingComponentName) logger.warn("Found KIE session [${ksessionName}] in component [${existingComponentName}], replacing with session in component [${componentName}]")
                 kieSessionComponentCache.put(ksessionName, componentName)
@@ -784,7 +790,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             for (String dependsOnName in componentInfo.dependsOnNames) {
                 int dependsOnIndex = sortedNames.indexOf(dependsOnName)
                 if (dependsOnIndex > i)
-                    messages.add("Broken dependency order after initial pass: [${dependsOnName}] is after [${name}]")
+                    messages.add("Broken dependency order after initial pass: [${dependsOnName}] is after [${name}]".toString())
             }
         }
 
@@ -820,7 +826,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             if (cxmlRr.getExists()) {
                 Node componentList = new XmlParser().parse(cxmlRr.openStream())
-                for (Node childNode in componentList.children()) {
+                for (Object childObj in componentList.children()) {
+                    Node childNode = (Node) childObj
                     if (childNode.name() == 'component') {
                         ComponentInfo componentInfo = new ComponentInfo(location, childNode, this)
                         addComponent(componentInfo)
@@ -899,7 +906,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             if (componentNode != null) {
                 String nameAttr = componentNode.attribute("name")
                 if (nameAttr) name = nameAttr
-                if (componentNode["depends-on"]) for (Node dependsOnNode in componentNode["depends-on"]) {
+                if (componentNode["depends-on"]) for (Object doObj in componentNode.get("depends-on")) {
+                    Node dependsOnNode = (Node) doObj
                     dependsOnNames.add((String) dependsOnNode.attribute("name"))
                 }
             }
@@ -1021,8 +1029,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected Node getArtifactStatsNode(String artifactType, String artifactSubType) {
         // find artifact-stats node by type AND sub-type, if not found find by just the type
-        Node artifactStats = (Node) confXmlRoot."server-stats"[0]."artifact-stats".find({ it.@type == artifactType && it."@sub-type" == artifactSubType })
-        if (artifactStats == null) artifactStats = (Node) confXmlRoot."server-stats"[0]."artifact-stats".find({ it.@type == artifactType })
+        Node artifactStats = (Node) StupidUtilities.nodeChild(confXmlRoot, "server-stats").get("artifact-stats")
+                .find({ Node it -> it.attribute("type") == artifactType && it.attribute("sub-type") == artifactSubType })
+        if (artifactStats == null) artifactStats = (Node) StupidUtilities.nodeChild(confXmlRoot, "server-stats").get("artifact-stats")
+                .find({ Node it -> it.attribute('type') == artifactType })
         return artifactStats
     }
 
@@ -1251,6 +1261,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // ========== Configuration File Merging Methods ==========
 
+    @TypeChecked(TypeCheckingMode.SKIP)
     protected void mergeConfigNodes(Node baseNode, Node overrideNode) {
         mergeSingleChild(baseNode, overrideNode, "tools")
 
@@ -1373,9 +1384,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected static void mergeSingleChild(Node baseNode, Node overrideNode, String childNodeName) {
-        Node childOverrideNode = (Node) overrideNode[childNodeName][0]
+        Node childOverrideNode = StupidUtilities.nodeChild(overrideNode, childNodeName)
         if (childOverrideNode) {
-            Node childBaseNode = (Node) baseNode[childNodeName][0]
+            Node childBaseNode = StupidUtilities.nodeChild(baseNode, childNodeName)
             if (childBaseNode) {
                 childBaseNode.attributes().putAll(childOverrideNode.attributes())
             } else {
@@ -1384,6 +1395,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
+    @TypeChecked(TypeCheckingMode.SKIP)
     protected void mergeNodeWithChildKey(Node baseNode, Node overrideNode, String childNodesName, String keyAttributeName) {
         // override attributes for this node
         baseNode.attributes().putAll(overrideNode.attributes())
@@ -1435,24 +1447,21 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected static void mergeWebappActions(Node baseWebappNode, Node overrideWebappNode, String childNodeName) {
-        List<Node> overrideActionNodes = overrideWebappNode.get(childNodeName)?.getAt(0)?."actions"?.getAt(0)?.children()
+        List<Node> overrideActionNodes = StupidUtilities.nodeChild(StupidUtilities.nodeChild(overrideWebappNode, childNodeName), "actions")?.children()
         if (overrideActionNodes) {
-            Node childNode = (Node) baseWebappNode[childNodeName][0]
+            Node childNode = StupidUtilities.nodeChild(baseWebappNode, childNodeName)
             if (!childNode) {
                 childNode = baseWebappNode.appendNode(childNodeName)
             }
-            Node actionsNode = childNode.actions[0]
-            if (!actionsNode) {
-                actionsNode = childNode.appendNode("actions")
-            }
+            Node actionsNode = StupidUtilities.nodeChild(childNode, "actions")
+            if (!actionsNode) actionsNode = childNode.appendNode("actions")
 
-            for (Node overrideActionNode in overrideActionNodes) {
-                actionsNode.append(overrideActionNode)
-            }
+            for (Node overrideActionNode in overrideActionNodes) actionsNode.append(overrideActionNode)
         }
     }
 
-    Node getWebappNode(String webappName) { return (Node) confXmlRoot."webapp-list"[0]."webapp".find({ it."@name" == webappName }) }
+    Node getWebappNode(String webappName) { return (Node) StupidUtilities.nodeChild(confXmlRoot, "webapp-list").get("webapp")
+            .find({ Node it -> it.attribute("name") == webappName }) }
 
     WebappInfo getWebappInfo(String webappName) {
         if (webappInfoMap.containsKey(webappName)) return webappInfoMap.get(webappName)
@@ -1476,6 +1485,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
+            init(ecfi)
+        }
+
+        @TypeChecked(TypeCheckingMode.SKIP)
+        void init(ExecutionContextFactoryImpl ecfi) {
             // prep actions
             Node webappNode = ecfi.getWebappNode(webappName)
             if (webappNode."first-hit-in-visit")

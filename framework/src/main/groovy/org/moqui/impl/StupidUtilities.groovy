@@ -454,6 +454,12 @@ class StupidUtilities {
             return ""
         }
     }
+    static Node nodeChild(Node parent, String childName) {
+        if (parent == null) return null
+        NodeList childList = (NodeList) parent.get(childName)
+        if (childList != null && childList.size() > 0) return (Node) childList.get(0)
+        return null
+    }
 
     static String elementValue(Element element) {
         if (element == null) return null
