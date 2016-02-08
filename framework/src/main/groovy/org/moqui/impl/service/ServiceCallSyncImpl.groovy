@@ -22,6 +22,7 @@ import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
@@ -41,6 +42,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
     protected boolean ignoreTransaction = false
     protected boolean requireNewTransaction = false
+    protected boolean separateThread = false
     protected boolean useTransactionCache = false
     /* not supported by Atomikos/etc right now, consider for later: protected int transactionIsolation = -1 */
 
@@ -73,6 +75,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
     @Override
     ServiceCallSync requireNewTransaction(boolean rnt) { this.requireNewTransaction = rnt; return this }
+    @Override
+    ServiceCallSync separateThread(boolean st) { this.separateThread = st; return this }
 
     @Override
     ServiceCallSync useTransactionCache(boolean utc) { this.useTransactionCache = utc; return this }
@@ -94,7 +98,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     @Override
     Map<String, Object> call() {
         ServiceDefinition sd = getServiceDefinition()
-        ExecutionContextImpl eci = (ExecutionContextImpl) sfi.getEcfi().getExecutionContext()
+        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextImpl eci = (ExecutionContextImpl) ecfi.getExecutionContext()
 
         boolean enableAuthz = disableAuthz ? !eci.getArtifactExecution().disableAuthz() : false
         try {
@@ -103,7 +108,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 if (sd != null) {
                     inParameterNames = sd.getInParameterNames()
                 } else if (isEntityAutoPattern()) {
-                    EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(noun)
+                    EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(noun)
                     if (ed != null) inParameterNames = ed.getAllFieldNames()
                 }
                 // run all service calls in a single transaction for multi form submits, ie all succeed or fail together
@@ -141,7 +146,32 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                     }
                 }
             } else {
-                return callSingle(this.parameters, sd, eci)
+                if (this.separateThread) {
+                    Thread serviceThread = null
+                    String threadUsername = eci.user.username
+                    String threadTenantId = eci.tenantId
+                    try {
+                        Map<String, Object> resultMap = null
+
+                        serviceThread = Thread.start('ServiceSeparateThread', {
+                            ExecutionContextImpl threadEci = ecfi.getEci()
+                            threadEci.changeTenant(threadTenantId)
+                            if (threadUsername) threadEci.getUserFacade().internalLoginUser(threadUsername, threadTenantId)
+                            // if authz disabled need to do it here as well since we'll have a different ExecutionContext
+                            boolean threadEnableAuthz = disableAuthz ? !threadEci.getArtifactExecution().disableAuthz() : false
+                            try {
+                                resultMap = callSingle(this.parameters, sd, threadEci)
+                            } finally {
+                                if (threadEnableAuthz) threadEci.getArtifactExecution().enableAuthz()
+                            }
+                        } )
+                        return resultMap
+                    } finally {
+                        if (serviceThread != null) serviceThread.join()
+                    }
+                } else {
+                    return callSingle(this.parameters, sd, eci)
+                }
             }
         } finally {
             if (enableAuthz) eci.getArtifactExecution().enableAuthz()
@@ -277,7 +307,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             if (useTransactionCache || sd.getTxUseCache()) tf.initTransactionCache()
             try {
                 // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
-                checkAddSemaphore(sd, eci)
+                checkAddSemaphore(sfi.ecfi, currentParameters)
 
                 sfi.runSecaRules(getServiceNameNoHash(), currentParameters, null, "pre-service")
 
@@ -319,12 +349,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 }
             } finally {
                 // clear the semaphore
-                String semaphore = sd.getServiceNode().attribute('semaphore')
-                if (semaphore == "fail" || semaphore == "wait") {
-                    eci.getService().sync().name("delete", "moqui.service.semaphore.ServiceSemaphore")
-                            .parameters([serviceName:getServiceName()])
-                            .ignorePreviousError(true).requireNewTransaction(true).disableAuthz().call()
-                }
+                clearSemaphore(sfi.ecfi, currentParameters)
 
                 try {
                     if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
@@ -370,48 +395,126 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         }
     }
 
-    protected void checkAddSemaphore(ServiceDefinition sd, ExecutionContextImpl eci) {
+    protected void clearSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
         String semaphore = sd.getServiceNode().attribute('semaphore')
-        if (semaphore == "fail" || semaphore == "wait") {
-            EntityValue serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceSemaphore")
-                    .condition("serviceName", getServiceName()).useCache(false).one()
-            if (serviceSemaphore) {
-                long ignoreMillis = ((sd.getServiceNode().attribute('semaphore-ignore') ?: "3600") as Long) * 1000
-                Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime")
-                if (System.currentTimeMillis() > (lockTime.getTime() + ignoreMillis)) {
-                    eci.getService().sync().name("delete", "moqui.service.semaphore.ServiceSemaphore")
-                            .parameters([serviceName:getServiceName()])
-                            .ignorePreviousError(true).requireNewTransaction(true).disableAuthz().call()
-                    serviceSemaphore = null
-                }
-            }
-            if (serviceSemaphore) {
-                if (semaphore == "fail") {
-                    throw new ServiceException("An instance of service [${getServiceName()}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to fail on semaphore conflict.")
+        if (!semaphore || semaphore == "none") return
+
+        String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
+        String parameterValue = semParameter ? currentParameters.get(semParameter) ?: '_NULL_' : null
+
+        Thread sqlThread = Thread.start('ClearSemaphore', {
+            boolean authzDisabled = ecfi.eci.artifactExecution.disableAuthz()
+            try {
+                if (semParameter) {
+                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                            .set('serviceName', getServiceName()).set('parameterValue', parameterValue).delete()
                 } else {
-                    long sleepTime = ((sd.getServiceNode().attribute('semaphore-sleep') ?: "5") as Long) * 1000
-                    long timeoutTime = ((sd.getServiceNode().attribute('semaphore-timeout') ?: "120") as Long) * 1000
-                    long startTime = System.currentTimeMillis()
-                    boolean semaphoreCleared = false
-                    while (System.currentTimeMillis() < (startTime + timeoutTime)) {
-                        Thread.sleep(sleepTime)
-                        if (eci.getEntity().find("moqui.service.semaphore.ServiceSemaphore")
-                                .condition("serviceName", getServiceName()).useCache(false).disableAuthz().one() == null) {
-                            semaphoreCleared = true
-                            break
+                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceSemaphore")
+                            .set('serviceName', getServiceName()).delete()
+                }
+            } finally {
+                if (authzDisabled) ecfi.eci.artifactExecution.enableAuthz()
+            }
+        } )
+        sqlThread.join(10000)
+    }
+
+    protected void checkAddSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
+        String semaphore = sd.getServiceNode().attribute('semaphore')
+        if (!semaphore || semaphore == "none") return
+
+        String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
+
+        long ignoreMillis = ((sd.getServiceNode().attribute('semaphore-ignore') ?: "3600") as Long) * 1000
+        long sleepTime = ((sd.getServiceNode().attribute('semaphore-sleep') ?: "5") as Long) * 1000
+        long timeoutTime = ((sd.getServiceNode().attribute('semaphore-timeout') ?: "120") as Long) * 1000
+        long currentTime = System.currentTimeMillis()
+        String lockThreadName = Thread.currentThread().getName()
+
+        if (semParameter) {
+            String parameterValue = currentParameters.get(semParameter) ?: '_NULL_'
+            Thread sqlThread = Thread.start('CheckAddSemaphore', {
+                boolean authzDisabled = ecfi.eci.artifactExecution.disableAuthz()
+                try {
+                    EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
+                            .condition("serviceName", getServiceName()).condition("parameterValue", parameterValue).useCache(false).one()
+
+                    if (serviceSemaphore) {
+                        Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime")
+                        if (currentTime > (lockTime.getTime() + ignoreMillis)) {
+                            ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                                    .set('serviceName', getServiceName()).set('parameterValue', parameterValue).delete()
+                            serviceSemaphore = null
                         }
                     }
-                    if (!semaphoreCleared) {
-                        throw new ServiceException("An instance of service [${getServiceName()}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to wait on semaphore conflict, but the semaphore did not clear in ${timeoutTime/1000} seconds.")
+                    if (serviceSemaphore) {
+                        if (semaphore == "fail") {
+                            throw new ServiceException("An instance of service [${getServiceName()}] with parameter value [${parameterValue}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to fail on semaphore conflict.")
+                        } else {
+                            boolean semaphoreCleared = false
+                            while (System.currentTimeMillis() < (currentTime + timeoutTime)) {
+                                Thread.sleep(sleepTime)
+                                if (ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
+                                        .condition("serviceName", getServiceName()).condition("parameterValue", parameterValue)
+                                        .useCache(false).one() == null) {
+                                    semaphoreCleared = true
+                                    break
+                                }
+                            }
+                            if (!semaphoreCleared) {
+                                throw new ServiceException("An instance of service [${getServiceName()}] with parameter value [${parameterValue}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to wait on semaphore conflict, but the semaphore did not clear in ${timeoutTime/1000} seconds.")
+                            }
+                        }
                     }
-                }
-            }
 
-            // if we got to here the semaphore didn't exist or has cleared, so create one
-            eci.getService().sync().name("create", "moqui.service.semaphore.ServiceSemaphore")
-                    .parameters([serviceName:getServiceName(), lockThread:Thread.currentThread().getName(),
-                        lockTime:new Timestamp(System.currentTimeMillis())])
-                    .requireNewTransaction(true).disableAuthz().call()
+                    // if we got to here the semaphore didn't exist or has cleared, so create one
+                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                            .set('serviceName', getServiceName()).set('parameterValue', parameterValue)
+                            .set('lockThread', lockThreadName).set('lockTime', new Timestamp(currentTime)).create()
+                } finally { if (authzDisabled) ecfi.eci.artifactExecution.enableAuthz() }
+            } )
+            sqlThread.join(10000)
+        } else {
+            Thread sqlThread = Thread.start('CheckAddSemaphore', {
+                boolean authzDisabled = ecfi.eci.artifactExecution.disableAuthz()
+                try {
+                    EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceSemaphore")
+                            .condition("serviceName", getServiceName()).useCache(false).one()
+
+                    if (serviceSemaphore) {
+                        Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime")
+                        if (currentTime > (lockTime.getTime() + ignoreMillis)) {
+                            ecfi.entity.makeValue("moqui.service.semaphore.ServiceSemaphore")
+                                    .set('serviceName', getServiceName()).delete()
+                            serviceSemaphore = null
+                        }
+                    }
+                    if (serviceSemaphore) {
+                        if (semaphore == "fail") {
+                            throw new ServiceException("An instance of service [${getServiceName()}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to fail on semaphore conflict.")
+                        } else {
+                            boolean semaphoreCleared = false
+                            while (System.currentTimeMillis() < (currentTime + timeoutTime)) {
+                                Thread.sleep(sleepTime)
+                                if (ecfi.entity.find("moqui.service.semaphore.ServiceSemaphore")
+                                        .condition("serviceName", getServiceName()).useCache(false).one() == null) {
+                                    semaphoreCleared = true
+                                    break
+                                }
+                            }
+                            if (!semaphoreCleared) {
+                                throw new ServiceException("An instance of service [${getServiceName()}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to wait on semaphore conflict, but the semaphore did not clear in ${timeoutTime/1000} seconds.")
+                            }
+                        }
+                    }
+
+                    // if we got to here the semaphore didn't exist or has cleared, so create one
+                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceSemaphore")
+                            .set('serviceName', getServiceName()).set('lockThread', lockThreadName)
+                            .set('lockTime', new Timestamp(currentTime)).create()
+                } finally { if (authzDisabled) ecfi.eci.artifactExecution.enableAuthz() }
+            } )
+            sqlThread.join(10000)
         }
     }
 

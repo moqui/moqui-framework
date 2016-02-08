@@ -139,6 +139,7 @@ class EntityFacadeImpl implements EntityFacade {
     TimeZone getDatabaseTimeZone() { return databaseTimeZone }
     @CompileStatic
     Locale getDatabaseLocale() { return databaseLocale }
+    @Override
     @CompileStatic
     Calendar getCalendarForTzLc() {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
@@ -185,11 +186,102 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     protected void initAllDatasources() {
-        for (Node datasourceNode in this.ecfi.getConfXmlRoot()."entity-facade"[0]."datasource") {
+        for (Node datasourceNode in ecfi.confXmlRoot."entity-facade"[0]."datasource") {
             String groupName = datasourceNode."@group-name"
             String objectFactoryClass = datasourceNode."@object-factory" ?: "org.moqui.impl.entity.EntityDatasourceFactoryImpl"
             EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance()
             datasourceFactoryByGroupMap.put(groupName, edf.init(this, datasourceNode, this.tenantId))
+        }
+    }
+
+    static class DatasourceInfo {
+        EntityFacadeImpl efi
+        Node datasourceNode
+
+        String uniqueName
+
+        String jndiName
+        Node serverJndi
+
+        String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null
+
+        String xaDsClass = null
+        Properties xaProps = null
+
+        Node inlineJdbc = null
+        Node database = null
+
+        DatasourceInfo(EntityFacadeImpl efi, Node datasourceNode) {
+            this.efi = efi
+            this.datasourceNode = datasourceNode
+
+            String tenantId = efi.tenantId
+            uniqueName = tenantId + '_' + datasourceNode."@group-name" + '_DS'
+
+            EntityValue tenant = null
+            EntityFacadeImpl defaultEfi = null
+            if (tenantId != "DEFAULT" && datasourceNode."@group-name" != "tenantcommon") {
+                defaultEfi = efi.ecfi.getEntityFacade("DEFAULT")
+                tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().one()
+            }
+
+            EntityValue tenantDataSource = null
+            EntityList tenantDataSourceXaPropList = null
+            if (tenant != null) {
+                tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", tenantId)
+                        .condition("entityGroupName", datasourceNode."@group-name").disableAuthz().one()
+                if (tenantDataSource == null) {
+                    // if there is no TenantDataSource for this group, look for one for the default-group-name
+                    tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", tenantId)
+                            .condition("entityGroupName", efi.getDefaultGroupName()).disableAuthz().one()
+                }
+                tenantDataSourceXaPropList = tenantDataSource != null ? defaultEfi.find("moqui.tenant.TenantDataSourceXaProp")
+                        .condition("tenantId", tenantId) .condition("entityGroupName", tenantDataSource.entityGroupName)
+                        .disableAuthz().list() : null
+            }
+
+            inlineJdbc = (Node) datasourceNode."inline-jdbc"[0]
+            Node xaProperties = (Node) inlineJdbc."xa-properties"[0]
+            database = efi.getDatabaseNode((String) datasourceNode."@group-name")
+
+            if (datasourceNode."jndi-jdbc") {
+                serverJndi = (Node) efi.ecfi.getConfXmlRoot()."entity-facade"[0]."server-jndi"[0]
+                jndiName = tenantDataSource ? tenantDataSource.jndiName : datasourceNode."jndi-jdbc"[0]."@jndi-name"
+            } else if (xaProperties || tenantDataSourceXaPropList) {
+                xaDsClass = inlineJdbc."@xa-ds-class" ? inlineJdbc."@xa-ds-class" : database."@default-xa-ds-class"
+
+                xaProps = new Properties()
+                if (tenantDataSourceXaPropList) {
+                    for (EntityValue tenantDataSourceXaProp in tenantDataSourceXaPropList) {
+                        String propValue = tenantDataSourceXaProp.propValue
+                        if (!propValue) {
+                            logger.warn("TenantDataSourceXaProp value empty in ${tenantDataSourceXaProp}")
+                            continue
+                        }
+                        // NOTE: consider changing this to expand for all system properties using groovy or something
+                        if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
+                        xaProps.setProperty((String) tenantDataSourceXaProp.propName, propValue)
+                    }
+                }
+                // always set default properties for the given data
+                if (!tenantDataSourceXaPropList || tenantDataSource?.defaultToConfProps == "Y") {
+                    for (Map.Entry<String, String> entry in xaProperties.attributes().entrySet()) {
+                        // don't over write existing properties, from tenantDataSourceXaPropList or redundant attributes (shouldn't be allowed)
+                        if (xaProps.containsKey(entry.getKey())) continue
+                        // the Derby "databaseName" property has a ${moqui.runtime} which is a System property, others may have it too
+                        String propValue = entry.getValue()
+                        // NOTE: consider changing this to expand for all system properties using groovy or something
+                        if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
+                        xaProps.setProperty(entry.getKey(), propValue)
+                    }
+                }
+            } else {
+                jdbcDriver = inlineJdbc."@jdbc-driver" ? inlineJdbc."@jdbc-driver" : database."@default-jdbc-driver"
+                jdbcUri = tenantDataSource ? (String) tenantDataSource.jdbcUri : inlineJdbc."@jdbc-uri"
+                if (jdbcUri.contains("\${moqui.runtime}")) jdbcUri = jdbcUri.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
+                jdbcUsername = tenantDataSource ? (String) tenantDataSource.jdbcUsername : inlineJdbc."@jdbc-username"
+                jdbcPassword = tenantDataSource ? (String) tenantDataSource.jdbcPassword : inlineJdbc."@jdbc-password"
+            }
         }
     }
 
@@ -936,7 +1028,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     @CompileStatic
     EntityDefinition getEntityDefinition(String entityName) {
-        if (!entityName) return null
+        if (entityName == null || entityName.length() == 0) return null
         EntityDefinition ed = (EntityDefinition) this.frameworkEntityDefinitions.get(entityName)
         if (ed != null) return ed
         ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
@@ -1074,7 +1166,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @CompileStatic
-    EntityDbMeta getEntityDbMeta() { return dbMeta ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
+    EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
 
     /* ========================= */
     /* Interface Implementations */
@@ -1098,7 +1190,8 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     @CompileStatic
     EntityValue makeValue(String entityName) {
-        if (!entityName) throw new EntityException("No entityName passed to EntityFacade.makeValue")
+        if (entityName == null || entityName.length() == 0)
+            throw new EntityException("No entityName passed to EntityFacade.makeValue")
         EntityDatasourceFactory edf = getDatasourceFactory(getEntityGroupName(entityName))
         return edf.makeEntityValue(entityName)
     }
@@ -1109,7 +1202,8 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     @CompileStatic
     EntityFind find(String entityName) {
-        if (!entityName) throw new EntityException("No entityName passed to EntityFacade.makeFind")
+        if (entityName == null || entityName.length() == 0)
+            throw new EntityException("No entityName passed to EntityFacade.makeFind")
         EntityDatasourceFactory edf = getDatasourceFactory(getEntityGroupName(entityName))
         return edf.makeEntityFind(entityName)
     }
@@ -1118,12 +1212,12 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     @CompileStatic
     Object rest(String operation, List<String> entityPath, Map parameters, boolean masterNameInPath) {
-        if (!operation) throw new EntityException("Operation (method) must be specified")
+        if (operation == null || operation.length() == 0) throw new EntityException("Operation (method) must be specified")
         operation = operationByMethod.get(operation.toLowerCase()) ?: operation
         if (!(operation in ['find', 'create', 'store', 'update', 'delete']))
             throw new EntityException("Operation [${operation}] not supported, must be one of: get, post, put, patch, or delete for HTTP request methods or find, create, store, update, or delete for direct entity operations")
 
-        if (!entityPath) throw new EntityException("No entity name or alias specified in path")
+        if (entityPath == null || entityPath.size() == 0) throw new EntityException("No entity name or alias specified in path")
 
         boolean dependents = (parameters.dependents == 'true' || parameters.dependents == 'Y')
         int dependentLevels = (parameters.dependentLevels ?: (dependents ? '2' : '0')) as int
@@ -1138,7 +1232,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         // look for a master definition name as the next path element
         if (masterNameInPath) {
-            if (!masterName) {
+            if (masterName == null || masterName.length() == 0) {
                 if (localPath.size() > 0 && firstEd.getMasterDefinition(localPath.get(0)) != null) {
                     masterName = localPath.remove(0)
                 } else {
@@ -1150,11 +1244,11 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         // if there are more path elements use one for each PK field of the entity
-        if (localPath) {
+        if (localPath.size() > 0) {
             for (String pkFieldName in firstEd.getPkFieldNames()) {
                 String pkValue = localPath.remove(0)
                 if (!StupidUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
-                if (!localPath) break
+                if (localPath.size() == 0) break
             }
         }
 
@@ -1176,14 +1270,14 @@ class EntityFacadeImpl implements EntityFacade {
             // TODO:     operations?
 
             // if there are more path elements use one for each PK field of the entity
-            if (localPath) {
+            if (localPath.size() > 0) {
                 for (String pkFieldName in relEd.getPkFieldNames()) {
                     // do we already have a value for this PK field? if so skip it...
                     if (parameters.containsKey(pkFieldName)) continue
 
                     String pkValue = localPath.remove(0)
                     if (!StupidUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
-                    if (!localPath) break
+                    if (localPath.size() == 0) break
                 }
             }
 
@@ -1197,7 +1291,7 @@ class EntityFacadeImpl implements EntityFacade {
                 Map pkValues = [:]
                 lastEd.setFields(parameters, pkValues, false, null, true)
 
-                if (masterName) {
+                if (masterName != null && masterName.length() > 0) {
                     Map resultMap = find(lastEd.getFullEntityName()).condition(pkValues).oneMaster(masterName)
                     if (resultMap == null) throw new EntityValueNotFoundException("No value found for entity [${lastEd.getShortAlias()?:''}:${lastEd.getFullEntityName()}] with key ${pkValues}")
                     return resultMap
@@ -1229,7 +1323,7 @@ class EntityFacadeImpl implements EntityFacade {
                 parameters.put('xPageRangeLow', pageRangeLow)
                 parameters.put('xPageRangeHigh', pageRangeHigh)
 
-                if (masterName) {
+                if (masterName != null && masterName.length() > 0) {
                     List resultList = ef.listMaster(masterName)
                     return resultList
                 } else {
@@ -1247,8 +1341,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     @CompileStatic
     EntityList getValueListFromPlainMap(Map value, String entityName) {
-        if (!entityName) entityName = value."_entity"
-        if (!entityName) throw new EntityException("No entityName passed and no _entity field in value Map")
+        if (entityName == null || entityName.length() == 0) entityName = value."_entity"
+        if (entityName == null || entityName.length() == 0) throw new EntityException("No entityName passed and no _entity field in value Map")
 
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityNotFoundException("Not entity found with name ${entityName}")
@@ -1269,13 +1363,13 @@ class EntityFacadeImpl implements EntityFacade {
         for (EntityDefinition.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             Object relParmObj = value.get(relInfo.shortAlias)
             String relKey = null
-            if (relParmObj) {
+            if (relParmObj != null && !StupidUtilities.isEmpty(relParmObj)) {
                 relKey = relInfo.shortAlias
             } else {
                 relParmObj = value.get(relInfo.relationshipName)
                 if (relParmObj) relKey = relInfo.relationshipName
             }
-            if (relParmObj) {
+            if (relParmObj != null && !StupidUtilities.isEmpty(relParmObj)) {
                 if (relParmObj instanceof Map) {
                     // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
                     //     allow them to be left out of related records
@@ -1320,8 +1414,9 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            ArrayList<String> fieldLos = new ArrayList<String>(fieldList)
-            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fieldLos, this)
+            ArrayList<EntityDefinition.FieldInfo> fiList = new ArrayList<>()
+            for (String fieldName in fieldList) fiList.add(ed.getFieldInfo(fieldName))
+            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiList, this)
             return eli
         } catch (SQLException e) {
             throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)
@@ -1405,10 +1500,9 @@ class EntityFacadeImpl implements EntityFacade {
                     this.entitySequenceBankCache.put(bankCacheKey, bank)
                 }
 
-                TransactionFacade tf = this.ecfi.getTransactionFacade()
-                boolean suspendedTransaction = false
-                try {
-                    if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
+                // separate thread to avoid suspend/resume transaction
+                Thread sqlThread = Thread.start('SequencedIdPrimary', {
+                    TransactionFacade tf = this.ecfi.getTransactionFacade()
                     boolean beganTransaction = tf.begin(null)
                     try {
                         EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
@@ -1433,11 +1527,10 @@ class EntityFacadeImpl implements EntityFacade {
                     } finally {
                         if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
                     }
-                } catch (TransactionException e) {
-                    throw e
-                } finally {
-                    if (suspendedTransaction) tf.resume()
-                }
+                } )
+                // wait for thread to finish, following operations often depend on this being done
+                // 10 seconds, shouldn't have DB operations longer than this, but want some sort of timeout
+                sqlThread.join(10000)
             }
 
             long seqNum = bank[0]

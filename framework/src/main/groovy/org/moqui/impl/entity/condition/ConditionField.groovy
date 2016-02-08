@@ -27,12 +27,12 @@ class ConditionField {
     protected int curHashCode
 
     ConditionField(String fieldName) {
-        if (!fieldName) throw new BaseException("Empty fieldName not allowed")
+        if (fieldName == null || fieldName.length() == 0) throw new BaseException("Empty fieldName not allowed")
         this.fieldName = fieldName.intern()
         curHashCode = createHashCode()
     }
     ConditionField(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
-        if (!fieldName) throw new BaseException("Empty fieldName not allowed")
+        if (fieldName == null || fieldName.length() == 0) throw new BaseException("Empty fieldName not allowed")
         this.entityAlias = entityAlias.intern()
         this.fieldName = fieldName.intern()
         this.aliasEntityDef = aliasEntityDef
@@ -45,31 +45,31 @@ class ConditionField {
         StringBuilder colName = new StringBuilder()
         // NOTE: this could have issues with view-entities as member entities where they have functions/etc; we may
         // have to pass the prefix in to have it added inside functions/etc
-        if (this.entityAlias) colName.append(this.entityAlias).append('.')
-        if (this.aliasEntityDef) {
-            colName.append(this.aliasEntityDef.getColumnName(this.fieldName, false))
+        if (entityAlias != null && entityAlias.length() > 0) colName.append(entityAlias).append('.')
+        if (aliasEntityDef != null) {
+            colName.append(aliasEntityDef.getColumnName(fieldName, false))
         } else {
-            colName.append(ed.getColumnName(this.fieldName, false))
+            colName.append(ed.getColumnName(fieldName, false))
         }
         return colName.toString()
     }
 
     EntityDefinition.FieldInfo getFieldInfo(EntityDefinition ed) {
-        if (this.aliasEntityDef) {
-            return this.aliasEntityDef.getFieldInfo(fieldName)
+        if (aliasEntityDef != null) {
+            return aliasEntityDef.getFieldInfo(fieldName)
         } else {
             return ed.getFieldInfo(fieldName)
         }
     }
 
     @Override
-    String toString() { return (entityAlias ? entityAlias+"." : "") + fieldName }
+    String toString() { return (entityAlias != null ? entityAlias + "." : "") + fieldName }
 
     @Override
     int hashCode() { return curHashCode }
     protected int createHashCode() {
-        return (entityAlias ? entityAlias.hashCode() : 0) + (fieldName ? fieldName.hashCode() : 0) +
-                (aliasEntityDef ? aliasEntityDef.hashCode() : 0)
+        return (entityAlias != null ? entityAlias.hashCode() : 0) + (fieldName != null ? fieldName.hashCode() : 0) +
+                (aliasEntityDef != null ? aliasEntityDef.hashCode() : 0)
     }
 
     @Override

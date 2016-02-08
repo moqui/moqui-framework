@@ -486,7 +486,7 @@ along with this software (see the LICENSE.md file). If not, see
                     context then in a map called "fieldValues" (ie: "fieldValues.${name}"). With this convention when
                     you do an entity find to get a recard to edit, use "fieldValues" for the value-field.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="hide" type="boolean">
+            <xs:attribute name="hide" type="xs:string">
                 <xs:annotation><xs:documentation>If false field will always be visible (at least the title if nothing
                     else). If true will always be hidden regardless of title and widgets defined. If empty (default)
                     will guess based on definition of field.

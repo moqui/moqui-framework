@@ -81,7 +81,7 @@ public class MoquiStart extends ClassLoader {
         }
 
         // make a list of arguments, remove the first one (the command)
-        List<String> argList = new ArrayList<String>(Arrays.asList(args));
+        List<String> argList = new ArrayList<>(Arrays.asList(args));
 
         // now run the command
         if ("-load".equals(firstArg)) {
@@ -90,7 +90,7 @@ public class MoquiStart extends ClassLoader {
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader.jarFileList));
             initSystemProperties(moquiStartLoader, false);
 
-            Map<String, String> argMap = new HashMap<String, String>();
+            Map<String, String> argMap = new HashMap<>();
             for (String arg: argList) {
                 if (arg.startsWith("-")) arg = arg.substring(1);
                 if (arg.contains("=")) {
@@ -120,7 +120,7 @@ public class MoquiStart extends ClassLoader {
         // NOTE: the MoquiShutdown hook is not set here because we want to get the winstone Launcher object first, so done below...
         initSystemProperties(moquiStartLoader, true);
 
-        Map<String, String> argMap = new HashMap<String, String>();
+        Map<String, String> argMap = new HashMap<>();
         for (String arg: argList) {
             if (arg.startsWith("--")) arg = arg.substring(2);
             if (arg.contains("=")) {
@@ -249,9 +249,9 @@ public class MoquiStart extends ClassLoader {
     }
 
     protected JarFile outerFile = null;
-    protected final ArrayList<JarFile> jarFileList = new ArrayList<JarFile>();
-    protected final Map<String, Class<?>> classCache = new HashMap<String, Class<?>>();
-    protected final Map<String, URL> resourceCache = new HashMap<String, URL>();
+    protected final ArrayList<JarFile> jarFileList = new ArrayList<>();
+    protected final Map<String, Class<?>> classCache = new HashMap<>();
+    protected final Map<String, URL> resourceCache = new HashMap<>();
     protected ProtectionDomain pd;
     protected final boolean loadWebInf;
 
@@ -369,7 +369,7 @@ public class MoquiStart extends ClassLoader {
     @Override
     public Enumeration<URL> findResources(String resourceName) throws IOException {
         String webInfResourceName = "WEB-INF/classes/" + resourceName;
-        List<URL> urlList = new ArrayList<URL>();
+        List<URL> urlList = new ArrayList<>();
         int jarFileListSize = jarFileList.size();
         for (int i = 0; i < jarFileListSize; i++) {
             JarFile jarFile = jarFileList.get(i);
