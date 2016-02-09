@@ -343,9 +343,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="emailTypeEnumId" type="id"/>
         <field name="sentDate" type="date-time"/>
         <field name="receivedDate" type="date-time"/>
-        <field name="subject" type="text-long"/>
+        <field name="subject" type="text-medium"/>
         <field name="body" type="text-very-long"/>
-        <field name="note" type="text-long"/>
+        <!-- Removed because unused and causes row size to be too long (in MySQL, others?): <field name="note" type="text-long"/> -->
         <field name="headersString" type="text-very-long"/>
         <field name="fromAddress" type="text-medium"/>
         <field name="toAddresses" type="text-long"/>

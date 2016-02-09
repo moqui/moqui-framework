@@ -403,7 +403,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         String parameterValue = semParameter ? currentParameters.get(semParameter) ?: '_NULL_' : null
 
         Thread sqlThread = Thread.start('ClearSemaphore', {
-            boolean authzDisabled = ecfi.eci.artifactExecution.disableAuthz()
+            ExecutionContextImpl threadEci = ecfi.getEci()
+            boolean beganTx = ecfi.transactionFacade.begin(null)
+            boolean authzDisabled = threadEci.artifactExecution.disableAuthz()
             try {
                 if (semParameter) {
                     ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
@@ -413,17 +415,20 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                             .set('serviceName', getServiceName()).delete()
                 }
             } finally {
-                if (authzDisabled) ecfi.eci.artifactExecution.enableAuthz()
+                if (authzDisabled) threadEci.artifactExecution.enableAuthz()
+                ecfi.transactionFacade.commit(beganTx)
+                threadEci.destroy()
             }
         } )
         sqlThread.join(10000)
     }
 
     protected void checkAddSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
-        String semaphore = sd.getServiceNode().attribute('semaphore')
-        if (!semaphore || semaphore == "none") return
+        String semaphore = (String) sd.getServiceNode().attribute('semaphore')
+        if (semaphore == null || semaphore.length() == 0 || semaphore == "none") return
 
         String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
+        String parameterValue = semParameter ? (currentParameters.get(semParameter) ?: '_NULL_') : null
 
         long ignoreMillis = ((sd.getServiceNode().attribute('semaphore-ignore') ?: "3600") as Long) * 1000
         long sleepTime = ((sd.getServiceNode().attribute('semaphore-sleep') ?: "5") as Long) * 1000
@@ -431,11 +436,12 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         long currentTime = System.currentTimeMillis()
         String lockThreadName = Thread.currentThread().getName()
 
-        if (semParameter) {
-            String parameterValue = currentParameters.get(semParameter) ?: '_NULL_'
-            Thread sqlThread = Thread.start('CheckAddSemaphore', {
-                boolean authzDisabled = ecfi.eci.artifactExecution.disableAuthz()
-                try {
+        Thread sqlThread = Thread.start('CheckAddSemaphore', {
+            ExecutionContextImpl threadEci = ecfi.getEci()
+            boolean beganTx = ecfi.transactionFacade.begin(null)
+            boolean authzDisabled = threadEci.artifactExecution.disableAuthz()
+            try {
+                if (semParameter) {
                     EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
                             .condition("serviceName", getServiceName()).condition("parameterValue", parameterValue).useCache(false).one()
 
@@ -471,13 +477,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                     ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
                             .set('serviceName', getServiceName()).set('parameterValue', parameterValue)
                             .set('lockThread', lockThreadName).set('lockTime', new Timestamp(currentTime)).create()
-                } finally { if (authzDisabled) ecfi.eci.artifactExecution.enableAuthz() }
-            } )
-            sqlThread.join(10000)
-        } else {
-            Thread sqlThread = Thread.start('CheckAddSemaphore', {
-                boolean authzDisabled = ecfi.eci.artifactExecution.disableAuthz()
-                try {
+                } else {
                     EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceSemaphore")
                             .condition("serviceName", getServiceName()).useCache(false).one()
 
@@ -512,10 +512,14 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                     ecfi.entity.makeValue("moqui.service.semaphore.ServiceSemaphore")
                             .set('serviceName', getServiceName()).set('lockThread', lockThreadName)
                             .set('lockTime', new Timestamp(currentTime)).create()
-                } finally { if (authzDisabled) ecfi.eci.artifactExecution.enableAuthz() }
-            } )
-            sqlThread.join(10000)
-        }
+                }
+            } finally {
+                if (authzDisabled) threadEci.artifactExecution.enableAuthz()
+                ecfi.transactionFacade.commit(beganTx)
+                threadEci.destroy()
+            }
+        } )
+        sqlThread.join(10000)
     }
 
     protected Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ExecutionContextImpl eci) {

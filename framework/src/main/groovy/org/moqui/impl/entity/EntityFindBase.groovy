@@ -24,6 +24,7 @@ import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.CacheImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
+import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.condition.*
 import org.moqui.impl.entity.EntityDefinition.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
@@ -69,7 +70,9 @@ abstract class EntityFindBase implements EntityFind {
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
-        this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
+        TransactionFacadeImpl tfi = efi.getEcfi().getTransactionFacade()
+        this.txCache = tfi.getTransactionCache()
+        // if (!tfi.isTransactionInPlace()) logger.warn("No transaction in place, creating find for entity ${entityName}")
     }
 
     EntityFacadeImpl getEfi() { return efi }
