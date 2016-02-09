@@ -134,8 +134,8 @@ class ToolsScreenRenderTests extends Specification {
                  dbViewEntityName_2: 'UomDbView', field_2: 'UomType#moqui.basic.Enumeration.enumTypeId'], null)
         logger.info("Called EditDbView/setMasterFields in ${setMfStr.getRenderTime()}ms")
 
-        // ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=UomDbView", null, null)
-        // logger.info("Rendered DataView/FindDbView in ${vdvStr.getRenderTime()}ms, ${vdvStr.output?.length()} characters")
+        ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=UomDbView&orderByField=description", null, null)
+        logger.info("Rendered DataView/FindDbView in ${vdvStr.getRenderTime()}ms, ${vdvStr.output?.length()} characters")
 
         then:
         !createStr.errorMessages
@@ -143,8 +143,8 @@ class ToolsScreenRenderTests extends Specification {
         fdvStr.assertContains("UomDbView")
         !setMeStr.errorMessages
         !setMfStr.errorMessages
-        // !vdvStr.errorMessages
-        // vdvStr.assertContains("Screen Test Example")
-        // vdvStr.assertContains("In Design")
+        !vdvStr.errorMessages
+        vdvStr.assertContains("Afghani")
+        vdvStr.assertContains("Area") // for Acre
     }
 }
