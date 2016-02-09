@@ -243,7 +243,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="formResponseId" type="id" is-pk="true"/>
         <field name="formLocation" type="text-medium"/>
         <field name="formId" type="id"/>
-        <field name="userId" type="id-long"/>
+        <field name="userId" type="id"/>
         <field name="responseDate" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.screen.form.DbForm"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount"/>

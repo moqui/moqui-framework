@@ -40,7 +40,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== Enumeration ========== -->
     <entity entity-name="Enumeration" package-name="moqui.basic" short-alias="enums" cache="true">
         <field name="enumId" type="id" is-pk="true"/>
-        <field name="enumTypeId" type="id-long"/>
+        <field name="enumTypeId" type="id"/>
         <field name="parentEnumId" type="id"/>
         <field name="enumCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
@@ -58,7 +58,7 @@ along with this software (see the LICENSE.md file). If not, see
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
     <entity entity-name="EnumerationType" package-name="moqui.basic" short-alias="enumerationTypes" cache="true">
-        <field name="enumTypeId" type="id-long" is-pk="true"/>
+        <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
 
@@ -180,7 +180,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== Status ========== -->
     <entity entity-name="StatusItem" package-name="moqui.basic" short-alias="statuses" cache="true">
         <field name="statusId" type="id" is-pk="true"/>
-        <field name="statusTypeId" type="id-long"/>
+        <field name="statusTypeId" type="id"/>
         <field name="statusCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
@@ -203,8 +203,8 @@ along with this software (see the LICENSE.md file). If not, see
         </master>
     </entity>
     <entity entity-name="StatusType" package-name="moqui.basic" short-alias="statusTypes">
-        <field name="statusTypeId" type="id-long" is-pk="true"/>
-        <field name="parentTypeId" type="id-long"/>
+        <field name="statusTypeId" type="id" is-pk="true"/>
+        <field name="parentTypeId" type="id"/>
         <field name="description" type="text-medium"/>
         <relationship type="one" title="Parent" related-entity-name="moqui.basic.StatusType">
             <!-- NOTE: the related-field-name is necessary here because it is a reference back to the same entity and
@@ -214,8 +214,8 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <!-- Deprecated for a long time, now removed: StatusValidChange, StatusValidChangeToDetail -->
     <entity entity-name="StatusFlow" package-name="moqui.basic">
-        <field name="statusFlowId" type="id-long" is-pk="true"/>
-        <field name="statusTypeId" type="id-long"><description>Optional. If specified uses status items with this type.</description></field>
+        <field name="statusFlowId" type="id" is-pk="true"/>
+        <field name="statusTypeId" type="id"><description>Optional. If specified uses status items with this type.</description></field>
         <field name="description" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.basic.StatusType" short-alias="type"/>
         <seed-data>
@@ -223,14 +223,14 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
     </entity>
     <entity entity-name="StatusFlowItem" package-name="moqui.basic">
-        <field name="statusFlowId" type="id-long" is-pk="true"/>
+        <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
         <field name="isInitial" type="text-indicator"><description>If true can be an initial status in this flow.</description></field>
         <relationship type="one" related-entity-name="moqui.basic.StatusFlow" short-alias="flow"/>
         <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
     </entity>
     <entity entity-name="StatusFlowTransition" package-name="moqui.basic" cache="true">
-        <field name="statusFlowId" type="id-long" is-pk="true"/>
+        <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
         <field name="toStatusId" type="id" is-pk="true"/>
         <field name="transitionSequence" type="number-integer"/>
@@ -353,8 +353,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="bccAddresses" type="text-long"/>
         <field name="contentType" type="text-medium"/>
         <field name="messageId" type="text-medium"/>
-        <field name="fromUserId" type="id-long"/>
-        <field name="toUserId" type="id-long"/>
+        <field name="fromUserId" type="id"/>
+        <field name="toUserId" type="id"/>
         <field name="emailTemplateId" type="id">
             <description>For outgoing messages that came from an EmailTemplate.</description></field>
         <field name="emailServerId" type="id"/>
