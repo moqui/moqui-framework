@@ -11,6 +11,15 @@ TODO
 
 New Features
 
+- Performance improvements based on profiling, entity find one with and
+  without cache about 3x faster (on H2, cached finds will have same
+  increase regardless of database, other databases will see less app server
+  load but DB speeds vary more); other entity and service operations are
+  faster and screen rendering marginally faster
+- UserAccount.userId and various other ID fields changed from id-long to id
+  as userId is only an internal/sequenced ID now, and for various others
+  the 40 char length changed years ago is more than adequate; existing
+  columns can be updated for the shorter length, but don't have to be
 - Changes to run tests without example component in place (now a component
   separate from moqui-runtime), using the moqui.test and other entities
 - Added run-jackrabbit option to run Apache Jackrabbit locally when Moqui
@@ -46,6 +55,10 @@ New Features
 
 Bug Fixes
 
+- DB operations for sequenced IDs, service semaphores, and DB meta data are
+  now run in a separate thread instead of tx suspend/resume as some
+  databases have issues with suspend/resume, especially multiple
+  outstanding suspended transactions
 - Fixed issue with conditional default subscreen URL caching
 - Internal login from login/api key and async/scheduled services now checks
   for disabled accounts, expired passwords, etc just like normal login
