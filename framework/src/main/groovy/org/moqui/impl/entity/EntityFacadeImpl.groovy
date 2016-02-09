@@ -25,7 +25,7 @@ import org.moqui.entity.*
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-
+import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
@@ -1479,7 +1479,9 @@ class EntityFacadeImpl implements EntityFacade {
 
                 // separate thread to avoid suspend/resume transaction
                 Thread sqlThread = Thread.start('SequencedIdPrimary', {
-                    TransactionFacade tf = this.ecfi.getTransactionFacade()
+                    ExecutionContextImpl threadEci = ecfi.getEci()
+                    // NOTE: changeTenant not required here because we'll continue using the reference to this instance of the EFI
+                    TransactionFacade tf = ecfi.getTransactionFacade()
                     boolean beganTransaction = tf.begin(null)
                     try {
                         EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
@@ -1503,6 +1505,7 @@ class EntityFacadeImpl implements EntityFacade {
                         tf.rollback(beganTransaction, "Error getting primary sequenced ID", t)
                     } finally {
                         if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
+                        threadEci.destroy()
                     }
                 } )
                 // wait for thread to finish, following operations often depend on this being done

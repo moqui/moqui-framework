@@ -150,9 +150,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                     Thread serviceThread = null
                     String threadUsername = eci.user.username
                     String threadTenantId = eci.tenantId
+                    Map<String, Object> resultMap = null
                     try {
-                        Map<String, Object> resultMap = null
-
                         serviceThread = Thread.start('ServiceSeparateThread', {
                             ExecutionContextImpl threadEci = ecfi.getEci()
                             threadEci.changeTenant(threadTenantId)
@@ -163,12 +162,13 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                                 resultMap = callSingle(this.parameters, sd, threadEci)
                             } finally {
                                 if (threadEnableAuthz) threadEci.getArtifactExecution().enableAuthz()
+                                threadEci.destroy()
                             }
                         } )
-                        return resultMap
                     } finally {
                         if (serviceThread != null) serviceThread.join()
                     }
+                    return resultMap
                 } else {
                     return callSingle(this.parameters, sd, eci)
                 }

@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 
 import java.sql.SQLException
@@ -658,7 +659,7 @@ class EntityDbMeta {
         }
     }
 
-    static final ReentrantLock sqlLock = new ReentrantLock()
+    final ReentrantLock sqlLock = new ReentrantLock()
     int runSqlUpdate(CharSequence sql, String groupName) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         sqlLock.lock()
@@ -666,6 +667,8 @@ class EntityDbMeta {
         try {
             // separate thread to avoid suspend/resume transaction
             Thread sqlThread = Thread.start('DbMetaSql', {
+                ExecutionContextImpl threadEci = efi.ecfi.getEci()
+                // NOTE: changeTenant not required here because we'll continue using the reference to this instance of the EFI
                 Connection con = null
                 Statement stmt = null
 
@@ -682,6 +685,7 @@ class EntityDbMeta {
                     if (stmt != null) stmt.close()
                     if (con != null) con.close()
                     if (beganTx) efi.ecfi.transactionFacade.commit()
+                    threadEci.destroy()
                 }
             } )
             // wait for thread to finish, following operations often depend on this being done
