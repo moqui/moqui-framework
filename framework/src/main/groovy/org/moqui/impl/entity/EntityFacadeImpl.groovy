@@ -1132,10 +1132,10 @@ class EntityFacadeImpl implements EntityFacade {
         if (node != null) return node
         return findDatabaseNode(groupName)
     }
-    @TypeChecked(TypeCheckingMode.SKIP)
     protected Node findDatabaseNode(String groupName) {
         String databaseConfName = getDatabaseConfName(groupName)
-        Node node = (Node) ecfi.confXmlRoot."database-list"[0].database.find({ it."@name" == databaseConfName })
+        Node node = (Node) StupidUtilities.nodeChild(ecfi.confXmlRoot, "database-list").get('database')
+                .find({ Node it -> it.attribute("name") == databaseConfName })
         databaseNodeByGroupName.put(groupName, node)
         return node
     }
@@ -1489,13 +1489,13 @@ class EntityFacadeImpl implements EntityFacade {
                             svi.set("seqName", seqName)
                             // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
                             bank[0] = 100000L
-                            bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L)
+                            bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
                             svi.set("seqNum", bank[1])
                             svi.create()
                         } else {
                             Long lastSeqNum = svi.getLong("seqNum")
                             bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
-                            bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L)
+                            bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
                             svi.set("seqNum", bank[1])
                             svi.update()
                         }
@@ -1600,7 +1600,6 @@ class EntityFacadeImpl implements EntityFacade {
         }
         return getFieldJavaTypeFromDbNode(groupName, fieldType, ed)
     }
-    @TypeChecked(TypeCheckingMode.SKIP)
     protected getFieldJavaTypeFromDbNode(String groupName, String fieldType, EntityDefinition ed) {
         Map<String, String> javaTypeMap = javaTypeByGroup.get(groupName)
         if (javaTypeMap == null) {
@@ -1609,10 +1608,13 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         Node databaseNode = this.getDatabaseNode(groupName)
-        String javaType = databaseNode ? databaseNode."database-type".find({ it.@type == fieldType })?."@java-type" : null
+        Node databaseTypeNode = databaseNode ? (Node) databaseNode.get("database-type").find({ Node it -> it.attribute('type') == fieldType }) : null
+        String javaType = databaseTypeNode?.attribute("java-type")
         if (!javaType) {
-            Node databaseListNode = (Node) this.ecfi.confXmlRoot."database-list"[0]
-            javaType = databaseListNode ? databaseListNode."dictionary-type".find({ it.@type == fieldType })?."@java-type" : null
+            Node databaseListNode = StupidUtilities.nodeChild(ecfi.confXmlRoot, "database-list")
+            Node dictionaryTypeNode = (Node) databaseListNode.get("dictionary-type")
+                                .find({ Node it -> it.attribute('type') == fieldType })
+            javaType = dictionaryTypeNode?.attribute("java-type")
             if (!javaType) throw new EntityException("Could not find Java type for field type [${fieldType}] on entity [${ed.getFullEntityName()}]")
         }
         javaTypeMap.put(fieldType, javaType)
@@ -1629,7 +1631,6 @@ class EntityFacadeImpl implements EntityFacade {
         }
         return getFieldSqlTypeFromDbNode(groupName, fieldType, ed)
     }
-    @TypeChecked(TypeCheckingMode.SKIP)
     protected getFieldSqlTypeFromDbNode(String groupName, String fieldType, EntityDefinition ed) {
         Map<String, String> sqlTypeMap = sqlTypeByGroup.get(groupName)
         if (sqlTypeMap == null) {
@@ -1638,10 +1639,13 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         Node databaseNode = this.getDatabaseNode(groupName)
-        String sqlType = databaseNode ? databaseNode."database-type".find({ it.@type == fieldType })?."@sql-type" : null
+        Node databaseTypeNode = databaseNode ? (Node) databaseNode.get("database-type").find({ Node it -> it.attribute('type') == fieldType }) : null
+        String sqlType = databaseTypeNode?.attribute("sql-type")
         if (!sqlType) {
-            Node databaseListNode = (Node) this.ecfi.confXmlRoot."database-list"[0]
-            sqlType = databaseListNode ? databaseListNode."dictionary-type".find({ it.@type == fieldType })?."@default-sql-type" : null
+            Node databaseListNode = StupidUtilities.nodeChild(ecfi.confXmlRoot, "database-list")
+            Node dictionaryTypeNode = (Node) databaseListNode.get("dictionary-type")
+                                .find({ Node it -> it.attribute('type') == fieldType })
+            sqlType = dictionaryTypeNode?.attribute("default-sql-type")
             if (!sqlType) throw new EntityException("Could not find SQL type for field type [${fieldType}] on entity [${ed.getFullEntityName()}]")
         }
         sqlTypeMap.put(fieldType, sqlType)
