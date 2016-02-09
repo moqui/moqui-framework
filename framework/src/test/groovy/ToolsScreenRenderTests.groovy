@@ -101,19 +101,17 @@ class ToolsScreenRenderTests extends Specification {
         // run with very few baseCalls so it doesn't take too long
         "Entity/SpeedTest?baseCalls=10" | "" | ""
 
-        /* TODO alternative for example
         // Service screens
-        "Service/ServiceReference?serviceName=example" |
-                "moqui.example.ExampleServices.create#ExampleItem" | "Service Detail"
-        "Service/ServiceDetail?serviceName=moqui.example.ExampleServices.consume#ExampleMessage" |
-                "moqui.service.message.SystemMessage" | """ec.service.sync().name("store#moqui.example.Example")"""
-        "Service/ServiceRun?serviceName=moqui.example.ExampleServices.create#ExampleItem" |
-                "Example ID" | "Cron String"
+        "Service/ServiceReference?serviceName=UserServices" |
+                "org.moqui.impl.UserServices.create#UserAccount" | "Service Detail"
+        "Service/ServiceDetail?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
+                "moqui.security.UserAccount.username" | """ec.service.sync().name("create#moqui.security.UserAccount")"""
+        "Service/ServiceRun?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
+                "User Full Name" | "Cron String"
         // run the service, then make sure it ran
-        "Service/ServiceRun/run?serviceName=moqui.example.ExampleServices.create#ExampleItem&exampleId=TEST_SCR&description=ServiceRun Screen Test Item" | "" | ""
-        "Entity/DataEdit/EntityDataFind?exampleId=TEST_SCR&entityName=moqui.example.ExampleItem" |
-                "ServiceRun Screen Test Item" | ""
-        */
+        "Service/ServiceRun/run?serviceName=org.moqui.impl.UserServices.create#UserAccount&username=ScreenTest&newPassword=moqui1!&newPasswordVerify=moqui1!&userFullName=Screen Test User&emailAddress=screen@test.com" | "" | ""
+        "Entity/DataEdit/EntityDataFind?username=ScreenTest&entityName=moqui.security.UserAccount" |
+                "Screen Test User" | "screen@test.com"
     }
 
     /* TODO alternative for example
