@@ -114,39 +114,37 @@ class ToolsScreenRenderTests extends Specification {
                 "Screen Test User" | "screen@test.com"
     }
 
-    /* TODO alternative for example
     def "render DataView screens"() {
         // create a DbViewEntity, set MASTER and fields, view it
         when:
         ScreenTestRender createStr = screenTest.render("DataView/FindDbView/create",
-                [dbViewEntityName:'ExampleDbView', packageName:'moqui.example', isDataView:'Y'], null)
+                [dbViewEntityName: 'UomDbView', packageName: 'moqui.basic', isDataView: 'Y'], null)
         logger.info("Called FindDbView/create in ${createStr.getRenderTime()}ms")
 
         ScreenTestRender fdvStr = screenTest.render("DataView/FindDbView", null, null)
         logger.info("Rendered DataView/FindDbView in ${fdvStr.getRenderTime()}ms, ${fdvStr.output?.length()} characters")
 
         ScreenTestRender setMeStr = screenTest.render("DataView/EditDbView/setMasterEntity",
-                [dbViewEntityName:'ExampleDbView', entityAlias:'MASTER', entityName:'moqui.example.Example'], null)
+                [dbViewEntityName: 'UomDbView', entityAlias: 'MASTER', entityName: 'moqui.basic.Uom'], null)
         logger.info("Called EditDbView/setMasterEntity in ${setMeStr.getRenderTime()}ms")
 
         ScreenTestRender setMfStr = screenTest.render("DataView/EditDbView/setMasterFields",
-                [dbViewEntityName_0:'ExampleDbView', field_0:'moqui.example.Example.exampleName',
-                 dbViewEntityName_1:'ExampleDbView', field_1:'Example#moqui.basic.StatusItem.description',
-                 dbViewEntityName_2:'ExampleDbView', field_2:'ExampleType#moqui.basic.Enumeration.description'], null)
+                [dbViewEntityName_0: 'UomDbView', field_0: 'moqui.basic.Uom.description',
+                 dbViewEntityName_1: 'UomDbView', field_1: 'UomType#moqui.basic.Enumeration.description',
+                 dbViewEntityName_2: 'UomDbView', field_2: 'UomType#moqui.basic.Enumeration.enumTypeId'], null)
         logger.info("Called EditDbView/setMasterFields in ${setMfStr.getRenderTime()}ms")
 
-        ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=ExampleDbView", null, null)
-        logger.info("Rendered DataView/FindDbView in ${vdvStr.getRenderTime()}ms, ${vdvStr.output?.length()} characters")
+        // ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=UomDbView", null, null)
+        // logger.info("Rendered DataView/FindDbView in ${vdvStr.getRenderTime()}ms, ${vdvStr.output?.length()} characters")
 
         then:
         !createStr.errorMessages
         !fdvStr.errorMessages
-        fdvStr.assertContains("ExampleDbView")
+        fdvStr.assertContains("UomDbView")
         !setMeStr.errorMessages
         !setMfStr.errorMessages
-        !vdvStr.errorMessages
-        vdvStr.assertContains("Screen Test Example")
-        vdvStr.assertContains("In Design")
+        // !vdvStr.errorMessages
+        // vdvStr.assertContains("Screen Test Example")
+        // vdvStr.assertContains("In Design")
     }
-    */
 }
