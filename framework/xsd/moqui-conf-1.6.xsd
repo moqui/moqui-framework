@@ -42,13 +42,18 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="enable-elasticsearch" type="boolean" default="true"/>
             <xs:attribute name="enable-camel" type="boolean" default="true"/>
             <xs:attribute name="run-jackrabbit" type="boolean" default="false"/>
+            <xs:attribute name="empty-db-load" type="xs:string" default="seed"><xs:annotation><xs:documentation>
+                Comma-separated list of data file types to load if database is empty (if there are no records in the
+                table for moqui.basic.Enumeration). Empty or 'none' means load nothing, use 'all' to load all found
+                data files regardless of type. This is for the DEFAULT tenant only.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 
     <!-- ===================== Cache Conf Root ===================== -->
     <xs:element name="cache-list">
         <xs:complexType>
-            <xs:sequence><xs:element maxOccurs="unbounded" ref="cache"/></xs:sequence>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="cache"/></xs:sequence>
             <xs:attribute name="warm-on-start" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
@@ -56,11 +61,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="expire-time-idle" type="xs:nonNegativeInteger" use="optional">
-                <xs:annotation><xs:documentation>Idle expire time in seconds.</xs:documentation></xs:annotation>
-            </xs:attribute>
+                <xs:annotation><xs:documentation>Idle expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="expire-time-live" type="xs:nonNegativeInteger" use="optional">
-                <xs:annotation><xs:documentation>Live expire time in seconds.</xs:documentation></xs:annotation>
-            </xs:attribute>
+                <xs:annotation><xs:documentation>Live expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="max-elements" type="xs:nonNegativeInteger" use="optional"/>
             <xs:attribute name="eviction-strategy" use="optional">
                 <xs:simpleType>

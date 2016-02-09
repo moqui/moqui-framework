@@ -47,8 +47,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tenantName" required="true"/>
             <parameter name="isEnabled" default-value="Y"/>
 
-            <parameter name="dataLoadTypes" default-value="seed,install">
-                <description>If blank defaults to all (just like the -load -types command line argument)</description></parameter>
+            <parameter name="dataLoadTypes" default-value="seed,seed-initial,install">
+                <description>If empty or 'all' defaults to all (just like the -load -types command line argument)</description></parameter>
 
             <parameter name="hostName"/>
             <parameter name="hostAllowOverride" default-value="N"/>
@@ -97,7 +97,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </else></if>
             </if>
 
-            <script>
+            <script><![CDATA[
                 import org.moqui.context.ExecutionContext
                 import org.moqui.entity.EntityDataLoader
                 import org.moqui.impl.context.ArtifactExecutionInfoImpl
@@ -118,12 +118,12 @@ along with this software (see the LICENSE.md file). If not, see
 
                 // load data
                 EntityDataLoader edl = ec.getEntity().makeDataLoader()
-                if (dataLoadTypes) edl.dataTypes(new HashSet(Arrays.asList(dataLoadTypes.split(","))))
+                if (dataLoadTypes && dataLoadTypes != 'all') edl.dataTypes(new HashSet(Arrays.asList(dataLoadTypes.split(","))))
 
                 long startTime = System.currentTimeMillis()
                 records = edl.load()
                 totalSeconds = (System.currentTimeMillis() - startTime) / 1000
-            </script>
+            ]]></script>
             <log level="info" message="Loaded [${records}] records in ${totalSeconds} seconds."/>
 
             <!-- create admin user -->

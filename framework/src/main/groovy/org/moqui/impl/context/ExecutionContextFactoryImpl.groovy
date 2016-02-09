@@ -24,10 +24,12 @@ import org.kie.api.builder.Results
 import org.kie.api.runtime.KieContainer
 import org.kie.api.runtime.KieSession
 import org.kie.api.runtime.StatelessKieSession
+import org.moqui.Moqui
 import org.moqui.context.Cache
 import org.moqui.context.CacheFacade
 import org.moqui.context.LoggerFacade
 import org.moqui.context.ResourceFacade
+import org.moqui.entity.EntityDataLoader
 import org.moqui.screen.ScreenFacade
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityFacade
@@ -154,12 +156,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (!confPartialPath) confPartialPath = moquiInitProperties.getProperty("moqui.conf")
         if (!confPartialPath) throw new IllegalArgumentException("No moqui.conf property found in MoquiInit.properties or in a system property (with: -Dmoqui.conf=... on the command line)")
 
+        String confFullPath
+        if (confPartialPath.startsWith("/")) {
+            confFullPath = confPartialPath
+        } else {
+            confFullPath = this.runtimePath + "/" + confPartialPath
+        }
         // setup the confFile
-        if (confPartialPath.startsWith("/")) confPartialPath = confPartialPath.substring(1)
-        String confFullPath = this.runtimePath + "/" + confPartialPath
         File confFile = new File(confFullPath)
-        if (confFile.exists()) { this.confPath = confFullPath }
-        else { this.confPath = null; logger.warn("The moqui.conf path [${confFullPath}] was not found.") }
+        if (confFile.exists()) {
+            this.confPath = confFullPath
+        } else {
+            this.confPath = null
+            throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
+        }
 
         confXmlRoot = this.initConfig()
 
@@ -376,6 +386,44 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     }
                 }
             }
+        }
+    }
+
+    /** Called from MoquiContextListener.contextInitialized after ECFI init */
+    boolean checkEmptyDb() {
+        String emptyDbLoad = (String) StupidUtilities.nodeChild(confXmlRoot, "tools").attribute("empty-db-load")
+        if (!emptyDbLoad || emptyDbLoad == 'none') return false
+
+        long enumCount = getEntity().find("moqui.basic.Enumeration").disableAuthz().count()
+        if (enumCount == 0) {
+            logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
+
+            ExecutionContext ec = getExecutionContext()
+            try {
+                ec.getArtifactExecution().disableAuthz()
+                ec.getArtifactExecution().push("loadData", "AT_OTHER", "AUTHZA_ALL", false)
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                ec.getUser().loginAnonymousIfNoUser()
+
+                EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                if (emptyDbLoad != 'all') edl.dataTypes(new HashSet(emptyDbLoad.split(",") as List))
+
+                try {
+                    long startTime = System.currentTimeMillis()
+                    long records = edl.load()
+
+                    logger.info("Loaded [${records}] records (with types: ${emptyDbLoad}) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                } catch (Throwable t) {
+                    logger.error("Error loading empty DB data (with types: ${emptyDbLoad})", t)
+                }
+
+            } finally {
+                ec.destroy()
+            }
+            return true
+        } else {
+            logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
+            return false
         }
     }
 

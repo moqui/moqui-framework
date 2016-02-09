@@ -5,7 +5,7 @@
 
     <!-- Settings in this file can be overridden in a runtime conf file that has a any of the desired sub-elements. -->
 
-    <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false"/>
+    <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false" empty-db-load="seed"/>
 
     <cache-list warm-on-start="true">
         <!-- Production mode by default - No expiration of conf and impl artifacts. -->
