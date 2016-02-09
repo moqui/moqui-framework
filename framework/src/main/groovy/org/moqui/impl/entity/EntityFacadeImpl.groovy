@@ -16,29 +16,23 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
+
+import org.moqui.BaseException
 import org.moqui.context.Cache
 import org.moqui.context.ResourceReference
-import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
+import org.moqui.entity.*
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.w3c.dom.Element
-
-import java.sql.Connection
-import java.sql.PreparedStatement
-import java.sql.ResultSet
-import java.sql.SQLException
-import java.sql.Timestamp
-import javax.sql.DataSource
-import javax.sql.XADataSource
-
-import org.moqui.entity.*
-import org.moqui.BaseException
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.w3c.dom.Element
 
+import javax.sql.DataSource
+import javax.sql.XADataSource
+import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.locks.Lock
@@ -96,7 +90,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (entityFacadeNode.attribute("database-time-zone")) {
             try {
                 theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"))
-            } catch (Exception e) { /* do nothing */ }
+            } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}") }
         }
         this.databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
         Locale theLocale = null
@@ -106,7 +100,7 @@ class EntityFacadeImpl implements EntityFacade {
                 if (localeStr) theLocale = localeStr.contains("_") ?
                         new Locale(localeStr.substring(0, localeStr.indexOf("_")), localeStr.substring(localeStr.indexOf("_")+1).toUpperCase()) :
                         new Locale(localeStr)
-            } catch (Exception e) { /* do nothing */ }
+            } catch (Exception e) { logger.warn("Error parsing database-locale: ${e.toString()}") }
         }
         this.databaseLocale = theLocale ?: Locale.getDefault()
         this.databaseTzLcCalendar = Calendar.getInstance(getDatabaseTimeZone(), getDatabaseLocale())
@@ -128,23 +122,16 @@ class EntityFacadeImpl implements EntityFacade {
         entityDataDocument = new EntityDataDocument(this)
     }
 
-    @CompileStatic
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
-    @CompileStatic
     EntityCache getEntityCache() { return entityCache }
-    @CompileStatic
     EntityDataFeed getEntityDataFeed() { return entityDataFeed }
-    @CompileStatic
     EntityDataDocument getEntityDataDocument() { return entityDataDocument }
-    @CompileStatic
     String getDefaultGroupName() { return defaultGroupName }
 
-    @CompileStatic
     TimeZone getDatabaseTimeZone() { return databaseTimeZone }
-    @CompileStatic
     Locale getDatabaseLocale() { return databaseLocale }
+
     @Override
-    @CompileStatic
     Calendar getCalendarForTzLc() {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
         // return efi.getEcfi().getExecutionContext().getUser().getCalendarForTzLcOnly()
@@ -376,7 +363,6 @@ class EntityFacadeImpl implements EntityFacade {
         return groupNames
     }
 
-    @CompileStatic
     static int getTxIsolationFromString(String isolationLevel) {
         if (!isolationLevel) return -1
         if ("Serializable".equals(isolationLevel)) {
@@ -447,7 +433,6 @@ class EntityFacadeImpl implements EntityFacade {
         return entityRrList
     }
 
-    @CompileStatic
     void loadAllEntityLocations() {
         // lock or wait for lock, this lock used here and for checking entity defined
         locationLoadLock.lock()
@@ -501,7 +486,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     // NOTE: only called by loadAllEntityLocations() which is synchronized/locked, so doesn't need to be
-    @CompileStatic
     protected void loadEntityFileLocations(ResourceReference entityRr) {
         Node entityRoot = getEntityFileRoot(entityRr)
         if (entityRoot.name() == "entities") {
@@ -834,7 +818,6 @@ class EntityFacadeImpl implements EntityFacade {
         if (logger.infoEnabled && relationshipsCreated > 0) logger.info("Created ${relationshipsCreated} automatic reverse relationships")
     }
 
-    @CompileStatic
     int getEecaRuleCount() {
         int count = 0
         for (List ruleList in eecaRulesByEntityName.values()) count += ruleList.size()
@@ -888,9 +871,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    @CompileStatic
     boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
-    @CompileStatic
     void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
         List<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
         if (lst) {
@@ -996,7 +977,6 @@ class EntityFacadeImpl implements EntityFacade {
     /** This is used mostly by the service engine to quickly determine whether a noun is an entity. Called for all
      * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
      * one of the entity-auto supported verbs. */
-    @CompileStatic
     boolean isEntityDefined(String entityName) {
         if (!entityName) return false
 
@@ -1031,7 +1011,7 @@ class EntityFacadeImpl implements EntityFacade {
                     return isEntity
                 } catch (EntityNotFoundException enfe) {
                     // ignore the exception, just means entity not found
-                    if (logger.isInfoEnabled()) logger.info("Exception (not found) for uncached entity [${entityName}] in ${System.currentTimeMillis() - startTime}ms")
+                    if (logger.isInfoEnabled()) logger.info("Exception (not found) for uncached entity [${entityName}] in ${System.currentTimeMillis() - startTime}ms: ${enfe.toString()}")
                     return false
                 }
             }
@@ -1040,7 +1020,6 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    @CompileStatic
     EntityDefinition getEntityDefinition(String entityName) {
         if (entityName == null || entityName.length() == 0) return null
         EntityDefinition ed = (EntityDefinition) this.frameworkEntityDefinitions.get(entityName)
@@ -1050,7 +1029,6 @@ class EntityFacadeImpl implements EntityFacade {
         return loadEntityDefinition(entityName)
     }
 
-    @CompileStatic
     void clearEntityDefinitionFromCache(String entityName) {
         EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
         if (ed != null) {
@@ -1149,7 +1127,6 @@ class EntityFacadeImpl implements EntityFacade {
         return efl
     }
 
-    @CompileStatic
     Node getDatabaseNode(String groupName) {
         Node node = databaseNodeByGroupName.get(groupName)
         if (node != null) return node
@@ -1167,7 +1144,6 @@ class EntityFacadeImpl implements EntityFacade {
         return datasourceNode.attribute("database-conf-name")
     }
 
-    @CompileStatic
     Node getDatasourceNode(String groupName) {
         Node node = datasourceNodeByGroupName.get(groupName)
         if (node != null) return node
@@ -1180,7 +1156,6 @@ class EntityFacadeImpl implements EntityFacade {
         return dsNode
     }
 
-    @CompileStatic
     EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
 
     /* ========================= */
@@ -1188,7 +1163,6 @@ class EntityFacadeImpl implements EntityFacade {
     /* ========================= */
 
     @Override
-    @CompileStatic
     EntityDatasourceFactory getDatasourceFactory(String groupName) {
         EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName)
         if (edf == null) edf = datasourceFactoryByGroupMap.get(defaultGroupName)
@@ -1197,13 +1171,10 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    @CompileStatic
     EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
-    @CompileStatic
     EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
 
     @Override
-    @CompileStatic
     EntityValue makeValue(String entityName) {
         if (entityName == null || entityName.length() == 0)
             throw new EntityException("No entityName passed to EntityFacade.makeValue")
@@ -1212,10 +1183,8 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    @CompileStatic
     EntityFind makeFind(String entityName) { return find(entityName) }
     @Override
-    @CompileStatic
     EntityFind find(String entityName) {
         if (entityName == null || entityName.length() == 0)
             throw new EntityException("No entityName passed to EntityFacade.makeFind")
@@ -1225,7 +1194,6 @@ class EntityFacadeImpl implements EntityFacade {
 
     final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
     @Override
-    @CompileStatic
     Object rest(String operation, List<String> entityPath, Map parameters, boolean masterNameInPath) {
         if (operation == null || operation.length() == 0) throw new EntityException("Operation (method) must be specified")
         operation = operationByMethod.get(operation.toLowerCase()) ?: operation
@@ -1354,7 +1322,6 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    @CompileStatic
     EntityList getValueListFromPlainMap(Map value, String entityName) {
         if (entityName == null || entityName.length() == 0) entityName = value."_entity"
         if (entityName == null || entityName.length() == 0) throw new EntityException("No entityName passed and no _entity field in value Map")
@@ -1366,7 +1333,6 @@ class EntityFacadeImpl implements EntityFacade {
         addValuesFromPlainMapRecursive(ed, value, valueList)
         return valueList
     }
-    @CompileStatic
     void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList) {
         EntityValue newEntityValue = makeValue(ed.getFullEntityName())
         newEntityValue.setFields(value, true, null, null)
@@ -1408,7 +1374,6 @@ class EntityFacadeImpl implements EntityFacade {
 
 
     @Override
-    @CompileStatic
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
@@ -1460,7 +1425,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    @CompileStatic
     String sequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
         try {
             // is the seqName an entityName?
@@ -1480,7 +1444,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     protected final static long defaultBankSize = 50L
-    @CompileStatic
     protected Lock getDbSequenceLock(String seqName) {
         Lock oldLock, dbSequenceLock = dbSequenceLocks.get(seqName)
         if (dbSequenceLock == null) {
@@ -1492,7 +1455,6 @@ class EntityFacadeImpl implements EntityFacade {
         }
         return dbSequenceLock
     }
-    @CompileStatic
     protected String dbSequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
 
         // TODO: find some way to get this running non-synchronized for performance reasons (right now if not
@@ -1574,7 +1536,6 @@ class EntityFacadeImpl implements EntityFacade {
         return groupEntityNames
     }
 
-    @CompileStatic
     @Override
     String getEntityGroupName(String entityName) {
         String entityGroupName = entityGroupNameMap.get(entityName)
@@ -1586,7 +1547,6 @@ class EntityFacadeImpl implements EntityFacade {
         return entityGroupName
     }
 
-    @CompileStatic
     @Override
     Connection getConnection(String groupName) {
         EntityDatasourceFactory edf = getDatasourceFactory(groupName)
@@ -1631,7 +1591,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     protected Map<String, Map<String, String>> javaTypeByGroup = [:]
-    @CompileStatic
     String getFieldJavaType(String fieldType, EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
         Map<String, String> javaTypeMap = javaTypeByGroup.get(groupName)
@@ -1661,7 +1620,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     protected Map<String, Map<String, String>> sqlTypeByGroup = [:]
-    @CompileStatic
     protected String getFieldSqlType(String fieldType, EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
         Map<String, String> sqlTypeMap = sqlTypeByGroup.get(groupName)
@@ -1721,7 +1679,6 @@ class EntityFacadeImpl implements EntityFacade {
             "java.sql.Clob":13, "Clob":13,
             "java.util.Date":14,
             "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
-    @CompileStatic
     public static int getJavaTypeInt(String javaType) {
         Integer typeInt = javaIntTypeMap.get(javaType)
         if (!typeInt) throw new EntityException("Java type " + javaType + " not supported for entity fields")
