@@ -89,7 +89,7 @@ class XmlAction {
     protected synchronized Class makeGroovyClass() {
         if (groovyClassInternal != null) return groovyClassInternal
 
-        groovyString = makeGroovyString()
+        getGroovyString()
         // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${groovyString}")
         try {
             groovyClassInternal = new GroovyClassLoader(Thread.currentThread().getContextClassLoader())
@@ -102,9 +102,14 @@ class XmlAction {
 
         return groovyClassInternal
     }
-    protected String makeGroovyString() {
+    String getGroovyString() {
+        if (groovyString != null) return groovyString
+        return makeGroovyString()
+    }
+    protected synchronized String makeGroovyString() {
+        if (groovyString != null) return groovyString
+
         // transform XML to groovy
-        String groovyText
         try {
             Map root = ["xmlActionsRoot":ftlNode]
 
@@ -113,14 +118,14 @@ class XmlAction {
                     .createProcessingEnvironment(root, (Writer) outWriter)
             env.process()
 
-            groovyText = outWriter.toString()
+            groovyString = outWriter.toString()
         } catch (Exception e) {
             logger.error("Error reading XML actions from [${location}], text: ${ftlNode.toString()}")
             throw new BaseException("Error reading XML actions from [${location}]", e)
         }
 
-        if (logger.traceEnabled) logger.trace("xml-actions at [${location}] produced groovy script:\n${groovyText}\nFrom ftlNode:${ftlNode}")
+        if (logger.traceEnabled) logger.trace("XML actions at [${location}] produced groovy script:\n${groovyString}\nFrom ftlNode:${ftlNode}")
 
-        return groovyText
+        return groovyString
     }
 }
