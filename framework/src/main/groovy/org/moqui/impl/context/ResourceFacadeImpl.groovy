@@ -527,8 +527,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             groovyClass = new GroovyClassLoader().parseClass(expression)
             this.scriptGroovyExpressionCache.put(expression, groovyClass)
         }
-        // NOTE: consider keeping the binding somewhere, like in the ExecutionContext to avoid creating repeatedly
-        Script script = InvokerHelper.createScript(groovyClass, new ContextBinding(getEcfi().getExecutionContext().getContext()))
+        Script script = InvokerHelper.createScript(groovyClass, getEcfi().getEci().getContextBinding())
         return script
     }
 

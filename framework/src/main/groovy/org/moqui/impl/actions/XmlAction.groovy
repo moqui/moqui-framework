@@ -20,6 +20,7 @@ import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ContextBinding
@@ -61,7 +62,8 @@ class XmlAction {
 
         if (logger.isDebugEnabled()) logger.debug("Running groovy script: \n${writeGroovyWithLines()}\n")
 
-        Script script = InvokerHelper.createScript(curClass, new ContextBinding(ec.context))
+        ExecutionContextImpl eci = (ExecutionContextImpl) ec
+        Script script = InvokerHelper.createScript(curClass, eci.getContextBinding())
         try {
             Object result = script.run()
             return result

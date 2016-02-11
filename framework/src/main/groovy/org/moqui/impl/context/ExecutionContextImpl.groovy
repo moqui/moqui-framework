@@ -39,7 +39,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected ExecutionContextFactoryImpl ecfi
 
-    protected ContextStack context = new ContextStack()
+    protected final ContextStack context = new ContextStack()
+    protected final ContextBinding contextBinding = new ContextBinding(context)
     protected String activeTenantId = "DEFAULT"
     protected LinkedList<String> tenantIdStack = null
 
@@ -67,6 +68,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     Map<String, Object> getContextRoot() { return context.getRootMap() }
+
+    ContextBinding getContextBinding() { return contextBinding }
 
     @Override
     String getTenantId() { return activeTenantId }
