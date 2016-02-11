@@ -84,7 +84,7 @@ class TransactionInternalAtomikos implements TransactionInternal {
             ads = ds
         }
 
-        String txIsolationLevel = inlineJdbc."@isolation-level" ? inlineJdbc."@isolation-level" : database."@default-isolation-level"
+        String txIsolationLevel = dsi.inlineJdbc."@isolation-level" ? dsi.inlineJdbc."@isolation-level" : dsi.database."@default-isolation-level"
         if (txIsolationLevel && efi.getTxIsolationFromString(txIsolationLevel) != -1)
             ads.setDefaultIsolationLevel(efi.getTxIsolationFromString(txIsolationLevel))
 
