@@ -112,6 +112,17 @@ public class MNode {
         if (attributes != null) attributeMap.putAll(attributes);
     }
 
+    /** If name starts with an ampersand (@) then get an attribute, otherwise get a list of child nodes with the given name. */
+    public Object get(String name) {
+        if (name != null && name.length() > 0 && name.charAt(0) == '@') {
+            return attribute(name.substring(1));
+        } else {
+            return children(name);
+        }
+    }
+    /** Groovy specific method for square brace syntax */
+    public Object getAt(String name) { return get(name); }
+
     public String getName() { return nodeName; }
     public Map<String, String> getAttributes() { return attributeMap; }
     public String attribute(String attrName) { return attributeMap.get(attrName); }
