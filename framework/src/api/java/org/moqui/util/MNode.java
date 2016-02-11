@@ -35,11 +35,20 @@ import java.util.*;
 public class MNode {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
 
+    final static Map<String, MNode> parsedNodeCache = new HashMap<>();
+
     /* ========== Factories (XML Parsing) ========== */
 
     public static MNode parse(ResourceReference rr) throws BaseException {
         if (rr == null || !rr.getExists()) return null;
-        return parse(rr.getLocation(), rr.openStream());
+        String location = rr.getLocation();
+        MNode cached = parsedNodeCache.get(location);
+        if (cached != null && cached.lastModified >= rr.getLastModified()) return cached;
+
+        MNode node = parse(location, rr.openStream());
+        node.lastModified = rr.getLastModified();
+        if (node.lastModified > 0) parsedNodeCache.put(location, node);
+        return node;
     }
     /** Parse from an InputStream and close the stream */
     public static MNode parse(String location, InputStream is) throws BaseException {
@@ -53,10 +62,18 @@ public class MNode {
     }
     public static MNode parse(File fl) throws BaseException {
         if (fl == null || !fl.exists()) return null;
+
+        String location = fl.getPath();
+        MNode cached = parsedNodeCache.get(location);
+        if (cached != null && cached.lastModified >= fl.lastModified()) return cached;
+
         FileReader fr = null;
         try {
             fr = new FileReader(fl);
-            return parse(fl.getPath(), new InputSource(fr));
+            MNode node = parse(fl.getPath(), new InputSource(fr));
+            node.lastModified = fl.lastModified();
+            if (node.lastModified > 0) parsedNodeCache.put(location, node);
+            return node;
         } catch (Exception e) {
             throw new BaseException("Error parsing XML file at " + fl.getPath(), e);
         } finally {
@@ -88,6 +105,7 @@ public class MNode {
     protected MNode parentNode = null;
     protected final ArrayList<MNode> childList = new ArrayList<>();
     protected String childText = null;
+    protected long lastModified = 0;
 
     /* ========== Constructors ========== */
 

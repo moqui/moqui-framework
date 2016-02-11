@@ -422,23 +422,14 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
     protected void loadEmecaRulesFile(ResourceReference rr) {
-        InputStream is = null
-        try {
-            is = rr.openStream()
-            MNode emecasRoot = new MNode(new XmlParser().parse(is))
-            int numLoaded = 0
-            for (MNode emecaNode in emecasRoot.children("emeca")) {
-                EmailEcaRule eer = new EmailEcaRule(ecfi, emecaNode, rr.location)
-                emecaRuleList.add(eer)
-                numLoaded++
-            }
-            if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Email ECA rules from [${rr.location}]")
-        } catch (IOException e) {
-            // probably because there is no resource at that location, so do nothing
-            if (logger.traceEnabled) logger.trace("Error loading Email ECA rules from [${rr.location}]", e)
-        } finally {
-            if (is != null) is.close()
+        MNode emecasRoot = MNode.parse(rr)
+        int numLoaded = 0
+        for (MNode emecaNode in emecasRoot.children("emeca")) {
+            EmailEcaRule eer = new EmailEcaRule(ecfi, emecaNode, rr.location)
+            emecaRuleList.add(eer)
+            numLoaded++
         }
+        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Email ECA rules from [${rr.location}]")
     }
 
     @CompileStatic

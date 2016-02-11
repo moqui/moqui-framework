@@ -179,21 +179,14 @@ class ScreenDefinition {
                 if (logger.traceEnabled) logger.trace("Looking for subscreens in directory [${subscreensDirRef}]")
                 for (ResourceReference subscreenRef in subscreensDirRef.directoryEntries) {
                     if (!subscreenRef.isFile() || !subscreenRef.location.endsWith(".xml")) continue
-                    InputStream subscreenIs = subscreenRef.openStream()
-                    try {
-                        MNode subscreenRoot = new MNode(new XmlParser().parse(subscreenIs))
-                        if (subscreenRoot.name == "screen") {
-                            String ssName = subscreenRef.getFileName()
-                            ssName = ssName.substring(0, ssName.lastIndexOf("."))
-                            String cleanLocation = cleanLocationBase + "/" + subscreenRef.getFileName()
-                            SubscreensItem si = new SubscreensItem(ssName, cleanLocation, subscreenRoot, this)
-                            subscreensByName.put(si.name, si)
-                            if (logger.traceEnabled) logger.trace("Added file subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
-                        }
-                    } catch (Exception e) {
-                        throw new BaseException("Error parsing screen at [${subscreenRef.location}]", e)
-                    } finally {
-                        if (subscreenIs != null) subscreenIs.close()
+                    MNode subscreenRoot = MNode.parse(subscreenRef)
+                    if (subscreenRoot.name == "screen") {
+                        String ssName = subscreenRef.getFileName()
+                        ssName = ssName.substring(0, ssName.lastIndexOf("."))
+                        String cleanLocation = cleanLocationBase + "/" + subscreenRef.getFileName()
+                        SubscreensItem si = new SubscreensItem(ssName, cleanLocation, subscreenRoot, this)
+                        subscreensByName.put(si.name, si)
+                        if (logger.traceEnabled) logger.trace("Added file subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
                     }
                 }
             }

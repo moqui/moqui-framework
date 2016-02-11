@@ -837,31 +837,22 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
     void loadEecaRulesFile(ResourceReference rr) {
-        InputStream is = null
-        try {
-            is = rr.openStream()
-            MNode eecasRoot = new MNode(new XmlParser().parse(is))
-            int numLoaded = 0
-            for (MNode secaNode in eecasRoot.children("eeca")) {
-                EntityEcaRule ser = new EntityEcaRule(ecfi, secaNode, rr.location)
-                String entityName = ser.entityName
-                // remove the hash if there is one to more consistently match the service name
-                if (entityName.contains("#")) entityName = entityName.replace("#", "")
-                List<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
-                if (!lst) {
-                    lst = new LinkedList()
-                    eecaRulesByEntityName.put(entityName, lst)
-                }
-                lst.add(ser)
-                numLoaded++
+        MNode eecasRoot = MNode.parse(rr)
+        int numLoaded = 0
+        for (MNode secaNode in eecasRoot.children("eeca")) {
+            EntityEcaRule ser = new EntityEcaRule(ecfi, secaNode, rr.location)
+            String entityName = ser.entityName
+            // remove the hash if there is one to more consistently match the service name
+            if (entityName.contains("#")) entityName = entityName.replace("#", "")
+            List<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
+            if (!lst) {
+                lst = new LinkedList()
+                eecaRulesByEntityName.put(entityName, lst)
             }
-            if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
-        } catch (IOException e) {
-            // probably because there is no resource at that location, so do nothing
-            if (logger.traceEnabled) logger.trace("Error loading EECA rules from [${rr.location}]", e)
-        } finally {
-            if (is != null) is.close()
+            lst.add(ser)
+            numLoaded++
         }
+        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
     }
 
     boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
