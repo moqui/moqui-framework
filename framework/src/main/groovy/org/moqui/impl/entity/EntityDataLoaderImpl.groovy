@@ -574,7 +574,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         relatedEdStack = [subEd]
                     }
                 } else {
-                    logger.warn("Found element [${entityName}] under element for entity [${checkEd.getFullEntityName()}] and it is not a field or relationship so ignoring")
+                    logger.warn("Found element [${entityName}] under element for entity [${checkEd.getFullEntityName()}] and it is not a field or relationship so ignoring (line ${locator?.lineNumber})")
                 }
             } else if (currentServiceDef != null) {
                 currentFieldName = qName
@@ -587,11 +587,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     currentServiceDef = edli.sfi.getServiceDefinition(entityName)
                     rootValueMap = getAttributesMap(attributes, null)
                 } else {
-                    throw new SAXException("Found element [${qName}] name, transformed to [${entityName}], that is not a valid entity name or service name")
+                    throw new SAXException("Found element [${qName}] name, transformed to [${entityName}], that is not a valid entity name or service name (line ${locator?.lineNumber})")
                 }
             }
         }
-        static Map getAttributesMap(Attributes attributes, EntityDefinition checkEd) {
+        Map getAttributesMap(Attributes attributes, EntityDefinition checkEd) {
             Map attrMap = [:]
             int length = attributes.getLength()
             for (int i = 0; i < length; i++) {
@@ -607,7 +607,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         attrMap.put(name, null)
                     }
                 } else {
-                    logger.warn("Ignoring invalid attribute name [${name}] for entity [${checkEd.getFullEntityName()}] with value [${value}] because it is not field of that entity")
+                    logger.warn("Ignoring invalid attribute name [${name}] for entity [${checkEd.getFullEntityName()}] with value [${value}] because it is not field of that entity (line ${locator?.lineNumber})")
                 }
             }
             return attrMap
@@ -639,7 +639,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 rootValueMap.put(currentFieldName, currentFieldValue.toString())
                             }
                         } else {
-                            logger.warn("Ignoring invalid field name [${currentFieldName}] found for the entity ${currentEntityDef.getFullEntityName()} with value ${currentFieldValue}")
+                            logger.warn("Ignoring invalid field name [${currentFieldName}] found for the entity ${currentEntityDef.getFullEntityName()} with value ${currentFieldValue} (line ${locator?.lineNumber})")
                         }
                     } else if (currentServiceDef != null) {
                         rootValueMap.put(currentFieldName, currentFieldValue)
@@ -675,7 +675,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         valuesRead++
                         currentEntityDef = null
                     } catch (EntityException e) {
-                        throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value: " + e.toString(), e)
+                        throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value (line ${locator?.lineNumber}): " + e.toString(), e)
                     }
                 } else if (currentServiceDef != null) {
                     try {
@@ -684,7 +684,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         valuesRead++
                         currentServiceDef = null
                     } catch (Exception e) {
-                        throw new SAXException("Error running service [${currentServiceDef.getServiceName()}]: " + e.toString(), e)
+                        throw new SAXException("Error running service [${currentServiceDef.getServiceName()}] (line ${locator?.lineNumber}): " + e.toString(), e)
                     }
                 }
             }
