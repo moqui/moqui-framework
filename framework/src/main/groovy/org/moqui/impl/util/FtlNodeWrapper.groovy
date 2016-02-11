@@ -36,7 +36,7 @@ class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, Templa
     /** Factory method for null-sensitive Node wrapping. */
     // static FtlNodeWrapper wrapNode(Node groovyNode) { return groovyNode != null ? new FtlNodeWrapper(new MNode(groovyNode)) : null }
     static FtlNodeWrapper wrapNode(MNode mNode) { return mNode != null ? new FtlNodeWrapper(mNode) : null }
-    static FtlNodeWrapper makeFromText(String xmlText) { return wrapNode(MNode.parseText(xmlText)) }
+    static FtlNodeWrapper makeFromText(String location, String xmlText) { return wrapNode(MNode.parseText(location, xmlText)) }
 
     protected MNode mNode
     protected FtlNodeWrapper parentNode = null

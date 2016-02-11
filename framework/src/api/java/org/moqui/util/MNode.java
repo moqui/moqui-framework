@@ -39,58 +39,45 @@ public class MNode {
 
     public static MNode parse(ResourceReference rr) throws BaseException {
         if (rr == null || !rr.getExists()) return null;
-        return parseText(rr.getText());
-        // return parse(rr.getLocation(), rr.openStream());
+        return parse(rr.getLocation(), rr.openStream());
     }
     /** Parse from an InputStream and close the stream */
     public static MNode parse(String location, InputStream is) throws BaseException {
         if (is == null) return null;
         try {
-            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
-            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
-            reader.setContentHandler(xmlHandler);
-            reader.parse(new InputSource(is));
-            return xmlHandler.getRootNode();
-        } catch (Exception e) {
-            throw new BaseException("Error parsing XML stream from " + location, e);
+            return parse(location, new InputSource(is));
         } finally {
-            try {
-                is.close();
-            } catch (IOException e) {
-                throw new BaseException("Error closing XML stream from " + location, e);
-            }
+            try { is.close(); }
+            catch (IOException e) { throw new BaseException("Error closing XML stream from " + location, e); }
         }
     }
     public static MNode parse(File fl) throws BaseException {
         if (fl == null || !fl.exists()) return null;
         FileReader fr = null;
         try {
-            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
-            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
-            reader.setContentHandler(xmlHandler);
             fr = new FileReader(fl);
-            reader.parse(new InputSource(fr));
-            return xmlHandler.getRootNode();
+            return parse(fl.getPath(), new InputSource(fr));
         } catch (Exception e) {
             throw new BaseException("Error parsing XML file at " + fl.getPath(), e);
         } finally {
-            try {
-                if (fr != null) fr.close();
-            } catch (IOException e) {
-                throw new BaseException("Error closing XML file at " + fl.getPath(), e);
-            }
+            try { if (fr != null) fr.close(); }
+            catch (IOException e) { throw new BaseException("Error closing XML file at " + fl.getPath(), e); }
         }
     }
-    public static MNode parseText(String text) throws BaseException {
+    public static MNode parseText(String location, String text) throws BaseException {
         if (text == null || text.length() == 0) return null;
+        return parse(location, new InputSource(new StringReader(text)));
+    }
+
+    public static MNode parse(String location, InputSource isrc) {
         try {
             MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
             XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
-            reader.parse(new InputSource(new StringReader(text)));
+            reader.parse(isrc);
             return xmlHandler.getRootNode();
         } catch (Exception e) {
-            throw new BaseException("Error parsing XML text", e);
+            throw new BaseException("Error parsing XML from " + location, e);
         }
     }
 

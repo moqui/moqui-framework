@@ -55,9 +55,9 @@ class XmlAction {
         this.location = location
         FtlNodeWrapper ftlNode
         if (xmlText) {
-            ftlNode = FtlNodeWrapper.makeFromText(xmlText)
+            ftlNode = FtlNodeWrapper.makeFromText(location, xmlText)
         } else {
-            ftlNode = FtlNodeWrapper.makeFromText(ecfi.resourceFacade.getLocationText(location, false))
+            ftlNode = FtlNodeWrapper.makeFromText(location, ecfi.resourceFacade.getLocationText(location, false))
         }
         groovyString = makeGroovyString(ecfi, ftlNode, location)
         try {
