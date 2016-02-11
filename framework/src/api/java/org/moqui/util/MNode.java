@@ -194,6 +194,26 @@ public class MNode {
         return false;
     }
 
+    /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
+     * found or empty List if no nodes found */
+    public Map<String, ArrayList<MNode>> descendants(Set<String> names) {
+        Map<String, ArrayList<MNode>> nodes = new HashMap<>();
+        for (String name : names) nodes.put(name, new ArrayList<MNode>());
+        descendantsInternal(names, nodes);
+        return nodes;
+    }
+    protected void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (names == null || names.contains(curChild.nodeName)) {
+                ArrayList<MNode> curList = nodes.get(curChild.nodeName);
+                curList.add(curChild);
+            }
+            curChild.descendantsInternal(names, nodes);
+        }
+    }
+
     public ArrayList<MNode> depthFirst(Closure<Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         depthFirstInternal(condition, curList);

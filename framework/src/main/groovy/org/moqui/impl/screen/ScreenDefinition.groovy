@@ -60,6 +60,7 @@ class ScreenDefinition {
     protected Map<String, ScreenTree> treeByName = new HashMap()
 
     protected Map<String, ResourceReference> subContentRefByPath = new HashMap()
+    protected Map<String, String> macroTemplateByRenderMode = null
 
     ScreenDefinition(ScreenFacadeImpl sfi, MNode screenNode, String location) {
         this.sfi = sfi
@@ -100,6 +101,12 @@ class ScreenDefinition {
         if (screenNode.attribute("tenants-allowed")) {
             tenantsAllowed = new HashSet(Arrays.asList((screenNode.attribute("tenants-allowed")).split(",")))
         }
+        // macro-template - go through entire list and set all found, basically we want the last one if there are more than one
+        List<MNode> macroTemplateList = screenNode.children("macro-template")
+        if (macroTemplateList.size() > 0) {
+            macroTemplateByRenderMode = new HashMap<>()
+            for (MNode mt in macroTemplateList) macroTemplateByRenderMode.put(mt.attribute('type'), mt.attribute('location'))
+        }
 
         // prep pre-actions
         if (screenNode.hasChild("pre-actions"))
@@ -109,24 +116,24 @@ class ScreenDefinition {
         rootSection = new ScreenSection(sfi.ecfi, screenNode, location + ".screen")
 
         if (rootSection && rootSection.widgets) {
+            Map<String, ArrayList<MNode>> descMap = rootSection.widgets.widgetsNode.descendants(
+                    new HashSet<String>(['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree']))
             // get all of the other sections by name
-            for (MNode sectionNode in rootSection.widgets.widgetsNode
-                    .depthFirst({ MNode it -> it.name == "section" || it.name == "section-iterate" })) {
-                sectionByName.put(sectionNode.attribute("name"),
-                        new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
-            }
-            for (MNode sectionNode in rootSection.widgets.widgetsNode.depthFirst({ MNode it -> it.name == "section-include" })) {
+            for (MNode sectionNode in descMap.get('section'))
+                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
+            for (MNode sectionNode in descMap.get('section-iterate'))
+                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
+            for (MNode sectionNode in descMap.get('section-include'))
                 pullSectionInclude(sectionNode)
-            }
 
             // get all forms by name
-            for (MNode formNode in rootSection.widgets.widgetsNode
-                    .depthFirst({ MNode it -> it.name == "form-single" || it.name == "form-list" })) {
+            for (MNode formNode in descMap.get('form-single'))
                 formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.${formNode.name.replace('-','_')}_${formNode.attribute("name").replace('-','_')}"))
-            }
+            for (MNode formNode in descMap.get('form-list'))
+                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.${formNode.name.replace('-','_')}_${formNode.attribute("name").replace('-','_')}"))
 
             // get all trees by name
-            for (MNode treeNode in rootSection.widgets.widgetsNode.depthFirst({ MNode it -> it.name == "tree" })) {
+            for (MNode treeNode in descMap.get('tree')) {
                 treeByName.put(treeNode.attribute("name"), new ScreenTree(sfi.ecfi, this, treeNode, "${location}.${treeNode.name.replace('-','_')}_${treeNode.attribute("name").replace('-','_')}"))
             }
         }
@@ -147,22 +154,25 @@ class ScreenDefinition {
         if (includeSection == null) throw new IllegalArgumentException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
         sectionByName.put(sectionNode.attribute("name"), includeSection)
 
+        Map<String, ArrayList<MNode>> descMap = includeSection.sectionNode.descendants(
+                new HashSet<String>(['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree']))
+
         // see if the included section contains any SECTIONS, need to reference those here too!
-        for (MNode inclRefNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "section" || it.name == "section-iterate" })) {
+        for (MNode inclRefNode in descMap.get('section'))
             sectionByName.put(inclRefNode.attribute("name"), includeScreen.getSection(inclRefNode.attribute("name")))
-        }
+        for (MNode inclRefNode in descMap.get('section-iterate'))
+            sectionByName.put(inclRefNode.attribute("name"), includeScreen.getSection(inclRefNode.attribute("name")))
         // recurse for section-include
-        for (MNode inclRefNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "section-include" })) {
+        for (MNode inclRefNode in descMap.get('section-include'))
             pullSectionInclude(inclRefNode)
-        }
 
         // see if the included section contains any FORMS or TREES, need to reference those here too!
-        for (MNode formNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "form-single" || it.name == "form-list" })) {
+        for (MNode formNode in descMap.get('form-single'))
             formByName.put(formNode.attribute("name"), includeScreen.getForm(formNode.attribute("name")))
-        }
-        for (MNode treeNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "tree" })) {
+        for (MNode formNode in descMap.get('form-list'))
+            formByName.put(formNode.attribute("name"), includeScreen.getForm(formNode.attribute("name")))
+        for (MNode treeNode in descMap.get('tree'))
             treeByName.put(treeNode.attribute("name"), includeScreen.getTree(treeNode.attribute("name")))
-        }
     }
 
     void populateSubscreens() {
@@ -214,24 +224,16 @@ class ScreenDefinition {
         }
     }
 
-    @CompileStatic
     MNode getScreenNode() { return screenNode }
-    @CompileStatic
     MNode getSubscreensNode() { return subscreensNode }
-    @CompileStatic
     String getDefaultSubscreensItem() { return (String) subscreensNode?.attribute('default-item') }
     MNode getWebSettingsNode() { return screenNode.first("web-settings") }
-    @CompileStatic
     String getLocation() { return location }
-    @CompileStatic
     Set<String> getTenantsAllowed() { return tenantsAllowed }
 
-    @CompileStatic
     String getScreenName() { return screenName }
-    @CompileStatic
     boolean isStandalone() { return standalone }
 
-    @CompileStatic
     String getDefaultMenuName() {
         String menuName = screenNode.attribute("default-menu-title")
         if (!menuName) {
@@ -249,9 +251,13 @@ class ScreenDefinition {
         return sfi.getEcfi().getExecutionContext().getL10n().localize(menuName)
     }
 
-    @CompileStatic
+    /** Get macro template location specific to screen from marco-template elements */
+    String getMacroTemplateLocation(String renderMode) {
+        if (macroTemplateByRenderMode == null) return null
+        return macroTemplateByRenderMode.get(renderMode)
+    }
+
     Map<String, ParameterItem> getParameterMap() { return parameterByName }
-    @CompileStatic
     boolean hasRequiredParameters() {
         boolean hasRequired = false
         for (ParameterItem pi in parameterByName.values()) if (pi.required) { hasRequired = true; break }
@@ -486,6 +492,7 @@ class ScreenDefinition {
     static class ParameterItem {
         protected String name
         protected Class fromFieldGroovy = null
+        protected String valueString = null
         protected Class valueGroovy = null
         protected boolean required = false
 
@@ -495,8 +502,13 @@ class ScreenDefinition {
 
             if (parameterNode.attribute("from")) fromFieldGroovy = new GroovyClassLoader().parseClass(
                     parameterNode.attribute("from"), StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.from_field"))
-            if (parameterNode.attribute("value") != null) valueGroovy = new GroovyClassLoader().parseClass(
-                    ('"""' + parameterNode.attribute("value") + '"""'), StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.value"))
+
+            valueString = parameterNode.attribute("value")
+            if (valueString != null && valueString.length() == 0) valueString = null
+            if (valueString != null && valueString.contains('${')) {
+                valueGroovy = new GroovyClassLoader().parseClass(('"""' + parameterNode.attribute("value") + '"""'),
+                        StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.value"))
+            }
         }
         @CompileStatic
         String getName() { return name }
@@ -506,8 +518,12 @@ class ScreenDefinition {
             if (fromFieldGroovy != null) {
                 value = InvokerHelper.createScript(fromFieldGroovy, new ContextBinding(ec.context)).run()
             }
-            if (valueGroovy != null && !value) {
-                value = InvokerHelper.createScript(valueGroovy, new ContextBinding(ec.context)).run()
+            if (!value) {
+                if (valueGroovy != null) {
+                    value = InvokerHelper.createScript(valueGroovy, new ContextBinding(ec.context)).run()
+                } else {
+                    value = valueString
+                }
             }
             if (value == null) value = ec.context.get(name)
             if (value == null && ec.web) value = ec.web.parameters.get(name)
