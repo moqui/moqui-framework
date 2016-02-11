@@ -21,25 +21,36 @@ import org.moqui.BaseException;
 import org.moqui.context.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.Locator;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import javax.xml.parsers.SAXParserFactory;
+import java.io.*;
 import java.util.*;
 
 /** An alternative to groovy.util.Node with methods more type safe and generally useful in Moqui. */
 public class MNode {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
 
+    /* ========== Factories (XML Parsing) ========== */
+
     public static MNode parse(ResourceReference rr) throws BaseException {
         if (rr == null || !rr.getExists()) return null;
-        return parse(rr.getLocation(), rr.openStream());
+        return parseText(rr.getText());
+        // return parse(rr.getLocation(), rr.openStream());
     }
+    /** Parse from an InputStream and close the stream */
     public static MNode parse(String location, InputStream is) throws BaseException {
         if (is == null) return null;
         try {
-            Node node = new XmlParser().parse(is);
-            return new MNode(node);
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
+            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            reader.setContentHandler(xmlHandler);
+            reader.parse(new InputSource(is));
+            return xmlHandler.getRootNode();
         } catch (Exception e) {
             throw new BaseException("Error parsing XML stream from " + location, e);
         } finally {
@@ -52,28 +63,46 @@ public class MNode {
     }
     public static MNode parse(File fl) throws BaseException {
         if (fl == null || !fl.exists()) return null;
+        FileReader fr = null;
         try {
-            Node node = new XmlParser().parse(fl);
-            return new MNode(node);
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
+            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            reader.setContentHandler(xmlHandler);
+            fr = new FileReader(fl);
+            reader.parse(new InputSource(fr));
+            return xmlHandler.getRootNode();
         } catch (Exception e) {
             throw new BaseException("Error parsing XML file at " + fl.getPath(), e);
+        } finally {
+            try {
+                if (fr != null) fr.close();
+            } catch (IOException e) {
+                throw new BaseException("Error closing XML file at " + fl.getPath(), e);
+            }
         }
     }
     public static MNode parseText(String text) throws BaseException {
         if (text == null || text.length() == 0) return null;
         try {
-            Node node = new XmlParser().parseText(text);
-            return new MNode(node);
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
+            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            reader.setContentHandler(xmlHandler);
+            reader.parse(new InputSource(new StringReader(text)));
+            return xmlHandler.getRootNode();
         } catch (Exception e) {
             throw new BaseException("Error parsing XML text", e);
         }
     }
+
+    /* ========== Fields ========== */
 
     protected final String nodeName;
     protected final Map<String, String> attributeMap = new LinkedHashMap<>();
     protected MNode parentNode = null;
     protected final ArrayList<MNode> childList = new ArrayList<>();
     protected String childText = null;
+
+    /* ========== Constructors ========== */
 
     public MNode(Node node) {
         nodeName = (String) node.name();
@@ -111,6 +140,8 @@ public class MNode {
         nodeName = name;
         if (attributes != null) attributeMap.putAll(attributes);
     }
+
+    /* ========== Get Methods ========== */
 
     /** If name starts with an ampersand (@) then get an attribute, otherwise get a list of child nodes with the given name. */
     public Object get(String name) {
@@ -219,6 +250,19 @@ public class MNode {
 
     public String getText() { return childText; }
 
+    public MNode deepCopy(MNode parent) {
+        MNode newNode = new MNode(nodeName, attributeMap, parent, null, childText);
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            newNode.childList.add(curChild.deepCopy(newNode));
+        }
+        // if ("entity".equals(nodeName)) logger.info("Original MNode:\n" + this.toString() + "\n Clone MNode:\n" + newNode.toString());
+        return newNode;
+    }
+
+    /* ========== Child Modify Methods ========== */
+
     public void append(MNode child) {
         childList.add(child);
         child.parentNode = this;
@@ -242,17 +286,6 @@ public class MNode {
     public MNode replace(int index, String name, Map<String, String> attributes) {
         MNode newNode = new MNode(name, attributes, this, null, null);
         childList.set(index, newNode);
-        return newNode;
-    }
-
-    public MNode deepCopy(MNode parent) {
-        MNode newNode = new MNode(nodeName, attributeMap, parent, null, childText);
-        int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
-            newNode.childList.add(curChild.deepCopy(newNode));
-        }
-        // if ("entity".equals(nodeName)) logger.info("Original MNode:\n" + this.toString() + "\n Clone MNode:\n" + newNode.toString());
         return newNode;
     }
 
@@ -282,6 +315,8 @@ public class MNode {
         }
         return removed;
     }
+
+    /* ========== String Methods ========== */
 
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -333,5 +368,52 @@ public class MNode {
         } else {
             return "";
         }
+    }
+
+    static class MNodeXmlHandler extends DefaultHandler {
+        protected Locator locator = null;
+        protected long nodesRead = 0;
+
+        protected MNode rootNode = null;
+        protected MNode curNode = null;
+        protected StringBuilder curText = null;
+
+        MNodeXmlHandler() { }
+        MNode getRootNode() { return rootNode; }
+        long getNodesRead() { return nodesRead; }
+
+        public void startElement(String ns, String localName, String qName, Attributes attributes) {
+            // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
+            if (curNode == null) {
+                curNode = new MNode(qName, null);
+                if (rootNode == null) rootNode = curNode;
+            } else {
+                curNode = curNode.append(qName, null);
+            }
+
+            int length = attributes.getLength();
+            for (int i = 0; i < length; i++) {
+                String name = attributes.getLocalName(i);
+                String value = attributes.getValue(i);
+                if (name == null || name.length() == 0) name = attributes.getQName(i);
+                curNode.attributeMap.put(name, value);
+            }
+        }
+
+        public void characters(char[] chars, int offset, int length) {
+            if (curText == null) curText = new StringBuilder();
+            curText.append(chars, offset, length);
+        }
+        public void endElement(String ns, String localName, String qName) {
+            if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
+            if (curText != null) {
+                String curString = curText.toString().trim();
+                if (curString.length() > 0) curNode.childText = curString;
+            }
+            curNode = curNode.parentNode;
+            curText = null;
+        }
+
+        public void setDocumentLocator(Locator locator) { this.locator = locator; }
     }
 }
