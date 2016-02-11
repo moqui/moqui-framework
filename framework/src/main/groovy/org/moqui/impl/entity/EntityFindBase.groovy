@@ -822,8 +822,8 @@ abstract class EntityFindBase implements EntityFind {
         ArrayList<MNode> entityConditionList = entityNode.children("entity-condition")
         MNode entityConditionNode = entityConditionList ? entityConditionList.get(0) : null
         ArrayList<MNode> ecObList = entityConditionNode?.children("order-by")
-        if (ecObList != null) for (Object orderBy in ecObList)
-            orderByExpanded.add((String) ((Node) orderBy).attribute('field-name'))
+        if (ecObList != null) for (MNode orderBy in ecObList)
+            orderByExpanded.add(orderBy.attribute('field-name'))
 
         if (entityConditionNode?.attribute('distinct') == "true") this.distinct(true)
 
@@ -980,8 +980,8 @@ abstract class EntityFindBase implements EntityFind {
         ArrayList<MNode> entityConditionList = entityNode.children("entity-condition")
         MNode entityConditionNode = entityConditionList ? entityConditionList.get(0) : null
         ArrayList<MNode> ecObList = entityConditionNode?.children("order-by")
-        if (ecObList != null) for (Object orderBy in ecObList)
-            orderByExpanded.add((String) ((Node) orderBy).attribute('field-name'))
+        if (ecObList != null) for (MNode orderBy in ecObList)
+            orderByExpanded.add(orderBy.attribute('field-name'))
 
         if (entityConditionNode?.attribute('distinct') == "true") this.distinct(true)
 
