@@ -19,6 +19,7 @@ import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.util.MoquiShiroRealm
+import org.moqui.util.MNode
 
 import java.security.SecureRandom
 import java.sql.Timestamp
@@ -151,7 +152,7 @@ class UserFacadeImpl implements UserFacade {
 
         this.visitId = session.getAttribute("moqui.visitId")
         if (!this.visitId && !eci.getSkipStats()) {
-            Node serverStatsNode = eci.getEcfi().getServerStatsNode()
+            MNode serverStatsNode = eci.getEcfi().getServerStatsNode()
 
             // handle visitorId and cookie
             String cookieVisitorId = null

@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.webapp
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactTarpitException
 import org.moqui.impl.StupidUtilities
 
@@ -31,6 +32,7 @@ import javax.xml.transform.stream.StreamSource
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class MoquiFopServlet extends HttpServlet {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiFopServlet.class)
 
@@ -58,7 +60,7 @@ class MoquiFopServlet extends HttpServlet {
         ec.initWebFacade(moquiWebappName, request, response)
         ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
-        String filename = ec.web.parameters.get("filename")
+        String filename = ec.web.parameters.get("filename") as String
 
         String xslFoText = null
         try {

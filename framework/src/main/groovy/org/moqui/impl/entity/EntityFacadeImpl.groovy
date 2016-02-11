@@ -14,8 +14,6 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import groovy.transform.TypeChecked
-import groovy.transform.TypeCheckingMode
 
 import org.moqui.BaseException
 import org.moqui.context.Cache
@@ -26,6 +24,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
@@ -64,8 +63,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     protected final Map<String, List<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final Map<String, String> entityGroupNameMap = new HashMap<>()
-    protected final Map<String, Node> databaseNodeByGroupName = new HashMap<>()
-    protected final Map<String, Node> datasourceNodeByGroupName = new HashMap<>()
+    protected final Map<String, MNode> databaseNodeByGroupName = new HashMap<>()
+    protected final Map<String, MNode> datasourceNodeByGroupName = new HashMap<>()
     protected final String defaultGroupName
     protected final TimeZone databaseTimeZone
     protected final Locale databaseLocale
@@ -82,7 +81,7 @@ class EntityFacadeImpl implements EntityFacade {
         this.tenantId = tenantId ?: "DEFAULT"
         this.entityConditionFactory = new EntityConditionFactoryImpl(this)
 
-        Node entityFacadeNode = getEntityFacadeNode()
+        MNode entityFacadeNode = getEntityFacadeNode()
         this.defaultGroupName = entityFacadeNode.attribute("default-group-name")
         this.sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: ""
 
@@ -141,15 +140,14 @@ class EntityFacadeImpl implements EntityFacade {
         // return databaseTzLcCalendar
     }
 
-    Node getEntityFacadeNode() { return (Node) ((NodeList) this.ecfi.getConfXmlRoot().get("entity-facade")).get(0) }
+    MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }
     void checkInitDatasourceTables() {
         // if startup-add-missing=true check tables now
         logger.info("Checking tables for all entities")
         long currentTime = System.currentTimeMillis()
 
         Map<String, Boolean> startupAddMissingByGroup = [:]
-        for (Object datasourceObj in ((NodeList) getEntityFacadeNode().get("datasource"))) {
-            Node datasourceNode = (Node) datasourceObj
+        for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             String groupName = datasourceNode.attribute("group-name")
             if (datasourceNode.attribute("startup-add-missing") == "true") {
                 startupAddMissingByGroup.put(groupName, true)
@@ -178,8 +176,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     protected void initAllDatasources() {
-        for (Object datasourceObj in getEntityFacadeNode().get("datasource")) {
-            Node datasourceNode = (Node) datasourceObj
+        for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             String groupName = datasourceNode.attribute("group-name")
             String objectFactoryClass = datasourceNode.attribute("object-factory") ?: "org.moqui.impl.entity.EntityDatasourceFactoryImpl"
             EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance()
@@ -189,22 +186,22 @@ class EntityFacadeImpl implements EntityFacade {
 
     static class DatasourceInfo {
         EntityFacadeImpl efi
-        Node datasourceNode
+        MNode datasourceNode
 
         String uniqueName
 
         String jndiName
-        Node serverJndi
+        MNode serverJndi
 
         String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null
 
         String xaDsClass = null
         Properties xaProps = null
 
-        Node inlineJdbc = null
-        Node database = null
+        MNode inlineJdbc = null
+        MNode database = null
 
-        DatasourceInfo(EntityFacadeImpl efi, Node datasourceNode) {
+        DatasourceInfo(EntityFacadeImpl efi, MNode datasourceNode) {
             this.efi = efi
             this.datasourceNode = datasourceNode
 
@@ -234,13 +231,13 @@ class EntityFacadeImpl implements EntityFacade {
                         .disableAuthz().list() : null
             }
 
-            inlineJdbc = StupidUtilities.nodeChild(datasourceNode, "inline-jdbc")
-            Node xaProperties = StupidUtilities.nodeChild(inlineJdbc, "xa-properties")
+            inlineJdbc = datasourceNode.first("inline-jdbc")
+            MNode xaProperties = inlineJdbc.first("xa-properties")
             database = efi.getDatabaseNode(groupName)
 
-            Node jndiJdbcNode = StupidUtilities.nodeChild(datasourceNode, "jndi-jdbc")
+            MNode jndiJdbcNode = datasourceNode.first("jndi-jdbc")
             if (jndiJdbcNode != null) {
-                serverJndi = StupidUtilities.nodeChild(efi.getEntityFacadeNode(), "server-jndi")
+                serverJndi = efi.getEntityFacadeNode().first("server-jndi")
                 jndiName = tenantDataSource ? tenantDataSource.jndiName : jndiJdbcNode.attribute("jndi-name")
             } else if (xaProperties || tenantDataSourceXaPropList) {
                 xaDsClass = inlineJdbc.attribute("xa-ds-class") ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class")
@@ -260,7 +257,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
                 // always set default properties for the given data
                 if (!tenantDataSourceXaPropList || tenantDataSource?.defaultToConfProps == "Y") {
-                    for (Map.Entry<String, String> entry in xaProperties.attributes().entrySet()) {
+                    for (Map.Entry<String, String> entry in xaProperties.attributes.entrySet()) {
                         // don't over write existing properties, from tenantDataSourceXaPropList or redundant attributes (shouldn't be allowed)
                         if (xaProps.containsKey(entry.getKey())) continue
                         // the Derby "databaseName" property has a ${moqui.runtime} which is a System property, others may have it too
@@ -356,8 +353,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     Set<String> getDatasourceGroupNames() {
         Set<String> groupNames = new TreeSet<String>()
-        for (Object dsObj in getEntityFacadeNode().get("datasource")) {
-            Node datasourceNode = (Node) dsObj
+        for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             groupNames.add((String) datasourceNode.attribute("group-name"))
         }
         return groupNames
@@ -390,8 +386,7 @@ class EntityFacadeImpl implements EntityFacade {
         List<ResourceReference> entityRrList = new LinkedList()
 
         // loop through all of the entity-facade.load-entity nodes, check each for "<entities>" root element
-        for (Object loadObj in getEntityFacadeNode().get("load-entity")) {
-            Node loadEntity = (Node) loadObj
+        for (MNode loadEntity in getEntityFacadeNode().children("load-entity")) {
             entityRrList.add(this.ecfi.resourceFacade.getLocationReference((String) loadEntity.attribute("location")))
         }
 
@@ -487,15 +482,14 @@ class EntityFacadeImpl implements EntityFacade {
 
     // NOTE: only called by loadAllEntityLocations() which is synchronized/locked, so doesn't need to be
     protected void loadEntityFileLocations(ResourceReference entityRr) {
-        Node entityRoot = getEntityFileRoot(entityRr)
-        if (entityRoot.name() == "entities") {
+        MNode entityRoot = getEntityFileRoot(entityRr)
+        if (entityRoot.name == "entities") {
             // loop through all entity, view-entity, and extend-entity and add file location to List for any entity named
             int numEntities = 0
-            List<Node> entityRootChildren = (List<Node>) entityRoot.children()
-            for (Node entity in entityRootChildren) {
-                String entityName = (String) entity.attribute("entity-name")
-                String packageName = (String) entity.attribute("package-name")
-                String shortAlias = (String) entity.attribute("short-alias")
+            for (MNode entity in entityRoot.children) {
+                String entityName = entity.attribute("entity-name")
+                String packageName = entity.attribute("package-name")
+                String shortAlias = entity.attribute("short-alias")
 
                 if (!entityName) {
                     logger.warn("Skipping entity XML file [${entityRr.getLocation()}] element with no @entity-name: ${entity}")
@@ -534,22 +528,21 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    protected Map<String, Node> entityFileRootMap = new HashMap<>()
-    protected Node getEntityFileRoot(ResourceReference entityRr) {
-        Node existingNode = entityFileRootMap.get(entityRr.getLocation())
-        if (existingNode != null) {
-            Long loadedTime = (Long) existingNode.attribute("_loadedTime")
-            if (loadedTime != null) {
-                long lastModified = entityRr.getLastModified()
-                if (lastModified > loadedTime) existingNode = null
-            }
+    protected Map<String, MNode> entityFileRootMap = new HashMap<>()
+    protected MNode getEntityFileRoot(ResourceReference entityRr) {
+        MNode existingNode = entityFileRootMap.get(entityRr.getLocation())
+        if (existingNode != null && existingNode.attribute("_loadedTime")) {
+            long loadedTime = existingNode.attribute("_loadedTime") as Long
+            long lastModified = entityRr.getLastModified()
+            if (lastModified > loadedTime) existingNode = null
         }
         if (existingNode == null) {
             InputStream entityStream = entityRr.openStream()
             if (entityStream == null) throw new BaseException("Could not open stream to entity file at [${entityRr.location}]")
             try {
-                Node entityRoot = new XmlParser().parse(entityStream)
-                entityRoot.attributes().put("_loadedTime", entityRr.getLastModified())
+                Node entityRootNode = new XmlParser().parse(entityStream)
+                MNode entityRoot = new MNode(entityRootNode)
+                entityRoot.attributes.put("_loadedTime", entityRr.getLastModified() as String)
                 entityFileRootMap.put(entityRr.getLocation(), entityRoot)
                 return entityRoot
             } finally {
@@ -560,7 +553,6 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    @TypeChecked(TypeCheckingMode.SKIP)
     protected EntityDefinition loadEntityDefinition(String entityName) {
         if (entityName.contains("#")) {
             // this is a relationship name, definitely not an entity name so just return null; this happens because we
@@ -606,38 +598,39 @@ class EntityFacadeImpl implements EntityFacade {
                 logger.warn("Could not find DbViewEntity with name ${entityName}")
                 return null
             }
-            Node dbViewNode = new Node(null, "view-entity", ["entity-name":entityName, "package-name":dbViewEntity.packageName])
-            if (dbViewEntity.cache == "Y") dbViewNode.attributes().put("cache", "true")
-            else if (dbViewEntity.cache == "N") dbViewNode.attributes().put("cache", "false")
+            MNode dbViewNode = new MNode("view-entity", ["entity-name":entityName, "package-name":(String) dbViewEntity.packageName])
+            if (dbViewEntity.cache == "Y") dbViewNode.attributes.put("cache", "true")
+            else if (dbViewEntity.cache == "N") dbViewNode.attributes.put("cache", "false")
 
             EntityList memberList = makeFind("moqui.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list()
             for (EntityValue dbViewEntityMember in memberList) {
-                Node memberEntity = dbViewNode.appendNode("member-entity",
-                        ["entity-alias":dbViewEntityMember.entityAlias, "entity-name":dbViewEntityMember.entityName])
+                MNode memberEntity = dbViewNode.append("member-entity",
+                        ["entity-alias":dbViewEntityMember.getString("entityAlias"), "entity-name":dbViewEntityMember.getString("entityName")])
                 if (dbViewEntityMember.joinFromAlias) {
-                    memberEntity.attributes().put("join-from-alias", dbViewEntityMember.joinFromAlias)
-                    if (dbViewEntityMember.joinOptional == "Y") memberEntity.attributes().put("join-optional", "true")
+                    memberEntity.attributes.put("join-from-alias", (String) dbViewEntityMember.joinFromAlias)
+                    if (dbViewEntityMember.joinOptional == "Y") memberEntity.attributes.put("join-optional", "true")
                 }
 
                 EntityList dbViewEntityKeyMapList = makeFind("moqui.entity.view.DbViewEntityKeyMap")
                         .condition(["dbViewEntityName":entityName, "joinFromAlias":dbViewEntityMember.joinFromAlias,
-                            "entityAlias":dbViewEntityMember.entityAlias])
+                            "entityAlias":dbViewEntityMember.getString("entityAlias")])
                         .list()
                 for (EntityValue dbViewEntityKeyMap in dbViewEntityKeyMapList) {
-                    Node keyMapNode = memberEntity.appendNode("key-map", ["field-name":dbViewEntityKeyMap.fieldName])
+                    MNode keyMapNode = memberEntity.append("key-map", ["field-name":(String) dbViewEntityKeyMap.fieldName])
                     if (dbViewEntityKeyMap.relatedFieldName)
-                        keyMapNode.attributes().put("related-field-name", dbViewEntityKeyMap.relatedFieldName)
+                        keyMapNode.attributes.put("related-field-name", (String) dbViewEntityKeyMap.relatedFieldName)
                 }
             }
             for (EntityValue dbViewEntityAlias in makeFind("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
-                Node aliasNode = dbViewNode.appendNode("alias",
-                        ["name":dbViewEntityAlias.fieldAlias, "entity-alias":dbViewEntityAlias.entityAlias])
-                if (dbViewEntityAlias.fieldName) aliasNode.attributes().put("field", dbViewEntityAlias.fieldName)
-                if (dbViewEntityAlias.functionName) aliasNode.attributes().put("function", dbViewEntityAlias.functionName)
+                MNode aliasNode = dbViewNode.append("alias",
+                        ["name":(String) dbViewEntityAlias.fieldAlias, "entity-alias":(String) dbViewEntityAlias.entityAlias])
+                if (dbViewEntityAlias.fieldName) aliasNode.attributes.put("field", (String) dbViewEntityAlias.fieldName)
+                if (dbViewEntityAlias.functionName) aliasNode.attributes.put("function", (String) dbViewEntityAlias.functionName)
             }
 
             // create the new EntityDefinition
             ed = new EntityDefinition(this, dbViewNode)
+
             // cache it under entityName, fullEntityName, and short-alias
             String fullEntityName = ed.getFullEntityName()
             if (fullEntityName.startsWith("moqui.")) {
@@ -654,35 +647,35 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         // get entity, view-entity and extend-entity Nodes for entity from each location
-        Node entityNode = null
-        List<Node> extendEntityNodes = new ArrayList<Node>()
+        MNode entityNode = null
+        List<MNode> extendEntityNodes = new ArrayList<MNode>()
         for (String location in entityLocationList) {
-            Node entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
+            MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
             // filter by package-name if specified, otherwise grab whatever
-            List<Node> packageChildren = (List<Node>) entityRoot.children()
-                    .findAll({ (it."@entity-name" == entityName || it."@short-alias" == entityName) &&
-                        (packageName ? it."@package-name" == packageName : true) })
-            for (Node childNode in packageChildren) {
-                if (childNode.name() == "extend-entity") {
+            List<MNode> packageChildren = entityRoot.children
+                    .findAll({ (it.attribute("entity-name") == entityName || it.attribute("short-alias") == entityName) &&
+                        (packageName ? it.attribute("package-name") == packageName : true) })
+            for (MNode childNode in packageChildren) {
+                if (childNode.name == "extend-entity") {
                     extendEntityNodes.add(childNode)
                 } else {
                     if (entityNode != null) logger.warn("Entity [${entityName}] was found again at [${location}], so overriding definition from previous location")
-                    entityNode = StupidUtilities.deepCopyNode(childNode)
+                    entityNode = childNode.deepCopy(null)
                 }
             }
         }
-        if (!entityNode) throw new EntityNotFoundException("No definition found for entity [${entityName}]${packageName ? ' in package ['+packageName+']' : ''}")
+        if (entityNode == null) throw new EntityNotFoundException("No definition found for entity [${entityName}]${packageName ? ' in package ['+packageName+']' : ''}")
 
         // if entityName is a short-alias extend-entity elements won't match it, so find them again now that we have the main entityNode
-        if (entityName == entityNode."@short-alias") {
-            entityName = entityNode."@entity-name"
-            packageName = entityNode."@package-name"
+        if (entityName == entityNode.attribute("short-alias")) {
+            entityName = entityNode.attribute("entity-name")
+            packageName = entityNode.attribute("package-name")
             for (String location in entityLocationList) {
-                Node entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
-                List<Node> packageChildren = (List<Node>) entityRoot.children()
-                        .findAll({ it."@entity-name" == entityName && (packageName ? it."@package-name" == packageName : true) })
-                for (Node childNode in packageChildren) {
-                    if (childNode.name() == "extend-entity") {
+                MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
+                List<MNode> packageChildren = entityRoot.children
+                        .findAll({ it.attribute("entity-name") == entityName && (packageName ? it.attribute("package-name") == packageName : true) })
+                for (MNode childNode in packageChildren) {
+                    if (childNode.name == "extend-entity") {
                         extendEntityNodes.add(childNode)
                     }
                 }
@@ -691,42 +684,44 @@ class EntityFacadeImpl implements EntityFacade {
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
 
         // merge the extend-entity nodes
-        for (Node extendEntity in extendEntityNodes) {
+        for (MNode extendEntity in extendEntityNodes) {
             // if package-name attributes don't match, skip
-            if (entityNode."@package-name" != extendEntity."@package-name") continue
+            if (entityNode.attribute("package-name") != extendEntity.attribute("package-name")) continue
             // merge attributes
-            entityNode.attributes().putAll(extendEntity.attributes())
+            entityNode.attributes.putAll(extendEntity.attributes)
             // merge field nodes
-            for (Node childOverrideNode in extendEntity."field") {
-                String keyValue = childOverrideNode."@name"
-                Node childBaseNode = (Node) entityNode."field".find({ it."@name" == keyValue })
-                if (childBaseNode) childBaseNode.attributes().putAll(childOverrideNode.attributes())
+            for (MNode childOverrideNode in extendEntity.children("field")) {
+                String keyValue = childOverrideNode.attribute("name")
+                MNode childBaseNode = entityNode.first({ MNode it -> it.name == "field" && it.attribute("name") == keyValue })
+                if (childBaseNode) childBaseNode.attributes.putAll(childOverrideNode.attributes)
                 else entityNode.append(childOverrideNode)
             }
             // add relationship, key-map (copy over, will get child nodes too
-            for (Node copyNode in extendEntity."relationship") {
-                Node currentNode = (Node) entityNode.get("relationship")
-                        .find({ ((Node) it).attribute('title') == copyNode.attribute('title') &&
-                            ((Node) it).attribute('related-entity-name') == copyNode.attribute('related-entity-name') })
-                if (currentNode) {
-                    currentNode.replaceNode(copyNode)
+            ArrayList<MNode> relNodeList = extendEntity.children("relationship")
+            for (int i = 0; i < relNodeList.size(); i++) {
+                MNode copyNode = relNodeList.get(i)
+                int curNodeIndex = entityNode.children
+                        .findIndexOf({ MNode it -> it.name == "relationship" && it.attribute('title') == copyNode.attribute('title') &&
+                            it.attribute('related-entity-name') == copyNode.attribute('related-entity-name') })
+                if (curNodeIndex >= 0) {
+                    entityNode.children.set(curNodeIndex, copyNode)
                 } else {
                     entityNode.append(copyNode)
                 }
             }
             // add index, index-field
-            for (Node copyNode in extendEntity."index") {
-                Node currentNode = (Node) entityNode.get("index")
-                        .find({ ((Node) it).attribute('name') == copyNode.attribute('name') })
-                if (currentNode) {
-                    currentNode.replaceNode(copyNode)
+            for (MNode copyNode in extendEntity.children("index")) {
+                int curNodeIndex = entityNode.children
+                        .findIndexOf({ MNode it -> it.name == "index" && it.attribute('name') == copyNode.attribute('name') })
+                if (curNodeIndex >= 0) {
+                    entityNode.children.set(curNodeIndex, copyNode)
                 } else {
                     entityNode.append(copyNode)
                 }
             }
             // copy master nodes (will be merged on parse)
             // TODO: check master/detail existance before append it into entityNode
-            for (Node copyNode in extendEntity."master") entityNode.append(copyNode)
+            for (MNode copyNode in extendEntity.children("master")) entityNode.append(copyNode)
         }
 
         // create the new EntityDefinition
@@ -754,8 +749,7 @@ class EntityFacadeImpl implements EntityFacade {
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
             if (ed == null) continue
             List<String> pkSet = ed.getPkFieldNames()
-            for (Object relObj in ed.entityNode.get("relationship")) {
-                Node relNode = (Node) relObj
+            for (MNode relNode in ed.entityNode.children("relationship")) {
                 // don't create reverse for auto reference relationships
                 if (relNode.attribute('is-auto-reverse') == "true") continue
                 String relatedEntityName = (String) relNode.attribute("related-entity-name")
@@ -780,7 +774,7 @@ class EntityFacadeImpl implements EntityFacade {
                 String title = relNode.attribute('title')
 
                 // does a relationship coming back already exist?
-                Node reverseRelNode = (Node) reverseEd.entityNode.get("relationship").find( { Node it ->
+                MNode reverseRelNode = reverseEd.entityNode.children("relationship").find( {
                         (it.attribute('related-entity-name') == ed.entityName || it.attribute('related-entity-name') == ed.fullEntityName) &&
                         ((!title && !it.attribute('title')) || it.attribute('title') == title) } )
                 // NOTE: removed "it."@type" == relType && ", if there is already any relationship coming back don't create the reverse
@@ -792,17 +786,17 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 // track the fact that the related entity has others pointing back to it, unless original relationship is type many (doesn't qualify)
-                if (!ed.isViewEntity() && relNode.attribute("type") != "many") reverseEd.entityNode.attributes().put("has-dependents", "true")
+                if (!ed.isViewEntity() && relNode.attribute("type") != "many") reverseEd.entityNode.attributes.put("has-dependents", "true")
 
                 // create a new reverse-many relationship
-                Map keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd)
+                Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd)
 
-                Node newRelNode = reverseEd.entityNode.appendNode("relationship",
+                MNode newRelNode = reverseEd.entityNode.append("relationship",
                         ["related-entity-name":ed.fullEntityName, "type":relType, "is-auto-reverse":"true", "mutable":"true"])
-                if (relNode.attribute('title')) newRelNode.attributes().title = title
-                for (Map.Entry keyEntry in keyMap) {
+                if (relNode.attribute('title')) newRelNode.attributes.title = title
+                for (Map.Entry<String, String> keyEntry in keyMap) {
                     // add a key-map with the reverse fields
-                    newRelNode.appendNode("key-map", ["field-name":keyEntry.value, "related-field-name":keyEntry.key])
+                    newRelNode.append("key-map", ["field-name":keyEntry.value, "related-field-name":keyEntry.key])
                 }
                 relationshipsCreated++
             }
@@ -846,10 +840,9 @@ class EntityFacadeImpl implements EntityFacade {
         InputStream is = null
         try {
             is = rr.openStream()
-            Node serviceRoot = new XmlParser().parse(is)
+            MNode eecasRoot = new MNode(new XmlParser().parse(is))
             int numLoaded = 0
-            for (Object secaObj in serviceRoot.get("eeca")) {
-                Node secaNode = (Node) secaObj
+            for (MNode secaNode in eecasRoot.children("eeca")) {
                 EntityEcaRule ser = new EntityEcaRule(ecfi, secaNode, rr.location)
                 String entityName = ser.entityName
                 // remove the hash if there is one to more consistently match the service name
@@ -1059,7 +1052,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
 
             eil.add([entityName:ed.entityName, "package":ed.entityNode.attribute("package-name"),
-                    isView:(ed.isViewEntity() ? "true" : "false"), fullEntityName:ed.fullEntityName])
+                    isView:(ed.isViewEntity() ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 
         if (orderByField) StupidUtilities.orderMapList(eil, [orderByField])
@@ -1079,7 +1072,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         // first get fields of the main entity
         for (String fn in ed.getAllFieldNames()) {
-            Node fieldNode = ed.getFieldNode(fn)
+            MNode fieldNode = ed.getFieldNode(fn)
 
             boolean inDbView = false
             String functionName = null
@@ -1107,7 +1100,7 @@ class EntityFacadeImpl implements EntityFacade {
                     .condition([dbViewEntityName:dbViewEntityName, entityName:red.getFullEntityName()] as Map<String, Object>).one()
 
             for (String fn in red.getAllFieldNames()) {
-                Node fieldNode = red.getFieldNode(fn)
+                MNode fieldNode = red.getFieldNode(fn)
                 boolean inDbView = false
                 String functionName = null
                 if (dbViewEntityMember) {
@@ -1119,7 +1112,7 @@ class EntityFacadeImpl implements EntityFacade {
                     }
                 }
                 efl.add([entityName:relInfo.relatedEntityName, fieldName:fn, type:fieldNode.attribute("type"),
-                        cardinality:relInfo.type, title:relInfo.title, inDbView:inDbView, functionName:functionName])
+                        cardinality:relInfo.type, title:relInfo.title, inDbView:inDbView, functionName:functionName] as Map<String, Object>)
             }
         }
 
@@ -1127,31 +1120,32 @@ class EntityFacadeImpl implements EntityFacade {
         return efl
     }
 
-    Node getDatabaseNode(String groupName) {
-        Node node = databaseNodeByGroupName.get(groupName)
+    MNode getDatabaseNode(String groupName) {
+        MNode node = databaseNodeByGroupName.get(groupName)
         if (node != null) return node
         return findDatabaseNode(groupName)
     }
-    protected Node findDatabaseNode(String groupName) {
+    protected MNode findDatabaseNode(String groupName) {
         String databaseConfName = getDatabaseConfName(groupName)
-        Node node = (Node) StupidUtilities.nodeChild(ecfi.confXmlRoot, "database-list").get('database')
-                .find({ Node it -> it.attribute("name") == databaseConfName })
+        MNode node = ecfi.confXmlRoot.first("database-list")
+                .first({ MNode it -> it.name == 'database' && it.attribute("name") == databaseConfName })
         databaseNodeByGroupName.put(groupName, node)
         return node
     }
     String getDatabaseConfName(String groupName) {
-        Node datasourceNode = getDatasourceNode(groupName)
+        MNode datasourceNode = getDatasourceNode(groupName)
         return datasourceNode.attribute("database-conf-name")
     }
 
-    Node getDatasourceNode(String groupName) {
-        Node node = datasourceNodeByGroupName.get(groupName)
+    MNode getDatasourceNode(String groupName) {
+        MNode node = datasourceNodeByGroupName.get(groupName)
         if (node != null) return node
         return findDatasourceNode(groupName)
     }
-    protected Node findDatasourceNode(String groupName) {
-        Node dsNode = (Node) getEntityFacadeNode().get('datasource').find({ Node it -> it.attribute("group-name") == groupName })
-        if (dsNode == null) dsNode = (Node) getEntityFacadeNode().get('datasource').find({ Node it -> it.attribute("group-name") == defaultGroupName })
+    protected MNode findDatasourceNode(String groupName) {
+        MNode dsNode = getEntityFacadeNode().first({ MNode it -> it.name == 'datasource' && it.attribute("group-name") == groupName })
+        if (dsNode == null) dsNode = getEntityFacadeNode()
+                .first({ MNode it -> it.name == 'datasource' && it.attribute("group-name") == defaultGroupName })
         datasourceNodeByGroupName.put(groupName, dsNode)
         return dsNode
     }
@@ -1610,13 +1604,13 @@ class EntityFacadeImpl implements EntityFacade {
             javaTypeByGroup.put(groupName, javaTypeMap)
         }
 
-        Node databaseNode = this.getDatabaseNode(groupName)
-        Node databaseTypeNode = databaseNode ? (Node) databaseNode.get("database-type").find({ Node it -> it.attribute('type') == fieldType }) : null
+        MNode databaseNode = this.getDatabaseNode(groupName)
+        MNode databaseTypeNode = databaseNode ?
+                databaseNode.first({ MNode it -> it.name == "database-type" && it.attribute('type') == fieldType }) : null
         String javaType = databaseTypeNode?.attribute("java-type")
         if (!javaType) {
-            Node databaseListNode = StupidUtilities.nodeChild(ecfi.confXmlRoot, "database-list")
-            Node dictionaryTypeNode = (Node) databaseListNode.get("dictionary-type")
-                                .find({ Node it -> it.attribute('type') == fieldType })
+            MNode databaseListNode = ecfi.confXmlRoot.first("database-list")
+            MNode dictionaryTypeNode = databaseListNode.first({ MNode it -> it.name == "dictionary-type" && it.attribute('type') == fieldType })
             javaType = dictionaryTypeNode?.attribute("java-type")
             if (!javaType) throw new EntityException("Could not find Java type for field type [${fieldType}] on entity [${ed.getFullEntityName()}]")
         }
@@ -1641,13 +1635,14 @@ class EntityFacadeImpl implements EntityFacade {
             sqlTypeByGroup.put(groupName, sqlTypeMap)
         }
 
-        Node databaseNode = this.getDatabaseNode(groupName)
-        Node databaseTypeNode = databaseNode ? (Node) databaseNode.get("database-type").find({ Node it -> it.attribute('type') == fieldType }) : null
+        MNode databaseNode = this.getDatabaseNode(groupName)
+        MNode databaseTypeNode = databaseNode ?
+                databaseNode.first({ MNode it -> it.name == "database-type" && it.attribute('type') == fieldType }) : null
         String sqlType = databaseTypeNode?.attribute("sql-type")
         if (!sqlType) {
-            Node databaseListNode = StupidUtilities.nodeChild(ecfi.confXmlRoot, "database-list")
-            Node dictionaryTypeNode = (Node) databaseListNode.get("dictionary-type")
-                                .find({ Node it -> it.attribute('type') == fieldType })
+            MNode databaseListNode = ecfi.confXmlRoot.first("database-list")
+            MNode dictionaryTypeNode = databaseListNode
+                    .first({ MNode it -> it.name == "dictionary-type" && it.attribute('type') == fieldType })
             sqlType = dictionaryTypeNode?.attribute("default-sql-type")
             if (!sqlType) throw new EntityException("Could not find SQL type for field type [${fieldType}] on entity [${ed.getFullEntityName()}]")
         }

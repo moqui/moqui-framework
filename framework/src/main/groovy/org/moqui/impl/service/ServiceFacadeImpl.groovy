@@ -31,6 +31,7 @@ import org.moqui.service.ServiceCallSpecial
 
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.reference.ClasspathResourceReference
+import org.moqui.util.MNode
 import org.quartz.JobDetail
 import org.quartz.JobExecutionContext
 import org.quartz.JobKey
@@ -53,6 +54,7 @@ import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
+@CompileStatic
 class ServiceFacadeImpl implements ServiceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceFacadeImpl.class)
 
@@ -83,17 +85,17 @@ class ServiceFacadeImpl implements ServiceFacade {
         restApi = new RestApi(ecfi)
 
         // load service runners from configuration
-        for (Node serviceType in ecfi.confXmlRoot."service-facade"[0]."service-type") {
+        for (MNode serviceType in ecfi.confXmlRoot.first("service-facade").children("service-type")) {
             ServiceRunner sr = (ServiceRunner) Thread.currentThread().getContextClassLoader()
-                    .loadClass((String) serviceType."@runner-class").newInstance()
-            serviceRunners.put((String) serviceType."@name", sr.init(this))
+                    .loadClass(serviceType.attribute("runner-class")).newInstance()
+            serviceRunners.put(serviceType.attribute("name"), sr.init(this))
         }
 
         // prep data for scheduler history listeners
         InetAddress localHost = ecfi.getLocalhostAddress()
         schedulerInfoMap = [hostAddress:(localHost?.getHostAddress() ?: '127.0.0.1'),
-                hostName:(localHost?.getHostName() ?: 'localhost'),
-                schedulerId:scheduler.getSchedulerInstanceId(), schedulerName:scheduler.getSchedulerName()]
+                hostName:(localHost?.getHostName() ?: 'localhost'), schedulerId:scheduler.getSchedulerInstanceId(),
+                schedulerName:scheduler.getSchedulerName()] as Map<String, Object>
 
         scheduler.getListenerManager().addTriggerListener(new HistoryTriggerListener());
         scheduler.getListenerManager().addSchedulerListener(new HistorySchedulerListener());
@@ -186,7 +188,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             return (ServiceDefinition) serviceLocationCache.get(cacheKey)
         }
 
-        Node serviceNode = findServiceNode(path, verb, noun)
+        MNode serviceNode = findServiceNode(path, verb, noun)
         if (serviceNode == null) {
             // NOTE: don't throw an exception for service not found (this is where we know there is no def), let service caller handle that
             // Put null in the cache to remember the non-existing service
@@ -208,14 +210,14 @@ class ServiceFacadeImpl implements ServiceFacade {
         return (path ? path + '.' : '') + verb + (noun ? noun : '')
     }
 
-    protected Node findServiceNode(String path, String verb, String noun) {
+    protected MNode findServiceNode(String path, String verb, String noun) {
         if (!path) return null
 
         // make a file location from the path
         String partialLocation = path.replace('.', '/') + '.xml'
         String servicePathLocation = 'service/' + partialLocation
 
-        Node serviceNode = null
+        MNode serviceNode = null
 
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
@@ -242,33 +244,17 @@ class ServiceFacadeImpl implements ServiceFacade {
         return serviceNode
     }
 
-    protected static Node findServiceNode(ResourceReference serviceComponentRr, String verb, String noun) {
-        if (!serviceComponentRr) return null
+    protected static MNode findServiceNode(ResourceReference serviceComponentRr, String verb, String noun) {
+        if (serviceComponentRr == null || !serviceComponentRr.exists) return null
 
-        Node serviceNode = null
-        InputStream serviceFileIs = null
-
-        try {
-            serviceFileIs = serviceComponentRr.openStream()
-            Node serviceRoot = new XmlParser().parse(serviceFileIs)
-            if (noun) {
-                // only accept the separated names
-                serviceNode = (Node) serviceRoot."service".find({ it."@verb" == verb && it."@noun" == noun })
-                // try the combined name
-                if (serviceNode == null)
-                    serviceNode = (Node) serviceRoot."service".find({ it."@verb" == verb && it."@noun" == noun })
-            } else {
-                // we just have a verb, this should work if the noun field is empty, or if noun + verb makes up the verb passed in
-                serviceNode = (Node) serviceRoot."service".find({ (it."@verb" + (it."@noun" ?: "")) == verb })
-            }
-        } catch (IOException e) {
-            // probably because there is no resource at that location, so do nothing
-            if (logger.isTraceEnabled()) logger.trace("Error finding service in URL [${serviceComponentRr.location}]", e)
-            return null
-        } catch (Exception e) {
-            throw new BaseException("Error finding service in [${serviceComponentRr.location}]", e)
-        } finally {
-            if (serviceFileIs != null) serviceFileIs.close()
+        MNode serviceRoot = MNode.parse(serviceComponentRr)
+        MNode serviceNode
+        if (noun) {
+            // only accept the separated names
+            serviceNode = serviceRoot.first({ MNode it -> it.name == "service" && it.attribute("verb") == verb && it.attribute("noun") == noun })
+        } else {
+            // we just have a verb, this should work if the noun field is empty, or if noun + verb makes up the verb passed in
+            serviceNode = serviceRoot.first({ MNode it -> it.name == "service" && (it.attribute("verb") + (it.attribute("noun") ?: "")) == verb })
         }
 
         return serviceNode
@@ -278,7 +264,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         Set<String> sns = new TreeSet<String>()
 
         // search declared service-file elements in Moqui Conf XML
-        for (Node serviceFile in ecfi.confXmlRoot."service-facade"[0]."service-file") {
+        for (MNode serviceFile in ecfi.confXmlRoot.first("service-facade").children("service-file")) {
             String location = serviceFile.attribute("location")
             ResourceReference entryRr = ecfi.resourceFacade.getLocationReference(location)
             findServicesInFile("classpath://service", entryRr, sns)
@@ -307,7 +293,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             String name = lastDotIndex == -1 ? serviceName : serviceName.substring(0, lastDotIndex)
             Map curInfo = serviceInfoMap.get(name)
             if (curInfo) {
-                StupidUtilities.addToBigDecimalInMap("services", 1, curInfo)
+                StupidUtilities.addToBigDecimalInMap("services", 1.0, curInfo)
             } else {
                 serviceInfoMap.put(name, [name:name, services:1])
             }
@@ -332,22 +318,22 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
     protected void findServicesInFile(String baseLocation, ResourceReference entryRr, Set<String> sns) {
-        Node serviceRoot = new XmlParser().parse(entryRr.openStream())
-        if ((serviceRoot.name() as String) in ["secas", "emecas", "resource"]) return
-        if (serviceRoot.name() != "services") {
-            logger.info("While finding service ignoring XML file [${entryRr.location}] in a services directory because the root element is [${serviceRoot.name()}] and not [services]")
+        MNode serviceRoot = MNode.parse(entryRr)
+        if ((serviceRoot.name) in ["secas", "emecas", "resource"]) return
+        if (serviceRoot.name != "services") {
+            logger.info("While finding service ignoring XML file [${entryRr.location}] in a services directory because the root element is ${serviceRoot.name} and not services")
             return
         }
 
         // get the service file location without the .xml and without everything up to the "service" directory
         String location = entryRr.location.substring(0, entryRr.location.lastIndexOf("."))
         if (location.startsWith(baseLocation)) location = location.substring(baseLocation.length())
-        if (location.charAt(0) == '/') location = location.substring(1)
+        if (location.charAt(0) == '/' as char) location = location.substring(1)
         location = location.replace('/', '.')
 
-        for (Node serviceNode in serviceRoot."service") {
-            sns.add(location + "." + serviceNode."@verb" +
-                    (serviceNode."@noun" ? "#" + serviceNode."@noun" : ""))
+        for (MNode serviceNode in serviceRoot.children("service")) {
+            sns.add(location + "." + serviceNode.attribute("verb") +
+                    (serviceNode.attribute("noun") ? "#" + serviceNode.attribute("noun") : ""))
         }
     }
 
@@ -370,31 +356,22 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
     protected void loadSecaRulesFile(ResourceReference rr) {
-        InputStream is = null
-        try {
-            is = rr.openStream()
-            Node serviceRoot = new XmlParser().parse(is)
-            int numLoaded = 0
-            for (Node secaNode in serviceRoot."seca") {
-                ServiceEcaRule ser = new ServiceEcaRule(ecfi, secaNode, rr.location)
-                String serviceName = ser.serviceName
-                // remove the hash if there is one to more consistently match the service name
-                serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-                List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-                if (!lst) {
-                    lst = new LinkedList()
-                    secaRulesByServiceName.put(serviceName, lst)
-                }
-                lst.add(ser)
-                numLoaded++
+        MNode serviceRoot = MNode.parse(rr)
+        int numLoaded = 0
+        for (MNode secaNode in serviceRoot.children("seca")) {
+            ServiceEcaRule ser = new ServiceEcaRule(ecfi, secaNode, rr.location)
+            String serviceName = ser.serviceName
+            // remove the hash if there is one to more consistently match the service name
+            serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
+            List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
+            if (!lst) {
+                lst = new LinkedList()
+                secaRulesByServiceName.put(serviceName, lst)
             }
-            if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
-        } catch (IOException e) {
-            // probably because there is no resource at that location, so do nothing
-            if (logger.traceEnabled) logger.trace("Error loading SECA rules from [${rr.location}]", e)
-        } finally {
-            if (is != null) is.close()
+            lst.add(ser)
+            numLoaded++
         }
+        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
     }
 
     @CompileStatic
@@ -448,9 +425,9 @@ class ServiceFacadeImpl implements ServiceFacade {
         InputStream is = null
         try {
             is = rr.openStream()
-            Node emecasRoot = new XmlParser().parse(is)
+            MNode emecasRoot = new MNode(new XmlParser().parse(is))
             int numLoaded = 0
-            for (Node emecaNode in emecasRoot."emeca") {
+            for (MNode emecaNode in emecasRoot.children("emeca")) {
                 EmailEcaRule eer = new EmailEcaRule(ecfi, emecaNode, rr.location)
                 emecaRuleList.add(eer)
                 numLoaded++
@@ -535,53 +512,56 @@ class ServiceFacadeImpl implements ServiceFacade {
         void jobScheduled(Trigger trigger) {
             if (shouldSkipScheduleHistory(trigger.getKey())) return
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvJobScheduled",
-                        eventDate:new Timestamp(System.currentTimeMillis()),
-                        triggerGroup:trigger.getKey().getGroup(), triggerName:trigger.getKey().getName(),
-                        jobGroup:trigger.getJobKey().getGroup(), jobName:trigger.getJobKey().getName()]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvJobScheduled",
+                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:trigger.getKey().getGroup(),
+                        triggerName:trigger.getKey().getName(), jobGroup:trigger.getJobKey().getGroup(),
+                        jobName:trigger.getJobKey().getName()] as Map<String, Object>)).disableAuthz().call()
         }
         @Override
         void jobUnscheduled(TriggerKey triggerKey) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvJobUnscheduled",
-                        eventDate:new Timestamp(System.currentTimeMillis()),
-                        triggerGroup:triggerKey.getGroup(), triggerName:triggerKey.getName()]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvJobUnscheduled",
+                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:triggerKey.getGroup(),
+                        triggerName:triggerKey.getName()] as Map<String, Object>)).disableAuthz().call()
         }
 
         @Override
         void triggerPaused(TriggerKey triggerKey) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggerPaused",
-                        eventDate:new Timestamp(System.currentTimeMillis()),
-                        triggerGroup:triggerKey.getGroup(), triggerName:triggerKey.getName()]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggerPaused",
+                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:triggerKey.getGroup(),
+                        triggerName:triggerKey.getName()] as Map<String, Object>)).disableAuthz().call()
         }
         @Override
         void triggersPaused(String triggerGroup) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggersPaused",
-                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:triggerGroup]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggersPaused",
+                            eventDate:new Timestamp(System.currentTimeMillis()),
+                            triggerGroup:triggerGroup] as Map<String, Object>)).disableAuthz().call()
         }
 
         @Override
         void triggerResumed(TriggerKey triggerKey) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggerResumed",
-                        eventDate:new Timestamp(System.currentTimeMillis()),
-                        triggerGroup:triggerKey.getGroup(), triggerName:triggerKey.getName()]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggerResumed",
+                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:triggerKey.getGroup(),
+                        triggerName:triggerKey.getName()] as Map<String, Object>)).disableAuthz().call()
         }
 
         @Override
         void triggersResumed(String triggerGroup) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggersResumed",
-                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:triggerGroup]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggersResumed",
+                        eventDate:new Timestamp(System.currentTimeMillis()),
+                        triggerGroup:triggerGroup] as Map<String, Object>)).disableAuthz().call()
         }
 
         @Override
         void schedulerError(String msg, SchedulerException cause) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvSchedulerError",
-                        eventDate:new Timestamp(System.currentTimeMillis()), message:msg]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvSchedulerError",
+                        eventDate:new Timestamp(System.currentTimeMillis()), message:msg] as Map<String, Object>))
+                    .disableAuthz().call()
             // TODO: do anything with the cause?
         }
 
@@ -614,38 +594,40 @@ class ServiceFacadeImpl implements ServiceFacade {
         @Override
         void jobPaused(JobKey jobKey) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvJobPaused",
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvJobPaused",
                         eventDate:new Timestamp(System.currentTimeMillis()),
-                        jobGroup:jobKey.getGroup(), jobName:jobKey.getName()]).disableAuthz().call()
+                        jobGroup:jobKey.getGroup(), jobName:jobKey.getName()] as Map<String, Object>)).disableAuthz().call()
         }
         @Override
         void jobResumed(JobKey jobKey) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvJobResumed",
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvJobResumed",
                         eventDate:new Timestamp(System.currentTimeMillis()),
-                        jobGroup:jobKey.getGroup(), jobName:jobKey.getName()]).disableAuthz().call()
+                        jobGroup:jobKey.getGroup(), jobName:jobKey.getName()] as Map<String, Object>)).disableAuthz().call()
         }
         @Override
         void jobsPaused(String jobGroup) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvJobsPaused",
-                        eventDate:new Timestamp(System.currentTimeMillis()), jobGroup:jobGroup]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvJobsPaused",
+                        eventDate:new Timestamp(System.currentTimeMillis()), jobGroup:jobGroup] as Map<String, Object>))
+                    .disableAuthz().call()
         }
         @Override
         void jobsResumed(String jobGroup) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvJobsResumed",
-                        eventDate:new Timestamp(System.currentTimeMillis()), jobGroup:jobGroup]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvJobsResumed",
+                        eventDate:new Timestamp(System.currentTimeMillis()), jobGroup:jobGroup] as Map<String, Object>))
+                    .disableAuthz().call()
         }
 
         @Override
         void triggerFinalized(Trigger trigger) {
             if (shouldSkipScheduleHistory(trigger.getKey())) return
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggerFinalized",
-                        eventDate:new Timestamp(System.currentTimeMillis()),
-                        triggerGroup:trigger.getKey().getGroup(), triggerName:trigger.getKey().getName(),
-                        jobGroup:trigger.getJobKey().getGroup(), jobName:trigger.getJobKey().getName()]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggerFinalized",
+                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:trigger.getKey().getGroup(),
+                        triggerName:trigger.getKey().getName(), jobGroup:trigger.getJobKey().getGroup(),
+                        jobName:trigger.getJobKey().getName()] as Map<String, Object>)).disableAuthz().call()
         }
     }
 
@@ -660,11 +642,12 @@ class ServiceFacadeImpl implements ServiceFacade {
             jb.call(context.getMergedJobDataMap())
             String paramString = jb.toString()
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggerFired",
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggerFired",
                         eventDate:new Timestamp(context.getFireTime().getTime()),
                         triggerGroup:trigger.getKey().getGroup(), triggerName:trigger.getKey().getName(),
                         jobGroup:trigger.getJobKey().getGroup(), jobName:trigger.getJobKey().getName(),
-                        fireInstanceId:context.getFireInstanceId(), paramString:paramString]).disableAuthz().call()
+                        fireInstanceId:context.getFireInstanceId(), paramString:paramString] as Map<String, Object>))
+                    .disableAuthz().call()
         }
 
         @Override
@@ -673,10 +656,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         @Override
         void triggerMisfired(Trigger trigger) {
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggerMisfired",
-                        eventDate:new Timestamp(System.currentTimeMillis()),
-                        triggerGroup:trigger.getKey().getGroup(), triggerName:trigger.getKey().getName(),
-                        jobGroup:trigger.getJobKey().getGroup(), jobName:trigger.getJobKey().getName()]).disableAuthz().call()
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggerMisfired",
+                        eventDate:new Timestamp(System.currentTimeMillis()), triggerGroup:trigger.getKey().getGroup(),
+                        triggerName:trigger.getKey().getName(), jobGroup:trigger.getJobKey().getGroup(),
+                        jobName:trigger.getJobKey().getName()] as Map<String, Object>)).disableAuthz().call()
         }
 
         @Override
@@ -687,12 +670,13 @@ class ServiceFacadeImpl implements ServiceFacade {
             jb.call(context.getMergedJobDataMap())
             String paramString = jb.toString()
             sync().name("create#moqui.service.scheduler.SchedulerHistory")
-                    .parameters(schedulerInfoMap + [eventTypeEnumId:"SchEvTriggerComplete",
+                    .parameters(schedulerInfoMap + ([eventTypeEnumId:"SchEvTriggerComplete",
                         eventDate:new Timestamp(context.getFireTime().getTime()),
                         triggerGroup:trigger.getKey().getGroup(), triggerName:trigger.getKey().getName(),
                         jobGroup:trigger.getJobKey().getGroup(), jobName:trigger.getJobKey().getName(),
                         fireInstanceId:context.getFireInstanceId(), paramString:paramString,
-                        triggerInstructionCode:triggerInstructionCode.toString()]).disableAuthz().call()
+                        triggerInstructionCode:triggerInstructionCode.toString()] as Map<String, Object>))
+                    .disableAuthz().call()
         }
     }
 }

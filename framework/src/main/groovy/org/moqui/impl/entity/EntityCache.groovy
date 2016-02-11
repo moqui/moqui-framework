@@ -22,6 +22,7 @@ import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.CacheImpl
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -241,11 +242,8 @@ class EntityCache {
         EntityDefinition ed = efi.getEntityDefinition(entityName)
         if (ed.isViewEntity()) {
             // go through each member-entity
-            for (Object childObj in ed.getEntityNode().children()) {
-                Node memberEntityNode = null
-                if (childObj instanceof Node) memberEntityNode = (Node) childObj
-                if (memberEntityNode == null) continue
-                if (!'member-entity'.equals(memberEntityNode.name())) continue
+            for (MNode memberEntityNode in ed.getEntityNode().children) {
+                if (!'member-entity'.equals(memberEntityNode.name)) continue
 
                 Map mePkFieldToAliasNameMap = ed.getMePkFieldToAliasNameMap((String) memberEntityNode.attribute('entity-alias'))
 

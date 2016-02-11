@@ -13,10 +13,12 @@
  */
 package org.moqui.impl.entity.condition
 
+import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityQueryBuilder
 import org.moqui.impl.entity.EntityConditionFactoryImpl
 
+@CompileStatic
 class BasicJoinCondition extends EntityConditionImplBase {
     protected EntityConditionImplBase lhs
     protected EntityCondition.JoinOperator operator

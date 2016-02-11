@@ -30,6 +30,7 @@ import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.service.ServiceCallSync
 import org.moqui.service.ServiceException
+import org.moqui.util.MNode
 
 import java.sql.Timestamp
 
@@ -424,15 +425,16 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     }
 
     protected void checkAddSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
-        String semaphore = (String) sd.getServiceNode().attribute('semaphore')
+        MNode serviceNode = sd.getServiceNode()
+        String semaphore = serviceNode.attribute('semaphore')
         if (semaphore == null || semaphore.length() == 0 || semaphore == "none") return
 
-        String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
+        String semParameter = serviceNode.attribute('semaphore-parameter')
         String parameterValue = semParameter ? (currentParameters.get(semParameter) ?: '_NULL_') : null
 
-        long ignoreMillis = ((sd.getServiceNode().attribute('semaphore-ignore') ?: "3600") as Long) * 1000
-        long sleepTime = ((sd.getServiceNode().attribute('semaphore-sleep') ?: "5") as Long) * 1000
-        long timeoutTime = ((sd.getServiceNode().attribute('semaphore-timeout') ?: "120") as Long) * 1000
+        long ignoreMillis = ((serviceNode.attribute('semaphore-ignore') ?: "3600") as Long) * 1000
+        long sleepTime = ((serviceNode.attribute('semaphore-sleep') ?: "5") as Long) * 1000
+        long timeoutTime = ((serviceNode.attribute('semaphore-timeout') ?: "120") as Long) * 1000
         long currentTime = System.currentTimeMillis()
         String lockThreadName = Thread.currentThread().getName()
 

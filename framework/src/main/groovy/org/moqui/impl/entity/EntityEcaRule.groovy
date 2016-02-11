@@ -13,40 +13,45 @@
  */
 package org.moqui.impl.entity
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityValue
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class EntityEcaRule {
     protected final static Logger logger = LoggerFactory.getLogger(EntityEcaRule.class)
 
-    protected Node eecaNode
+    protected ExecutionContextFactoryImpl ecfi
+    protected MNode eecaNode
     protected String location
 
     protected XmlAction condition = null
     protected XmlAction actions = null
 
-    EntityEcaRule(ExecutionContextFactoryImpl ecfi, Node eecaNode, String location) {
+    EntityEcaRule(ExecutionContextFactoryImpl ecfi, MNode eecaNode, String location) {
+        this.ecfi = ecfi
         this.eecaNode = eecaNode
         this.location = location
 
         // prep condition
-        if (eecaNode.condition && eecaNode.condition[0].children()) {
+        if (eecaNode.hasChild("condition") && eecaNode.first("condition").children) {
             // the script is effectively the first child of the condition element
-            condition = new XmlAction(ecfi, (Node) eecaNode.condition[0].children()[0], location + ".condition")
+            condition = new XmlAction(ecfi, eecaNode.first("condition").children.get(0), location + ".condition")
         }
         // prep actions
-        if (eecaNode.actions) {
-            actions = new XmlAction(ecfi, (Node) eecaNode.actions[0], location + ".actions")
+        if (eecaNode.hasChild("actions")) {
+            actions = new XmlAction(ecfi, eecaNode.first("actions"), location + ".actions")
         }
     }
 
-    String getEntityName() { return eecaNode."@entity" }
-    Node getEecaNode() { return eecaNode }
+    String getEntityName() { return eecaNode.attribute("entity") }
+    MNode getEecaNode() { return eecaNode }
 
     void runIfMatches(String entityName, Map fieldValues, String operation, boolean before, ExecutionContext ec) {
         // see if we match this event and should run
@@ -55,15 +60,15 @@ class EntityEcaRule {
         String attrName = "on-${operation}"
         if (eecaNode.attribute(attrName) != "true") return
 
-        if (entityName != eecaNode."@entity") return
-        if (ec.getMessage().hasError() && eecaNode."@run-on-error" != "true") return
+        if (entityName != eecaNode.attribute("entity")) return
+        if (ec.getMessage().hasError() && eecaNode.attribute("run-on-error") != "true") return
 
         EntityValue curValue = null
 
         // grab DB values before a delete so they are available after; this modifies fieldValues used by EntityValueBase
-        if (before && operation == "delete" && eecaNode."@get-entire-entity" == "true") {
+        if (before && operation == "delete" && eecaNode.attribute("get-entire-entity") == "true") {
             // fill in any missing (unset) values from the DB
-            if (curValue == null) curValue = getDbValue(ec, fieldValues)
+            if (curValue == null) curValue = getDbValue(fieldValues)
             if (curValue != null) {
                 // only add fields that fieldValues does not contain
                 for (Map.Entry entry in curValue.entrySet())
@@ -73,8 +78,8 @@ class EntityEcaRule {
 
         // do this before even if EECA rule runs after to get the original value from the DB and put in the entity's dbValue Map
         EntityValue originalValue = null
-        if (before && (operation == "update" || operation == "delete") && eecaNode."@get-original-value" == "true") {
-            if (curValue == null) curValue = getDbValue(ec, fieldValues)
+        if (before && (operation == "update" || operation == "delete") && eecaNode.attribute("get-original-value") == "true") {
+            if (curValue == null) curValue = getDbValue(fieldValues)
             originalValue = curValue
             // also put DB values in the fieldValues EntityValue if it isn't from DB (to have for future reference)
             if (fieldValues instanceof EntityValueBase && !fieldValues.getIsFromDb()) {
@@ -83,18 +88,18 @@ class EntityEcaRule {
             }
         }
 
-        if (before && eecaNode."@run-before" != "true") return
-        if (!before && eecaNode."@run-before" == "true") return
+        if (before && eecaNode.attribute("run-before") != "true") return
+        if (!before && eecaNode.attribute("run-before") == "true") return
 
         // now if we're running after the entity operation, pull the original value from the
         if (!before && fieldValues instanceof EntityValueBase && fieldValues.getIsFromDb() &&
-                (operation == "update" || operation == "delete") && eecaNode."@get-original-value" == "true") {
+                (operation == "update" || operation == "delete") && eecaNode.attribute("get-original-value") == "true") {
             originalValue = fieldValues.cloneDbValue(true)
         }
 
-        if ((operation == "update" || operation == "delete") && eecaNode."@get-entire-entity" == "true") {
+        if ((operation == "update" || operation == "delete") && eecaNode.attribute("get-entire-entity") == "true") {
             // fill in any missing (unset) values from the DB
-            if (curValue == null) curValue = getDbValue(ec, fieldValues)
+            if (curValue == null) curValue = getDbValue(fieldValues)
             if (curValue != null) {
                 // only add fields that fieldValues does not contain
                 for (Map.Entry entry in curValue.entrySet())
@@ -120,9 +125,9 @@ class EntityEcaRule {
         }
     }
 
-    EntityValue getDbValue(ExecutionContext ec, Map fieldValues) {
-        EntityDefinition ed = ec.getEntity().getEntityDefinition(entityName)
-        EntityFind ef = ec.entity.find(entityName)
+    EntityValue getDbValue(Map fieldValues) {
+        EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
+        EntityFind ef = ecfi.entity.find(entityName)
         for (String pkFieldName in ed.getPkFieldNames()) ef.condition(pkFieldName, fieldValues.get(pkFieldName))
         return ef.one()
     }

@@ -13,9 +13,11 @@
  */
 package org.moqui.impl.service
 
+import groovy.transform.CompileStatic
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.context.ExecutionContext
+import org.moqui.util.MNode
 
 import javax.transaction.Synchronization
 import javax.transaction.xa.XAException
@@ -26,39 +28,40 @@ import javax.transaction.TransactionManager
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ServiceEcaRule {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceEcaRule.class)
 
-    protected Node secaNode
+    protected MNode secaNode
     protected String location
 
     protected XmlAction condition = null
     protected XmlAction actions = null
 
-    ServiceEcaRule(ExecutionContextFactoryImpl ecfi, Node secaNode, String location) {
+    ServiceEcaRule(ExecutionContextFactoryImpl ecfi, MNode secaNode, String location) {
         this.secaNode = secaNode
         this.location = location
 
         // prep condition
-        if (secaNode.condition && secaNode.condition[0].children()) {
+        if (secaNode.hasChild("condition") && secaNode.first("condition").children) {
             // the script is effectively the first child of the condition element
-            condition = new XmlAction(ecfi, (Node) secaNode.condition[0].children()[0], location + ".condition")
+            condition = new XmlAction(ecfi, secaNode.first("condition").children.get(0), location + ".condition")
         }
         // prep actions
-        if (secaNode.actions) {
-            actions = new XmlAction(ecfi, (Node) secaNode.actions[0], location + ".actions")
+        if (secaNode.hasChild("actions")) {
+            actions = new XmlAction(ecfi, secaNode.first("actions"), location + ".actions")
         }
     }
 
-    String getServiceName() { return secaNode."@service" }
-    String getWhen() { return secaNode."@when" }
+    String getServiceName() { return secaNode.attribute("service") }
+    String getWhen() { return secaNode.attribute("when") }
     // Node getSecaNode() { return secaNode }
 
     void runIfMatches(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when, ExecutionContext ec) {
         // see if we match this event and should run
-        if (serviceName != (secaNode."@service"?.replace("#", ""))) return
-        if (when != secaNode."@when") return
-        if (ec.getMessage().hasError() && secaNode."@run-on-error" != "true") return
+        if (serviceName != (secaNode.attribute("service")?.replace("#", ""))) return
+        if (when != secaNode.attribute("when")) return
+        if (ec.getMessage().hasError() && secaNode.attribute("run-on-error") != "true") return
 
         standaloneRun(parameters, results, ec)
     }
@@ -85,7 +88,7 @@ class ServiceEcaRule {
     }
 
     void registerTx(String serviceName, Map<String, Object> parameters, Map<String, Object> results, ExecutionContextFactoryImpl ecfi) {
-        if (serviceName != (secaNode."@service"?.replace("#", ""))) return
+        if (serviceName != (secaNode.attribute("service")?.replace("#", ""))) return
         def sxr = new SecaSynchronization(this, parameters, results, ecfi)
         sxr.enlist()
     }
@@ -127,98 +130,11 @@ class ServiceEcaRule {
         @Override
         void afterCompletion(int status) {
             if (status == Status.STATUS_COMMITTED) {
-                if (sec.secaNode."@when" == "tx-commit") runInThreadAndTx()
+                if (sec.secaNode.attribute("when") == "tx-commit") runInThreadAndTx()
             } else {
-                if (sec.secaNode."@when" == "tx-rollback") runInThreadAndTx()
+                if (sec.secaNode.attribute("when") == "tx-rollback") runInThreadAndTx()
             }
         }
-
-        /* Old XAResource approach:
-
-        protected Xid xid = null
-        protected Integer timeout = null
-        protected boolean active = false
-        protected boolean suspended = false
-
-        @Override
-        void start(Xid xid, int flag) throws XAException {
-            if (this.active) {
-                if (this.xid != null && this.xid.equals(xid)) {
-                    throw new XAException(XAException.XAER_DUPID);
-                } else {
-                    throw new XAException(XAException.XAER_PROTO);
-                }
-            }
-            if (this.xid != null && !this.xid.equals(xid)) throw new XAException(XAException.XAER_NOTA)
-
-            this.active = true
-            this.suspended = false
-            this.xid = xid
-        }
-
-        @Override
-        void end(Xid xid, int flag) throws XAException {
-            if (this.xid == null || !this.xid.equals(xid)) throw new XAException(XAException.XAER_NOTA)
-            if (flag == TMSUSPEND) {
-                if (!this.active) throw new XAException(XAException.XAER_PROTO)
-                this.suspended = true
-            }
-            if (flag == TMSUCCESS || flag == TMFAIL) {
-                // allow a success/fail end if TX is suspended without a resume flagged start first
-                if (!this.active && !this.suspended) throw new XAException(XAException.XAER_PROTO)
-            }
-            this.active = false
-        }
-
-        @Override
-        void forget(Xid xid) throws XAException {
-            if (this.xid == null || !this.xid.equals(xid)) throw new XAException(XAException.XAER_NOTA)
-            this.xid = null
-            if (active) logger.warn("forget() called without end()")
-        }
-
-        @Override
-        int prepare(Xid xid) throws XAException {
-            if (this.xid == null || !this.xid.equals(xid)) throw new XAException(XAException.XAER_NOTA)
-            return XA_OK
-        }
-
-        @Override
-        Xid[] recover(int flag) throws XAException { return this.xid != null ? [this.xid] : [] }
-        @Override
-        boolean isSameRM(XAResource xaResource) throws XAException { return xaResource == this }
-        @Override
-        int getTransactionTimeout() throws XAException { return this.timeout == null ? 0 : this.timeout }
-        @Override
-        boolean setTransactionTimeout(int seconds) throws XAException {
-            this.timeout = (seconds == 0 ? null : seconds)
-            return true
-        }
-
-        @Override
-        void commit(Xid xid, boolean onePhase) throws XAException {
-            if (this.active) logger.warn("commit() called without end()")
-            if (this.xid == null || !this.xid.equals(xid)) throw new XAException(XAException.XAER_NOTA)
-
-            // run in separate thread and tx
-            if (sec.secaNode."@when" == "tx-commit") runInThreadAndTx()
-
-            this.xid = null
-            this.active = false
-        }
-
-        @Override
-        void rollback(Xid xid) throws XAException {
-            if (this.active) logger.warn("rollback() called without end()")
-            if (this.xid == null || !this.xid.equals(xid)) throw new XAException(XAException.XAER_NOTA)
-
-            // run in separate thread and tx
-            if (sec.secaNode."@when" == "tx-rollback") runInThreadAndTx()
-
-            this.xid = null
-            this.active = false
-        }
-        */
 
         void runInThreadAndTx() {
             Thread thread = new Thread() {

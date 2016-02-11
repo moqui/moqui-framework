@@ -16,6 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
+import org.moqui.util.MNode
 
 import java.sql.SQLException
 import java.sql.Connection
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory
 
 import java.util.concurrent.locks.ReentrantLock
 
+@CompileStatic
 class EntityDbMeta {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDbMeta.class)
 
@@ -57,16 +59,15 @@ class EntityDbMeta {
         String groupName = ed.getEntityGroupName()
         Boolean runtimeAddMissing = runtimeAddMissingMap.get(groupName)
         if (runtimeAddMissing == null) {
-            Node datasourceNode = efi.getDatasourceNode(groupName)
+            MNode datasourceNode = efi.getDatasourceNode(groupName)
             runtimeAddMissing = datasourceNode?.attribute('runtime-add-missing') != "false"
             runtimeAddMissingMap.put(groupName, runtimeAddMissing)
         }
         if (!runtimeAddMissing) return
 
         if (ed.isViewEntity()) {
-            for (Object memberEntityObj in (NodeList) ed.entityNode.get("member-entity")) {
-                Node memberEntityNode = (Node) memberEntityObj
-                EntityDefinition med = efi.getEntityDefinition((String) memberEntityNode.attribute('entity-name'))
+            for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
+                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute('entity-name'))
                 checkTableRuntime(med)
             }
         } else {
@@ -78,8 +79,8 @@ class EntityDbMeta {
     }
     void checkTableStartup(EntityDefinition ed) {
         if (ed.isViewEntity()) {
-            for (Node memberEntityNode in ed.entityNode."member-entity") {
-                EntityDefinition med = efi.getEntityDefinition((String) memberEntityNode."@entity-name")
+            for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
+                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
                 checkTableStartup(med)
             }
         } else {
@@ -106,7 +107,7 @@ class EntityDbMeta {
         // if it's in this table we've already checked it
         if (entityTablesChecked.containsKey(ed.getFullEntityName())) return
 
-        Node datasourceNode = efi.getDatasourceNode(ed.getEntityGroupName())
+        MNode datasourceNode = efi.getDatasourceNode(ed.getEntityGroupName())
         // if there is no @database-conf-name skip this, it's probably not a SQL/JDBC datasource
         if (!datasourceNode.attribute('database-conf-name')) return
 
@@ -164,8 +165,8 @@ class EntityDbMeta {
 
             if (ed.isViewEntity()) {
                 boolean anyExist = false
-                for (Node memberEntityNode in ed.entityNode."member-entity") {
-                    EntityDefinition med = efi.getEntityDefinition((String) memberEntityNode."@entity-name")
+                for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
+                    EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
                     if (tableExists(med)) { anyExist = true; break }
                 }
                 dbResult = anyExist
@@ -230,39 +231,40 @@ class EntityDbMeta {
         if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot create table for a view entity")
 
         String groupName = ed.getEntityGroupName()
-        Node databaseNode = efi.getDatabaseNode(groupName)
+        MNode databaseNode = efi.getDatabaseNode(groupName)
 
         StringBuilder sql = new StringBuilder("CREATE TABLE ").append(ed.getFullTableName()).append(" (")
 
         for (String fieldName in ed.getFieldNames(true, true, false)) {
-            Node fieldNode = ed.getFieldNode(fieldName)
-            String sqlType = efi.getFieldSqlType((String) fieldNode."@type", ed)
-            String javaType = efi.getFieldJavaType((String) fieldNode."@type", ed)
+            MNode fieldNode = ed.getFieldNode(fieldName)
+            String sqlType = efi.getFieldSqlType(fieldNode.attribute("type"), ed)
+            String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
 
             sql.append(ed.getColumnName(fieldName, false)).append(" ").append(sqlType)
 
             if ("String" == javaType || "java.lang.String" == javaType) {
-                if (databaseNode."@character-set") sql.append(" CHARACTER SET ").append(databaseNode."@character-set")
-                if (databaseNode."@collate") sql.append(" COLLATE ").append(databaseNode."@collate")
+                if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
+                if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
             }
 
-            if (fieldNode."@is-pk" == "true") {
-                if (databaseNode."@always-use-constraint-keyword" == "true") sql.append(" CONSTRAINT")
+            if (fieldNode.attribute("is-pk") == "true") {
+                if (databaseNode.attribute("always-use-constraint-keyword") == "true") sql.append(" CONSTRAINT")
                 sql.append(" NOT NULL")
             }
             sql.append(", ")
         }
 
-        if (databaseNode."@use-pk-constraint-names" != "false") {
+        if (databaseNode.attribute("use-pk-constraint-names") != "false") {
             String pkName = "PK_" + ed.getTableName()
-            int constraintNameClipLength = (databaseNode."@constraint-name-clip-length"?:"30") as int
+            int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
             if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength)
             sql.append("CONSTRAINT ")
-            if (databaseNode."@use-schema-for-all" == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
+            if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
             sql.append(pkName)
         }
         sql.append(" PRIMARY KEY (")
         boolean isFirstPk = true
+        logger.info("Creating ${ed.getFullEntityName()} pks: ${ed.getPkFieldNames()}")
         for (String pkName in ed.getPkFieldNames()) {
             if (isFirstPk) isFirstPk = false else sql.append(", ")
             sql.append(ed.getColumnName(pkName, false))
@@ -270,9 +272,9 @@ class EntityDbMeta {
         sql.append("))")
 
         // some MySQL-specific inconveniences...
-        if (databaseNode."@table-engine") sql.append(" ENGINE ").append(databaseNode."@table-engine")
-        if (databaseNode."@character-set") sql.append(" CHARACTER SET ").append(databaseNode."@character-set")
-        if (databaseNode."@collate") sql.append(" COLLATE ").append(databaseNode."@collate")
+        if (databaseNode.attribute("table-engine")) sql.append(" ENGINE ").append(databaseNode.attribute("table-engine"))
+        if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
+        if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
 
         if (logger.traceEnabled) logger.trace("Create Table with SQL: " + sql.toString())
 
@@ -356,22 +358,22 @@ class EntityDbMeta {
         if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot add column for a view entity")
 
         String groupName = ed.getEntityGroupName()
-        Node databaseNode = efi.getDatabaseNode(groupName)
+        MNode databaseNode = efi.getDatabaseNode(groupName)
 
-        Node fieldNode = ed.getFieldNode(fieldName)
+        MNode fieldNode = ed.getFieldNode(fieldName)
 
-        if (fieldNode."@is-user-field" == "true") throw new IllegalArgumentException("Cannot add column for a UserField")
+        if (fieldNode.attribute("is-user-field") == "true") throw new IllegalArgumentException("Cannot add column for a UserField")
 
-        String sqlType = efi.getFieldSqlType((String) fieldNode."@type", ed)
-        String javaType = efi.getFieldJavaType((String) fieldNode."@type", ed)
+        String sqlType = efi.getFieldSqlType(fieldNode.attribute("type"), ed)
+        String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
 
         StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName())
         // NOTE: if any databases need "ADD COLUMN" instead of just "ADD", change this to try both or based on config
         sql.append(" ADD ").append(ed.getColumnName(fieldName, false)).append(" ").append(sqlType)
 
         if ("String" == javaType || "java.lang.String" == javaType) {
-            if (databaseNode."@character-set") sql.append(" CHARACTER SET ").append(databaseNode."@character-set")
-            if (databaseNode."@collate") sql.append(" COLLATE ").append(databaseNode."@collate")
+            if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
+            if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
         }
 
         runSqlUpdate(sql, groupName)
@@ -383,28 +385,28 @@ class EntityDbMeta {
         if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot create indexes for a view entity")
 
         String groupName = ed.getEntityGroupName()
-        Node databaseNode = efi.getDatabaseNode(groupName)
+        MNode databaseNode = efi.getDatabaseNode(groupName)
 
-        if (databaseNode."@use-indexes" == "false") return
+        if (databaseNode.attribute("use-indexes") == "false") return
 
-        int constraintNameClipLength = (databaseNode."@constraint-name-clip-length"?:"30") as int
+        int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
 
         // first do index elements
-        for (Node indexNode in ed.entityNode."index") {
+        for (MNode indexNode in ed.entityNode.children("index")) {
             StringBuilder sql = new StringBuilder("CREATE ")
-            if (databaseNode."@use-indexes-unique" != "false" && indexNode."@unique" == "true") {
+            if (databaseNode.attribute("use-indexes-unique") != "false" && indexNode.attribute("unique") == "true") {
                 sql.append("UNIQUE ")
-                if (databaseNode."@use-indexes-unique-where-not-null" == "true") sql.append("WHERE NOT NULL ")
+                if (databaseNode.attribute("use-indexes-unique-where-not-null") == "true") sql.append("WHERE NOT NULL ")
             }
             sql.append("INDEX ")
-            if (databaseNode."@use-schema-for-all" == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-            sql.append(indexNode."@name").append(" ON ").append(ed.getFullTableName())
+            if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
+            sql.append(indexNode.attribute("name")).append(" ON ").append(ed.getFullTableName())
 
             sql.append(" (")
             boolean isFirst = true
-            for (Node indexFieldNode in indexNode."index-field") {
+            for (MNode indexFieldNode in indexNode.children("index-field")) {
                 if (isFirst) isFirst = false else sql.append(", ")
-                sql.append(ed.getColumnName((String) indexFieldNode."@name", false))
+                sql.append(ed.getColumnName(indexFieldNode.attribute("name"), false))
             }
             sql.append(")")
 
@@ -412,13 +414,13 @@ class EntityDbMeta {
         }
 
         // do fk auto indexes
-        if (databaseNode."@use-foreign-key-indexes" == "false") return
+        if (databaseNode.attribute("use-foreign-key-indexes") == "false") return
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
             String relatedEntityName = relInfo.relatedEntityName
 
             StringBuilder indexName = new StringBuilder()
-            if (relInfo.relNode."@fk-name") indexName.append(relInfo.relNode."@fk-name")
+            if (relInfo.relNode.attribute("fk-name")) indexName.append(relInfo.relNode.attribute("fk-name"))
             if (!indexName) {
                 String title = relInfo.title
                 String entityName = ed.getEntityName()
@@ -438,15 +440,15 @@ class EntityDbMeta {
 
                 if (commonChars > 0) {
                     indexName.append(ed.entityName)
-                    for (Character cc in title.substring(0, commonChars)) if (cc.isUpperCase()) indexName.append(cc)
+                    for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) indexName.append(cc)
                     indexName.append(title.substring(commonChars))
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
-                    if (relEndCommonChars < (relLength - 1)) for (Character cc in relatedEntityName.substring(relEndCommonChars + 1))
+                    if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
                         if (cc.isUpperCase()) indexName.append(cc)
                 } else {
                     indexName.append(ed.entityName).append(title)
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
-                    if (relEndCommonChars < (relLength - 1)) for (Character cc in relatedEntityName.substring(relEndCommonChars + 1))
+                    if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
                         if (cc.isUpperCase()) indexName.append(cc)
                 }
 
@@ -457,7 +459,7 @@ class EntityDbMeta {
             indexName.insert(0, "IDX")
 
             StringBuilder sql = new StringBuilder("CREATE INDEX ")
-            if (databaseNode."@use-schema-for-all" == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
+            if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
             sql.append(indexName.toString()).append(" ON ").append(ed.getFullTableName())
 
             sql.append(" (")
@@ -556,17 +558,16 @@ class EntityDbMeta {
         //     after the system is run for a bit and/or all tables desired have been created and it will take care of it
 
         String groupName = ed.getEntityGroupName()
-        Node databaseNode = efi.getDatabaseNode(groupName)
+        MNode databaseNode = efi.getDatabaseNode(groupName)
 
-        if (databaseNode."@use-foreign-keys" == "false") return
+        if (databaseNode.attribute("use-foreign-keys") == "false") return
 
-        int constraintNameClipLength = (databaseNode."@constraint-name-clip-length"?:"30") as int
+        int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
 
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
 
             EntityDefinition relEd = relInfo.relatedEd
-            if (relEd == null) throw new IllegalArgumentException("Entity [${relNode."@related-entity-name"}] does not exist, was in relationship.@related-entity-name of entity [${ed.fullEntityName}]")
             if (!tableExists(relEd)) {
                 if (logger.traceEnabled) logger.trace("Not creating foreign key from entity [${ed.getFullEntityName()}] to related entity [${relEd.getFullEntityName()}] because related entity does not yet have a table for it")
                 continue
@@ -574,14 +575,14 @@ class EntityDbMeta {
             if (checkFkExists) {
                 Boolean fkExists = foreignKeyExists(ed, relInfo)
                 if (fkExists != null && fkExists) {
-                    if (logger.traceEnabled) logger.trace("Not creating foreign key from entity [${ed.getFullEntityName()}] to related entity [${relEd.getFullEntityName()}] with title [${relNode."@title"}] because it already exists (matched by key mappings)")
+                    if (logger.traceEnabled) logger.trace("Not creating foreign key from entity [${ed.getFullEntityName()}] to related entity [${relEd.getFullEntityName()}] with title [${relInfo.relNode.attribute("title")}] because it already exists (matched by key mappings)")
                     continue
                 }
                 // if we get a null back there was an error, and we'll try to create the FK, which may result in another error
             }
 
             StringBuilder constraintName = new StringBuilder()
-            if (relInfo.relNode."@fk-name") constraintName.append(relInfo.relNode."@fk-name")
+            if (relInfo.relNode.attribute("fk-name")) constraintName.append(relInfo.relNode.attribute("fk-name"))
             if (!constraintName) {
                 String title = relInfo.title
                 int commonChars = 0
@@ -593,7 +594,7 @@ class EntityDbMeta {
                     relatedEntityName = relatedEntityName.substring(relatedEntityName.lastIndexOf(".")+1)
                 if (commonChars > 0) {
                     constraintName.append(ed.entityName)
-                    for (Character cc in title.substring(0, commonChars)) if (cc.isUpperCase()) constraintName.append(cc)
+                    for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) constraintName.append(cc)
                     constraintName.append(title.substring(commonChars)).append(relatedEntityName)
                 } else {
                     constraintName.append(ed.entityName).append(title).append(relatedEntityName)
@@ -605,7 +606,7 @@ class EntityDbMeta {
             Map keyMap = relInfo.keyMap
             List<String> keyMapKeys = new ArrayList(keyMap.keySet())
             StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName()).append(" ADD ")
-            if (databaseNode."@fk-style" == "name_fk") {
+            if (databaseNode.attribute("fk-style") == "name_fk") {
                 sql.append(" FOREIGN KEY ").append(constraintName.toString()).append(" (")
                 boolean isFirst = true
                 for (String fieldName in keyMapKeys) {
@@ -615,7 +616,7 @@ class EntityDbMeta {
                 sql.append(")")
             } else {
                 sql.append("CONSTRAINT ")
-                if (databaseNode."@use-schema-for-all" == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
+                if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
                 sql.append(constraintName.toString()).append(" FOREIGN KEY (")
                 boolean isFirst = true
                 for (String fieldName in keyMapKeys) {
@@ -631,7 +632,7 @@ class EntityDbMeta {
                 sql.append(relEd.getColumnName((String) keyMap.get(keyName), false))
             }
             sql.append(")")
-            if (databaseNode."@use-fk-initially-deferred" == "true") {
+            if (databaseNode.attribute("use-fk-initially-deferred") == "true") {
                 sql.append(" INITIALLY DEFERRED")
             }
 

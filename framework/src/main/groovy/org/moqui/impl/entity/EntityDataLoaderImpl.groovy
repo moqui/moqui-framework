@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.json.JsonSlurper
+import groovy.transform.CompileStatic
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVRecord
@@ -23,6 +24,7 @@ import org.moqui.impl.service.ServiceCallSyncImpl
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.service.ServiceCallSync
+import org.moqui.util.MNode
 
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.parsers.SAXParserFactory
@@ -47,6 +49,7 @@ import org.xml.sax.InputSource
 import org.xml.sax.Locator
 import org.xml.sax.SAXException
 
+@CompileStatic
 class EntityDataLoaderImpl implements EntityDataLoader {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDataLoaderImpl.class)
 
@@ -198,8 +201,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
             // loop through all of the entity-facade.load-data nodes
             if (!componentNameList) {
-                for (Node loadData in efi.ecfi.getConfXmlRoot()."entity-facade"[0]."load-data") {
-                    locationList.add((String) loadData."@location")
+                for (MNode loadData in efi.ecfi.getConfXmlRoot().first("entity-facade").children("load-data")) {
+                    locationList.add((String) loadData.attribute("location"))
                 }
             }
 
@@ -386,7 +389,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             // logger.warn("=========== Check value: ${value}\nel: ${el}")
             for (EntityValue ev in el) fieldsChecked += ev.checkAgainstDatabase(messageList)
         }
-        void handleService(ServiceCallSync scs) { messageList.add("Doing check only so not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}") }
+        void handleService(ServiceCallSync scs) { messageList.add("Doing check only so not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}".toString()) }
     }
     static class LoadValueHandler extends ValueHandler {
         protected ServiceFacadeImpl sfi
@@ -827,15 +830,17 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             String type = null
             List valueList
             if (jsonObj instanceof Map) {
-                type = jsonObj."_dataType"
+                Map jsonMap = (Map) jsonObj
+                type = jsonMap.get("_dataType")
                 valueList = [jsonObj]
             } else if (jsonObj instanceof List) {
-                valueList = jsonObj
+                valueList = (List) jsonObj
                 Object firstValue = valueList?.get(0)
                 if (firstValue instanceof Map) {
-                    if (firstValue."_dataType") {
-                        type = firstValue."_dataType"
-                        valueList.remove(0)
+                    Map firstValMap = (Map) firstValue
+                    if (firstValMap.get("_dataType")) {
+                        type = firstValMap.get("_dataType")
+                        valueList.remove((int) 0I)
                     }
                 }
             } else {
