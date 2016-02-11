@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.util
 
+import groovy.transform.CompileStatic
 import org.apache.shiro.authc.*
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authz.Permission
@@ -28,12 +29,13 @@ import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 
+@CompileStatic
 class MoquiShiroRealm implements Realm {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiShiroRealm.class)
 
@@ -76,8 +78,8 @@ class MoquiShiroRealm implements Realm {
         if (newUserAccount.disabled == "Y") {
             if (newUserAccount.disabledDateTime != null) {
                 // account temporarily disabled (probably due to excessive attempts
-                Integer disabledMinutes = eci.ecfi.confXmlRoot."user-facade"[0]."login"[0]."@disable-minutes" as Integer ?: 30
-                Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes*60*1000))
+                Integer disabledMinutes = eci.ecfi.confXmlRoot.first("user-facade").first("login").attribute("disable-minutes") as Integer ?: 30I
+                Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes*60I*1000I))
                 if (reEnableTime > eci.user.nowTimestamp) {
                     // only blow up if the re-enable time is not passed
                     eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
@@ -103,9 +105,9 @@ class MoquiShiroRealm implements Realm {
         }
         // check time since password was last changed, if it has been too long (user-facade.password.@change-weeks default 12) then fail
         if (newUserAccount.passwordSetDate) {
-            int changeWeeks = (eci.ecfi.confXmlRoot."user-facade"[0]."password"[0]."@change-weeks" ?: 12) as int
+            int changeWeeks = (eci.ecfi.confXmlRoot.first("user-facade").first("password").attribute("change-weeks") ?: 12) as int
             if (changeWeeks > 0) {
-                int wksSinceChange = (eci.user.nowTimestamp.time - newUserAccount.passwordSetDate.time) / (7*24*60*60*1000)
+                int wksSinceChange = ((eci.user.nowTimestamp.time - newUserAccount.getTimestamp("passwordSetDate").time) / (7*24*60*60*1000)).intValue()
                 if (wksSinceChange > changeWeeks) {
                     // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
                     throw new ExpiredCredentialsException("Authenticate failed for user ${newUserAccount.username} in tenant ${eci.tenantId} because password was changed ${wksSinceChange} weeks ago and must be changed every ${changeWeeks} weeks [PWDTIM].")
@@ -129,7 +131,7 @@ class MoquiShiroRealm implements Realm {
                         .parameters((Map<String, Object>) [visitId:visit.visitId, userId:newUserAccount.userId]).disableAuthz().call()
             }
             if (!visit.clientIpCountryGeoId && !visit.clientIpTimeZone) {
-                Node ssNode = (Node) eci.ecfi.confXmlRoot."server-stats"[0]
+                MNode ssNode = eci.ecfi.confXmlRoot.first("server-stats")
                 if (ssNode.attribute("visit-ip-info-on-login") != "false") {
                     eci.service.async().name("org.moqui.impl.ServerServices.get#VisitClientIpData")
                             .parameter("visitId", visit.visitId).call()
@@ -141,14 +143,14 @@ class MoquiShiroRealm implements Realm {
     static void loginAfterAlways(ExecutionContextImpl eci, String userId, String passwordUsed, boolean successful) {
         // track the UserLoginHistory, whether the above succeeded or failed (ie even if an exception was thrown)
         if (!eci.getSkipStats()) {
-            Node loginNode = (Node) eci.ecfi.confXmlRoot."user-facade"[0]."login"[0]
+            MNode loginNode = eci.ecfi.confXmlRoot.first("user-facade").first("login")
             if (userId != null && loginNode.attribute("history-store") != "false") {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
                 EntityValue curUlh = eci.entity.find("moqui.security.UserLoginHistory")
-                        .condition([userId:userId, fromDate:fromDate]).disableAuthz().one()
+                        .condition([userId:userId, fromDate:fromDate] as Map<String, Object>).disableAuthz().one()
                 if (curUlh == null) {
                     Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
-                            visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")]
+                            visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
                     if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
                     try {
                         eci.service.sync().name("create", "moqui.security.UserLoginHistory").parameters(ulhContext)
@@ -169,15 +171,14 @@ class MoquiShiroRealm implements Realm {
     @Override
     AuthenticationInfo getAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
         ExecutionContextImpl eci = ecfi.getEci()
-        String username = token.principal
+        String username = token.principal as String
         String userId = null
         boolean successful = false
 
-        EntityValue newUserAccount = null
         SaltedAuthenticationInfo info = null
         try {
-            newUserAccount = loginPrePassword(eci, username)
-            userId = newUserAccount.userId
+            EntityValue newUserAccount = loginPrePassword(eci, username)
+            userId = newUserAccount.getString("userId")
 
             // create the salted SimpleAuthenticationInfo object
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,

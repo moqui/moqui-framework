@@ -15,45 +15,37 @@ package org.moqui.impl.screen
 
 import freemarker.template.Template
 import groovy.transform.CompileStatic
-import groovy.transform.TypeChecked
-import groovy.transform.TypeCheckingMode
-import org.moqui.context.ArtifactAuthorizationException
-import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.context.ArtifactTarpitException
-import org.moqui.context.WebFacade
-import org.moqui.impl.context.ResourceFacadeImpl
-import org.moqui.impl.context.UserFacadeImpl
-import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
-
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-
 import org.apache.commons.codec.net.URLCodec
 import org.apache.commons.collections.map.ListOrderedMap
 
 import org.moqui.BaseException
-import org.moqui.context.ExecutionContext
-import org.moqui.screen.ScreenRender
-import org.moqui.context.TemplateRenderer
+import org.moqui.context.*
+import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
-import org.moqui.context.ContextStack
-import org.moqui.impl.screen.ScreenDefinition.ResponseItem
-import org.moqui.impl.context.WebFacadeImpl
-import org.moqui.impl.StupidWebUtilities
-import org.moqui.impl.util.FtlNodeWrapper
-import org.moqui.impl.context.ArtifactExecutionInfoImpl
-import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
-import org.moqui.impl.entity.EntityDefinition
-import org.moqui.entity.EntityCondition.ComparisonOperator
-import org.moqui.impl.entity.EntityValueImpl
 import org.moqui.impl.StupidUtilities
+import org.moqui.impl.StupidWebUtilities
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ResourceFacadeImpl
+import org.moqui.impl.context.UserFacadeImpl
+import org.moqui.impl.context.WebFacadeImpl
+import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.entity.EntityValueImpl
+import org.moqui.impl.screen.ScreenDefinition.ResponseItem
+import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
+import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
+import org.moqui.impl.util.FtlNodeWrapper
+import org.moqui.screen.ScreenRender
+import org.moqui.util.MNode
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import javax.servlet.http.HttpServletRequest
+import javax.servlet.http.HttpServletResponse
 
 @CompileStatic
 class ScreenRenderImpl implements ScreenRender {
@@ -96,7 +88,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     protected boolean dontDoRender = false
 
-    protected Map<String, Node> screenFormNodeCache = new HashMap()
+    protected Map<String, MNode> screenFormNodeCache = new HashMap()
 
     ScreenRenderImpl(ScreenFacadeImpl sfi) {
         this.sfi = sfi
@@ -121,8 +113,7 @@ class ScreenRenderImpl implements ScreenRender {
     ScreenRender rootScreen(String rootScreenLocation) { this.rootScreenLocation = rootScreenLocation; return this }
 
     ScreenRender rootScreenFromHost(String host) {
-        for (Object rootScreenObj in (NodeList) getWebappNode().get("root-screen")) {
-            Node rootScreenNode = (Node) rootScreenObj
+        for (MNode rootScreenNode in getWebappNode().children("root-screen")) {
             if (host.matches((String) rootScreenNode.attribute('host')))
                 return this.rootScreen((String) rootScreenNode.attribute('location'))
         }
@@ -200,7 +191,7 @@ class ScreenRenderImpl implements ScreenRender {
         ec.getArtifactExecution().push(aei, false)
 
         boolean loggedInAnonymous = false
-        Node screenNode = sd.getScreenNode()
+        MNode screenNode = sd.getScreenNode()
         String requireAuthentication = screenNode.attribute('require-authentication')
         if (requireAuthentication == "anonymous-all") {
             ec.artifactExecution.setAnonymousAuthorizedAll()
@@ -539,8 +530,8 @@ class ScreenRenderImpl implements ScreenRender {
         ScreenDefinition sd = screenDefIterator.next()
         // check authz first, including anonymous-* handling so that permissions and auth are in place
         // NOTE: don't require authz if the screen doesn't require auth
-        Node screenNode = sd.getScreenNode()
-        String requireAuthentication = (String) screenNode.attribute('require-authentication')
+        MNode screenNode = sd.getScreenNode()
+        String requireAuthentication = screenNode.attribute('require-authentication')
         ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
         ec.artifactExecution.push(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
@@ -760,17 +751,15 @@ class ScreenRenderImpl implements ScreenRender {
         return true
     }
 
-    @TypeChecked(TypeCheckingMode.SKIP)
-    Node getWebappNode() {
-        if (!webappName) return null
-        return (Node) sfi.ecfi.confXmlRoot."webapp-list"[0]."webapp".find({ it.@name == webappName })
+    MNode getWebappNode() {
+        if (webappName == null || webappName.length() == 0) return null
+        return sfi.ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
     }
 
-    @TypeChecked(TypeCheckingMode.SKIP)
     boolean doBoundaryComments() {
         if (screenPathIndex == 0) return false
         if (boundaryComments != null) return boundaryComments
-        boundaryComments = sfi.ecfi.confXmlRoot."screen-facade"[0]."@boundary-comments" == "true"
+        boundaryComments = sfi.ecfi.confXmlRoot.first("screen-facade").attribute("boundary-comments") == "true"
         return boundaryComments
     }
 
@@ -841,7 +830,7 @@ class ScreenRenderImpl implements ScreenRender {
             //     even if it isn't rendered to decorate subscreen
             for (ScreenDefinition sd in screenUrlInfo.screenPathDefList) {
                 // go through entire list and set all found, basically we want the last one if there are more than one
-                Node mt = (Node) sd.screenNode.get("macro-template").find({ ((Node) it).attribute('type') == renderMode })
+                MNode mt = sd.screenNode.first({ MNode it -> it.name == "macro-template" && it.attribute('type') == renderMode })
                 if (mt != null) overrideTemplateLocation = mt.attribute('location')
             }
             if (overrideTemplateLocation) {
@@ -888,12 +877,12 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
-    Node getFormNode(String formName) {
+    MNode getFormNode(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
         String nodeCacheKey = sd.getLocation() + "#" + formName
         // NOTE: this is cached in the context of the renderer for multiple accesses; because of form overrides may not
         // be valid outside the scope of a single screen render
-        Node formNode = screenFormNodeCache.get(nodeCacheKey)
+        MNode formNode = screenFormNodeCache.get(nodeCacheKey)
         if (formNode == null) {
             ScreenForm form = sd.getForm(formName)
             if (!form) throw new IllegalArgumentException("No form with name [${formName}] in screen [${sd.location}]")
@@ -905,52 +894,52 @@ class ScreenRenderImpl implements ScreenRender {
     FtlNodeWrapper getFtlFormNode(String formName) { return FtlNodeWrapper.wrapNode(getFormNode(formName)) }
     List<FtlNodeWrapper> getFtlFormFieldLayoutNonReferencedFieldList(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
-        List<Node> fieldNodeList = sd.getForm(formName).getFieldLayoutNonReferencedFieldList()
+        List<MNode> fieldNodeList = sd.getForm(formName).getFieldLayoutNonReferencedFieldList()
         List<FtlNodeWrapper> fieldFtlNodeList = []
-        for (Node fieldNode in fieldNodeList) fieldFtlNodeList.add(FtlNodeWrapper.wrapNode(fieldNode))
+        for (MNode fieldNode in fieldNodeList) fieldFtlNodeList.add(FtlNodeWrapper.wrapNode(fieldNode))
         return fieldFtlNodeList
     }
     List<FtlNodeWrapper> getFtlFormListColumnNonReferencedHiddenFieldList(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
-        List<Node> fieldNodeList = sd.getForm(formName).getColumnNonReferencedHiddenFieldList()
+        List<MNode> fieldNodeList = sd.getForm(formName).getColumnNonReferencedHiddenFieldList()
         List<FtlNodeWrapper> fieldFtlNodeList = []
-        for (Node fieldNode in fieldNodeList) fieldFtlNodeList.add(FtlNodeWrapper.wrapNode(fieldNode))
+        for (MNode fieldNode in fieldNodeList) fieldFtlNodeList.add(FtlNodeWrapper.wrapNode(fieldNode))
         return fieldFtlNodeList
     }
 
 
     boolean isFormUpload(String formName) {
-        Node cachedFormNode = this.getFormNode(formName)
+        MNode cachedFormNode = this.getFormNode(formName)
         return getActiveScreenDef().getForm(formName).isUpload(cachedFormNode)
     }
     boolean isFormHeaderForm(String formName) {
-        Node cachedFormNode = this.getFormNode(formName)
+        MNode cachedFormNode = this.getFormNode(formName)
         return getActiveScreenDef().getForm(formName).isFormHeaderForm(cachedFormNode)
     }
 
     String getFormFieldValidationClasses(String formName, String fieldName) {
         ScreenForm form = getActiveScreenDef().getForm(formName)
-        Node cachedFormNode = getFormNode(formName)
-        Node validateNode = form.getFieldValidateNode(fieldName, cachedFormNode)
+        MNode cachedFormNode = getFormNode(formName)
+        MNode validateNode = form.getFieldValidateNode(fieldName, cachedFormNode)
         if (validateNode == null) return ""
 
         Set<String> vcs = new HashSet()
-        if (validateNode.name() == "parameter") {
-            Node parameterNode = validateNode
+        if (validateNode.name == "parameter") {
+            MNode parameterNode = validateNode
             if (parameterNode.attribute('required') == "true") vcs.add("required")
-            if (parameterNode.get("number-integer")) vcs.add("number")
-            if (parameterNode.get("number-decimal")) vcs.add("number")
-            if (parameterNode.get("text-email")) vcs.add("email")
-            if (parameterNode.get("text-url")) vcs.add("url")
-            if (parameterNode.get("text-digits")) vcs.add("digits")
-            if (parameterNode.get("credit-card")) vcs.add("creditcard")
+            if (parameterNode.hasChild("number-integer")) vcs.add("number")
+            if (parameterNode.hasChild("number-decimal")) vcs.add("number")
+            if (parameterNode.hasChild("text-email")) vcs.add("email")
+            if (parameterNode.hasChild("text-url")) vcs.add("url")
+            if (parameterNode.hasChild("text-digits")) vcs.add("digits")
+            if (parameterNode.hasChild("credit-card")) vcs.add("creditcard")
 
             String type = parameterNode.attribute('type')
             if (type && (type.endsWith("BigDecimal") || type.endsWith("BigInteger") || type.endsWith("Long") ||
                     type.endsWith("Integer") || type.endsWith("Double") || type.endsWith("Float") ||
                     type.endsWith("Number"))) vcs.add("number")
-        } else if (validateNode.name() == "field") {
-            Node fieldNode = validateNode
+        } else if (validateNode.name == "field") {
+            MNode fieldNode = validateNode
             String type = fieldNode.attribute('type')
             if (type && (type.startsWith("number-") || type.startsWith("currency-"))) vcs.add("number")
             // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
@@ -963,10 +952,10 @@ class ScreenRenderImpl implements ScreenRender {
 
     Map getFormFieldValidationRegexpInfo(String formName, String fieldName) {
         ScreenForm form = getActiveScreenDef().getForm(formName)
-        Node cachedFormNode = getFormNode(formName)
-        Node validateNode = form.getFieldValidateNode(fieldName, cachedFormNode)
-        if (validateNode?.get("matches")) {
-            Node matchesNode = (Node) ((NodeList) validateNode.get("matches")).get(0)
+        MNode cachedFormNode = getFormNode(formName)
+        MNode validateNode = form.getFieldValidateNode(fieldName, cachedFormNode)
+        if (validateNode?.hasChild("matches")) {
+            MNode matchesNode = validateNode.first("matches")
             return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]
         }
         return null
@@ -1082,9 +1071,9 @@ class ScreenRenderImpl implements ScreenRender {
 
     UrlInstance makeUrlByType(String origUrl, String urlType, FtlNodeWrapper parameterParentNodeWrapper,
                                 String expandTransitionUrlString) {
-        return makeUrlByTypeGroovyNode(origUrl, urlType, parameterParentNodeWrapper?.groovyNode, expandTransitionUrlString)
+        return makeUrlByTypeGroovyNode(origUrl, urlType, parameterParentNodeWrapper?.getMNode(), expandTransitionUrlString)
     }
-    UrlInstance makeUrlByTypeGroovyNode(String origUrl, String urlType, Node parameterParentNode,
+    UrlInstance makeUrlByTypeGroovyNode(String origUrl, String urlType, MNode parameterParentNode,
                                 String expandTransitionUrlString) {
         Boolean expandTransitionUrl = expandTransitionUrlString != null ? expandTransitionUrlString == "true" : null
         /* TODO handle urlType=content
@@ -1112,11 +1101,10 @@ class ScreenRenderImpl implements ScreenRender {
                 def ctxParameterMap = ec.resource.expression(parameterMapStr, "")
                 if (ctxParameterMap) urli.addParameters((Map) ctxParameterMap)
             }
-            for (Object parameterObj in parameterParentNode.get("parameter")) {
-                Node parameterNode = (Node) parameterObj
-                String name = (String) parameterNode.attribute('name')
+            for (MNode parameterNode in parameterParentNode.children("parameter")) {
+                String name = parameterNode.attribute('name')
                 urli.addParameter(name, getContextValue(
-                        (String) parameterNode.attribute('from') ?: name, (String) parameterNode.attribute('value')))
+                        parameterNode.attribute('from') ?: name, parameterNode.attribute('value')))
             }
         }
 
@@ -1133,11 +1121,11 @@ class ScreenRenderImpl implements ScreenRender {
         }
     }
     String setInContext(FtlNodeWrapper setNodeWrapper) {
-        Node setNode = setNodeWrapper.getGroovyNode()
-        ((ResourceFacadeImpl) ec.resource).setInContext((String) setNode.attribute('field'),
-                (String) setNode.attribute('from'), (String) setNode.attribute('value'),
-                (String) setNode.attribute('default-value'), (String) setNode.attribute('type'),
-                (String) setNode.attribute('set-if-empty'))
+        MNode setNode = setNodeWrapper.getMNode()
+        ((ResourceFacadeImpl) ec.resource).setInContext(setNode.attribute('field'),
+                setNode.attribute('from'), setNode.attribute('value'),
+                setNode.attribute('default-value'), setNode.attribute('type'),
+                setNode.attribute('set-if-empty'))
         return ""
     }
     String pushContext() { ec.getContext().push(); return "" }
@@ -1146,8 +1134,8 @@ class ScreenRenderImpl implements ScreenRender {
     /** Call this at the beginning of a form-single. Always call popContext() at the end of the form! */
     String pushSingleFormMapContext(FtlNodeWrapper formNodeWrapper) {
         ContextStack cs = ec.getContext()
-        Node formNode = formNodeWrapper.getGroovyNode()
-        String mapName = (String) formNode.attribute('map') ?: "fieldValues"
+        MNode formNode = formNodeWrapper.getMNode()
+        String mapName = formNode.attribute('map') ?: "fieldValues"
         Map valueMap = (Map) cs.get(mapName)
 
         cs.push()
@@ -1172,20 +1160,20 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     Object getFieldValue(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
-        Node fieldNode = fieldNodeWrapper.getGroovyNode()
-        String entryName = (String) fieldNode.attribute('entry-name')
+        MNode fieldNode = fieldNodeWrapper.getMNode()
+        String entryName = fieldNode.attribute('entry-name')
         if (entryName) return ec.getResource().expression(entryName, null)
-        String fieldName = (String) fieldNode.attribute('name')
-        String mapName = (String) fieldNode.parent().attribute('map') ?: "fieldValues"
+        String fieldName = fieldNode.attribute('name')
+        String mapName = fieldNode.parent.attribute('map') ?: "fieldValues"
         Object value = null
         // if this is an error situation try parameters first, otherwise try parameters last
         Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
-        if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent().attribute('name')))
+        if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute('name')))
             value = errorParameters.get(fieldName)
         Map valueMap = (Map) ec.resource.expression(mapName, "")
         if (StupidUtilities.isEmpty(value)) {
-            Node formNode = fieldNode.parent()
-            if (valueMap && formNode.name() == "form-single") {
+            MNode formNode = fieldNode.parent
+            if (valueMap && formNode.name == "form-single") {
                 try {
                     if (valueMap instanceof EntityValueBase) {
                         // if it is an EntityValueImpl, only get if the fieldName is a value
@@ -1198,7 +1186,7 @@ class ScreenRenderImpl implements ScreenRender {
                     // do nothing, not necessarily an entity field
                     if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
-            } else if (formNode.name() == "form-list" && formNode.attribute('list-entry')) {
+            } else if (formNode.name == "form-list" && formNode.attribute('list-entry')) {
                 // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
                 //     putting all Map entries in the context for each row)
                 Object entryObj = ec.getContext().get(formNode.attribute('list-entry'))
@@ -1223,13 +1211,13 @@ class ScreenRenderImpl implements ScreenRender {
     String getFieldValueClass(FtlNodeWrapper fieldNodeWrapper) {
         Object fieldValue = null
 
-        Node fieldNode = fieldNodeWrapper.getGroovyNode()
-        String entryName = (String) fieldNode.attribute('entry-name')
+        MNode fieldNode = fieldNodeWrapper.getMNode()
+        String entryName = fieldNode.attribute('entry-name')
         if (entryName) fieldValue = ec.getResource().expression(entryName, null)
         if (fieldValue == null) {
-            String fieldName = (String) fieldNode.attribute('name')
-            String mapName = (String) fieldNode.parent().attribute('map') ?: "fieldValues"
-            if (ec.getContext().get(mapName) && fieldNode.parent().name() == "form-single") {
+            String fieldName = fieldNode.attribute('name')
+            String mapName = fieldNode.parent.attribute('map') ?: "fieldValues"
+            if (ec.getContext().get(mapName) && fieldNode.parent.name == "form-single") {
                 try {
                     Map valueMap = (Map) ec.getContext().get(mapName)
                     if (valueMap instanceof EntityValueImpl) {
@@ -1254,8 +1242,8 @@ class ScreenRenderImpl implements ScreenRender {
         FtlNodeWrapper fieldNodeWrapper = (FtlNodeWrapper) widgetNodeWrapper.parentNode.parentNode
         Object fieldValue = getFieldValue(fieldNodeWrapper, "")
         if (!fieldValue) return ""
-        Node widgetNode = widgetNodeWrapper.getGroovyNode()
-        String entityName = (String) widgetNode.attribute('entity-name')
+        MNode widgetNode = widgetNodeWrapper.getMNode()
+        String entityName = widgetNode.attribute('entity-name')
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName)
 
         // find the entity value
@@ -1286,7 +1274,7 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     ListOrderedMap getFieldOptions(FtlNodeWrapper widgetNodeWrapper) {
-        return ScreenForm.getFieldOptions(widgetNodeWrapper.getGroovyNode(), ec)
+        return ScreenForm.getFieldOptions(widgetNodeWrapper.getMNode(), ec)
     }
 
     boolean isInCurrentScreenPath(List<String> pathNameList) {

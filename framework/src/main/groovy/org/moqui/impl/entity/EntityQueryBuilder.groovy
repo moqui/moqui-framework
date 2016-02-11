@@ -14,11 +14,10 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import groovy.transform.TypeChecked
-import groovy.transform.TypeCheckingMode
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.entity.EntityException
 import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.util.MNode
 
 import java.sql.Connection
 import java.sql.PreparedStatement
@@ -92,9 +91,9 @@ class EntityQueryBuilder {
     ResultSet executeQuery() throws EntityException {
         if (this.ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
         try {
-            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
+            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
             this.rs = this.ps.executeQuery()
-            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
+            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
             return this.rs
         } catch (SQLException sqle) {
             throw new EntityException("Error in query for:" + this.sqlTopLevel, sqle)
@@ -106,7 +105,7 @@ class EntityQueryBuilder {
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
             int rows = ps.executeUpdate()
-            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds changing [${rows}] rows")
+            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
         } catch (SQLException sqle) {
             throw new EntityException("Error in update for:" + this.sqlTopLevel, sqle)
@@ -209,19 +208,24 @@ class EntityQueryBuilder {
         entityValueImpl.getValueMap().put(fieldName, value)
     }
 
-    @TypeChecked(TypeCheckingMode.SKIP)
     public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
-        Node entityFacadeNode = (Node) efi.ecfi.confXmlRoot."entity-facade"[0]
-        String pwStr = entityFacadeNode."@crypt-pass"
+        MNode entityFacadeNode = efi.ecfi.confXmlRoot.first("entity-facade")
+        String pwStr = entityFacadeNode.attribute("crypt-pass")
         if (!pwStr) throw new IllegalArgumentException("No entity-facade.@crypt-pass setting found, NOT doing encryption")
 
-        byte[] salt = (entityFacadeNode."@crypt-salt" ?: "default1").getBytes()
+        byte[] salt = (entityFacadeNode.attribute("crypt-salt") ?: "default1").getBytes()
         if (salt.length > 8) salt = salt[0..7]
-        while (salt.length < 8) salt += (byte)0x45
-        int count = (entityFacadeNode."@crypt-iter" as Integer) ?: 10
+        if (salt.length < 8) {
+            byte[] newSalt = new byte[8]
+            for (int i = 0; i < 8; i++) {
+                if (i < salt.length) newSalt[i] = salt[i]
+                else (newSalt[i] = 0x45 as byte)
+            }
+        }
+        int count = (entityFacadeNode.attribute("crypt-iter") as Integer) ?: 10
         char[] pass = pwStr.toCharArray()
 
-        String algo = entityFacadeNode."@crypt-algo" ?: "PBEWithMD5AndDES"
+        String algo = entityFacadeNode.attribute("crypt-algo") ?: "PBEWithMD5AndDES"
 
         // logger.info("TOREMOVE salt [${salt}] count [${count}] pass [${pass}] algo [${algo}]")
         PBEParameterSpec pbeParamSpec = new PBEParameterSpec(salt, count)
@@ -230,7 +234,8 @@ class EntityQueryBuilder {
         SecretKey pbeKey = keyFac.generateSecret(pbeKeySpec)
 
         Cipher pbeCipher = Cipher.getInstance(algo)
-        pbeCipher.init(encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE, pbeKey, pbeParamSpec)
+        int mode = encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE
+        pbeCipher.init(mode, pbeKey, pbeParamSpec)
 
         byte[] inBytes
         if (encrypt) {

@@ -13,7 +13,7 @@
  */
 package org.moqui.entity;
 
-import groovy.util.Node;
+import org.moqui.util.MNode;
 
 import java.util.List;
 import java.util.Map;
@@ -24,23 +24,23 @@ import java.util.Map;
  */
 public interface EntityDynamicView {
     /** This optionally sets a name for the dynamic view entity. If not used will default to "DynamicView" */
-    public EntityDynamicView setEntityName(String entityName);
+    EntityDynamicView setEntityName(String entityName);
 
-    public EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias,
+    EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias,
                                              Boolean joinOptional, Map<String, String> entityKeyMaps);
 
-    public EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
+    EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
                                                    Boolean joinOptional);
 
-    public List<Node> getMemberEntityNodes();
+    List<MNode> getMemberEntityNodes();
 
-    public EntityDynamicView addAliasAll(String entityAlias, String prefix);
+    EntityDynamicView addAliasAll(String entityAlias, String prefix);
 
-    public EntityDynamicView addAlias(String entityAlias, String name);
+    EntityDynamicView addAlias(String entityAlias, String name);
 
     /** Add an alias, full detail. All parameters can be null except entityAlias and name. */
-    public EntityDynamicView addAlias(String entityAlias, String name, String field, String function);
+    EntityDynamicView addAlias(String entityAlias, String name, String field, String function);
 
-    public EntityDynamicView addRelationship(String type, String title, String relatedEntityName,
+    EntityDynamicView addRelationship(String type, String title, String relatedEntityName,
                                              Map<String, String> entityKeyMaps);
 }

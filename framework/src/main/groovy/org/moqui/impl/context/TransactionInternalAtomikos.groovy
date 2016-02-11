@@ -19,16 +19,18 @@ import com.atomikos.icatch.jta.UserTransactionManager
 import com.atomikos.jdbc.AbstractDataSourceBean
 import com.atomikos.jdbc.AtomikosDataSourceBean
 import com.atomikos.jdbc.nonxa.AtomikosNonXADataSourceBean
-
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.TransactionInternal
 import org.moqui.entity.EntityFacade
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.util.MNode
 
 import javax.sql.DataSource
 import javax.transaction.TransactionManager
 import javax.transaction.UserTransaction
 
+@CompileStatic
 class TransactionInternalAtomikos implements TransactionInternal {
 
     protected ExecutionContextFactoryImpl ecfi
@@ -59,7 +61,7 @@ class TransactionInternalAtomikos implements TransactionInternal {
     UserTransaction getUserTransaction() { return ut }
 
     @Override
-    DataSource getDataSource(EntityFacade ef, Node datasourceNode, String tenantId) {
+    DataSource getDataSource(EntityFacade ef, MNode datasourceNode, String tenantId) {
         // NOTE: this is called during EFI init, so use the passed one and don't try to get from ECFI
         EntityFacadeImpl efi = (EntityFacadeImpl) ef
 
@@ -84,23 +86,24 @@ class TransactionInternalAtomikos implements TransactionInternal {
             ads = ds
         }
 
-        String txIsolationLevel = inlineJdbc."@isolation-level" ? inlineJdbc."@isolation-level" : database."@default-isolation-level"
+        String txIsolationLevel = dsi.inlineJdbc.attribute("isolation-level") ?
+                dsi.inlineJdbc.attribute("isolation-level") : dsi.database.attribute("default-isolation-level")
         if (txIsolationLevel && efi.getTxIsolationFromString(txIsolationLevel) != -1)
             ads.setDefaultIsolationLevel(efi.getTxIsolationFromString(txIsolationLevel))
 
         // no need for this, just sets min and max sizes: ads.setPoolSize
-        if (dsi.inlineJdbc."@pool-minsize") ads.setMinPoolSize(dsi.inlineJdbc."@pool-minsize" as int)
-        if (dsi.inlineJdbc."@pool-maxsize") ads.setMaxPoolSize(dsi.inlineJdbc."@pool-maxsize" as int)
+        if (dsi.inlineJdbc.attribute("pool-minsize")) ads.setMinPoolSize(dsi.inlineJdbc.attribute("pool-minsize") as int)
+        if (dsi.inlineJdbc.attribute("pool-maxsize")) ads.setMaxPoolSize(dsi.inlineJdbc.attribute("pool-maxsize") as int)
 
-        if (dsi.inlineJdbc."@pool-time-idle") ads.setMaxIdleTime(dsi.inlineJdbc."@pool-time-idle" as int)
-        if (dsi.inlineJdbc."@pool-time-reap") ads.setReapTimeout(dsi.inlineJdbc."@pool-time-reap" as int)
-        if (dsi.inlineJdbc."@pool-time-maint") ads.setMaintenanceInterval(dsi.inlineJdbc."@pool-time-maint" as int)
-        if (dsi.inlineJdbc."@pool-time-wait") ads.setBorrowConnectionTimeout(dsi.inlineJdbc."@pool-time-wait" as int)
+        if (dsi.inlineJdbc.attribute("pool-time-idle")) ads.setMaxIdleTime(dsi.inlineJdbc.attribute("pool-time-idle") as int)
+        if (dsi.inlineJdbc.attribute("pool-time-reap")) ads.setReapTimeout(dsi.inlineJdbc.attribute("pool-time-reap") as int)
+        if (dsi.inlineJdbc.attribute("pool-time-maint")) ads.setMaintenanceInterval(dsi.inlineJdbc.attribute("pool-time-maint") as int)
+        if (dsi.inlineJdbc.attribute("pool-time-wait")) ads.setBorrowConnectionTimeout(dsi.inlineJdbc.attribute("pool-time-wait") as int)
 
-        if (dsi.inlineJdbc."@pool-test-query") {
-            ads.setTestQuery((String) dsi.inlineJdbc."@pool-test-query")
-        } else if (dsi.database."@default-test-query") {
-            ads.setTestQuery((String) dsi.database."@default-test-query")
+        if (dsi.inlineJdbc.attribute("pool-test-query")) {
+            ads.setTestQuery(dsi.inlineJdbc.attribute("pool-test-query"))
+        } else if (dsi.database.attribute("default-test-query")) {
+            ads.setTestQuery(dsi.database.attribute("default-test-query"))
         }
 
         adsList.add(ads)

@@ -13,6 +13,9 @@
  */
 package org.moqui.impl.service
 
+import groovy.transform.CompileStatic
+import org.moqui.util.MNode
+
 import java.sql.Timestamp
 import javax.mail.Flags
 import javax.mail.internet.MimeMessage
@@ -30,27 +33,28 @@ import org.moqui.context.ExecutionContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class EmailEcaRule {
     protected final static Logger logger = LoggerFactory.getLogger(EmailEcaRule.class)
 
-    protected Node emecaNode
+    protected MNode emecaNode
     protected String location
 
     protected XmlAction condition = null
     protected XmlAction actions = null
 
-    EmailEcaRule(ExecutionContextFactoryImpl ecfi, Node emecaNode, String location) {
+    EmailEcaRule(ExecutionContextFactoryImpl ecfi, MNode emecaNode, String location) {
         this.emecaNode = emecaNode
         this.location = location
 
         // prep condition
-        if (emecaNode.condition && emecaNode.condition[0].children()) {
+        if (emecaNode.hasChild("condition") && emecaNode.first("condition").children) {
             // the script is effectively the first child of the condition element
-            condition = new XmlAction(ecfi, (Node) emecaNode.condition[0].children()[0], location + ".condition")
+            condition = new XmlAction(ecfi, emecaNode.first("condition").children.get(0), location + ".condition")
         }
         // prep actions
-        if (emecaNode.actions) {
-            actions = new XmlAction(ecfi, (Node) emecaNode.actions[0], location + ".actions")
+        if (emecaNode.hasChild("actions")) {
+            actions = new XmlAction(ecfi, emecaNode.first("actions"), location + ".actions")
         }
     }
 
@@ -79,7 +83,7 @@ class EmailEcaRule {
             for (Address addr in message.getRecipients(MimeMessage.RecipientType.BCC)) toList.add(addr.toString())
             fields.put("bccList", bccList)
 
-            fields.put("from", message.getFrom()?.getAt(0)?.toString())
+            fields.put("from", message.getFrom() ? message.getFrom()[0] : null)
             fields.put("subject", message.getSubject())
             fields.put("sentDate", message.getSentDate() ? new Timestamp(message.getSentDate().getTime()) : null)
             fields.put("receivedDate", message.getReceivedDate() ? new Timestamp(message.getReceivedDate().getTime()) : null)

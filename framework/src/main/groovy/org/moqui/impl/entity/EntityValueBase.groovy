@@ -32,6 +32,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
+import org.moqui.util.MNode
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 
@@ -915,7 +916,7 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     Object put(String name, Object value) {
-        Node fieldNode = getEntityDefinition().getFieldNode(name)
+        MNode fieldNode = getEntityDefinition().getFieldNode(name)
         if (fieldNode == null) throw new EntityException("The name [${name}] is not a valid field name for entity [${entityName}]")
         return putNoCheck(name, value)
     }
@@ -1119,12 +1120,12 @@ abstract class EntityValueBase implements EntityValue {
             boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
             try {
                 for (String userFieldName in userFieldNameList) {
-                    Node userFieldNode = ed.getFieldNode(userFieldName)
+                    MNode userFieldNode = ed.getFieldNode(userFieldName)
                     Object valueObj = this.getValueMap().get(userFieldName)
                     if (valueObj == null) continue
 
                     Map<String, Object> parms = [entityName: ed.getFullEntityName(), fieldName: userFieldName,
-                            userGroupId: userFieldNode.attribute('user-group-id'), valueText: valueObj as String]
+                            userGroupId: userFieldNode.attribute('user-group-id'), valueText: valueObj as String] as Map<String, Object>
                     addThreeFieldPkValues(parms)
                     EntityValue newUserFieldValue = efi.makeValue("moqui.entity.UserFieldValue").setAll(parms)
                     newUserFieldValue.setSequencedIdPrimary().create()
@@ -1295,10 +1296,10 @@ abstract class EntityValueBase implements EntityValue {
                             userFieldValue.update()
                         }
                     } else {
-                        Node userFieldNode = ed.getFieldNode(ufName)
+                        MNode userFieldNode = ed.getFieldNode(ufName)
 
                         Map<String, Object> parms = [entityName: ed.getFullEntityName(), fieldName: ufName,
-                                userGroupId: userFieldNode.attribute('user-group-id'), valueText: this.getValueMap().get(ufName) as String]
+                                userGroupId: userFieldNode.attribute('user-group-id'), valueText: this.getValueMap().get(ufName) as String] as Map<String, Object>
                         addThreeFieldPkValues(parms)
                         EntityValue newUserFieldValue = efi.makeValue("moqui.entity.UserFieldValue").setAll(parms)
                         newUserFieldValue.setSequencedIdPrimary().create()

@@ -20,10 +20,10 @@ import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
 import org.moqui.entity.EntityFind
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -47,7 +47,7 @@ class RestApi {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".rest.xml")) continue
-                    Node rootNode = new XmlParser().parseText(rr.getText())
+                    MNode rootNode = new MNode(new XmlParser().parseText(rr.getText()))
                     ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
                     rootResourceMap.put(rn.name, rn)
                     logger.info("Loaded REST API from ${rr.getLocation()}; paths: ${rn.childPaths}, methods: ${rn.childMethods}")
@@ -182,7 +182,7 @@ class RestApi {
 
     static class MethodService extends MethodHandler {
         String serviceName
-        MethodService(String method, Node serviceNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
+        MethodService(String method, MNode serviceNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
             super(method, pathNode, ecfi)
             serviceName = serviceNode.attribute("name")
         }
@@ -194,17 +194,17 @@ class RestApi {
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
             ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(serviceName)
             if (sd == null) throw new IllegalArgumentException("Service ${serviceName} not found")
-            Node serviceNode = sd.getServiceNode()
+            MNode serviceNode = sd.getServiceNode()
             Map definitionsMap = (Map) swaggerMap.definitions
 
             // add parameters, including path parameters
             List<Map> parameters = []
             Set<String> remainingInParmNames = new LinkedHashSet<String>(sd.getInParameterNames())
             for (String pathParm in pathNode.pathParameters) {
-                Node parmNode = sd.getInParameter(pathParm)
+                MNode parmNode = sd.getInParameter(pathParm)
                 if (parmNode == null) throw new IllegalArgumentException("No in parameter found for path parameter ${pathParm} in service ${sd.getServiceName()}")
                 parameters.add([name:pathParm, in:'path', required:true, type:getJsonType((String) parmNode?.attribute('type')),
-                                description:StupidUtilities.nodeText(parmNode.get("description"))])
+                                description:parmNode.first("description")?.text])
                 remainingInParmNames.remove(pathParm)
             }
             if (remainingInParmNames) {
@@ -214,7 +214,7 @@ class RestApi {
                     definitionsMap.put("${sd.getServiceName()}.In".toString(), sd.getJsonSchemaMapIn())
                 } else {
                     for (String parmName in remainingInParmNames) {
-                        Node parmNode = sd.getInParameter(parmName)
+                        MNode parmNode = sd.getInParameter(parmName)
                         String javaType = parmNode.attribute("type")
                         String jsonType = getJsonType(javaType)
                         // these are query parameters because method doesn't support body, so skip objects and arrays
@@ -222,7 +222,7 @@ class RestApi {
                         if (jsonType == 'object' || jsonType == 'array') continue
                         Map<String, Object> propMap = [name:parmName, in:'query', required:false,
                                 type:jsonType, format:getJsonFormat(javaType),
-                                description:StupidUtilities.nodeText(parmNode.get("description"))] as Map<String, Object>
+                                description:parmNode.first("description")?.text] as Map<String, Object>
                         parameters.add(propMap)
                         sd.addParameterEnums(parmNode, propMap)
                     }
@@ -241,7 +241,7 @@ class RestApi {
             Map curMap = [:]
             if (swaggerMap.tags && pathNode.fullPathList.size() > 1) curMap.put("tags", [pathNode.fullPathList[1]])
             curMap.putAll([summary:(serviceNode.attribute("displayName") ?: "${sd.verb} ${sd.noun}".toString()),
-                           description:StupidUtilities.nodeText(serviceNode.get("description")),
+                           description:serviceNode.first("description")?.text,
                            security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:responses])
             resourceMap.put(method, curMap)
         }
@@ -249,7 +249,7 @@ class RestApi {
         Map<String, Object> getRamlMap(Map<String, Object> typesMap) {
             ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(serviceName)
             if (sd == null) throw new IllegalArgumentException("Service ${serviceName} not found")
-            Node serviceNode = sd.getServiceNode()
+            MNode serviceNode = sd.getServiceNode()
 
             Map<String, Object> ramlMap =  [is:['service'],
                     displayName:(serviceNode.attribute("displayName") ?: "${sd.verb} ${sd.noun}".toString())] as Map<String, Object>
@@ -279,7 +279,7 @@ class RestApi {
 
     static class MethodEntity extends MethodHandler {
         String entityName, masterName, operation
-        MethodEntity(String method, Node entityNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
+        MethodEntity(String method, MNode entityNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
             super(method, pathNode, ecfi)
             entityName = entityNode.attribute("name")
             masterName = entityNode.attribute("masterName")
@@ -348,7 +348,7 @@ class RestApi {
                 EntityDefinition.FieldInfo fi = ed.getFieldInfo(pathParm)
                 if (fi == null) throw new IllegalArgumentException("No field found for path parameter ${pathParm} in entity ${ed.getFullEntityName()}")
                 parameters.add([name:pathParm, in:'path', required:true, type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
-                                description:StupidUtilities.nodeText(fi.fieldNode.get("description"))])
+                                description:fi.fieldNode.first("description")?.text])
                 remainingPkFields.remove(pathParm)
             }
 
@@ -366,7 +366,7 @@ class RestApi {
                         Map<String, Object> fieldMap = [name:fieldName, in:'query', required:false,
                                 type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
-                                description:StupidUtilities.nodeText(fi.fieldNode.get("description"))] as Map<String, Object>
+                                description:fi.fieldNode.first("description")?.text] as Map<String, Object>
                         parameters.add(fieldMap)
                         List enumList = ed.getFieldEnums(fi)
                         if (enumList) fieldMap.put('enum', enumList)
@@ -381,7 +381,7 @@ class RestApi {
                     parameters.add([name:fieldName, in:'query', required:false,
                                         type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                         format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
-                                        description:StupidUtilities.nodeText(fi.fieldNode.get("description"))])
+                                        description:fi.fieldNode.first("description")?.text])
                 }
                 // parameters.add([name:'body', in:'body', required:false, schema:[allOf:[['$ref':'#/definitions/paginationParameters'], ['$ref':"#/definitions/${refDefName}"]]]])
                 responses.put("200", [description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]])
@@ -404,7 +404,7 @@ class RestApi {
             String summary = "${operation} ${ed.getEntityName()}"
             if (masterName) summary = summary + " (master: " + masterName + ")"
             if (swaggerMap.tags && pathNode.fullPathList.size() > 1) curMap.put("tags", [pathNode.fullPathList[1]])
-            curMap.putAll([summary:summary, description:StupidUtilities.nodeText(ed.getEntityNode().get("description")),
+            curMap.putAll([summary:summary, description:ed.getEntityNode().first("description")?.text,
                            security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:responses])
             resourceMap.put(method, curMap)
 
@@ -496,7 +496,7 @@ class RestApi {
         int childPaths = 0
         int childMethods = 0
 
-        PathNode(Node node, PathNode parent, ExecutionContextFactoryImpl ecfi, boolean isId) {
+        PathNode(MNode node, PathNode parent, ExecutionContextFactoryImpl ecfi, boolean isId) {
             this.ecfi = ecfi
             this.parent = parent
 
@@ -510,27 +510,21 @@ class RestApi {
             fullPathList.add(isId ? "{${name}}".toString() : name)
             if (isId) pathParameters.add(name)
 
-            for (Object childObj in node.children()) {
-                if (childObj instanceof Node) {
-                    Node childNode = (Node) childObj
-                    if (childNode.name() == "method") {
-                        String method = childNode.attribute("type")
+            for (MNode childNode in node.children) {
+                if (childNode.name == "method") {
+                    String method = childNode.attribute("type")
 
-                        Object methodObj = childNode.children().first()
-                        if (methodObj instanceof Node) {
-                            Node methodNode = (Node) methodObj
-                            if (methodNode.name() == "service") {
-                                methodMap.put(method, new MethodService(method, methodNode, this, ecfi))
-                            } else if (methodNode.name() == "entity") {
-                                methodMap.put(method, new MethodEntity(method, methodNode, this, ecfi))
-                            }
-                        }
-                    } else if (childNode.name() == "resource") {
-                        ResourceNode resourceNode = new ResourceNode(childNode, this, ecfi)
-                        resourceMap.put(resourceNode.name, resourceNode)
-                    } else if (childNode.name() == "id") {
-                        idNode = new IdNode(childNode, this, ecfi)
+                    MNode methodNode = childNode.children[0]
+                    if (methodNode.name == "service") {
+                        methodMap.put(method, new MethodService(method, methodNode, this, ecfi))
+                    } else if (methodNode.name == "entity") {
+                        methodMap.put(method, new MethodEntity(method, methodNode, this, ecfi))
                     }
+                } else if (childNode.name == "resource") {
+                    ResourceNode resourceNode = new ResourceNode(childNode, this, ecfi)
+                    resourceMap.put(resourceNode.name, resourceNode)
+                } else if (childNode.name == "id") {
+                    idNode = new IdNode(childNode, this, ecfi)
                 }
             }
 
@@ -648,7 +642,7 @@ class RestApi {
         abstract Object visit(List<String> pathList, int pathIndex, ExecutionContext ec)
     }
     static class ResourceNode extends PathNode {
-        ResourceNode(Node node, PathNode parent, ExecutionContextFactoryImpl ecfi) {
+        ResourceNode(MNode node, PathNode parent, ExecutionContextFactoryImpl ecfi) {
             super(node, parent, ecfi, false)
         }
         RestResult visit(List<String> pathList, int pathIndex, ExecutionContext ec) {
@@ -670,7 +664,7 @@ class RestApi {
         }
     }
     static class IdNode extends PathNode {
-        IdNode(Node node, PathNode parent, ExecutionContextFactoryImpl ecfi) {
+        IdNode(MNode node, PathNode parent, ExecutionContextFactoryImpl ecfi) {
             super(node, parent, ecfi, true)
         }
         RestResult visit(List<String> pathList, int pathIndex, ExecutionContext ec) {

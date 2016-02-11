@@ -1,17 +1,19 @@
-package org.moqui.impl.service
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
+package org.moqui.impl.service
+
+import groovy.transform.CompileStatic
 
 import org.apache.xmlrpc.XmlRpcException
 import org.apache.xmlrpc.XmlRpcHandler
@@ -33,6 +35,7 @@ import javax.servlet.http.HttpServletResponse
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceXmlRpcDispatcher.class)
 
@@ -76,7 +79,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
         public boolean isAuthorized(XmlRpcRequest xmlRpcRequest) throws XmlRpcException {
             XmlRpcHttpRequestConfig config = (XmlRpcHttpRequestConfig) xmlRpcRequest.getConfig()
 
-            ServiceDefinition sd = eci.getService().getServiceDefinition(xmlRpcRequest.getMethodName())
+            ServiceDefinition sd = eci.ecfi.getServiceFacade().getServiceDefinition(xmlRpcRequest.getMethodName())
             if (sd != null && sd.getAuthenticate() == "true") {
                 return eci.user.loginUser(config.getBasicUserName(), config.getBasicPassword(), null)
             } else {
@@ -93,7 +96,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
 
         @Override
         public XmlRpcHandler getHandler(String method) throws XmlRpcNoSuchHandlerException, XmlRpcException {
-            ServiceDefinition sd = eci.getService().getServiceDefinition(method)
+            ServiceDefinition sd = eci.ecfi.getServiceFacade().getServiceDefinition(method)
             if (sd == null) throw new XmlRpcNoSuchHandlerException("Service not found: [" + method + "]")
             return this
         }
@@ -101,10 +104,10 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
         public Object execute(XmlRpcRequest xmlRpcReq) throws XmlRpcException {
             String methodName = xmlRpcReq.getMethodName()
 
-            ServiceDefinition sd = eci.service.getServiceDefinition(methodName)
+            ServiceDefinition sd = eci.ecfi.serviceFacade.getServiceDefinition(methodName)
             if (sd == null)
                 throw new XmlRpcException("Received XML-RPC service call for unknown service [${methodName}]")
-            if (sd.serviceNode."@allow-remote" != "true")
+            if (sd.serviceNode.attribute("allow-remote") != "true")
                 throw new XmlRpcException("Received XML-RPC service call to service [${sd.serviceName}] that does not allow remote calls.")
 
             Map params = this.getParameters(xmlRpcReq, methodName)
@@ -124,7 +127,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
         }
 
         protected Map getParameters(XmlRpcRequest xmlRpcRequest, String methodName) throws XmlRpcException {
-            ServiceDefinition sd = eci.service.getServiceDefinition(methodName)
+            ServiceDefinition sd = eci.ecfi.serviceFacade.getServiceDefinition(methodName)
 
             Map parameters = new HashMap()
             int parameterCount = xmlRpcRequest.getParameterCount()
@@ -142,7 +145,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
                 // hopefully it's a Map or the service takes just one parameter...
                 Object paramZero = xmlRpcRequest.getParameter(0)
                 if (paramZero instanceof Map) {
-                    parameters = paramZero
+                    parameters = (Map) paramZero
                 } else {
                     parameters.put(sd.getInParameterNames().iterator().next(), paramZero)
                 }

@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.json.JsonOutput
+import groovy.transform.CompileStatic
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.client.Client
@@ -27,12 +28,13 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 
-
+@CompileStatic
 class EntityDataDocument {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDataDocument.class)
 
@@ -69,7 +71,7 @@ class EntityDataDocument {
         File outDir = new File(dirname)
         if (!outDir.exists()) outDir.mkdir()
         if (!outDir.isDirectory()) {
-            efi.ecfi.executionContext.message.addError("Path ${path} is not a directory.")
+            efi.ecfi.executionContext.message.addError("Path ${dirname} is not a directory.")
             return 0
         }
 
@@ -167,19 +169,19 @@ class EntityDataDocument {
         }
 
         // create a condition with an OR list of date range comparisons to check that at least one member-entity has lastUpdatedStamp in range
-        if (fromUpdateStamp != null || thruUpdatedStamp != null) {
+        if ((Object) fromUpdateStamp != null || (Object) thruUpdatedStamp != null) {
             List<EntityCondition> dateRangeOrCondList = []
-            for (Node memberEntityNode in dynamicView.getMemberEntityNodes()) {
-                ConditionField ludCf = new ConditionField((String) memberEntityNode."@entity-alias",
-                        "lastUpdatedStamp", efi.getEntityDefinition((String) memberEntityNode."@entity-name"))
+            for (MNode memberEntityNode in dynamicView.getMemberEntityNodes()) {
+                ConditionField ludCf = new ConditionField(memberEntityNode.attribute("entity-alias"),
+                        "lastUpdatedStamp", efi.getEntityDefinition(memberEntityNode.attribute("entity-name")))
                 List<EntityCondition> dateRangeFieldCondList = []
-                if (fromUpdateStamp != null) {
+                if ((Object) fromUpdateStamp != null) {
                     dateRangeFieldCondList.add(efi.getConditionFactory().makeCondition(
                             new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.EQUALS, null),
                             EntityCondition.OR,
                             new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.GREATER_THAN_EQUAL_TO, fromUpdateStamp)))
                 }
-                if (thruUpdatedStamp != null) {
+                if ((Object) thruUpdatedStamp != null) {
                     dateRangeFieldCondList.add(efi.getConditionFactory().makeCondition(
                             new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.EQUALS, null),
                             EntityCondition.OR,
@@ -193,7 +195,7 @@ class EntityDataDocument {
 
         // do the one big query
         EntityListIterator mainEli = mainFind.iterator()
-        Map<String, Map> documentMapMap = [:]
+        Map<String, Map<String, Object>> documentMapMap = [:]
         try {
             for (EntityValue ev in mainEli) {
                 // logger.warn("=========== DataDocument query result for ${dataDocumentId}: ${ev}")
@@ -216,7 +218,7 @@ class EntityDataDocument {
                 Map<String, Object> docMap = documentMapMap.get(docId)
                 if (docMap == null) {
                     // add special entries
-                    docMap = [_type:dataDocumentId, _id:docId]
+                    docMap = [_type:dataDocumentId, _id:docId] as Map<String, Object>
                     docMap.put('_timestamp', efi.ecfi.getL10nFacade().format(
                             thruUpdatedStamp ?: new Timestamp(System.currentTimeMillis()), "yyyy-MM-dd'T'HH:mm:ssZ"))
                     String _index = efi.getEcfi().getExecutionContext().getTenantId()
@@ -439,7 +441,7 @@ class EntityDataDocument {
         for (EntityValue dd in ddList) {
             Map docMapping = makeElasticSearchMapping((String) dd.dataDocumentId)
             client.admin().indices().preparePutMapping(indexName).setType((String) dd.dataDocumentId)
-                    .setSource(docMapping).setIgnoreConflicts(true).execute().actionGet()
+                    .setSource(docMapping).execute().actionGet() // .setIgnoreConflicts(true) no longer supported?
         }
     }
 

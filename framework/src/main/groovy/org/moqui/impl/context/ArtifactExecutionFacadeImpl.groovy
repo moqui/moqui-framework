@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.moqui.util.MNode
 
 import java.sql.Timestamp
 
@@ -592,7 +593,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     String filterEntityName = entityFilter.getString("entityName")
 
                     // see if there if any filter entities match the current entity or if it is a view then a member entity
-                    Map<String, ArrayList<Node>> memberFieldAliases = null
+                    Map<String, ArrayList<MNode>> memberFieldAliases = null
                     if (filterEntityName != findEd.fullEntityName) {
                         if (findEd.isViewEntity()) {
                             memberFieldAliases = findEd.getMemberFieldAliases(filterEntityName)
@@ -602,8 +603,14 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         }
                     }
 
-                    Map<String, Object> filterMapObj = (Map<String, Object>) eci.getResource()
-                            .expression(entityFilter.getString('filterMap'), null)
+                    Object filterMapObjEval = eci.getResource().expression(entityFilter.getString('filterMap'), null)
+                    Map<String, Object> filterMapObj
+                    if (filterMapObjEval instanceof Map<String, Object>) {
+                        filterMapObj = filterMapObjEval as Map<String, Object>
+                    } else {
+                        logger.error("EntityFiler filterMap did not evaluate to a Map<String, Object>: ${entityFilter.getString('filterMap')}")
+                        continue
+                    }
                     // logger.info("===== ${findEntityName} filterMapObj: ${filterMapObj}")
 
                     ComparisonOperator compOp = entityFilter.comparisonEnumId ? eci.entity.conditionFactory
@@ -612,8 +619,8 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
                     // use makeCondition(Map) instead of breaking down here
                     try {
-                        EntityCondition entCond = eci.ecfi.getEntityFacade(eci.tenantId).conditionFactoryImpl.makeCondition(filterMapObj,
-                                compOp, joinOp, findEd, memberFieldAliases, true)
+                        EntityCondition entCond = eci.ecfi.getEntityFacade(eci.tenantId).conditionFactoryImpl
+                                .makeCondition(filterMapObj, compOp, joinOp, findEd, memberFieldAliases, true)
                         if (entCond == null) continue
 
                         // add the condition to the find

@@ -18,6 +18,7 @@ import org.moqui.context.ContextStack
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -26,26 +27,26 @@ class ScreenTree {
 
     protected ExecutionContextFactoryImpl ecfi
     protected ScreenDefinition sd
-    protected Node treeNode
+    protected MNode treeNode
     protected String location
 
     // protected Map<String, ScreenDefinition.ParameterItem> parameterByName = [:]
     protected Map<String, TreeNode> nodeByName = [:]
     protected List<TreeSubNode> subNodeList = []
 
-    ScreenTree(ExecutionContextFactoryImpl ecfi, ScreenDefinition sd, Node treeNode, String location) {
+    ScreenTree(ExecutionContextFactoryImpl ecfi, ScreenDefinition sd, MNode treeNode, String location) {
         this.ecfi = ecfi
         this.sd = sd
         this.treeNode = treeNode
         this.location = location
 
         // prep tree-node
-        for (Node treeNodeNode in treeNode."tree-node")
-            nodeByName.put(treeNodeNode."@name", new TreeNode(this, treeNodeNode, location + ".node." + treeNodeNode."@name"))
+        for (MNode treeNodeNode in treeNode.children("tree-node"))
+            nodeByName.put(treeNodeNode.attribute("name"), new TreeNode(this, treeNodeNode, location + ".node." + treeNodeNode.attribute("name")))
 
         // prep tree-sub-node
-        for (Node treeSubNodeNode in treeNode."tree-sub-node")
-            subNodeList.add(new TreeSubNode(this, treeSubNodeNode, location + ".subnode." + treeSubNodeNode."@node-name"))
+        for (MNode treeSubNodeNode in treeNode.children("tree-sub-node"))
+            subNodeList.add(new TreeSubNode(this, treeSubNodeNode, location + ".subnode." + treeSubNodeNode.attribute("node-name")))
     }
 
     @CompileStatic
@@ -168,54 +169,55 @@ class ScreenTree {
 
     static class TreeNode {
         protected ScreenTree screenTree
-        protected Node treeNodeNode
+        protected MNode treeNodeNode
         protected String location
 
         protected XmlAction condition = null
         protected XmlAction actions = null
-        protected Node linkNode = null
+        protected MNode linkNode = null
         protected List<TreeSubNode> subNodeList = []
 
-        TreeNode(ScreenTree screenTree, Node treeNodeNode, String location) {
+        TreeNode(ScreenTree screenTree, MNode treeNodeNode, String location) {
             this.screenTree = screenTree
             this.treeNodeNode = treeNodeNode
             this.location = location
-            this.linkNode = treeNodeNode.link[0]
+            this.linkNode = treeNodeNode.first("link")
 
             // prep condition
-            if (treeNodeNode.condition && treeNodeNode.condition[0].children()) {
+            if (treeNodeNode.hasChild("condition") && treeNodeNode.first("condition").children) {
                 // the script is effectively the first child of the condition element
-                condition = new XmlAction(screenTree.ecfi, (Node) treeNodeNode."condition"[0].children()[0], location + ".condition")
+                condition = new XmlAction(screenTree.ecfi, treeNodeNode.first("condition").children[0], location + ".condition")
             }
             // prep actions
-            if (treeNodeNode.actions) actions = new XmlAction(screenTree.ecfi, (Node) treeNodeNode."actions"[0], location + ".actions")
+            if (treeNodeNode.hasChild("actions")) actions = new XmlAction(screenTree.ecfi, treeNodeNode.first("actions"), location + ".actions")
 
             // prep tree-sub-node
-            for (Node treeSubNodeNode in treeNodeNode."tree-sub-node")
-                subNodeList.add(new TreeSubNode(screenTree, treeSubNodeNode, location + ".subnode." + treeSubNodeNode."@node-name"))
+            for (MNode treeSubNodeNode in treeNodeNode.children("tree-sub-node"))
+                subNodeList.add(new TreeSubNode(screenTree, treeSubNodeNode, location + ".subnode." + treeSubNodeNode.attribute("node-name")))
         }
     }
 
     static class TreeSubNode {
         protected ScreenTree screenTree
-        protected Node treeSubNodeNode
+        protected MNode treeSubNodeNode
         protected String location
 
         protected XmlAction condition = null
         protected XmlAction actions = null
 
-        TreeSubNode(ScreenTree screenTree, Node treeSubNodeNode, String location) {
+        TreeSubNode(ScreenTree screenTree, MNode treeSubNodeNode, String location) {
             this.screenTree = screenTree
             this.treeSubNodeNode = treeSubNodeNode
             this.location = location
 
             // prep condition
-            if (treeSubNodeNode.condition && treeSubNodeNode.condition[0].children()) {
+            if (treeSubNodeNode.hasChild("condition") && treeSubNodeNode.first("condition").children) {
                 // the script is effectively the first child of the condition element
-                condition = new XmlAction(screenTree.ecfi, (Node) treeSubNodeNode."condition"[0].children()[0], location + ".condition")
+                condition = new XmlAction(screenTree.ecfi, treeSubNodeNode.first("condition").children[0], location + ".condition")
             }
             // prep actions
-            if (treeSubNodeNode.actions) actions = new XmlAction(screenTree.ecfi, (Node) treeSubNodeNode."actions"[0], location + ".actions")
+            if (treeSubNodeNode.hasChild("actions")) actions =
+                    new XmlAction(screenTree.ecfi, treeSubNodeNode.first("actions"), location + ".actions")
         }
     }
 }

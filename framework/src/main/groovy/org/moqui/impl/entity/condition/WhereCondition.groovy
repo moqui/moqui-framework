@@ -13,11 +13,16 @@
  */
 package org.moqui.impl.entity.condition
 
+import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityQueryBuilder
 import org.moqui.impl.entity.EntityConditionFactoryImpl
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
+@CompileStatic
 class WhereCondition extends EntityConditionImplBase {
+    protected final static Logger logger = LoggerFactory.getLogger(WhereCondition.class)
     protected String sqlWhereClause
 
     WhereCondition(EntityConditionFactoryImpl ecFactoryImpl, String sqlWhereClause) {
