@@ -216,7 +216,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
-            <set field="xaProperties" from="datasourceNode.'inline-jdbc'?.first?.'xa-properties'?.first"/>
+            <set field="xaProperties" from="datasourceNode.first('inline-jdbc').first('xa-properties')"/>
             <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.attribute('user') : 'moqui'"/></if>
             <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.attribute('password') : 'moqui'"/></if>
 
