@@ -819,13 +819,15 @@ abstract class EntityFindBase implements EntityFind {
         // add the manually specified ones, then the ones in the view entity's entity-condition
         if (this.orderByFields != null) orderByExpanded.addAll(this.orderByFields)
 
-        ArrayList<MNode> entityConditionList = entityNode.children("entity-condition")
-        MNode entityConditionNode = entityConditionList ? entityConditionList.get(0) : null
-        ArrayList<MNode> ecObList = entityConditionNode?.children("order-by")
-        if (ecObList != null) for (MNode orderBy in ecObList)
-            orderByExpanded.add(orderBy.attribute('field-name'))
-
-        if (entityConditionNode?.attribute('distinct') == "true") this.distinct(true)
+        MNode entityConditionNode = ed.getEntityConditionNode()
+        if (entityConditionNode != null) {
+            ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
+            if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
+                MNode orderBy = ecObList.get(i)
+                orderByExpanded.add(orderBy.attribute('field-name'))
+            }
+            if (entityConditionNode.attribute('distinct') == "true") this.distinct(true)
+        }
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         ec.artifactExecutionImpl.filterFindForUser(this)
@@ -977,13 +979,15 @@ abstract class EntityFindBase implements EntityFind {
         // add the manually specified ones, then the ones in the view entity's entity-condition
         if (this.orderByFields != null) orderByExpanded.addAll(this.orderByFields)
 
-        ArrayList<MNode> entityConditionList = entityNode.children("entity-condition")
-        MNode entityConditionNode = entityConditionList ? entityConditionList.get(0) : null
-        ArrayList<MNode> ecObList = entityConditionNode?.children("order-by")
-        if (ecObList != null) for (MNode orderBy in ecObList)
-            orderByExpanded.add(orderBy.attribute('field-name'))
-
-        if (entityConditionNode?.attribute('distinct') == "true") this.distinct(true)
+        MNode entityConditionNode = ed.getEntityConditionNode()
+        if (entityConditionNode != null) {
+            ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
+            if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
+                MNode orderBy = ecObList.get(i)
+                orderByExpanded.add(orderBy.attribute('field-name'))
+            }
+            if (entityConditionNode.attribute('distinct') == "true") this.distinct(true)
+        }
 
         // order by fields need to be selected (at least on some databases, Derby is one of them)
         if (getDistinct() && this.fieldsToSelect.size() > 0 && orderByExpanded) {
@@ -1131,9 +1135,8 @@ abstract class EntityFindBase implements EntityFind {
 
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
-            ArrayList<MNode> entityConditionList = entityNode.children("entity-condition")
-            MNode entityConditionNode = entityConditionList ? entityConditionList.get(0) : null
-            if (ed.isViewEntity() && entityConditionNode?.attribute('distinct') == "true") this.distinct(true)
+            MNode entityConditionNode = ed.getEntityConditionNode()
+            if (entityConditionNode != null) if (entityConditionNode.attribute('distinct') == "true") this.distinct(true)
 
             EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
             whereCondition = (EntityConditionImplBase) efi.getConditionFactory()
