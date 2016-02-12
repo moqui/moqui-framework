@@ -59,7 +59,7 @@ class ServiceDefinition {
 
     ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
         this.sfi = sfi
-        this.serviceNode = sn
+        this.serviceNode = sn.deepCopy(null)
         this.path = path
         this.verb = serviceNode.attribute("verb")
         this.noun = serviceNode.attribute("noun")
