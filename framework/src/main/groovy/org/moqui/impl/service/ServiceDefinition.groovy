@@ -281,16 +281,18 @@ class ServiceDefinition {
     @CompileStatic
     XmlAction getXmlAction() { return xmlAction }
 
-    MNode getInParameter(String name) { return inParametersNode.children("parameter").find({ it.attribute("name") == name }) }
+    MNode getInParameter(String name) { return inParametersNode != null ? inParametersNode.children("parameter").find({ it.attribute("name") == name }) : null }
     Set<String> getInParameterNames() {
         Set<String> inNames = new LinkedHashSet()
+        if (inParametersNode == null) return inNames
         for (MNode parameter in inParametersNode.children("parameter")) inNames.add(parameter.attribute("name"))
         return inNames
     }
 
-    MNode getOutParameter(String name) { return outParametersNode.children("parameter").find({ it.attribute("name" )== name }) }
+    MNode getOutParameter(String name) { return outParametersNode != null ? outParametersNode.children("parameter").find({ it.attribute("name" )== name }) : null }
     Set<String> getOutParameterNames() {
         Set<String> outNames = new LinkedHashSet()
+        if (outParametersNode == null) return outNames
         for (MNode parameter in outParametersNode.children("parameter")) outNames.add(parameter.attribute("name"))
         return outNames
     }
@@ -305,8 +307,7 @@ class ServiceDefinition {
     protected void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map parameters,
                                      MNode parametersParentNode, boolean validate, ExecutionContextImpl eci) {
         Map<String, MNode> parameterNodeMap = new HashMap<String, MNode>()
-        List<MNode> parameterNodeList = parametersParentNode.children("parameter")
-        for (MNode parameter in parameterNodeList) {
+        if (parametersParentNode != null) for (MNode parameter in parametersParentNode.children("parameter")) {
             String name = (String) parameter.attribute('name')
             parameterNodeMap.put(name, parameter)
         }
