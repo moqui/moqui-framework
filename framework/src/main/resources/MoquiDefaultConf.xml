@@ -476,7 +476,8 @@
         </database>
         <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
                 table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
-                default-isolation-level="ReadCommitted" default-jdbc-driver="com.mysql.jdbc.Driver"
+                default-isolation-level="ReadCommitted" use-tm-join="false"
+                default-jdbc-driver="com.mysql.jdbc.Driver"
                 default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
                 default-test-query="SELECT 1">
             <!-- use DATETIME instead of TIMESTAMP so can be null and gets no default value; issue with newer MySQL versions -->
@@ -516,8 +517,9 @@
                 default-xa-ds-class="">
         </database> -->
         <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
-                  default-isolation-level="ReadCommitted" default-test-query="SELECT 1"
+                  default-isolation-level="ReadCommitted" use-tm-join="false" default-test-query="SELECT 1"
                   default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource">
+            <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 
             <database-type type="text-medium" sql-type="TEXT"/>

@@ -272,7 +272,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     tf.rollback(beganTransaction, "Error loading XML entity data", t)
                     throw t
                 } finally {
-                    if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
+                    tf.commit(beganTransaction)
                 }
             }
 
@@ -287,7 +287,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     throw t
                 } finally {
                     if (csvInputStream != null) csvInputStream.close()
-                    if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
+                    tf.commit(beganTransaction)
                 }
             }
 
@@ -302,7 +302,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     throw t
                 } finally {
                     if (jsonInputStream != null) jsonInputStream.close()
-                    if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
+                    tf.commit(beganTransaction)
                 }
             }
 
@@ -360,7 +360,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             tf.rollback(beganTransaction, "Error loading entity data", t)
             throw new IllegalArgumentException("Error loading entity data file [${location}]", t)
         } finally {
-            if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
+            tf.commit(beganTransaction)
 
             ExecutionContext ec = efi.getEcfi().getExecutionContext()
             if (ec.message.hasError()) {

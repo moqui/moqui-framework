@@ -620,6 +620,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="Serializable"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="use-tm-join" default="true" type="boolean">
+                <xs:annotation><xs:documentation>For Bitronix set this to false to not use tm join (for Atomikos this is
+                set in the serial_jta_transactions property in jta.properties)</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="default-jdbc-driver" type="xs:string"/>
             <xs:attribute name="default-xa-ds-class" type="xs:string"/>
             <xs:attribute name="default-test-query" type="xs:string"/>
