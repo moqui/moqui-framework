@@ -1462,7 +1462,7 @@ class EntityFacadeImpl implements EntityFacade {
                     this.entitySequenceBankCache.put(bankCacheKey, bank)
                 }
 
-                ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", {
+                ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", true, false, {
                     EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
                             .useCache(false).forUpdate(true).one()
                     if (svi == null) {

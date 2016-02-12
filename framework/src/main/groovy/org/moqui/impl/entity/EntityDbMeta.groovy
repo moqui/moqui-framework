@@ -621,7 +621,7 @@ class EntityDbMeta {
         int records = 0
         try {
             // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
-            efi.ecfi.getTransactionFacade().runRequireNew(10, "", useTxForMetaData, {
+            efi.ecfi.getTransactionFacade().runRequireNew(10, "", useTxForMetaData, false, {
                 Connection con = null
                 Statement stmt = null
 

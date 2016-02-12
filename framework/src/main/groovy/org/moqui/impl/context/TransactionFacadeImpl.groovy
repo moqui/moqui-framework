@@ -147,27 +147,29 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
     @Override
     Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure) {
-        return runRequireNew(timeout, rollbackMessage, true, closure)
+        return runRequireNew(timeout, rollbackMessage, true, true, closure)
     }
-    Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, Closure closure) {
+    Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadSetupEci, Closure closure) {
         Object result = null
         if (requireNewThread) {
             long threadWait = timeout != null ? timeout * 1000 : 60000
 
             Thread txThread = null
             ExecutionContextImpl eci = ecfi.getEci()
-            String threadUsername = eci.user.username
-            String threadTenantId = eci.tenantId
-            boolean threadDisableAuthz = eci.artifactExecutionFacade.getAuthzDisabled()
             Throwable threadThrown = null
 
             try {
-                txThread = Thread.start('RequireNewTransaction', {
-                    ExecutionContextImpl threadEci = ecfi.getEci()
-                    threadEci.changeTenant(threadTenantId)
-                    if (threadUsername) threadEci.getUserFacade().internalLoginUser(threadUsername, threadTenantId)
-                    // if authz disabled need to do it here as well since we'll have a different ExecutionContext
-                    boolean threadEnableAuthz = threadDisableAuthz ? !threadEci.getArtifactExecution().disableAuthz() : false
+                txThread = Thread.start('RequireNewTx', {
+                    ExecutionContextImpl threadEci = null
+                    boolean threadEnableAuthz = false
+                    if (threadSetupEci) {
+                        threadEci = ecfi.getEci()
+                        threadEci.changeTenant(eci.tenantId)
+                        if (eci.user.username) threadEci.getUserFacade().internalLoginUser(eci.user.username, eci.tenantId)
+                        // if authz disabled need to do it here as well since we'll have a different ExecutionContext
+                        threadEnableAuthz = eci.artifactExecutionFacade.getAuthzDisabled() ?
+                                !threadEci.getArtifactExecution().disableAuthz() : false
+                    }
                     try {
                         if (beginTx) {
                             result = runUseOrBegin(timeout, rollbackMessage, closure)
@@ -177,8 +179,10 @@ class TransactionFacadeImpl implements TransactionFacade {
                     } catch (Throwable t) {
                         threadThrown = t
                     } finally {
-                        if (threadEnableAuthz) threadEci.getArtifactExecution().enableAuthz()
-                        threadEci.destroy()
+                        if (threadEci != null) {
+                            if (threadEnableAuthz) threadEci.getArtifactExecution().enableAuthz()
+                            threadEci.destroy()
+                        }
                     }
                 } )
             } finally {
