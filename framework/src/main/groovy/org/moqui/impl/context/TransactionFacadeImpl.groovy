@@ -44,7 +44,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     protected TransactionManager tm
 
     protected boolean useTransactionCache = true
-    protected boolean requireNewThread = false
+    protected boolean requireNewThread = true
 
     private ThreadLocal<ArrayList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<ArrayList<TxStackInfo>>()
 
@@ -152,12 +152,15 @@ class TransactionFacadeImpl implements TransactionFacade {
     Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, Closure closure) {
         Object result = null
         if (requireNewThread) {
+            long threadWait = timeout != null ? timeout * 1000 : 60000
+
             Thread txThread = null
             ExecutionContextImpl eci = ecfi.getEci()
             String threadUsername = eci.user.username
             String threadTenantId = eci.tenantId
             boolean threadDisableAuthz = eci.artifactExecutionFacade.getAuthzDisabled()
             Throwable threadThrown = null
+
             try {
                 txThread = Thread.start('RequireNewTransaction', {
                     ExecutionContextImpl threadEci = ecfi.getEci()
@@ -179,7 +182,7 @@ class TransactionFacadeImpl implements TransactionFacade {
                     }
                 } )
             } finally {
-                if (txThread != null) txThread.join(timeout ?: 60)
+                if (txThread != null) txThread.join(threadWait)
             }
             if (threadThrown != null) throw threadThrown
         } else {
