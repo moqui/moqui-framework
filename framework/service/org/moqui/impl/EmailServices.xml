@@ -26,7 +26,8 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="poll" noun="EmailServer" authenticate="anonymous-all" type="script" transaction-timeout="600"
-             location="classpath://org/moqui/impl/pollEmailServer.groovy">
+            location="classpath://org/moqui/impl/pollEmailServer.groovy"
+            semaphore="fail" semaphore-parameter="emailServerId">
         <!-- org.moqui.impl.EmailServices.poll#EmailServer -->
         <description>
             Poll an email server (IMAP or POP3) to receive messages. Each new message is processed using
@@ -35,6 +36,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             This is meant to be called as a scheduled service, run as often as you want to poll for new messages on a
             particular server (configured in the corresponding moqui.basic.email.EmailServer record).
+
+            Add a job in the quartz_data.xml file for this service to run this scheduled.
         </description>
         <in-parameters>
             <parameter name="emailServerId" required="true"/>

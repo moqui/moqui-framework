@@ -26,6 +26,7 @@ import org.moqui.context.ContextStack
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.service.ServiceException
+import org.moqui.util.MNode
 import org.owasp.esapi.ValidationErrorList
 import org.owasp.esapi.errors.IntrusionException
 import org.owasp.esapi.errors.ValidationException
@@ -33,6 +34,7 @@ import org.owasp.esapi.errors.ValidationException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ServiceDefinition {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceDefinition.class)
 
@@ -40,9 +42,9 @@ class ServiceDefinition {
     protected final static UrlValidator urlValidator = new UrlValidator(UrlValidator.ALLOW_ALL_SCHEMES)
 
     protected ServiceFacadeImpl sfi
-    protected Node serviceNode
-    protected Node inParametersNode
-    protected Node outParametersNode
+    protected MNode serviceNode
+    protected MNode inParametersNode
+    protected MNode outParametersNode
     protected String path = null
     protected String verb = null
     protected String noun = null
@@ -55,35 +57,35 @@ class ServiceDefinition {
     protected boolean internalTxUseCache
     protected Integer internalTransactionTimeout
 
-    ServiceDefinition(ServiceFacadeImpl sfi, String path, Node sn) {
+    ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
         this.sfi = sfi
         this.serviceNode = sn
         this.path = path
-        this.verb = serviceNode."@verb"
-        this.noun = serviceNode."@noun"
+        this.verb = serviceNode.attribute("verb")
+        this.noun = serviceNode.attribute("noun")
 
-        Node inParameters = new Node(null, "in-parameters")
-        Node outParameters = new Node(null, "out-parameters")
+        MNode inParameters = new MNode("in-parameters", null)
+        MNode outParameters = new MNode("out-parameters", null)
 
         // handle implements elements
-        if (serviceNode."implements") for (Node implementsNode in serviceNode."implements") {
-            String implServiceName = implementsNode."@service"
-            String implRequired = implementsNode."@required" // no default here, only used if has a value
+        if (serviceNode.hasChild("implements")) for (MNode implementsNode in serviceNode.children("implements")) {
+            String implServiceName = implementsNode.attribute("service")
+            String implRequired = implementsNode.attribute("required") // no default here, only used if has a value
             ServiceDefinition sd = sfi.getServiceDefinition(implServiceName)
             if (sd == null) throw new IllegalArgumentException("Service [${implServiceName}] not found, specified in service.implements in service [${getServiceName()}]")
 
             // these are the first params to be set, so just deep copy them over
-            if (sd.serviceNode."in-parameters"?.getAt(0)?."parameter") {
-                for (Node parameter in sd.serviceNode."in-parameters"[0]."parameter") {
-                    Node newParameter = StupidUtilities.deepCopyNode(parameter)
-                    if (implRequired) newParameter.attributes().put("required", implRequired)
+            if (sd.serviceNode.first("in-parameters")?.hasChild("parameter")) {
+                for (MNode parameter in sd.serviceNode.first("in-parameters").children("parameter")) {
+                    MNode newParameter = parameter.deepCopy(null)
+                    if (implRequired) newParameter.attributes.put("required", implRequired)
                     inParameters.append(newParameter)
                 }
             }
-            if (sd.serviceNode."out-parameters"?.getAt(0)?."parameter") {
-                for (Node parameter in sd.serviceNode."out-parameters"[0]."parameter") {
-                    Node newParameter = StupidUtilities.deepCopyNode(parameter)
-                    if (implRequired) newParameter.attributes().put("required", implRequired)
+            if (sd.serviceNode.first("out-parameters")?.hasChild("parameter")) {
+                for (MNode parameter in sd.serviceNode.first("out-parameters").children("parameter")) {
+                    MNode newParameter = parameter.deepCopy(null)
+                    if (implRequired) newParameter.attributes.put("required", implRequired)
                     outParameters.append(newParameter)
                 }
             }
@@ -93,17 +95,17 @@ class ServiceDefinition {
         // if noun is a valid entity name set it on parameters with valid field names on it
         EntityDefinition ed = null
         if (sfi.getEcfi().getEntityFacade().isEntityDefined(this.noun)) ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(this.noun)
-        for (Node paramNode in serviceNode."in-parameters"?.getAt(0)?.children()) {
-            if (paramNode.name() == "auto-parameters") {
+        if (serviceNode.hasChild("in-parameters")) for (MNode paramNode in serviceNode.first("in-parameters")?.children) {
+            if (paramNode.name == "auto-parameters") {
                 mergeAutoParameters(inParameters, paramNode)
-            } else if (paramNode.name() == "parameter") {
+            } else if (paramNode.name == "parameter") {
                 mergeParameter(inParameters, paramNode, ed)
             }
         }
-        for (Node paramNode in serviceNode."out-parameters"?.getAt(0)?.children()) {
-            if (paramNode.name() == "auto-parameters") {
+        if (serviceNode.hasChild("out-parameters")) for (MNode paramNode in serviceNode.first("out-parameters")?.children) {
+            if (paramNode.name == "auto-parameters") {
                 mergeAutoParameters(outParameters, paramNode)
-            } else if (paramNode.name() == "parameter") {
+            } else if (paramNode.name == "parameter") {
                 mergeParameter(outParameters, paramNode, ed)
             }
         }
@@ -127,47 +129,47 @@ class ServiceDefinition {
         */
 
         // replace the in-parameters and out-parameters Nodes for the service
-        if (serviceNode."in-parameters") serviceNode.remove((Node) serviceNode."in-parameters"[0])
+        if (serviceNode.hasChild("in-parameters")) serviceNode.remove("in-parameters")
         serviceNode.append(inParameters)
-        if (serviceNode."out-parameters") serviceNode.remove((Node) serviceNode."out-parameters"[0])
+        if (serviceNode.hasChild("out-parameters")) serviceNode.remove("out-parameters")
         serviceNode.append(outParameters)
 
         if (logger.traceEnabled) logger.trace("After merge for service [${getServiceName()}] node is:\n${FtlNodeWrapper.prettyPrintNode(serviceNode)}")
 
         // if this is an inline service, get that now
-        if (serviceNode."actions") {
-            xmlAction = new XmlAction(sfi.ecfi, (Node) serviceNode."actions"[0], getServiceName())
+        if (serviceNode.hasChild("actions")) {
+            xmlAction = new XmlAction(sfi.ecfi, serviceNode.first("actions"), getServiceName())
         }
 
-        internalAuthenticate = serviceNode."@authenticate" ?: "true"
-        internalServiceType = serviceNode."@type" ?: "inline"
-        internalTxIgnore = (serviceNode."@transaction" == "ignore")
-        internalTxForceNew = (serviceNode."@transaction" == "force-new" || serviceNode."@transaction" == "force-cache")
-        internalTxUseCache = (serviceNode."@transaction" == "cache" || serviceNode."@transaction" == "force-cache")
-        if (serviceNode."@transaction-timeout") {
-            internalTransactionTimeout = serviceNode."@transaction-timeout" as Integer
+        internalAuthenticate = serviceNode.attribute("authenticate") ?: "true"
+        internalServiceType = serviceNode.attribute("type") ?: "inline"
+        internalTxIgnore = (serviceNode.attribute("transaction") == "ignore")
+        internalTxForceNew = (serviceNode.attribute("transaction") == "force-new" || serviceNode.attribute("transaction") == "force-cache")
+        internalTxUseCache = (serviceNode.attribute("transaction") == "cache" || serviceNode.attribute("transaction") == "force-cache")
+        if (serviceNode.attribute("transaction-timeout")) {
+            internalTransactionTimeout = serviceNode.attribute("transaction-timeout") as Integer
         } else {
             internalTransactionTimeout = null
         }
 
-        inParametersNode = (Node) serviceNode."in-parameters"[0]
-        outParametersNode = (Node) serviceNode."out-parameters"[0]
+        inParametersNode = serviceNode.first("in-parameters")
+        outParametersNode = serviceNode.first("out-parameters")
     }
 
-    void mergeAutoParameters(Node parametersNode, Node autoParameters) {
-        String entityName = autoParameters."@entity-name" ?: this.noun
+    void mergeAutoParameters(MNode parametersNode, MNode autoParameters) {
+        String entityName = autoParameters.attribute("entity-name") ?: this.noun
         if (!entityName) throw new IllegalArgumentException("Error in auto-parameters in service [${getServiceName()}], no auto-parameters.@entity-name and no service.@noun for a default")
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName)
         if (ed == null) throw new IllegalArgumentException("Error in auto-parameters in service [${getServiceName()}], the entity-name or noun [${entityName}] is not a valid entity name")
 
         Set<String> fieldsToExclude = new HashSet<String>()
-        if (autoParameters."exclude") for (Node excludeNode in autoParameters."exclude") {
-            fieldsToExclude.add((String) excludeNode."@field-name")
+        for (MNode excludeNode in autoParameters.children("exclude")) {
+            fieldsToExclude.add(excludeNode.attribute("field-name"))
         }
 
-        String includeStr = autoParameters."@include" ?: "all"
-        String requiredStr = autoParameters."@required" ?: "false"
-        String allowHtmlStr = autoParameters."@allow-html" ?: "none"
+        String includeStr = autoParameters.attribute("include") ?: "all"
+        String requiredStr = autoParameters.attribute("required") ?: "false"
+        String allowHtmlStr = autoParameters.attribute("allow-html") ?: "none"
         for (String fieldName in ed.getFieldNames(includeStr == "all" || includeStr == "pk",
                 includeStr == "all" || includeStr == "nonpk", includeStr == "all" || includeStr == "nonpk")) {
             if (fieldsToExclude.contains(fieldName)) continue
@@ -179,17 +181,17 @@ class ServiceDefinition {
         }
     }
 
-    void mergeParameter(Node parametersNode, Node overrideParameterNode, EntityDefinition ed) {
-        Node baseParameterNode = mergeParameter(parametersNode, (String) overrideParameterNode."@name",
-                overrideParameterNode.attributes())
+    void mergeParameter(MNode parametersNode, MNode overrideParameterNode, EntityDefinition ed) {
+        MNode baseParameterNode = mergeParameter(parametersNode, overrideParameterNode.attribute("name"),
+                overrideParameterNode.attributes)
         // merge description, subtype, ParameterValidations
-        for (Node childNode in (Collection<Node>) overrideParameterNode.children()) {
-            if (childNode.name() == "description" || childNode.name() == "subtype") {
-                if (baseParameterNode[(String) childNode.name()]) baseParameterNode.remove((Node) baseParameterNode[(String) childNode.name()].getAt(0))
+        for (MNode childNode in overrideParameterNode.children) {
+            if (childNode.name == "description" || childNode.name == "subtype") {
+                if (baseParameterNode.hasChild(childNode.name)) baseParameterNode.remove(childNode.name)
             }
-            if (childNode.name() == "auto-parameters") {
+            if (childNode.name == "auto-parameters") {
                 mergeAutoParameters(baseParameterNode, childNode)
-            } else if (childNode.name() == "parameter") {
+            } else if (childNode.name == "parameter") {
                 mergeParameter(baseParameterNode, childNode, ed)
             } else {
                 // is a validation, just add it in, or the original has been removed so add the new one
@@ -197,22 +199,22 @@ class ServiceDefinition {
             }
         }
         if (baseParameterNode.attribute("entity-name")) {
-            if (!baseParameterNode.attribute("field-name")) baseParameterNode.attributes().put("field-name", baseParameterNode.attribute("name"))
+            if (!baseParameterNode.attribute("field-name")) baseParameterNode.attributes.put("field-name", baseParameterNode.attribute("name"))
         } else if (ed != null && ed.isField((String) baseParameterNode.attribute("name"))) {
-            baseParameterNode.attributes().put("entity-name", ed.getFullEntityName())
-            baseParameterNode.attributes().put("field-name", baseParameterNode.attribute("name"))
+            baseParameterNode.attributes.put("entity-name", ed.getFullEntityName())
+            baseParameterNode.attributes.put("field-name", baseParameterNode.attribute("name"))
         }
     }
 
-    static Node mergeParameter(Node parametersNode, String parameterName, Map attributeMap) {
-        Node baseParameterNode = (Node) parametersNode."parameter".find({ it."@name" == parameterName })
-        if (baseParameterNode == null) baseParameterNode = parametersNode.appendNode("parameter", [name:parameterName])
-        baseParameterNode.attributes().putAll(attributeMap)
+    static MNode mergeParameter(MNode parametersNode, String parameterName, Map attributeMap) {
+        MNode baseParameterNode = parametersNode.children("parameter").find({ it.attribute("name") == parameterName })
+        if (baseParameterNode == null) baseParameterNode = parametersNode.append("parameter", [name:parameterName])
+        baseParameterNode.attributes.putAll(attributeMap)
         return baseParameterNode
     }
 
     @CompileStatic
-    Node getServiceNode() { return serviceNode }
+    MNode getServiceNode() { return serviceNode }
 
     @CompileStatic
     String getServiceName() { return (path ? path + "." : "") + verb + (noun ? "#" + noun : "") }
@@ -279,17 +281,17 @@ class ServiceDefinition {
     @CompileStatic
     XmlAction getXmlAction() { return xmlAction }
 
-    Node getInParameter(String name) { return (Node) inParametersNode."parameter".find({ it."@name" == name }) }
+    MNode getInParameter(String name) { return inParametersNode.children("parameter").find({ it.attribute("name") == name }) }
     Set<String> getInParameterNames() {
         Set<String> inNames = new LinkedHashSet()
-        for (Node parameter in inParametersNode."parameter") inNames.add((String) parameter."@name")
+        for (MNode parameter in inParametersNode.children("parameter")) inNames.add(parameter.attribute("name"))
         return inNames
     }
 
-    Node getOutParameter(String name) { return (Node) outParametersNode."parameter".find({ it."@name" == name }) }
+    MNode getOutParameter(String name) { return outParametersNode.children("parameter").find({ it.attribute("name" )== name }) }
     Set<String> getOutParameterNames() {
         Set<String> outNames = new LinkedHashSet()
-        for (Node parameter in outParametersNode."parameter") outNames.add((String) parameter."@name")
+        for (MNode parameter in outParametersNode.children("parameter")) outNames.add(parameter.attribute("name"))
         return outNames
     }
 
@@ -301,11 +303,10 @@ class ServiceDefinition {
 
     @CompileStatic
     protected void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map parameters,
-                                     Node parametersParentNode, boolean validate, ExecutionContextImpl eci) {
-        Map<String, Node> parameterNodeMap = new HashMap<String, Node>()
-        NodeList parameterNodeList = (NodeList) parametersParentNode.get("parameter")
-        for (Object parameterObj in parameterNodeList) {
-            Node parameter = (Node) parameterObj
+                                     MNode parametersParentNode, boolean validate, ExecutionContextImpl eci) {
+        Map<String, MNode> parameterNodeMap = new HashMap<String, MNode>()
+        List<MNode> parameterNodeList = parametersParentNode.children("parameter")
+        for (MNode parameter in parameterNodeList) {
             String name = (String) parameter.attribute('name')
             parameterNodeMap.put(name, parameter)
         }
@@ -325,7 +326,7 @@ class ServiceDefinition {
                 continue
             }
 
-            Node parameterNode = parameterNodeMap.get(parameterName)
+            MNode parameterNode = parameterNodeMap.get(parameterName)
             Object parameterValue = parameters.get(parameterName)
             String type = (String) parameterNode.attribute('type') ?: "String"
 
@@ -347,7 +348,7 @@ class ServiceDefinition {
                 parameters.put(parameterName, parameterValue)
             }
 
-            if (validate && parameterNode.get("subtype")) checkSubtype(parameterName, parameterNode, parameterValue, eci)
+            if (validate && parameterNode.hasChild("subtype")) checkSubtype(parameterName, parameterNode, parameterValue, eci)
             if (validate) validateParameterHtml(parameterNode, namePrefix, parameterName, parameterValue, eci)
 
             // do this after the convert so defaults are in place
@@ -366,23 +367,23 @@ class ServiceDefinition {
             // now check parameter sub-elements
             if (parameterValue instanceof Map) {
                 // any parameter sub-nodes?
-                if (parameterNode.get("parameter"))
+                if (parameterNode.hasChild("parameter"))
                     checkParameterMap("${namePrefix}${parameterName}.", rootParameters, (Map) parameterValue, parameterNode, validate, eci)
-            } else if (parameterValue instanceof Node) {
-                if (parameterNode.get("parameter"))
-                    checkParameterNode("${namePrefix}${parameterName}.", rootParameters, (Node) parameterValue, parameterNode, validate, eci)
+            } else if (parameterValue instanceof MNode) {
+                if (parameterNode.hasChild("parameter"))
+                    checkParameterNode("${namePrefix}${parameterName}.", rootParameters, (MNode) parameterValue, parameterNode, validate, eci)
             }
         }
     }
 
-    protected void checkParameterNode(String namePrefix, Map<String, Object> rootParameters, Node nodeValue,
-                                      Node parametersParentNode, boolean validate, ExecutionContextImpl eci) {
+    protected void checkParameterNode(String namePrefix, Map<String, Object> rootParameters, MNode nodeValue,
+                                      MNode parametersParentNode, boolean validate, ExecutionContextImpl eci) {
         // NOTE: don't worry about extra attributes or sub-Nodes... let them through
 
         // go through attributes of Node, validate each that corresponds to a parameter def
-        for (Map.Entry attrEntry in nodeValue.attributes().entrySet()) {
-            String parameterName = (String) attrEntry.getKey()
-            Node parameterNode = (Node) parametersParentNode."parameter".find({ it."@name" == parameterName })
+        for (Map.Entry<String, String> attrEntry in nodeValue.attributes.entrySet()) {
+            String parameterName = attrEntry.getKey()
+            MNode parameterNode = parametersParentNode.children("parameter").find({ it.attribute("name") == parameterName })
             if (parameterNode == null) {
                 // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
                 continue
@@ -406,15 +407,15 @@ class ServiceDefinition {
         // - Node parameter, checkParameterNode
         // - otherwise, check type/etc
         // TODO - parameter with type Map, convert to Map? ...checkParameterMap; converting to Map would kill multiple values, or they could be put in a List, though that pattern is a bit annoying...
-        for (Node childNode in (Collection<Node>) nodeValue.children()) {
-            String parameterName = childNode.name()
-            Node parameterNode = (Node) parametersParentNode."parameter".find({ it."@name" == parameterName })
+        for (MNode childNode in nodeValue.children) {
+            String parameterName = childNode.name
+            MNode parameterNode = parametersParentNode.children("parameter").find({ it.attribute("name") == parameterName })
             if (parameterNode == null) {
                 // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
                 continue
             }
 
-            if (parameterNode."@type" == "Node" || parameterNode."@type" == "groovy.util.Node") {
+            if (parameterNode.attribute("type") == "Node" || parameterNode.attribute("type") == "groovy.util.Node") {
                 // recurse back into this method
                 checkParameterNode("${namePrefix}${parameterName}.", rootParameters, childNode, parameterNode, validate, eci)
             } else {
@@ -432,11 +433,11 @@ class ServiceDefinition {
         }
 
         // if there is text() under this node, use the _VALUE parameter node to validate
-        Node textValueNode = (Node) parametersParentNode."parameter".find({ it."@name" == "_VALUE" })
+        MNode textValueNode = parametersParentNode.children("parameter").find({ it.attribute("name") == "_VALUE" })
         if (textValueNode != null) {
-            Object parameterValue = StupidUtilities.nodeText(nodeValue)
+            String parameterValue = nodeValue.text
             if (!parameterValue) {
-                if (validate && textValueNode."@required" == "true") {
+                if (validate && textValueNode.attribute("required") == "true") {
                     eci.message.addError("${namePrefix}_VALUE cannot be empty (service ${getServiceName()})")
                 }
             } else {
@@ -449,18 +450,18 @@ class ServiceDefinition {
         }
 
         // check for missing parameters (no attribute or sub-Node) that are required
-        for (Node parameterNode in parametersParentNode."parameter") {
+        for (MNode parameterNode in parametersParentNode.children("parameter")) {
             // skip _VALUE, checked above
-            if (parameterNode."@name" == "_VALUE") continue
+            if (parameterNode.attribute("name") == "_VALUE") continue
 
-            if (parameterNode."@required" == "true") {
-                String parameterName = parameterNode."@name"
+            if (parameterNode.attribute("required") == "true") {
+                String parameterName = parameterNode.attribute("name")
                 boolean valueFound = false
                 if (nodeValue.attribute(parameterName)) {
                     valueFound = true
                 } else {
-                    for (Node childNode in (Collection<Node>) nodeValue.children()) {
-                        if (childNode.localText()) {
+                    for (MNode childNode in nodeValue.children) {
+                        if (childNode.text) {
                             valueFound = true
                             break
                         }
@@ -473,11 +474,11 @@ class ServiceDefinition {
     }
 
     @CompileStatic
-    protected Object checkConvertType(Node parameterNode, String namePrefix, String parameterName, Object parameterValue,
+    protected Object checkConvertType(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
                                       Map<String, Object> rootParameters, ExecutionContextImpl eci) {
         // set the default if applicable
         boolean parameterIsEmpty = StupidUtilities.isEmpty(parameterValue)
-        String defaultStr = (String) parameterNode.attribute('default')
+        String defaultStr = parameterNode.attribute('default')
         if (parameterIsEmpty && defaultStr) {
             ((ContextStack) eci.context).push(rootParameters)
             parameterValue = eci.getResource().expression(defaultStr, "${this.location}_${parameterName}_default")
@@ -485,7 +486,7 @@ class ServiceDefinition {
             ((ContextStack) eci.context).pop()
         }
         // set the default-value if applicable
-        String defaultValueStr = (String) parameterNode.attribute('default-value')
+        String defaultValueStr = parameterNode.attribute('default-value')
         if (parameterIsEmpty && defaultValueStr) {
             ((ContextStack) eci.context).push(rootParameters)
             parameterValue = eci.getResource().expand(defaultValueStr, "${this.location}_${parameterName}_default_value")
@@ -580,11 +581,11 @@ class ServiceDefinition {
     }
 
     @CompileStatic
-    protected void validateParameterHtml(Node parameterNode, String namePrefix, String parameterName, Object parameterValue,
+    protected void validateParameterHtml(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
                                          ExecutionContextImpl eci) {
         // check for none/safe/any HTML
         boolean isString = parameterValue instanceof CharSequence
-        String allowHtml = (String) parameterNode.attribute('allow-html')
+        String allowHtml = parameterNode.attribute('allow-html')
         if ((isString || parameterValue instanceof List) && allowHtml != "any") {
             boolean allowSafe = (allowHtml == "safe")
 
@@ -606,41 +607,41 @@ class ServiceDefinition {
     }
 
     @CompileStatic
-    protected boolean validateParameter(Node vpNode, String parameterName, Object pv, ExecutionContextImpl eci) {
+    protected boolean validateParameter(MNode vpNode, String parameterName, Object pv, ExecutionContextImpl eci) {
         // run through validations under parameter node
 
         // no validation done if value is empty, that should be checked with the required attribute only
         if (StupidUtilities.isEmpty(pv)) return true
 
         boolean allPass = true
-        for (Node child in (Collection<Node>) vpNode.children()) {
-            if (child.name() == "description" || child.name() == "subtype") continue
+        for (MNode child in vpNode.children) {
+            if (child.name == "description" || child.name == "subtype") continue
             // NOTE don't break on fail, we want to get a list of all failures for the user to see
             try {
                 if (!validateParameterSingle(child, parameterName, pv, eci)) allPass = false
             } catch (Throwable t) {
                 logger.error("Error in validation", t)
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) failed ${child.name()} validation: ${t.message}", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) failed ${child.name} validation: ${t.message}", null)
             }
         }
         return allPass
     }
 
     @CompileStatic
-    protected boolean validateParameterSingle(Node valNode, String parameterName, Object pv, ExecutionContextImpl eci) {
-        switch (valNode.name()) {
+    protected boolean validateParameterSingle(MNode valNode, String parameterName, Object pv, ExecutionContextImpl eci) {
+        switch (valNode.name) {
         case "val-or":
             boolean anyPass = false
-            for (Node child in (Collection<Node>) valNode.children()) if (validateParameterSingle(child, parameterName, pv, eci)) anyPass = true
+            for (MNode child in valNode.children) if (validateParameterSingle(child, parameterName, pv, eci)) anyPass = true
             return anyPass
         case "val-and":
             boolean allPass = true
-            for (Node child in (Collection<Node>) valNode.children()) if (!validateParameterSingle(child, parameterName, pv, eci)) allPass = false
+            for (MNode child in valNode.children) if (!validateParameterSingle(child, parameterName, pv, eci)) allPass = false
             return allPass
         case "val-not":
             // just in case there are multiple children treat like and, then not it
             boolean allPass = true
-            for (Node child in (Collection<Node>) valNode.children()) if (!validateParameterSingle(child, parameterName, pv, eci)) allPass = false
+            for (MNode child in valNode.children) if (!validateParameterSingle(child, parameterName, pv, eci)) allPass = false
             return !allPass
         case "matches":
             if (!(pv instanceof CharSequence)) {
@@ -846,26 +847,26 @@ class ServiceDefinition {
         return value
     }
 
-    protected void checkSubtype(String parameterName, Node typeParentNode, Object value, ExecutionContextImpl eci) {
-        if (typeParentNode."subtype") {
+    protected void checkSubtype(String parameterName, MNode typeParentNode, Object value, ExecutionContextImpl eci) {
+        if (typeParentNode.hasChild("subtype")) {
             if (value instanceof Collection) {
                 // just check the first value in the list
                 if (((Collection) value).size() > 0) {
-                    String subType = typeParentNode."subtype"[0]."@type"
+                    String subType = typeParentNode.first("subtype").attribute("type")
                     Object subValue = ((Collection) value).iterator().next()
                     if (!StupidJavaUtilities.isInstanceOf(subValue, subType)) {
                         eci.message.addError("Parameter [${parameterName}] passed to service [${getServiceName()}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]")
                     } else {
                         // try the next level down
-                        checkSubtype(parameterName, (Node) typeParentNode."subtype"[0], subValue, eci)
+                        checkSubtype(parameterName, typeParentNode.first("subtype"), subValue, eci)
                     }
                 }
             } else if (value instanceof Map) {
                 // for each subtype element check its name/type
-                Map mapVal = value
-                for (Node stNode in typeParentNode."subtype") {
-                    String subName = stNode."@name"
-                    String subType = stNode."@type"
+                Map mapVal = (Map) value
+                for (MNode stNode in typeParentNode.children("subtype")) {
+                    String subName = stNode.attribute("name")
+                    String subType = stNode.attribute("type")
                     if (!subName || !subType) continue
 
                     Object subValue = mapVal.get(subName)
@@ -972,7 +973,7 @@ class ServiceDefinition {
         Map<String, Object> properties = [:]
         Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
         for (String parmName in getInParameterNames()) {
-            Node parmNode = getInParameter(parmName)
+            MNode parmNode = getInParameter(parmName)
             if (parmNode.attribute("required") == "true") requiredParms.add(parmName)
             properties.put(parmName, getJsonSchemaPropMap(parmNode))
         }
@@ -985,7 +986,7 @@ class ServiceDefinition {
         Map<String, Object> properties = [:]
         Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
         for (String parmName in getOutParameterNames()) {
-            Node parmNode = getOutParameter(parmName)
+            MNode parmNode = getOutParameter(parmName)
             if (parmNode.attribute("required") == "true") requiredParms.add(parmName)
             properties.put(parmName, getJsonSchemaPropMap(parmNode))
         }
@@ -993,21 +994,21 @@ class ServiceDefinition {
         return defMap
     }
     @CompileStatic
-    protected Map<String, Object> getJsonSchemaPropMap(Node parmNode) {
+    protected Map<String, Object> getJsonSchemaPropMap(MNode parmNode) {
         String objectType = (String) parmNode?.attribute('type')
         String jsonType = RestApi.getJsonType(objectType)
         Map<String, Object> propMap = [type:jsonType] as Map<String, Object>
         String format = RestApi.getJsonFormat(objectType)
         if (format) propMap.put("format", format)
-        String description = StupidUtilities.nodeText(parmNode.get("description"))
+        String description = parmNode.first("description").text
         if (description) propMap.put("description", description)
         if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))
         if (parmNode.attribute("default")) propMap.put("default", "{${parmNode.attribute("default")}}".toString())
 
-        List childList = (List) parmNode.get("parameter")
+        List<MNode> childList = parmNode.children("parameter")
         if (jsonType == 'array') {
             if (childList) {
-                propMap.put("items", getJsonSchemaPropMap((Node) childList[0]))
+                propMap.put("items", getJsonSchemaPropMap(childList[0]))
             } else {
                 logger.warn("Parameter ${parmNode.attribute('name')} of service ${getServiceName()} is an array type but has no child parameter (should have one, name ignored), may cause error in Swagger, etc")
             }
@@ -1015,8 +1016,7 @@ class ServiceDefinition {
             if (childList) {
                 Map properties = [:]
                 propMap.put("properties", properties)
-                for (Object childObj in childList) {
-                    Node childNode = (Node) childObj
+                for (MNode childNode in childList) {
                     properties.put(childNode.attribute("name"), getJsonSchemaPropMap(childNode))
                 }
             } else {
@@ -1030,9 +1030,9 @@ class ServiceDefinition {
         return propMap
     }
 
-    void addParameterEnums(Node parmNode, Map<String, Object> propMap) {
-        String entityName = (String) parmNode.attribute("entity-name")
-        String fieldName = (String) parmNode.attribute("field-name")
+    void addParameterEnums(MNode parmNode, Map<String, Object> propMap) {
+        String entityName = parmNode.attribute("entity-name")
+        String fieldName = parmNode.attribute("field-name")
         if (entityName && fieldName) {
             EntityDefinition ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(entityName)
             if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${getServiceName()}")
@@ -1048,7 +1048,7 @@ class ServiceDefinition {
         Map<String, Object> properties = [:]
         Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
         for (String parmName in getInParameterNames()) {
-            Node parmNode = getInParameter(parmName)
+            MNode parmNode = getInParameter(parmName)
             properties.put(parmName, getRamlPropMap(parmNode))
         }
         return defMap
@@ -1058,31 +1058,30 @@ class ServiceDefinition {
         Map<String, Object> properties = [:]
         Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
         for (String parmName in getOutParameterNames()) {
-            Node parmNode = getOutParameter(parmName)
+            MNode parmNode = getOutParameter(parmName)
             properties.put(parmName, getRamlPropMap(parmNode))
         }
         return defMap
     }
     @CompileStatic
-    protected static Map<String, Object> getRamlPropMap(Node parmNode) {
-        String objectType = (String) parmNode?.attribute('type')
+    protected static Map<String, Object> getRamlPropMap(MNode parmNode) {
+        String objectType = parmNode?.attribute('type')
         String ramlType = RestApi.getRamlType(objectType)
         Map<String, Object> propMap = [type:ramlType] as Map<String, Object>
-        String description = StupidUtilities.nodeText(parmNode.get("description"))
+        String description = parmNode.first("description").text
         if (description) propMap.put("description", description)
         if (parmNode.attribute("required") == "true") propMap.put("required", true)
         if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))
         if (parmNode.attribute("default")) propMap.put("default", "{${parmNode.attribute("default")}}".toString())
 
-        List childList = (List) parmNode.get("parameter")
+        List<MNode> childList = parmNode.children("parameter")
         if (childList) {
             if (ramlType == 'array') {
-                propMap.put("items", getRamlPropMap((Node) childList[0]))
+                propMap.put("items", getRamlPropMap(childList[0]))
             } else if (ramlType == 'object') {
                 Map properties = [:]
                 propMap.put("properties", properties)
-                for (Object childObj in childList) {
-                    Node childNode = (Node) childObj
+                for (MNode childNode in childList) {
                     properties.put(childNode.attribute("name"), getRamlPropMap(childNode))
                 }
             }

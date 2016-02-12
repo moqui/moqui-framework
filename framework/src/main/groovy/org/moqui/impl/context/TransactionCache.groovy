@@ -14,7 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.moqui.context.TransactionException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
@@ -27,23 +26,16 @@ import org.moqui.impl.entity.EntityValueImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.transaction.Status
 import javax.transaction.Synchronization
 import javax.transaction.Transaction
-import javax.transaction.TransactionManager
 import javax.transaction.xa.XAException
 import java.sql.Connection
 
 /** This is a per-transaction cache that basically pretends to be the database for the scope of the transaction.
  * Test your code well when using this as it doesn't support everything.
  *
- * Some known limitations:
- * - find list and iterate don't cache results (but do filter and add to results aside from limitations below)
- * - EntityListIterator.getPartialList() and iterating through results with next/previous does not add created values
- * - find with DB limit will return wrong number of values if deleted values were in the results
- * - find count doesn't add for created values, subtract for deleted values, and for updates if old matched and new doesn't subtract and vice-versa
- * - view-entities won't work, they don't incorporate results from TX Cache
- * - if a value is created or update, then a record with FK is created, then the value is updated again commit writes may fail with FK violation (see update() method for other notes)
+ * See notes on limitations in the JavaDoc for ServiceCallSync.useTransactionCache()
+ *
  */
 @CompileStatic
 class TransactionCache implements Synchronization {
@@ -62,27 +54,9 @@ class TransactionCache implements Synchronization {
     protected LinkedList<EntityWriteInfo> writeInfoList = new LinkedList<EntityWriteInfo>()
     protected LinkedHashMap<String, Map<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<String, Map<Map, EntityValueBase>>()
 
-    TransactionCache(ExecutionContextFactoryImpl ecfi) {
+    TransactionCache(ExecutionContextFactoryImpl ecfi, Transaction tx) {
         this.ecfi = ecfi
-    }
-
-    TransactionCache enlist() {
-        // logger.warn("========= Enlisting new TransactionCache")
-        TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
-        if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
-        Transaction tx = tm.getTransaction()
-        if (tx == null) throw new XAException(XAException.XAER_NOTA)
         this.tx = tx
-
-        TransactionCache activeCache = (TransactionCache) ecfi.getTransactionFacade().getActiveSynchronization("TransactionCache")
-        if (activeCache != null) {
-            logger.warn("Tried to enlist TransactionCache in current transaction but one is already in place, not enlisting", new TransactionException("TransactionCache already in place"))
-            return activeCache
-        }
-        // logger.warn("================= putting and enlisting new TransactionCache")
-        ecfi.getTransactionFacade().putAndEnlistActiveSynchronization("TransactionCache", this)
-
-        return this
     }
 
     Map<Map, EntityValueBase> getCreateByEntityMap(String entityName) {

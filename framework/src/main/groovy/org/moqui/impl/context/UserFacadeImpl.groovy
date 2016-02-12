@@ -17,7 +17,9 @@ import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
 import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.util.MoquiShiroRealm
+import org.moqui.util.MNode
 
 import java.security.SecureRandom
 import java.sql.Timestamp
@@ -52,7 +54,7 @@ class UserFacadeImpl implements UserFacade {
 
     protected Deque<String> usernameStack = new LinkedList()
     // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
-    protected EntityValue internalUserAccount = null
+    protected EntityValueBase internalUserAccount = null
     protected Set<String> internalUserGroupIdSet = null
     // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
     protected EntityList internalArtifactTarpitCheckList = null
@@ -66,7 +68,7 @@ class UserFacadeImpl implements UserFacade {
     protected String noUserCurrencyUomId = null
     // if one of these is set before login, set it on the account on login? probably best not...
 
-    protected final Map<String, Object> userContext = [:]
+    protected Map<String, Object> userContext = null
 
     protected Calendar calendarForTzLcOnly = null
 
@@ -150,7 +152,7 @@ class UserFacadeImpl implements UserFacade {
 
         this.visitId = session.getAttribute("moqui.visitId")
         if (!this.visitId && !eci.getSkipStats()) {
-            Node serverStatsNode = eci.getEcfi().getServerStatsNode()
+            MNode serverStatsNode = eci.getEcfi().getServerStatsNode()
 
             // handle visitorId and cookie
             String cookieVisitorId = null
@@ -250,7 +252,7 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue userAccountClone = userAccount.cloneValue()
                 userAccountClone.set("locale", locale.toString())
                 userAccountClone.update()
-                internalUserAccount = userAccountClone
+                internalUserAccount = (EntityValueBase) userAccountClone
             } catch (Throwable t) {
                 eci.transaction.rollback(beganTransaction, "Error saving timeZone", t)
             } finally {
@@ -300,7 +302,7 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue userAccountClone = userAccount.cloneValue()
                 userAccountClone.set("timeZone", tz.getID())
                 userAccountClone.update()
-                internalUserAccount = userAccountClone
+                internalUserAccount = (EntityValueBase) userAccountClone
             } catch (Throwable t) {
                 eci.transaction.rollback(beganTransaction, "Error saving timeZone", t)
             } finally {
@@ -325,7 +327,7 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue userAccountClone = userAccount.cloneValue()
                 userAccountClone.set("currencyUomId", uomId)
                 userAccountClone.update()
-                internalUserAccount = userAccountClone
+                internalUserAccount = (EntityValueBase) userAccountClone
             } catch (Throwable t) {
                 eci.transaction.rollback(beganTransaction, "Error saving currencyUomId", t)
             } finally {
@@ -375,12 +377,15 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    Map<String, Object> getContext() { return userContext }
+    Map<String, Object> getContext() {
+        if (userContext == null) userContext = new HashMap<>()
+        return userContext
+    }
 
     @Override
     Timestamp getNowTimestamp() {
         // NOTE: review Timestamp and nowTimestamp use, have things use this by default (except audit/etc where actual date/time is needed
-        return this.effectiveTime ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
+        return ((Object) this.effectiveTime != null) ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
     }
 
     @Override
@@ -702,7 +707,11 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    String getUserId() { return getUserAccount()?.userId }
+    String getUserId() {
+        // faster get userId for authz, etc called frequently
+        if (internalUserAccount != null) return internalUserAccount.getValueMap().get('userId')
+        return getUserAccount()?.userId
+    }
 
     @Override
     String getUsername() { return this.usernameStack.peekFirst() }
@@ -711,7 +720,7 @@ class UserFacadeImpl implements UserFacade {
     EntityValue getUserAccount() {
         if (this.usernameStack.size() == 0) return null
         if (internalUserAccount == null) {
-            internalUserAccount = eci.getEntity().find("moqui.security.UserAccount")
+            internalUserAccount = (EntityValueBase) eci.getEntity().find("moqui.security.UserAccount")
                     .condition("username", this.getUsername()).useCache(true).disableAuthz().one()
             // this is necessary as temporary values may have been set before the UserAccount was retrieved
             clearPerUserValues()

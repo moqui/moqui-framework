@@ -27,6 +27,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -47,6 +48,7 @@ import javax.xml.transform.URIResolver
 import javax.xml.transform.sax.SAXResult
 import javax.xml.transform.stream.StreamSource
 
+@CompileStatic
 public class ResourceFacadeImpl implements ResourceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
 
@@ -84,12 +86,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
         resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location")
 
         // Setup resource reference classes
-        for (Node rrNode in ecfi.confXmlRoot."resource-facade"[0]."resource-reference") {
+        for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
             try {
-                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass((String) rrNode."@class")
-                resourceReferenceClasses.put((String) rrNode."@scheme", rrClass)
+                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
+                resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
             } catch (ClassNotFoundException e) {
-                logger.info("Class [${rrNode.'@class'}] not found outside of components, will retry after. (${e.toString()})")
+                logger.info("Class [${rrNode.attribute("class")}] not found outside of components, will retry after. (${e.toString()})")
             }
         }
         
@@ -97,61 +99,61 @@ public class ResourceFacadeImpl implements ResourceFacade {
         this.ecfi.initComponentLibAndClasses(this)
 
         // Try failed resource reference classes again now that component classpath resources are in place
-        for (Node rrNode in ecfi.confXmlRoot."resource-facade"[0]."resource-reference") {
-            if (resourceReferenceClasses.containsKey(rrNode."@scheme")) continue
+        for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
+            if (resourceReferenceClasses.containsKey(rrNode.attribute("scheme"))) continue
 
             try {
-                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass((String) rrNode."@class")
-                resourceReferenceClasses.put((String) rrNode."@scheme", rrClass)
+                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
+                resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
             } catch (ClassNotFoundException e) {
-                logger.warn("Class [${rrNode.'@class'}] for scheme [${rrNode.'@scheme'}] not found even with components, skipping. (${e.toString()})")
+                logger.warn("Class [${rrNode.attribute("class")}] for scheme [${rrNode.attribute("scheme")}] not found even with components, skipping. (${e.toString()})")
             }
         }
 
         // Setup template renderers
-        for (Node templateRendererNode in ecfi.confXmlRoot."resource-facade"[0]."template-renderer") {
+        for (MNode templateRendererNode in ecfi.confXmlRoot.first("resource-facade").children("template-renderer")) {
             TemplateRenderer tr = (TemplateRenderer) Thread.currentThread().getContextClassLoader()
-                    .loadClass((String) templateRendererNode."@class").newInstance()
-            templateRenderers.put((String) templateRendererNode."@extension", tr.init(ecfi))
+                    .loadClass(templateRendererNode.attribute("class")).newInstance()
+            templateRenderers.put(templateRendererNode.attribute("extension"), tr.init(ecfi))
         }
 
         // Setup script runners
-        for (Node scriptRunnerNode in ecfi.confXmlRoot."resource-facade"[0]."script-runner") {
-            if (scriptRunnerNode."@class") {
+        for (MNode scriptRunnerNode in ecfi.confXmlRoot.first("resource-facade").children("script-runner")) {
+            if (scriptRunnerNode.attribute("class")) {
                 ScriptRunner sr = (ScriptRunner) Thread.currentThread().getContextClassLoader()
-                        .loadClass((String) scriptRunnerNode."@class").newInstance()
-                scriptRunners.put((String) scriptRunnerNode."@extension", sr.init(ecfi))
-            } else if (scriptRunnerNode."@engine") {
-                ScriptRunner sr = new JavaxScriptRunner((String) scriptRunnerNode."@engine").init(ecfi)
-                scriptRunners.put((String) scriptRunnerNode."@extension", sr)
+                        .loadClass(scriptRunnerNode.attribute("class")).newInstance()
+                scriptRunners.put(scriptRunnerNode.attribute("extension"), sr.init(ecfi))
+            } else if (scriptRunnerNode.attribute("engine")) {
+                ScriptRunner sr = new JavaxScriptRunner(scriptRunnerNode.attribute("engine")).init(ecfi)
+                scriptRunners.put(scriptRunnerNode.attribute("extension"), sr)
             } else {
-                logger.error("Configured script-runner for extension [${scriptRunnerNode."@extension"}] must have either a class or engine attribute and has neither.")
+                logger.error("Configured script-runner for extension [${scriptRunnerNode.attribute("extension")}] must have either a class or engine attribute and has neither.")
             }
         }
 
         // Setup content repositories
-        for (Node repositoryNode in ecfi.confXmlRoot."repository-list"[0]."repository") {
+        for (MNode repositoryNode in ecfi.confXmlRoot.first("repository-list").children("repository")) {
             try {
-                if (repositoryNode."@type" == "davex") {
+                if (repositoryNode.attribute("type") == "davex") {
                     throw new IllegalArgumentException("JCR davex not enabled by default, change code using Jcr2davRepositoryFactory in ResourceFacadeImpl and uncomment jackrabbit-jcr2dav in framework/build.gradle")
                     /* Not enabled by default (RMI is more simple), change code here to enable:
                     org.apache.jackrabbit.jcr2dav.Jcr2davRepositoryFactory j2drf = new org.apache.jackrabbit.jcr2dav.Jcr2davRepositoryFactory()
                     Repository repository = j2drf.getRepository(["org.apache.jackrabbit.spi2davex.uri":(String) repositoryNode."@location"])
                     contentRepositories.put((String) repositoryNode."@name", repository)
                     */
-                } else if (repositoryNode."@type" == "rmi") {
-                    Repository repository = new URLRemoteRepository((String) repositoryNode."@location")
-                    contentRepositories.put((String) repositoryNode."@name", repository)
-                } else if (repositoryNode."@type" == "jndi") {
+                } else if (repositoryNode.attribute("type") == "rmi") {
+                    Repository repository = new URLRemoteRepository(repositoryNode.attribute("location"))
+                    contentRepositories.put(repositoryNode.attribute("name"), repository)
+                } else if (repositoryNode.attribute("type") == "jndi") {
                     InitialContext ic = new InitialContext()
-                    Repository repository = (Repository) ic.lookup((String) repositoryNode."@location")
-                    contentRepositories.put((String) repositoryNode."@name", repository)
-                } else if (repositoryNode."@type" == "local") {
+                    Repository repository = (Repository) ic.lookup(repositoryNode.attribute("location"))
+                    contentRepositories.put(repositoryNode.attribute("name"), repository)
+                } else if (repositoryNode.attribute("type") == "local") {
                     throw new IllegalArgumentException("The local type content repository is not yet supported, pending research into API support for the concept")
                 }
-                logger.info("Added JCR Repository [${repositoryNode."@name"}] at [${repositoryNode."@location"}], workspace [${repositoryNode."@workspace"}]")
+                logger.info("Added JCR Repository [${repositoryNode.attribute("name")}] at [${repositoryNode.attribute("location")}], workspace [${repositoryNode.attribute("workspace")}]")
             } catch (Exception e) {
-                logger.error("Error getting JCR content repository with name [${repositoryNode."@name"}], is of type [${repositoryNode."@type"}] at location [${repositoryNode."@location"}]: ${e.toString()}")
+                logger.error("Error getting JCR content repository with name [${repositoryNode.attribute("name")}], is of type [${repositoryNode.attribute("type")}] at location [${repositoryNode.attribute("location")}]: ${e.toString()}")
             }
         }
     }
@@ -188,11 +190,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         Repository rep = contentRepositories[name]
         if (!rep) return null
-        Node repositoryNode = (Node) ecfi.confXmlRoot."repository-list"[0]."repository".find({ it."@name" == name })
-        SimpleCredentials credentials = new SimpleCredentials(repositoryNode."@username" ?: "anonymous",
-                (repositoryNode."@password" ?: "").toCharArray())
-        if (repositoryNode."@workspace") {
-            newSession = rep.login(credentials, (String) repositoryNode."@workspace")
+        MNode repositoryNode = ecfi.confXmlRoot.first("repository-list")
+                .first({ MNode it -> it.name == "repository" && it.attribute("name") == name })
+        SimpleCredentials credentials = new SimpleCredentials(repositoryNode.attribute("username") ?: "anonymous",
+                (repositoryNode.attribute("password") ?: "").toCharArray())
+        if (repositoryNode.attribute("workspace")) {
+            newSession = rep.login(credentials, repositoryNode.attribute("workspace"))
         } else {
             newSession = rep.login(credentials)
         }

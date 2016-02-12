@@ -21,7 +21,9 @@ import freemarker.template.AdapterTemplateModel
 import freemarker.template.TemplateModel
 import freemarker.template.TemplateScalarModel
 import groovy.transform.CompileStatic
+
 import org.moqui.impl.StupidUtilities
+import org.moqui.util.MNode
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
@@ -31,11 +33,12 @@ class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, Templa
     protected final static Logger logger = LoggerFactory.getLogger(FtlNodeWrapper.class)
     protected final static BeansWrapper wrapper = BeansWrapper.getDefaultInstance()
 
-    /** Factory method for null-sensitive Groovy Node wrapping. */
-    static FtlNodeWrapper wrapNode(Node groovyNode) { return groovyNode != null ? new FtlNodeWrapper(groovyNode) : null }
-    static FtlNodeWrapper makeFromText(String xmlText) { return wrapNode(new XmlParser().parseText(xmlText)) }
+    /** Factory method for null-sensitive Node wrapping. */
+    // static FtlNodeWrapper wrapNode(Node groovyNode) { return groovyNode != null ? new FtlNodeWrapper(new MNode(groovyNode)) : null }
+    static FtlNodeWrapper wrapNode(MNode mNode) { return mNode != null ? new FtlNodeWrapper(mNode) : null }
+    static FtlNodeWrapper makeFromText(String xmlText) { return wrapNode(MNode.parseText(xmlText)) }
 
-    protected Node groovyNode
+    protected MNode mNode
     protected FtlNodeWrapper parentNode = null
     protected FtlTextWrapper textNode = null
     protected FtlNodeListWrapper allChildren = null
@@ -43,18 +46,18 @@ class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, Templa
     protected Map<String, FtlAttributeWrapper> attributeWrapperMap = new HashMap<String, FtlAttributeWrapper>()
     protected Map<String, FtlNodeListWrapper> childrenByName = new HashMap<String, FtlNodeListWrapper>()
 
-    protected FtlNodeWrapper(Node groovyNode) {
-        this.groovyNode = groovyNode
+    protected FtlNodeWrapper(MNode wrapNode) {
+        this.mNode = wrapNode
     }
-    
-    protected FtlNodeWrapper(Node groovyNode, FtlNodeWrapper parentNode) {
-        this.groovyNode = groovyNode
+    protected FtlNodeWrapper(MNode wrapNode, FtlNodeWrapper parentNode) {
+        this.mNode = wrapNode
         this.parentNode = parentNode
     }
 
-    Node getGroovyNode() { return groovyNode }
+    Node getGroovyNode() { throw new IllegalArgumentException("Deprecated") }
+    MNode getMNode() { return mNode }
 
-    Object getAdaptedObject(Class aClass) { return groovyNode }
+    Object getAdaptedObject(Class aClass) { return mNode }
 
     // TemplateHashModel methods
 
@@ -72,41 +75,41 @@ class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, Templa
         if (s.startsWith("@")) {
             // check for @@text
             if (s == "@@text") {
-                return textNode != null ? textNode : (textNode = new FtlTextWrapper(StupidUtilities.nodeText(groovyNode), this))
+                if (textNode == null) textNode = new FtlTextWrapper(mNode.text, this)
+                return textNode
                 // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
             }
 
             String key = s.substring(1)
 
-            String attrValue = groovyNode.attribute(key)
+            String attrValue = mNode.attribute(key)
             attributeWrapper = attrValue != null ? new FtlAttributeWrapper(key, attrValue, this) : null
             attributeWrapperMap.put(s, attributeWrapper)
             return attributeWrapper
         }
 
         // no @ prefix, looking for a child node
-        List childList = groovyNode.children().findAll({ it instanceof Node && it.name() == s })
         // logger.info("Looking for child nodes with name [${s}] found: ${childList}")
-        nodeListWrapper = new FtlNodeListWrapper(childList, this)
+        nodeListWrapper = new FtlNodeListWrapper(mNode.children(s), this)
         childrenByName.put(s, nodeListWrapper)
         return nodeListWrapper
     }
 
     boolean isEmpty() {
-        return groovyNode.attributes().isEmpty() && groovyNode.children().isEmpty() && groovyNode.localText().isEmpty()
+        return mNode.attributes.isEmpty() && mNode.children.isEmpty() && (mNode.text == null || mNode.text.length() == 0)
     }
 
     // TemplateNodeModel methods
 
     TemplateNodeModel getParentNode() {
         if (parentNode != null) return parentNode
-        parentNode = wrapNode(groovyNode.parent())
+        parentNode = wrapNode(mNode.parent)
         return parentNode
     }
 
     TemplateSequenceModel getChildNodes() { return this }
 
-    String getNodeName() { return groovyNode.name() }
+    String getNodeName() { return mNode.name }
 
     String getNodeType() { return "element" }
 
@@ -118,22 +121,25 @@ class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, Templa
     int size() { return getSequenceList().size() }
     protected FtlNodeListWrapper getSequenceList() {
         // Looks like attributes should NOT go in the FTL children list, so just use the node.children()
-        if (allChildren == null) allChildren = groovyNode.localText() ?
-            new FtlNodeListWrapper(groovyNode.localText(), this) : new FtlNodeListWrapper(groovyNode.children(), this)
+        if (allChildren == null) allChildren = (mNode.text != null && mNode.text.length() > 0) ?
+            new FtlNodeListWrapper(mNode.text, this) : new FtlNodeListWrapper(mNode.children, this)
         return allChildren
     }
 
     // TemplateScalarModel methods
-    String getAsString() { return StupidUtilities.nodeText(groovyNode) }
+    String getAsString() { return mNode.text != null ? mNode.text : "" }
 
     @Override
-    String toString() { return prettyPrintNode(groovyNode) }
+    String toString() { return prettyPrintNode(mNode) }
 
-    static String prettyPrintNode(Node nd) {
+    static String prettyPrintNode(MNode nd) {
+        return nd.toString()
+        /*
         StringWriter sw = new StringWriter()
         XmlNodePrinter xnp = new XmlNodePrinter(new PrintWriter(sw))
         xnp.print(nd)
         return sw.toString()
+        */
     }
 
     @CompileStatic
@@ -197,13 +203,13 @@ class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, Templa
 
         // TemplateSequenceModel methods
         TemplateModel get(int i) {
-            if (i == 0) return wrapper.wrap(text)
+            if (i == 0) return wrapper.wrap(getAsString())
             throw new IndexOutOfBoundsException("Text node only has 1 value. Tried to get index [${i}]")
         }
         int size() { return 1 }
 
         // TemplateScalarModel methods
-        String getAsString() { return text }
+        String getAsString() { return text != null ? text : "" }
 
         @Override
         String toString() { return getAsString() }
@@ -211,15 +217,10 @@ class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, Templa
 
     @CompileStatic
     static class FtlNodeListWrapper implements TemplateSequenceModel {
-        protected List<TemplateModel> nodeList = new ArrayList<TemplateModel>()
-        FtlNodeListWrapper(List groovyNodes, FtlNodeWrapper parentNode) {
-            for (Object childNode in groovyNodes) {
-                if (childNode instanceof Node) {
-                    nodeList.add(new FtlNodeWrapper((Node) childNode, parentNode))
-                } else {
-                    nodeList.add(new FtlTextWrapper(childNode as String, parentNode))
-                }
-            }
+        protected ArrayList<TemplateModel> nodeList = new ArrayList<TemplateModel>()
+        FtlNodeListWrapper(ArrayList<MNode> mnodeList, FtlNodeWrapper parentNode) {
+            for (int i = 0; i < mnodeList.size(); i++)
+                nodeList.add(new FtlNodeWrapper(mnodeList.get(i), parentNode))
         }
 
         FtlNodeListWrapper(String text, FtlNodeWrapper parentNode) {

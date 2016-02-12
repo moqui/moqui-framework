@@ -13,6 +13,8 @@
  */
 package org.moqui.impl.webapp
 
+import groovy.transform.CompileStatic
+
 import javax.servlet.ServletContext
 import javax.servlet.ServletContextEvent
 import javax.servlet.ServletContextListener
@@ -26,6 +28,7 @@ import org.moqui.Moqui
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class MoquiContextListener implements ServletContextListener {
 
     protected static String getId(ServletContext sc) {

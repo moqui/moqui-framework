@@ -14,12 +14,11 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import groovy.transform.TypeChecked
-import groovy.transform.TypeCheckingMode
 import org.moqui.BaseException
 import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.context.TransactionInternal
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -28,6 +27,7 @@ import javax.naming.InitialContext
 import javax.naming.NamingException
 import javax.sql.XAConnection
 import javax.transaction.*
+import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
 import java.sql.Connection
 import java.sql.SQLException
@@ -52,15 +52,14 @@ class TransactionFacadeImpl implements TransactionFacade {
         initTransactionInternal()
     }
 
-    @TypeChecked(TypeCheckingMode.SKIP)
     void initTransactionInternal() {
-        Node transactionFacadeNode = (Node) ecfi.getConfXmlRoot()."transaction-facade"[0]
-        if (transactionFacadeNode."transaction-jndi") {
+        MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade")
+        if (transactionFacadeNode.hasChild("transaction-jndi")) {
             this.populateTransactionObjectsJndi()
-        } else if (transactionFacadeNode."transaction-internal") {
+        } else if (transactionFacadeNode.hasChild("transaction-internal")) {
             // initialize internal
-            Node transactionInternalNode = (Node) transactionFacadeNode."transaction-internal"[0]
-            String tiClassName = (String) transactionInternalNode."@class"
+            MNode transactionInternalNode = transactionFacadeNode.first("transaction-internal")
+            String tiClassName = transactionInternalNode.attribute("class")
             transactionInternal = (TransactionInternal) Thread.currentThread().getContextClassLoader()
                     .loadClass(tiClassName).newInstance()
             transactionInternal.init(ecfi)
@@ -68,10 +67,10 @@ class TransactionFacadeImpl implements TransactionFacade {
             ut = transactionInternal.getUserTransaction()
             tm = transactionInternal.getTransactionManager()
         } else {
-            throw new IllegalArgumentException("Transaction factory type [${transactionFactory."@factory-type"}] not supported")
+            throw new IllegalArgumentException("No transaction-jndi or transaction-internal elements found in Moqui Conf XML file")
         }
 
-        if (transactionFacadeNode."@use-transaction-cache" == "false") useTransactionCache = false
+        if (transactionFacadeNode.attribute("use-transaction-cache") == "false") useTransactionCache = false
     }
 
     void destroy() {
@@ -290,11 +289,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
             if (isTransactionInPlace()) rollback("Commit failed, rolling back to clean up", null)
 
-            txStackInfo.rollbackOnlyInfo = null
-            txStackInfo.transactionBegin = null
-            txStackInfo.transactionBeginStartTime = null
-            txStackInfo.activeXaResourceMap.clear()
-            txStackInfo.activeSynchronizationMap.clear()
+            txStackInfo.clearCurrent()
         }
     }
 
@@ -328,11 +323,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             // NOTE: should this really be in finally? maybe we only want to do this if there is a successful rollback
             // to avoid removing things that should still be there, or maybe here in finally it will match up the adds
             // and removes better
-            txStackInfo.rollbackOnlyInfo = null
-            txStackInfo.transactionBegin = null
-            txStackInfo.transactionBeginStartTime = null
-            txStackInfo.activeXaResourceMap.clear()
-            txStackInfo.activeSynchronizationMap.clear()
+            getTxStackInfo().clearCurrent()
         }
     }
 
@@ -458,18 +449,28 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void initTransactionCache() {
-        if (useTransactionCache && !isTransactionCacheActive()) {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        if (useTransactionCache && txStackInfo.txCache == null) {
             if (logger.isInfoEnabled()) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
                 for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append("\n").append(infoAei)
                 logger.info(infoString.toString())
             }
-            new TransactionCache(this.ecfi).enlist()
+
+            TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
+            if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
+            Transaction tx = tm.getTransaction()
+            if (tx == null) throw new XAException(XAException.XAER_NOTA)
+
+            TransactionCache txCache = new TransactionCache(this.ecfi, tx)
+            txStackInfo.txCache = txCache
+            registerSynchronization(txCache)
         }
     }
     @Override
-    boolean isTransactionCacheActive() { return getActiveSynchronization("TransactionCache") != null }
+    boolean isTransactionCacheActive() { return getTxStackInfo().txCache != null }
+    TransactionCache getTransactionCache() { return getTxStackInfo().txCache }
 
     @CompileStatic
     static class RollbackInfo {
@@ -495,29 +496,37 @@ class TransactionFacadeImpl implements TransactionFacade {
         Exception suspendedTxLocation = null
         protected Map<String, XAResource> activeXaResourceMap = [:]
         protected Map<String, Synchronization> activeSynchronizationMap = [:]
+        TransactionCache txCache = null
         Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap }
         Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap }
+        void clearCurrent() {
+            rollbackOnlyInfo = null
+            transactionBegin = null
+            transactionBeginStartTime = null
+            activeXaResourceMap.clear()
+            activeSynchronizationMap.clear()
+            txCache = null
+        }
     }
 
     // ========== Initialize/Populate Methods ==========
 
-    @TypeChecked(TypeCheckingMode.SKIP)
     void populateTransactionObjectsJndi() {
-        Node transactionJndiNode = (Node) this.ecfi.getConfXmlRoot()."transaction-facade"[0]."transaction-jndi"[0]
-        String userTxJndiName = transactionJndiNode."@user-transaction-jndi-name"
-        String txMgrJndiName = transactionJndiNode."@transaction-manager-jndi-name"
+        MNode transactionJndiNode = this.ecfi.getConfXmlRoot().first("transaction-facade").first("transaction-jndi")
+        String userTxJndiName = transactionJndiNode.attribute("user-transaction-jndi-name")
+        String txMgrJndiName = transactionJndiNode.attribute("transaction-manager-jndi-name")
 
-        Node serverJndi = (Node) this.ecfi.getConfXmlRoot()."transaction-facade"[0]."server-jndi"[0]
+        MNode serverJndi = this.ecfi.getConfXmlRoot().first("transaction-facade").first("server-jndi")
 
         try {
             InitialContext ic;
             if (serverJndi) {
                 Hashtable<String, Object> h = new Hashtable<String, Object>()
-                h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi."@initial-context-factory")
-                h.put(Context.PROVIDER_URL, serverJndi."@context-provider-url")
-                if (serverJndi."@url-pkg-prefixes") h.put(Context.URL_PKG_PREFIXES, serverJndi."@url-pkg-prefixes")
-                if (serverJndi."@security-principal") h.put(Context.SECURITY_PRINCIPAL, serverJndi."@security-principal")
-                if (serverJndi."@security-credentials") h.put(Context.SECURITY_CREDENTIALS, serverJndi."@security-credentials")
+                h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi.attribute("initial-context-factory"))
+                h.put(Context.PROVIDER_URL, serverJndi.attribute("context-provider-url"))
+                if (serverJndi.attribute("url-pkg-prefixes")) h.put(Context.URL_PKG_PREFIXES, serverJndi.attribute("url-pkg-prefixes"))
+                if (serverJndi.attribute("security-principal")) h.put(Context.SECURITY_PRINCIPAL, serverJndi.attribute("security-principal"))
+                if (serverJndi.attribute("security-credentials")) h.put(Context.SECURITY_CREDENTIALS, serverJndi.attribute("security-credentials"))
                 ic = new InitialContext(h)
             } else {
                 ic = new InitialContext()
@@ -526,10 +535,10 @@ class TransactionFacadeImpl implements TransactionFacade {
             this.ut = (UserTransaction) ic.lookup(userTxJndiName)
             this.tm = (TransactionManager) ic.lookup(txMgrJndiName)
         } catch (NamingException ne) {
-            logger.error("Error while finding JNDI Transaction objects [${userTxJndiName}] and [${txMgrJndiName}] from server [${serverJndi ? serverJndi."@context-provider-url" : "default"}].", ne)
+            logger.error("Error while finding JNDI Transaction objects [${userTxJndiName}] and [${txMgrJndiName}] from server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].", ne)
         }
 
-        if (!this.ut) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi."@context-provider-url" : "default"}].")
-        if (!this.tm) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi."@context-provider-url" : "default"}].")
+        if (!this.ut) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
+        if (!this.tm) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
     }
 }

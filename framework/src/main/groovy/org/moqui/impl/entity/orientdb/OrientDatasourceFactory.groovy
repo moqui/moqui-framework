@@ -25,7 +25,7 @@ import org.moqui.context.TransactionFacade
 import org.moqui.entity.*
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -44,11 +44,12 @@ import javax.sql.DataSource
  * 3. add the group-name attribute to entity elements as needed to point them to the new datasource; for example:
  *      group-name="transactional_nosql"
  */
+@CompileStatic
 class OrientDatasourceFactory implements EntityDatasourceFactory {
     protected final static Logger logger = LoggerFactory.getLogger(OrientDatasourceFactory.class)
 
     protected EntityFacadeImpl efi
-    protected Node datasourceNode
+    protected MNode datasourceNode
     protected String tenantId
 
     protected OServer oserver
@@ -63,7 +64,7 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
     OrientDatasourceFactory() { }
 
     @Override
-    EntityDatasourceFactory init(EntityFacade ef, Node datasourceNode, String tenantId) {
+    EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode, String tenantId) {
         // local fields
         this.efi = (EntityFacadeImpl) ef
         this.datasourceNode = datasourceNode
@@ -83,19 +84,21 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
         EntityValue tenantDataSource = null
         if (tenant != null) {
             tenantDataSource = defaultEfi.find("moqui.tenant.TenantDataSource").condition("tenantId", this.tenantId)
-                    .condition("entityGroupName", datasourceNode."@group-name").one()
+                    .condition("entityGroupName", datasourceNode.attribute("group-name")).one()
         }
 
-        Node inlineOtherNode = datasourceNode."inline-other".first()
-        uri = tenantDataSource ? tenantDataSource.jdbcUri : (inlineOtherNode."@uri" ?: inlineOtherNode."@jdbc-uri")
-        username = tenantDataSource ? tenantDataSource.jdbcUsername : (inlineOtherNode."@username" ?: inlineOtherNode."@jdbc-username")
-        password = tenantDataSource ? tenantDataSource.jdbcPassword : (inlineOtherNode."@password" ?: inlineOtherNode."@jdbc-password")
+        MNode inlineOtherNode = datasourceNode.first("inline-other")
+        uri = tenantDataSource ? tenantDataSource.jdbcUri : (inlineOtherNode.attribute("uri") ?: inlineOtherNode.attribute("jdbc-uri"))
+        username = tenantDataSource ? tenantDataSource.jdbcUsername :
+                (inlineOtherNode.attribute("username") ?: inlineOtherNode.attribute("jdbc-username"))
+        password = tenantDataSource ? tenantDataSource.jdbcPassword :
+                (inlineOtherNode.attribute("password") ?: inlineOtherNode.attribute("jdbc-password"))
 
         oserver = OServerMain.create()
         oserver.startup(efi.getEcfi().getResourceFacade().getLocationStream("db/orientdb/config/orientdb-server-config.xml"))
         oserver.activate()
 
-        int maxSize = (inlineOtherNode."@pool-maxsize" ?: "50") as int
+        int maxSize = (inlineOtherNode.attribute("pool-maxsize") ?: "50") as int
         databaseDocumentPool = new OPartitionedDatabasePool(uri, username, password, maxSize)
         // databaseDocumentPool.setup((inlineOtherNode."@pool-minsize" ?: "5") as int, (inlineOtherNode."@pool-maxsize" ?: "50") as int)
 
@@ -190,9 +193,12 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
 
             // create all properties
             List<String> pkFieldNames = ed.getPkFieldNames()
-            for (Node fieldNode in ed.getFieldNodes(true, true, false)) {
-                String fieldName = fieldNode."@name"
-                OProperty op = oc.createProperty(ed.getColumnName(fieldName, false), getFieldType(fieldName, ed))
+            ArrayList<EntityDefinition.FieldInfo> allFieldInfoList = ed.getAllFieldInfoList()
+            int allFieldInfoListSize = allFieldInfoList.size()
+            for (int i = 0; i < allFieldInfoListSize; i++) {
+                EntityDefinition.FieldInfo fieldInfo = allFieldInfoList.get(i)
+                String fieldName = fieldInfo.name
+                OProperty op = oc.createProperty(fieldInfo.columnName, getFieldType(fieldInfo.typeValue))
                 if (pkFieldNames.contains(fieldName)) op.setMandatory(true).setNotNull(true)
             }
 
@@ -210,10 +216,7 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
     }
 
     @CompileStatic
-    static OType getFieldType(String fieldName, EntityDefinition ed) {
-        EntityDefinition.FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
-        int javaTypeInt = fieldInfo.typeValue
-
+    static OType getFieldType(int javaTypeInt) {
         OType fieldType = null
         switch (javaTypeInt) {
             case 1: fieldType = OType.STRING; break

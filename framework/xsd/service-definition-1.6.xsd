@@ -153,6 +153,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="semaphore-ignore" type="xs:int" default="3600">
                 <xs:annotation><xs:documentation>Ignore existing semaphores after this time, in seconds. Defaults to 3600s (1 hour).</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="semaphore-parameter" type="xs:string">
+                <xs:annotation><xs:documentation>The name of a parameter to use for distinct semaphores for the same
+                    services. The parameter should be required, though a single null semaphore is supported.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="in-parameters">

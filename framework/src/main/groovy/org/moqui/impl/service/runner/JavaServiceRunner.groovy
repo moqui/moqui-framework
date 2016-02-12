@@ -13,6 +13,8 @@
  */
 package org.moqui.impl.service.runner
 
+import groovy.transform.CompileStatic
+
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.InvocationTargetException
@@ -25,6 +27,7 @@ import org.moqui.service.ServiceException
 import org.moqui.impl.service.ServiceRunner
 import org.moqui.context.ContextStack
 
+@CompileStatic
 public class JavaServiceRunner implements ServiceRunner {
     protected ServiceFacadeImpl sfi
     protected Cache classCache
@@ -38,7 +41,7 @@ public class JavaServiceRunner implements ServiceRunner {
     }
 
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
-        if (!sd.serviceNode."@location" || !sd.serviceNode."@method") {
+        if (!sd.serviceNode.attribute("location") || !sd.serviceNode.attribute("method")) {
             throw new ServiceException("Service [" + sd.serviceName + "] is missing location and/or method attributes and they are required for running a java service.")
         }
 
@@ -60,7 +63,7 @@ public class JavaServiceRunner implements ServiceRunner {
                 c = Thread.currentThread().getContextClassLoader().loadClass(sd.location)
                 classCache.put(sd.location, c)
             }
-            Method m = c.getMethod((String) sd.serviceNode."@method", ExecutionContext.class)
+            Method m = c.getMethod(sd.serviceNode.attribute("method"), ExecutionContext.class)
             if (Modifier.isStatic(m.getModifiers())) {
                 result = (Map<String, Object>) m.invoke(null, sfi.ecfi.getExecutionContext())
             } else {
@@ -69,7 +72,7 @@ public class JavaServiceRunner implements ServiceRunner {
         } catch (ClassNotFoundException e) {
             throw new ServiceException("Could not find class for java service [${sd.serviceName}]", e)
         } catch (NoSuchMethodException e) {
-            throw new ServiceException("Java Service [${sd.serviceName}] specified method [${sd.serviceNode."@method"}] that does not exist in class [${sd.location}]", e)
+            throw new ServiceException("Java Service [${sd.serviceName}] specified method [${sd.serviceNode.attribute("method")}] that does not exist in class [${sd.location}]", e)
         } catch (SecurityException e) {
             throw new ServiceException("Access denied in service [${sd.serviceName}]", e)
         } catch (IllegalAccessException e) {

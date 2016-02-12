@@ -68,14 +68,14 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
-            <if condition="datasourceNode.'@database-conf-name' == 'h2'"><then>
+            <if condition="datasourceNode.attribute('database-conf-name') == 'h2'"><then>
                 <service-call name="org.moqui.impl.TenantServices.provision#TenantH2" in-map="context" out-map="context"/>
-            </then><else-if condition="datasourceNode.'@database-conf-name' == 'derby'">
+            </then><else-if condition="datasourceNode.attribute('database-conf-name') == 'derby'">
                 <service-call name="org.moqui.impl.TenantServices.provision#TenantDerby" in-map="context" out-map="context"/>
-            </else-if><else-if condition="datasourceNode.'@database-conf-name' == 'mysql'">
+            </else-if><else-if condition="datasourceNode.attribute('database-conf-name') == 'mysql'">
                 <service-call name="org.moqui.impl.TenantServices.provision#TenantMySQL" in-map="context" out-map="context"/>
             </else-if><else>
-                <return error="true" message="Cannot provision tenant for database ${datasourceNode.'@database-conf-name'}"/>
+                <return error="true" message="Cannot provision tenant for database ${datasourceNode.attribute('database-conf-name')}"/>
             </else></if>
         </actions>
     </service>
@@ -185,9 +185,9 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
-            <set field="xaProperties" from="datasourceNode.'inline-jdbc'?.first?.'xa-properties'?.first"/>
-            <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.'@user' : 'sa'"/></if>
-            <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.'@password' : 'sa'"/></if>
+            <set field="xaProperties" from="datasourceNode.first('inline-jdbc').first('xa-properties')"/>
+            <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.attribute('user') : 'sa'"/></if>
+            <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.attribute('password') : 'sa'"/></if>
 
             <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
 
@@ -215,8 +215,8 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
             <set field="xaProperties" from="datasourceNode.'inline-jdbc'?.first?.'xa-properties'?.first"/>
-            <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.'@user' : 'moqui'"/></if>
-            <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.'@password' : 'moqui'"/></if>
+            <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.attribute('user') : 'moqui'"/></if>
+            <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.attribute('password') : 'moqui'"/></if>
 
             <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
 

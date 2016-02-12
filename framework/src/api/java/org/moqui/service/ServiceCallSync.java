@@ -35,11 +35,40 @@ public interface ServiceCallSync extends ServiceCall {
     /** By default a service uses the existing transaction or begins a new one if no tx is in place. Set this flag to
      * ignore the transaction, not checking for one or starting one if no transaction is in place. */
     ServiceCallSync ignoreTransaction(boolean ignoreTransaction);
+
     /** If true suspend/resume the current transaction (if a transaction is active) and begin a new transaction for the
      * scope of this service call.
+     *
      * @return Reference to this for convenience.
      */
     ServiceCallSync requireNewTransaction(boolean requireNewTransaction);
+
+    /** Run service in a separate thread and wait for result. This is an alternative to requireNewTransaction that
+     * avoids suspend and resume of the current transaction. This is also different from an async service call.
+     *
+     * Ignored for multi service calls.
+     *
+     * WARNING: Runs in a separate thread and with a separate ExecutionContext
+     *
+     * @return Reference to this for convenience.
+     */
+    ServiceCallSync separateThread(boolean st);
+
+    /** Use the write-through TransactionCache.
+     *
+     * WARNING: test thoroughly with this. While various services will run much faster there can be issues with no
+     * changes going to the database until commit (for view-entity queries depending on data, etc).
+     *
+     * Some known limitations:
+     * - find list and iterate don't cache results (but do filter and add to results aside from limitations below)
+     * - EntityListIterator.getPartialList() and iterating through results with next/previous does not add created values
+     * - find with DB limit will return wrong number of values if deleted values were in the results
+     * - find count doesn't add for created values, subtract for deleted values, and for updates if old matched and new doesn't subtract and vice-versa
+     * - view-entities won't work, they don't incorporate results from TX Cache
+     * - if a value is created or update, then a record with FK is created, then the value is updated again commit writes may fail with FK violation (see update() method for other notes)
+     *
+     * @return Reference to this for convenience.
+     */
     ServiceCallSync useTransactionCache(boolean useTransactionCache);
 
     /** Normally service won't run if there was an error (ec.message.hasError()), set this to true to run anyway. */

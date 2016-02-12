@@ -87,7 +87,7 @@ public class Moqui {
 
         EntityDataLoader edl = ec.getEntity().makeDataLoader();
         if (argMap.containsKey("types"))
-            edl.dataTypes(new HashSet<String>(Arrays.asList(argMap.get("types").split(","))));
+            edl.dataTypes(new HashSet<>(Arrays.asList(argMap.get("types").split(","))));
         if (argMap.containsKey("components"))
             edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
         if (argMap.containsKey("location")) edl.location(argMap.get("location"));

@@ -20,14 +20,15 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ContextBinding
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.context.ContextStack
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ScreenSection {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenSection.class)
 
-    protected Node sectionNode
+    protected MNode sectionNode
     protected String location
 
     protected Class conditionClass = null
@@ -36,38 +37,37 @@ class ScreenSection {
     protected ScreenWidgets widgets = null
     protected ScreenWidgets failWidgets = null
 
-    ScreenSection(ExecutionContextFactoryImpl ecfi, Node sectionNode, String location) {
+    ScreenSection(ExecutionContextFactoryImpl ecfi, MNode sectionNode, String location) {
         this.sectionNode = sectionNode
         this.location = location
 
         // prep condition attribute
-        String conditionAttr = sectionNode."@condition"
+        String conditionAttr = sectionNode.attribute("condition")
         if (conditionAttr) conditionClass = new GroovyClassLoader().parseClass(conditionAttr)
 
         // prep condition element
-        if (sectionNode.condition && sectionNode.condition[0].children()) {
+        if (sectionNode.first("condition")?.first() != null) {
             // the script is effectively the first child of the condition element
-            condition = new XmlAction(ecfi, (Node) sectionNode."condition"[0].children()[0], location + ".condition")
+            condition = new XmlAction(ecfi, sectionNode.first("condition").first(), location + ".condition")
         }
         // prep actions
-        if (sectionNode.actions) {
-            actions = new XmlAction(ecfi, (Node) sectionNode."actions"[0], location + ".actions")
+        if (sectionNode.hasChild("actions")) {
+            actions = new XmlAction(ecfi, sectionNode.first("actions"), location + ".actions")
             // if (location.contains("FOO")) logger.warn("====== Actions for ${location}: ${actions.writeGroovyWithLines()}")
         }
         // prep widgets
-        if (sectionNode.widgets) widgets = new ScreenWidgets((Node) sectionNode."widgets"[0], location + ".widgets")
+        if (sectionNode.hasChild("widgets")) widgets = new ScreenWidgets(sectionNode.first("widgets"), location + ".widgets")
         // prep fail-widgets
-        if (sectionNode."fail-widgets") {
-            failWidgets = new ScreenWidgets((Node) sectionNode."fail-widgets"[0], location + ".fail-widgets")
-        }
+        if (sectionNode.hasChild("fail-widgets"))
+            failWidgets = new ScreenWidgets(sectionNode.first("fail-widgets"), location + ".fail-widgets")
     }
 
     @CompileStatic
     void render(ScreenRenderImpl sri) {
         ContextStack cs = (ContextStack) sri.ec.context
-        if (sectionNode.name() == "section-iterate") {
+        if (sectionNode.name == "section-iterate") {
             // if nothing to iterate over, all done
-            def list = sri.ec.resource.expression(sectionNode["@list"] as String, null)
+            Object list = sri.ec.resource.expression(sectionNode.attribute("list"), null)
             if (!list) {
                 if (logger.traceEnabled) logger.trace("Target list [${list}] is empty, not rendering section-iterate at [${location}]")
                 return

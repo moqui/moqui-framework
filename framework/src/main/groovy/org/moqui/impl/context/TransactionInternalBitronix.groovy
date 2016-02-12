@@ -16,17 +16,19 @@ package org.moqui.impl.context
 import bitronix.tm.BitronixTransactionManager
 import bitronix.tm.TransactionManagerServices
 import bitronix.tm.resource.jdbc.PoolingDataSource
-
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.TransactionInternal
 import org.moqui.entity.EntityFacade
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.util.MNode
 
 import javax.sql.DataSource
 import javax.transaction.TransactionManager
 import javax.transaction.UserTransaction
 import java.sql.Connection
 
+@CompileStatic
 class TransactionInternalBitronix implements TransactionInternal {
 
     protected ExecutionContextFactoryImpl ecfi
@@ -61,7 +63,7 @@ class TransactionInternalBitronix implements TransactionInternal {
     }
 
     @Override
-    DataSource getDataSource(EntityFacade ef, Node datasourceNode, String tenantId) {
+    DataSource getDataSource(EntityFacade ef, MNode datasourceNode, String tenantId) {
         // NOTE: this is called during EFI init, so use the passed one and don't try to get from ECFI
         EntityFacadeImpl efi = (EntityFacadeImpl) ef
 
@@ -80,7 +82,8 @@ class TransactionInternalBitronix implements TransactionInternal {
             pds.getDriverProperties().setProperty("password", dsi.jdbcPassword)
         }
 
-        String txIsolationLevel = dsi.inlineJdbc."@isolation-level" ? dsi.inlineJdbc."@isolation-level" : dsi.database."@default-isolation-level"
+        String txIsolationLevel = dsi.inlineJdbc.attribute("isolation-level") ?
+                dsi.inlineJdbc.attribute("isolation-level") : dsi.database.attribute("default-isolation-level")
         int isolationInt = efi.getTxIsolationFromString(txIsolationLevel)
         if (txIsolationLevel && isolationInt != -1) {
             switch (isolationInt) {
@@ -93,13 +96,13 @@ class TransactionInternalBitronix implements TransactionInternal {
         }
 
         // no need for this, just sets min and max sizes: ads.setPoolSize
-        if (dsi.inlineJdbc."@pool-minsize") pds.setMinPoolSize(dsi.inlineJdbc."@pool-minsize" as int)
-        if (dsi.inlineJdbc."@pool-maxsize") pds.setMaxPoolSize(dsi.inlineJdbc."@pool-maxsize" as int)
+        if (dsi.inlineJdbc.attribute("pool-minsize")) pds.setMinPoolSize(dsi.inlineJdbc.attribute("pool-minsize") as int)
+        if (dsi.inlineJdbc.attribute("pool-maxsize")) pds.setMaxPoolSize(dsi.inlineJdbc.attribute("pool-maxsize") as int)
 
-        if (dsi.inlineJdbc."@pool-time-idle") pds.setMaxIdleTime(dsi.inlineJdbc."@pool-time-idle" as int)
+        if (dsi.inlineJdbc.attribute("pool-time-idle")) pds.setMaxIdleTime(dsi.inlineJdbc.attribute("pool-time-idle") as int)
         // if (dsi.inlineJdbc."@pool-time-reap") ads.setReapTimeout(dsi.inlineJdbc."@pool-time-reap" as int)
         // if (dsi.inlineJdbc."@pool-time-maint") ads.setMaintenanceInterval(dsi.inlineJdbc."@pool-time-maint" as int)
-        if (dsi.inlineJdbc."@pool-time-wait") pds.setAcquisitionTimeout(dsi.inlineJdbc."@pool-time-wait" as int)
+        if (dsi.inlineJdbc.attribute("pool-time-wait")) pds.setAcquisitionTimeout(dsi.inlineJdbc.attribute("pool-time-wait") as int)
         pds.setAllowLocalTransactions(true) // allow mixing XA and non-XA transactions
         pds.setAutomaticEnlistingEnabled(true) // automatically enlist/delist this resource in the tx
         pds.setShareTransactionConnections(true) // share connections within a transaction
@@ -107,10 +110,10 @@ class TransactionInternalBitronix implements TransactionInternal {
         // pds.setShareTransactionConnections(false) // don't share connections in the ACCESSIBLE, needed?
         // pds.setIgnoreRecoveryFailures(false) // something to consider for XA recovery errors, quarantines by default
 
-        if (dsi.inlineJdbc."@pool-test-query") {
-            pds.setTestQuery((String) dsi.inlineJdbc."@pool-test-query")
-        } else if (dsi.database."@default-test-query") {
-            pds.setTestQuery((String) dsi.database."@default-test-query")
+        if (dsi.inlineJdbc.attribute("pool-test-query")) {
+            pds.setTestQuery(dsi.inlineJdbc.attribute("pool-test-query"))
+        } else if (dsi.database.attribute("default-test-query")) {
+            pds.setTestQuery(dsi.database.attribute("default-test-query"))
         }
 
         // init the DataSource

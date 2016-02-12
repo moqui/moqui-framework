@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
+import org.moqui.util.MNode
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 import org.moqui.impl.util.FtlNodeWrapper
@@ -23,11 +24,11 @@ import org.moqui.context.ContextStack
 class ScreenWidgets {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenWidgets.class)
 
-    protected Node widgetsNode
+    protected MNode widgetsNode
     protected FtlNodeWrapper widgetsFtlNode
     protected String location
 
-    ScreenWidgets(Node widgetsNode, String location) {
+    ScreenWidgets(MNode widgetsNode, String location) {
         this.widgetsNode = widgetsNode
         this.location = location
         this.widgetsFtlNode = FtlNodeWrapper.wrapNode(widgetsNode)

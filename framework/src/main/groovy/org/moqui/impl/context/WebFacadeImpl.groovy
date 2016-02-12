@@ -36,7 +36,7 @@ import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
 import org.moqui.impl.service.ServiceXmlRpcDispatcher
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.DumperOptions
@@ -49,6 +49,7 @@ import javax.servlet.http.HttpSession
 import java.security.SecureRandom
 
 /** This class is a facade to easily get information from and about the web context. */
+@CompileStatic
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
 
@@ -118,7 +119,7 @@ class WebFacadeImpl implements WebFacade {
                         request.getCharacterEncoding() ?: "UTF-8")))
             } catch (Throwable t) {
                 logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
-                jsonParameters = [_requestBodyJsonParseError:t.getMessage()]
+                jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
             }
             if (jsonObj instanceof Map) {
                 jsonParameters = (Map<String, Object>) jsonObj
@@ -456,7 +457,7 @@ class WebFacadeImpl implements WebFacade {
     static String makeWebappRootUrl(String webappName, String servletContextPath, ExecutionContextImpl eci, WebFacade webFacade,
                                     boolean requireEncryption, boolean needFullUrl) {
         HttpServletRequest request = webFacade.getRequest()
-        Node webappNode = (Node) eci.ecfi.confXmlRoot."webapp-list"[0]."webapp".find({ it.@name == webappName })
+        MNode webappNode = eci.ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
         StringBuilder urlBuilder = new StringBuilder()
         // build base from conf
         if (needFullUrl && webappNode) {
@@ -655,7 +656,7 @@ class WebFacadeImpl implements WebFacade {
         response.setContentType(contentType)
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
-        int length = responseText ? responseText.getBytes(charset).length : 0
+        int length = responseText ? responseText.getBytes(charset).length : 0I
         response.setContentLength(length)
 
         if (!filename) {

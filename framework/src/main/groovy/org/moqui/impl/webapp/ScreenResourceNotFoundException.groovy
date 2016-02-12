@@ -11,10 +11,12 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.webapp;
+package org.moqui.impl.webapp
 
+import groovy.transform.CompileStatic;
 import org.moqui.impl.screen.ScreenDefinition;
 
+@CompileStatic
 public class ScreenResourceNotFoundException extends RuntimeException {
     ScreenDefinition rootSd;
     List<String> fullPathNameList;

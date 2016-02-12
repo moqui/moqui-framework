@@ -35,7 +35,7 @@ import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -225,12 +225,12 @@ class ScreenUrlInfo {
             // logger.warn("TOREMOVE checking screen for user ${username} - ${aeii}")
 
             boolean isLast = (index == screenPathDefList.size())
-            Node screenNode = screenDef.getScreenNode()
+            MNode screenNode = screenDef.getScreenNode()
 
             // if screen is limited to certain tenants, and current tenant is not in the Set, it is not permitted
             if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) return false
 
-            String requireAuthentication = (String) screenNode.attribute('require-authentication')
+            String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(username, aeii, lastAeii,
                     isLast ? (!requireAuthentication || requireAuthentication == "true") : false,
                     false, ec.getUser().getNowTimestamp())) {
@@ -445,10 +445,9 @@ class ScreenUrlInfo {
             }
 
             // if any conditional-default.@condition eval to true, use that conditional-default.@item instead
-            NodeList condDefaultList = (NodeList) lastSd.getSubscreensNode()?.get("conditional-default")
-            if (condDefaultList) for (Object conditionalDefaultObj in condDefaultList) {
-                Node conditionalDefaultNode = (Node) conditionalDefaultObj
-                String condStr = (String) conditionalDefaultNode.attribute('condition')
+            List<MNode> condDefaultList = lastSd.getSubscreensNode()?.children("conditional-default")
+            if (condDefaultList) for (MNode conditionalDefaultNode in condDefaultList) {
+                String condStr = conditionalDefaultNode.attribute('condition')
                 if (!condStr) continue
                 if (ecfi.getResource().condition(condStr, null)) {
                     subscreenName = conditionalDefaultNode.attribute('item')

@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.moqui.util.MNode
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -32,6 +33,7 @@ import net.sf.ehcache.store.MemoryStoreEvictionPolicy
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 public class CacheFacadeImpl implements CacheFacade {
     protected final static Logger logger = LoggerFactory.getLogger(CacheFacadeImpl.class)
 
@@ -93,7 +95,7 @@ public class CacheFacadeImpl implements CacheFacade {
                     evictionStrategy:getEvictionStrategyString(co.evictionStrategy), size:co.size(),
                     hitCount:co.getHitCount(), missCountNotFound:co.getMissCountNotFound(),
                     missCountExpired:co.getMissCountExpired(), missCountTotal:co.getMissCountTotal(),
-                    removeCount:co.getRemoveCount()])
+                    removeCount:co.getRemoveCount()] as Map<String, Object>)
         }
         if (orderByField) StupidUtilities.orderMapList(ci, [orderByField])
         return ci
@@ -118,26 +120,27 @@ public class CacheFacadeImpl implements CacheFacade {
 
         // set any applicable settings from the moqui conf xml file
         CacheConfiguration newCacheConf = newCache.getCacheConfiguration()
-        Node confXmlRoot = this.ecfi.getConfXmlRoot()
-        Node cacheElement = (Node) confXmlRoot."cache-list".cache.find({ it."@name" == cacheName })
+        MNode confXmlRoot = this.ecfi.getConfXmlRoot()
+        MNode cacheElement = confXmlRoot.first("cache-list").first({ MNode it -> it.name == "cache" && it.attribute("name") == cacheName })
         // nothing found? try starts with, ie allow the cache configuration to be a prefix
-        if (cacheElement == null) cacheElement = (Node) confXmlRoot."cache-list".cache.find({ cacheName.startsWith(it."@name") })
+        if (cacheElement == null) cacheElement = confXmlRoot.first("cache-list")
+                .first({ MNode it -> it.name == "cache" && cacheName.startsWith(it.attribute("name")) })
 
         boolean eternal = true
-        if (cacheElement?."@expire-time-idle") {
-            newCacheConf.setTimeToIdleSeconds(Long.valueOf((String) cacheElement."@expire-time-idle"))
+        if (cacheElement?.attribute("expire-time-idle")) {
+            newCacheConf.setTimeToIdleSeconds(Long.valueOf(cacheElement.attribute("expire-time-idle")))
             eternal = false
         }
-        if (cacheElement?."@expire-time-live") {
-            newCacheConf.setTimeToLiveSeconds(Long.valueOf((String) cacheElement."@expire-time-live"))
+        if (cacheElement?.attribute("expire-time-live")) {
+            newCacheConf.setTimeToLiveSeconds(Long.valueOf(cacheElement.attribute("expire-time-live")))
             eternal = false
         }
         newCacheConf.setEternal(eternal)
 
-        if (cacheElement?."@max-elements") {
-            newCacheConf.setMaxEntriesLocalHeap(Integer.valueOf((String) cacheElement."@max-elements"))
+        if (cacheElement?.attribute("max-elements")) {
+            newCacheConf.setMaxEntriesLocalHeap(Integer.valueOf(cacheElement.attribute("max-elements")))
         }
-        String evictionStrategy = cacheElement?."@eviction-strategy"
+        String evictionStrategy = cacheElement?.attribute("eviction-strategy")
         if (evictionStrategy) {
             if ("least-recently-used" == evictionStrategy) {
                 newCacheConf.setMemoryStoreEvictionPolicyFromObject(MemoryStoreEvictionPolicy.LRU)
