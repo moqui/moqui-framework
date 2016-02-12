@@ -181,7 +181,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     @CompileStatic
-    protected ServiceDefinition makeServiceDefinition(String origServiceName, String path, String verb, String noun) {
+    protected synchronized ServiceDefinition makeServiceDefinition(String origServiceName, String path, String verb, String noun) {
         String cacheKey = makeCacheKey(path, verb, noun)
         if (serviceLocationCache.containsKey(cacheKey)) {
             // NOTE: this could be null if it's a known non-existing service
