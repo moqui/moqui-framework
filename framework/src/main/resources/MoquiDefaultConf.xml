@@ -476,7 +476,7 @@
         </database>
         <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
                 table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
-                default-isolation-level="ReadCommitted" use-tm-join="false"
+                default-isolation-level="ReadCommitted" use-tm-join="true"
                 default-jdbc-driver="com.mysql.jdbc.Driver"
                 default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
                 default-test-query="SELECT 1">
