@@ -27,6 +27,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
+import org.moqui.screen.ScreenTest
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -59,7 +60,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
     final FtlTemplateRenderer ftlTemplateRenderer
     final XmlActionsScriptRunner xmlActionsScriptRunner
 
-    protected final Cache scriptGroovyExpressionCache
+    // the groovy Script object is not thread safe, so have one per thread per expression; can be reused as thread is reused
+    protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>()
+    protected final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>()
+
     protected final Cache textLocationCache
     protected final Cache resourceReferenceByLocation
 
@@ -82,7 +86,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         xmlActionsScriptRunner.init(ecfi)
 
         textLocationCache = ecfi.getCacheFacade().getCache("resource.text.location")
-        scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
+        // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
         resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location")
 
         // Setup resource reference classes
@@ -396,6 +400,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         try {
             Script script = getGroovyScript(expression)
             Object result = script.run()
+            closeScript(expression, script)
             return result as boolean
         } catch (Exception e) {
             throw new IllegalArgumentException("Error in condition [${expression}] from [${debugLocation}]", e)
@@ -436,6 +441,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         try {
             Script script = getGroovyScript(expression)
             Object result = script.run()
+            closeScript(expression, script)
             return result
         } catch (Exception e) {
             throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
@@ -511,6 +517,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 Script script = getGroovyScript(expression)
                 if (script == null) return null
                 Object result = script.run()
+                closeScript(expression, script)
                 return result as String
             } catch (Exception e) {
                 throw new IllegalArgumentException("Error in string expression [${expression}] from [${debugLocation}]", e)
@@ -522,13 +529,28 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @CompileStatic
     Script getGroovyScript(String expression) {
-        Class groovyClass = (Class) this.scriptGroovyExpressionCache.get(expression)
-        if (groovyClass == null) {
-            groovyClass = new GroovyClassLoader().parseClass(expression)
-            this.scriptGroovyExpressionCache.put(expression, groovyClass)
+        ContextBinding curBinding = ecfi.eci.getContextBinding()
+        Map<String, Script> curScriptByExpr = threadScriptByExpression.get()
+        if (curScriptByExpr == null) {
+            curScriptByExpr = new HashMap<String, Script>()
+            threadScriptByExpression.set(curScriptByExpr)
         }
-        Script script = InvokerHelper.createScript(groovyClass, getEcfi().getEci().getContextBinding())
+        Script script = curScriptByExpr.get(expression)
+        if (script == null) {
+            Class groovyClass = this.scriptGroovyExpressionCache.get(expression)
+            if (groovyClass == null) {
+                groovyClass = new GroovyClassLoader().parseClass(expression)
+                this.scriptGroovyExpressionCache.put(expression, groovyClass)
+            }
+            script = InvokerHelper.createScript(groovyClass, curBinding)
+        } else {
+            script.setBinding(curBinding)
+        }
+
         return script
+    }
+    void closeScript(String expression, Script script) {
+        script.setBinding(null)
     }
 
     @CompileStatic
