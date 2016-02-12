@@ -1462,40 +1462,25 @@ class EntityFacadeImpl implements EntityFacade {
                     this.entitySequenceBankCache.put(bankCacheKey, bank)
                 }
 
-                // separate thread to avoid suspend/resume transaction
-                Thread sqlThread = Thread.start('SequencedIdPrimary', {
-                    ExecutionContextImpl threadEci = ecfi.getEci()
-                    // NOTE: changeTenant not required here because we'll continue using the reference to this instance of the EFI
-                    TransactionFacade tf = ecfi.getTransactionFacade()
-                    boolean beganTransaction = tf.begin(null)
-                    try {
-                        EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
-                                .useCache(false).forUpdate(true).one()
-                        if (svi == null) {
-                            svi = makeValue("moqui.entity.SequenceValueItem")
-                            svi.set("seqName", seqName)
-                            // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
-                            bank[0] = 100000L
-                            bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
-                            svi.set("seqNum", bank[1])
-                            svi.create()
-                        } else {
-                            Long lastSeqNum = svi.getLong("seqNum")
-                            bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
-                            bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
-                            svi.set("seqNum", bank[1])
-                            svi.update()
-                        }
-                    } catch (Throwable t) {
-                        tf.rollback(beganTransaction, "Error getting primary sequenced ID", t)
-                    } finally {
-                        if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
-                        threadEci.destroy()
+                ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", {
+                    EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
+                            .useCache(false).forUpdate(true).one()
+                    if (svi == null) {
+                        svi = makeValue("moqui.entity.SequenceValueItem")
+                        svi.set("seqName", seqName)
+                        // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
+                        bank[0] = 100000L
+                        bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
+                        svi.set("seqNum", bank[1])
+                        svi.create()
+                    } else {
+                        Long lastSeqNum = svi.getLong("seqNum")
+                        bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
+                        bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
+                        svi.set("seqNum", bank[1])
+                        svi.update()
                     }
-                } )
-                // wait for thread to finish, following operations often depend on this being done
-                // 10 seconds, shouldn't have DB operations longer than this, but want some sort of timeout
-                sqlThread.join(10000)
+                })
             }
 
             long seqNum = bank[0]

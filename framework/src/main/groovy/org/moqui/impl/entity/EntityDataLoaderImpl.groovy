@@ -262,47 +262,31 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             // load the XML text in its own transaction
             if (this.xmlText) {
-                boolean beganTransaction = tf.begin(transactionTimeout)
-                try {
+                tf.runUseOrBegin(null, "Error loading XML entity data", {
                     XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
                     exh.setLocation("xmlText")
                     reader.setContentHandler(exh)
                     reader.parse(new InputSource(new StringReader(this.xmlText)))
-                } catch (Throwable t) {
-                    tf.rollback(beganTransaction, "Error loading XML entity data", t)
-                    throw t
-                } finally {
-                    tf.commit(beganTransaction)
-                }
+                })
             }
 
             // load the CSV text in its own transaction
             if (this.csvText) {
-                boolean beganTransaction = tf.begin(transactionTimeout)
                 InputStream csvInputStream = new ByteArrayInputStream(csvText.getBytes("UTF-8"))
                 try {
-                    ech.loadFile("csvText", csvInputStream)
-                } catch (Throwable t) {
-                    tf.rollback(beganTransaction, "Error loading CSV entity data", t)
-                    throw t
+                    tf.runUseOrBegin(null, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream) })
                 } finally {
                     if (csvInputStream != null) csvInputStream.close()
-                    tf.commit(beganTransaction)
                 }
             }
 
             // load the JSON text in its own transaction
             if (this.jsonText) {
-                boolean beganTransaction = tf.begin(transactionTimeout)
                 InputStream jsonInputStream = new ByteArrayInputStream(jsonText.getBytes("UTF-8"))
                 try {
-                    ejh.loadFile("jsonText", jsonInputStream)
-                } catch (Throwable t) {
-                    tf.rollback(beganTransaction, "Error loading JSON entity data", t)
-                    throw t
+                    tf.runUseOrBegin(null, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream) })
                 } finally {
                     if (jsonInputStream != null) jsonInputStream.close()
-                    tf.commit(beganTransaction)
                 }
             }
 

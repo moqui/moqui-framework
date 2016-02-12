@@ -44,6 +44,8 @@ New Features
   previous release compatibility version
 - Added methods to L10nFacade that accept a Locale when something other
   than the current user's locale is needed
+- Added TransactionFacade runUseOrBegin() and runRequireNew() methods to
+  run code (through a Groovy Closure) in a transaction
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on

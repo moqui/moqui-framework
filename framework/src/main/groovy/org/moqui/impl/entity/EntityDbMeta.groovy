@@ -666,32 +666,22 @@ class EntityDbMeta {
         sqlLock.lock()
         int records = 0
         try {
-            // separate thread to avoid suspend/resume transaction
-            Thread sqlThread = Thread.start('DbMetaSql', {
-                ExecutionContextImpl threadEci = efi.ecfi.getEci()
-                // NOTE: changeTenant not required here because we'll continue using the reference to this instance of the EFI
+            // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
+            efi.ecfi.getTransactionFacade().runRequireNew(5, "", useTxForMetaData, {
                 Connection con = null
                 Statement stmt = null
 
-                // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
-                boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
                 try {
                     con = efi.getConnection(groupName)
                     stmt = con.createStatement()
                     records = stmt.executeUpdate(sql.toString())
                 } catch (SQLException e) {
                     logger.error("SQL Exception while executing the following SQL [${sql.toString()}]: ${e.toString()}")
-                    if (useTxForMetaData) efi.ecfi.transactionFacade.rollback(beganTx, "SQL meta data update failed; SQL [${sql.toString()}]", e)
                 } finally {
                     if (stmt != null) stmt.close()
                     if (con != null) con.close()
-                    if (beganTx) efi.ecfi.transactionFacade.commit()
-                    threadEci.destroy()
                 }
-            } )
-            // wait for thread to finish, following operations often depend on this being done
-            // 10 seconds, shouldn't have DB operations longer than this, but want some sort of timeout
-            sqlThread.join(10000)
+            })
         } finally {
             sqlLock.unlock()
         }

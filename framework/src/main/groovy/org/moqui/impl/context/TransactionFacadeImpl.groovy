@@ -44,6 +44,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     protected TransactionManager tm
 
     protected boolean useTransactionCache = true
+    protected boolean requireNewThread = false
 
     private ThreadLocal<ArrayList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<ArrayList<TxStackInfo>>()
 
@@ -130,6 +131,72 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
     protected TxStackInfo getTxStackInfo() { return getTxStackInfoList().get(0) }
 
+
+    @Override
+    Object runUseOrBegin(Integer timeout, String rollbackMessage, Closure closure) {
+        if (rollbackMessage == null) rollbackMessage = ""
+        boolean beganTransaction = begin(timeout)
+        try {
+            return closure.call()
+        } catch (Throwable t) {
+            rollback(beganTransaction, rollbackMessage, t)
+            throw t
+        } finally {
+            commit(beganTransaction)
+        }
+    }
+    @Override
+    Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure) {
+        return runRequireNew(timeout, rollbackMessage, true, closure)
+    }
+    Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, Closure closure) {
+        Object result = null
+        if (requireNewThread) {
+            Thread txThread = null
+            ExecutionContextImpl eci = ecfi.getEci()
+            String threadUsername = eci.user.username
+            String threadTenantId = eci.tenantId
+            boolean threadDisableAuthz = eci.artifactExecutionFacade.getAuthzDisabled()
+            Throwable threadThrown = null
+            try {
+                txThread = Thread.start('RequireNewTransaction', {
+                    ExecutionContextImpl threadEci = ecfi.getEci()
+                    threadEci.changeTenant(threadTenantId)
+                    if (threadUsername) threadEci.getUserFacade().internalLoginUser(threadUsername, threadTenantId)
+                    // if authz disabled need to do it here as well since we'll have a different ExecutionContext
+                    boolean threadEnableAuthz = threadDisableAuthz ? !threadEci.getArtifactExecution().disableAuthz() : false
+                    try {
+                        if (beginTx) {
+                            result = runUseOrBegin(timeout, rollbackMessage, closure)
+                        } else {
+                            result = closure.call()
+                        }
+                    } catch (Throwable t) {
+                        threadThrown = t
+                    } finally {
+                        if (threadEnableAuthz) threadEci.getArtifactExecution().enableAuthz()
+                        threadEci.destroy()
+                    }
+                } )
+            } finally {
+                if (txThread != null) txThread.join(timeout ?: 60)
+            }
+            if (threadThrown != null) throw threadThrown
+        } else {
+            boolean suspendedTransaction = false
+            try {
+                if (isTransactionInPlace()) suspendedTransaction = suspend()
+                if (beginTx) {
+                    result = runUseOrBegin(timeout, rollbackMessage, closure)
+                } else {
+                    result = closure.call()
+                }
+            } finally {
+                if (suspendedTransaction) resume()
+            }
+        }
+        return result
+    }
 
     @Override
     XAResource getActiveXaResource(String resourceName) {
