@@ -23,7 +23,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ContextBinding
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -36,7 +36,7 @@ class XmlAction {
     protected final String groovyString
     protected final String location
 
-    XmlAction(ExecutionContextFactoryImpl ecfi, Node xmlNode, String location) {
+    XmlAction(ExecutionContextFactoryImpl ecfi, MNode xmlNode, String location) {
         this.location = location
         FtlNodeWrapper ftlNode = FtlNodeWrapper.wrapNode(xmlNode)
         groovyString = makeGroovyString(ecfi, ftlNode, location)
@@ -45,6 +45,7 @@ class XmlAction {
             groovyClass = new GroovyClassLoader(Thread.currentThread().getContextClassLoader())
                     .parseClass(groovyString, StupidUtilities.cleanStringForJavaName(location))
         } catch (Throwable t) {
+            groovyClass = null
             logger.error("Error parsing groovy String at [${location}]:\n${writeGroovyWithLines()}\n")
             throw t
         }
@@ -62,6 +63,7 @@ class XmlAction {
         try {
             groovyClass = new GroovyClassLoader().parseClass(groovyString, StupidUtilities.cleanStringForJavaName(location))
         } catch (Throwable t) {
+            groovyClass = null
             logger.error("Error parsing groovy String at [${location}]:\n${writeGroovyWithLines()}\n")
             throw t
         }

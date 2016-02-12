@@ -101,54 +101,50 @@ class ToolsScreenRenderTests extends Specification {
         // run with very few baseCalls so it doesn't take too long
         "Entity/SpeedTest?baseCalls=10" | "" | ""
 
-        /* TODO alternative for example
         // Service screens
-        "Service/ServiceReference?serviceName=example" |
-                "moqui.example.ExampleServices.create#ExampleItem" | "Service Detail"
-        "Service/ServiceDetail?serviceName=moqui.example.ExampleServices.consume#ExampleMessage" |
-                "moqui.service.message.SystemMessage" | """ec.service.sync().name("store#moqui.example.Example")"""
-        "Service/ServiceRun?serviceName=moqui.example.ExampleServices.create#ExampleItem" |
-                "Example ID" | "Cron String"
+        "Service/ServiceReference?serviceName=UserServices" |
+                "org.moqui.impl.UserServices.create#UserAccount" | "Service Detail"
+        "Service/ServiceDetail?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
+                "moqui.security.UserAccount.username" | """ec.service.sync().name("create#moqui.security.UserAccount")"""
+        "Service/ServiceRun?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
+                "User Full Name" | "Cron String"
         // run the service, then make sure it ran
-        "Service/ServiceRun/run?serviceName=moqui.example.ExampleServices.create#ExampleItem&exampleId=TEST_SCR&description=ServiceRun Screen Test Item" | "" | ""
-        "Entity/DataEdit/EntityDataFind?exampleId=TEST_SCR&entityName=moqui.example.ExampleItem" |
-                "ServiceRun Screen Test Item" | ""
-        */
+        "Service/ServiceRun/run?serviceName=org.moqui.impl.UserServices.create#UserAccount&username=ScreenTest&newPassword=moqui1!&newPasswordVerify=moqui1!&userFullName=Screen Test User&emailAddress=screen@test.com" | "" | ""
+        "Entity/DataEdit/EntityDataFind?username=ScreenTest&entityName=moqui.security.UserAccount" |
+                "Screen Test User" | "screen@test.com"
     }
 
-    /* TODO alternative for example
     def "render DataView screens"() {
         // create a DbViewEntity, set MASTER and fields, view it
         when:
         ScreenTestRender createStr = screenTest.render("DataView/FindDbView/create",
-                [dbViewEntityName:'ExampleDbView', packageName:'moqui.example', isDataView:'Y'], null)
+                [dbViewEntityName: 'UomDbView', packageName: 'moqui.basic', isDataView: 'Y'], null)
         logger.info("Called FindDbView/create in ${createStr.getRenderTime()}ms")
 
         ScreenTestRender fdvStr = screenTest.render("DataView/FindDbView", null, null)
         logger.info("Rendered DataView/FindDbView in ${fdvStr.getRenderTime()}ms, ${fdvStr.output?.length()} characters")
 
         ScreenTestRender setMeStr = screenTest.render("DataView/EditDbView/setMasterEntity",
-                [dbViewEntityName:'ExampleDbView', entityAlias:'MASTER', entityName:'moqui.example.Example'], null)
+                [dbViewEntityName: 'UomDbView', entityAlias: 'MASTER', entityName: 'moqui.basic.Uom'], null)
         logger.info("Called EditDbView/setMasterEntity in ${setMeStr.getRenderTime()}ms")
 
         ScreenTestRender setMfStr = screenTest.render("DataView/EditDbView/setMasterFields",
-                [dbViewEntityName_0:'ExampleDbView', field_0:'moqui.example.Example.exampleName',
-                 dbViewEntityName_1:'ExampleDbView', field_1:'Example#moqui.basic.StatusItem.description',
-                 dbViewEntityName_2:'ExampleDbView', field_2:'ExampleType#moqui.basic.Enumeration.description'], null)
+                [dbViewEntityName_0: 'UomDbView', field_0: 'moqui.basic.Uom.description',
+                 dbViewEntityName_1: 'UomDbView', field_1: 'UomType#moqui.basic.Enumeration.description',
+                 dbViewEntityName_2: 'UomDbView', field_2: 'UomType#moqui.basic.Enumeration.enumTypeId'], null)
         logger.info("Called EditDbView/setMasterFields in ${setMfStr.getRenderTime()}ms")
 
-        ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=ExampleDbView", null, null)
+        ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=UomDbView&orderByField=description", null, null)
         logger.info("Rendered DataView/FindDbView in ${vdvStr.getRenderTime()}ms, ${vdvStr.output?.length()} characters")
 
         then:
         !createStr.errorMessages
         !fdvStr.errorMessages
-        fdvStr.assertContains("ExampleDbView")
+        fdvStr.assertContains("UomDbView")
         !setMeStr.errorMessages
         !setMfStr.errorMessages
         !vdvStr.errorMessages
-        vdvStr.assertContains("Screen Test Example")
-        vdvStr.assertContains("In Design")
+        vdvStr.assertContains("Afghani")
+        vdvStr.assertContains("Area") // for Acre
     }
-    */
 }

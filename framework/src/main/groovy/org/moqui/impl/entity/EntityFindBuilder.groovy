@@ -14,10 +14,13 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.util.MNode
 
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 import org.moqui.entity.EntityException
 
 import org.slf4j.Logger
@@ -39,7 +42,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
     void addLimitOffset(Integer limit, Integer offset) {
         if (limit == null && offset == null) return
-        Node databaseNode = this.efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName())
+        MNode databaseNode = this.efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName())
         // if no databaseNode do nothing, means it is not a standard SQL/JDBC database
         if (databaseNode != null) {
             if (databaseNode.attribute('offset-style') == "limit") {
@@ -60,9 +63,9 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
     void makeDistinct() { this.sqlTopLevel.append("DISTINCT ") }
 
-    void makeCountFunction(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
-        NodeList entityConditionList = (NodeList) this.mainEntityDefinition.getEntityNode().get("entity-condition")
-        Node entityConditionNode = entityConditionList ? (Node) entityConditionList.get(0) : null
+    void makeCountFunction(ArrayList<FieldInfo> fieldInfoList) {
+        ArrayList<MNode> entityConditionList = this.mainEntityDefinition.getEntityNode().children("entity-condition")
+        MNode entityConditionNode = entityConditionList ? entityConditionList.get(0) : null
         boolean isDistinct = this.entityFindBase.getDistinct() || (this.mainEntityDefinition.isViewEntity() &&
                 "true" == entityConditionNode?.attribute('distinct'))
         boolean isGroupBy = this.mainEntityDefinition.hasFunctionAlias()
@@ -80,8 +83,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
              */
             if (fieldInfoList.size() > 0) {
                 // TODO: possible to do all fields selected, or only one in SQL? if do all col names here it will blow up...
-                Node aliasNode = fieldInfoList.get(0).fieldNode
-                if (aliasNode && aliasNode.attribute('function')) {
+                MNode aliasNode = fieldInfoList.get(0).fieldNode
+                if (aliasNode != null && aliasNode.attribute('function')) {
                     // if the field has a function already we don't want to count just it, would be meaningless
                     this.sqlTopLevel.append("COUNT(DISTINCT *) ")
                 } else {
@@ -105,49 +108,34 @@ class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    // protected static final int openParenInt = Character.getNumericValue('(' as char)
-    // protected static final int caretInt = Character.getNumericValue('^' as char)
-    void makeSqlSelectFields(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
+    void makeSqlSelectFields(ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) {
         int size = fieldInfoList.size()
         if (size > 0) {
             for (int i = 0; i < size; i++) {
-                EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+                FieldInfo fi = fieldInfoList.get(i)
                 if (fi.isUserField) continue
 
-                /* no longer supported, don't believe was ever used anyway:
-                FieldOrderOptions foo = null
-                if (fieldName.indexOf(openParenInt) >= 0 || fieldName.indexOf(caretInt) >= 0) {
-                    foo = new FieldOrderOptions(fieldNameFull)
-                    fieldName = foo.fieldName
-                }
-
-                int typeValue = 1
-                EntityDefinition.FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName)
-                if (fieldInfo == null) throw new EntityException("Making SELECT clause, could not find field [${fieldName}] in entity [${getMainEd().getFullEntityName()}]")
-                typeValue = fieldInfo.typeValue
-
-                if (foo != null && foo.caseUpperLower != null && typeValue == 1)
-                    this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
-                */
-
                 if (i > 0) this.sqlTopLevel.append(", ")
+
+                FieldOrderOptions foo = fieldOptionsList != null ? fieldOptionsList.get(i) : null
+                if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1)
+                    this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+
                 this.sqlTopLevel.append(fi.getFullColumnName(false))
 
-                /*
-                if (foo != null && foo.caseUpperLower != null && typeValue == 1)
+                if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1)
                     this.sqlTopLevel.append(")")
-                */
             }
         } else {
             this.sqlTopLevel.append("*")
         }
     }
 
-    void expandJoinFromAlias(Node entityNode, String searchEntityAlias, Set<String> entityAliasUsedSet, Set<String> entityAliasesJoinedInSet) {
+    void expandJoinFromAlias(MNode entityNode, String searchEntityAlias, Set<String> entityAliasUsedSet, Set<String> entityAliasesJoinedInSet) {
         // first see if it needs expanding
         if (entityAliasesJoinedInSet.contains(searchEntityAlias)) return
         // find the a link back one in the set
-        Node memberEntityNode = (Node) entityNode.get("member-entity").find({ ((Node) it).attribute('entity-alias') == searchEntityAlias })
+        MNode memberEntityNode = entityNode.children("member-entity").find({ it.attribute('entity-alias') == searchEntityAlias })
         if (memberEntityNode == null)
             throw new EntityException("Could not find member-entity with entity-alias [${searchEntityAlias}] in view-entity [${entityNode.attribute('entity-name')}]")
         String joinFromAlias = memberEntityNode.attribute('join-from-alias')
@@ -162,17 +150,17 @@ class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    void makeSqlFromClause(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
+    void makeSqlFromClause(ArrayList<FieldInfo> fieldInfoList) {
         makeSqlFromClause(this.mainEntityDefinition, fieldInfoList, this.sqlTopLevel, null)
     }
-    void makeSqlFromClause(EntityDefinition localEntityDefinition, ArrayList<EntityDefinition.FieldInfo> fieldInfoList,
+    void makeSqlFromClause(EntityDefinition localEntityDefinition, ArrayList<FieldInfo> fieldInfoList,
                            StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ")
 
-        Node entityNode = localEntityDefinition.getEntityNode()
+        MNode entityNode = localEntityDefinition.getEntityNode()
 
         if (localEntityDefinition.isViewEntity()) {
-            Node databaseNode = this.efi.getDatabaseNode(localEntityDefinition.getEntityGroupName())
+            MNode databaseNode = this.efi.getDatabaseNode(localEntityDefinition.getEntityGroupName())
             String joinStyle = databaseNode?.attribute('join-style') ?: "ansi"
 
             if ("ansi" != joinStyle && "ansi-no-parenthesis" != joinStyle) {
@@ -193,7 +181,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 ((EntityConditionImplBase) entityFindBase.havingEntityCondition).getAllAliases(entityAliasUsedSet, fieldUsedSet)
 
             for (int i = 0; i < fieldInfoList.size(); i++) {
-                EntityDefinition.FieldInfo fi = fieldInfoList.get(i)
+                FieldInfo fi = fieldInfoList.get(i)
                 if (!fi.isUserField) fieldUsedSet.add(fi.name)
             }
 
@@ -205,17 +193,14 @@ class EntityFindBuilder extends EntityQueryBuilder {
             if (additionalFieldsUsed) fieldUsedSet.addAll(additionalFieldsUsed)
             // get a list of entity aliases used
             for (String fieldName in fieldUsedSet) {
-                Node aliasNode = localEntityDefinition.getFieldNode(fieldName)
+                MNode aliasNode = localEntityDefinition.getFieldNode(fieldName)
                 String entityAlias = aliasNode?.attribute('entity-alias')
                 if (entityAlias) entityAliasUsedSet.add(entityAlias)
-                if (aliasNode?.get("complex-alias")) {
-                    Node complexAliasNode = (Node) ((NodeList) aliasNode.get("complex-alias")).get(0)
-                    for (Object cafObj in (NodeList) complexAliasNode.get("complex-alias-field")) {
-                        if (cafObj instanceof Node) {
-                            Node cafNode = (Node) cafObj
-                            String cafEntityAlias = cafNode.attribute('entity-alias')
-                            if (cafEntityAlias) entityAliasUsedSet.add(cafEntityAlias)
-                        }
+                if (aliasNode != null && aliasNode.hasChild("complex-alias")) {
+                    MNode complexAliasNode = aliasNode.first("complex-alias")
+                    for (MNode cafNode in complexAliasNode.children("complex-alias-field")) {
+                        String cafEntityAlias = cafNode.attribute('entity-alias')
+                        if (cafEntityAlias) entityAliasUsedSet.add(cafEntityAlias)
                     }
                 }
             }
@@ -223,7 +208,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
             //    logger.warn("============== entityAliasUsedSet=${entityAliasUsedSet} for entity ${localEntityDefinition.entityName}\n fieldUsedSet=${fieldUsedSet}\n fieldInfoList=${fieldInfoList}\n orderByFields=${entityFindBase.orderByFields}")
 
             // make sure each entityAlias in the entityAliasUsedSet links back to the main
-            Node memberEntityNode = (Node) entityNode.get("member-entity").find({ !((Node) it).attribute('join-from-alias') })
+            MNode memberEntityNode = entityNode.children("member-entity").find({ !it.attribute('join-from-alias') })
             String mainEntityAlias = memberEntityNode?.attribute('entity-alias')
             Set<String> entityAliasesJoinedInSet = new HashSet<String>()
             entityAliasesJoinedInSet.add(mainEntityAlias)
@@ -240,9 +225,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
             // on initial pass only add opening parenthesis since easier than going back and inserting them, then insert the rest
             boolean isFirst = true
             boolean fromEmpty = true
-            for (Object relatedMemberEntityObj in ((NodeList) entityNode.get("member-entity"))) {
-                Node relatedMemberEntityNode = (Node) relatedMemberEntityObj
-                Map relatedMemberEntityAttr = relatedMemberEntityNode.attributes()
+            for (MNode relatedMemberEntityNode in entityNode.children("member-entity")) {
+                Map relatedMemberEntityAttr = relatedMemberEntityNode.attributes
 
                 String entityAlias = (String) relatedMemberEntityAttr.get('entity-alias')
                 String joinFromAlias = (String) relatedMemberEntityAttr.get('join-from-alias')
@@ -258,7 +242,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 // adding to from, then it's not empty
                 fromEmpty = false
 
-                Node linkMemberNode = (Node) entityNode.get("member-entity").find({ ((Node) it).attribute('entity-alias') == joinFromAlias })
+                MNode linkMemberNode = entityNode.children("member-entity").find({ it.attribute('entity-alias') == joinFromAlias })
                 String linkEntityName = linkMemberNode?.attribute('entity-name')
                 EntityDefinition linkEntityDefinition = this.efi.getEntityDefinition(linkEntityName)
                 String relatedLinkEntityName = relatedMemberEntityAttr.get('entity-name')
@@ -291,17 +275,16 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 makeSqlViewTableName(relatedLinkEntityDefinition, fieldInfoList, localBuilder)
                 localBuilder.append(" ").append(entityAlias).append(" ON ")
 
-                NodeList keyMaps = (NodeList) relatedMemberEntityNode.get("key-map")
+                ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map")
                 if (!keyMaps) {
                     throw new IllegalArgumentException((String) "No member-entity/join key-maps found for the " +
                             joinFromAlias + " and the " + entityAlias +
                             " member-entities of the " + localEntityDefinition.getFullEntityName() + " view-entity.")
                 }
 
-                boolean isFirstKeyMap = true
-                for (Object keyMapObj in keyMaps) {
-                    Node keyMap = (Node) keyMapObj
-                    if (isFirstKeyMap) isFirstKeyMap = false else localBuilder.append(" AND ")
+                for (int i = 0; i < keyMaps.size(); i++) {
+                    MNode keyMap = keyMaps.get(i)
+                    if (i > 0) localBuilder.append(" AND ")
 
                     localBuilder.append(joinFromAlias).append(".")
                     // NOTE: sanitizeColumnName caused issues elsewhere, eliminate here too since we're not using AS clauses
@@ -310,7 +293,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
                     localBuilder.append(" = ")
 
-                    String relatedFieldName = (String) keyMap.attribute('related-field-name') ?: keyMap.attribute('field-name')
+                    String relatedFieldName = keyMap.attribute('related-field-name') ?: keyMap.attribute('field-name')
                     if (!relatedLinkEntityDefinition.isField(relatedFieldName) &&
                             relatedLinkEntityDefinition.pkFieldNames.size() == 1 && keyMaps.size() == 1) {
                         relatedFieldName = relatedLinkEntityDefinition.pkFieldNames.get(0)
@@ -323,10 +306,10 @@ class EntityFindBuilder extends EntityQueryBuilder {
                     // localBuilder.append(sanitizeColumnName(relatedLinkEntityDefinition.getColumnName(relatedFieldName, false)))
                 }
 
-                NodeList entityConditionList = (NodeList) relatedMemberEntityNode.get("entity-condition")
+                ArrayList<MNode> entityConditionList = relatedMemberEntityNode.children("entity-condition")
                 if (entityConditionList) {
                     // add any additional manual conditions for the member-entity view link here
-                    Node entityCondition = (Node) entityConditionList.get(0)
+                    MNode entityCondition = entityConditionList.get(0)
                     EntityConditionImplBase linkEcib = localEntityDefinition.makeViewListCondition(entityCondition)
                     localBuilder.append(" AND ")
                     linkEcib.makeSqlWhere(this)
@@ -337,9 +320,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
             if (!fromEmpty && useParenthesis) localBuilder.append(')')
 
             // handle member-entities not referenced in any member-entity.@join-from-alias attribute
-            for (Object memberEntityObj in ((NodeList) entityNode.get("member-entity"))) {
-                Node memberEntity = (Node) memberEntityObj
-                String memberEntityAlias = (String) memberEntity.attribute('entity-alias')
+            for (MNode memberEntity in entityNode.children("member-entity")) {
+                String memberEntityAlias = memberEntity.attribute('entity-alias')
 
                 // if entity alias not used don't join it in
                 if (!entityAliasUsedSet.contains(memberEntityAlias)) continue
@@ -359,7 +341,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
     /* void makeSqlViewTableName(StringBuilder localBuilder) {
         makeSqlViewTableName(this.mainEntityDefinition, localBuilder)
     } */
-    void makeSqlViewTableName(EntityDefinition localEntityDefinition, ArrayList<EntityDefinition.FieldInfo> fieldInfoList, StringBuilder localBuilder) {
+    void makeSqlViewTableName(EntityDefinition localEntityDefinition, ArrayList<FieldInfo> fieldInfoList, StringBuilder localBuilder) {
         if (localEntityDefinition.isViewEntity()) {
             localBuilder.append("(SELECT ")
 
@@ -368,11 +350,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
             Set<String> localFieldsToSelect = new HashSet<>()
             // additional fields to consider when trimming the member-entities to join
             Set<String> additionalFieldsUsed = new HashSet<>()
-            for (Object aliasNodeObj in ((NodeList) localEntityDefinition.getEntityNode().get("alias"))) {
-                Node aliasNode = null
-                if (aliasNodeObj instanceof Node) aliasNode = (Node) aliasNodeObj
-                if (aliasNode == null) continue
-
+            for (MNode aliasNode in localEntityDefinition.getEntityNode().children("alias")) {
                 localFieldsToSelect.add((String) aliasNode.attribute('name'))
                 additionalFieldsUsed.add((String) aliasNode.attribute('field') ?: (String) aliasNode.attribute('name'))
                 if (isFirst) isFirst = false else localBuilder.append(", ")
@@ -388,11 +366,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
             StringBuilder gbClause = new StringBuilder()
             if (localEntityDefinition.hasFunctionAlias()) {
                 // do a different approach to GROUP BY: add all fields that are selected and don't have a function
-                for (Object aliasNodeObj in ((NodeList) localEntityDefinition.getEntityNode().get("alias"))) {
-                    Node aliasNode = null
-                    if (aliasNodeObj instanceof Node) aliasNode = (Node) aliasNodeObj
-                    if (aliasNode == null) continue
-
+                for (MNode aliasNode in localEntityDefinition.getEntityNode().children("alias")) {
                     if (localFieldsToSelect.contains(aliasNode.attribute('name')) && !aliasNode.attribute('function')) {
                         if (gbClause) gbClause.append(", ")
                         gbClause.append(localEntityDefinition.getColumnName((String) aliasNode.attribute('name'), false))
@@ -414,16 +388,12 @@ class EntityFindBuilder extends EntityQueryBuilder {
         this.sqlTopLevel.append(" WHERE ")
     }
 
-    void makeGroupByClause(ArrayList<EntityDefinition.FieldInfo> fieldInfoList) {
+    void makeGroupByClause(ArrayList<FieldInfo> fieldInfoList) {
         if (this.mainEntityDefinition.isViewEntity()) {
             StringBuilder gbClause = new StringBuilder()
             if (this.mainEntityDefinition.hasFunctionAlias()) {
                 // do a different approach to GROUP BY: add all fields that are selected and don't have a function
-                for (Object aliasNodeObj in ((NodeList) this.mainEntityDefinition.getEntityNode().get("alias"))) {
-                    Node aliasNode = null
-                    if (aliasNodeObj instanceof Node) aliasNode = (Node) aliasNodeObj
-                    if (aliasNode == null) continue
-
+                for (MNode aliasNode in this.mainEntityDefinition.getEntityNode().children("alias")) {
                     if (!aliasNode.attribute('function')) {
                         String aliasName = (String) aliasNode.attribute('name')
                         boolean foundField = false
@@ -446,22 +416,23 @@ class EntityFindBuilder extends EntityQueryBuilder {
         this.sqlTopLevel.append(" HAVING ")
     }
 
-    void makeOrderByClause(List orderByFieldList) {
+    void makeOrderByClause(ArrayList<String> orderByFieldList) {
         if (orderByFieldList) {
             this.sqlTopLevel.append(" ORDER BY ")
         }
-        boolean isFirst = true
-        for (String fieldName in orderByFieldList) {
-            if (!fieldName) continue
+        int obflSize = orderByFieldList.size()
+        for (int i = 0; i < obflSize; i++) {
+            String fieldName = orderByFieldList.get(i)
+            if (fieldName == null || fieldName.length() == 0) continue
 
-            if (isFirst) isFirst = false else this.sqlTopLevel.append(", ")
+            if (i > 0) this.sqlTopLevel.append(", ")
 
             // Parse the fieldName (can have other stuff in it, need to tear down to just the field name)
             FieldOrderOptions foo = new FieldOrderOptions(fieldName)
             fieldName = foo.fieldName
 
             int typeValue = 1
-            EntityDefinition.FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName)
+            FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName)
             if (fieldInfo != null) {
                 typeValue = fieldInfo.typeValue
             } else {

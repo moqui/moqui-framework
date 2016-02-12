@@ -15,6 +15,7 @@ package org.moqui.impl.context
 
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import groovy.transform.CompileStatic
 import org.moqui.context.NotificationMessage
 import org.moqui.context.NotificationMessageListener
 import org.moqui.entity.EntityList
@@ -22,6 +23,7 @@ import org.moqui.entity.EntityValue
 
 import java.sql.Timestamp
 
+@CompileStatic
 class NotificationMessageImpl implements NotificationMessage {
 
     protected final ExecutionContextImpl eci
@@ -107,7 +109,7 @@ class NotificationMessageImpl implements NotificationMessage {
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
             EntityValue notificationMessageUser = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId])
+                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId] as Map<String, Object>)
                     .forUpdate(true).one()
             notificationMessageUser.sentDate = eci.user.nowTimestamp
             notificationMessageUser.update()
@@ -125,7 +127,7 @@ class NotificationMessageImpl implements NotificationMessage {
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
             EntityValue notificationMessageUser = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId])
+                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId] as Map<String, Object>)
                     .forUpdate(true).one()
             notificationMessageUser.receivedDate = eci.user.nowTimestamp
             notificationMessageUser.update()
@@ -144,7 +146,7 @@ class NotificationMessageImpl implements NotificationMessage {
         this.messageJson = nmbu.messageJson
 
         EntityList nmuList = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                .condition([notificationMessageId:notificationMessageId]).list()
+                .condition([notificationMessageId:notificationMessageId] as Map<String, Object>).list()
         for (EntityValue nmu in nmuList) userIdSet.add((String) nmu.userId)
     }
 }

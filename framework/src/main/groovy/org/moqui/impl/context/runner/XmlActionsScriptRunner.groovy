@@ -14,7 +14,7 @@
 package org.moqui.impl.context.runner
 
 import freemarker.template.Template
-
+import groovy.transform.CompileStatic
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ScriptRunner
@@ -25,6 +25,7 @@ import org.moqui.context.ExecutionContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class XmlActionsScriptRunner implements ScriptRunner {
     protected final static Logger logger = LoggerFactory.getLogger(XmlActionsScriptRunner.class)
 
@@ -68,7 +69,7 @@ class XmlActionsScriptRunner implements ScriptRunner {
     protected synchronized void makeXmlActionsTemplate() {
         if (xmlActionsTemplate != null) return
 
-        String templateLocation = ecfi.confXmlRoot."resource-facade"[0]."@xml-actions-template-location"
+        String templateLocation = ecfi.confXmlRoot.first("resource-facade").attribute("xml-actions-template-location")
         Template newTemplate = null
         Reader templateReader = null
         try {

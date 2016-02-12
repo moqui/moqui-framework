@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.service
 
+import groovy.transform.CompileStatic
 import org.quartz.JobListener
 import org.quartz.JobExecutionContext
 import org.quartz.JobExecutionException
@@ -22,6 +23,7 @@ import org.quartz.TriggerListener
 import org.quartz.Trigger
 import org.quartz.Trigger.CompletedExecutionInstruction
 
+@CompileStatic
 class ServiceRequesterListener implements JobListener, TriggerListener {
     protected ServiceResultReceiver resultReceiver
 

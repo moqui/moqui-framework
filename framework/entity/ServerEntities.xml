@@ -22,7 +22,7 @@ along with this software (see the LICENSE.md file). If not, see
             cache="never" sequence-bank-size="100" authorize-skip="create">
         <field name="hitId" type="id" is-pk="true"/>
         <field name="visitId" type="id"/>
-        <field name="userId" type="id-long"/>
+        <field name="userId" type="id"/>
         <field name="artifactType" type="text-medium"/>
         <field name="artifactSubType" type="text-medium"/>
         <field name="artifactName" type="text-medium"><description>The name of the artifact hit. For XML Screens
@@ -78,9 +78,9 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="Visit" package-name="moqui.server" sequence-bank-size="100">
         <field name="visitId" type="id" is-pk="true"/>
         <field name="visitorId" type="id"/>
-        <field name="userId" type="id-long"/>
+        <field name="userId" type="id"/>
         <field name="userCreated" type="text-indicator"/>
-        <field name="sessionId" type="id-long"/>
+        <field name="sessionId" type="text-medium"/>
         <field name="serverIpAddress" type="id"/>
         <field name="serverHostName" type="text-medium"/>
         <field name="webappName" type="text-medium"/>

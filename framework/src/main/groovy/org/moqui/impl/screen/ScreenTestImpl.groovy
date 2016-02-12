@@ -14,14 +14,13 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
-import groovy.transform.TypeChecked
-import groovy.transform.TypeCheckingMode
 import org.moqui.context.ContextStack
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.screen.ScreenRender
 import org.moqui.screen.ScreenTest
 import org.moqui.screen.ScreenTest.ScreenTestRender
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -95,16 +94,14 @@ class ScreenTestImpl implements ScreenTest {
     ScreenTest servletContextPath(String scp) { this.servletContextPath = scp; return this }
 
     @Override
-    @TypeChecked(TypeCheckingMode.SKIP)
     ScreenTest webappName(String wan) {
         webappName = wan
 
         // set a default root screen based on config for "localhost"
-        Node webappNode = (Node) ecfi.confXmlRoot."webapp-list"[0]."webapp".find({ it.@name == webappName })
-        for (Object rootScreenObj in (NodeList) webappNode.get("root-screen")) {
-            Node rootScreenNode = (Node) rootScreenObj
-            if (hostname.matches((String) rootScreenNode.attribute('host'))) {
-                String rsLoc = (String) rootScreenNode.attribute('location')
+        MNode webappNode = ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
+        for (MNode rootScreenNode in webappNode.children("root-screen")) {
+            if (hostname.matches(rootScreenNode.attribute('host'))) {
+                String rsLoc = rootScreenNode.attribute('location')
                 rootScreen(rsLoc)
                 break
             }

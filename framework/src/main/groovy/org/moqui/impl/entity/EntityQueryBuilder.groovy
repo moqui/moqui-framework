@@ -14,11 +14,10 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import groovy.transform.TypeChecked
-import groovy.transform.TypeCheckingMode
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.entity.EntityException
 import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.util.MNode
 
 import java.sql.Connection
 import java.sql.PreparedStatement
@@ -92,9 +91,9 @@ class EntityQueryBuilder {
     ResultSet executeQuery() throws EntityException {
         if (this.ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
         try {
-            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
+            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
             this.rs = this.ps.executeQuery()
-            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
+            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
             return this.rs
         } catch (SQLException sqle) {
             throw new EntityException("Error in query for:" + this.sqlTopLevel, sqle)
@@ -106,7 +105,7 @@ class EntityQueryBuilder {
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
             int rows = ps.executeUpdate()
-            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds changing [${rows}] rows")
+            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
         } catch (SQLException sqle) {
             throw new EntityException("Error in update for:" + this.sqlTopLevel, sqle)
@@ -129,9 +128,7 @@ class EntityQueryBuilder {
         }
     }
 
-    /** Only close the PreparedStatement, leave the ResultSet and Connection open, but null references to them
-     * NOTE: this should be called in a finally clause to make sure things are closed
-     */
+    /** For when closing to be done in other places, like a EntityListIteratorImpl */
     void releaseAll() {
         this.ps = null
         this.rs = null
@@ -211,19 +208,24 @@ class EntityQueryBuilder {
         entityValueImpl.getValueMap().put(fieldName, value)
     }
 
-    @TypeChecked(TypeCheckingMode.SKIP)
     public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
-        Node entityFacadeNode = (Node) efi.ecfi.confXmlRoot."entity-facade"[0]
-        String pwStr = entityFacadeNode."@crypt-pass"
+        MNode entityFacadeNode = efi.ecfi.confXmlRoot.first("entity-facade")
+        String pwStr = entityFacadeNode.attribute("crypt-pass")
         if (!pwStr) throw new IllegalArgumentException("No entity-facade.@crypt-pass setting found, NOT doing encryption")
 
-        byte[] salt = (entityFacadeNode."@crypt-salt" ?: "default1").getBytes()
+        byte[] salt = (entityFacadeNode.attribute("crypt-salt") ?: "default1").getBytes()
         if (salt.length > 8) salt = salt[0..7]
-        while (salt.length < 8) salt += (byte)0x45
-        int count = (entityFacadeNode."@crypt-iter" as Integer) ?: 10
+        if (salt.length < 8) {
+            byte[] newSalt = new byte[8]
+            for (int i = 0; i < 8; i++) {
+                if (i < salt.length) newSalt[i] = salt[i]
+                else (newSalt[i] = 0x45 as byte)
+            }
+        }
+        int count = (entityFacadeNode.attribute("crypt-iter") as Integer) ?: 10
         char[] pass = pwStr.toCharArray()
 
-        String algo = entityFacadeNode."@crypt-algo" ?: "PBEWithMD5AndDES"
+        String algo = entityFacadeNode.attribute("crypt-algo") ?: "PBEWithMD5AndDES"
 
         // logger.info("TOREMOVE salt [${salt}] count [${count}] pass [${pass}] algo [${algo}]")
         PBEParameterSpec pbeParamSpec = new PBEParameterSpec(salt, count)
@@ -232,7 +234,8 @@ class EntityQueryBuilder {
         SecretKey pbeKey = keyFac.generateSecret(pbeKeySpec)
 
         Cipher pbeCipher = Cipher.getInstance(algo)
-        pbeCipher.init(encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE, pbeKey, pbeParamSpec)
+        int mode = encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE
+        pbeCipher.init(mode, pbeKey, pbeParamSpec)
 
         byte[] inBytes
         if (encrypt) {
@@ -302,96 +305,5 @@ class EntityQueryBuilder {
         }
         EntityJavaUtil.setPreparedStatementValue(ps, index, value, typeValue, useBinaryTypeForBlob, efi)
 
-    }
-
-    @CompileStatic
-    static class FieldOrderOptions {
-        protected final static char spaceChar = ' ' as char
-        protected final static char minusChar = '-' as char
-        protected final static char plusChar = '+' as char
-        protected final static char caretChar = '^' as char
-        protected final static char openParenChar = '(' as char
-        protected final static char closeParenChar = ')' as char
-
-        String fieldName = null
-        Boolean nullsFirstLast = null
-        boolean descending = false
-        Boolean caseUpperLower = null
-
-        FieldOrderOptions(String orderByName) {
-            StringBuilder fnSb = new StringBuilder(40)
-            // simple first parse pass, single run through and as fast as possible
-            boolean containsSpace = false
-            boolean foundNonSpace = false
-            boolean containsOpenParen = false
-            int obnLength = orderByName.length()
-            for (int i = 0; i < obnLength; i++) {
-                char curChar = orderByName.charAt(i)
-                if (curChar == spaceChar) {
-                    if (foundNonSpace) {
-                        containsSpace = true
-                        fnSb.append(curChar)
-                    }
-                    // otherwise ignore the space
-                } else {
-                    // leading characters (-,+,^), don't consider them non-spaces so we'll remove spaces after
-                    if (curChar == minusChar) {
-                        descending = true
-                    } else if (curChar == plusChar) {
-                        descending = false
-                    } else if (curChar == caretChar) {
-                        caseUpperLower = true
-                    } else {
-                        foundNonSpace = true
-                        fnSb.append(curChar)
-                        if (curChar == openParenChar) containsOpenParen = true
-                    }
-                }
-            }
-
-            if (fnSb.length() == 0) return
-
-            if (containsSpace) {
-                // trim ending spaces
-                while (fnSb.charAt(fnSb.length() - 1) == spaceChar) fnSb.delete(fnSb.length() - 1, fnSb.length())
-
-                String orderByUpper = fnSb.toString().toUpperCase()
-                int fnSbLength = fnSb.length()
-                if (orderByUpper.endsWith(" NULLS FIRST")) {
-                    nullsFirstLast = true
-                    fnSb.delete(fnSbLength - 12, fnSbLength)
-                    // remove from orderByUpper as we'll use it below
-                    orderByUpper = orderByUpper.substring(0, orderByName.length() - 12)
-                } else if (orderByUpper.endsWith(" NULLS LAST")) {
-                    nullsFirstLast = false
-                    fnSb.delete(fnSbLength - 11, fnSbLength)
-                    // remove from orderByUpper as we'll use it below
-                    orderByUpper = orderByUpper.substring(0, orderByName.length() - 11)
-                }
-
-                fnSbLength = fnSb.length()
-                if (orderByUpper.endsWith(" DESC")) {
-                    descending = true
-                    fnSb.delete(fnSbLength - 5, fnSbLength)
-                } else if (orderByUpper.endsWith(" ASC")) {
-                    descending = false
-                    fnSb.delete(fnSbLength - 4, fnSbLength)
-                }
-            }
-            if (containsOpenParen) {
-                String upperText = fnSb.toString().toUpperCase()
-                if (upperText.startsWith("UPPER(")) {
-                    caseUpperLower = true
-                    fnSb.delete(0, 6)
-                } else if (upperText.startsWith("LOWER(")) {
-                    caseUpperLower = false
-                    fnSb.delete(0, 6)
-                }
-                int fnSbLength = fnSb.length()
-                if (fnSb.charAt(fnSbLength - 1) == closeParenChar) fnSb.delete(fnSbLength - 1, fnSbLength)
-            }
-
-            fieldName = fnSb.toString()
-        }
     }
 }
