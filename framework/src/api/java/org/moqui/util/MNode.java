@@ -104,6 +104,7 @@ public class MNode {
     protected final Map<String, String> attributeMap = new LinkedHashMap<>();
     protected MNode parentNode = null;
     protected final ArrayList<MNode> childList = new ArrayList<>();
+    protected final Map<String, ArrayList<MNode>> childrenByName = new HashMap<>();
     protected String childText = null;
     protected long lastModified = 0;
 
@@ -166,13 +167,17 @@ public class MNode {
     public MNode getParent() { return parentNode; }
     public ArrayList<MNode> getChildren() { return childList; }
     public ArrayList<MNode> children(String name) {
-        ArrayList<MNode> curList = new ArrayList<>();
-        if (name == null) return curList;
+        if (name == null) return childList;
+        ArrayList<MNode> curList = childrenByName.get(name);
+        if (curList != null) return curList;
+
+        curList = new ArrayList<>();
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
             if (name.equals(curChild.nodeName)) curList.add(curChild);
         }
+        childrenByName.put(name, curList);
         return curList;
     }
     public ArrayList<MNode> children(Closure<Boolean> condition) {
@@ -255,13 +260,20 @@ public class MNode {
     public MNode first() { return childList.size() > 0 ? childList.get(0) : null; }
     /** Get the first child node with the given name */
     public MNode first(String name) {
-        if (name == null) return null;
+        if (name == null) return first();
+
+        ArrayList<MNode> nameChildren = children(name);
+        if (nameChildren.size() > 0) return nameChildren.get(0);
+        return null;
+
+        /* with cache in children(name) that is faster than searching every time here:
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
             if (name.equals(curChild.nodeName)) return curChild;
         }
         return null;
+        */
     }
     public MNode first(Closure<Boolean> condition) {
         if (condition == null) return first();
@@ -289,32 +301,38 @@ public class MNode {
     /* ========== Child Modify Methods ========== */
 
     public void append(MNode child) {
+        childrenByName.remove(child.nodeName);
         childList.add(child);
         child.parentNode = this;
     }
     public MNode append(Node child) {
         MNode newNode = new MNode(child);
+        childrenByName.remove(newNode.nodeName);
         childList.add(newNode);
         newNode.parentNode = this;
         return newNode;
     }
     public MNode append(String name, Map<String, String> attributes, List<MNode> children, String text) {
+        childrenByName.remove(name);
         MNode newNode = new MNode(name, attributes, this, children, text);
         childList.add(newNode);
         return newNode;
     }
     public MNode append(String name, Map<String, String> attributes) {
+        childrenByName.remove(name);
         MNode newNode = new MNode(name, attributes, this, null, null);
         childList.add(newNode);
         return newNode;
     }
     public MNode replace(int index, String name, Map<String, String> attributes) {
+        childrenByName.remove(name);
         MNode newNode = new MNode(name, attributes, this, null, null);
         childList.set(index, newNode);
         return newNode;
     }
 
     public boolean remove(String name) {
+        childrenByName.remove(name);
         boolean removed = false;
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
@@ -332,6 +350,7 @@ public class MNode {
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
             if (condition.call(curChild)) {
+                childrenByName.remove(curChild.nodeName);
                 childList.remove(i);
                 removed = true;
             } else {
