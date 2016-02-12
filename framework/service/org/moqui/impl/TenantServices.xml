@@ -116,28 +116,28 @@ along with this software (see the LICENSE.md file). If not, see
                 ec.getArtifactExecution().push(aei, false)
                 ec.getArtifactExecution().setAnonymousAuthorizedAll()
 
-                // load data
-                EntityDataLoader edl = ec.getEntity().makeDataLoader()
-                if (dataLoadTypes && dataLoadTypes != 'all') edl.dataTypes(new HashSet(Arrays.asList(dataLoadTypes.split(","))))
+                try {
+                    // load data
+                    EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                    if (dataLoadTypes && dataLoadTypes != 'all') edl.dataTypes(new HashSet(Arrays.asList(dataLoadTypes.split(","))))
 
-                long startTime = System.currentTimeMillis()
-                records = edl.load()
-                totalSeconds = (System.currentTimeMillis() - startTime) / 1000
-            ]]></script>
-            <log level="info" message="Loaded [${records}] records in ${totalSeconds} seconds."/>
+                    long startTime = System.currentTimeMillis()
+                    records = edl.load()
+                    totalSeconds = (System.currentTimeMillis() - startTime) / 1000
 
-            <!-- create admin user -->
-            <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
-            <!-- add to admin UserGroup -->
-            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"/>
+                    ec.logger.info("Loaded ${records} records in ${totalSeconds} seconds.")
 
-            <log level="info" message="Created user [${username}] in ADMIN group."/>
-
-            <script>
-                // turn authz back on, etc
-                ec.getUser().logoutAnonymousOnly()
-                ec.getArtifactExecution().pop(aei)
-                ec.getArtifactExecution().enableAuthz()
+                    // create admin user
+                    context.putAll(ec.service.sync().name("org.moqui.impl.UserServices.create#UserAccount").parameters(context).call())
+                    // add to admin UserGroup
+                    ec.service.sync().name("create#moqui.security.UserGroupMember").parameters([userId:userId, userGroupId:'ADMIN']).call()
+                    ec.logger.info("Created user ${username} in ADMIN group.")
+                } finally {
+                    // turn authz back on, etc
+                    ec.getUser().logoutAnonymousOnly()
+                    ec.getArtifactExecution().pop(aei)
+                    ec.getArtifactExecution().enableAuthz()
+                }
 
                 // login previous user, switch back to previous tenantId
                 ec.changeTenant(previousTenantId)
@@ -145,8 +145,8 @@ along with this software (see the LICENSE.md file). If not, see
                 // NOTE: when running this in the Tools app results in the Login screen showing because
                 //     session auth is lost! (internalLoginUser() doesn't auth in session because we can't through
                 //     Shiro without the password
-            </script>
-            <log level="info" message="Restored login for user [${previousUsername}] in tenant ${previousTenantId}."/>
+                ec.logger.info("Restored login for user ${previousUsername} in tenant ${previousTenantId}.")
+            ]]></script>
         </actions>
     </service>
 
