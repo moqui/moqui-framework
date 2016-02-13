@@ -788,6 +788,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
+    /** Using an EC in multiple threads is dangerous as much of the ECI is not designed to be thread safe. */
+    void useExecutionContextInThread(ExecutionContextImpl eci) {
+        ExecutionContextImpl curEc = activeContext.get()
+        if (curEc != null) curEc.destroy()
+        activeContext.set(eci)
+    }
+
     @Override
     void initComponent(String location) {
         ComponentInfo componentInfo = new ComponentInfo(location, this)

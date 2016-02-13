@@ -257,12 +257,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         // Thread.sleep(45000)
 
         TransactionFacade tf = efi.ecfi.transactionFacade
-        boolean suspendedTransaction = false
-        try {
-            if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
+        tf.runRequireNew(transactionTimeout, "Error loading entity data", false, true, {
             // load the XML text in its own transaction
             if (this.xmlText) {
-                tf.runUseOrBegin(null, "Error loading XML entity data", {
+                tf.runUseOrBegin(transactionTimeout, "Error loading XML entity data", {
                     XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
                     exh.setLocation("xmlText")
                     reader.setContentHandler(exh)
@@ -274,7 +272,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (this.csvText) {
                 InputStream csvInputStream = new ByteArrayInputStream(csvText.getBytes("UTF-8"))
                 try {
-                    tf.runUseOrBegin(null, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream) })
+                    tf.runUseOrBegin(transactionTimeout, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream) })
                 } finally {
                     if (csvInputStream != null) csvInputStream.close()
                 }
@@ -284,21 +282,15 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (this.jsonText) {
                 InputStream jsonInputStream = new ByteArrayInputStream(jsonText.getBytes("UTF-8"))
                 try {
-                    tf.runUseOrBegin(null, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream) })
+                    tf.runUseOrBegin(transactionTimeout, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream) })
                 } finally {
                     if (jsonInputStream != null) jsonInputStream.close()
                 }
             }
 
             // load each file in its own transaction
-            for (String location in this.locationList) {
-                loadSingleFile(location, exh, ech, ejh)
-            }
-        } catch (TransactionException e) {
-            throw e
-        } finally {
-            if (suspendedTransaction) tf.resume()
-        }
+            for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh)
+        })
 
         if (reenableEeca) this.efi.ecfi.eci.artifactExecution.enableEntityEca()
 
