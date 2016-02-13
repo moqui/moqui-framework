@@ -38,7 +38,7 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     protected ArtifactExecutionInfoImpl parentAeii = null
     protected long startTime
     protected long endTime = 0
-    protected List<ArtifactExecutionInfoImpl> childList = []
+    protected List<ArtifactExecutionInfoImpl> childList = new ArrayList<ArtifactExecutionInfoImpl>()
     protected long childrenRunningTime = 0
 
     ArtifactExecutionInfoImpl(String name, String typeEnumId, String actionEnumId) {

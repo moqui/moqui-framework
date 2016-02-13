@@ -767,17 +767,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @CompileStatic
     ExecutionContextImpl getEci() {
-        ExecutionContextImpl ec = this.activeContext.get()
-        if (ec != null) {
-            return ec
-        } else {
-            if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
-            if (!(Thread.currentThread().getContextClassLoader() instanceof StupidClassLoader))
-                Thread.currentThread().setContextClassLoader(cachedClassLoader)
-            ec = new ExecutionContextImpl(this)
-            this.activeContext.set(ec)
-            return ec
-        }
+        // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
+        ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
+        if (ec != null) return ec
+
+        if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
+        if (!(Thread.currentThread().getContextClassLoader() instanceof StupidClassLoader))
+            Thread.currentThread().setContextClassLoader(cachedClassLoader)
+        ec = new ExecutionContextImpl(this)
+        this.activeContext.set(ec)
+        return ec
     }
 
     void destroyActiveExecutionContext() {

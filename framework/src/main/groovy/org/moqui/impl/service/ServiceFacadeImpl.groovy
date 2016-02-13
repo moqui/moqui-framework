@@ -154,7 +154,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     @CompileStatic
     boolean isEntityAutoPattern(String path, String verb, String noun) {
         // if no path, verb is create|update|delete and noun is a valid entity name, do an implicit entity-auto
-        return !path && EntityAutoServiceRunner.verbSet.contains(verb) && getEcfi().getEntityFacade().isEntityDefined(noun)
+        return !path && EntityAutoServiceRunner.verbSet.contains(verb) && getEcfi().getEntityFacade("DEFAULT").isEntityDefined(noun)
     }
 
 

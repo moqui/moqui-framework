@@ -171,12 +171,11 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     static void createEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
                                     Map<String, Object> result, Set<String> outParamNames) {
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        createRecursive(ecfi, ed, parameters, result, outParamNames, null)
+        createRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
     }
 
-    static void createRecursive(ExecutionContextFactoryImpl ecfi, EntityDefinition ed, Map<String, Object> parameters,
+    static void createRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
                                 Map<String, Object> result, Set<String> outParamNames, Map<String, Object> parentPks) {
-        EntityFacadeImpl efi = ecfi.getEntityFacade()
         EntityValue newEntityValue = efi.makeValue(ed.getFullEntityName())
 
         checkFromDate(ed, parameters, result, ecfi)
@@ -250,7 +249,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                 // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
                 //     allow them to be left out of related records
                 relParmMap.putAll(pkMap)
-                createRecursive(ecfi, subEd, relParmMap, relResults, null, pkMap)
+                createRecursive(ecfi, efi, subEd, relParmMap, relResults, null, pkMap)
                 tempResult.put(entryName, relResults)
             } else if (relParmObj instanceof List) {
                 List relResultList = []
@@ -259,7 +258,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                     if (relParmEntry instanceof Map) {
                         Map relParmMap = (Map) relParmEntry
                         relParmMap.putAll(pkMap)
-                        createRecursive(ecfi, subEd, relParmMap, relResults, null, pkMap)
+                        createRecursive(ecfi, efi, subEd, relParmMap, relResults, null, pkMap)
                     } else {
                         logger.warn("In entity auto create for entity ${ed.getFullEntityName()} found list for sub-object ${entryName} with a non-Map entry: ${relParmEntry}")
                     }
@@ -281,7 +280,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
     /* This should only be called if statusId is a field of the entity and lookedUpValue != null */
     protected static void checkStatus(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> result,
-                            Set<String> outParamNames, EntityValue lookedUpValue, ExecutionContextFactoryImpl ecfi) {
+                            Set<String> outParamNames, EntityValue lookedUpValue, EntityFacadeImpl efi) {
         if (!parameters.containsKey("statusId")) return
 
         // populate the oldStatusId out if there is a service parameter for it, and before we do the set non-pk fields
@@ -300,7 +299,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             if (lookedUpStatusId && !parameterStatusId.equals(lookedUpStatusId)) {
                 // there was an old status, and in this call we are trying to change it, so do the StatusFlowTransition check
                 // NOTE that we are using a cached list from a common pattern so it should generally be there instead of a count that wouldn't
-                EntityList statusFlowTransitionList = ecfi.getEntityFacade().find("moqui.basic.StatusFlowTransition")
+                EntityList statusFlowTransitionList = efi.find("moqui.basic.StatusFlowTransition")
                         .condition(["statusId":lookedUpStatusId, "toStatusId":parameterStatusId] as Map<String, Object>).useCache(true).list()
                 if (!statusFlowTransitionList) {
                     // uh-oh, no valid change...
@@ -332,14 +331,14 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                 throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
             }
 
-            checkStatus(ed, parameters, result, outParamNames, lookedUpValue, ecfi)
+            checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
         }
 
         lookedUpValue.setFields(parameters, true, null, false)
         // logger.info("In auto updateEntity lookedUpValue final [${((EntityValueBase) lookedUpValue).getValueMap()}] for parameters [${parameters}]")
         lookedUpValue.update()
 
-        storeRelated(ecfi, (EntityValueBase) lookedUpValue, parameters, result, null)
+        storeRelated(ecfi, efi, (EntityValueBase) lookedUpValue, parameters, result, null)
     }
 
     static void deleteEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters) {
@@ -352,12 +351,11 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     static void storeEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
                                    Map<String, Object> result, Set<String> outParamNames) {
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        storeRecursive(ecfi, ed, parameters, result, outParamNames, null)
+        storeRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
     }
 
-    static void storeRecursive(ExecutionContextFactoryImpl ecfi, EntityDefinition ed, Map<String, Object> parameters,
+    static void storeRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
                                Map<String, Object> result, Set<String> outParamNames, Map<String, Object> parentPks) {
-        EntityFacadeImpl efi = ecfi.getEntityFacade()
         EntityValue newEntityValue = efi.makeValue(ed.getFullEntityName())
 
         // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
@@ -374,7 +372,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             // we had to fill some stuff in, so do a create
             newEntityValue.setFields(parameters, true, null, false)
             newEntityValue.create()
-            storeRelated(ecfi, (EntityValueBase) newEntityValue, parameters, result, parentPks)
+            storeRelated(ecfi, efi, (EntityValueBase) newEntityValue, parameters, result, parentPks)
             return
         }
 
@@ -384,12 +382,12 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             lookedUpValue = efi.find(ed.getFullEntityName())
                     .condition(newEntityValue).useCache(false).forUpdate(true).one()
             if (lookedUpValue != null) {
-                checkStatus(ed, parameters, result, outParamNames, lookedUpValue, ecfi)
+                checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
             } else {
                 // no lookedUpValue at this point? doesn't exist so create
                 newEntityValue.setFields(parameters, true, null, false)
                 newEntityValue.create()
-                storeRelated(ecfi, (EntityValueBase) newEntityValue, parameters, result, parentPks)
+                storeRelated(ecfi, efi, (EntityValueBase) newEntityValue, parameters, result, parentPks)
                 return
             }
         }
@@ -399,12 +397,11 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         // logger.info("In auto updateEntity lookedUpValue final [${lookedUpValue}] for parameters [${parameters}]")
         lookedUpValue.createOrUpdate()
 
-        storeRelated(ecfi, (EntityValueBase) lookedUpValue, parameters, result, parentPks)
+        storeRelated(ecfi, efi, (EntityValueBase) lookedUpValue, parameters, result, parentPks)
     }
 
-    static void storeRelated(ExecutionContextFactoryImpl ecfi, EntityValueBase parentValue, Map<String, Object> parameters,
-                             Map<String, Object> result, Map<String, Object> parentPks) {
-        EntityFacadeImpl efi = ecfi.getEntityFacade()
+    static void storeRelated(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityValueBase parentValue,
+                             Map<String, Object> parameters, Map<String, Object> result, Map<String, Object> parentPks) {
         EntityDefinition ed = parentValue.getEntityDefinition()
 
         // NOTE: keep a separate Map of parent PK values to pass down, can't just be current record's PK fields because
@@ -451,14 +448,14 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             if (relParmObj instanceof Map && !isEntityValue) {
                 Map relParmMap = (Map) relParmObj
                 Map relResults = [:]
-                storeRecursive(ecfi, subEd, relParmMap, relResults, null, pkMap)
+                storeRecursive(ecfi, efi, subEd, relParmMap, relResults, null, pkMap)
                 result.put(entryName, relResults)
             } else if (relParmObj instanceof List) {
                 List relResultList = []
                 for (Object relParmEntry in relParmObj) {
                     Map relResults = [:]
                     if (relParmEntry instanceof Map) {
-                        storeRecursive(ecfi, subEd, (Map) relParmEntry, relResults, null, pkMap)
+                        storeRecursive(ecfi, efi, subEd, (Map) relParmEntry, relResults, null, pkMap)
                     } else {
                         logger.warn("In entity auto create for entity ${ed.getFullEntityName()} found list for sub-object ${entryName} with a non-Map entry: ${relParmEntry}")
                     }

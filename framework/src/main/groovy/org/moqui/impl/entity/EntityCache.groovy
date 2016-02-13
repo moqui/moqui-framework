@@ -116,7 +116,8 @@ class EntityCache {
         try {
             CacheFacade cf = efi.getEcfi().getCacheFacade()
             EntityDefinition ed = evb.getEntityDefinition()
-            Map evbMap = evb.getMap()
+            // use getValueMap instead of getMap, faster and we don't want to cache localized values/etc
+            Map evbMap = evb.getValueMap()
             if ('never'.equals(ed.getUseCache())) return
             String fullEntityName = ed.getFullEntityName()
 

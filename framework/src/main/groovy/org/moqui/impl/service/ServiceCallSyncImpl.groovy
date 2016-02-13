@@ -529,7 +529,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 sfi.runSecaRules(getServiceNameNoHash(), currentParameters, null, "pre-service")
 
                 try {
-                    EntityDefinition ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(noun)
+                    EntityDefinition ed = sfi.getEcfi().getEntityFacade(eci.tenantId).getEntityDefinition(noun)
                     switch (verb) {
                         case "create": EntityAutoServiceRunner.createEntity(sfi, ed, currentParameters, result, null); break
                         case "update": EntityAutoServiceRunner.updateEntity(sfi, ed, currentParameters, result, null, null); break
