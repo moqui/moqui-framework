@@ -257,64 +257,40 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         // Thread.sleep(45000)
 
         TransactionFacade tf = efi.ecfi.transactionFacade
-        boolean suspendedTransaction = false
-        try {
-            if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
+        tf.runRequireNew(transactionTimeout, "Error loading entity data", false, true, {
             // load the XML text in its own transaction
             if (this.xmlText) {
-                boolean beganTransaction = tf.begin(transactionTimeout)
-                try {
+                tf.runUseOrBegin(transactionTimeout, "Error loading XML entity data", {
                     XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
                     exh.setLocation("xmlText")
                     reader.setContentHandler(exh)
                     reader.parse(new InputSource(new StringReader(this.xmlText)))
-                } catch (Throwable t) {
-                    tf.rollback(beganTransaction, "Error loading XML entity data", t)
-                    throw t
-                } finally {
-                    if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
-                }
+                })
             }
 
             // load the CSV text in its own transaction
             if (this.csvText) {
-                boolean beganTransaction = tf.begin(transactionTimeout)
                 InputStream csvInputStream = new ByteArrayInputStream(csvText.getBytes("UTF-8"))
                 try {
-                    ech.loadFile("csvText", csvInputStream)
-                } catch (Throwable t) {
-                    tf.rollback(beganTransaction, "Error loading CSV entity data", t)
-                    throw t
+                    tf.runUseOrBegin(transactionTimeout, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream) })
                 } finally {
                     if (csvInputStream != null) csvInputStream.close()
-                    if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
                 }
             }
 
             // load the JSON text in its own transaction
             if (this.jsonText) {
-                boolean beganTransaction = tf.begin(transactionTimeout)
                 InputStream jsonInputStream = new ByteArrayInputStream(jsonText.getBytes("UTF-8"))
                 try {
-                    ejh.loadFile("jsonText", jsonInputStream)
-                } catch (Throwable t) {
-                    tf.rollback(beganTransaction, "Error loading JSON entity data", t)
-                    throw t
+                    tf.runUseOrBegin(transactionTimeout, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream) })
                 } finally {
                     if (jsonInputStream != null) jsonInputStream.close()
-                    if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
                 }
             }
 
             // load each file in its own transaction
-            for (String location in this.locationList) {
-                loadSingleFile(location, exh, ech, ejh)
-            }
-        } catch (TransactionException e) {
-            throw e
-        } finally {
-            if (suspendedTransaction) tf.resume()
-        }
+            for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh)
+        })
 
         if (reenableEeca) this.efi.ecfi.eci.artifactExecution.enableEntityEca()
 
@@ -360,7 +336,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             tf.rollback(beganTransaction, "Error loading entity data", t)
             throw new IllegalArgumentException("Error loading entity data file [${location}]", t)
         } finally {
-            if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
+            tf.commit(beganTransaction)
 
             ExecutionContext ec = efi.getEcfi().getExecutionContext()
             if (ec.message.hasError()) {
@@ -574,7 +550,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         relatedEdStack = [subEd]
                     }
                 } else {
-                    logger.warn("Found element [${entityName}] under element for entity [${checkEd.getFullEntityName()}] and it is not a field or relationship so ignoring")
+                    logger.warn("Found element [${entityName}] under element for entity [${checkEd.getFullEntityName()}] and it is not a field or relationship so ignoring (line ${locator?.lineNumber})")
                 }
             } else if (currentServiceDef != null) {
                 currentFieldName = qName
@@ -587,11 +563,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     currentServiceDef = edli.sfi.getServiceDefinition(entityName)
                     rootValueMap = getAttributesMap(attributes, null)
                 } else {
-                    throw new SAXException("Found element [${qName}] name, transformed to [${entityName}], that is not a valid entity name or service name")
+                    throw new SAXException("Found element [${qName}] name, transformed to [${entityName}], that is not a valid entity name or service name (line ${locator?.lineNumber})")
                 }
             }
         }
-        static Map getAttributesMap(Attributes attributes, EntityDefinition checkEd) {
+        Map getAttributesMap(Attributes attributes, EntityDefinition checkEd) {
             Map attrMap = [:]
             int length = attributes.getLength()
             for (int i = 0; i < length; i++) {
@@ -607,7 +583,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         attrMap.put(name, null)
                     }
                 } else {
-                    logger.warn("Ignoring invalid attribute name [${name}] for entity [${checkEd.getFullEntityName()}] with value [${value}] because it is not field of that entity")
+                    logger.warn("Ignoring invalid attribute name [${name}] for entity [${checkEd.getFullEntityName()}] with value [${value}] because it is not field of that entity (line ${locator?.lineNumber})")
                 }
             }
             return attrMap
@@ -639,7 +615,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 rootValueMap.put(currentFieldName, currentFieldValue.toString())
                             }
                         } else {
-                            logger.warn("Ignoring invalid field name [${currentFieldName}] found for the entity ${currentEntityDef.getFullEntityName()} with value ${currentFieldValue}")
+                            logger.warn("Ignoring invalid field name [${currentFieldName}] found for the entity ${currentEntityDef.getFullEntityName()} with value ${currentFieldValue} (line ${locator?.lineNumber})")
                         }
                     } else if (currentServiceDef != null) {
                         rootValueMap.put(currentFieldName, currentFieldValue)
@@ -675,7 +651,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         valuesRead++
                         currentEntityDef = null
                     } catch (EntityException e) {
-                        throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value: " + e.toString(), e)
+                        throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value (line ${locator?.lineNumber}): " + e.toString(), e)
                     }
                 } else if (currentServiceDef != null) {
                     try {
@@ -684,7 +660,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         valuesRead++
                         currentServiceDef = null
                     } catch (Exception e) {
-                        throw new SAXException("Error running service [${currentServiceDef.getServiceName()}]: " + e.toString(), e)
+                        throw new SAXException("Error running service [${currentServiceDef.getServiceName()}] (line ${locator?.lineNumber}): " + e.toString(), e)
                     }
                 }
             }

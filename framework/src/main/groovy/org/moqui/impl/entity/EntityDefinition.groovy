@@ -62,6 +62,9 @@ public class EntityDefinition {
     protected Map<String, Map> mePkFieldToAliasNameMapMap = null
     protected Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null
     protected Map<String, MNode> memberEntityAliasMap = null
+    // these are used for every list find, so keep them here
+    protected MNode entityConditionNode = null
+    protected MNode entityHavingEconditions = null
 
     protected Boolean isView = null
     protected Boolean needsAuditLogVal = null
@@ -141,6 +144,9 @@ public class EntityDefinition {
                 fieldNodeMap.put(fieldName, aliasNode)
                 fieldInfoMap.put(fieldName, new FieldInfo(this, aliasNode))
             }
+
+            entityConditionNode = entityNode.first("entity-condition")
+            if (entityConditionNode != null) entityHavingEconditions = entityConditionNode.first("having-econditions")
         } else {
             if (internalEntityNode.attribute("no-update-stamp") != "true") {
                 // automatically add the lastUpdatedStamp field
@@ -178,6 +184,7 @@ public class EntityDefinition {
     Map<String, ArrayList<MNode>> getMemberFieldAliases(String memberEntityName) {
         return memberEntityFieldAliases?.get(memberEntityName)
     }
+    MNode getEntityConditionNode() { return entityConditionNode }
 
     String getEntityGroupName() {
         if (groupName == null) {
@@ -1775,11 +1782,16 @@ public class EntityDefinition {
     }
 
     EntityConditionImplBase makeViewWhereCondition() {
-        if (!this.isViewEntity()) return null
+        if (!this.isViewEntity() || entityConditionNode == null) return null
         // add the view-entity.entity-condition.econdition(s)
-        MNode entityCondition = this.internalEntityNode.first("entity-condition")
-        return makeViewListCondition(entityCondition)
+        return makeViewListCondition(entityConditionNode)
     }
+    EntityConditionImplBase makeViewHavingCondition() {
+        if (!this.isViewEntity() || entityHavingEconditions == null) return null
+        // add the view-entity.entity-condition.having-econditions
+        return makeViewListCondition(entityHavingEconditions)
+    }
+
     protected EntityConditionImplBase makeViewListCondition(MNode conditionsParent) {
         if (conditionsParent == null) return null
         List<EntityCondition> condList = new ArrayList()
@@ -1843,14 +1855,6 @@ public class EntityDefinition {
         EntityConditionImplBase entityCondition = (EntityConditionImplBase) this.efi.conditionFactory.makeCondition(condList, op)
         // logger.info("============== In makeViewListCondition for entity [${entityName}] resulting entityCondition: ${entityCondition}")
         return entityCondition
-    }
-
-    EntityConditionImplBase makeViewHavingCondition() {
-        if (!this.isViewEntity()) return null
-        // add the view-entity.entity-condition.having-econditions
-        MNode havingEconditions = this.internalEntityNode.first("entity-condition")?.first("having-econditions")
-        if (havingEconditions == null) return null
-        return makeViewListCondition(havingEconditions)
     }
 
     @Override

@@ -39,7 +39,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected ExecutionContextFactoryImpl ecfi
 
-    protected ContextStack context = new ContextStack()
+    protected final ContextStack context = new ContextStack()
+    protected final ContextBinding contextBinding = new ContextBinding(context)
     protected String activeTenantId = "DEFAULT"
     protected LinkedList<String> tenantIdStack = null
 
@@ -67,6 +68,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     Map<String, Object> getContextRoot() { return context.getRootMap() }
+
+    ContextBinding getContextBinding() { return contextBinding }
 
     @Override
     String getTenantId() { return activeTenantId }
@@ -182,7 +185,7 @@ class ExecutionContextImpl implements ExecutionContext {
         String sessionTenantId = request.session.getAttribute("moqui.tenantId")
         if (!sessionTenantId) {
             EntityValue tenantHostDefault = ecfi.getEntityFacade("DEFAULT").find("moqui.tenant.TenantHostDefault")
-                    .condition("hostName", request.getServerName()).useCache(true).disableAuthz().one()
+                    .condition("hostName", wfi.getHostName(false)).useCache(true).disableAuthz().one()
             if (tenantHostDefault) {
                 sessionTenantId = tenantHostDefault.tenantId
                 request.session.setAttribute("moqui.tenantId", sessionTenantId)

@@ -397,7 +397,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         if (lookedUpValue == null) lookedUpValue = newEntityValue
         lookedUpValue.setFields(parameters, true, null, false)
         // logger.info("In auto updateEntity lookedUpValue final [${lookedUpValue}] for parameters [${parameters}]")
-        lookedUpValue.store()
+        lookedUpValue.createOrUpdate()
 
         storeRelated(ecfi, (EntityValueBase) lookedUpValue, parameters, result, parentPks)
     }

@@ -21,7 +21,6 @@ import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
-
 import org.elasticsearch.client.Client
 import org.elasticsearch.node.NodeBuilder
 import org.kie.api.KieServices
@@ -35,6 +34,7 @@ import org.kie.api.runtime.StatelessKieSession
 
 import org.moqui.BaseException
 import org.moqui.context.*
+import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
 import org.moqui.impl.StupidClassLoader
 import org.moqui.impl.StupidUtilities
@@ -142,12 +142,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (!confPartialPath) confPartialPath = moquiInitProperties.getProperty("moqui.conf")
         if (!confPartialPath) throw new IllegalArgumentException("No moqui.conf property found in MoquiInit.properties or in a system property (with: -Dmoqui.conf=... on the command line)")
 
+        String confFullPath
+        if (confPartialPath.startsWith("/")) {
+            confFullPath = confPartialPath
+        } else {
+            confFullPath = this.runtimePath + "/" + confPartialPath
+        }
         // setup the confFile
-        if (confPartialPath.startsWith("/")) confPartialPath = confPartialPath.substring(1)
-        String confFullPath = this.runtimePath + "/" + confPartialPath
         File confFile = new File(confFullPath)
-        if (confFile.exists()) { this.confPath = confFullPath }
-        else { this.confPath = null; logger.warn("The moqui.conf path [${confFullPath}] was not found.") }
+        if (confFile.exists()) {
+            this.confPath = confFullPath
+        } else {
+            this.confPath = null
+            throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
+        }
 
         confXmlRoot = this.initConfig()
 
@@ -263,10 +271,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
+        long entityStartTime = System.currentTimeMillis()
         this.entityFacade.loadAllEntityLocations()
-        this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
+        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
         // load/warm framework entities
         this.entityFacade.loadFrameworkEntities()
+        logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
         // init ESAPI
         StupidWebUtilities.canonicalizeValue("test")
 
@@ -361,6 +371,44 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     }
                 }
             }
+        }
+    }
+
+    /** Called from MoquiContextListener.contextInitialized after ECFI init */
+    boolean checkEmptyDb() {
+        String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
+        if (!emptyDbLoad || emptyDbLoad == 'none') return false
+
+        long enumCount = getEntity().find("moqui.basic.Enumeration").disableAuthz().count()
+        if (enumCount == 0) {
+            logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
+
+            ExecutionContext ec = getExecutionContext()
+            try {
+                ec.getArtifactExecution().disableAuthz()
+                ec.getArtifactExecution().push("loadData", "AT_OTHER", "AUTHZA_ALL", false)
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                ec.getUser().loginAnonymousIfNoUser()
+
+                EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                if (emptyDbLoad != 'all') edl.dataTypes(new HashSet(emptyDbLoad.split(",") as List))
+
+                try {
+                    long startTime = System.currentTimeMillis()
+                    long records = edl.load()
+
+                    logger.info("Loaded [${records}] records (with types: ${emptyDbLoad}) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                } catch (Throwable t) {
+                    logger.error("Error loading empty DB data (with types: ${emptyDbLoad})", t)
+                }
+
+            } finally {
+                ec.destroy()
+            }
+            return true
+        } else {
+            logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
+            return false
         }
     }
 
@@ -738,6 +786,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ec.destroy()
             this.activeContext.remove()
         }
+    }
+
+    /** Using an EC in multiple threads is dangerous as much of the ECI is not designed to be thread safe. */
+    void useExecutionContextInThread(ExecutionContextImpl eci) {
+        ExecutionContextImpl curEc = activeContext.get()
+        if (curEc != null) curEc.destroy()
+        activeContext.set(eci)
     }
 
     @Override

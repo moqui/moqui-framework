@@ -110,6 +110,9 @@ class TransactionInternalBitronix implements TransactionInternal {
         // pds.setShareTransactionConnections(false) // don't share connections in the ACCESSIBLE, needed?
         // pds.setIgnoreRecoveryFailures(false) // something to consider for XA recovery errors, quarantines by default
 
+        // use-tm-join defaults to true, so does Bitronix so just set to false if false
+        if (dsi.database.attribute("use-tm-join") == "false") pds.setUseTmJoin(false)
+
         if (dsi.inlineJdbc.attribute("pool-test-query")) {
             pds.setTestQuery(dsi.inlineJdbc.attribute("pool-test-query"))
         } else if (dsi.database.attribute("default-test-query")) {

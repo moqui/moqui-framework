@@ -132,6 +132,73 @@ class TransactionFacadeImpl implements TransactionFacade {
 
 
     @Override
+    Object runUseOrBegin(Integer timeout, String rollbackMessage, Closure closure) {
+        if (rollbackMessage == null) rollbackMessage = ""
+        boolean beganTransaction = begin(timeout)
+        try {
+            return closure.call()
+        } catch (Throwable t) {
+            rollback(beganTransaction, rollbackMessage, t)
+            throw t
+        } finally {
+            commit(beganTransaction)
+        }
+    }
+    @Override
+    Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure) {
+        return runRequireNew(timeout, rollbackMessage, true, true, closure)
+    }
+    protected final static boolean requireNewThread = true
+    Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadReuseEci, Closure closure) {
+        Object result = null
+        if (requireNewThread) {
+            // if there is a timeout for this thread wait 10x the timeout (so multiple seconds by 10k instead of 1k)
+            long threadWait = timeout != null ? timeout * 10000 : 60000
+
+            Thread txThread = null
+            ExecutionContextImpl eci = ecfi.getEci()
+            Throwable threadThrown = null
+
+            try {
+                txThread = Thread.start('RequireNewTx', {
+                    if (threadReuseEci) ecfi.useExecutionContextInThread(eci)
+                    try {
+                        if (beginTx) {
+                            result = runUseOrBegin(timeout, rollbackMessage, closure)
+                        } else {
+                            result = closure.call()
+                        }
+                    } catch (Throwable t) {
+                        threadThrown = t
+                    }
+                })
+            } finally {
+                if (txThread != null) {
+                    txThread.join(threadWait)
+                    if (txThread.state != Thread.State.TERMINATED) {
+                        // TODO: do more than this?
+                        logger.warn("New transaction thread not terminated, in state ${txThread.state}")
+                    }
+                }
+            }
+            if (threadThrown != null) throw threadThrown
+        } else {
+            boolean suspendedTransaction = false
+            try {
+                if (isTransactionInPlace()) suspendedTransaction = suspend()
+                if (beginTx) {
+                    result = runUseOrBegin(timeout, rollbackMessage, closure)
+                } else {
+                    result = closure.call()
+                }
+            } finally {
+                if (suspendedTransaction) resume()
+            }
+        }
+        return result
+    }
+
+    @Override
     XAResource getActiveXaResource(String resourceName) {
         return getTxStackInfo().getActiveXaResourceMap().get(resourceName)
     }

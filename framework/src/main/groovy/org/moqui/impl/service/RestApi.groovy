@@ -47,7 +47,7 @@ class RestApi {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".rest.xml")) continue
-                    MNode rootNode = new MNode(new XmlParser().parseText(rr.getText()))
+                    MNode rootNode = MNode.parse(rr)
                     ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
                     rootResourceMap.put(rn.name, rn)
                     logger.info("Loaded REST API from ${rr.getLocation()}; paths: ${rn.childPaths}, methods: ${rn.childMethods}")

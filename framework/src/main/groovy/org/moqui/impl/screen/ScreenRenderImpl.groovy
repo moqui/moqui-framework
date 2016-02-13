@@ -828,11 +828,9 @@ class ScreenRenderImpl implements ScreenRender {
             String overrideTemplateLocation = null
             // go through the screenPathDefList instead screenRenderDefList so that parent screen can override template
             //     even if it isn't rendered to decorate subscreen
-            for (ScreenDefinition sd in screenUrlInfo.screenPathDefList) {
-                // go through entire list and set all found, basically we want the last one if there are more than one
-                MNode mt = sd.screenNode.first({ MNode it -> it.name == "macro-template" && it.attribute('type') == renderMode })
-                if (mt != null) overrideTemplateLocation = mt.attribute('location')
-            }
+            for (ScreenDefinition sd in screenUrlInfo.screenPathDefList)
+                overrideTemplateLocation = sd.getMacroTemplateLocation(renderMode)
+
             if (overrideTemplateLocation) {
                 return sfi.getTemplateByLocation(overrideTemplateLocation)
             } else {
