@@ -149,23 +149,12 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             } else {
                 if (this.separateThread) {
                     Thread serviceThread = null
-                    String threadUsername = eci.user.username
-                    String threadTenantId = eci.tenantId
                     Map<String, Object> resultMap = null
                     try {
                         serviceThread = Thread.start('ServiceSeparateThread', {
-                            ExecutionContextImpl threadEci = ecfi.getEci()
-                            threadEci.changeTenant(threadTenantId)
-                            if (threadUsername) threadEci.getUserFacade().internalLoginUser(threadUsername, threadTenantId)
-                            // if authz disabled need to do it here as well since we'll have a different ExecutionContext
-                            boolean threadEnableAuthz = disableAuthz ? !threadEci.getArtifactExecution().disableAuthz() : false
-                            try {
-                                resultMap = callSingle(this.parameters, sd, threadEci)
-                            } finally {
-                                if (threadEnableAuthz) threadEci.getArtifactExecution().enableAuthz()
-                                threadEci.destroy()
-                            }
-                        } )
+                            ecfi.useExecutionContextInThread(eci)
+                            resultMap = callSingle(this.parameters, sd, eci)
+                        })
                     } finally {
                         if (serviceThread != null) serviceThread.join()
                     }
