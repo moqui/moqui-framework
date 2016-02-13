@@ -517,7 +517,7 @@
                 default-xa-ds-class="">
         </database> -->
         <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
-                  default-isolation-level="ReadCommitted" use-tm-join="false" default-test-query="SELECT 1"
+                  default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                   default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource">
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
