@@ -49,14 +49,19 @@ public class EntityDefinition {
     protected String shortAlias
     protected String groupName = null
     protected MNode internalEntityNode
+    protected String tableNameAttr
+    protected String schemaNameVal
+    protected String fullTableNameVal
+
     protected final Map<String, MNode> fieldNodeMap = new HashMap<String, MNode>()
     protected final Map<String, FieldInfo> fieldInfoMap = new HashMap<String, FieldInfo>()
     // small lists, but very frequently accessed
-    protected ArrayList<String> pkFieldNameList = null
-    protected ArrayList<String> nonPkFieldNameList = null
-    protected ArrayList<FieldInfo> nonPkFieldInfoList = null
-    protected ArrayList<FieldInfo> allFieldInfoList = null
-    protected ArrayList<String> allFieldNameList = null
+    protected final ArrayList<String> pkFieldNameList = new ArrayList<String>()
+    protected final ArrayList<String> nonPkFieldNameList = new ArrayList<String>()
+    protected final ArrayList<String> allFieldNameList = new ArrayList<String>()
+    protected final ArrayList<FieldInfo> pkFieldInfoList = new ArrayList<FieldInfo>()
+    protected final ArrayList<FieldInfo> nonPkFieldInfoList = new ArrayList<FieldInfo>()
+    protected final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<FieldInfo>()
     protected Boolean hasUserFields = null
     protected Boolean allowUserField = null
     protected Map<String, Map> mePkFieldToAliasNameMapMap = null
@@ -77,6 +82,7 @@ public class EntityDefinition {
     protected String sequencePrimaryPrefix = ""
     protected long sequencePrimaryStagger = 1
     protected long sequenceBankSize = EntityFacadeImpl.defaultBankSize
+    protected final boolean sequencePrimaryUseUuid
 
     protected List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
@@ -98,6 +104,7 @@ public class EntityDefinition {
             this.sequencePrimaryStagger = internalEntityNode.attribute("sequence-primary-stagger") as long
         if (internalEntityNode.attribute("sequence-bank-size"))
             this.sequenceBankSize = internalEntityNode.attribute("sequence-bank-size") as long
+        sequencePrimaryUseUuid = internalEntityNode.attribute('sequence-primary-use-uuid') == "true"
 
         postInit()
 
@@ -108,6 +115,16 @@ public class EntityDefinition {
         authorizeSkipViewVal = authorizeSkip == "true" || authorizeSkip?.contains("view")
 
         useCache = internalEntityNode.attribute('cache') ?: 'false'
+
+        tableNameAttr = internalEntityNode.attribute("table-name")
+        if (tableNameAttr == null || tableNameAttr.length() == 0) tableNameAttr = camelCaseToUnderscored(internalEntityName)
+        schemaNameVal = efi.getDatasourceNode(getEntityGroupName())?.attribute("schema-name")
+        if (schemaNameVal != null && schemaNameVal.length() == 0) schemaNameVal = null
+        if (efi.getDatabaseNode(getEntityGroupName())?.attribute("use-schemas") != "false") {
+            fullTableNameVal = schemaNameVal != null ? schemaName + "." + tableNameAttr : tableNameAttr
+        } else {
+            fullTableNameVal = tableNameAttr
+        }
     }
 
     void postInit() {
@@ -150,9 +167,8 @@ public class EntityDefinition {
                 aliasByField.add(aliasNode)
             }
             for (MNode aliasNode in internalEntityNode.children("alias")) {
-                String fieldName = aliasNode.attribute("name")
-                fieldNodeMap.put(fieldName, aliasNode)
-                fieldInfoMap.put(fieldName, new FieldInfo(this, aliasNode))
+                FieldInfo fi = new FieldInfo(this, aliasNode)
+                addFieldInfo(fi)
             }
 
             entityConditionNode = entityNode.first("entity-condition")
@@ -165,13 +181,26 @@ public class EntityDefinition {
             if (internalEntityNode.attribute("allow-user-field") == "true") allowUserField = true
 
             for (MNode fieldNode in this.internalEntityNode.children("field")) {
-                String fieldName = fieldNode.attribute("name")
-                fieldNodeMap.put(fieldName, fieldNode)
-                fieldInfoMap.put(fieldName, new FieldInfo(this, fieldNode))
+                FieldInfo fi = new FieldInfo(this, fieldNode)
+                addFieldInfo(fi)
             }
         }
 
         // if (isViewEntity()) logger.warn("========== entity Node: ${internalEntityNode.toString()}")
+    }
+
+    protected void addFieldInfo(FieldInfo fi) {
+        fieldNodeMap.put(fi.name, fi.fieldNode)
+        fieldInfoMap.put(fi.name, fi)
+        allFieldNameList.add(fi.name)
+        allFieldInfoList.add(fi)
+        if (fi.isPk) {
+            pkFieldNameList.add(fi.name)
+            pkFieldInfoList.add(fi)
+        } else {
+            nonPkFieldNameList.add(fi.name)
+            nonPkFieldInfoList.add(fi)
+        }
     }
 
     String getEntityName() { return this.internalEntityName }
@@ -247,6 +276,8 @@ public class EntityDefinition {
     }
     String getUseCache() { return useCache }
 
+    boolean getSequencePrimaryUseUuid() { return sequencePrimaryUseUuid }
+
     MNode getFieldNode(String fieldName) {
         MNode fn = fieldNodeMap.get(fieldName)
         if (fn != null) return fn
@@ -285,28 +316,9 @@ public class EntityDefinition {
         fieldInfoMap.put(fieldName, fi)
         return fi
     }
-    ArrayList<FieldInfo> getNonPkFieldInfoList() {
-        if (nonPkFieldInfoList != null) return nonPkFieldInfoList
-
-        ArrayList<String> nonPkFieldNameList = getNonPkFieldNames()
-        int nonPkFieldNameListSize = nonPkFieldNameList.size()
-        ArrayList<FieldInfo> tempList = new ArrayList<FieldInfo>(nonPkFieldNameListSize)
-        for (int i = 0; i < nonPkFieldNameListSize; i++) tempList.add(getFieldInfo(nonPkFieldNameList.get(i)))
-
-        nonPkFieldInfoList = tempList
-        return nonPkFieldInfoList
-    }
-    ArrayList<FieldInfo> getAllFieldInfoList() {
-        if (allFieldInfoList != null) return allFieldInfoList
-
-        ArrayList<String> fieldNameList = getAllFieldNames()
-        int fieldNameListSize = fieldNameList.size()
-        ArrayList<FieldInfo> tempList = new ArrayList<FieldInfo>(fieldNameListSize)
-        for (int i = 0; i < fieldNameListSize; i++) tempList.add(getFieldInfo(fieldNameList.get(i)))
-
-        allFieldInfoList = tempList
-        return allFieldInfoList
-    }
+    ArrayList<FieldInfo> getPkFieldInfoList() { return pkFieldInfoList }
+    ArrayList<FieldInfo> getNonPkFieldInfoList() { return nonPkFieldInfoList }
+    ArrayList<FieldInfo> getAllFieldInfoList() { return allFieldInfoList }
 
     @CompileStatic
     public static class FieldInfo {
@@ -759,28 +771,9 @@ public class EntityDefinition {
     }
 
     /** Returns the table name, ie table-name or converted entity-name */
-    String getTableName() {
-        String tableNameAttr = this.internalEntityNode.attribute("table-name")
-        if (tableNameAttr != null && tableNameAttr.length() > 0) {
-            return tableNameAttr
-        } else {
-            return camelCaseToUnderscored(getEntityName())
-        }
-    }
-
-    String getFullTableName() {
-        if (efi.getDatabaseNode(getEntityGroupName())?.attribute("use-schemas") != "false") {
-            String schemaName = getSchemaName()
-            return schemaName != null && schemaName.length() > 0 ? schemaName + "." + getTableName() : getTableName()
-        } else {
-            return getTableName()
-        }
-    }
-
-    String getSchemaName() {
-        String schemaName = efi.getDatasourceNode(getEntityGroupName())?.attribute("schema-name")
-        return schemaName != null && schemaName.length() > 0 ? schemaName : null
-    }
+    String getTableName() { return tableNameAttr }
+    String getFullTableName() { return fullTableNameVal }
+    String getSchemaName() { return schemaNameVal }
 
     boolean isField(String fieldName) { return getFieldInfo(fieldName) != null }
     boolean isPkField(String fieldName) {
@@ -880,21 +873,10 @@ public class EntityDefinition {
         return userFieldNames
     }
 
-    ArrayList<String> getPkFieldNames() {
-        if (pkFieldNameList == null)
-            pkFieldNameList = new ArrayList(getFieldNamesInternal(true, false))
-        return pkFieldNameList
-    }
-    ArrayList<String> getNonPkFieldNames() {
-        if (nonPkFieldNameList == null)
-            nonPkFieldNameList = new ArrayList(getFieldNamesInternal(false, true))
-        return nonPkFieldNameList
-    }
+    ArrayList<String> getPkFieldNames() { return pkFieldNameList }
+    ArrayList<String> getNonPkFieldNames() { return nonPkFieldNameList }
     ArrayList<String> getAllFieldNames() { return getAllFieldNames(true) }
     ArrayList<String> getAllFieldNames(boolean includeUserFields) {
-        if (allFieldNameList == null)
-            allFieldNameList = new ArrayList(getFieldNamesInternal(true, true))
-
         if (!includeUserFields) return allFieldNameList
 
         ListOrderedSet userFieldNames = getUserFieldNames()

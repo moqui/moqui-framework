@@ -32,6 +32,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
 import org.moqui.util.MNode
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -1097,22 +1098,22 @@ abstract class EntityValueBase implements EntityValue {
     }
     void basicCreate(Connection con) {
         EntityDefinition ed = getEntityDefinition()
-        ArrayList<String> fieldList = new ArrayList<String>()
-        ArrayList<String> fieldNameList = ed.getFieldNames(true, true, false)
-        int size = fieldNameList.size()
+        ArrayList<FieldInfo> fieldList = new ArrayList<FieldInfo>()
+        ArrayList<FieldInfo> allFieldList = ed.getAllFieldInfoList()
+        int size = allFieldList.size()
         for (int i = 0; i < size; i++) {
-            String fieldName = fieldNameList.get(i)
-            if (valueMap.containsKey(fieldName)) fieldList.add(fieldName)
+            FieldInfo fi = allFieldList.get(i)
+            if (valueMap.containsKey(fi.name)) fieldList.add(fi)
         }
 
         basicCreate(fieldList, con)
     }
-    void basicCreate(ArrayList<String> fieldList, Connection con) {
+    void basicCreate(ArrayList<FieldInfo> fieldInfoList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
         ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
         ExecutionContext ec = ecfi.getExecutionContext()
 
-        this.createExtended(fieldList, con)
+        this.createExtended(fieldInfoList, con)
 
         // create records for the UserFields
         ListOrderedSet userFieldNameList = ed.getUserFieldNames()
@@ -1136,7 +1137,7 @@ abstract class EntityValueBase implements EntityValue {
         }
     }
     /** This method should create a corresponding record in the datasource. */
-    abstract void createExtended(ArrayList<String> fieldList, Connection con)
+    abstract void createExtended(ArrayList<FieldInfo> fieldInfoList, Connection con)
 
     @Override
     EntityValue update() {
@@ -1177,22 +1178,22 @@ abstract class EntityValueBase implements EntityValue {
             // run EECA before rules
             getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "update", true)
 
-            ArrayList<String> pkFieldList = ed.getPkFieldNames()
-            ArrayList<String> nonPkFieldList = new ArrayList<String>()
-            ArrayList<EntityDefinition.FieldInfo> fieldInfoList = ed.getNonPkFieldInfoList()
+            ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
+            ArrayList<FieldInfo> nonPkFieldList = new ArrayList<FieldInfo>()
+            ArrayList<FieldInfo> allNonPkFieldList = ed.getNonPkFieldInfoList()
             List<String> changedCreateOnlyFields = []
-            int size = fieldInfoList.size()
+            int size = allNonPkFieldList.size()
             for (int i = 0; i < size; i++) {
-                EntityDefinition.FieldInfo fieldInfo = fieldInfoList.get(i)
+                FieldInfo fieldInfo = allNonPkFieldList.get(i)
                 String fieldName = fieldInfo.name
                 if (valueMap.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
                         valueMap.get(fieldName) != dbValueMap.get(fieldName))) {
-                    nonPkFieldList.add(fieldName)
+                    nonPkFieldList.add(fieldInfo)
                     if (fieldInfo.createOnly) changedCreateOnlyFields.add(fieldName)
                 }
             }
             // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
-            if (!nonPkFieldList) {
+            if (nonPkFieldList.size() == 0) {
                 if (logger.isTraceEnabled()) logger.trace((String) "Not doing update on entity with no populated non-PK fields; entity=" + this.toString())
                 return this
             }
@@ -1244,21 +1245,22 @@ abstract class EntityValueBase implements EntityValue {
         if (dbValueMap) for (Object val in dbValueMap.values()) if (val != null) { dbValueMapFromDb = true; break }
         */
 
-        ArrayList<String> pkFieldList = ed.getPkFieldNames()
-        ArrayList<String> nonPkFieldList = new ArrayList<String>()
-        ArrayList<String> fieldNameList = ed.getNonPkFieldNames()
-        int size = fieldNameList.size()
+        ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
+        ArrayList<FieldInfo> nonPkFieldList = new ArrayList<FieldInfo>()
+        ArrayList<FieldInfo> allNonPkFieldList = ed.getNonPkFieldInfoList()
+        int size = allNonPkFieldList.size()
         for (int i = 0; i < size; i++) {
-            String fieldName = fieldNameList.get(i)
+            FieldInfo fi = allNonPkFieldList.get(i)
+            String fieldName = fi.name
             if (valueMap.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
                     valueMap.get(fieldName) != dbValueMap.get(fieldName))) {
-                nonPkFieldList.add(fieldName)
+                nonPkFieldList.add(fi)
             }
         }
 
         basicUpdate(pkFieldList, nonPkFieldList, con)
     }
-    void basicUpdate(ArrayList<String> pkFieldList, ArrayList<String> nonPkFieldList, Connection con) {
+    void basicUpdate(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
         ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
         ExecutionContext ec = ecfi.getExecutionContext()
@@ -1310,7 +1312,7 @@ abstract class EntityValueBase implements EntityValue {
             }
         }
     }
-    abstract void updateExtended(ArrayList<String> pkFieldList, ArrayList<String> nonPkFieldList, Connection con)
+    abstract void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con)
 
     @Override
     EntityValue delete() {

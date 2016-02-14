@@ -122,7 +122,7 @@ class EntityDbMeta {
             List<String> mcs = getMissingColumns(ed)
             if (mcs) for (String fieldName in mcs) addColumn(ed, fieldName)
             // create foreign keys after checking each to see if it already exists
-            if (startup || datasourceNode?.attribute('@runtime-add-fks') == "true") createForeignKeys(ed, true)
+            if (startup || datasourceNode?.attribute('runtime-add-fks') == "true") createForeignKeys(ed, true)
         }
         entityTablesChecked.put(ed.getFullEntityName(), new Timestamp(System.currentTimeMillis()))
         entityTablesExist.put(ed.getFullEntityName(), true)

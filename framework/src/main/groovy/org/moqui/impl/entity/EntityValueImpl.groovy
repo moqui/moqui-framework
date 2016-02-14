@@ -14,11 +14,11 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.apache.commons.collections.set.ListOrderedSet
 
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityQueryBuilder.EntityConditionParameter
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -51,7 +51,7 @@ class EntityValueImpl extends EntityValueBase {
     }
 
     @Override
-    void createExtended(ArrayList<String> fieldList, Connection con) {
+    void createExtended(ArrayList<FieldInfo> fieldInfoList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
 
         if (ed.isViewEntity()) {
@@ -65,11 +65,9 @@ class EntityValueImpl extends EntityValueBase {
             boolean isFirstField = true
             StringBuilder values = new StringBuilder()
 
-            int size = fieldList.size()
-            ArrayList<EntityDefinition.FieldInfo> fieldInfoList = new ArrayList<>(size)
+            int size = fieldInfoList.size()
             for (int i = 0; i < size; i++) {
-                String fieldName = fieldList.get(i)
-                EntityDefinition.FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
+                FieldInfo fieldInfo = fieldInfoList.get(i)
                 fieldInfoList.add(fieldInfo)
                 if (isFirstField) {
                     isFirstField = false
@@ -88,7 +86,7 @@ class EntityValueImpl extends EntityValueBase {
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
                 for (int i = 0; i < size; i++) {
-                    EntityDefinition.FieldInfo fieldInfo = fieldInfoList.get(i)
+                    FieldInfo fieldInfo = fieldInfoList.get(i)
                     String fieldName = fieldInfo.name
                     eqb.setPreparedStatementValue(i+1I, getValueMap().get(fieldName), fieldInfo)
                 }
@@ -103,7 +101,7 @@ class EntityValueImpl extends EntityValueBase {
     }
 
     @Override
-    void updateExtended(ArrayList<String> pkFieldList, ArrayList<String> nonPkFieldList, Connection con) {
+    void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
 
         if (ed.isViewEntity()) {
@@ -113,24 +111,20 @@ class EntityValueImpl extends EntityValueBase {
             StringBuilder sql = eqb.getSqlTopLevel()
             sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ")
 
-            boolean isFirstField = true
             int size = nonPkFieldList.size()
             for (int i = 0; i < size; i++) {
-                String fieldName = nonPkFieldList.get(i)
-                EntityDefinition.FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
-                if (isFirstField) isFirstField = false else sql.append(", ")
+                FieldInfo fieldInfo = nonPkFieldList.get(i)
+                if (i > 0) sql.append(", ")
                 sql.append(fieldInfo.getFullColumnName(false)).append("=?")
-                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldName), eqb))
+                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
             }
             sql.append(" WHERE ")
-            boolean isFirstPk = true
             int sizePk = pkFieldList.size()
             for (int i = 0; i < sizePk; i++) {
-                String fieldName = pkFieldList.get(i)
-                EntityDefinition.FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
-                if (isFirstPk) isFirstPk = false else sql.append(" AND ")
+                FieldInfo fieldInfo = pkFieldList.get(i)
+                if (i > 0) sql.append(" AND ")
                 sql.append(fieldInfo.getFullColumnName(false)).append("=?")
-                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldName), eqb))
+                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
             }
 
             try {
@@ -161,15 +155,13 @@ class EntityValueImpl extends EntityValueBase {
             StringBuilder sql = eqb.getSqlTopLevel()
             sql.append("DELETE FROM ").append(ed.getFullTableName()).append(" WHERE ")
 
-            boolean isFirstPk = true
-            ArrayList<String> pkFieldList = ed.getPkFieldNames()
+            ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
             int sizePk = pkFieldList.size()
             for (int i = 0; i < sizePk; i++) {
-                String fieldName = pkFieldList.get(i)
-                EntityDefinition.FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
-                if (isFirstPk) isFirstPk = false else sql.append(" AND ")
+                FieldInfo fieldInfo = pkFieldList.get(i)
+                if (i > 0) sql.append(" AND ")
                 sql.append(fieldInfo.getFullColumnName(false)).append("=?")
-                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldName), eqb))
+                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
             }
 
             try {
@@ -196,20 +188,19 @@ class EntityValueImpl extends EntityValueBase {
 
         // NOTE: this simple approach may not work for view-entities, but not restricting for now
 
-        ArrayList<String> pkFieldList = ed.getPkFieldNames()
-        ArrayList<String> nonPkFieldList = ed.getNonPkFieldNames()
+        ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
+        ArrayList<FieldInfo> nonPkFieldList = ed.getNonPkFieldInfoList()
         // NOTE: even if there are no non-pk fields do a refresh in order to see if the record exists or not
 
         EntityQueryBuilder eqb = new EntityQueryBuilder(ed, getEntityFacadeImpl())
         StringBuilder sql = eqb.getSqlTopLevel()
         sql.append("SELECT ")
-        boolean isFirstField = true
         if (nonPkFieldList) {
             int size = nonPkFieldList.size()
             for (int i = 0; i < size; i++) {
-                String fieldName = nonPkFieldList.get(i)
-                if (isFirstField) isFirstField = false else sql.append(", ")
-                sql.append(ed.getColumnName(fieldName, false))
+                FieldInfo fi = nonPkFieldList.get(i)
+                if (i > 0) sql.append(", ")
+                sql.append(fi.getFullColumnName(false))
             }
         } else {
             sql.append("*")
@@ -217,14 +208,12 @@ class EntityValueImpl extends EntityValueBase {
 
         sql.append(" FROM ").append(ed.getFullTableName()).append(" WHERE ")
 
-        boolean isFirstPk = true
         int sizePk = pkFieldList.size()
         for (int i = 0; i < sizePk; i++) {
-            String fieldName = pkFieldList.get(i)
-            if (isFirstPk) isFirstPk = false else sql.append(" AND ")
-            sql.append(ed.getColumnName(fieldName, false)).append("=?")
-            eqb.getParameters().add(new EntityConditionParameter(ed.getFieldInfo(fieldName),
-                    this.getValueMap().get(fieldName), eqb))
+            FieldInfo fi = pkFieldList.get(i)
+            if (i > 0) sql.append(" AND ")
+            sql.append(fi.getFullColumnName(false)).append("=?")
+            eqb.getParameters().add(new EntityConditionParameter(fi, this.getValueMap().get(fi.name), eqb))
         }
 
         boolean retVal = false
@@ -242,8 +231,8 @@ class EntityValueImpl extends EntityValueBase {
             if (rs.next()) {
                 int nonPkSize = nonPkFieldList.size()
                 for (int j = 0; j < nonPkSize; j++) {
-                    String fieldName = nonPkFieldList.get(j)
-                    EntityQueryBuilder.getResultSetValue(rs, j + 1, getEntityDefinition().getFieldInfo(fieldName), this, getEntityFacadeImpl())
+                    FieldInfo fi = nonPkFieldList.get(j)
+                    EntityQueryBuilder.getResultSetValue(rs, j + 1, fi, this, getEntityFacadeImpl())
                 }
                 retVal = true
                 setSyncedWithDb()
