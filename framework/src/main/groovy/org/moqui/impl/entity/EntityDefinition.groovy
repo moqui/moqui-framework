@@ -1764,9 +1764,9 @@ public class EntityDefinition {
                 String condValue = econdition.attribute("value") ?: null
                 // NOTE: only expand if contains "${", expanding normal strings does l10n and messes up key values; hopefully this won't result in a similar issue
                 if (condValue && condValue.contains("\${")) condValue = efi.getEcfi().getResourceFacade().expand(condValue, "") as String
-                condValue = condEd.convertFieldString(field.fieldName, condValue);
+                Object condValueObj = condEd.convertFieldString(field.fieldName, condValue);
                 cond = new FieldValueCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field,
-                        EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValue)
+                        EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
             }
             if (cond && econdition.attribute("ignore-case") == "true") cond.ignoreCase()
 

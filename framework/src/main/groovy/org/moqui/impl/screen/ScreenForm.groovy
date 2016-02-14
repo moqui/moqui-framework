@@ -770,7 +770,7 @@ class ScreenForm {
         if (oneRelNode != null) {
             if (internalFormNode.attribute("name") == "UpdateMasterEntityValue") {
                 MNode linkNode = subFieldNode.append("link", [url:"edit",
-                        text:"Edit ${relatedEd.getPrettyName(null, null)} [\${fieldValues." + keyField + "}]".toString(),
+                        text:("Edit ${relatedEd.getPrettyName(null, null)} [\${fieldValues." + keyField + "}]").toString(),
                         condition:keyField, 'link-type':'anchor'] as Map<String, String>)
                 linkNode.append("parameter", [name:"aen", value:relatedEntityName])
                 linkNode.append("parameter", [name:relKeyField, from:"fieldValues.${keyField}".toString()])
