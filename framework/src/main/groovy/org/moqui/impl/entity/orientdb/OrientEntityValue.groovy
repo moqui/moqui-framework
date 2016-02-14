@@ -19,11 +19,11 @@ import com.orientechnologies.orient.core.record.impl.ODocument
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery
 import com.orientechnologies.orient.core.sql.OCommandSQL
 import groovy.transform.CompileStatic
-import org.apache.commons.collections.set.ListOrderedSet
 
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityDefinition.FieldInfo
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 
@@ -58,7 +58,7 @@ class OrientEntityValue extends EntityValueBase {
             Object fieldValue = document.field(ed.getColumnName(fieldName, false))
             if (fieldValue == null) { getValueMap().put(fieldName, null); continue }
 
-            EntityDefinition.FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
+            FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
             int javaTypeInt = fieldInfo.typeValue
             switch (javaTypeInt) {
                 case 1: break // should be fine as String
@@ -109,7 +109,7 @@ class OrientEntityValue extends EntityValueBase {
     }
 
     @Override
-    void createExtended(ArrayList<String> fieldList, Connection con) {
+    void createExtended(ArrayList<FieldInfo> fieldList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
         if (ed.isViewEntity()) throw new EntityException("Create not yet implemented for view-entity")
 
@@ -133,7 +133,7 @@ class OrientEntityValue extends EntityValueBase {
     }
 
     @Override
-    void updateExtended(ArrayList<String> pkFieldList, ArrayList<String> nonPkFieldList, Connection con) {
+    void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
         if (ed.isViewEntity()) throw new EntityException("Update not yet implemented for view-entity")
 
@@ -160,23 +160,21 @@ class OrientEntityValue extends EntityValueBase {
             else sql.append("#").append(recordId.getClusterId()).append(":").append(recordId.getClusterPosition())
             sql.append(" SET ")
 
-            boolean isFirstField = true
             int size = nonPkFieldList.size()
             for (int i = 0; i < size; i++) {
-                String fieldName = nonPkFieldList.get(i)
-                if (isFirstField) isFirstField = false else sql.append(", ")
-                sql.append(ed.getColumnName(fieldName, false)).append("=?")
-                paramValues.add(getValueMap().get(fieldName))
+                FieldInfo fi = nonPkFieldList.get(i)
+                if (i > 0) sql.append(", ")
+                sql.append(fi.getFullColumnName(false)).append("=?")
+                paramValues.add(getValueMap().get(fi.name))
             }
             if (recordId == null) {
                 sql.append(" WHERE ")
-                boolean isFirstPk = true
                 int sizePk = pkFieldList.size()
                 for (int i = 0; i < sizePk; i++) {
-                    String fieldName = pkFieldList.get(i)
-                    if (isFirstPk) isFirstPk = false else sql.append(" AND ")
-                    sql.append(ed.getColumnName(fieldName, false)).append("=?")
-                    paramValues.add(getValueMap().get(fieldName))
+                    FieldInfo fi = pkFieldList.get(i)
+                    if (i > 0) sql.append(" AND ")
+                    sql.append(fi.getFullColumnName(false)).append("=?")
+                    paramValues.add(getValueMap().get(fi.name))
                 }
             }
 
@@ -230,14 +228,13 @@ class OrientEntityValue extends EntityValueBase {
             sql.append("DELETE FROM ")
             if (recordId == null) {
                 sql.append(ed.getTableName()).append(" WHERE ")
-                boolean isFirstPk = true
-                ArrayList<String> pkFieldList = ed.getPkFieldNames()
+                ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
                 int sizePk = pkFieldList.size()
                 for (int i = 0; i < sizePk; i++) {
-                    String fieldName = pkFieldList.get(i)
-                    if (isFirstPk) isFirstPk = false else sql.append(" AND ")
-                    sql.append(ed.getColumnName(fieldName, false)).append(" = ?")
-                    paramValues.add(getValueMap().get(fieldName))
+                    FieldInfo fi = pkFieldList.get(i)
+                    if (i > 0) sql.append(" AND ")
+                    sql.append(fi.getFullColumnName(false)).append(" = ?")
+                    paramValues.add(getValueMap().get(fi.name))
                 }
             } else {
                 sql.append("#").append(recordId.getClusterId()).append(":").append(recordId.getClusterPosition())
@@ -277,14 +274,13 @@ class OrientEntityValue extends EntityValueBase {
             sql.append("SELECT FROM ")
             if (recordId == null) {
                 sql.append(ed.getTableName()).append(" WHERE ")
-                boolean isFirstPk = true
-                ArrayList<String> pkFieldList = ed.getPkFieldNames()
+                ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
                 int sizePk = pkFieldList.size()
                 for (int i = 0; i < sizePk; i++) {
-                    String fieldName = pkFieldList.get(i)
-                    if (isFirstPk) isFirstPk = false else sql.append(" AND ")
-                    sql.append(ed.getColumnName(fieldName, false)).append(" = ?")
-                    paramValues.add(getValueMap().get(fieldName))
+                    FieldInfo fi = pkFieldList.get(i)
+                    if (i > 0) sql.append(" AND ")
+                    sql.append(fi.getFullColumnName(false)).append(" = ?")
+                    paramValues.add(getValueMap().get(fi.name))
                 }
             } else {
                 // TODO: try recordId.getRecord()... works? faster?
