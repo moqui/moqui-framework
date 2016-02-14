@@ -1,25 +1,25 @@
-
-import org.moqui.Moqui
-import org.moqui.context.ExecutionContext
-
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-import spock.lang.Shared
-import spock.lang.Specification
 
 import java.sql.Connection
 import java.sql.Statement
+
+import org.moqui.Moqui
+import org.moqui.context.ExecutionContext
+
+import spock.lang.Shared
+import spock.lang.Specification
 
 class TransactionFacadeTests extends Specification {
     @Shared
@@ -95,7 +95,7 @@ class TransactionFacadeTests extends Specification {
         rawCon1 == rawCon3
     }
 
-    def "test suspend/resume"() {
+    def "test suspend resume"() {
         when:
         boolean beganTransaction = false
         Connection rawCon1, rawCon2, rawCon3
@@ -129,7 +129,7 @@ class TransactionFacadeTests extends Specification {
         rawCon1 == rawCon3
     }
 
-    def "test atomikios bug"() {
+    def "test atomikos bug"() {
         when:
         // This bug cause runtime add missing not work
         boolean beganTransaction = false
@@ -140,7 +140,7 @@ class TransactionFacadeTests extends Specification {
             Statement st = conn1.createStatement()
             rawCon1 = conn1.unwrap(Connection.class)
             conn1.close()
-            //A connection close without create statement cause atomikios mark
+            //A connection close without create statement cause atomikos mark
             //a previouse to delisted XAResource to terminate state.
             Connection conn2 = ec.entity.getConnection("transactional")
             rawCon2 = conn2.unwrap(Connection.class)
