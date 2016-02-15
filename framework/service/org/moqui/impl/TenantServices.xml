@@ -59,23 +59,28 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
     </service>
 
-    <service verb="provision" noun="TenantConf">
+    <service verb="provision" noun="TenantDatabase">
         <description>Provision a tenant, calling service for database based on datasource.@database-conf-name in Moqui XML Conf file</description>
         <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
         <in-parameters>
+            <parameter name="databaseConfName">
+                <description>Defaults to datasource.@database-conf-name for the transactional datasource.</description></parameter>
             <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
             <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
         </in-parameters>
         <actions>
-            <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
-            <if condition="datasourceNode.attribute('database-conf-name') == 'h2'"><then>
+            <if condition="!databaseConfName">
+                <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
+                <set field="databaseConfName" from="datasourceNode.attribute('database-conf-name')"/>
+            </if>
+            <if condition="databaseConfName == 'h2'"><then>
                 <service-call name="org.moqui.impl.TenantServices.provision#TenantH2" in-map="context" out-map="context"/>
-            </then><else-if condition="datasourceNode.attribute('database-conf-name') == 'derby'">
+            </then><else-if condition="databaseConfName == 'derby'">
                 <service-call name="org.moqui.impl.TenantServices.provision#TenantDerby" in-map="context" out-map="context"/>
-            </else-if><else-if condition="datasourceNode.attribute('database-conf-name') == 'mysql'">
+            </else-if><else-if condition="databaseConfName == 'mysql'">
                 <service-call name="org.moqui.impl.TenantServices.provision#TenantMySQL" in-map="context" out-map="context"/>
             </else-if><else>
-                <return error="true" message="Cannot provision tenant for database ${datasourceNode.attribute('database-conf-name')}"/>
+                <return error="true" message="Provision tenant for database ${databaseConfName} not supported"/>
             </else></if>
         </actions>
     </service>
