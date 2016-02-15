@@ -116,23 +116,23 @@ class EntityQueryBuilder {
     void closeAll() {
         if (this.ps != null) {
             this.ps.close()
-            this.ps = null
+            this.ps = (PreparedStatement) null
         }
         if (this.rs != null) {
             this.rs.close()
-            this.rs = null
+            this.rs = (ResultSet) null
         }
         if (this.connection != null && !externalConnection) {
             this.connection.close()
-            this.connection = null
+            this.connection = (Connection) null
         }
     }
 
     /** For when closing to be done in other places, like a EntityListIteratorImpl */
     void releaseAll() {
-        this.ps = null
-        this.rs = null
-        this.connection = null
+        this.ps = (PreparedStatement) null
+        this.rs = (ResultSet) null
+        this.connection = (Connection) null
     }
 
     static String sanitizeColumnName(String colName) {
@@ -156,7 +156,7 @@ class EntityQueryBuilder {
         ArrayList<EntityConditionParameter> parms = parameters
         int size = parms.size()
         for (int i = 0; i < size; i++) {
-            EntityConditionParameter entityConditionParam = parms.get(i)
+            EntityConditionParameter entityConditionParam = (EntityConditionParameter) parms.get(i)
             entityConditionParam.setPreparedStatementValue(i + 1)
         }
     }

@@ -113,8 +113,8 @@ class ServiceCallScheduleImpl extends ServiceCallImpl implements ServiceCallSche
         }
 
         // always do an authz before scheduling the job
-        ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE", ServiceDefinition.getVerbAuthzActionId(verb))
-        eci.getArtifactExecution().push(aei, (sd != null && sd.getAuthenticate() == "true"))
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE", ServiceDefinition.getVerbAuthzActionId(verb))
+        eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
 
         parameters.authUsername = eci.getUser().getUsername()
         parameters.authTenantId = eci.getTenantId()

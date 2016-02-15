@@ -114,13 +114,14 @@ class TransactionFacadeImpl implements TransactionFacade {
     TransactionManager getTransactionManager() { return tm }
     UserTransaction getUserTransaction() { return ut }
     Long getCurrentTransactionStartTime() {
-        Long time = getTxStackInfoList() ? getTxStackInfoList().get(0).transactionBeginStartTime : null
-        if (time == null && logger.isTraceEnabled()) logger.trace("The txStackInfoList is empty, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
+        TxStackInfo txStackInfo = getTxStackInfo()
+        Long time = txStackInfo != null ? (Long) txStackInfo.transactionBeginStartTime : (Long) null
+        if (time == null && logger.isTraceEnabled()) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
         return time
     }
 
     protected ArrayList<TxStackInfo> getTxStackInfoList() {
-        ArrayList<TxStackInfo> list = txStackInfoListThread.get()
+        ArrayList<TxStackInfo> list = (ArrayList<TxStackInfo>) txStackInfoListThread.get()
         if (list == null) {
             list = new ArrayList<TxStackInfo>(10)
             list.add(new TxStackInfo())
@@ -128,7 +129,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
         return list
     }
-    protected TxStackInfo getTxStackInfo() { return getTxStackInfoList().get(0) }
+    protected TxStackInfo getTxStackInfo() { return (TxStackInfo) getTxStackInfoList().get(0) }
 
 
     @Override
@@ -556,23 +557,23 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @CompileStatic
     static class TxStackInfo {
-        Exception transactionBegin = null
-        Long transactionBeginStartTime = null
-        RollbackInfo rollbackOnlyInfo = null
-        Transaction suspendedTx = null
-        Exception suspendedTxLocation = null
-        protected Map<String, XAResource> activeXaResourceMap = [:]
-        protected Map<String, Synchronization> activeSynchronizationMap = [:]
-        TransactionCache txCache = null
+        Exception transactionBegin = (Exception) null
+        Long transactionBeginStartTime = (Long) null
+        RollbackInfo rollbackOnlyInfo = (RollbackInfo) null
+        Transaction suspendedTx = (Transaction) null
+        Exception suspendedTxLocation = (Exception) null
+        protected Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>()
+        protected Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>()
+        TransactionCache txCache = (TransactionCache) null
         Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap }
         Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap }
         void clearCurrent() {
-            rollbackOnlyInfo = null
-            transactionBegin = null
-            transactionBeginStartTime = null
+            rollbackOnlyInfo = (RollbackInfo) null
+            transactionBegin = (Exception) null
+            transactionBeginStartTime = (Long) null
             activeXaResourceMap.clear()
             activeSynchronizationMap.clear()
-            txCache = null
+            txCache = (TransactionCache) null
         }
     }
 

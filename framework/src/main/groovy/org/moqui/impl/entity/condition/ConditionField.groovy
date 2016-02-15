@@ -20,10 +20,10 @@ import org.moqui.impl.StupidJavaUtilities
 
 @CompileStatic
 class ConditionField {
-    String entityAlias = null
+    String entityAlias = (String) null
     String fieldName
-    EntityDefinition aliasEntityDef = null
-    String aliasEntityName = null
+    EntityDefinition aliasEntityDef = (EntityDefinition) null
+    String aliasEntityName = (String) null
     protected int curHashCode
 
     ConditionField(String fieldName) {

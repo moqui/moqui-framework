@@ -62,7 +62,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final Cache serviceLocationCache
 
-    protected final Map<String, List<ServiceEcaRule>> secaRulesByServiceName = new HashMap()
+    protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
     protected RestApi restApi
 
@@ -364,8 +364,8 @@ class ServiceFacadeImpl implements ServiceFacade {
             // remove the hash if there is one to more consistently match the service name
             serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
             List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-            if (!lst) {
-                lst = new LinkedList()
+            if (lst == null) {
+                lst = new ArrayList<>()
                 secaRulesByServiceName.put(serviceName, lst)
             }
             lst.add(ser)
@@ -379,10 +379,13 @@ class ServiceFacadeImpl implements ServiceFacade {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
         // remove the hash if there is one to more consistently match the service name
         // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-        if (lst) {
+        ArrayList<ServiceEcaRule> lst = (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
+        if (lst != null && lst.size() > 0) {
             ExecutionContext ec = ecfi.getExecutionContext()
-            for (ServiceEcaRule ser in lst) ser.runIfMatches(serviceName, parameters, results, when, ec)
+            for (int i = 0; i < lst.size(); i++) {
+                ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
+                ser.runIfMatches(serviceName, parameters, results, when, ec)
+            }
         }
     }
 
@@ -391,9 +394,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
         // remove the hash if there is one to more consistently match the service name
         // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-        if (lst) for (ServiceEcaRule ser in lst)
+        ArrayList<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
+        if (lst != null && lst.size() > 0) for (ServiceEcaRule ser in lst) {
             if (ser.when.startsWith("tx-")) ser.registerTx(serviceName, parameters, results, ecfi)
+        }
     }
 
     int getSecaRuleCount() {

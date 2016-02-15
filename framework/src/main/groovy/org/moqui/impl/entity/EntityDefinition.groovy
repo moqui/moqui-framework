@@ -99,6 +99,16 @@ public class EntityDefinition {
         this.internalEntityName = internalEntityNode.attribute("entity-name")
         this.fullEntityName = internalEntityNode.attribute("package-name") + "." + internalEntityName
         this.shortAlias = internalEntityNode.attribute("short-alias") ?: null
+
+        if (internalEntityNode.attribute("is-dynamic-view") == "true") {
+            // use the name of the first member-entity
+            String memberEntityName = internalEntityNode.children("member-entity")
+                    .find({ !it.attribute("join-from-alias") })?.attribute("entity-name")
+            groupName = efi.getEntityGroupName(memberEntityName)
+        } else {
+            groupName = internalEntityNode.attribute("group-name") ?: efi.getDefaultGroupName()
+        }
+
         this.sequencePrimaryPrefix = internalEntityNode.attribute("sequence-primary-prefix") ?: ""
         if (internalEntityNode.attribute("sequence-primary-stagger"))
             this.sequencePrimaryStagger = internalEntityNode.attribute("sequence-primary-stagger") as long
@@ -215,19 +225,7 @@ public class EntityDefinition {
     }
     MNode getEntityConditionNode() { return entityConditionNode }
 
-    String getEntityGroupName() {
-        if (groupName == null) {
-            if (internalEntityNode.attribute("is-dynamic-view") == "true") {
-                // use the name of the first member-entity
-                String memberEntityName = internalEntityNode.children("member-entity")
-                        .find({ !it.attribute("join-from-alias") })?.attribute("entity-name")
-                groupName = efi.getEntityGroupName(memberEntityName)
-            } else {
-                groupName = internalEntityNode.attribute("group-name") ?: efi.getDefaultGroupName()
-            }
-        }
-        return groupName
-    }
+    String getEntityGroupName() { return groupName }
 
     String getDefaultDescriptionField() {
         List<String> nonPkFields = getFieldNames(false, true, false)
@@ -279,7 +277,7 @@ public class EntityDefinition {
     boolean getSequencePrimaryUseUuid() { return sequencePrimaryUseUuid }
 
     MNode getFieldNode(String fieldName) {
-        MNode fn = fieldNodeMap.get(fieldName)
+        MNode fn = (MNode) fieldNodeMap.get(fieldName)
         if (fn != null) return fn
 
         if (allowUserField && !this.isViewEntity() && !fieldName.contains('.')) {
@@ -1451,7 +1449,7 @@ public class EntityDefinition {
         // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
         int size = fieldNameList.size()
         for (int i = 0; i < size; i++) {
-            String fieldName = fieldNameList.get(i)
+            String fieldName = (String) fieldNameList.get(i)
             String sourceFieldName
             if (hasNamePrefix) {
                 sourceFieldName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1)
@@ -1487,6 +1485,51 @@ public class EntityDefinition {
                         if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, null) else dest.put(fieldName, null)
                     } else {
                         if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value) else dest.put(fieldName, value)
+                    }
+                }
+            }
+        }
+    }
+    void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
+        // like above with setIfEmpty=true, namePrefix=null, pks=null
+        if (src == null || dest == null) return
+
+        boolean srcIsEntityValueBase = src instanceof EntityValueBase
+        EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
+        ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
+        // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
+        int size = fieldNameList.size()
+        for (int i = 0; i < size; i++) {
+            String fieldName = (String) fieldNameList.get(i)
+
+            Object value = srcIsEntityValueBase? evb.getValueMap().get(fieldName) : src.get(fieldName)
+            if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(fieldName) : src.containsKey(fieldName))) {
+                boolean isCharSequence = false
+                boolean isEmpty = false
+                if (value == null) {
+                    isEmpty = true
+                } else if (value instanceof CharSequence) {
+                    isCharSequence = true
+                    if (value.length() == 0) isEmpty = true
+                }
+
+                if (!isEmpty) {
+                    if (isCharSequence) {
+                        try {
+                            Object converted = convertFieldString(fieldName, value.toString())
+                            dest.putNoCheck(fieldName, converted)
+                        } catch (BaseException be) {
+                            this.efi.ecfi.executionContext.message.addValidationError(null, fieldName, null, be.getMessage(), be)
+                        }
+                    } else {
+                        dest.putNoCheck(fieldName, value)
+                    }
+                } else if (src.containsKey(fieldName)) {
+                    // treat empty String as null, otherwise set as whatever null or empty type it is
+                    if (value != null && isCharSequence) {
+                        dest.putNoCheck(fieldName, null)
+                    } else {
+                        dest.putNoCheck(fieldName, value)
                     }
                 }
             }

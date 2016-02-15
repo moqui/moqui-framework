@@ -61,7 +61,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected final ConcurrentMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
     protected final Lock locationLoadLock = new ReentrantLock()
 
-    protected final Map<String, List<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
+    protected final Map<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final Map<String, String> entityGroupNameMap = new HashMap<>()
     protected final Map<String, MNode> databaseNodeByGroupName = new HashMap<>()
     protected final Map<String, MNode> datasourceNodeByGroupName = new HashMap<>()
@@ -844,9 +844,9 @@ class EntityFacadeImpl implements EntityFacade {
             String entityName = ser.entityName
             // remove the hash if there is one to more consistently match the service name
             if (entityName.contains("#")) entityName = entityName.replace("#", "")
-            List<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
-            if (!lst) {
-                lst = new LinkedList()
+            ArrayList<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
+            if (lst == null) {
+                lst = new ArrayList<EntityEcaRule>()
                 eecaRulesByEntityName.put(entityName, lst)
             }
             lst.add(ser)
@@ -857,13 +857,14 @@ class EntityFacadeImpl implements EntityFacade {
 
     boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
     void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
-        List<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
-        if (lst) {
+        ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName)
+        if (lst != null && lst.size() > 0) {
             // if Entity ECA rules disabled in ArtifactExecutionFacade, just return immediately
             // do this only if there are EECA rules to run, small cost in getEci, etc
-            if (((ArtifactExecutionFacadeImpl) this.ecfi.getEci().getArtifactExecution()).entityEcaDisabled()) return
+            if (ecfi.getEci().getArtifactExecutionImpl().entityEcaDisabled()) return
 
-            for (EntityEcaRule eer in lst) {
+            for (int i = 0; i < lst.size(); i++) {
+                EntityEcaRule eer = (EntityEcaRule) lst.get(i)
                 eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getExecutionContext())
             }
         }
@@ -1149,8 +1150,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     EntityDatasourceFactory getDatasourceFactory(String groupName) {
-        EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName)
-        if (edf == null) edf = datasourceFactoryByGroupMap.get(defaultGroupName)
+        EntityDatasourceFactory edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(groupName)
+        if (edf == null) edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(defaultGroupName)
         if (edf == null) throw new EntityException("Could not find EntityDatasourceFactory for entity group ${groupName}")
         return edf
     }
@@ -1511,7 +1512,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     String getEntityGroupName(String entityName) {
-        String entityGroupName = entityGroupNameMap.get(entityName)
+        String entityGroupName = (String) entityGroupNameMap.get(entityName)
         if (entityGroupName != null) return entityGroupName
         EntityDefinition ed = this.getEntityDefinition(entityName)
         if (ed == null) return null
@@ -1597,9 +1598,9 @@ class EntityFacadeImpl implements EntityFacade {
     protected Map<String, Map<String, String>> sqlTypeByGroup = [:]
     protected String getFieldSqlType(String fieldType, EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
-        Map<String, String> sqlTypeMap = sqlTypeByGroup.get(groupName)
+        Map<String, String> sqlTypeMap = (Map<String, String>) sqlTypeByGroup.get(groupName)
         if (sqlTypeMap != null) {
-            String st = sqlTypeMap.get(fieldType)
+            String st = (String) sqlTypeMap.get(fieldType)
             if (st != null) return st
         }
         return getFieldSqlTypeFromDbNode(groupName, fieldType, ed)
@@ -1658,8 +1659,8 @@ class EntityFacadeImpl implements EntityFacade {
             "java.util.Date":14,
             "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
     public static int getJavaTypeInt(String javaType) {
-        Integer typeInt = javaIntTypeMap.get(javaType)
-        if (!typeInt) throw new EntityException("Java type " + javaType + " not supported for entity fields")
+        Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
+        if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")
         return typeInt
     }
 }

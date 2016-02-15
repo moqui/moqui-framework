@@ -172,8 +172,8 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
         JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND
         ComparisonOperator compOp = comparisonOperator != null ? comparisonOperator : ComparisonOperator.EQUALS
-        ArrayList<EntityConditionImplBase> condList = null
-        ArrayList<KeyValue> fieldList = new ArrayList()
+        ArrayList<EntityConditionImplBase> condList = new ArrayList<EntityConditionImplBase>()
+        ArrayList<KeyValue> fieldList = new ArrayList<KeyValue>()
 
         for (Map.Entry<String, Object> entry in fieldMap.entrySet()) {
             String key = entry.getKey()
@@ -189,7 +189,6 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                     // if there is an _list treat each as a condition Map, ie call back into this method
                     if (value instanceof List) {
                         List valueList = (List) value
-                        if (condList == null) condList = new ArrayList<EntityConditionImplBase>()
                         for (Object listEntry in valueList) {
                             if (listEntry instanceof Map) {
                                 EntityConditionImplBase entryCond = makeCondition((Map) listEntry, ComparisonOperator.EQUALS,
@@ -217,10 +216,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
         // has fields? make conditions for them
         if (fieldList.size() > 0) {
-            if (condList == null) condList = new ArrayList<EntityConditionImplBase>()
             int fieldListSize = fieldList.size()
             for (int i = 0; i < fieldListSize; i++) {
-                KeyValue fieldValue = fieldList.get(i)
+                KeyValue fieldValue = (KeyValue) fieldList.get(i)
                 String fieldName = fieldValue.key
                 Object value = fieldValue.value
 
@@ -231,7 +229,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                         throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}")
 
                     for (int k = 0; k < aliases.size(); k++) {
-                        MNode aliasNode = aliases.get(k)
+                        MNode aliasNode = (MNode) aliases.get(k)
                         // could be same as field name, but not if aliased with different name
                         String aliasName = aliasNode.attribute("name")
                         condList.add(new FieldValueCondition(this, new ConditionField(aliasName), compOp, value))
@@ -243,10 +241,10 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
         }
 
-        if (condList == null || condList.size() == 0) return null
+        if (condList.size() == 0) return null
 
         if (condList.size() == 1) {
-            return condList.get(0)
+            return (EntityConditionImplBase) condList.get(0)
         } else {
             return new ListCondition(this, condList, joinOp)
         }

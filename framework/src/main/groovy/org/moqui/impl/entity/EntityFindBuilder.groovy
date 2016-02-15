@@ -112,12 +112,12 @@ class EntityFindBuilder extends EntityQueryBuilder {
         int size = fieldInfoList.size()
         if (size > 0) {
             for (int i = 0; i < size; i++) {
-                FieldInfo fi = fieldInfoList.get(i)
+                FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
                 if (fi.isUserField) continue
 
                 if (i > 0) this.sqlTopLevel.append(", ")
 
-                FieldOrderOptions foo = fieldOptionsList != null ? fieldOptionsList.get(i) : null
+                FieldOrderOptions foo = fieldOptionsList != null ? (FieldOrderOptions) fieldOptionsList.get(i) : null
                 if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1)
                     this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
 
@@ -176,12 +176,12 @@ class EntityFindBuilder extends EntityQueryBuilder {
             EntityConditionImplBase viewWhere = localEntityDefinition.makeViewWhereCondition()
             if (viewWhere != null) viewWhere.getAllAliases(entityAliasUsedSet, fieldUsedSet)
             if (entityFindBase.whereEntityCondition != null)
-                ((EntityConditionImplBase) entityFindBase.whereEntityCondition).getAllAliases(entityAliasUsedSet, fieldUsedSet)
+                entityFindBase.whereEntityConditionInternal.getAllAliases(entityAliasUsedSet, fieldUsedSet)
             if (entityFindBase.havingEntityCondition != null)
                 ((EntityConditionImplBase) entityFindBase.havingEntityCondition).getAllAliases(entityAliasUsedSet, fieldUsedSet)
 
             for (int i = 0; i < fieldInfoList.size(); i++) {
-                FieldInfo fi = fieldInfoList.get(i)
+                FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
                 if (!fi.isUserField) fieldUsedSet.add(fi.name)
             }
 

@@ -27,15 +27,15 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     protected final String typeEnumId
     protected final String actionEnumId
     protected String actionDetail = ""
-    protected Map<String, Object> parameters = null
-    protected String authorizedUserId = null
-    protected String authorizedAuthzTypeId = null
-    protected String authorizedActionEnumId = null
+    protected Map<String, Object> parameters = (Map) null
+    protected String authorizedUserId = (String) null
+    protected String authorizedAuthzTypeId = (String) null
+    protected String authorizedActionEnumId = (String) null
     protected boolean authorizationInheritable = false
-    protected EntityValue aacv = null
+    protected EntityValue aacv = (EntityValue) null
 
     //protected Exception createdLocation = null
-    protected ArtifactExecutionInfoImpl parentAeii = null
+    protected ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null
     protected long startTime
     protected long endTime = 0
     protected List<ArtifactExecutionInfoImpl> childList = new ArrayList<ArtifactExecutionInfoImpl>()

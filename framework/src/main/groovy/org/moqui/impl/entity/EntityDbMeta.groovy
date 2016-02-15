@@ -56,7 +56,7 @@ class EntityDbMeta {
     @CompileStatic
     void checkTableRuntime(EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
-        Boolean runtimeAddMissing = runtimeAddMissingMap.get(groupName)
+        Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
         if (runtimeAddMissing == null) {
             MNode datasourceNode = efi.getDatasourceNode(groupName)
             runtimeAddMissing = datasourceNode?.attribute('runtime-add-missing') != "false"

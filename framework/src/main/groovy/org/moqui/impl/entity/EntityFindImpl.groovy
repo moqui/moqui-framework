@@ -89,7 +89,7 @@ class EntityFindImpl extends EntityFindBase {
                 newEntityValue = new EntityValueImpl(this.entityDef, this.efi)
                 int size = fieldInfoList.size()
                 for (int i = 0; i < size; i++) {
-                    FieldInfo fi = fieldInfoList.get(i)
+                    FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
                     if (fi.isUserField) continue
                     EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, this.efi)
                 }

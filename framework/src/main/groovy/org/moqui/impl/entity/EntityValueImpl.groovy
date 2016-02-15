@@ -35,7 +35,7 @@ class EntityValueImpl extends EntityValueBase {
     public EntityValue cloneValue() {
         EntityValueImpl newObj = new EntityValueImpl(getEntityDefinition(), getEntityFacadeImpl())
         newObj.getValueMap().putAll(getValueMap())
-        if (getDbValueMap()) newObj.setDbValueMap(new HashMap<String, Object>(getDbValueMap()))
+        if (getDbValueMap() != null) newObj.setDbValueMap(new HashMap<String, Object>(getDbValueMap()))
         // don't set mutable (default to mutable even if original was not) or modified (start out not modified)
         return newObj
     }
@@ -67,7 +67,8 @@ class EntityValueImpl extends EntityValueBase {
 
             int size = fieldInfoList.size()
             for (int i = 0; i < size; i++) {
-                FieldInfo fieldInfo = fieldInfoList.get(i)
+                // explicit cast to avoid Groovy castToType
+                FieldInfo fieldInfo = (FieldInfo) fieldInfoList.get(i)
                 fieldInfoList.add(fieldInfo)
                 if (isFirstField) {
                     isFirstField = false
@@ -86,7 +87,7 @@ class EntityValueImpl extends EntityValueBase {
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
                 for (int i = 0; i < size; i++) {
-                    FieldInfo fieldInfo = fieldInfoList.get(i)
+                    FieldInfo fieldInfo = (FieldInfo) fieldInfoList.get(i)
                     String fieldName = fieldInfo.name
                     eqb.setPreparedStatementValue(i+1I, getValueMap().get(fieldName), fieldInfo)
                 }
@@ -113,7 +114,7 @@ class EntityValueImpl extends EntityValueBase {
 
             int size = nonPkFieldList.size()
             for (int i = 0; i < size; i++) {
-                FieldInfo fieldInfo = nonPkFieldList.get(i)
+                FieldInfo fieldInfo = (FieldInfo) nonPkFieldList.get(i)
                 if (i > 0) sql.append(", ")
                 sql.append(fieldInfo.getFullColumnName(false)).append("=?")
                 eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
@@ -121,7 +122,7 @@ class EntityValueImpl extends EntityValueBase {
             sql.append(" WHERE ")
             int sizePk = pkFieldList.size()
             for (int i = 0; i < sizePk; i++) {
-                FieldInfo fieldInfo = pkFieldList.get(i)
+                FieldInfo fieldInfo = (FieldInfo) pkFieldList.get(i)
                 if (i > 0) sql.append(" AND ")
                 sql.append(fieldInfo.getFullColumnName(false)).append("=?")
                 eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
@@ -158,7 +159,7 @@ class EntityValueImpl extends EntityValueBase {
             ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
             int sizePk = pkFieldList.size()
             for (int i = 0; i < sizePk; i++) {
-                FieldInfo fieldInfo = pkFieldList.get(i)
+                FieldInfo fieldInfo = (FieldInfo) pkFieldList.get(i)
                 if (i > 0) sql.append(" AND ")
                 sql.append(fieldInfo.getFullColumnName(false)).append("=?")
                 eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
@@ -198,7 +199,7 @@ class EntityValueImpl extends EntityValueBase {
         if (nonPkFieldList) {
             int size = nonPkFieldList.size()
             for (int i = 0; i < size; i++) {
-                FieldInfo fi = nonPkFieldList.get(i)
+                FieldInfo fi = (FieldInfo) nonPkFieldList.get(i)
                 if (i > 0) sql.append(", ")
                 sql.append(fi.getFullColumnName(false))
             }
@@ -210,7 +211,7 @@ class EntityValueImpl extends EntityValueBase {
 
         int sizePk = pkFieldList.size()
         for (int i = 0; i < sizePk; i++) {
-            FieldInfo fi = pkFieldList.get(i)
+            FieldInfo fi = (FieldInfo) pkFieldList.get(i)
             if (i > 0) sql.append(" AND ")
             sql.append(fi.getFullColumnName(false)).append("=?")
             eqb.getParameters().add(new EntityConditionParameter(fi, this.getValueMap().get(fi.name), eqb))
@@ -231,7 +232,7 @@ class EntityValueImpl extends EntityValueBase {
             if (rs.next()) {
                 int nonPkSize = nonPkFieldList.size()
                 for (int j = 0; j < nonPkSize; j++) {
-                    FieldInfo fi = nonPkFieldList.get(j)
+                    FieldInfo fi = (FieldInfo) nonPkFieldList.get(j)
                     EntityQueryBuilder.getResultSetValue(rs, j + 1, fi, this, getEntityFacadeImpl())
                 }
                 retVal = true
