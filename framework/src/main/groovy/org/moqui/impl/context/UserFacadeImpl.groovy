@@ -60,6 +60,7 @@ class UserFacadeImpl implements UserFacade {
 
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
+    protected HttpServletResponse response = (HttpServletResponse) null
 
     UserFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -68,15 +69,24 @@ class UserFacadeImpl implements UserFacade {
         currentInfo = userInfo
     }
 
+    Subject makeEmptySubject() {
+        if (request != null) {
+            HttpSession session = request.getSession()
+            WebSubjectContext wsc = new DefaultWebSubjectContext()
+            wsc.setServletRequest(request); wsc.setServletResponse(response)
+            wsc.setSession(new HttpServletSession(session, request.getServerName()))
+            return eci.getEcfi().getSecurityManager().createSubject(wsc)
+        } else {
+            return eci.getEcfi().getSecurityManager().createSubject(new DefaultSubjectContext())
+        }
+    }
+
     void initFromHttpRequest(HttpServletRequest request, HttpServletResponse response) {
         this.request = request
+        this.response = response
         HttpSession session = request.getSession()
 
-        WebSubjectContext wsc = new DefaultWebSubjectContext()
-        wsc.setServletRequest(request); wsc.setServletResponse(response)
-        wsc.setSession(new HttpServletSession(session, request.getServerName()))
-        Subject webSubject = eci.getEcfi().getSecurityManager().createSubject(wsc)
-
+        Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
             // effectively login the user
             pushUser(webSubject)
@@ -365,7 +375,7 @@ class UserFacadeImpl implements UserFacade {
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
         token.rememberMe = true
-        Subject loginSubject = eci.getEcfi().getSecurityManager().createSubject(new DefaultSubjectContext())
+        Subject loginSubject = makeEmptySubject()
         try {
             loginSubject.login(token)
 
