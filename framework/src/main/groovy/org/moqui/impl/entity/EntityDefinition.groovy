@@ -15,6 +15,7 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
+import org.moqui.context.L10nFacade
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.impl.StupidUtilities
 import org.moqui.util.MNode
@@ -63,8 +64,8 @@ public class EntityDefinition {
     protected final ArrayList<FieldInfo> nonPkFieldInfoList = new ArrayList<FieldInfo>()
     protected final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<FieldInfo>()
     protected Boolean hasUserFields = null
-    protected Boolean allowUserField = null
-    protected Map<String, Map> mePkFieldToAliasNameMapMap = null
+    protected boolean allowUserField = false
+    protected Map<String, Map<String, String>> mePkFieldToAliasNameMapMap = null
     protected Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null
     protected Map<String, MNode> memberEntityAliasMap = null
     // these are used for every list find, so keep them here
@@ -83,6 +84,9 @@ public class EntityDefinition {
     protected long sequencePrimaryStagger = 1
     protected long sequenceBankSize = EntityFacadeImpl.defaultBankSize
     protected final boolean sequencePrimaryUseUuid
+
+    protected final boolean hasFieldDefaultsVal
+
 
     protected List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
@@ -135,6 +139,8 @@ public class EntityDefinition {
         } else {
             fullTableNameVal = tableNameAttr
         }
+
+        hasFieldDefaultsVal = getPkFieldDefaults() || getNonPkFieldDefaults()
     }
 
     void postInit() {
@@ -890,11 +896,7 @@ public class EntityDefinition {
 
     Map<String, String> pkFieldDefaults = null
     Map<String, String> nonPkFieldDefaults = null
-    Boolean hasFieldDefaultsVal = null
-    boolean hasFieldDefaults() {
-        if (hasFieldDefaultsVal == null) hasFieldDefaultsVal = getPkFieldDefaults() || getNonPkFieldDefaults()
-        return hasFieldDefaultsVal
-    }
+    boolean hasFieldDefaults() { return hasFieldDefaultsVal }
     Map<String, String> getPkFieldDefaults() {
         if (pkFieldDefaults == null) {
             Map<String, String> newDefaults = [:]
@@ -1348,14 +1350,15 @@ public class EntityDefinition {
         return nodeList
     }
 
-    Map getMePkFieldToAliasNameMap(String entityAlias) {
+    // used in EntityCache for view entities
+    Map<String, String> getMePkFieldToAliasNameMap(String entityAlias) {
         if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new HashMap<String, Map>()
-        Map mePkFieldToAliasNameMap = mePkFieldToAliasNameMapMap.get(entityAlias)
+        Map<String, String> mePkFieldToAliasNameMap = (Map<String, String>) mePkFieldToAliasNameMapMap.get(entityAlias)
 
         //logger.warn("TOREMOVE 1 getMePkFieldToAliasNameMap entityAlias=${entityAlias} cached value=${mePkFieldToAliasNameMap}; entityNode=${entityNode}")
         if (mePkFieldToAliasNameMap != null) return mePkFieldToAliasNameMap
 
-        mePkFieldToAliasNameMap = new HashMap()
+        mePkFieldToAliasNameMap = new HashMap<String, String>()
 
         // do a reverse map on member-entity pk fields to view-entity aliases
         MNode memberEntityNode = memberEntityAliasMap.get(entityAlias)
@@ -1537,116 +1540,23 @@ public class EntityDefinition {
     }
 
     Object convertFieldString(String name, String value) {
-        if ('null'.equals(value)) value = null
         if (value == null) return null
+        if ('null'.equals(value)) return null
 
-        Object outValue
         FieldInfo fieldInfo = getFieldInfo(name)
         if (fieldInfo == null) throw new EntityException("The name [${name}] is not a valid field name for entity [${entityName}]")
-
-        String javaType = fieldInfo.javaType
-        int typeValue = fieldInfo.typeValue
 
         // String javaType = fieldType ? (EntityFacadeImpl.fieldTypeJavaMap.get(fieldType) ?: efi.getFieldJavaType(fieldType, this)) : 'String'
         // Integer typeValue = (fieldType ? EntityFacadeImpl.fieldTypeIntMap.get(fieldType) : null) ?: EntityFacadeImpl.getJavaTypeInt(javaType)
 
-        boolean isEmpty = value.length() == 0
-
-        try {
-            switch (typeValue) {
-                case 1: outValue = value; break
-                case 2: // outValue = java.sql.Timestamp.valueOf(value);
-                    if (isEmpty) { outValue = null; break }
-                    outValue = efi.getEcfi().getL10nFacade().parseTimestamp(value, null)
-                    if (((Object) outValue) == null) throw new BaseException("The value [${value}] is not a valid date/time")
-                    break
-                case 3: // outValue = java.sql.Time.valueOf(value);
-                    if (isEmpty) { outValue = null; break }
-                    outValue = efi.getEcfi().getL10nFacade().parseTime(value, null)
-                    if (outValue == null) throw new BaseException("The value [${value}] is not a valid time")
-                    break
-                case 4: // outValue = java.sql.Date.valueOf(value);
-                    if (isEmpty) { outValue = null; break }
-                    outValue = efi.getEcfi().getL10nFacade().parseDate(value, null)
-                    if (outValue == null) throw new BaseException("The value [${value}] is not a valid date")
-                    break
-                case 5: // outValue = Integer.valueOf(value); break
-                case 6: // outValue = Long.valueOf(value); break
-                case 7: // outValue = Float.valueOf(value); break
-                case 8: // outValue = Double.valueOf(value); break
-                case 9: // outValue = new BigDecimal(value); break
-                    if (isEmpty) { outValue = null; break }
-                    BigDecimal bdVal = efi.getEcfi().getL10nFacade().parseNumber(value, null)
-                    if (bdVal == null) {
-                        throw new BaseException("The value [${value}] is not valid for type [${javaType}]")
-                    } else {
-                        outValue = StupidUtilities.basicConvert(bdVal.stripTrailingZeros(), javaType)
-                    }
-                    break
-                case 10:
-                    if (isEmpty) { outValue = null; break }
-                    outValue = Boolean.valueOf(value); break
-                case 11: outValue = value; break
-                case 12: outValue = new SerialBlob(value.getBytes()); break
-                case 13: outValue = value; break
-                case 14:
-                    if (isEmpty) { outValue = null; break }
-                    outValue = value as Date; break
-            // better way for Collection (15)? maybe parse comma separated, but probably doesn't make sense in the first place
-                case 15: outValue = value; break
-                default: outValue = value; break
-            }
-        } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [${value}] is not valid for type [${javaType}]", e)
-        }
-
-        return outValue
+        return EntityJavaUtil.convertFromString(value, fieldInfo.typeValue, fieldInfo.javaType, efi.getEcfi().getL10nFacade())
     }
 
     String getFieldString(String name, Object value) {
         if (value == null) return null
 
-        String outValue
         FieldInfo fieldInfo = getFieldInfo(name)
-
-        String javaType = fieldInfo.javaType
-        int typeValue = fieldInfo.typeValue
-
-        try {
-            switch (typeValue) {
-                case 1: outValue = value; break
-                case 2:
-                case 3:
-                case 4:
-                case 5:
-                case 6:
-                case 7:
-                case 8:
-                case 9:
-                    if (value instanceof BigDecimal) value = ((BigDecimal) value).stripTrailingZeros()
-                    outValue = efi.getEcfi().getL10nFacade().format(value, null)
-                    break
-                case 10: outValue = value.toString(); break
-                case 11: outValue = value; break
-                case 12:
-                    if (value instanceof byte[]) {
-                        outValue = new String(Base64.encodeBase64((byte[]) value));
-                    } else {
-                        logger.info("Field [${name}] on entity [${entityName}] is not of type 'byte[]', is [${value}] so using plain toString()")
-                        outValue = value.toString()
-                    }
-                    break
-                case 13: outValue = value; break
-                case 14: outValue = value.toString(); break
-            // better way for Collection (15)? maybe parse comma separated, but probably doesn't make sense in the first place
-                case 15: outValue = value; break
-                default: outValue = value; break
-            }
-        } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [${value}] is not valid for type [${javaType}]", e)
-        }
-
-        return outValue
+        return EntityJavaUtil.convertToString(value, fieldInfo.typeValue, fieldInfo.javaType, efi.getEcfi().getL10nFacade())
     }
 
     String getFieldStringForFile(String name, Object value) {

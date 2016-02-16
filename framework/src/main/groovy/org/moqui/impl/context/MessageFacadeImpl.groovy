@@ -64,7 +64,7 @@ public class MessageFacadeImpl implements MessageFacade {
     }
 
     @Override
-    boolean hasError() { return errorList || validationErrorList }
+    boolean hasError() { return (errorList != null && errorList.size() > 0) || (validationErrorList != null && validationErrorList.size() > 0) }
     @Override
     String getErrorsString() {
         StringBuilder errorBuilder = new StringBuilder()

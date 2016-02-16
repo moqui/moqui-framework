@@ -62,7 +62,7 @@ class EntityDbMeta {
             runtimeAddMissing = datasourceNode?.attribute('runtime-add-missing') != "false"
             runtimeAddMissingMap.put(groupName, runtimeAddMissing)
         }
-        if (!runtimeAddMissing) return
+        if (runtimeAddMissing == null || runtimeAddMissing == Boolean.FALSE) return
 
         if (ed.isViewEntity()) {
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {

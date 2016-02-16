@@ -13,6 +13,9 @@
  */
 package org.moqui.impl.entity;
 
+import org.apache.commons.codec.binary.Base64;
+import org.moqui.BaseException;
+import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
 import org.slf4j.Logger;
@@ -27,6 +30,115 @@ import java.sql.*;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
+
+    static Object convertFromString(String value, int typeValue, String javaType, L10nFacade l10n) {
+        Object outValue;
+        boolean isEmpty = value.length() == 0;
+
+        try {
+            switch (typeValue) {
+                case 1: outValue = value; break;
+                case 2: // outValue = java.sql.Timestamp.valueOf(value);
+                    if (isEmpty) { outValue = null; break; }
+                    outValue = l10n.parseTimestamp(value, null);
+                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date/time");
+                    break;
+                case 3: // outValue = java.sql.Time.valueOf(value);
+                    if (isEmpty) { outValue = null; break; }
+                    outValue = l10n.parseTime(value, null);
+                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid time");
+                    break;
+                case 4: // outValue = java.sql.Date.valueOf(value);
+                    if (isEmpty) { outValue = null; break; }
+                    outValue = l10n.parseDate(value, null);
+                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date");
+                    break;
+                case 5: // outValue = Integer.valueOf(value); break
+                case 6: // outValue = Long.valueOf(value); break
+                case 7: // outValue = Float.valueOf(value); break
+                case 8: // outValue = Double.valueOf(value); break
+                case 9: // outValue = new BigDecimal(value); break
+                    if (isEmpty) { outValue = null; break; }
+                    BigDecimal bdVal = l10n.parseNumber(value, null);
+                    if (bdVal == null) {
+                        throw new BaseException("The value [" + value + "] is not valid for type [" + javaType + "]");
+                    } else {
+                        bdVal = bdVal.stripTrailingZeros();
+                        switch (typeValue) {
+                            case 5: outValue = bdVal.intValue(); break;
+                            case 6: outValue = bdVal.longValue(); break;
+                            case 7: outValue = bdVal.floatValue(); break;
+                            case 8: outValue = bdVal.doubleValue(); break;
+                            default: outValue = bdVal; break;
+                        }
+                    }
+                    break;
+                case 10:
+                    if (isEmpty) { outValue = null; break; }
+                    outValue = Boolean.valueOf(value); break;
+                case 11: outValue = value; break;
+                case 12:
+                    try {
+                        outValue = new SerialBlob(value.getBytes());
+                    } catch (SQLException e) {
+                        throw new BaseException("Error creating SerialBlob for value [" + value + "]");
+                    }
+                    break;
+                case 13: outValue = value; break;
+                case 14:
+                    if (isEmpty) { outValue = null; break; }
+                    Timestamp ts = l10n.parseTimestamp(value, null);
+                    outValue = new java.util.Date(ts.getTime());
+                    break;
+            // better way for Collection (15)? maybe parse comma separated, but probably doesn't make sense in the first place
+                case 15: outValue = value; break;
+                default: outValue = value; break;
+            }
+        } catch (IllegalArgumentException e) {
+            throw new BaseException("The value [" + value + "] is not valid for type [" + javaType + "]", e);
+        }
+
+        return outValue;
+    }
+
+    static String convertToString(Object value, int typeValue, String javaType, L10nFacade l10n) {
+        String outValue;
+        try {
+            switch (typeValue) {
+                case 1: outValue = value.toString(); break;
+                case 2:
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
+                case 8:
+                case 9:
+                    if (value instanceof BigDecimal) value = ((BigDecimal) value).stripTrailingZeros();
+                    outValue = l10n.format(value, null);
+                    break;
+                case 10: outValue = value.toString(); break;
+                case 11: outValue = value.toString(); break;
+                case 12:
+                    if (value instanceof byte[]) {
+                        outValue = new String(Base64.encodeBase64((byte[]) value));
+                    } else {
+                        logger.info("Field on entity is not of type 'byte[]', is [" + value + "] so using plain toString()");
+                        outValue = value.toString();
+                    }
+                    break;
+                case 13: outValue = value.toString(); break;
+                case 14: outValue = value.toString(); break;
+            // better way for Collection (15)? maybe parse comma separated, but probably doesn't make sense in the first place
+                case 15: outValue = value.toString(); break;
+                default: outValue = value.toString(); break;
+            }
+        } catch (IllegalArgumentException e) {
+            throw new BaseException("The value [" + value + "] is not valid for type [" + javaType + "]", e);
+        }
+
+        return outValue;
+    }
 
     public static Object getResultSetValue(ResultSet rs, int index, String fieldType, int typeValue, EntityFacade efi) throws EntityException {
         if (typeValue == -1) throw new EntityException("No typeValue found for ${fieldInfo.ed.getFullEntityName()}.${fieldName}, type=${fieldType}");
