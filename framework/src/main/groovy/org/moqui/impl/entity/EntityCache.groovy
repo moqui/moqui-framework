@@ -56,13 +56,13 @@ class EntityCache {
 
     // EntityFacadeImpl getEfi() { return efi }
 
-    CacheImpl getCacheOne(String entityName) { return cfi.getCacheImpl(oneKeyBase + entityName) }
-    private CacheImpl getCacheOneRa(String entityName) { return cfi.getCacheImpl(oneRaKeyBase + entityName) }
+    CacheImpl getCacheOne(String entityName) { return cfi.getCacheImpl(oneKeyBase.concat(entityName)) }
+    private CacheImpl getCacheOneRa(String entityName) { return cfi.getCacheImpl(oneRaKeyBase.concat(entityName)) }
     private CacheImpl getCacheOneBf() { return cfi.getCacheImpl(oneBfKey) }
-    CacheImpl getCacheList(String entityName) { return cfi.getCacheImpl(listKeyBase + entityName) }
-    private CacheImpl getCacheListRa(String entityName) { return cfi.getCacheImpl(listRaKeyBase + entityName) }
-    private CacheImpl getCacheListViewRa(String entityName) { return cfi.getCacheImpl(listViewRaKeyBase + entityName) }
-    CacheImpl getCacheCount(String entityName) { return cfi.getCacheImpl(countKeyBase + entityName) }
+    CacheImpl getCacheList(String entityName) { return cfi.getCacheImpl(listKeyBase.concat(entityName)) }
+    private CacheImpl getCacheListRa(String entityName) { return cfi.getCacheImpl(listRaKeyBase.concat(entityName)) }
+    private CacheImpl getCacheListViewRa(String entityName) { return cfi.getCacheImpl(listViewRaKeyBase.concat(entityName)) }
+    CacheImpl getCacheCount(String entityName) { return cfi.getCacheImpl(countKeyBase.concat(entityName)) }
 
     static class EmptyRecord extends EntityValueImpl {
         EmptyRecord(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip) }
@@ -143,7 +143,7 @@ class EntityCache {
             EntityCondition pkCondition = null
 
             // clear one cache
-            String oneKey = oneKeyBase + fullEntityName
+            String oneKey = oneKeyBase.concat(fullEntityName)
             if (cfi.cacheExists(oneKey)) {
                 pkCondition = efi.getConditionFactory().makeCondition(evb.getPrimaryKeys())
 
@@ -170,7 +170,9 @@ class EntityCache {
                 Set<EntityCondition> bfKeySet = (Set<EntityCondition>) oneBfCache.get(fullEntityName)
                 if (bfKeySet != null && bfKeySet.size() > 0) {
                     ArrayList<EntityCondition> keysToRemove = new ArrayList<EntityCondition>()
-                    for (EntityCondition bfKey in bfKeySet) {
+                    Iterator<EntityCondition> bfKeySetIter = bfKeySet.iterator()
+                    while (bfKeySetIter.hasNext()) {
+                        EntityCondition bfKey = (EntityCondition) bfKeySetIter.next()
                         if (bfKey.mapMatches(evbMap)) keysToRemove.add(bfKey)
                     }
                     int keysToRemoveSize = keysToRemove.size()
@@ -184,7 +186,7 @@ class EntityCache {
 
             // logger.warn("============= clearing list for entity ${fullEntityName}, for pkCondition [${pkCondition}] cacheExists=${cfi.cacheExists("entity.${efi.tenantId}.list.${fullEntityName}")}")
             // clear list cache, use reverse-associative Map (also a Cache)
-            String listKey = listKeyBase + fullEntityName
+            String listKey = listKeyBase.concat(fullEntityName)
             if (cfi.cacheExists(listKey)) {
                 if (pkCondition == null) pkCondition = efi.getConditionFactory().makeCondition(evb.getPrimaryKeys())
 
@@ -195,7 +197,9 @@ class EntityCache {
                 if (isCreate) {
                     // Ehcache returns a plain List, may or may not be faster to iterate with index
                     List<EntityCondition> elEhcKeys = (List<EntityCondition>) elEhc.getKeys()
-                    for (EntityCondition ec in elEhcKeys) {
+                    Iterator<EntityCondition> elEhcKeysIter = elEhcKeys.iterator()
+                    while (elEhcKeysIter.hasNext()) {
+                        EntityCondition ec = (EntityCondition) elEhcKeysIter.next()
                         // any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
                         if (ec.mapMatches(evbMap)) elEhc.remove(ec)
                     }
@@ -240,11 +244,14 @@ class EntityCache {
             }
 
             // clear count cache (no RA because we only have a count to work with, just match by condition)
-            if (cfi.cacheExists("entity.record.count.${fullEntityName}.${efi.tenantId}")) {
-                CacheImpl entityCountCache = getCacheCount(fullEntityName)
+            String countKey = countKeyBase.concat(fullEntityName)
+            if (cfi.cacheExists(countKey)) {
+                CacheImpl entityCountCache = cfi.getCacheImpl(countKey)
                 Ehcache ecEhc = entityCountCache.getInternalCache()
                 List<EntityCondition> ecEhcKeys = (List<EntityCondition>) ecEhc.getKeys()
-                for (EntityCondition ec in ecEhcKeys) {
+                Iterator<EntityCondition> ecEhcKeysIter = ecEhcKeys.iterator()
+                while (ecEhcKeysIter.hasNext()) {
+                    EntityCondition ec = (EntityCondition) ecEhcKeysIter.next()
                     if (ec.mapMatches(evbMap)) ecEhc.remove(ec)
                 }
             }

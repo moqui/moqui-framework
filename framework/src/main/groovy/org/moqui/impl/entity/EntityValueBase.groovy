@@ -52,8 +52,8 @@ abstract class EntityValueBase implements EntityValue {
     /** This is a reference to where the entity value came from.
      * It is volatile so not stored when this is serialized, and will get a reference to the active EntityFacade after.
      */
-    protected volatile EntityFacadeImpl efi
-    protected volatile TransactionCache txCache
+    protected volatile EntityFacadeImpl efiInternal
+    protected volatile TransactionCache txCacheInternal
 
 
     protected final String entityName
@@ -73,19 +73,19 @@ abstract class EntityValueBase implements EntityValue {
     protected boolean isFromDb = false
 
     EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
-        efi = efip
+        efiInternal = efip
         entityName = ed.getFullEntityName()
         entityDefinition = ed
     }
 
     EntityFacadeImpl getEntityFacadeImpl() {
         // handle null after deserialize; this requires a static reference in Moqui.java or we'll get an error
-        if (efi == null) efi = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade()
-        return efi
+        if (efiInternal == null) efiInternal = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade()
+        return efiInternal
     }
-    TransactionCache getTxCache() {
-        if (txCache == null) txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
-        return txCache
+    TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
+        if (txCacheInternal == null) txCacheInternal = ecfi.getTransactionFacade().getTransactionCache()
+        return txCacheInternal
     }
 
     EntityDefinition getEntityDefinition() {
@@ -97,7 +97,7 @@ abstract class EntityValueBase implements EntityValue {
     Map<String, Object> getValueMap() { return valueMap }
     protected Map<String, Object> getDbValueMap() { return dbValueMap }
     protected void setDbValueMap(Map<String, Object> map) { dbValueMap = map; isFromDb = true }
-    protected Map<String, Object> getOldDbValueMap() { return oldDbValueMap }
+    // protected Map<String, Object> getOldDbValueMap() { return oldDbValueMap }
 
     void setSyncedWithDb() {
         oldDbValueMap = dbValueMap; dbValueMap = (Map<String, Object>) null
@@ -263,18 +263,14 @@ abstract class EntityValueBase implements EntityValue {
             parms.put('fieldName', name)
             addThreeFieldPkValues(parms)
 
-            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                EntityList userFieldValueList = efi.find("moqui.entity.UserFieldValue")
-                        .condition("userGroupId", EntityCondition.IN, userGroupIdSet)
-                        .condition(parms).list()
-                if (userFieldValueList) {
-                    // do type conversion according to field type
-                    return ed.convertFieldString(name, (String) userFieldValueList.get(0).valueText)
-                }
-            } finally {
-                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            EntityFacadeImpl efi = getEntityFacadeImpl()
+            Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
+            EntityList userFieldValueList = efi.find("moqui.entity.UserFieldValue")
+                    .condition("userGroupId", EntityCondition.IN, userGroupIdSet)
+                    .condition(parms).disableAuthz().list()
+            if (userFieldValueList) {
+                // do type conversion according to field type
+                return ed.convertFieldString(name, (String) userFieldValueList.get(0).valueText)
             }
         }
 
@@ -1062,7 +1058,8 @@ abstract class EntityValueBase implements EntityValue {
         long startTimeNanos = System.nanoTime()
         long startTime = startTimeNanos/1E6 as long
         EntityDefinition ed = getEntityDefinition()
-        ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
+        ExecutionContextFactoryImpl ecfi = efi.getEcfi()
         ExecutionContextImpl ec = ecfi.getEci()
 
         if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(ec.tenantId))
@@ -1083,21 +1080,22 @@ abstract class EntityValueBase implements EntityValue {
 
         try {
             // run EECA before rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "create", true)
+            efi.runEecaRules(ed.getFullEntityName(), this, "create", true)
 
             // do this before the db change so modified flag isn't cleared
-            if (doDataFeed()) getEntityFacadeImpl().getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMap, null)
+            if (doDataFeed()) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMap, null)
 
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
-            if (getTxCache() == null || !getTxCache().create(this)) this.basicCreate(null)
+            TransactionCache curTxCache = getTxCache(ecfi)
+            if (curTxCache == null || !curTxCache.create(this)) this.basicCreate(null, ec)
 
             // NOTE: cache clear is the same for create, update, delete; even on create need to clear one cache because it
             // might have a null value for a previous query attempt
-            getEntityFacadeImpl().getEntityCache().clearCacheForValue(this, true)
+            efi.getEntityCache().clearCacheForValue(this, true)
             // save audit log(s) if applicable
             handleAuditLog(false, null)
             // run EECA after rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "create", false)
+            efi.runEecaRules(ed.getFullEntityName(), this, "create", false)
             // count the artifact hit
             ecfi.countArtifactHit("entity", "create", ed.getFullEntityName(), this.getPrimaryKeys(), startTime,
                     (System.nanoTime() - startTimeNanos)/1E6, 1L)
@@ -1108,7 +1106,7 @@ abstract class EntityValueBase implements EntityValue {
 
         return this
     }
-    void basicCreate(Connection con) {
+    void basicCreate(Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
         ArrayList<FieldInfo> fieldList = new ArrayList<FieldInfo>()
         ArrayList<FieldInfo> allFieldList = ed.getAllFieldInfoList()
@@ -1118,19 +1116,18 @@ abstract class EntityValueBase implements EntityValue {
             if (valueMap.containsKey(fi.name)) fieldList.add(fi)
         }
 
-        basicCreate(fieldList, con)
+        basicCreate(fieldList, con, ec)
     }
-    void basicCreate(ArrayList<FieldInfo> fieldInfoList, Connection con) {
+    void basicCreate(ArrayList<FieldInfo> fieldInfoList, Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
-        ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
-        ExecutionContext ec = ecfi.getExecutionContext()
 
         this.createExtended(fieldInfoList, con)
 
         // create records for the UserFields
         ListOrderedSet userFieldNameList = ed.getUserFieldNames()
         if (userFieldNameList != null && userFieldNameList.size() > 0) {
-            boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
+            EntityFacadeImpl efi = getEntityFacadeImpl()
+            boolean alreadyDisabled = ec.getArtifactExecutionImpl().disableAuthz()
             try {
                 for (String userFieldName in userFieldNameList) {
                     MNode userFieldNode = ed.getFieldNode(userFieldName)
@@ -1144,7 +1141,7 @@ abstract class EntityValueBase implements EntityValue {
                     newUserFieldValue.setSequencedIdPrimary().create()
                 }
             } finally {
-                if (!alreadyDisabled) ec.getArtifactExecution().enableAuthz()
+                if (!alreadyDisabled) ec.getArtifactExecutionImpl().enableAuthz()
             }
         }
     }
@@ -1156,7 +1153,8 @@ abstract class EntityValueBase implements EntityValue {
         long startTimeNanos = System.nanoTime()
         long startTime = startTimeNanos/1E6 as long
         EntityDefinition ed = getEntityDefinition()
-        ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
+        ExecutionContextFactoryImpl ecfi = efi.getEcfi()
         ExecutionContextImpl ec = ecfi.getEci()
 
         if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(ec.tenantId))
@@ -1169,7 +1167,7 @@ abstract class EntityValueBase implements EntityValue {
         boolean curDataFeed = doDataFeed()
         if (curDataFeed) {
             ArrayList<EntityDataFeed.DocumentEntityInfo> entityInfoList =
-                    getEntityFacadeImpl().getEntityDataFeed().getDataFeedEntityInfoList(ed.getFullEntityName())
+                    efi.getEntityDataFeed().getDataFeedEntityInfoList(ed.getFullEntityName())
             if (entityInfoList.size() == 0) curDataFeed = false
         }
 
@@ -1194,7 +1192,7 @@ abstract class EntityValueBase implements EntityValue {
 
         try {
             // run EECA before rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "update", true)
+            efi.runEecaRules(ed.getFullEntityName(), this, "update", true)
 
             ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
             ArrayList<FieldInfo> nonPkFieldList = new ArrayList<FieldInfo>()
@@ -1233,17 +1231,18 @@ abstract class EntityValueBase implements EntityValue {
             }
 
             // do this before the db change so modified flag isn't cleared
-            if (curDataFeed) getEntityFacadeImpl().getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMap, originalValues)
+            if (curDataFeed) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMap, originalValues)
 
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
-            if (getTxCache() == null || !getTxCache().update(this)) this.basicUpdate(pkFieldList, nonPkFieldList, null)
+            TransactionCache curTxCache = getTxCache(ecfi)
+            if (curTxCache == null || !curTxCache.update(this)) this.basicUpdate(pkFieldList, nonPkFieldList, null, ec)
 
             // clear the entity cache
-            getEntityFacadeImpl().getEntityCache().clearCacheForValue(this, false)
+            efi.getEntityCache().clearCacheForValue(this, false)
             // save audit log(s) if applicable
             handleAuditLog(true, originalValues)
             // run EECA after rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "update", false)
+            efi.runEecaRules(ed.getFullEntityName(), this, "update", false)
             // count the artifact hit
             ecfi.countArtifactHit("entity", "update", ed.getFullEntityName(), this.getPrimaryKeys(), startTime,
                     (System.nanoTime() - startTimeNanos)/1E6, 1L)
@@ -1254,7 +1253,7 @@ abstract class EntityValueBase implements EntityValue {
             ec.getArtifactExecution().pop(aei)
         }
     }
-    void basicUpdate(Connection con) {
+    void basicUpdate(Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
 
         /* Shouldn't need this any more, was from a weird old issue:
@@ -1276,12 +1275,10 @@ abstract class EntityValueBase implements EntityValue {
             }
         }
 
-        basicUpdate(pkFieldList, nonPkFieldList, con)
+        basicUpdate(pkFieldList, nonPkFieldList, con, ec)
     }
-    void basicUpdate(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
+    void basicUpdate(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
-        ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
-        ExecutionContext ec = ecfi.getExecutionContext()
 
         // call abstract method
         this.updateExtended(pkFieldList, nonPkFieldList, con)
@@ -1289,6 +1286,7 @@ abstract class EntityValueBase implements EntityValue {
         // create or update records for the UserFields
         ListOrderedSet userFieldNameList = ed.getUserFieldNames()
         if (userFieldNameList != null && userFieldNameList.size() > 0) {
+            EntityFacadeImpl efi = getEntityFacadeImpl()
             boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
             try {
                 // get values for all fields in one query, for all groups the user is in
@@ -1337,7 +1335,8 @@ abstract class EntityValueBase implements EntityValue {
         long startTimeNanos = System.nanoTime()
         long startTime = startTimeNanos/1E6 as long
         EntityDefinition ed = getEntityDefinition()
-        ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
+        ExecutionContextFactoryImpl ecfi = efi.getEcfi()
         ExecutionContextImpl ec = ecfi.getEci()
 
         if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(ec.tenantId))
@@ -1352,19 +1351,20 @@ abstract class EntityValueBase implements EntityValue {
 
         try {
             // run EECA before rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "delete", true)
+            efi.runEecaRules(ed.getFullEntityName(), this, "delete", true)
             // this needs to be called before the actual update so we know which fields are modified
             // NOTE: consider not doing this on delete, DataDocuments are not great for representing absence of records
             // NOTE2: this might be useful, but is a bit of a pain and utility is dubious, leave out for now
-            // getEntityFacadeImpl().getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMap, null)
+            // efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMap, null)
 
             // if there is not a txCache or the txCache doesn't handle the delete, call the abstract method to delete the main record
-            if (getTxCache() == null || !getTxCache().delete(this)) this.basicDelete(null)
+            TransactionCache curTxCache = getTxCache(ecfi)
+            if (curTxCache == null || !curTxCache.delete(this)) this.basicDelete(null, ec)
 
             // clear the entity cache
-            getEntityFacadeImpl().getEntityCache().clearCacheForValue(this, false)
+            efi.getEntityCache().clearCacheForValue(this, false)
             // run EECA after rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "delete", false)
+            efi.runEecaRules(ed.getFullEntityName(), this, "delete", false)
             // count the artifact hit
             ecfi.countArtifactHit("entity", "delete", ed.getFullEntityName(), this.getPrimaryKeys(), startTime,
                     (System.nanoTime() - startTimeNanos)/1E6, 1L)
@@ -1375,16 +1375,15 @@ abstract class EntityValueBase implements EntityValue {
             ec.getArtifactExecution().pop(aei)
         }
     }
-    void basicDelete(Connection con) {
+    void basicDelete(Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
-        ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
-        ExecutionContext ec = ecfi.getExecutionContext()
 
         this.deleteExtended(con)
 
         // delete records for the UserFields
         ListOrderedSet userFieldNameList = ed.getUserFieldNames()
         if (userFieldNameList != null && userFieldNameList.size() > 0) {
+            EntityFacadeImpl efi = getEntityFacadeImpl()
             boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
             try {
                 // get values for all fields in one query, for all groups the user is in
@@ -1407,7 +1406,8 @@ abstract class EntityValueBase implements EntityValue {
         long startTimeNanos = System.nanoTime()
         long startTime = startTimeNanos/1E6 as long
         EntityDefinition ed = getEntityDefinition()
-        ExecutionContextFactoryImpl ecfi = getEntityFacadeImpl().getEcfi()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
+        ExecutionContextFactoryImpl ecfi = efi.getEcfi()
         ExecutionContextImpl ec = ecfi.getEci()
 
         List<String> pkFieldList = ed.getPkFieldNames()
@@ -1425,23 +1425,24 @@ abstract class EntityValueBase implements EntityValue {
 
         try {
             // run EECA before rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "find-one", true)
+            efi.runEecaRules(ed.getFullEntityName(), this, "find-one", true)
 
             // if there is not a txCache or the txCache doesn't handle the refresh, call the abstract method to refresh
             boolean retVal = false
-            if (getTxCache() != null) retVal = getTxCache().refresh(this)
+            TransactionCache curTxCache = getTxCache(ecfi)
+            if (curTxCache != null) retVal = curTxCache.refresh(this)
             // call the abstract method
             if (!retVal) {
                 retVal = this.refreshExtended()
-                if (retVal && getTxCache() != null) getTxCache().onePut(this)
+                if (retVal && curTxCache != null) curTxCache.onePut(this)
             }
 
             // NOTE: clear out UserFields
 
             // run EECA after rules
-            getEntityFacadeImpl().runEecaRules(ed.getFullEntityName(), this, "find-one", false)
+            efi.runEecaRules(ed.getFullEntityName(), this, "find-one", false)
             // count the artifact hit
-            ecfi.countArtifactHit("entity", "refresh", ed.getFullEntityName(), this.getPrimaryKeys(), startTime,
+            ecfi.countArtifactHit("entity", "refresh", ed.getFullEntityName(), getPrimaryKeys(), startTime,
                     (System.nanoTime() - startTimeNanos)/1E6, retVal ? 1L : 0L)
 
             return retVal

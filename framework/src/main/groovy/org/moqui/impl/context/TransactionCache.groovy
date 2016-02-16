@@ -385,7 +385,8 @@ class TransactionCache implements Synchronization {
     void flushCache() {
         Map<String, Connection> connectionByGroup = [:]
         try {
-            EntityFacadeImpl efi = ecfi.getEntityFacade()
+            ExecutionContextImpl eci = ecfi.getEci()
+            EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
 
             long startTime = System.currentTimeMillis()
             int createCount = 0
@@ -403,13 +404,13 @@ class TransactionCache implements Synchronization {
                 }
 
                 if (ewi.writeMode == WriteMode.CREATE) {
-                    ewi.evb.basicCreate(con)
+                    ewi.evb.basicCreate(con, eci)
                     createCount++
                 } else if (ewi.writeMode == WriteMode.UPDATE) {
-                    ewi.evb.basicUpdate(con)
+                    ewi.evb.basicUpdate(con, eci)
                     updateCount++
                 } else {
-                    ewi.evb.basicDelete(con)
+                    ewi.evb.basicDelete(con, eci)
                     deleteCount++
                 }
             }

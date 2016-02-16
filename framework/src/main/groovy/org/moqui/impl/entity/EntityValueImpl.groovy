@@ -82,7 +82,7 @@ class EntityValueImpl extends EntityValueBase {
             sql.append(") VALUES (").append(values.toString()).append(')')
 
             try {
-                getEntityFacadeImpl().entityDbMeta.checkTableRuntime(ed)
+                getEntityFacadeImpl().getEntityDbMeta().checkTableRuntime(ed)
 
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
@@ -129,7 +129,7 @@ class EntityValueImpl extends EntityValueBase {
             }
 
             try {
-                getEntityFacadeImpl().entityDbMeta.checkTableRuntime(ed)
+                getEntityFacadeImpl().getEntityDbMeta().checkTableRuntime(ed)
 
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
@@ -166,7 +166,7 @@ class EntityValueImpl extends EntityValueBase {
             }
 
             try {
-                getEntityFacadeImpl().entityDbMeta.checkTableRuntime(ed)
+                getEntityFacadeImpl().getEntityDbMeta().checkTableRuntime(ed)
 
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
