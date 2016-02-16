@@ -635,7 +635,7 @@ abstract class EntityFindBase implements EntityFind {
         EntityDefinition ed = this.getEntityDef()
         MNode entityNode = ed.getEntityNode()
 
-        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+        if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         if (ed.isViewEntity() && (!entityNode.hasChild("member-entity") || !entityNode.hasChild("alias")))
@@ -810,7 +810,7 @@ abstract class EntityFindBase implements EntityFind {
         EntityDefinition ed = this.getEntityDef()
         MNode entityNode = ed.getEntityNode()
 
-        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+        if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         if (ed.isViewEntity() && (!entityNode.hasChild("member-entity") || !entityNode.hasChild("alias")))
@@ -969,7 +969,7 @@ abstract class EntityFindBase implements EntityFind {
         MNode entityNode = ed.getEntityNode()
         ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
 
-        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+        if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         if (ed.isViewEntity() && (!entityNode.hasChild("member-entity") || !entityNode.hasChild("alias")))
@@ -1090,7 +1090,7 @@ abstract class EntityFindBase implements EntityFind {
         EntityDefinition ed = this.getEntityDef()
         ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
 
-        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+        if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("count")
@@ -1187,7 +1187,7 @@ abstract class EntityFindBase implements EntityFind {
 
         EntityDefinition ed = getEntityDef()
         if (ed.createOnly()) throw new EntityException("Entity [${getEntityDef().getFullEntityName()}] is create-only (immutable), cannot be updated.")
-        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+        if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${efi.ecfi.eci.tenantId}")
 
         this.useCache(false)
@@ -1224,7 +1224,7 @@ abstract class EntityFindBase implements EntityFind {
 
         EntityDefinition ed = getEntityDef()
         if (ed.createOnly()) throw new EntityException("Entity [${getEntityDef().getFullEntityName()}] is create-only (immutable), cannot be deleted.")
-        if (ed.entityGroupName == 'tenantcommon' && efi.tenantId != 'DEFAULT')
+        if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${efi.ecfi.eci.tenantId}")
 
         // if there are no EECAs for the entity OR there is a TransactionCache in place just call ev.delete() on each

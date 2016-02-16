@@ -1074,9 +1074,8 @@ abstract class EntityValueBase implements EntityValue {
             this.set("lastUpdatedStamp", new Timestamp(lastUpdatedLong))
 
         // do the artifact push/authz
-        String authorizeSkip = ed.entityNode.attribute('authorize-skip')
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_CREATE").setParameters(valueMap)
-        ec.getArtifactExecutionImpl().pushInternal(aei, (authorizeSkip != "true" && !authorizeSkip?.contains("create")))
+        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipCreate())
 
         try {
             // run EECA before rules
@@ -1156,12 +1155,16 @@ abstract class EntityValueBase implements EntityValue {
         EntityFacadeImpl efi = getEntityFacadeImpl()
         ExecutionContextFactoryImpl ecfi = efi.getEcfi()
         ExecutionContextImpl ec = ecfi.getEci()
+        boolean optimisticLock = ed.optimisticLock()
+        boolean hasFieldDefaults = ed.hasFieldDefaults()
+        boolean needsAuditLog = ed.needsAuditLog()
+        boolean createOnlyAny = ed.createOnlyAny()
 
         if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(ec.tenantId))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${ec.tenantId}")
 
         // check/set defaults for pk fields, do this first to fill in optional pk fields
-        if (ed.hasFieldDefaults()) checkSetFieldDefaults(ed, ec, true)
+        if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, true)
 
         // if there is one or more DataFeed configs associated with this entity get info about them
         boolean curDataFeed = doDataFeed()
@@ -1172,23 +1175,22 @@ abstract class EntityValueBase implements EntityValue {
         }
 
         // need actual DB values for various scenarios? get them here
-        if (ed.needsAuditLog() || ed.createOnly() || curDataFeed || ed.optimisticLock() || ed.hasFieldDefaults()) {
+        if (needsAuditLog || createOnlyAny || curDataFeed || optimisticLock || hasFieldDefaults) {
             EntityValueBase refreshedValue = (EntityValueBase) this.cloneValue()
             refreshedValue.refresh()
             this.setDbValueMap(refreshedValue.getValueMap())
         }
 
         // check/set defaults for non-pk fields, after getting dbValueMap
-        if (ed.hasFieldDefaults()) checkSetFieldDefaults(ed, ec, false)
+        if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, false)
 
         // Save original values before anything is changed for DataFeed and audit log
         Map<String, Object> originalValues = dbValueMap != null && dbValueMap.size() > 0 ?
                 new HashMap<String, Object>(dbValueMap) : null
 
         // do the artifact push/authz
-        String authorizeSkip = ed.entityNode.attribute('authorize-skip')
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_UPDATE").setParameters(valueMap)
-        ec.getArtifactExecutionImpl().pushInternal(aei, authorizeSkip != "true")
+        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue())
 
         try {
             // run EECA before rules
@@ -1205,7 +1207,7 @@ abstract class EntityValueBase implements EntityValue {
                 if (valueMap.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
                         valueMap.get(fieldName) != dbValueMap.get(fieldName))) {
                     nonPkFieldList.add(fieldInfo)
-                    if (fieldInfo.createOnly) changedCreateOnlyFields.add(fieldName)
+                    if (createOnlyAny && fieldInfo.createOnly) changedCreateOnlyFields.add(fieldName)
                 }
             }
             // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
@@ -1220,7 +1222,7 @@ abstract class EntityValueBase implements EntityValue {
             }
 
             // check optimistic lock with lastUpdatedStamp; if optimisticLock() dbValueMap will have latest from DB
-            if (ed.optimisticLock() && valueMap.get("lastUpdatedStamp") != dbValueMap.get("lastUpdatedStamp")) {
+            if (optimisticLock && valueMap.get("lastUpdatedStamp") != dbValueMap.get("lastUpdatedStamp")) {
                 throw new EntityException("This record was updated by someone else at [${valueMap.get("lastUpdatedStamp")}] which was after the version you loaded at [${dbValueMap.get("lastUpdatedStamp")}]. Not updating to avoid overwriting data.")
             }
 
@@ -1240,18 +1242,18 @@ abstract class EntityValueBase implements EntityValue {
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false)
             // save audit log(s) if applicable
-            handleAuditLog(true, originalValues)
+            if (needsAuditLog) handleAuditLog(true, originalValues)
             // run EECA after rules
             efi.runEecaRules(ed.getFullEntityName(), this, "update", false)
             // count the artifact hit
             ecfi.countArtifactHit("entity", "update", ed.getFullEntityName(), this.getPrimaryKeys(), startTime,
                     (System.nanoTime() - startTimeNanos)/1E6, 1L)
-
-            return this
         } finally {
             // pop the ArtifactExecutionInfo to clean it up
             ec.getArtifactExecution().pop(aei)
         }
+
+        return this
     }
     void basicUpdate(Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
@@ -1342,12 +1344,12 @@ abstract class EntityValueBase implements EntityValue {
         if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(ec.tenantId))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${ec.tenantId}")
 
+        // NOTE: this is create-only on the entity, ignores setting on fields (only considered in update)
         if (ed.createOnly()) throw new EntityException("Entity [${getEntityName()}] is create-only (immutable), cannot be deleted.")
 
         // do the artifact push/authz
-        String authorizeSkip = ed.entityNode.attribute('authorize-skip')
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_DELETE").setParameters(valueMap)
-        ec.getArtifactExecutionImpl().pushInternal(aei, authorizeSkip != "true")
+        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue())
 
         try {
             // run EECA before rules
@@ -1368,12 +1370,12 @@ abstract class EntityValueBase implements EntityValue {
             // count the artifact hit
             ecfi.countArtifactHit("entity", "delete", ed.getFullEntityName(), this.getPrimaryKeys(), startTime,
                     (System.nanoTime() - startTimeNanos)/1E6, 1L)
-
-            return this
         } finally {
             // pop the ArtifactExecutionInfo to clean it up
             ec.getArtifactExecution().pop(aei)
         }
+
+        return this
     }
     void basicDelete(Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
@@ -1418,17 +1420,16 @@ abstract class EntityValueBase implements EntityValue {
         }
 
         // do the artifact push/authz
-        String authorizeSkip = ed.entityNode.attribute('authorize-skip')
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW")
                                 .setActionDetail("refresh").setParameters(valueMap)
-        ec.getArtifactExecutionImpl().pushInternal(aei, authorizeSkip != "true")
+        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipView())
 
+        boolean retVal = false
         try {
             // run EECA before rules
             efi.runEecaRules(ed.getFullEntityName(), this, "find-one", true)
 
             // if there is not a txCache or the txCache doesn't handle the refresh, call the abstract method to refresh
-            boolean retVal = false
             TransactionCache curTxCache = getTxCache(ecfi)
             if (curTxCache != null) retVal = curTxCache.refresh(this)
             // call the abstract method
@@ -1445,11 +1446,11 @@ abstract class EntityValueBase implements EntityValue {
             ecfi.countArtifactHit("entity", "refresh", ed.getFullEntityName(), getPrimaryKeys(), startTime,
                     (System.nanoTime() - startTimeNanos)/1E6, retVal ? 1L : 0L)
 
-            return retVal
         } finally {
             // pop the ArtifactExecutionInfo to clean it up
             ec.getArtifactExecution().pop(aei)
         }
+        return retVal
     }
     abstract boolean refreshExtended()
 }

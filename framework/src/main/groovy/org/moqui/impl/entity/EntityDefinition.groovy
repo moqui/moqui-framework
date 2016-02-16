@@ -75,8 +75,8 @@ public class EntityDefinition {
     protected final boolean isView
     protected final boolean hasFunctionAliasVal
     protected final boolean createOnlyVal
+    protected final boolean createOnlyFields = false
     protected final boolean optimisticLockVal
-    protected final boolean authorizeSkipViewVal
     protected Boolean needsAuditLogVal = null
     protected Boolean needsEncryptVal = null
     protected final String useCache
@@ -86,6 +86,10 @@ public class EntityDefinition {
     protected final boolean sequencePrimaryUseUuid
 
     protected final boolean hasFieldDefaultsVal
+    protected final String authorizeSkipStr
+    protected final boolean authorizeSkipTrueVal
+    protected final boolean authorizeSkipCreateVal
+    protected final boolean authorizeSkipViewVal
 
 
     protected List<MNode> expandedRelationshipList = null
@@ -120,13 +124,20 @@ public class EntityDefinition {
             this.sequenceBankSize = internalEntityNode.attribute("sequence-bank-size") as long
         sequencePrimaryUseUuid = internalEntityNode.attribute('sequence-primary-use-uuid') == "true"
 
-        postInit()
+        createOnlyVal = "true".equals(internalEntityNode.attribute('create-only'))
+
+        authorizeSkipStr = internalEntityNode.attribute('authorize-skip')
+        authorizeSkipTrueVal = authorizeSkipStr == "true"
+        authorizeSkipCreateVal = authorizeSkipTrueVal || authorizeSkipStr?.contains("create")
+        authorizeSkipViewVal = authorizeSkipTrueVal || authorizeSkipStr?.contains("view")
+
+        initFields()
 
         hasFunctionAliasVal = isView && internalEntityNode.children("alias").find({ it.attribute("function") })
-        createOnlyVal = "true".equals(internalEntityNode.attribute('create-only'))
+
+        for (int i = 0; i < allFieldInfoList.size(); i++) if (allFieldInfoList.get(i).createOnly) createOnlyFields = true
+
         optimisticLockVal = "true".equals(internalEntityNode.attribute('optimistic-lock'))
-        String authorizeSkip = internalEntityNode.attribute('authorize-skip')
-        authorizeSkipViewVal = authorizeSkip == "true" || authorizeSkip?.contains("view")
 
         useCache = internalEntityNode.attribute('cache') ?: 'false'
 
@@ -143,7 +154,7 @@ public class EntityDefinition {
         hasFieldDefaultsVal = getPkFieldDefaults() || getNonPkFieldDefaults()
     }
 
-    void postInit() {
+    void initFields() {
         if (isViewEntity()) {
             memberEntityFieldAliases = [:]
             memberEntityAliasMap = [:]
@@ -248,7 +259,10 @@ public class EntityDefinition {
     }
 
     boolean createOnly() { return createOnlyVal }
+    boolean createOnlyAny() { return createOnlyVal || createOnlyFields }
     boolean optimisticLock() { return optimisticLockVal }
+    boolean authorizeSkipTrue() { return authorizeSkipTrueVal }
+    boolean authorizeSkipCreate() { return authorizeSkipCreateVal }
     boolean authorizeSkipView() { return authorizeSkipViewVal }
     boolean needsAuditLog() {
         if (needsAuditLogVal != null) return needsAuditLogVal.booleanValue()
