@@ -140,6 +140,8 @@ along with this software (see the LICENSE.md file). If not, see
             <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
 
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
+            <if condition="userAccount == null">
+                <return error="true" message="Cannot update password, Account not found with ID ${userId}"/></if>
 
             <!-- check a bunch of stuff about the new password -->
             <set field="passwordNode" from="ec.ecfi.confXmlRoot.first('user-facade').first('password')"/>
