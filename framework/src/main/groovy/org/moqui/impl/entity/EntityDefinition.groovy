@@ -1499,11 +1499,14 @@ public class EntityDefinition {
 
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
-        ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
+        // ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
+        ArrayList<FieldInfo> fieldInfoList = pks == null ? getAllFieldInfoList() :
+                (pks == Boolean.TRUE ? getPkFieldInfoList() : getNonPkFieldInfoList())
         // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
-        int size = fieldNameList.size()
+        int size = fieldInfoList.size()
         for (int i = 0; i < size; i++) {
-            String fieldName = (String) fieldNameList.get(i)
+            FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
+            String fieldName = fi.name
 
             Object value = srcIsEntityValueBase? evb.getValueMap().get(fieldName) : src.get(fieldName)
             if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(fieldName) : src.containsKey(fieldName))) {
@@ -1519,7 +1522,7 @@ public class EntityDefinition {
                 if (!isEmpty) {
                     if (isCharSequence) {
                         try {
-                            Object converted = convertFieldString(fieldName, value.toString())
+                            Object converted = convertFieldInfoString(fi, value.toString())
                             dest.putNoCheck(fieldName, converted)
                         } catch (BaseException be) {
                             this.efi.ecfi.executionContext.message.addValidationError(null, fieldName, null, be.getMessage(), be)
@@ -1541,22 +1544,25 @@ public class EntityDefinition {
 
     Object convertFieldString(String name, String value) {
         if (value == null) return null
-        if ('null'.equals(value)) return null
-
         FieldInfo fieldInfo = getFieldInfo(name)
         if (fieldInfo == null) throw new EntityException("The name [${name}] is not a valid field name for entity [${entityName}]")
+        return convertFieldInfoString(fieldInfo, value)
+    }
 
-        // String javaType = fieldType ? (EntityFacadeImpl.fieldTypeJavaMap.get(fieldType) ?: efi.getFieldJavaType(fieldType, this)) : 'String'
-        // Integer typeValue = (fieldType ? EntityFacadeImpl.fieldTypeIntMap.get(fieldType) : null) ?: EntityFacadeImpl.getJavaTypeInt(javaType)
-
-        return EntityJavaUtil.convertFromString(value, fieldInfo.typeValue, fieldInfo.javaType, efi.getEcfi().getL10nFacade())
+    Object convertFieldInfoString(FieldInfo fi, String value) {
+        if (value == null) return null
+        if ('null'.equals(value)) return null
+        return EntityJavaUtil.convertFromString(value, fi.typeValue, fi.javaType, efi.getEcfi().getL10nFacade())
     }
 
     String getFieldString(String name, Object value) {
         if (value == null) return null
-
-        FieldInfo fieldInfo = getFieldInfo(name)
-        return EntityJavaUtil.convertToString(value, fieldInfo.typeValue, fieldInfo.javaType, efi.getEcfi().getL10nFacade())
+        FieldInfo fi = getFieldInfo(name)
+        return getFieldInfoString(fi, value)
+    }
+    String getFieldInfoString(FieldInfo fi, Object value) {
+        if (value == null) return null
+        return EntityJavaUtil.convertToString(value, fi.typeValue, fi.javaType, efi.getEcfi().getL10nFacade())
     }
 
     String getFieldStringForFile(String name, Object value) {

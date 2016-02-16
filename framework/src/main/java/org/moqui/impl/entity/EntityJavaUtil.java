@@ -31,7 +31,7 @@ import java.sql.*;
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
 
-    static Object convertFromString(String value, int typeValue, String javaType, L10nFacade l10n) {
+    public static Object convertFromString(String value, int typeValue, String javaType, L10nFacade l10n) {
         Object outValue;
         boolean isEmpty = value.length() == 0;
 
@@ -101,7 +101,7 @@ public class EntityJavaUtil {
         return outValue;
     }
 
-    static String convertToString(Object value, int typeValue, String javaType, L10nFacade l10n) {
+    public static String convertToString(Object value, int typeValue, String javaType, L10nFacade l10n) {
         String outValue;
         try {
             switch (typeValue) {
