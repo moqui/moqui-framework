@@ -11,6 +11,12 @@ TODO
 
 Non Backward Compatible Changes
 
+- Entity field types are somewhat more strict for database operations; this
+  is partly for performance reasons and partly to avoid database errors
+  that happen only on certain databases (ie some allow passing a String for
+  a Timestamp, others don't; now you have to use a Timestamp or other date
+  object); use EntityValue.setString or similar methods to do data
+  conversions higher up
 - Removed the TenantCurrency, TenantLocale, TenantTimeZone, and
   TenantCountry entities; they aren't generally used and better not to have
   business settings in these restricted technical config entities

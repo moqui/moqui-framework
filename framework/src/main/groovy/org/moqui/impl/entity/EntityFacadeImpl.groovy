@@ -92,7 +92,7 @@ class EntityFacadeImpl implements EntityFacade {
                 theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"))
             } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}") }
         }
-        this.databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
+        databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
         Locale theLocale = null
         if (entityFacadeNode.attribute("database-locale")) {
             try {
@@ -102,8 +102,8 @@ class EntityFacadeImpl implements EntityFacade {
                         new Locale(localeStr)
             } catch (Exception e) { logger.warn("Error parsing database-locale: ${e.toString()}") }
         }
-        this.databaseLocale = theLocale ?: Locale.getDefault()
-        this.databaseTzLcCalendar = Calendar.getInstance(getDatabaseTimeZone(), getDatabaseLocale())
+        databaseLocale = theLocale ?: Locale.getDefault()
+        databaseTzLcCalendar = Calendar.getInstance(databaseTimeZone, databaseLocale)
 
         // init entity meta-data
         entityDefinitionCache = ecfi.getCacheFacade().getCache("entity.definition")
@@ -136,9 +136,10 @@ class EntityFacadeImpl implements EntityFacade {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
         // return efi.getEcfi().getExecutionContext().getUser().getCalendarForTzLcOnly()
 
-        return Calendar.getInstance(getDatabaseTimeZone(), getDatabaseLocale())
+        // return Calendar.getInstance(databaseTimeZone, databaseLocale)
         // NOTE: this approach is faster but seems to cause errors with Derby (ERROR 22007: The string representation of a date/time value is out of range)
-        // return databaseTzLcCalendar
+        // Still causing problems?
+        return databaseTzLcCalendar
     }
 
     MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }

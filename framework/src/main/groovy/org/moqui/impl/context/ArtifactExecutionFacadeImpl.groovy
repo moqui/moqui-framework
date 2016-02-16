@@ -85,9 +85,6 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         pushInternal(aeii, requiresAuthz)
     }
     void pushInternal(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz) {
-        // do permission check for this new aei that current user is trying to access
-        String username = eci.getUser().getUsername()
-
         ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
         // always do this regardless of the authz checks, etc; keep a history of artifacts run
@@ -96,9 +93,9 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         // if ("AT_XML_SCREEN" == aeii.typeEnumId) logger.warn("TOREMOVE artifact push ${username} - ${aeii}")
 
-        if (!isPermitted(username, aeii, lastAeii, requiresAuthz, true, eci.getUser().getNowTimestamp())) {
+        if (!isPermitted(aeii, lastAeii, requiresAuthz, true, eci.getUser().getNowTimestamp())) {
             StringBuilder warning = new StringBuilder()
-            warning.append("User [${username}] is not authorized for ${artifactActionDescriptionMap.get(aeii.getActionEnumId())} on ${artifactTypeDescriptionMap.get(aeii.getTypeEnumId())?:aeii.getTypeEnumId()} [${aeii.getName()}], here is the current artifact stack:")
+            warning.append("User [${eci.user.userId}] is not authorized for ${artifactActionDescriptionMap.get(aeii.getActionEnumId())} on ${artifactTypeDescriptionMap.get(aeii.getTypeEnumId())?:aeii.getTypeEnumId()} [${aeii.getName()}], here is the current artifact stack:")
             for (def warnAei in this.stack) warning.append("\n").append(warnAei)
 
             Exception e = new ArtifactAuthorizationException(warning.toString())
@@ -213,7 +210,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
      * @param eci
      * @return
      */
-    static boolean isPermitted(String username, String resourceAccess, Timestamp nowTimestamp, ExecutionContextImpl eci) {
+    static boolean isPermitted(String resourceAccess, Timestamp nowTimestamp, ExecutionContextImpl eci) {
         int firstColon = resourceAccess.indexOf(":")
         int secondColon = resourceAccess.indexOf(":", firstColon + 1)
         if (firstColon == -1 || secondColon == -1) throw new ArtifactAuthorizationException("Resource access string does not have two colons (':'), must be formatted like: \"\${typeEnumId}:\${actionEnumId}:\${name}\"")
@@ -222,11 +219,11 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         String actionEnumId = resourceAccess.substring(firstColon + 1, secondColon)
         String name = resourceAccess.substring(secondColon + 1)
 
-        return eci.artifactExecutionFacade.isPermitted(username,
-                new ArtifactExecutionInfoImpl(name, typeEnumId, actionEnumId), null, true, true, nowTimestamp)
+        return eci.artifactExecutionFacade.isPermitted(new ArtifactExecutionInfoImpl(name, typeEnumId, actionEnumId),
+                null, true, true, nowTimestamp)
     }
 
-    boolean isPermitted(String userId, ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii,
+    boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii,
                         boolean requiresAuthz, boolean countTarpit, Timestamp nowTimestamp) {
 
         // never do this for entities when disableAuthz, as we might use any below and would cause infinite recursion
@@ -243,8 +240,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         UserFacadeImpl ufi = eci.getUserFacade()
 
         // see if there is a UserAccount for the username, and if so get its userId as a more permanent identifier
-        String curUserId = ufi.getUserId()
-        if (curUserId != null) userId = curUserId
+        String userId = ufi.getUserId()
 
         boolean alreadyDisabled = disableAuthz()
         try {

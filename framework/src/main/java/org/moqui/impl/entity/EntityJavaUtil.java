@@ -268,8 +268,18 @@ public class EntityJavaUtil {
                 switch (typeValue) {
                 case 1: if (value != null) { ps.setString(index, value.toString()); } else { ps.setNull(index, Types.VARCHAR); } break;
                 case 2:
-                    if (value != null) { ps.setTimestamp(index, (Timestamp) value, efi.getCalendarForTzLc()); }
-                    else { ps.setNull(index, Types.TIMESTAMP); }
+                    if (value != null) {
+                        Class valClass = value.getClass();
+                        if (valClass == Timestamp.class) {
+                            ps.setTimestamp(index, (Timestamp) value, efi.getCalendarForTzLc());
+                        } else if (valClass == java.sql.Date.class) {
+                            ps.setDate(index, (java.sql.Date) value, efi.getCalendarForTzLc());
+                        } else if (valClass == java.util.Date.class) {
+                            ps.setTimestamp(index, new Timestamp(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
+                        } else {
+                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields");
+                        }
+                    } else { ps.setNull(index, Types.TIMESTAMP); }
                     break;
                 case 3:
                     Time tm = (Time) value;
@@ -278,16 +288,41 @@ public class EntityJavaUtil {
                     else { ps.setNull(index, Types.TIME); }
                     break;
                 case 4:
-                    java.sql.Date dt = (java.sql.Date) value;
-                    // logger.warn("=================== setting date dt=${dt} dt long=${dt.getTime()}, cal=${cal}")
-                    if (value != null) { ps.setDate(index, dt, efi.getCalendarForTzLc()); }
-                    else { ps.setNull(index, Types.DATE); }
+                    if (value != null) {
+                        Class valClass = value.getClass();
+                        if (valClass == java.sql.Date.class) {
+                            java.sql.Date dt = (java.sql.Date) value;
+                            // logger.warn("=================== setting date dt=${dt} dt long=${dt.getTime()}, cal=${cal}")
+                            ps.setDate(index, dt, efi.getCalendarForTzLc());
+                        } else if (valClass == Timestamp.class) {
+                            ps.setDate(index, new java.sql.Date(((Timestamp) value).getTime()), efi.getCalendarForTzLc());
+                        } else if (valClass == java.util.Date.class) {
+                            ps.setDate(index, new java.sql.Date(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
+                        } else {
+                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date fields");
+                        }
+                    } else { ps.setNull(index, Types.DATE); }
                     break;
-                case 5: if (value != null) { ps.setInt(index, (Integer) value); } else { ps.setNull(index, Types.NUMERIC); } break;
-                case 6: if (value != null) { ps.setLong(index, (Long) value); } else { ps.setNull(index, Types.NUMERIC); } break;
-                case 7: if (value != null) { ps.setFloat(index, (Float) value); } else { ps.setNull(index, Types.NUMERIC); } break;
-                case 8: if (value != null) { ps.setDouble(index, (Double) value); } else { ps.setNull(index, Types.NUMERIC); } break;
-                case 9: if (value != null) { ps.setBigDecimal(index, (BigDecimal) value); } else { ps.setNull(index, Types.NUMERIC); } break;
+                case 5: if (value != null) { ps.setInt(index, ((Number) value).intValue()); } else { ps.setNull(index, Types.NUMERIC); } break;
+                case 6: if (value != null) { ps.setLong(index, ((Number) value).longValue()); } else { ps.setNull(index, Types.NUMERIC); } break;
+                case 7: if (value != null) { ps.setFloat(index, ((Number) value).floatValue()); } else { ps.setNull(index, Types.NUMERIC); } break;
+                case 8: if (value != null) { ps.setDouble(index, ((Number) value).doubleValue()); } else { ps.setNull(index, Types.NUMERIC); } break;
+                case 9:
+                    if (value != null) {
+                        Class valClass = value.getClass();
+                        // most common cases BigDecimal, Double, Float; then allow any Number
+                        if (valClass == BigDecimal.class) {
+                            ps.setBigDecimal(index, (BigDecimal) value);
+                        } else if (valClass == Double.class) {
+                            ps.setDouble(index, (Double) value);
+                        } else if (valClass == Float.class) {
+                            ps.setFloat(index, (Float) value);
+                        } else if (value instanceof Number) {
+                            ps.setDouble(index, ((Number) value).doubleValue());
+                        } else {
+                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for number-decimal (BigDecimal) fields");
+                        }
+                    } else { ps.setNull(index, Types.NUMERIC); } break;
                 case 10: if (value != null) { ps.setBoolean(index, (Boolean) value); } else { ps.setNull(index, Types.BOOLEAN); } break;
                 case 11:
                     if (value != null) {

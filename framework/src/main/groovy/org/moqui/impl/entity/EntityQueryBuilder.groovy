@@ -247,14 +247,13 @@ class EntityQueryBuilder {
         return encrypt ? Hex.encodeHexString(outBytes) : new String(outBytes)
     }
 
+    static final boolean checkPreparedStatementValueType = false
     static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fieldInfo,
                                           EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
-        String entityName = ed.getFullEntityName()
-        String fieldName = fieldInfo.name
         String javaType = fieldInfo.javaType
         int typeValue = fieldInfo.typeValue
         if (value != null) {
-            if (!StupidJavaUtilities.isInstanceOf(value, javaType)) {
+            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, javaType)) {
                 // this is only an info level message because under normal operation for most JDBC
                 // drivers this will be okay, but if not then the JDBC driver will throw an exception
                 // and when lower debug levels are on this should help give more info on what happened
@@ -265,7 +264,7 @@ class EntityQueryBuilder {
                     fieldClassName = "char[]"
                 }
 
-                if (logger.isTraceEnabled()) logger.trace((String) "Type of field " + entityName + "." + fieldName +
+                if (logger.isTraceEnabled()) logger.trace((String) "Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
                         " is " + fieldClassName + ", was expecting " + javaType + " this may " +
                         "indicate an error in the configuration or in the class, and may result " +
                         "in an SQL-Java data conversion error. Will use the real field type: " +
@@ -276,7 +275,7 @@ class EntityQueryBuilder {
 
             // if field is to be encrypted, do it now
             if (fieldInfo.encrypt) {
-                if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityName}]")
+                if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldInfo.name}] of entity [${ed.getFullEntityName()}]")
                 String original = value as String
                 value = enDeCrypt(original, true, efi)
             }
@@ -291,7 +290,7 @@ class EntityQueryBuilder {
         } catch (EntityException e) {
             throw e
         } catch (Exception e) {
-            throw new EntityException("Error setting prepared statement field [${fieldName}] of entity [${entityName}]", e)
+            throw new EntityException("Error setting prepared statement field [${fieldInfo.name}] of entity [${ed.getFullEntityName()}]", e)
         }
     }
 
