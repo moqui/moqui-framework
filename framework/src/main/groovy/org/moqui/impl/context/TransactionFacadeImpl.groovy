@@ -45,7 +45,8 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     protected boolean useTransactionCache = true
 
-    private ThreadLocal<ArrayList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<ArrayList<TxStackInfo>>()
+    private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>()
+    private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>()
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -93,7 +94,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             this.commit()
         }
 
-        ArrayList<TxStackInfo> txStackInfoList = txStackInfoListThread.get()
+        LinkedList<TxStackInfo> txStackInfoList = txStackInfoListThread.get()
         if (txStackInfoList) {
             int numSuspended = 0;
             for (TxStackInfo txStackInfo in txStackInfoList) {
@@ -120,16 +121,37 @@ class TransactionFacadeImpl implements TransactionFacade {
         return time
     }
 
-    protected ArrayList<TxStackInfo> getTxStackInfoList() {
-        ArrayList<TxStackInfo> list = (ArrayList<TxStackInfo>) txStackInfoListThread.get()
+    protected LinkedList<TxStackInfo> getTxStackInfoList() {
+        LinkedList<TxStackInfo> list = (LinkedList<TxStackInfo>) txStackInfoListThread.get()
         if (list == null) {
-            list = new ArrayList<TxStackInfo>(10)
-            list.add(new TxStackInfo())
+            list = new LinkedList<TxStackInfo>()
             txStackInfoListThread.set(list)
+            TxStackInfo txStackInfo = new TxStackInfo()
+            list.add(txStackInfo)
+            txStackInfoCurThread.set(txStackInfo)
         }
         return list
     }
-    protected TxStackInfo getTxStackInfo() { return (TxStackInfo) getTxStackInfoList().get(0) }
+    protected TxStackInfo getTxStackInfo() {
+        TxStackInfo txStackInfo = (TxStackInfo) txStackInfoCurThread.get()
+        if (txStackInfo == null) {
+            LinkedList<TxStackInfo> list = getTxStackInfoList()
+            txStackInfo = list.getFirst()
+        }
+        return txStackInfo
+    }
+    protected void pushTxStackInfo(Transaction tx, Exception txLocation) {
+        TxStackInfo txStackInfo = new TxStackInfo()
+        txStackInfo.suspendedTx = tx
+        txStackInfo.suspendedTxLocation = txLocation
+        getTxStackInfoList().addFirst(txStackInfo)
+        txStackInfoCurThread.set(txStackInfo)
+    }
+    protected void popTxStackInfo() {
+        LinkedList<TxStackInfo> list = getTxStackInfoList()
+        list.removeFirst()
+        txStackInfoCurThread.set(list.getFirst())
+    }
 
 
     @Override
@@ -428,10 +450,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
             Transaction tx = tm.suspend()
             // only do these after successful suspend
-            TxStackInfo txStackInfo = new TxStackInfo()
-            txStackInfo.suspendedTx = tx
-            txStackInfo.suspendedTxLocation = new Exception("Transaction Suspend Location")
-            getTxStackInfoList().add(0, txStackInfo)
+            pushTxStackInfo(tx, new Exception("Transaction Suspend Location"))
 
             return true
         } catch (SystemException e) {
@@ -446,7 +465,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (txStackInfo.suspendedTx != null) {
                 tm.resume(txStackInfo.suspendedTx)
                 // only do this after successful resume
-                getTxStackInfoList().remove(0)
+                popTxStackInfo()
             } else {
                 logger.warn("No transaction suspended, so not resuming.")
             }
