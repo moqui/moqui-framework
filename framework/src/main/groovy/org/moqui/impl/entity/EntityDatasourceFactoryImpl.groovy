@@ -110,11 +110,9 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     }
 
     @Override
-    @CompileStatic
     void checkAndAddTable(String entityName) { efi.getEntityDbMeta().checkTableStartup(efi.getEntityDefinition(entityName)) }
 
     @Override
-    @CompileStatic
     EntityValue makeEntityValue(String entityName) {
         EntityDefinition entityDefinition = efi.getEntityDefinition(entityName)
         if (entityDefinition == null) throw new EntityException("Entity not found for name [${entityName}]")
@@ -122,10 +120,8 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     }
 
     @Override
-    @CompileStatic
     EntityFind makeEntityFind(String entityName) { return new EntityFindImpl(efi, entityName) }
 
     @Override
-    @CompileStatic
     DataSource getDataSource() { return dataSource }
 }
