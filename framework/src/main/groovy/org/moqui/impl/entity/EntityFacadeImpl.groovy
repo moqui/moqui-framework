@@ -24,6 +24,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -1523,14 +1524,21 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     Connection getConnection(String groupName) {
+        TransactionFacadeImpl tfi = ecfi.transactionFacade
+        Connection stashed = tfi.getTxConnection(tenantId, groupName)
+        if (stashed != null) return stashed
+
         EntityDatasourceFactory edf = getDatasourceFactory(groupName)
         DataSource ds = edf.getDataSource()
         if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupName}] because it has no DataSource")
+        Connection newCon
         if (ds instanceof XADataSource) {
-            return this.ecfi.transactionFacade.enlistConnection(ds.getXAConnection())
+            newCon = tfi.enlistConnection(ds.getXAConnection())
         } else {
-            return ds.getConnection()
+            newCon = ds.getConnection()
         }
+        if (newCon != null) newCon = tfi.stashTxConnection(tenantId, groupName, newCon)
+        return newCon
     }
 
     @Override

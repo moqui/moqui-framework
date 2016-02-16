@@ -17,6 +17,14 @@ Non Backward Compatible Changes
 
 New Features
 
+- Many performance improvements based on profiling; cached entities finds
+  around 5x faster, non cached around 2x faster
+- Added JDBC Connection stash by tenant, entity group, and transaction,
+  can be disabled with transaction-facade.@use-connection-stash=false in
+  the Moqui Conf XML file
+- Many code cleanups and more CompileStatic with XML handling using new
+  MNode class instead of Groovy Node; UserFacadeImpl and
+  TransactionFacadeImpl much cleaner with internal classes for state
 - Added tools.@empty-db-load attribute with data file types to load on
   startup (through webapp ContextListener init only) if the database is
   empty (no records for moqui.basic.Enumeration)
@@ -25,11 +33,6 @@ New Features
   considered an absolute path instead of relative to the runtime directory
   allowing a conf file outside the runtime directory (an alternative
   to using ../)
-- Performance improvements based on profiling, entity find one with and
-  without cache about 3x faster (on H2, cached finds will have same
-  increase regardless of database, other databases will see less app server
-  load but DB speeds vary more); other entity and service operations are
-  faster and screen rendering marginally faster
 - UserAccount.userId and various other ID fields changed from id-long to id
   as userId is only an internal/sequenced ID now, and for various others
   the 40 char length changed years ago is more than adequate; existing
