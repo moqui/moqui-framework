@@ -50,47 +50,22 @@ class UserFacadeImpl implements UserFacade {
     protected final static Set<String> allUserGroupIdOnly = new HashSet(["ALL_USERS"])
 
     protected ExecutionContextImpl eci
-    protected Timestamp effectiveTime = null
+    protected Timestamp effectiveTime = (Timestamp) null
 
-    protected Deque<String> usernameStack = new LinkedList()
-    // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
-    protected EntityValueBase internalUserAccount = null
-    protected Set<String> internalUserGroupIdSet = null
-    // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
-    protected EntityList internalArtifactTarpitCheckList = null
-    protected EntityList internalArtifactAuthzCheckList = null
-
-    protected Locale localeCache = null
-
-    // these are used only when there is no logged in user
-    protected Locale noUserLocale = null
-    protected TimeZone noUserTimeZone = null
-    protected String noUserCurrencyUomId = null
-    // if one of these is set before login, set it on the account on login? probably best not...
-
-    protected Map<String, Object> userContext = null
-
-    protected Calendar calendarForTzLcOnly = null
-
-    /** This is set instead of adding _NA_ user as logged in to pass authc tests but not generally behave as if a user is logged in */
-    protected boolean loggedInAnonymous = false
-
-    /** The Shiro Subject (user) */
-    protected Subject currentUser = null
+    protected UserInfo currentInfo
+    protected Deque<UserInfo> userInfoStack = new LinkedList<UserInfo>()
 
     // there may be non-web visits, so keep a copy of the visitId here
-    protected String visitId = null
+    protected String visitId = (String) null
 
     // we mostly want this for the Locale default, and may be useful for other things
-    protected HttpServletRequest request = null
+    protected HttpServletRequest request = (HttpServletRequest) null
 
     UserFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
-    }
-
-    protected void clearPerUserValues() {
-        localeCache = null
-        calendarForTzLcOnly = null
+        UserInfo userInfo = new UserInfo(this, null)
+        userInfoStack.addFirst(userInfo)
+        currentInfo = userInfo
     }
 
     void initFromHttpRequest(HttpServletRequest request, HttpServletResponse response) {
@@ -100,22 +75,14 @@ class UserFacadeImpl implements UserFacade {
         WebSubjectContext wsc = new DefaultWebSubjectContext()
         wsc.setServletRequest(request); wsc.setServletResponse(response)
         wsc.setSession(new HttpServletSession(session, request.getServerName()))
-        currentUser = eci.getEcfi().getSecurityManager().createSubject(wsc)
+        Subject webSubject = eci.getEcfi().getSecurityManager().createSubject(wsc)
 
-        if (currentUser.authenticated) {
+        if (webSubject.authenticated) {
             // effectively login the user
-            String userId = (String) currentUser.principal
-            // better not to do this, if there was a user before this init leave it for history/debug: if (this.userIdStack) this.userIdStack.pop()
-            if (this.usernameStack.size() == 0 || this.usernameStack.peekFirst() != userId) {
-                this.usernameStack.addFirst(userId)
-                this.internalUserAccount = null
-                this.internalUserGroupIdSet = null
-                this.internalArtifactTarpitCheckList = null
-                this.internalArtifactAuthzCheckList = null
-            }
-            if (logger.traceEnabled) logger.trace("For new request found user [${userId}] in the session; userIdStack is [${this.usernameStack}]")
+            pushUser(webSubject)
+            if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
-            if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session; userIdStack is [${this.usernameStack}]")
+            if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
         }
 
         // check for HTTP Basic Authorization for Authentication purposes
@@ -229,114 +196,63 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    Locale getLocale() {
-        if (localeCache != null) return localeCache
-        Locale locale = null
-        if (this.username) {
-            String localeStr = getUserAccount()?.locale
-            if (localeStr) locale = localeStr.contains("_") ?
-                new Locale(localeStr.substring(0, localeStr.indexOf("_")), localeStr.substring(localeStr.indexOf("_")+1).toUpperCase()) :
-                new Locale(localeStr)
-        } else {
-            locale = noUserLocale
-        }
-        return localeCache = (locale ?: (request ? request.getLocale() : Locale.getDefault()))
-    }
+    Locale getLocale() { return currentInfo.localeCache }
 
     @Override
     void setLocale(Locale locale) {
-        if (this.username) {
-            boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-            boolean beganTransaction = eci.transaction.begin(null)
-            try {
-                EntityValue userAccountClone = userAccount.cloneValue()
-                userAccountClone.set("locale", locale.toString())
-                userAccountClone.update()
-                internalUserAccount = (EntityValueBase) userAccountClone
-            } catch (Throwable t) {
-                eci.transaction.rollback(beganTransaction, "Error saving timeZone", t)
-            } finally {
-                if (eci.transaction.isTransactionInPlace()) eci.transaction.commit(beganTransaction)
-                if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
-            }
-        } else {
-            noUserLocale = locale
+        if (currentInfo.userAccount != null) {
+            eci.transaction.runUseOrBegin(null, "Error saving locale", {
+                boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
+                try {
+                    EntityValue userAccountClone = currentInfo.userAccount.cloneValue()
+                    userAccountClone.set("locale", locale.toString())
+                    userAccountClone.update()
+                } finally { if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz() }
+            })
         }
-        clearPerUserValues()
+        currentInfo.localeCache = locale
     }
 
     @Override
-    TimeZone getTimeZone() {
-        TimeZone tz = null
-        if (this.username) {
-            String tzStr = getUserAccount().timeZone
-            if (tzStr) tz = TimeZone.getTimeZone(tzStr)
-        } else {
-            tz = noUserTimeZone
-        }
-        return tz ?: TimeZone.getDefault()
-    }
+    TimeZone getTimeZone() { return currentInfo.tzCache }
 
     Calendar getCalendarSafe() {
-        if (internalUserAccount != null) {
-            return Calendar.getInstance(getTimeZone(), getLocale())
-        } else {
-            return Calendar.getInstance(noUserTimeZone ?: TimeZone.getDefault(),
-                    noUserLocale ?: (request ? request.getLocale() : Locale.getDefault()))
-        }
+        return Calendar.getInstance(currentInfo.tzCache ?: TimeZone.getDefault(),
+                currentInfo.localeCache ?: (request ? request.getLocale() : Locale.getDefault()))
     }
 
-    /* No longer used, EntityFacadeImpl uses it's own method now
-    Calendar getCalendarForTzLcOnly() {
-        if (calendarForTzLcOnly != null) return calendarForTzLcOnly
-        return calendarForTzLcOnly = getCalendarSafe()
-    }
-    */
 
     @Override
     void setTimeZone(TimeZone tz) {
-        if (this.username) {
-            boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-            boolean beganTransaction = eci.transaction.begin(null)
-            try {
-                EntityValue userAccountClone = userAccount.cloneValue()
-                userAccountClone.set("timeZone", tz.getID())
-                userAccountClone.update()
-                internalUserAccount = (EntityValueBase) userAccountClone
-            } catch (Throwable t) {
-                eci.transaction.rollback(beganTransaction, "Error saving timeZone", t)
-            } finally {
-                if (eci.transaction.isTransactionInPlace()) eci.transaction.commit(beganTransaction)
-                if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
-            }
-        } else {
-            noUserTimeZone = tz
+        if (currentInfo.userAccount != null) {
+            eci.transaction.runUseOrBegin(null, "Error saving timeZone", {
+                boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
+                try {
+                    EntityValue userAccountClone = currentInfo.userAccount.cloneValue()
+                    userAccountClone.set("timeZone", tz.getID())
+                    userAccountClone.update()
+                } finally { if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz() }
+            })
         }
-        clearPerUserValues()
+        currentInfo.tzCache = tz
     }
 
     @Override
-    String getCurrencyUomId() { return this.username ? this.userAccount.currencyUomId : noUserCurrencyUomId }
+    String getCurrencyUomId() { return currentInfo.currencyUomId }
 
     @Override
     void setCurrencyUomId(String uomId) {
-        if (this.username) {
-            boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-            boolean beganTransaction = eci.transaction.begin(null)
-            try {
-                EntityValue userAccountClone = userAccount.cloneValue()
-                userAccountClone.set("currencyUomId", uomId)
-                userAccountClone.update()
-                internalUserAccount = (EntityValueBase) userAccountClone
-            } catch (Throwable t) {
-                eci.transaction.rollback(beganTransaction, "Error saving currencyUomId", t)
-            } finally {
-                if (eci.transaction.isTransactionInPlace()) eci.transaction.commit(beganTransaction)
-                if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
-            }
-        } else {
-            noUserCurrencyUomId = uomId
+        if (currentInfo.userAccount != null) {
+            eci.transaction.runUseOrBegin(null, "Error saving currencyUomId", {
+                boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
+                try {
+                    EntityValue userAccountClone = currentInfo.userAccount.cloneValue()
+                    userAccountClone.set("currencyUomId", uomId)
+                    userAccountClone.update()
+                } finally { if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz() }
+            })
         }
+        currentInfo.currencyUomId = uomId
     }
 
     @Override
@@ -377,10 +293,7 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    Map<String, Object> getContext() {
-        if (userContext == null) userContext = new HashMap<>()
-        return userContext
-    }
+    Map<String, Object> getContext() { return currentInfo.getUserContext() }
 
     @Override
     Timestamp getNowTimestamp() {
@@ -452,21 +365,13 @@ class UserFacadeImpl implements UserFacade {
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
         token.rememberMe = true
-        if (currentUser == null) {
-            // no currentUser, this usually means we are running outside of a web/servlet context
-            currentUser = eci.getEcfi().getSecurityManager().createSubject(new DefaultSubjectContext())
-        }
+        Subject loginSubject = eci.getEcfi().getSecurityManager().createSubject(new DefaultSubjectContext())
         try {
-            currentUser.login(token)
+            loginSubject.login(token)
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
-            usernameStack.addFirst(username)
-            internalUserAccount = null
-            internalUserGroupIdSet = null
-            internalArtifactTarpitCheckList = null
-            internalArtifactAuthzCheckList = null
-            loggedInAnonymous = false
+            pushUser(loginSubject)
 
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
@@ -482,7 +387,6 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        clearPerUserValues()
         return true
     }
 
@@ -516,17 +420,11 @@ class UserFacadeImpl implements UserFacade {
 
         // do this first so that the rest will be done as this user
         // just in case there is already a user authenticated push onto a stack to remember
-        usernameStack.addFirst(username)
-        internalUserAccount = null
-        internalUserGroupIdSet = null
-        internalArtifactTarpitCheckList = null
-        internalArtifactAuthzCheckList = null
-        loggedInAnonymous = false
+        pushUser(username)
 
         // after successful login trigger the after-login actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runAfterLoginActions()
 
-        clearPerUserValues()
         return true
     }
 
@@ -535,27 +433,18 @@ class UserFacadeImpl implements UserFacade {
         // before logout trigger the before-logout actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
-        if (usernameStack) {
-            usernameStack.removeFirst()
-            internalUserAccount = null
-            internalUserGroupIdSet = null
-            internalArtifactTarpitCheckList = null
-            internalArtifactAuthzCheckList = null
-            loggedInAnonymous = false
-        }
+        popUser()
 
         if (eci.web != null) {
             eci.web.session.removeAttribute("moqui.tenantId")
             eci.web.session.removeAttribute("moqui.visitId")
         }
-        if (currentUser != null && currentUser.isAuthenticated()) currentUser.logout()
-        clearPerUserValues()
     }
 
     @Override
     boolean loginUserKey(String loginKey, String tenantId) {
         if (!loginKey) {
-            eci.message.addError("No username specified")
+            eci.message.addError("No login key specified")
             return false
         }
         // if tenantId, change before lookup
@@ -613,59 +502,56 @@ class UserFacadeImpl implements UserFacade {
 
     @Override
     boolean loginAnonymousIfNoUser() {
-        if (usernameStack.size() == 0 && !loggedInAnonymous) {
-            loggedInAnonymous = true
+        if (currentInfo.username == null && !currentInfo.loggedInAnonymous) {
+            currentInfo.loggedInAnonymous = true
             return true
         } else {
             return false
         }
     }
-    void logoutAnonymousOnly() { loggedInAnonymous = false }
-    boolean getLoggedInAnonymous() { return loggedInAnonymous }
+    void logoutAnonymousOnly() { currentInfo.loggedInAnonymous = false }
+    boolean getLoggedInAnonymous() { return currentInfo.loggedInAnonymous }
 
     @Override
-    boolean hasPermission(String userPermissionId) { return hasPermission(getUserId(), userPermissionId, getNowTimestamp(), eci) }
+    boolean hasPermission(String userPermissionId) { return hasPermissionById(getUserId(), userPermissionId, getNowTimestamp(), eci) }
 
     static boolean hasPermission(String username, String userPermissionId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
+        EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).disableAuthz().one()
+        if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
+        if (ua == null) return false
+        hasPermissionById((String) ua.userId, userPermissionId, whenTimestamp, eci)
+    }
+    static boolean hasPermissionById(String userId, String userPermissionId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
+        if (!userId) return false
         if ((Object) whenTimestamp == null) whenTimestamp = new Timestamp(System.currentTimeMillis())
-        boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-        try {
-            EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).one()
-            if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).one()
-            if (ua == null) return false
-            return (eci.getEntity().find("moqui.security.UserPermissionCheck")
-                    .condition([userId:ua.userId, userPermissionId:userPermissionId]).useCache(true).list()
-                    .filterByDate("groupFromDate", "groupThruDate", whenTimestamp)
-                    .filterByDate("permissionFromDate", "permissionThruDate", whenTimestamp)) as boolean
-        } finally {
-            if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
-        }
+        return (eci.getEntity().find("moqui.security.UserPermissionCheck")
+                .condition([userId:userId, userPermissionId:userPermissionId] as Map<String, Object>).useCache(true).disableAuthz().list()
+                .filterByDate("groupFromDate", "groupThruDate", whenTimestamp)
+                .filterByDate("permissionFromDate", "permissionThruDate", whenTimestamp)) as boolean
     }
 
     @Override
     boolean isInGroup(String userGroupId) { return isInGroup(getUserId(), userGroupId, getNowTimestamp(), eci) }
 
     static boolean isInGroup(String username, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
+        EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).disableAuthz().one()
+        if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
+        return isInGroupById((String) ua?.userId, userGroupId, whenTimestamp, eci)
+    }
+    static boolean isInGroupById(String userId, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
         if (userGroupId == "ALL_USERS") return true
+        if (!userId) return false
         if ((Object) whenTimestamp == null) whenTimestamp = new Timestamp(System.currentTimeMillis())
-        boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-        try {
-            EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).one()
-            if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).one()
-            if (ua == null) return false
-            return (eci.getEntity().find("moqui.security.UserGroupMember").condition([userId:ua.userId, userGroupId:userGroupId])
-                    .useCache(true).list().filterByDate("fromDate", "thruDate", whenTimestamp)) as boolean
-        } finally {
-            if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
-        }
+        return (eci.getEntity().find("moqui.security.UserGroupMember").condition([userId:userId, userGroupId:userGroupId] as Map<String, Object>)
+                .useCache(true).disableAuthz().list().filterByDate("fromDate", "thruDate", whenTimestamp)) as boolean
     }
 
     @Override
     Set<String> getUserGroupIdSet() {
         // first get the groups the user is in (cached), always add the "ALL_USERS" group to it
-        if (usernameStack.size() == 0) return allUserGroupIdOnly
-        if (internalUserGroupIdSet == null) internalUserGroupIdSet = getUserGroupIdSet(getUserId())
-        return internalUserGroupIdSet
+        if (!currentInfo.userId) return allUserGroupIdOnly
+        if (currentInfo.internalUserGroupIdSet == null) currentInfo.internalUserGroupIdSet = getUserGroupIdSet(currentInfo.userId)
+        return currentInfo.internalUserGroupIdSet
     }
 
     Set<String> getUserGroupIdSet(String userId) {
@@ -676,58 +562,42 @@ class UserFacadeImpl implements UserFacade {
                     .useCache(true).disableAuthz().list().filterByDate(null, null, null)
             for (EntityValue userGroupMember in ugmList) groupIdSet.add((String) userGroupMember.userGroupId)
         }
-
         return groupIdSet
     }
 
     EntityList getArtifactTarpitCheckList() {
-        if (usernameStack.size() == 0) return EntityListImpl.EMPTY
-        if (internalArtifactTarpitCheckList == null) {
+        if (currentInfo.internalArtifactTarpitCheckList == null) {
             // get the list for each group separately to increase cache hits/efficiency
-            internalArtifactTarpitCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
+            currentInfo.internalArtifactTarpitCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
             for (String userGroupId in getUserGroupIdSet()) {
-                internalArtifactTarpitCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
-                        .condition("userGroupId", userGroupId).useCache(true).list())
+                currentInfo.internalArtifactTarpitCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
+                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list())
             }
         }
-        return internalArtifactTarpitCheckList
+        return currentInfo.internalArtifactTarpitCheckList
     }
 
     EntityList getArtifactAuthzCheckList() {
         // NOTE: even if there is no user, still consider part of the ALL_USERS group and such: if (usernameStack.size() == 0) return EntityListImpl.EMPTY
-        if (internalArtifactAuthzCheckList == null) {
+        if (currentInfo.internalArtifactAuthzCheckList == null) {
             // get the list for each group separately to increase cache hits/efficiency
-            internalArtifactAuthzCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
+            currentInfo.internalArtifactAuthzCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
             for (String userGroupId in getUserGroupIdSet()) {
-                internalArtifactAuthzCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactAuthzCheckView")
-                        .condition("userGroupId", userGroupId).useCache(true).list())
+                currentInfo.internalArtifactAuthzCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactAuthzCheckView")
+                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list())
             }
         }
-        return internalArtifactAuthzCheckList
+        return currentInfo.internalArtifactAuthzCheckList
     }
 
     @Override
-    String getUserId() {
-        // faster get userId for authz, etc called frequently
-        if (internalUserAccount != null) return internalUserAccount.getValueMap().get('userId')
-        return getUserAccount()?.userId
-    }
+    String getUserId() { return currentInfo.userId }
 
     @Override
-    String getUsername() { return this.usernameStack.peekFirst() }
+    String getUsername() { return currentInfo.username }
 
     @Override
-    EntityValue getUserAccount() {
-        if (this.usernameStack.size() == 0) return null
-        if (internalUserAccount == null) {
-            internalUserAccount = (EntityValueBase) eci.getEntity().find("moqui.security.UserAccount")
-                    .condition("username", this.getUsername()).useCache(true).disableAuthz().one()
-            // this is necessary as temporary values may have been set before the UserAccount was retrieved
-            clearPerUserValues()
-        }
-        // logger.info("Got UserAccount [${internalUserAccount}] with userIdStack [${userIdStack}]")
-        return internalUserAccount
-    }
+    EntityValue getUserAccount() { return currentInfo.getUserAccount() }
 
     @Override
     String getVisitUserId() { return visitId ? getVisit().userId : null }
@@ -744,7 +614,104 @@ class UserFacadeImpl implements UserFacade {
 
     @Override
     List<NotificationMessage> getNotificationMessages(String topic) {
-        if (!getUserId()) return []
-        return eci.getNotificationMessages(getUserId(), topic)
+        if (!currentInfo.userId) return []
+        return eci.getNotificationMessages(currentInfo.userId, topic)
+    }
+
+
+    UserInfo pushUser(Subject subject) {
+        UserInfo userInfo = pushUser((String) subject.getPrincipal())
+        userInfo.subject = subject
+        return userInfo
+    }
+    UserInfo pushUser(String username) {
+        if (userInfoStack.size() == 0 || userInfoStack.getFirst().username != username) {
+            UserInfo userInfo = new UserInfo(this, username)
+            userInfoStack.addFirst(userInfo)
+            currentInfo = userInfo
+            return userInfo
+        } else {
+            return userInfoStack.getFirst()
+        }
+        // logger.info("Got UserAccount [${userAccount}] with usernameStack ${usernameStack}")
+    }
+    boolean popUser() {
+        // always leave at least the empty UserInfo from init on the stack
+        if (userInfoStack.size() > 1) {
+            UserInfo userInfo = userInfoStack.removeFirst()
+            if (userInfo.subject != null && userInfo.subject.isAuthenticated()) userInfo.subject.logout()
+
+            currentInfo = userInfoStack.getFirst()
+            return true
+        } else {
+            // if the last one probably means log out from anonymous, so clear that
+            currentInfo.loggedInAnonymous = false
+            return false
+        }
+    }
+
+    static class UserInfo {
+        UserFacadeImpl ufi
+        // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
+        protected EntityValueBase userAccount = (EntityValueBase) null
+        protected String username = (String) null
+        protected String userId = (String) null
+        Set<String> internalUserGroupIdSet = (Set<String>) null
+        // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
+        EntityList internalArtifactTarpitCheckList = (EntityList) null
+        EntityList internalArtifactAuthzCheckList = (EntityList) null
+
+        Locale localeCache = (Locale) null
+        TimeZone tzCache = (TimeZone) null
+        String currencyUomId = (String) null
+
+        /** The Shiro Subject (user) */
+        Subject subject = (Subject) null
+        /** This is set instead of adding _NA_ user as logged in to pass authc tests but not generally behave as if a user is logged in */
+        boolean loggedInAnonymous = false
+
+        protected Map<String, Object> userContext = (Map<String, Object>) null
+
+        UserInfo(UserFacadeImpl ufi, String username) {
+            this.ufi = ufi
+            EntityValueBase ua = (EntityValueBase) null
+            if (username != null && username.length() > 0) {
+                ua = (EntityValueBase) ufi.eci.getEntity().find("moqui.security.UserAccount")
+                        .condition("username", username).useCache(true).disableAuthz().one()
+            }
+
+            if (ua != null) {
+                userAccount = ua
+                this.username = ua.username
+                userId = ua.userId
+
+                String localeStr = ua.locale
+                if (localeStr) {
+                    localeCache = localeStr.contains("_") ?
+                        new Locale(localeStr.substring(0, localeStr.indexOf("_")), localeStr.substring(localeStr.indexOf("_")+1).toUpperCase()) :
+                        new Locale(localeStr)
+                } else {
+                    localeCache = ufi.request != null ? ufi.request.getLocale() : Locale.getDefault()
+                }
+
+                String tzStr = ua.timeZone
+                tzCache = tzStr ? TimeZone.getTimeZone(tzStr) : TimeZone.getDefault()
+
+                currencyUomId = userAccount.currencyUomId
+            } else {
+                // set defaults if no user
+                localeCache = ufi.request != null ? ufi.request.getLocale() : Locale.getDefault()
+                tzCache = TimeZone.getDefault()
+            }
+        }
+
+        String getUsername() { return username }
+        String getUserId() { return userId }
+        EntityValueBase getUserAccount() { return userAccount }
+
+        Map<String, Object> getUserContext() {
+            if (userContext == null) userContext = new HashMap<>()
+            return userContext
+        }
     }
 }
