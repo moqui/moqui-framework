@@ -41,8 +41,8 @@ class EntityListIteratorImpl implements EntityListIterator {
 
     protected final EntityDefinition entityDefinition
     protected final ArrayList<EntityDefinition.FieldInfo> fieldInfoList
-    protected EntityCondition queryCondition = null
-    protected List<String> orderByFields = null
+    protected EntityCondition queryCondition = (EntityCondition) null
+    protected List<String> orderByFields = (List<String>) null
 
     /** This is needed to determine if the ResultSet is empty as cheaply as possible. */
     protected boolean haveMadeValue = false
@@ -68,28 +68,22 @@ class EntityListIteratorImpl implements EntityListIterator {
             logger.warn("EntityListIterator for entity [${this.entityDefinition.getFullEntityName()}] is already closed, not closing again")
         } else {
             if (rs != null) {
-                try {
-                    rs.close()
-                } catch (SQLException e) {
-                    throw new EntityException("Could not close ResultSet in EntityListIterator", e)
-                }
+                try { rs.close() }
+                catch (SQLException e) { throw new EntityException("Could not close ResultSet in EntityListIterator", e) }
             }
             if (con != null) {
-                try {
-                    con.close()
-
-                    /* leaving commented as might be useful for future con pool debugging:
-                    try {
-                        def dataSource = efi.getDatasourceFactory(entityDefinition.getEntityGroupName()).getDataSource()
-                        logger.warn("=========== elii after close pool available size: ${dataSource.poolAvailableSize()}/${dataSource.poolTotalSize()}; ${dataSource.getMinPoolSize()}-${dataSource.getMaxPoolSize()}")
-                    } catch (Throwable t) {
-                        logger.warn("========= pool size error ${t.toString()}")
-                    }
-                    */
-                } catch (SQLException e) {
-                    throw new EntityException("Could not close Connection in EntityListIterator", e)
-                }
+                try { con.close() }
+                catch (SQLException e) { throw new EntityException("Could not close Connection in EntityListIterator", e) }
             }
+
+            /* leaving commented as might be useful for future con pool debugging:
+            try {
+                def dataSource = efi.getDatasourceFactory(entityDefinition.getEntityGroupName()).getDataSource()
+                logger.warn("=========== elii after close pool available size: ${dataSource.poolAvailableSize()}/${dataSource.poolTotalSize()}; ${dataSource.getMinPoolSize()}-${dataSource.getMaxPoolSize()}")
+            } catch (Throwable t) {
+                logger.warn("========= pool size error ${t.toString()}")
+            }
+            */
             this.closed = true
         }
     }

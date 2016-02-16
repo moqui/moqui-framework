@@ -46,9 +46,9 @@ class EntityQueryBuilder {
     protected final static int parametersInitSize = 10
     protected ArrayList<EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
 
-    protected PreparedStatement ps
-    protected ResultSet rs
-    protected Connection connection
+    protected PreparedStatement ps = (PreparedStatement) null
+    protected ResultSet rs = (ResultSet) null
+    protected Connection connection = (Connection) null
     protected boolean externalConnection = false
 
     EntityQueryBuilder(EntityDefinition entityDefinition, EntityFacadeImpl efi) {
@@ -65,38 +65,38 @@ class EntityQueryBuilder {
     ArrayList<EntityConditionParameter> getParameters() { return this.parameters }
 
     Connection makeConnection() {
-        this.connection = this.efi.getConnection(mainEntityDefinition.getEntityGroupName())
-        return this.connection
+        connection = efi.getConnection(mainEntityDefinition.getEntityGroupName())
+        return connection
     }
 
-    void useConnection(Connection c) { this.connection = c; externalConnection = true }
+    void useConnection(Connection c) { connection = c; externalConnection = true }
 
     protected static void handleSqlException(Exception e, String sql) {
         throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)
     }
 
     PreparedStatement makePreparedStatement() {
-        if (this.connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
+        if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
         String sql = this.getSqlTopLevel().toString()
         // if (this.mainEntityDefinition.getFullEntityName().contains("foo")) logger.warn("========= making crud PreparedStatement for SQL: ${sql}")
         if (logger.isDebugEnabled()) logger.debug("making crud PreparedStatement for SQL: ${sql}")
         try {
-            this.ps = connection.prepareStatement(sql)
+            ps = connection.prepareStatement(sql)
         } catch (SQLException sqle) {
             handleSqlException(sqle, sql)
         }
-        return this.ps
+        return ps
     }
 
     ResultSet executeQuery() throws EntityException {
-        if (this.ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
+        if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
-            this.rs = this.ps.executeQuery()
+            rs = ps.executeQuery()
             if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
-            return this.rs
+            return rs
         } catch (SQLException sqle) {
-            throw new EntityException("Error in query for:" + this.sqlTopLevel, sqle)
+            throw new EntityException("Error in query for:" + sqlTopLevel, sqle)
         }
     }
 
@@ -108,31 +108,31 @@ class EntityQueryBuilder {
             if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
         } catch (SQLException sqle) {
-            throw new EntityException("Error in update for:" + this.sqlTopLevel, sqle)
+            throw new EntityException("Error in update for:" + sqlTopLevel, sqle)
         }
     }
 
     /** NOTE: this should be called in a finally clause to make sure things are closed */
     void closeAll() {
-        if (this.ps != null) {
-            this.ps.close()
-            this.ps = (PreparedStatement) null
+        if (ps != null) {
+            ps.close()
+            ps = (PreparedStatement) null
         }
-        if (this.rs != null) {
-            this.rs.close()
-            this.rs = (ResultSet) null
+        if (rs != null) {
+            rs.close()
+            rs = (ResultSet) null
         }
-        if (this.connection != null && !externalConnection) {
-            this.connection.close()
-            this.connection = (Connection) null
+        if (connection != null && !externalConnection) {
+            connection.close()
+            connection = (Connection) null
         }
     }
 
     /** For when closing to be done in other places, like a EntityListIteratorImpl */
     void releaseAll() {
-        this.ps = (PreparedStatement) null
-        this.rs = (ResultSet) null
-        this.connection = (Connection) null
+        ps = (PreparedStatement) null
+        rs = (ResultSet) null
+        connection = (Connection) null
     }
 
     static String sanitizeColumnName(String colName) {
