@@ -30,7 +30,7 @@ class FieldValueCondition extends EntityConditionImplBase {
     protected final EntityCondition.ComparisonOperator operator
     protected Object value
     protected boolean ignoreCase = false
-    protected Integer curHashCode = null
+    protected Integer curHashCode = (Integer) null
     protected static final Class thisClass = FieldValueCondition.class
 
     FieldValueCondition(EntityConditionFactoryImpl ecFactoryImpl,

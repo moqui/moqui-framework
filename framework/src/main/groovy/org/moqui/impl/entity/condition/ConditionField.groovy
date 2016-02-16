@@ -28,15 +28,18 @@ class ConditionField {
 
     ConditionField(String fieldName) {
         if (fieldName == null) throw new BaseException("Empty fieldName not allowed")
-        this.fieldName = fieldName
+        this.fieldName = fieldName.intern()
         curHashCode = fieldName.hashCode()
     }
     ConditionField(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
         if (fieldName == null) throw new BaseException("Empty fieldName not allowed")
-        this.entityAlias = entityAlias
-        this.fieldName = fieldName
+        this.entityAlias = entityAlias != null ? entityAlias.intern() : null
+        this.fieldName = fieldName.intern()
         this.aliasEntityDef = aliasEntityDef
-        if (aliasEntityDef != null) aliasEntityName = aliasEntityDef.getFullEntityName()
+        if (aliasEntityDef != null) {
+            String entName = aliasEntityDef.getFullEntityName()
+            aliasEntityName = entName != null ? entName.intern() : null
+        }
         curHashCode = createHashCode()
     }
 
