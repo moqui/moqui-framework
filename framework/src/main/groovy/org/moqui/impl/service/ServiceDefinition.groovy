@@ -1002,7 +1002,7 @@ class ServiceDefinition {
         Map<String, Object> propMap = [type:jsonType] as Map<String, Object>
         String format = RestApi.getJsonFormat(objectType)
         if (format) propMap.put("format", format)
-        String description = parmNode.first("description").text
+        String description = parmNode.first("description")?.text
         if (description) propMap.put("description", description)
         if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))
         if (parmNode.attribute("default")) propMap.put("default", "{${parmNode.attribute("default")}}".toString())
@@ -1070,7 +1070,7 @@ class ServiceDefinition {
         String objectType = parmNode?.attribute('type')
         String ramlType = RestApi.getRamlType(objectType)
         Map<String, Object> propMap = [type:ramlType] as Map<String, Object>
-        String description = parmNode.first("description").text
+        String description = parmNode.first("description")?.text
         if (description) propMap.put("description", description)
         if (parmNode.attribute("required") == "true") propMap.put("required", true)
         if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))

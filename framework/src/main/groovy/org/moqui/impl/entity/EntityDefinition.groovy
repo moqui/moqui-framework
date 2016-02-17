@@ -1124,7 +1124,7 @@ public class EntityDefinition {
 
     Map<String, Object> getRamlFieldMap(FieldInfo fi) {
         Map<String, Object> propMap = [:]
-        String description = fi.fieldNode.first("description").text
+        String description = fi.fieldNode.first("description")?.text
         if (description) propMap.put("description", description)
         propMap.put('type', fieldTypeRamlMap.get(fi.type))
 
@@ -1241,7 +1241,7 @@ public class EntityDefinition {
         if (masterName) refDefName = refDefName + "." + masterName
         String refDefNamePk = refDefName + ".PK"
 
-        String entityDescription = ed.getEntityNode().first("description").text
+        String entityDescription = ed.getEntityNode().first("description")?.text
 
         // add responses
         Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
@@ -1261,7 +1261,7 @@ public class EntityDefinition {
             FieldInfo fi = ed.getFieldInfo(fieldName)
             listParameters.add([name:fieldName, in:'query', required:false, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(fieldTypeJsonFormatMap.get(fi.type) ?: ""),
-                                description:fi.fieldNode.first("description").text])
+                                description:fi.fieldNode.first("description")?.text])
         }
         Map listResponses = ["200":[description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]]]
         listResponses.putAll(responses)
@@ -1283,7 +1283,7 @@ public class EntityDefinition {
 
             FieldInfo fi = ed.getFieldInfo(pkName)
             parameters.add([name:pkName, in:'path', required:true, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
-                            description:fi.fieldNode.first("description").text])
+                            description:fi.fieldNode.first("description")?.text])
         }
         String entityIdPath = entityIdPathSb.toString()
         Map<String, Map<String, Object>> entityIdResourceMap = [:]
