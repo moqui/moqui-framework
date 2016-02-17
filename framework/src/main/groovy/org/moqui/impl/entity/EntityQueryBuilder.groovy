@@ -16,7 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.entity.EntityException
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.util.MNode
 
 import java.sql.Connection
@@ -103,7 +103,7 @@ class EntityQueryBuilder {
     public int executeUpdate() throws EntityException {
         if (this.ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place")
         try {
-            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
+            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
             int rows = ps.executeUpdate()
             if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
@@ -143,9 +143,13 @@ class EntityQueryBuilder {
         return interim
     }
 
+    /* no longer used, the static method is used directly everywhere, more efficient
     void getResultSetValue(int index, FieldInfo fieldInfo, EntityValueImpl entityValueImpl) throws EntityException {
-        getResultSetValue(this.rs, index, fieldInfo, entityValueImpl, this.efi)
+        Map<String, Object> valueMap = entityValueImpl.getValueMap()
+        String entityName = entityValueImpl.getEntityName()
+        getResultSetValue(this.rs, index, fieldInfo, valueMap, entityName, this.efi)
     }
+    */
 
     void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
         setPreparedStatementValue(this.ps, index, value, fieldInfo, this.mainEntityDefinition, this.efi)
@@ -188,24 +192,23 @@ class EntityQueryBuilder {
         String toString() { return fieldInfo.name + ':' + value }
     }
 
-    static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, EntityValueBase entityValueBase,
-                                            EntityFacadeImpl efi) throws EntityException {
+    static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, Map<String, Object> valueMap,
+                                  String entityName, EntityFacadeImpl efi) throws EntityException {
         String fieldName = fieldInfo.name
-
-        Object value = EntityJavaUtil.getResultSetValue(rs, index, fieldInfo.type, fieldInfo.typeValue, efi)
+        Object value = EntityJavaUtil.getResultSetValue(rs, index, fieldInfo, efi)
 
         // if field is to be encrypted, do it now
         if (value != null && fieldInfo.encrypt) {
-            if (fieldInfo.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityValueBase.getEntityName()}]")
+            if (fieldInfo.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityName}]")
             String original = value.toString()
             try {
                 value = enDeCrypt(original, false, efi)
             } catch (Exception e) {
-                logger.error("Error decrypting field [${fieldName}] of entity [${entityValueBase.getEntityName()}]", e)
+                logger.error("Error decrypting field [${fieldName}] of entity [${entityName}]", e)
             }
         }
 
-        entityValueBase.getValueMap().put(fieldName, value)
+        valueMap.put(fieldName, value)
     }
 
     public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
@@ -286,23 +289,11 @@ class EntityQueryBuilder {
             useBinaryTypeForBlob = ("true" == efi.getDatabaseNode(ed.getEntityGroupName()).attribute('use-binary-type-for-blob'))
         }
         try {
-            EntityJavaUtil.setPreparedStatementValue(ps, index, value, typeValue, useBinaryTypeForBlob, efi)
+            EntityJavaUtil.setPreparedStatementValue(ps, index, value, fieldInfo, useBinaryTypeForBlob, efi)
         } catch (EntityException e) {
             throw e
         } catch (Exception e) {
             throw new EntityException("Error setting prepared statement field [${fieldInfo.name}] of entity [${ed.getFullEntityName()}]", e)
         }
-    }
-
-    static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, EntityDefinition ed,
-                                          EntityFacadeImpl efi) throws EntityException {
-        int typeValue = value ? EntityFacadeImpl.getJavaTypeInt(value.class.name) : 1
-        // useBinaryTypeForBlob is only needed for types 11/Object and 12/Blob, faster to not determine otherwise
-        boolean useBinaryTypeForBlob = false
-        if (typeValue == 11 || typeValue == 12) {
-            useBinaryTypeForBlob = ("true" == efi.getDatabaseNode(ed.getEntityGroupName()).attribute('use-binary-type-for-blob'))
-        }
-        EntityJavaUtil.setPreparedStatementValue(ps, index, value, typeValue, useBinaryTypeForBlob, efi)
-
     }
 }

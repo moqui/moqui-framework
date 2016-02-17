@@ -19,7 +19,7 @@ import org.moqui.util.MNode
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 import org.moqui.entity.EntityException
 
@@ -89,7 +89,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                     sqlTopLevelInternal.append("COUNT(DISTINCT *) ")
                 } else {
                     sqlTopLevelInternal.append("COUNT(DISTINCT ")
-                    sqlTopLevelInternal.append(fieldInfoList.get(0).getFullColumnName(false))
+                    sqlTopLevelInternal.append(fieldInfoList.get(0).fullColumnName)
                     sqlTopLevelInternal.append(")")
                 }
             } else {
@@ -125,7 +125,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                     }
                 }
 
-                sqlTopLevelInternal.append(fi.getFullColumnName(false))
+                sqlTopLevelInternal.append(fi.fullColumnName)
 
                 if (appendCloseParen) sqlTopLevelInternal.append(")")
             }
@@ -444,7 +444,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
             // now that it's all torn down, build it back up using the column name
             if (foo.caseUpperLower != null && typeValue == 1) sqlTopLevelInternal.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
-            sqlTopLevelInternal.append(fieldInfo.getFullColumnName(false))
+            sqlTopLevelInternal.append(fieldInfo.fullColumnName)
             if (foo.caseUpperLower != null && typeValue == 1) sqlTopLevelInternal.append(")")
 
             sqlTopLevelInternal.append(foo.descending ? " DESC" : " ASC")
@@ -460,12 +460,12 @@ class EntityFindBuilder extends EntityQueryBuilder {
         // if (this.mainEntityDefinition.getFullEntityName().contains("Example")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
         if (logger.isDebugEnabled()) logger.debug("making find PreparedStatement for SQL: ${sql}")
         try {
-            this.ps = connection.prepareStatement(sql, this.entityFindBase.resultSetType, this.entityFindBase.resultSetConcurrency)
-            if (entityFindBase.maxRows > 0) this.ps.setMaxRows(this.entityFindBase.maxRows)
-            if (entityFindBase.fetchSize > 0) this.ps.setFetchSize(this.entityFindBase.fetchSize)
+            ps = connection.prepareStatement(sql, entityFindBase.resultSetType, entityFindBase.resultSetConcurrency)
+            if (entityFindBase.maxRows > 0) ps.setMaxRows(entityFindBase.maxRows)
+            if (entityFindBase.fetchSize > 0) ps.setFetchSize(entityFindBase.fetchSize)
         } catch (SQLException e) {
             handleSqlException(e, sql)
         }
-        return this.ps
+        return ps
     }
 }

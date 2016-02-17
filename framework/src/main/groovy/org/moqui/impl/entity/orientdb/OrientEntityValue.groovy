@@ -23,7 +23,7 @@ import groovy.transform.CompileStatic
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityDefinition
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 
@@ -164,7 +164,7 @@ class OrientEntityValue extends EntityValueBase {
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = nonPkFieldList.get(i)
                 if (i > 0) sql.append(", ")
-                sql.append(fi.getFullColumnName(false)).append("=?")
+                sql.append(fi.fullColumnName).append("=?")
                 paramValues.add(getValueMap().get(fi.name))
             }
             if (recordId == null) {
@@ -173,7 +173,7 @@ class OrientEntityValue extends EntityValueBase {
                 for (int i = 0; i < sizePk; i++) {
                     FieldInfo fi = pkFieldList.get(i)
                     if (i > 0) sql.append(" AND ")
-                    sql.append(fi.getFullColumnName(false)).append("=?")
+                    sql.append(fi.fullColumnName).append("=?")
                     paramValues.add(getValueMap().get(fi.name))
                 }
             }
@@ -233,7 +233,7 @@ class OrientEntityValue extends EntityValueBase {
                 for (int i = 0; i < sizePk; i++) {
                     FieldInfo fi = pkFieldList.get(i)
                     if (i > 0) sql.append(" AND ")
-                    sql.append(fi.getFullColumnName(false)).append(" = ?")
+                    sql.append(fi.fullColumnName).append(" = ?")
                     paramValues.add(getValueMap().get(fi.name))
                 }
             } else {
@@ -279,7 +279,7 @@ class OrientEntityValue extends EntityValueBase {
                 for (int i = 0; i < sizePk; i++) {
                     FieldInfo fi = pkFieldList.get(i)
                     if (i > 0) sql.append(" AND ")
-                    sql.append(fi.getFullColumnName(false)).append(" = ?")
+                    sql.append(fi.fullColumnName).append(" = ?")
                     paramValues.add(getValueMap().get(fi.name))
                 }
             } else {

@@ -49,51 +49,36 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         this.startTime = System.nanoTime()
     }
 
-    @CompileStatic
     ArtifactExecutionInfoImpl setActionDetail(String detail) { this.actionDetail = detail; return this }
-    @CompileStatic
     ArtifactExecutionInfoImpl setParameters(Map<String, Object> parameters) { this.parameters = parameters; return this }
 
     @Override
-    @CompileStatic
     String getName() { return this.name }
 
     @Override
-    @CompileStatic
     String getTypeEnumId() { return this.typeEnumId }
 
     @Override
-    @CompileStatic
     String getActionEnumId() { return this.actionEnumId }
 
     @Override
-    @CompileStatic
     String getAuthorizedUserId() { return this.authorizedUserId }
-    @CompileStatic
     void setAuthorizedUserId(String authorizedUserId) { this.authorizedUserId = authorizedUserId }
 
     @Override
-    @CompileStatic
     String getAuthorizedAuthzTypeId() { return this.authorizedAuthzTypeId }
-    @CompileStatic
     void setAuthorizedAuthzTypeId(String authorizedAuthzTypeId) { this.authorizedAuthzTypeId = authorizedAuthzTypeId }
 
     @Override
-    @CompileStatic
     String getAuthorizedActionEnumId() { return this.authorizedActionEnumId }
-    @CompileStatic
     void setAuthorizedActionEnumId(String authorizedActionEnumId) { this.authorizedActionEnumId = authorizedActionEnumId }
 
     @Override
-    @CompileStatic
     boolean isAuthorizationInheritable() { return this.authorizationInheritable }
-    @CompileStatic
     void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.authorizationInheritable = isAuthorizationInheritable}
 
-    @CompileStatic
     EntityValue getAacv() { return aacv }
 
-    @CompileStatic
     void copyAacvInfo(EntityValue aacv, String userId) {
         this.aacv = aacv
         this.authorizedUserId = userId
@@ -102,7 +87,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         this.authorizationInheritable = aacv.get('inheritAuthz') == "Y"
     }
 
-    @CompileStatic
     void copyAuthorizedInfo(ArtifactExecutionInfoImpl aeii) {
         this.aacv = aeii.aacv
         this.authorizedUserId = aeii.authorizedUserId
@@ -111,7 +95,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         this.authorizationInheritable = aeii.authorizationInheritable
     }
 
-    @CompileStatic
     void setEndTime() { this.endTime = System.nanoTime() }
     @Override
     long getRunningTime() { return endTime != 0 ? endTime - startTime : 0 }
@@ -134,19 +117,15 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     BigDecimal getThisRunningTimeMillis() { new BigDecimal(getThisRunningTime()).movePointLeft(6).setScale(2, RoundingMode.HALF_UP) }
     BigDecimal getChildrenRunningTimeMillis() { new BigDecimal(getChildrenRunningTime()).movePointLeft(6).setScale(2, RoundingMode.HALF_UP) }
 
-    @CompileStatic
     void setParent(ArtifactExecutionInfoImpl parentAeii) { this.parentAeii = parentAeii }
     @Override
-    @CompileStatic
     ArtifactExecutionInfo getParent() { return parentAeii }
     @Override
     BigDecimal getPercentOfParentTime() { parentAeii && endTime != 0 ?
         (((getRunningTime() / parentAeii.getRunningTime()) * 100) as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP) : 0 }
 
 
-    @CompileStatic
     void addChild(ArtifactExecutionInfoImpl aeii) { childList.add(aeii) }
-    @CompileStatic
     List<ArtifactExecutionInfo> getChildList() { return childList }
 
     void print(Writer writer, int level, boolean children) {
@@ -163,7 +142,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         if (children) for (ArtifactExecutionInfoImpl aeii in childList) aeii.print(writer, level + 1, true)
     }
 
-    @CompileStatic
     String getKeyString() { return name + ":" + typeEnumId + ":" + actionEnumId + ":" + actionDetail }
 
     static List<Map> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {

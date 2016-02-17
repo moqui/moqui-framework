@@ -40,7 +40,7 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected final ResultSet rs
 
     protected final EntityDefinition entityDefinition
-    protected final ArrayList<EntityDefinition.FieldInfo> fieldInfoList
+    protected final ArrayList<EntityJavaUtil.FieldInfo> fieldInfoList
     protected final int fieldInfoListSize
     protected EntityCondition queryCondition = (EntityCondition) null
     protected List<String> orderByFields = (List<String>) null
@@ -51,7 +51,7 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected boolean closed = false
 
     EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition,
-                           ArrayList<EntityDefinition.FieldInfo> fieldInfoList, EntityFacadeImpl efi) {
+                           ArrayList<EntityJavaUtil.FieldInfo> fieldInfoList, EntityFacadeImpl efi) {
         this.efi = efi
         this.con = con
         this.rs = rs
@@ -130,11 +130,13 @@ class EntityListIteratorImpl implements EntityListIterator {
     EntityValue currentEntityValue() { return currentEntityValueBase() }
     EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi)
+        Map<String, Object> valueMap = newEntityValue.getValueMap()
+        String entityName = entityDefinition.getFullEntityName()
         boolean checkUserFields = entityDefinition.allowUserField
         for (int i = 0; i < fieldInfoListSize; i++) {
-            EntityDefinition.FieldInfo fi = (EntityDefinition.FieldInfo) fieldInfoList.get(i)
+            EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fieldInfoList.get(i)
             if (checkUserFields && fi.isUserField) continue
-            EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, efi)
+            EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
         }
 
         this.haveMadeValue = true

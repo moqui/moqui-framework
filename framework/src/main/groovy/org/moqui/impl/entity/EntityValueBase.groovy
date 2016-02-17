@@ -31,7 +31,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.util.MNode
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -59,7 +59,7 @@ abstract class EntityValueBase implements EntityValue {
     protected final String entityName
     protected volatile EntityDefinition entityDefinition
 
-    private final Map<String, Object> valueMap = new LinkedHashMap<>()
+    private final Map<String, Object> valueMap = new HashMap<>()
     /* Original DB Value Map: not used unless the value has been modified from its original state from the DB */
     private Map<String, Object> dbValueMap = (Map<String, Object>) null
     private Map<String, Object> internalPkMap = (Map<String, Object>) null

@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.entity.EntityJavaUtil
 
 @CompileStatic
 class ConditionField {
@@ -56,7 +57,7 @@ class ConditionField {
         return colName.toString()
     }
 
-    EntityDefinition.FieldInfo getFieldInfo(EntityDefinition ed) {
+    EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) {
         if (aliasEntityDef != null) {
             return aliasEntityDef.getFieldInfo(fieldName)
         } else {

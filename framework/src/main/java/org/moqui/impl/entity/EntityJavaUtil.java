@@ -18,6 +18,7 @@ import org.moqui.BaseException;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
+import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,27 +32,27 @@ import java.sql.*;
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
 
-    public static Object convertFromString(String value, int typeValue, String javaType, L10nFacade l10n) {
+    public static Object convertFromString(String value, FieldInfo fi, L10nFacade l10n) {
         Object outValue;
         boolean isEmpty = value.length() == 0;
 
         try {
-            switch (typeValue) {
+            switch (fi.typeValue) {
                 case 1: outValue = value; break;
                 case 2: // outValue = java.sql.Timestamp.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTimestamp(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date/time");
+                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date/time for field " + fi.entityName + "." + fi.name);
                     break;
                 case 3: // outValue = java.sql.Time.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTime(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid time");
+                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid time for field " + fi.entityName + "." + fi.name);
                     break;
                 case 4: // outValue = java.sql.Date.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseDate(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date");
+                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date for field " + fi.entityName + "." + fi.name);
                     break;
                 case 5: // outValue = Integer.valueOf(value); break
                 case 6: // outValue = Long.valueOf(value); break
@@ -61,10 +62,10 @@ public class EntityJavaUtil {
                     if (isEmpty) { outValue = null; break; }
                     BigDecimal bdVal = l10n.parseNumber(value, null);
                     if (bdVal == null) {
-                        throw new BaseException("The value [" + value + "] is not valid for type [" + javaType + "]");
+                        throw new BaseException("The value [" + value + "] is not valid for type [" + fi.javaType + "] for field " + fi.entityName + "." + fi.name);
                     } else {
                         bdVal = bdVal.stripTrailingZeros();
-                        switch (typeValue) {
+                        switch (fi.typeValue) {
                             case 5: outValue = bdVal.intValue(); break;
                             case 6: outValue = bdVal.longValue(); break;
                             case 7: outValue = bdVal.floatValue(); break;
@@ -81,7 +82,7 @@ public class EntityJavaUtil {
                     try {
                         outValue = new SerialBlob(value.getBytes());
                     } catch (SQLException e) {
-                        throw new BaseException("Error creating SerialBlob for value [" + value + "]");
+                        throw new BaseException("Error creating SerialBlob for value [" + value + "] for field " + fi.entityName + "." + fi.name);
                     }
                     break;
                 case 13: outValue = value; break;
@@ -95,16 +96,16 @@ public class EntityJavaUtil {
                 default: outValue = value; break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [" + value + "] is not valid for type [" + javaType + "]", e);
+            throw new BaseException("The value [" + value + "] is not valid for type [" + fi.javaType + "] for field " + fi.entityName + "." + fi.name, e);
         }
 
         return outValue;
     }
 
-    public static String convertToString(Object value, int typeValue, String javaType, L10nFacade l10n) {
+    public static String convertToString(Object value, FieldInfo fi, L10nFacade l10n) {
         String outValue;
         try {
-            switch (typeValue) {
+            switch (fi.typeValue) {
                 case 1: outValue = value.toString(); break;
                 case 2:
                 case 3:
@@ -123,7 +124,7 @@ public class EntityJavaUtil {
                     if (value instanceof byte[]) {
                         outValue = new String(Base64.encodeBase64((byte[]) value));
                     } else {
-                        logger.info("Field on entity is not of type 'byte[]', is [" + value + "] so using plain toString()");
+                        logger.info("Field on entity is not of type 'byte[]', is [" + value + "] so using plain toString() for field " + fi.entityName + "." + fi.name);
                         outValue = value.toString();
                     }
                     break;
@@ -134,22 +135,22 @@ public class EntityJavaUtil {
                 default: outValue = value.toString(); break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [" + value + "] is not valid for type [" + javaType + "]", e);
+            throw new BaseException("The value [" + value + "] is not valid for type [" + fi.javaType + "] for field " + fi.entityName + "." + fi.name, e);
         }
 
         return outValue;
     }
 
-    public static Object getResultSetValue(ResultSet rs, int index, String fieldType, int typeValue, EntityFacade efi) throws EntityException {
-        if (typeValue == -1) throw new EntityException("No typeValue found for ${fieldInfo.ed.getFullEntityName()}.${fieldName}, type=${fieldType}");
+    public static Object getResultSetValue(ResultSet rs, int index, FieldInfo fi, EntityFacade efi) throws EntityException {
+        if (fi.typeValue == -1) throw new EntityException("No typeValue found for " + fi.entityName + "." + fi.name);
 
         Object value = null;
         try {
-            switch (typeValue) {
+            switch (fi.typeValue) {
             case 1:
                 // getMetaData and the column type are somewhat slow (based on profiling), and String values are VERY
                 //     common, so only do for text-very-long
-                if ("text-very-long".equals(fieldType)) {
+                if (fi.isTextVeryLong) {
                     ResultSetMetaData rsmd = rs.getMetaData();
                     if (Types.CLOB == rsmd.getColumnType(index)) {
                         // if the String is empty, try to get a text input stream, this is required for some databases
@@ -168,7 +169,7 @@ public class EntityJavaUtil {
                                 }
                                 valueReader.close();
                             } catch (IOException e) {
-                                throw new EntityException("Error reading long character stream for field [${fieldName}] of entity [${entityValueImpl.getEntityName()}]", e);
+                                throw new EntityException("Error reading long character stream for field [" + fi.name + "] of entity [" + fi.entityName + "]", e);
                             }
                             value = strBuf.toString();
                         }
@@ -183,7 +184,7 @@ public class EntityJavaUtil {
                 try {
                     value = rs.getTimestamp(index, efi.getCalendarForTzLc());
                 } catch (SQLException e) {
-                    if (logger.isTraceEnabled()) logger.trace("Ignoring SQLException for getTimestamp(), leaving null (found this in MySQL with a date/time value of [0000-00-00 00:00:00]): ${e.toString()}");
+                    if (logger.isTraceEnabled()) logger.trace("Ignoring SQLException for getTimestamp(), leaving null (found this in MySQL with a date/time value of [0000-00-00 00:00:00]): " + e.toString());
                 }
                 break;
             case 3: value = rs.getTime(index, efi.getCalendarForTzLc()); break;
@@ -205,7 +206,7 @@ public class EntityJavaUtil {
                     binaryInput = new ByteArrayInputStream(originalBytes);
                 }
                 if (originalBytes != null && originalBytes.length <= 0) {
-                    logger.warn("Got byte array back empty for serialized Object with length [${originalBytes.length}] for field [${fieldName}] (${index})");
+                    logger.warn("Got byte array back empty for serialized Object with length [" + originalBytes.length + "] for field [" + fi.name + "] (" + index + ")");
                 }
                 if (binaryInput != null) {
                     ObjectInputStream inStream = null;
@@ -213,15 +214,15 @@ public class EntityJavaUtil {
                         inStream = new ObjectInputStream(binaryInput);
                         obj = inStream.readObject();
                     } catch (IOException ex) {
-                        if (logger.isTraceEnabled()) logger.trace("Unable to read BLOB from input stream for field [${fieldName}] (${index}): ${ex.toString()}");
+                        if (logger.isTraceEnabled()) logger.trace("Unable to read BLOB from input stream for field [" + fi.name + "] (" + index + "): " + ex.toString());
                     } catch (ClassNotFoundException ex) {
-                        if (logger.isTraceEnabled()) logger.trace("Class not found: Unable to cast BLOB data to an Java object for field [${fieldName}] (${index}); most likely because it is a straight byte[], so just using the raw bytes: ${ex.toString()}");
+                        if (logger.isTraceEnabled()) logger.trace("Class not found: Unable to cast BLOB data to an Java object for field [" + fi.name + "] (" + index + "); most likely because it is a straight byte[], so just using the raw bytes: " + ex.toString());
                     } finally {
                         if (inStream != null) {
                             try {
                                 inStream.close();
                             } catch (IOException e) {
-                                throw new EntityException("Unable to close binary input stream for field [${fieldName}] (${index}): ${e.toString()}", e);
+                                throw new EntityException("Unable to close binary input stream for field [" + fi.name + "] (" + index + "): " + e.toString(), e);
                             }
                         }
                     }
@@ -240,7 +241,7 @@ public class EntityJavaUtil {
                     if (!rs.wasNull()) sblob = new SerialBlob(fieldBytes);
                     // fieldBytes = theBlob != null ? theBlob.getBytes(1, (int) theBlob.length()) : null
                 } catch (SQLException e) {
-                    if (logger.isTraceEnabled()) logger.trace("Ignoring exception trying getBytes(), trying getBlob(): ${e.toString()}");
+                    if (logger.isTraceEnabled()) logger.trace("Ignoring exception trying getBytes(), trying getBlob(): " + e.toString());
                     Blob theBlob = rs.getBlob(index);
                     if (!rs.wasNull()) sblob = new SerialBlob(theBlob);
                 }
@@ -251,21 +252,21 @@ public class EntityJavaUtil {
             case 15: value = rs.getObject(index); break;
             }
         } catch (SQLException sqle) {
-            logger.error("SQL Exception while getting value for field: [${fieldName}] (${index})", sqle);
-            throw new EntityException("SQL Exception while getting value for field: [${fieldName}] (${index})", sqle);
+            logger.error("SQL Exception while getting value for field: [" + fi.name + "] (" + index + ")", sqle);
+            throw new EntityException("SQL Exception while getting value for field: [" + fi.name + "] (" + index + ")", sqle);
         }
 
         return value;
     }
 
-    public static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, int typeValue,
+    public static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fi,
                                                  boolean useBinaryTypeForBlob, EntityFacade efi) throws EntityException {
         try {
             // allow setting, and searching for, String values for all types; JDBC driver should handle this okay
             if (value instanceof CharSequence) {
                 ps.setString(index, value.toString());
             } else {
-                switch (typeValue) {
+                switch (fi.typeValue) {
                 case 1: if (value != null) { ps.setString(index, value.toString()); } else { ps.setNull(index, Types.VARCHAR); } break;
                 case 2:
                     if (value != null) {
@@ -277,7 +278,7 @@ public class EntityJavaUtil {
                         } else if (valClass == java.util.Date.class) {
                             ps.setTimestamp(index, new Timestamp(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields");
+                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields, for field " + fi.entityName + "." + fi.name);
                         }
                     } else { ps.setNull(index, Types.TIMESTAMP); }
                     break;
@@ -299,7 +300,7 @@ public class EntityJavaUtil {
                         } else if (valClass == java.util.Date.class) {
                             ps.setDate(index, new java.sql.Date(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date fields");
+                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date fields, for field " + fi.entityName + "." + fi.name);
                         }
                     } else { ps.setNull(index, Types.DATE); }
                     break;
@@ -320,7 +321,7 @@ public class EntityJavaUtil {
                         } else if (value instanceof Number) {
                             ps.setDouble(index, ((Number) value).doubleValue());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for number-decimal (BigDecimal) fields");
+                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for number-decimal (BigDecimal) fields, for field " + fi.entityName + "." + fi.name);
                         }
                     } else { ps.setNull(index, Types.NUMERIC); } break;
                 case 10: if (value != null) { ps.setBoolean(index, (Boolean) value); } else { ps.setNull(index, Types.BOOLEAN); } break;
@@ -338,7 +339,7 @@ public class EntityJavaUtil {
                             ps.setBinaryStream(index, is, buf.length);
                             is.close();
                         } catch (IOException ex) {
-                            throw new EntityException("Error setting serialized object", ex);
+                            throw new EntityException("Error setting serialized object, for field " + fi.entityName + "." + fi.name, ex);
                         }
                     } else {
                         if (useBinaryTypeForBlob) { ps.setNull(index, Types.BINARY); } else { ps.setNull(index, Types.BLOB); }
@@ -365,7 +366,7 @@ public class EntityJavaUtil {
                         ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
                     } else {
                         if (value != null) {
-                            throw new IllegalArgumentException("Type not supported for BLOB field: ${value.getClass().getName()}");
+                            throw new IllegalArgumentException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + fi.entityName + "." + fi.name);
                         } else {
                             if (useBinaryTypeForBlob) { ps.setNull(index, Types.BINARY); } else { ps.setNull(index, Types.BLOB); }
                         }
@@ -378,9 +379,9 @@ public class EntityJavaUtil {
                 }
             }
         } catch (SQLException sqle) {
-            throw new EntityException("SQL Exception while setting value [${value}](${value?.getClass()?.getName()}), type ${typeValue}: " + sqle.toString(), sqle);
+            throw new EntityException("SQL Exception while setting value [" + value + "](" + (value != null ? value.getClass().getName() : "null") + "), type " + fi.type + ", for field " + fi.entityName + "." + fi.name + ": " + sqle.toString(), sqle);
         } catch (Exception e) {
-            throw new EntityException("Error while setting value: " + e.toString(), e);
+            throw new EntityException("Error while setting value for field " + fi.entityName + "." + fi.name + ": " + e.toString(), e);
         }
     }
 
@@ -477,5 +478,29 @@ public class EntityJavaUtil {
 
             fieldName = fnSb.toString();
         }
+    }
+
+    /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT,
+     * though initialized in the EntityDefinition.makeFieldInfo() method. */
+    public static class FieldInfo {
+        public Object ed = null;
+        public MNode fieldNode = null;
+        public String entityName = null;
+        public String name = null;
+        public String type = null;
+        public String columnName = null;
+        public String fullColumnName = null;
+        public String defaultStr = null;
+        public String javaType = null;
+        public String enableAuditLog = null;
+        public int typeValue = -1;
+        public boolean isTextVeryLong = false;
+        public boolean isPk = false;
+        public boolean encrypt = false;
+        public boolean isSimple = false;
+        public boolean enableLocalization = false;
+        public boolean isUserField = false;
+        public boolean createOnly = false;
+        public FieldInfo() { /* do nothing, see EntityDefinition.makeFieldInfo() */ }
     }
 }

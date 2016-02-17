@@ -18,7 +18,7 @@ import groovy.transform.CompileStatic
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityQueryBuilder.EntityConditionParameter
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -53,11 +53,12 @@ class EntityValueImpl extends EntityValueBase {
     @Override
     void createExtended(ArrayList<FieldInfo> fieldInfoList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
 
         if (ed.isViewEntity()) {
             throw new EntityException("Create not yet implemented for view-entity")
         } else {
-            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, getEntityFacadeImpl())
+            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
             StringBuilder sql = eqb.getSqlTopLevel()
             sql.append("INSERT INTO ").append(ed.getFullTableName())
 
@@ -76,13 +77,13 @@ class EntityValueImpl extends EntityValueBase {
                     sql.append(", ")
                     values.append(", ")
                 }
-                sql.append(fieldInfo.getFullColumnName(false))
+                sql.append(fieldInfo.fullColumnName)
                 values.append('?')
             }
             sql.append(") VALUES (").append(values.toString()).append(')')
 
             try {
-                getEntityFacadeImpl().getEntityDbMeta().checkTableRuntime(ed)
+                efi.getEntityDbMeta().checkTableRuntime(ed)
 
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
@@ -104,11 +105,12 @@ class EntityValueImpl extends EntityValueBase {
     @Override
     void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
         EntityDefinition ed = getEntityDefinition()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
 
         if (ed.isViewEntity()) {
             throw new EntityException("Update not yet implemented for view-entity")
         } else {
-            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, getEntityFacadeImpl())
+            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
             StringBuilder sql = eqb.getSqlTopLevel()
             sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ")
 
@@ -116,7 +118,7 @@ class EntityValueImpl extends EntityValueBase {
             for (int i = 0; i < size; i++) {
                 FieldInfo fieldInfo = (FieldInfo) nonPkFieldList.get(i)
                 if (i > 0) sql.append(", ")
-                sql.append(fieldInfo.getFullColumnName(false)).append("=?")
+                sql.append(fieldInfo.fullColumnName).append("=?")
                 eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
             }
             sql.append(" WHERE ")
@@ -124,12 +126,12 @@ class EntityValueImpl extends EntityValueBase {
             for (int i = 0; i < sizePk; i++) {
                 FieldInfo fieldInfo = (FieldInfo) pkFieldList.get(i)
                 if (i > 0) sql.append(" AND ")
-                sql.append(fieldInfo.getFullColumnName(false)).append("=?")
+                sql.append(fieldInfo.fullColumnName).append("=?")
                 eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
             }
 
             try {
-                getEntityFacadeImpl().getEntityDbMeta().checkTableRuntime(ed)
+                efi.getEntityDbMeta().checkTableRuntime(ed)
 
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
@@ -148,11 +150,12 @@ class EntityValueImpl extends EntityValueBase {
     @Override
     void deleteExtended(Connection con) {
         EntityDefinition ed = getEntityDefinition()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
 
         if (ed.isViewEntity()) {
             throw new EntityException("Delete not implemented for view-entity")
         } else {
-            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, getEntityFacadeImpl())
+            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
             StringBuilder sql = eqb.getSqlTopLevel()
             sql.append("DELETE FROM ").append(ed.getFullTableName()).append(" WHERE ")
 
@@ -161,12 +164,12 @@ class EntityValueImpl extends EntityValueBase {
             for (int i = 0; i < sizePk; i++) {
                 FieldInfo fieldInfo = (FieldInfo) pkFieldList.get(i)
                 if (i > 0) sql.append(" AND ")
-                sql.append(fieldInfo.getFullColumnName(false)).append("=?")
+                sql.append(fieldInfo.fullColumnName).append("=?")
                 eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
             }
 
             try {
-                getEntityFacadeImpl().getEntityDbMeta().checkTableRuntime(ed)
+                efi.getEntityDbMeta().checkTableRuntime(ed)
 
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
@@ -183,9 +186,10 @@ class EntityValueImpl extends EntityValueBase {
     @Override
     boolean refreshExtended() {
         EntityDefinition ed = getEntityDefinition()
+        EntityFacadeImpl efi = getEntityFacadeImpl()
 
         // table doesn't exist, just return null
-        if (!getEntityFacadeImpl().getEntityDbMeta().tableExists(ed)) return null
+        if (!efi.getEntityDbMeta().tableExists(ed)) return null
 
         // NOTE: this simple approach may not work for view-entities, but not restricting for now
 
@@ -193,7 +197,7 @@ class EntityValueImpl extends EntityValueBase {
         ArrayList<FieldInfo> nonPkFieldList = ed.getNonPkFieldInfoList()
         // NOTE: even if there are no non-pk fields do a refresh in order to see if the record exists or not
 
-        EntityQueryBuilder eqb = new EntityQueryBuilder(ed, getEntityFacadeImpl())
+        EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
         StringBuilder sql = eqb.getSqlTopLevel()
         sql.append("SELECT ")
         if (nonPkFieldList) {
@@ -201,7 +205,7 @@ class EntityValueImpl extends EntityValueBase {
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = (FieldInfo) nonPkFieldList.get(i)
                 if (i > 0) sql.append(", ")
-                sql.append(fi.getFullColumnName(false))
+                sql.append(fi.fullColumnName)
             }
         } else {
             sql.append("*")
@@ -213,7 +217,7 @@ class EntityValueImpl extends EntityValueBase {
         for (int i = 0; i < sizePk; i++) {
             FieldInfo fi = (FieldInfo) pkFieldList.get(i)
             if (i > 0) sql.append(" AND ")
-            sql.append(fi.getFullColumnName(false)).append("=?")
+            sql.append(fi.fullColumnName).append("=?")
             eqb.getParameters().add(new EntityConditionParameter(fi, this.getValueMap().get(fi.name), eqb))
         }
 
@@ -222,7 +226,7 @@ class EntityValueImpl extends EntityValueBase {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity()) getEntityFacadeImpl().getEntityDbMeta().checkTableRuntime(ed)
+            if (ed.isViewEntity()) efi.getEntityDbMeta().checkTableRuntime(ed)
 
             eqb.makeConnection()
             eqb.makePreparedStatement()
@@ -230,10 +234,12 @@ class EntityValueImpl extends EntityValueBase {
 
             ResultSet rs = eqb.executeQuery()
             if (rs.next()) {
+                Map<String, Object> valueMap = getValueMap()
+                String entityName = ed.getFullEntityName()
                 int nonPkSize = nonPkFieldList.size()
                 for (int j = 0; j < nonPkSize; j++) {
                     FieldInfo fi = (FieldInfo) nonPkFieldList.get(j)
-                    EntityQueryBuilder.getResultSetValue(rs, j + 1, fi, this, getEntityFacadeImpl())
+                    EntityQueryBuilder.getResultSetValue(rs, j + 1, fi, valueMap, entityName, efi)
                 }
                 retVal = true
                 setSyncedWithDb()

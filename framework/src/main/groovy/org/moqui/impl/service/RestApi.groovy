@@ -15,7 +15,6 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
-import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
@@ -24,6 +23,7 @@ import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -346,7 +346,7 @@ class RestApi {
             List<Map> parameters = []
             ArrayList<String> remainingPkFields = new ArrayList<String>(ed.getPkFieldNames())
             for (String pathParm in pathNode.pathParameters) {
-                EntityDefinition.FieldInfo fi = ed.getFieldInfo(pathParm)
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(pathParm)
                 if (fi == null) throw new IllegalArgumentException("No field found for path parameter ${pathParm} in entity ${ed.getFullEntityName()}")
                 parameters.add([name:pathParm, in:'path', required:true, type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 description:fi.fieldNode.first("description")?.text])
@@ -363,7 +363,7 @@ class RestApi {
             if (operation  == 'one') {
                 if (remainingPkFields) {
                     for (String fieldName in remainingPkFields) {
-                        EntityDefinition.FieldInfo fi = ed.getFieldInfo(fieldName)
+                        EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
                         Map<String, Object> fieldMap = [name:fieldName, in:'query', required:false,
                                 type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
@@ -378,7 +378,7 @@ class RestApi {
                 parameters.addAll(EntityDefinition.swaggerPaginationParameters)
                 for (String fieldName in ed.getAllFieldNames(false)) {
                     if (fieldName in pathNode.pathParameters) continue
-                    EntityDefinition.FieldInfo fi = ed.getFieldInfo(fieldName)
+                    EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
                     parameters.add([name:fieldName, in:'query', required:false,
                                         type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                         format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
@@ -432,14 +432,14 @@ class RestApi {
             }
             Map pkQpMap = [:]
             for (int i = 0; i < remainingPkFields.size(); i++) {
-                EntityDefinition.FieldInfo fi = ed.getFieldInfo(remainingPkFields.get(i))
-                pkQpMap.put(fi.getName(), ed.getRamlFieldMap(fi))
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(remainingPkFields.get(i))
+                pkQpMap.put(fi.name, ed.getRamlFieldMap(fi))
             }
             Map allQpMap = [:]
             ArrayList<String> allFields = ed.getAllFieldNames(true)
             for (int i = 0; i < allFields.size(); i++) {
-                EntityDefinition.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
-                allQpMap.put(fi.getName(), ed.getRamlFieldMap(fi))
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+                allQpMap.put(fi.name, ed.getRamlFieldMap(fi))
             }
 
             boolean addEntityDef = true

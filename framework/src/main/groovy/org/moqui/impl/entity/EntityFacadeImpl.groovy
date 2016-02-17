@@ -1363,18 +1363,28 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
+        if (sqlParameterList == null || fieldList == null || sqlParameterList.size() != fieldList.size())
+            throw new IllegalArgumentException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
 
         Connection con = getConnection(getEntityGroupName(entityName))
         PreparedStatement ps
         try {
+            ArrayList<EntityJavaUtil.FieldInfo> fiList = new ArrayList<>()
+            for (String fieldName in fieldList) {
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+                if (fi == null) throw new IllegalArgumentException("Field ${fieldName} not found for entity ${entityName}")
+                fiList.add(fi)
+            }
+
             // create the PreparedStatement
             ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)
             // set the parameter values
             int paramIndex = 1
             for (Object parameterValue in sqlParameterList) {
-                EntityQueryBuilder.setPreparedStatementValue(ps, paramIndex, parameterValue, ed, this)
+                EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fiList.get(paramIndex - 1)
+                EntityQueryBuilder.setPreparedStatementValue(ps, paramIndex, parameterValue, fi, ed, this)
                 paramIndex++
             }
             // do the actual query
@@ -1382,8 +1392,6 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            ArrayList<EntityDefinition.FieldInfo> fiList = new ArrayList<>()
-            for (String fieldName in fieldList) fiList.add(ed.getFieldInfo(fieldName))
             EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiList, this)
             return eli
         } catch (SQLException e) {

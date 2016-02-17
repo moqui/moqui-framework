@@ -19,6 +19,7 @@ import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
 import org.moqui.entity.EntityConditionFactory
 import org.moqui.entity.EntityException
+import org.moqui.impl.StupidJavaUtilities.KeyValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.entity.condition.*
 import org.moqui.util.MNode
@@ -159,12 +160,6 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         }
     }
 
-    @CompileStatic
-    static class KeyValue {
-        String key
-        Object value
-        KeyValue(String key, Object value) { this.key = key; this.value = value }
-    }
     @Override
     EntityCondition makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator, JoinOperator joinOperator) {
         return makeCondition(fieldMap, comparisonOperator, joinOperator, null, null, false)

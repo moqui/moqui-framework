@@ -23,7 +23,7 @@ import org.moqui.entity.EntityDynamicView
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 
 import org.slf4j.Logger
@@ -88,11 +88,13 @@ class EntityFindImpl extends EntityFindBase {
             if (rs.next()) {
                 boolean checkUserFields = entityDef.allowUserField
                 newEntityValue = new EntityValueImpl(entityDef, efi)
+                Map<String, Object> valueMap = newEntityValue.getValueMap()
+                String entityName = ed.getFullEntityName()
                 int size = fieldInfoList.size()
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
                     if (checkUserFields && fi.isUserField) continue
-                    EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, efi)
+                    EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
                 }
             } else {
                 if (logger.isTraceEnabled()) logger.trace("Result set was empty for find on entity [${entityName}] with condition [${condSql}]")

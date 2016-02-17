@@ -24,7 +24,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.condition.*
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 import org.moqui.util.MNode
 import org.slf4j.Logger

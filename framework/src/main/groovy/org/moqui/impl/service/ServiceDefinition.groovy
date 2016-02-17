@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.apache.commons.validator.routines.CreditCardValidator
 import org.apache.commons.validator.routines.EmailValidator
 import org.apache.commons.validator.routines.UrlValidator
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
@@ -1037,7 +1038,7 @@ class ServiceDefinition {
         if (entityName && fieldName) {
             EntityDefinition ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(entityName)
             if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${getServiceName()}")
-            EntityDefinition.FieldInfo fi = ed.getFieldInfo(fieldName)
+            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
             if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${getServiceName()}")
             List enumList = ed.getFieldEnums(fi)
             if (enumList) propMap.put('enum', enumList)
