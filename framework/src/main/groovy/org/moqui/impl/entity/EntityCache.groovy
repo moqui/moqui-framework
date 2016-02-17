@@ -59,9 +59,11 @@ class EntityCache {
     CacheImpl getCacheOne(String entityName) { return cfi.getCacheImpl(oneKeyBase.concat(entityName)) }
     private CacheImpl getCacheOneRa(String entityName) { return cfi.getCacheImpl(oneRaKeyBase.concat(entityName)) }
     private CacheImpl getCacheOneBf() { return cfi.getCacheImpl(oneBfKey) }
+
     CacheImpl getCacheList(String entityName) { return cfi.getCacheImpl(listKeyBase.concat(entityName)) }
     private CacheImpl getCacheListRa(String entityName) { return cfi.getCacheImpl(listRaKeyBase.concat(entityName)) }
     private CacheImpl getCacheListViewRa(String entityName) { return cfi.getCacheImpl(listViewRaKeyBase.concat(entityName)) }
+
     CacheImpl getCacheCount(String entityName) { return cfi.getCacheImpl(countKeyBase.concat(entityName)) }
 
     static class EmptyRecord extends EntityValueImpl {
@@ -194,16 +196,22 @@ class EntityCache {
                 Ehcache elEhc = entityListCache.getInternalCache()
 
                 // if this was a create the RA cache won't help, so go through EACH entry and see if it matches the created value
-                if (isCreate) {
-                    // Ehcache returns a plain List, may or may not be faster to iterate with index
-                    List<EntityCondition> elEhcKeys = (List<EntityCondition>) elEhc.getKeys()
-                    Iterator<EntityCondition> elEhcKeysIter = elEhcKeys.iterator()
-                    while (elEhcKeysIter.hasNext()) {
-                        EntityCondition ec = (EntityCondition) elEhcKeysIter.next()
-                        // any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
-                        if (ec.mapMatches(evbMap)) elEhc.remove(ec)
-                    }
-                } else {
+                // The RA cache doesn't work for updates in the scenario where a record exists but its fields don't
+                //     match a find condition when the cached list find is initially done, but is then updated so the
+                //     fields do match
+
+                // Ehcache returns a plain List, may or may not be faster to iterate with index
+                List<EntityCondition> elEhcKeys = (List<EntityCondition>) elEhc.getKeys()
+                Iterator<EntityCondition> elEhcKeysIter = elEhcKeys.iterator()
+                while (elEhcKeysIter.hasNext()) {
+                    EntityCondition ec = (EntityCondition) elEhcKeysIter.next()
+                    // any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
+                    if (ec.mapMatches(evbMap)) elEhc.remove(ec)
+                }
+
+                // if this is an update also check reverse associations (RA) as the condition check above may not match
+                //     against the new values, or partially updated records
+                if (!isCreate) {
                     // First just the list RA cache
                     CacheImpl listRaCache = getCacheListRa(fullEntityName)
                     // logger.warn("============= clearing list for entity ${fullEntityName}, for pkCondition [${pkCondition}] listRaCache=${listRaCache}")
@@ -283,6 +291,7 @@ class EntityCache {
             raKeyList.add(ec)
         }
     }
+
     void registerCacheListRa(String entityName, EntityCondition ec, EntityList eli) {
         EntityDefinition ed = efi.getEntityDefinition(entityName)
         if (ed.isViewEntity()) {
