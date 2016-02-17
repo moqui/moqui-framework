@@ -41,6 +41,7 @@ class EntityListIteratorImpl implements EntityListIterator {
 
     protected final EntityDefinition entityDefinition
     protected final ArrayList<EntityDefinition.FieldInfo> fieldInfoList
+    protected final int fieldInfoListSize
     protected EntityCondition queryCondition = (EntityCondition) null
     protected List<String> orderByFields = (List<String>) null
 
@@ -56,6 +57,7 @@ class EntityListIteratorImpl implements EntityListIterator {
         this.rs = rs
         this.entityDefinition = entityDefinition
         this.fieldInfoList = fieldInfoList
+        fieldInfoListSize = fieldInfoList.size()
         this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
     }
 
@@ -125,12 +127,13 @@ class EntityListIteratorImpl implements EntityListIterator {
     }
 
     @Override
-    EntityValue currentEntityValue() {
+    EntityValue currentEntityValue() { return currentEntityValueBase() }
+    EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi)
-        int size = fieldInfoList.size()
-        for (int i = 0; i < size; i++) {
+        boolean checkUserFields = entityDefinition.allowUserField
+        for (int i = 0; i < fieldInfoListSize; i++) {
             EntityDefinition.FieldInfo fi = (EntityDefinition.FieldInfo) fieldInfoList.get(i)
-            if (fi.isUserField) continue
+            if (checkUserFields && fi.isUserField) continue
             EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, efi)
         }
 
@@ -201,15 +204,15 @@ class EntityListIteratorImpl implements EntityListIterator {
     EntityValue next() {
         try {
             if (rs.next()) {
-                EntityValueBase evb = (EntityValueBase) currentEntityValue()
+                EntityValueBase evb = currentEntityValueBase()
                 if (txCache != null) {
                     TransactionCache.WriteMode writeMode = txCache.checkUpdateValue(evb)
                     // if deleted skip this value
-                    if (writeMode == TransactionCache.WriteMode.DELETE) return this.next()
+                    if (writeMode == TransactionCache.WriteMode.DELETE) return next()
                 }
                 return evb
             } else {
-                return null
+                return (EntityValue) null
             }
         } catch (SQLException e) {
             throw new EntityException("Error getting next result", e)
@@ -233,7 +236,7 @@ class EntityListIteratorImpl implements EntityListIterator {
                 }
                 return evb
             } else {
-                return null
+                return (EntityValue) null
             }
         } catch (SQLException e) {
             throw new EntityException("Error getting previous result", e)
@@ -263,7 +266,7 @@ class EntityListIteratorImpl implements EntityListIterator {
             }
             EntityList list = new EntityListImpl(efi)
             EntityValue value
-            while ((value = this.next()) != null) {
+            while ((value = next()) != null) {
                 list.add(value)
             }
 
@@ -302,7 +305,7 @@ class EntityListIteratorImpl implements EntityListIterator {
             list.add(this.currentEntityValue())
 
             int numberSoFar = 1
-            EntityValue nextValue = null
+            EntityValue nextValue = (EntityValue) null
             while (limit > numberSoFar && (nextValue = this.next()) != null) {
                 list.add(nextValue)
                 numberSoFar++

@@ -49,10 +49,10 @@ class EntityFindImpl extends EntityFindBase {
     @Override
     EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<FieldInfo> fieldInfoList,
                                 ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
-        EntityDefinition ed = this.getEntityDef()
+        EntityDefinition ed = getEntityDef()
 
         // table doesn't exist, just return null
-        if (!efi.getEntityDbMeta().tableExists(ed)) return null
+        if (!efi.getEntityDbMeta().tableExists(ed)) return (EntityValueBase) null
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 
@@ -72,7 +72,7 @@ class EntityFindImpl extends EntityFindBase {
         if (this.forUpdate) efb.makeForUpdate()
 
         // run the SQL now that it is built
-        EntityValueBase newEntityValue = null
+        EntityValueBase newEntityValue = (EntityValueBase) null
         try {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
@@ -86,18 +86,19 @@ class EntityFindImpl extends EntityFindBase {
             String condSql = whereCondition.toString()
             ResultSet rs = efb.executeQuery()
             if (rs.next()) {
-                newEntityValue = new EntityValueImpl(this.entityDef, this.efi)
+                boolean checkUserFields = entityDef.allowUserField
+                newEntityValue = new EntityValueImpl(entityDef, efi)
                 int size = fieldInfoList.size()
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
-                    if (fi.isUserField) continue
-                    EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, this.efi)
+                    if (checkUserFields && fi.isUserField) continue
+                    EntityQueryBuilder.getResultSetValue(rs, i+1, fi, newEntityValue, efi)
                 }
             } else {
-                if (logger.isTraceEnabled()) logger.trace("Result set was empty for find on entity [${this.entityName}] with condition [${condSql}]")
+                if (logger.isTraceEnabled()) logger.trace("Result set was empty for find on entity [${entityName}] with condition [${condSql}]")
             }
             if (rs.next()) {
-                if (logger.isTraceEnabled()) logger.trace("Found more than one result for condition [${condSql}] on entity [${this.entityDef.getFullEntityName()}]")
+                if (logger.isTraceEnabled()) logger.trace("Found more than one result for condition [${condSql}] on entity [${entityDef.getFullEntityName()}]")
             }
         } catch (SQLException e) {
             throw new EntityException("Error finding value", e)
@@ -115,10 +116,10 @@ class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = this.getEntityDef()
 
         // table doesn't exist, just return empty ELI
-        if (!efi.getEntityDbMeta().tableExists(ed)) return new EntityListIteratorWrapper([], ed, this.fieldsToSelect, this.efi)
+        if (!efi.getEntityDbMeta().tableExists(ed)) return new EntityListIteratorWrapper([], ed, fieldsToSelect, efi)
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
-        if (this.getDistinct()) efb.makeDistinct()
+        if (getDistinct()) efb.makeDistinct()
 
         // select fields
         efb.makeSqlSelectFields(fieldInfoList, fieldOptionsList)
@@ -141,9 +142,9 @@ class EntityFindImpl extends EntityFindBase {
         // ORDER BY clause
         efb.makeOrderByClause(orderByExpanded)
         // LIMIT/OFFSET clause
-        efb.addLimitOffset(this.limit, this.offset)
+        efb.addLimitOffset(limit, offset)
         // FOR UPDATE
-        if (this.forUpdate) efb.makeForUpdate()
+        if (forUpdate) efb.makeForUpdate()
 
         // run the SQL now that it is built
         EntityListIteratorImpl elii
@@ -158,7 +159,7 @@ class EntityFindImpl extends EntityFindBase {
             efb.setPreparedStatementValues()
 
             ResultSet rs = efb.executeQuery()
-            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoList, this.efi)
+            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoList, efi)
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll()
         } catch (EntityException e) {
@@ -175,7 +176,7 @@ class EntityFindImpl extends EntityFindBase {
     @Override
     long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
                        ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
-        EntityDefinition ed = this.getEntityDef()
+        EntityDefinition ed = getEntityDef()
 
         // table doesn't exist, just return 0
         if (!efi.getEntityDbMeta().tableExists(ed)) return 0

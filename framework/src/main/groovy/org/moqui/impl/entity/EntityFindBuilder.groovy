@@ -37,7 +37,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
         this.entityFindBase = entityFindBase
 
         // this is always going to start with "SELECT ", so just set it here
-        this.sqlTopLevel.append("SELECT ")
+        sqlTopLevelInternal.append("SELECT ")
     }
 
     void addLimitOffset(Integer limit, Integer offset) {
@@ -47,21 +47,21 @@ class EntityFindBuilder extends EntityQueryBuilder {
         if (databaseNode != null) {
             if (databaseNode.attribute('offset-style') == "limit") {
                 // use the LIMIT/OFFSET style
-                this.sqlTopLevel.append(" LIMIT ").append(limit ?: "ALL")
-                this.sqlTopLevel.append(" OFFSET ").append(offset ?: 0)
+                sqlTopLevelInternal.append(" LIMIT ").append(limit ?: "ALL")
+                sqlTopLevelInternal.append(" OFFSET ").append(offset ?: 0)
             } else if (databaseNode.attribute('offset-style') == "fetch" || !databaseNode.attribute('offset-style')) {
                 // use SQL2008 OFFSET/FETCH style by default
-                if (offset != null) this.sqlTopLevel.append(" OFFSET ").append(offset).append(" ROWS")
-                if (limit != null) this.sqlTopLevel.append(" FETCH FIRST ").append(limit).append(" ROWS ONLY")
+                if (offset != null) sqlTopLevelInternal.append(" OFFSET ").append(offset).append(" ROWS")
+                if (limit != null) sqlTopLevelInternal.append(" FETCH FIRST ").append(limit).append(" ROWS ONLY")
             }
             // do nothing here for offset-style=cursor, taken care of in EntityFindImpl
         }
     }
 
     /** Adds FOR UPDATE, should be added to end of query */
-    void makeForUpdate() { this.sqlTopLevel.append(" FOR UPDATE") }
+    void makeForUpdate() { sqlTopLevelInternal.append(" FOR UPDATE") }
 
-    void makeDistinct() { this.sqlTopLevel.append("DISTINCT ") }
+    void makeDistinct() { sqlTopLevelInternal.append("DISTINCT ") }
 
     void makeCountFunction(ArrayList<FieldInfo> fieldInfoList) {
         ArrayList<MNode> entityConditionList = this.mainEntityDefinition.getEntityNode().children("entity-condition")
@@ -71,7 +71,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
         boolean isGroupBy = this.mainEntityDefinition.hasFunctionAlias()
 
         if (isGroupBy) {
-            this.sqlTopLevel.append("COUNT(1) FROM (SELECT ")
+            sqlTopLevelInternal.append("COUNT(1) FROM (SELECT ")
         }
 
         if (isDistinct) {
@@ -86,48 +86,51 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 MNode aliasNode = fieldInfoList.get(0).fieldNode
                 if (aliasNode != null && aliasNode.attribute('function')) {
                     // if the field has a function already we don't want to count just it, would be meaningless
-                    this.sqlTopLevel.append("COUNT(DISTINCT *) ")
+                    sqlTopLevelInternal.append("COUNT(DISTINCT *) ")
                 } else {
-                    this.sqlTopLevel.append("COUNT(DISTINCT ")
-                    this.sqlTopLevel.append(fieldInfoList.get(0).getFullColumnName(false))
-                    this.sqlTopLevel.append(")")
+                    sqlTopLevelInternal.append("COUNT(DISTINCT ")
+                    sqlTopLevelInternal.append(fieldInfoList.get(0).getFullColumnName(false))
+                    sqlTopLevelInternal.append(")")
                 }
             } else {
-                this.sqlTopLevel.append("COUNT(DISTINCT *) ")
+                sqlTopLevelInternal.append("COUNT(DISTINCT *) ")
             }
         } else {
             // This is COUNT(1) instead of COUNT(*) for better performance, and should get the same results at least
             // when there is no DISTINCT
-            this.sqlTopLevel.append("COUNT(1) ")
+            sqlTopLevelInternal.append("COUNT(1) ")
         }
     }
 
     void closeCountFunctionIfGroupBy() {
-        if (this.mainEntityDefinition.hasFunctionAlias()) {
-            this.sqlTopLevel.append(") TEMP_NAME")
-        }
+        if (mainEntityDefinition.hasFunctionAlias()) { sqlTopLevelInternal.append(") TEMP_NAME") }
     }
 
     void makeSqlSelectFields(ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) {
+        boolean checkUserFields = mainEntityDefinition.allowUserField
         int size = fieldInfoList.size()
         if (size > 0) {
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
-                if (fi.isUserField) continue
+                if (checkUserFields && fi.isUserField) continue
 
-                if (i > 0) this.sqlTopLevel.append(", ")
+                if (i > 0) sqlTopLevelInternal.append(", ")
 
-                FieldOrderOptions foo = fieldOptionsList != null ? (FieldOrderOptions) fieldOptionsList.get(i) : null
-                if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1)
-                    this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+                boolean appendCloseParen = false
+                if (fieldOptionsList != null) {
+                    FieldOrderOptions foo = (FieldOrderOptions) fieldOptionsList.get(i)
+                    if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1) {
+                        sqlTopLevelInternal.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+                        appendCloseParen = true
+                    }
+                }
 
-                this.sqlTopLevel.append(fi.getFullColumnName(false))
+                sqlTopLevelInternal.append(fi.getFullColumnName(false))
 
-                if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1)
-                    this.sqlTopLevel.append(")")
+                if (appendCloseParen) sqlTopLevelInternal.append(")")
             }
         } else {
-            this.sqlTopLevel.append("*")
+            sqlTopLevelInternal.append("*")
         }
     }
 
@@ -151,7 +154,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     void makeSqlFromClause(ArrayList<FieldInfo> fieldInfoList) {
-        makeSqlFromClause(this.mainEntityDefinition, fieldInfoList, this.sqlTopLevel, null)
+        makeSqlFromClause(mainEntityDefinition, fieldInfoList, sqlTopLevelInternal, null)
     }
     void makeSqlFromClause(EntityDefinition localEntityDefinition, ArrayList<FieldInfo> fieldInfoList,
                            StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
@@ -160,7 +163,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
         MNode entityNode = localEntityDefinition.getEntityNode()
 
         if (localEntityDefinition.isViewEntity()) {
-            MNode databaseNode = this.efi.getDatabaseNode(localEntityDefinition.getEntityGroupName())
+            MNode databaseNode = efi.getDatabaseNode(localEntityDefinition.getEntityGroupName())
             String joinStyle = databaseNode?.attribute('join-style') ?: "ansi"
 
             if ("ansi" != joinStyle && "ansi-no-parenthesis" != joinStyle) {
@@ -385,7 +388,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     void startWhereClause() {
-        this.sqlTopLevel.append(" WHERE ")
+        sqlTopLevelInternal.append(" WHERE ")
     }
 
     void makeGroupByClause(ArrayList<FieldInfo> fieldInfoList) {
@@ -395,7 +398,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 // do a different approach to GROUP BY: add all fields that are selected and don't have a function
                 for (MNode aliasNode in this.mainEntityDefinition.getEntityNode().children("alias")) {
                     if (!aliasNode.attribute('function')) {
-                        String aliasName = (String) aliasNode.attribute('name')
+                        String aliasName = aliasNode.attribute('name')
                         boolean foundField = false
                         for (int i = 0; i < fieldInfoList.size(); i++) if (fieldInfoList.get(i).name == aliasName) foundField = true
                         if (foundField) {
@@ -406,26 +409,26 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 }
             }
             if (gbClause) {
-                this.sqlTopLevel.append(" GROUP BY ")
-                this.sqlTopLevel.append(gbClause.toString())
+                sqlTopLevelInternal.append(" GROUP BY ")
+                sqlTopLevelInternal.append(gbClause.toString())
             }
         }
     }
 
     void startHavingClause() {
-        this.sqlTopLevel.append(" HAVING ")
+        sqlTopLevelInternal.append(" HAVING ")
     }
 
     void makeOrderByClause(ArrayList<String> orderByFieldList) {
         if (orderByFieldList) {
-            this.sqlTopLevel.append(" ORDER BY ")
+            sqlTopLevelInternal.append(" ORDER BY ")
         }
         int obflSize = orderByFieldList.size()
         for (int i = 0; i < obflSize; i++) {
-            String fieldName = orderByFieldList.get(i)
+            String fieldName = (String) orderByFieldList.get(i)
             if (fieldName == null || fieldName.length() == 0) continue
 
-            if (i > 0) this.sqlTopLevel.append(", ")
+            if (i > 0) sqlTopLevelInternal.append(", ")
 
             // Parse the fieldName (can have other stuff in it, need to tear down to just the field name)
             FieldOrderOptions foo = new FieldOrderOptions(fieldName)
@@ -440,26 +443,26 @@ class EntityFindBuilder extends EntityQueryBuilder {
             }
 
             // now that it's all torn down, build it back up using the column name
-            if (foo.caseUpperLower != null && typeValue == 1) this.sqlTopLevel.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
-            this.sqlTopLevel.append(fieldInfo.getFullColumnName(false))
-            if (foo.caseUpperLower != null && typeValue == 1) this.sqlTopLevel.append(")")
+            if (foo.caseUpperLower != null && typeValue == 1) sqlTopLevelInternal.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+            sqlTopLevelInternal.append(fieldInfo.getFullColumnName(false))
+            if (foo.caseUpperLower != null && typeValue == 1) sqlTopLevelInternal.append(")")
 
-            this.sqlTopLevel.append(foo.descending ? " DESC" : " ASC")
+            sqlTopLevelInternal.append(foo.descending ? " DESC" : " ASC")
 
-            if (foo.nullsFirstLast != null) this.sqlTopLevel.append(foo.nullsFirstLast ? " NULLS FIRST" : " NULLS LAST")
+            if (foo.nullsFirstLast != null) sqlTopLevelInternal.append(foo.nullsFirstLast ? " NULLS FIRST" : " NULLS LAST")
         }
     }
 
     @Override
     PreparedStatement makePreparedStatement() {
-        if (this.connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
-        String sql = this.getSqlTopLevel().toString()
+        if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
+        String sql = sqlTopLevelInternal.toString()
         // if (this.mainEntityDefinition.getFullEntityName().contains("Example")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
         if (logger.isDebugEnabled()) logger.debug("making find PreparedStatement for SQL: ${sql}")
         try {
             this.ps = connection.prepareStatement(sql, this.entityFindBase.resultSetType, this.entityFindBase.resultSetConcurrency)
-            if (this.entityFindBase.maxRows > 0) this.ps.setMaxRows(this.entityFindBase.maxRows)
-            if (this.entityFindBase.fetchSize > 0) this.ps.setFetchSize(this.entityFindBase.fetchSize)
+            if (entityFindBase.maxRows > 0) this.ps.setMaxRows(this.entityFindBase.maxRows)
+            if (entityFindBase.fetchSize > 0) this.ps.setFetchSize(this.entityFindBase.fetchSize)
         } catch (SQLException e) {
             handleSqlException(e, sql)
         }

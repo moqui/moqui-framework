@@ -42,7 +42,7 @@ class EntityQueryBuilder {
     EntityDefinition mainEntityDefinition
     // init the StringBuilder fairly large to avoid having to grow the buffer
     protected final static int sqlInitSize = 500
-    protected StringBuilder sqlTopLevel = new StringBuilder(sqlInitSize)
+    protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize)
     protected final static int parametersInitSize = 10
     protected ArrayList<EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
 
@@ -59,10 +59,10 @@ class EntityQueryBuilder {
     EntityDefinition getMainEd() { return mainEntityDefinition }
 
     /** @return StringBuilder meant to be appended to */
-    StringBuilder getSqlTopLevel() { return this.sqlTopLevel }
+    StringBuilder getSqlTopLevel() { return sqlTopLevelInternal }
 
     /** returns List of EntityConditionParameter meant to be added to */
-    ArrayList<EntityConditionParameter> getParameters() { return this.parameters }
+    ArrayList<EntityConditionParameter> getParameters() { return parameters }
 
     Connection makeConnection() {
         connection = efi.getConnection(mainEntityDefinition.getEntityGroupName())
@@ -77,7 +77,7 @@ class EntityQueryBuilder {
 
     PreparedStatement makePreparedStatement() {
         if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
-        String sql = this.getSqlTopLevel().toString()
+        String sql = sqlTopLevelInternal.toString()
         // if (this.mainEntityDefinition.getFullEntityName().contains("foo")) logger.warn("========= making crud PreparedStatement for SQL: ${sql}")
         if (logger.isDebugEnabled()) logger.debug("making crud PreparedStatement for SQL: ${sql}")
         try {
@@ -93,10 +93,10 @@ class EntityQueryBuilder {
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
             rs = ps.executeQuery()
-            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
+            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
             return rs
         } catch (SQLException sqle) {
-            throw new EntityException("Error in query for:" + sqlTopLevel, sqle)
+            throw new EntityException("Error in query for:" + sqlTopLevelInternal, sqle)
         }
     }
 
@@ -105,10 +105,10 @@ class EntityQueryBuilder {
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
             int rows = ps.executeUpdate()
-            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
+            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
         } catch (SQLException sqle) {
-            throw new EntityException("Error in update for:" + sqlTopLevel, sqle)
+            throw new EntityException("Error in update for:" + sqlTopLevelInternal, sqle)
         }
     }
 
@@ -188,24 +188,24 @@ class EntityQueryBuilder {
         String toString() { return fieldInfo.name + ':' + value }
     }
 
-    static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, EntityValueImpl entityValueImpl,
+    static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, EntityValueBase entityValueBase,
                                             EntityFacadeImpl efi) throws EntityException {
         String fieldName = fieldInfo.name
 
         Object value = EntityJavaUtil.getResultSetValue(rs, index, fieldInfo.type, fieldInfo.typeValue, efi)
 
         // if field is to be encrypted, do it now
-        if (fieldInfo.encrypt && value != null) {
-            if (fieldInfo.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityValueImpl.getEntityName()}]")
+        if (value != null && fieldInfo.encrypt) {
+            if (fieldInfo.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityValueBase.getEntityName()}]")
             String original = value.toString()
             try {
                 value = enDeCrypt(original, false, efi)
             } catch (Exception e) {
-                logger.error("Error decrypting field [${fieldName}] of entity [${entityValueImpl.getEntityName()}]", e)
+                logger.error("Error decrypting field [${fieldName}] of entity [${entityValueBase.getEntityName()}]", e)
             }
         }
 
-        entityValueImpl.getValueMap().put(fieldName, value)
+        entityValueBase.getValueMap().put(fieldName, value)
     }
 
     public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {

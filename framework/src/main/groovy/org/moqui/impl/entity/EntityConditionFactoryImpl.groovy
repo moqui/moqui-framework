@@ -39,6 +39,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     @Override
     EntityCondition makeCondition(EntityCondition lhs, JoinOperator operator, EntityCondition rhs) {
+        return makeConditionImpl((EntityConditionImplBase) lhs, operator, (EntityConditionImplBase) rhs)
+    }
+    EntityConditionImplBase makeConditionImpl(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
         if (lhs != null) {
             if (rhs != null) {
                 // we have both lhs and rhs
@@ -168,7 +171,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     }
     EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
             JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
-        if (fieldMap == null || fieldMap.size() == 0) return null
+        if (fieldMap == null || fieldMap.size() == 0) return (EntityConditionImplBase) null
 
         JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND
         ComparisonOperator compOp = comparisonOperator != null ? comparisonOperator : ComparisonOperator.EQUALS
@@ -224,7 +227,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
                 if (memberFieldAliases != null && memberFieldAliases.size() > 0) {
                     // we have a view entity, more complex
-                    ArrayList<MNode> aliases = memberFieldAliases.get(fieldName)
+                    ArrayList<MNode> aliases = (ArrayList<MNode>) memberFieldAliases.get(fieldName)
                     if (aliases == null || aliases.size() == 0)
                         throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}")
 
@@ -241,7 +244,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
         }
 
-        if (condList.size() == 0) return null
+        if (condList.size() == 0) return (EntityConditionImplBase) null
 
         if (condList.size() == 1) {
             return (EntityConditionImplBase) condList.get(0)

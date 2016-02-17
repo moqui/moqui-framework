@@ -135,7 +135,7 @@ class EntityValueImpl extends EntityValueBase {
                 eqb.makePreparedStatement()
                 eqb.setPreparedStatementValues()
                 if (eqb.executeUpdate() == 0)
-                    throw new EntityException("Tried to update a value that does not exist [${this.toString()}]. SQL used was [${eqb.sqlTopLevel}], parameters were [${eqb.parameters}]")
+                    throw new EntityException("Tried to update a value that does not exist [${this.toString()}]. SQL used was [${eqb.sqlTopLevelInternal}], parameters were [${eqb.parameters}]")
                 setSyncedWithDb()
             } catch (EntityException e) {
                 throw new EntityException("Error in update of [${this.toString()}]", e)
