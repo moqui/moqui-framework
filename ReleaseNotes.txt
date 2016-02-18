@@ -94,6 +94,8 @@ Bug Fixes
   condition
 - Entities in the tenantcommon group no longer available for find and CrUD
   operations outside the DEFAULT instance (protect tenant data)
+- Fixed ElasticSearch automatic mappings where sub-object mappings always
+  had just the first property
 
 
 ===========================================================================

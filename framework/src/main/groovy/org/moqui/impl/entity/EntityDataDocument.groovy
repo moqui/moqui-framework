@@ -465,8 +465,8 @@ class EntityDataDocument {
         // String primaryEntityAlias = relationshipAliasMap.get(primaryEntityName) ?: primaryEntityName
         EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
 
-        Map rootProperties = [_entity:[type:'string', index:'not_analyzed']]
-        Map mappingMap = [properties:rootProperties]
+        Map<String, Object> rootProperties = [_entity:[type:'string', index:'not_analyzed']] as Map<String, Object>
+        Map<String, Object> mappingMap = [properties:rootProperties] as Map<String, Object>
 
         List<String> remainingPkFields = new ArrayList(primaryEd.getPkFieldNames())
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
@@ -488,7 +488,7 @@ class EntityDataDocument {
             }
 
             Iterator<String> fieldPathElementIter = fieldPath.split(":").iterator()
-            Map currentProperties = rootProperties
+            Map<String, Object> currentProperties = rootProperties
             EntityDefinition currentEd = primaryEd
             while (fieldPathElementIter.hasNext()) {
                 String fieldPathElement = fieldPathElementIter.next()
@@ -501,26 +501,28 @@ class EntityDataDocument {
                     // only put type many in sub-objects, same as DataDocument generation
                     if (!relInfo.isTypeOne) {
                         String objectName = relationshipAliasMap.get(fieldPathElement) ?: fieldPathElement
-                        Map subObject = (Map) currentProperties.get(objectName)
-                        Map subProperties
+                        Map<String, Object> subObject = (Map<String, Object>) currentProperties.get(objectName)
+                        Map<String, Object> subProperties
                         if (subObject == null) {
-                            subProperties = [:]
-                            subObject = [properties:subProperties]
+                            subProperties = [:] as Map<String, Object>
+                            subObject = [properties:subProperties] as Map<String, Object>
                             currentProperties.put(objectName, subObject)
                         } else {
-                            subProperties = subObject.properties
+                            subProperties = (Map<String, Object>) subObject.get("properties")
                         }
                         currentProperties = subProperties
                     }
                 } else {
-                    String fieldName = dataDocumentField.fieldNameAlias ?: fieldPathElement
+                    String fieldName = (String) dataDocumentField.fieldNameAlias ?: fieldPathElement
                     EntityJavaUtil.FieldInfo fieldInfo = currentEd.getFieldInfo(fieldPathElement)
                     if (fieldInfo == null) throw new EntityException("Could not find field [${fieldPathElement}] for entity [${currentEd.getFullEntityName()}] in DataDocument [${dataDocumentId}]")
                     String fieldType = fieldInfo.type
                     String mappingType = esTypeMap.get(fieldType) ?: 'string'
-                    Map propertyMap = [type:mappingType]
+                    Map propertyMap = [type:mappingType] as Map<String, Object>
                     if (fieldType.startsWith("id")) propertyMap.index = 'not_analyzed'
                     currentProperties.put(fieldName, propertyMap)
+
+                    // logger.info("DataDocument ${dataDocumentId} field ${fieldName}, propertyMap: ${propertyMap}")
                 }
             }
         }
@@ -534,6 +536,8 @@ class EntityDataDocument {
             if (fieldType.startsWith("id")) propertyMap.index = 'not_analyzed'
             rootProperties.put(remainingPkName, propertyMap)
         }
+
+        if (logger.isTraceEnabled()) logger.trace("Generated ElasticSearch mapping for ${dataDocumentId}: \n${JsonOutput.prettyPrint(JsonOutput.toJson(mappingMap))}")
 
         return mappingMap
     }
