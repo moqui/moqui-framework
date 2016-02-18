@@ -867,7 +867,7 @@ abstract class EntityFindBase implements EntityFind {
             int ftsSize = localFts.size()
             ArrayList<FieldInfo> fieldInfoList
             ArrayList<FieldOrderOptions> fieldOptionsList = (ArrayList<FieldOrderOptions>) null
-            if (ftsSize == 0 || txCache != null || doEntityCache) {
+            if (ftsSize == 0 || doEntityCache) {
                 fieldInfoList = ed.getAllFieldInfoList()
             } else {
                 fieldInfoList = new ArrayList<>(ftsSize)
@@ -914,7 +914,7 @@ abstract class EntityFindBase implements EntityFind {
                 el = (EntityListImpl) eli.getCompleteList(true)
             }
 
-            if (txCache != null) txCache.listPut(ed, whereCondition, el)
+            if (txCache != null && ftsSize == 0) txCache.listPut(ed, whereCondition, el)
             if (doEntityCache) efi.getEntityCache().putInListCache(ed, el, whereCondition, entityListCache)
 
             // if (ed.getFullEntityName().contains("OrderItem")) logger.warn("======== Got OrderItem from DATABASE ${el.size()} results where: ${whereCondition}")
