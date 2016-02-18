@@ -110,6 +110,10 @@ class TransactionInternalBitronix implements TransactionInternal {
         // pds.setShareTransactionConnections(false) // don't share connections in the ACCESSIBLE, needed?
         // pds.setIgnoreRecoveryFailures(false) // something to consider for XA recovery errors, quarantines by default
 
+        // default is 0, disabled PreparedStatement cache (cache size per Connection)
+        // NOTE: make this configurable? value too high or low?
+        pds.setPreparedStatementCacheSize(100)
+
         // use-tm-join defaults to true, so does Bitronix so just set to false if false
         if (dsi.database.attribute("use-tm-join") == "false") pds.setUseTmJoin(false)
 
