@@ -20,8 +20,8 @@ import java.sql.Timestamp
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityCondition
-import org.moqui.impl.StupidUtilities.MapOrderByComparator
 import org.moqui.entity.EntityException
+import org.moqui.impl.StupidUtilities.MapOrderByComparator
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
