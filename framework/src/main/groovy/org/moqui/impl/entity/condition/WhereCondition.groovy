@@ -36,7 +36,7 @@ class WhereCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean mapMatches(Map<String, ?> map) {
+    boolean mapMatches(Map<String, Object> map) {
         // NOTE: always return false unless we eventually implement some sort of SQL parsing, for caching/etc
         // always consider not matching
         logger.warn("The mapMatches for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
@@ -44,7 +44,7 @@ class WhereCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean populateMap(Map<String, ?> map) { return false }
+    boolean populateMap(Map<String, Object> map) { return false }
 
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) { }
 
