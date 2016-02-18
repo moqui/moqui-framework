@@ -89,6 +89,9 @@ Bug Fixes
   for disabled accounts, expired passwords, etc just like normal login
 - Fixed issue with entity lists in TransactionCache, were not cloned so
   new/updated records changed lists that calling code might use
+- Fixed issue with cached entity lists not getting cleared when a record is
+  updated that wasn't in a list already in the cache but that matches its
+  condition
 - Entities in the tenantcommon group no longer available for find and CrUD
   operations outside the DEFAULT instance (protect tenant data)
 
