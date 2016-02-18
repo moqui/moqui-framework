@@ -738,6 +738,11 @@ public class EntityDefinition {
     }
 
     protected void buildComplexAliasName(MNode parentNode, String operator, StringBuilder colNameBuilder) {
+        //TODO expand expression against current context
+        colNameBuilder.append(parentNode.attribute('expression') ?: '')
+        if (parentNode.children.isEmpty()) {
+            return
+        }
         colNameBuilder.append('(')
         boolean isFirst = true
         for (MNode childNode in parentNode.children) {
