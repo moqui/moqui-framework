@@ -28,6 +28,7 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.ResourceFacadeImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -53,7 +54,7 @@ class ScreenRenderImpl implements ScreenRender {
     protected final static URLCodec urlCodec = new URLCodec()
 
     protected final ScreenFacadeImpl sfi
-    protected ExecutionContext localEc = null
+    protected ExecutionContextImpl localEc = null
     protected boolean rendering = false
 
     protected String rootScreenLocation = null
@@ -92,7 +93,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     ScreenRenderImpl(ScreenFacadeImpl sfi) {
         this.sfi = sfi
-        this.localEc = sfi.ecfi.getExecutionContext()
+        this.localEc = sfi.ecfi.getEci()
     }
 
     Writer getWriter() {
@@ -104,7 +105,7 @@ class ScreenRenderImpl implements ScreenRender {
         throw new BaseException("Could not render screen, no writer available")
     }
 
-    ExecutionContext getEc() { return localEc }
+    ExecutionContextImpl getEc() { return localEc }
     ScreenFacadeImpl getSfi() { return sfi }
     ScreenUrlInfo getScreenUrlInfo() { return screenUrlInfo }
     UrlInstance getScreenUrlInstance() { return screenUrlInstance }
@@ -187,8 +188,8 @@ class ScreenRenderImpl implements ScreenRender {
         ScreenDefinition sd = sdIterator.next()
         // for these authz is not required, as long as something authorizes on the way to the transition, or
         // the transition itself, it's fine
-        ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
-        ec.getArtifactExecution().push(aei, false)
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        ec.getArtifactExecutionImpl().pushInternal(aei, false)
 
         boolean loggedInAnonymous = false
         MNode screenNode = sd.getScreenNode()
@@ -532,8 +533,8 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: don't require authz if the screen doesn't require auth
         MNode screenNode = sd.getScreenNode()
         String requireAuthentication = screenNode.attribute('require-authentication')
-        ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
-        ec.artifactExecution.push(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        ec.artifactExecutionImpl.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
             throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
@@ -605,8 +606,8 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
 
-                    ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(permSd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
-                    ec.artifactExecution.push(aei, false)
+                    ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+                    ec.artifactExecutionImpl.pushInternal(aei, false)
                     aeiList.add(aei)
                 }
             }

@@ -29,7 +29,7 @@ along with this software (see the LICENSE.md file). If not, see
             request it is "${webapp-name}.${screen-path}"</description></field>
         <field name="parameterString" type="text-long"/>
         <field name="startDateTime" type="date-time"/>
-        <field name="runningTimeMillis" type="number-decimal"/>
+        <field name="runningTimeMillis" type="number-float"/>
         <field name="isSlowHit" type="text-indicator"/>
         <field name="outputSize" type="number-integer"/>
         <field name="wasError" type="text-indicator"/>

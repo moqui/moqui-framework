@@ -56,13 +56,13 @@ class EntityDbMeta {
     @CompileStatic
     void checkTableRuntime(EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
-        Boolean runtimeAddMissing = runtimeAddMissingMap.get(groupName)
+        Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
         if (runtimeAddMissing == null) {
             MNode datasourceNode = efi.getDatasourceNode(groupName)
             runtimeAddMissing = datasourceNode?.attribute('runtime-add-missing') != "false"
             runtimeAddMissingMap.put(groupName, runtimeAddMissing)
         }
-        if (!runtimeAddMissing) return
+        if (runtimeAddMissing == null || runtimeAddMissing == Boolean.FALSE) return
 
         if (ed.isViewEntity()) {
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {

@@ -222,9 +222,10 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     boolean changeTenant(String tenantId) {
-        if (tenantId == activeTenantId) return false
+        String fromTenantId = activeTenantId
+        if (tenantId == fromTenantId) return false
 
-        logger.info("Changing to tenant ${tenantId} (from tenant ${activeTenantId})")
+        logger.info("Changing to tenant ${tenantId} (from tenant ${fromTenantId})")
         EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
         EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(true).one()
         if (tenant == null) throw new BaseException("Tenant not found with ID ${tenantId}")
@@ -237,23 +238,29 @@ class ExecutionContextImpl implements ExecutionContext {
         if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
             throw new BaseException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
 
-        // logout the current user, won't be valid in other tenant
-        if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
-
         activeTenantId = tenantId
         if (tenantIdStack == null) {
             tenantIdStack = new LinkedList<>()
-            tenantIdStack.addFirst(tenantId)
+            tenantIdStack.addFirst(fromTenantId)
         } else {
-            if (tenantIdStack.size() > 0 && tenantIdStack.getFirst() != tenantId) tenantIdStack.addFirst(tenantId)
+            if (tenantIdStack.size() == 0 || tenantIdStack.getFirst() != tenantId) tenantIdStack.addFirst(fromTenantId)
         }
         if (webFacade != null) webFacade.session.setAttribute("moqui.tenantId", tenantId)
+
+        // instead of logout the current user (won't be valid in other tenant) push empty user onto user stack
+        // if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
+        if (userFacade != null) userFacade.pushTenant(tenantId)
+
+        // logger.info("Tenant now ${activeTenantId}, username ${userFacade?.username}")
+
         return true
     }
     @Override
     boolean popTenant() {
         String lastTenantId = tenantIdStack ? tenantIdStack.removeFirst() : null
         if (lastTenantId) {
+            // logger.info("Pop tenant, last was ${lastTenantId}")
+            if (userFacade != null) userFacade.popTenant(activeTenantId)
             return changeTenant(lastTenantId)
         } else {
             return false

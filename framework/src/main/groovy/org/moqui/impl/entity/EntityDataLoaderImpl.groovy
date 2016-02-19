@@ -606,7 +606,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 if (currentFieldValue) {
                     if (currentEntityDef != null) {
                         if (currentEntityDef.isField(currentFieldName)) {
-                            EntityDefinition.FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
+                            EntityJavaUtil.FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
                             String type = fieldInfo.type
                             if (type == "binary-very-long") {
                                 byte[] binData = Base64.decodeBase64(currentFieldValue.toString())

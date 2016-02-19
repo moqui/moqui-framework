@@ -62,7 +62,7 @@ class MapCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean mapMatches(Map<String, ?> map) {
+    boolean mapMatches(Map<String, Object> map) {
         // do this directly instead of going through condition, faster
         // return this.makeCondition().mapMatches(map)
 
@@ -78,7 +78,7 @@ class MapCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean populateMap(Map<String, ?> map) {
+    boolean populateMap(Map<String, Object> map) {
         if (joinOperator != AND || comparisonOperator != EQUALS || ignoreCase) return false
         map.putAll(fieldMap)
         return true

@@ -24,6 +24,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -61,7 +62,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected final ConcurrentMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
     protected final Lock locationLoadLock = new ReentrantLock()
 
-    protected final Map<String, List<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
+    protected final Map<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final Map<String, String> entityGroupNameMap = new HashMap<>()
     protected final Map<String, MNode> databaseNodeByGroupName = new HashMap<>()
     protected final Map<String, MNode> datasourceNodeByGroupName = new HashMap<>()
@@ -91,7 +92,7 @@ class EntityFacadeImpl implements EntityFacade {
                 theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"))
             } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}") }
         }
-        this.databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
+        databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
         Locale theLocale = null
         if (entityFacadeNode.attribute("database-locale")) {
             try {
@@ -101,8 +102,8 @@ class EntityFacadeImpl implements EntityFacade {
                         new Locale(localeStr)
             } catch (Exception e) { logger.warn("Error parsing database-locale: ${e.toString()}") }
         }
-        this.databaseLocale = theLocale ?: Locale.getDefault()
-        this.databaseTzLcCalendar = Calendar.getInstance(getDatabaseTimeZone(), getDatabaseLocale())
+        databaseLocale = theLocale ?: Locale.getDefault()
+        databaseTzLcCalendar = Calendar.getInstance(databaseTimeZone, databaseLocale)
 
         // init entity meta-data
         entityDefinitionCache = ecfi.getCacheFacade().getCache("entity.definition")
@@ -135,9 +136,10 @@ class EntityFacadeImpl implements EntityFacade {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
         // return efi.getEcfi().getExecutionContext().getUser().getCalendarForTzLcOnly()
 
-        return Calendar.getInstance(getDatabaseTimeZone(), getDatabaseLocale())
+        // return Calendar.getInstance(databaseTimeZone, databaseLocale)
         // NOTE: this approach is faster but seems to cause errors with Derby (ERROR 22007: The string representation of a date/time value is out of range)
-        // return databaseTzLcCalendar
+        // Still causing problems?
+        return databaseTzLcCalendar
     }
 
     MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }
@@ -844,9 +846,9 @@ class EntityFacadeImpl implements EntityFacade {
             String entityName = ser.entityName
             // remove the hash if there is one to more consistently match the service name
             if (entityName.contains("#")) entityName = entityName.replace("#", "")
-            List<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
-            if (!lst) {
-                lst = new LinkedList()
+            ArrayList<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
+            if (lst == null) {
+                lst = new ArrayList<EntityEcaRule>()
                 eecaRulesByEntityName.put(entityName, lst)
             }
             lst.add(ser)
@@ -857,13 +859,14 @@ class EntityFacadeImpl implements EntityFacade {
 
     boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
     void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
-        List<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
-        if (lst) {
+        ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName)
+        if (lst != null && lst.size() > 0) {
             // if Entity ECA rules disabled in ArtifactExecutionFacade, just return immediately
             // do this only if there are EECA rules to run, small cost in getEci, etc
-            if (((ArtifactExecutionFacadeImpl) this.ecfi.getEci().getArtifactExecution()).entityEcaDisabled()) return
+            if (ecfi.getEci().getArtifactExecutionImpl().entityEcaDisabled()) return
 
-            for (EntityEcaRule eer in lst) {
+            for (int i = 0; i < lst.size(); i++) {
+                EntityEcaRule eer = (EntityEcaRule) lst.get(i)
                 eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getExecutionContext())
             }
         }
@@ -1149,8 +1152,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     EntityDatasourceFactory getDatasourceFactory(String groupName) {
-        EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName)
-        if (edf == null) edf = datasourceFactoryByGroupMap.get(defaultGroupName)
+        EntityDatasourceFactory edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(groupName)
+        if (edf == null) edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(defaultGroupName)
         if (edf == null) throw new EntityException("Could not find EntityDatasourceFactory for entity group ${groupName}")
         return edf
     }
@@ -1360,18 +1363,28 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
+        if (sqlParameterList == null || fieldList == null || sqlParameterList.size() != fieldList.size())
+            throw new IllegalArgumentException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
 
         Connection con = getConnection(getEntityGroupName(entityName))
         PreparedStatement ps
         try {
+            ArrayList<EntityJavaUtil.FieldInfo> fiList = new ArrayList<>()
+            for (String fieldName in fieldList) {
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+                if (fi == null) throw new IllegalArgumentException("Field ${fieldName} not found for entity ${entityName}")
+                fiList.add(fi)
+            }
+
             // create the PreparedStatement
             ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)
             // set the parameter values
             int paramIndex = 1
             for (Object parameterValue in sqlParameterList) {
-                EntityQueryBuilder.setPreparedStatementValue(ps, paramIndex, parameterValue, ed, this)
+                EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fiList.get(paramIndex - 1)
+                EntityQueryBuilder.setPreparedStatementValue(ps, paramIndex, parameterValue, fi, ed, this)
                 paramIndex++
             }
             // do the actual query
@@ -1379,8 +1392,6 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            ArrayList<EntityDefinition.FieldInfo> fiList = new ArrayList<>()
-            for (String fieldName in fieldList) fiList.add(ed.getFieldInfo(fieldName))
             EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiList, this)
             return eli
         } catch (SQLException e) {
@@ -1511,7 +1522,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     String getEntityGroupName(String entityName) {
-        String entityGroupName = entityGroupNameMap.get(entityName)
+        String entityGroupName = (String) entityGroupNameMap.get(entityName)
         if (entityGroupName != null) return entityGroupName
         EntityDefinition ed = this.getEntityDefinition(entityName)
         if (ed == null) return null
@@ -1522,14 +1533,21 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     Connection getConnection(String groupName) {
+        TransactionFacadeImpl tfi = ecfi.transactionFacade
+        Connection stashed = tfi.getTxConnection(tenantId, groupName)
+        if (stashed != null) return stashed
+
         EntityDatasourceFactory edf = getDatasourceFactory(groupName)
         DataSource ds = edf.getDataSource()
         if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupName}] because it has no DataSource")
+        Connection newCon
         if (ds instanceof XADataSource) {
-            return this.ecfi.transactionFacade.enlistConnection(ds.getXAConnection())
+            newCon = tfi.enlistConnection(ds.getXAConnection())
         } else {
-            return ds.getConnection()
+            newCon = ds.getConnection()
         }
+        if (newCon != null) newCon = tfi.stashTxConnection(tenantId, groupName, newCon)
+        return newCon
     }
 
     @Override
@@ -1597,9 +1615,9 @@ class EntityFacadeImpl implements EntityFacade {
     protected Map<String, Map<String, String>> sqlTypeByGroup = [:]
     protected String getFieldSqlType(String fieldType, EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
-        Map<String, String> sqlTypeMap = sqlTypeByGroup.get(groupName)
+        Map<String, String> sqlTypeMap = (Map<String, String>) sqlTypeByGroup.get(groupName)
         if (sqlTypeMap != null) {
-            String st = sqlTypeMap.get(fieldType)
+            String st = (String) sqlTypeMap.get(fieldType)
             if (st != null) return st
         }
         return getFieldSqlTypeFromDbNode(groupName, fieldType, ed)
@@ -1658,8 +1676,8 @@ class EntityFacadeImpl implements EntityFacade {
             "java.util.Date":14,
             "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
     public static int getJavaTypeInt(String javaType) {
-        Integer typeInt = javaIntTypeMap.get(javaType)
-        if (!typeInt) throw new EntityException("Java type " + javaType + " not supported for entity fields")
+        Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
+        if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")
         return typeInt
     }
 }

@@ -422,8 +422,8 @@ class ScreenDefinition {
     void render(ScreenRenderImpl sri, boolean isTargetScreen) {
         // NOTE: don't require authz if the screen doesn't require auth
         String requireAuthentication = screenNode.attribute('require-authentication')
-        ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(location, "AT_XML_SCREEN", "AUTHZA_VIEW")
-        sri.ec.artifactExecution.push(aei, isTargetScreen ? (!requireAuthentication || requireAuthentication == "true") : false)
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        sri.ec.artifactExecutionImpl.pushInternal(aei, isTargetScreen ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
         if (requireAuthentication == "anonymous-all") {
@@ -656,7 +656,7 @@ class ScreenDefinition {
 
         @CompileStatic
         ResponseItem run(ScreenRenderImpl sri) {
-            ExecutionContext ec = sri.getEc()
+            ExecutionContextImpl ec = sri.getEc()
 
             // NOTE: if parent screen of transition does not require auth, don't require authz
             // NOTE: use the View authz action to leave it open, ie require minimal authz; restrictions are often more
@@ -664,7 +664,7 @@ class ScreenDefinition {
             String requireAuthentication = (String) parentScreen.screenNode.attribute('require-authentication')
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
                                 "AT_XML_SCREEN_TRANS", "AUTHZA_VIEW")
-            ec.getArtifactExecution().push(aei, (!requireAuthentication || requireAuthentication == "true"))
+            ec.getArtifactExecutionImpl().pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
 
             boolean loggedInAnonymous = false
             if (requireAuthentication == "anonymous-all") {

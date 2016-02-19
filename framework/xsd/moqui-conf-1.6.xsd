@@ -301,6 +301,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="use-transaction-cache" default="true" type="boolean"/>
+            <xs:attribute name="use-connection-stash" default="true" type="boolean"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="transaction-jndi">

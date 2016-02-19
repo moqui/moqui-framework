@@ -21,6 +21,7 @@ import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
@@ -107,14 +108,14 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     protected static boolean checkAllPkFields(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> tempResult,
                                     EntityValue newEntityValue, Set<String> outParamNames) {
         ArrayList<String> pkFieldNames = ed.getPkFieldNames()
-        ArrayList<EntityDefinition.FieldInfo> pkFieldInfos = new ArrayList<>(pkFieldNames.size())
+        ArrayList<EntityJavaUtil.FieldInfo> pkFieldInfos = new ArrayList<>(pkFieldNames.size())
 
         // see if all PK fields were passed in
         boolean allPksIn = true
         int size = pkFieldNames.size()
         for (int i = 0; i < size; i++) {
             String pkFieldName = pkFieldNames.get(i)
-            EntityDefinition.FieldInfo fieldInfo = ed.getFieldInfo(pkFieldName)
+            EntityJavaUtil.FieldInfo fieldInfo = ed.getFieldInfo(pkFieldName)
             pkFieldInfos.add(fieldInfo)
             if (!parameters.get(pkFieldName) && !fieldInfo.defaultStr) { allPksIn = false }
         }
@@ -126,7 +127,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         if (isSinglePk) {
             /* **** primary sequenced primary key **** */
             /* **** primary sequenced key with optional override passed in **** */
-            EntityDefinition.FieldInfo singlePkField = pkFieldInfos.get(0)
+            EntityJavaUtil.FieldInfo singlePkField = pkFieldInfos.get(0)
 
             Object pkValue = parameters.get(singlePkField.name)
             if (pkValue) {
@@ -143,7 +144,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         } else if (isDoublePk && !allPksIn) {
             /* **** secondary sequenced primary key **** */
             // don't do it this way, currently only supports second pk fields: String doublePkSecondaryName = parameters.get(pkFieldNames.get(0)) ? pkFieldNames.get(1) : pkFieldNames.get(0)
-            EntityDefinition.FieldInfo doublePkSecondary = pkFieldInfos.get(1)
+            EntityJavaUtil.FieldInfo doublePkSecondary = pkFieldInfos.get(1)
             newEntityValue.setFields(parameters, true, null, true)
             // if it has a default value don't sequence the PK
             if (!doublePkSecondary.defaultStr) {
@@ -207,7 +208,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         int size = pkFieldNames.size()
         for (int i = 0; i < size; i++) {
             String pkName = pkFieldNames.get(i)
-            EntityDefinition.FieldInfo pkInfo = ed.getFieldInfo(pkName)
+            EntityJavaUtil.FieldInfo pkInfo = ed.getFieldInfo(pkName)
             if (pkInfo.defaultStr) {
                 tempResult.put(pkName, newEntityValue.get(pkName))
             }

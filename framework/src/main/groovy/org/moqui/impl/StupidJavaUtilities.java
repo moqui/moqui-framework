@@ -15,6 +15,12 @@ package org.moqui.impl;
 
 /** Methods that work better in Java than Groovy, helps with performance and for syntax and language feature reasons */
 public class StupidJavaUtilities {
+    public static class KeyValue {
+        public String key;
+        public Object value;
+        public KeyValue(String key, Object value) { this.key = key; this.value = value; }
+    }
+
     public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
         Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
         if (theClass == null) {

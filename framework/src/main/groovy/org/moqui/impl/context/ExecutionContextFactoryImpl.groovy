@@ -533,7 +533,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     EntityFacadeImpl getEntityFacade(String tenantId) {
         // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now
         if (tenantId == null) throw new IllegalArgumentException("For getEntityFacade tenantId cannot be null")
-        EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
+        EntityFacadeImpl efi = (EntityFacadeImpl) entityFacadeByTenantMap.get(tenantId)
         if (efi == null) efi = initEntityFacade(tenantId)
 
         return efi
@@ -1023,7 +1023,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected boolean artifactPersistHit(String artifactType, String artifactSubType) {
         // now checked before calling this: if ("entity".equals(artifactType)) return false
         String cacheKey = artifactType + artifactSubType
-        Boolean ph = artifactPersistHitByType.get(cacheKey)
+        Boolean ph = (Boolean) artifactPersistHitByType.get(cacheKey)
         if (ph == null) {
             MNode artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
             ph = 'true'.equals(artifactStats.attribute('persist-hit'))
@@ -1034,7 +1034,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @CompileStatic
     protected boolean artifactPersistBin(String artifactType, String artifactSubType) {
         String cacheKey = artifactType + artifactSubType
-        Boolean pb = artifactPersistBinByType.get(cacheKey)
+        Boolean pb = (Boolean) artifactPersistBinByType.get(cacheKey)
         if (pb == null) {
             MNode artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
             pb = 'true'.equals(artifactStats.attribute('persist-bin'))
@@ -1045,7 +1045,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @CompileStatic
     boolean isAuthzEnabled(String artifactTypeEnumId) {
-        Boolean en = artifactTypeAuthzEnabled.get(artifactTypeEnumId)
+        Boolean en = (Boolean) artifactTypeAuthzEnabled.get(artifactTypeEnumId)
         if (en == null) {
             MNode aeNode = getArtifactExecutionNode(artifactTypeEnumId)
             en = aeNode != null ? !(aeNode.attribute('authz-enabled') == "false") : true
@@ -1055,7 +1055,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     @CompileStatic
     boolean isTarpitEnabled(String artifactTypeEnumId) {
-        Boolean en = artifactTypeTarpitEnabled.get(artifactTypeEnumId)
+        Boolean en = (Boolean) artifactTypeTarpitEnabled.get(artifactTypeEnumId)
         if (en == null) {
             MNode aeNode = getArtifactExecutionNode(artifactTypeEnumId)
             en = aeNode != null ? !(aeNode.attribute('tarpit-enabled') == "false") : true

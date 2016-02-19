@@ -44,12 +44,12 @@ class DateCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean mapMatches(Map<String, ?> map) {
+    boolean mapMatches(Map<String, Object> map) {
         return this.makeCondition().mapMatches(map)
     }
 
     @Override
-    boolean populateMap(Map<String, ?> map) { return false }
+    boolean populateMap(Map<String, Object> map) { return false }
 
     @Override
     EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }

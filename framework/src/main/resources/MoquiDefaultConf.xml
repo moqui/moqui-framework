@@ -19,6 +19,7 @@
         <cache name="entity.record.one_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
         <cache name="entity.record.list." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
         <cache name="entity.record.list_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list_view_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
         <cache name="entity.record.count." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
 
         <cache name="service.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>

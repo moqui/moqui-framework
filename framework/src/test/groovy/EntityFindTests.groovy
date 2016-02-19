@@ -152,4 +152,17 @@ class EntityFindTests extends Specification {
         testEntity2 != null
         testEntity2.testMedium == "Test Name 5"
     }
+
+    def "auto cache clear for list on update of record not included"() {
+        // update the testMedium and make sure we get the new value
+        when:
+        ec.entity.find("moqui.test.TestEntity").condition("testNumberInteger", 1234).useCache(true).list()
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"EXTST1", testNumberInteger:1234]).update()
+        EntityList testEntityList = ec.entity.find("moqui.test.TestEntity")
+                .condition("testNumberInteger", 1234).useCache(true).list()
+
+        then:
+        testEntityList.size() == 1
+        testEntityList.first.testNumberInteger == 1234
+    }
 }
