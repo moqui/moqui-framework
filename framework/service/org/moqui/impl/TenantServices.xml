@@ -67,9 +67,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <description>Defaults to datasource.@database-conf-name for the transactional datasource.</description></parameter>
             <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
             <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
-            <parameter name="waitForSetup" type="Boolean" default="false"/>
+            <parameter name="waitForSetup" type="Boolean" default="true"/>
         </in-parameters>
         <actions>
+            <if condition="ec.tenantId != 'DEFAULT'"><return error="true" message="Tenants can only be provisioned from the DEFAULT tenant"/></if>
+
             <if condition="!databaseConfName">
                 <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
                 <set field="databaseConfName" from="datasourceNode.attribute('database-conf-name')"/>
@@ -118,7 +120,9 @@ along with this software (see the LICENSE.md file). If not, see
                     records = edl.load()
                     totalSeconds = (System.currentTimeMillis() - startTime) / 1000
 
-                    ec.logger.info("Loaded ${records} records in ${totalSeconds} seconds.")
+                    String loadMessage = "Loaded ${records} records in tenant ${tenantId} in ${totalSeconds} seconds for data types: ${dataLoadTypes}"
+                    ec.message.addMessage(loadMessage)
+                    ec.logger.info(loadMessage)
 
                     // create admin user
                     context.putAll(ec.service.sync().name("org.moqui.impl.UserServices.create#UserAccount").parameters(context).call())
@@ -134,7 +138,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 ec.popTenant()
 
-                ec.logger.info("Finished data load for tenant ${tenantId}")
+                ec.logger.info("Finished setup for tenant ${tenantId}")
             ]]></script>
         </actions>
     </service>
@@ -169,6 +173,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- add TenantHostDefault record if hostName specified -->
                 <if condition="hostName"><service-call name="create#moqui.tenant.TenantHostDefault"
                         in-map="[hostName:hostName, tenantId:tenantId, allowOverride:hostAllowOverride]"/></if>
+
+                <message>Created tenant ${tenantId} and added Derby database settings</message>
             <script>})</script>
 
             <!-- call setup#Tenant to load data, etc -->
@@ -176,6 +182,8 @@ along with this software (see the LICENSE.md file). If not, see
                 def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callWaiter()
                 if (waitForSetup) srw.waitForResult()
             </script>
+            <if condition="ec.message.hasError()">
+                <message error="true">Found errors setting up tenant. Data may not have loaded data or admin user may not have been created (see other messages).</message></if>
         </actions>
     </service>
     <service verb="provision" noun="TenantH2">
@@ -210,6 +218,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- add TenantHostDefault record if hostName specified -->
                 <if condition="hostName"><service-call name="create#moqui.tenant.TenantHostDefault"
                         in-map="[hostName:hostName, tenantId:tenantId, allowOverride:hostAllowOverride]"/></if>
+
+                <message>Created tenant ${tenantId} and added H2 database settings</message>
             <script>})</script>
 
             <!-- call setup#Tenant to load data, etc -->
@@ -217,6 +227,8 @@ along with this software (see the LICENSE.md file). If not, see
                 def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callWaiter()
                 if (waitForSetup) srw.waitForResult()
             </script>
+            <if condition="ec.message.hasError()">
+                <message error="true">Found errors setting up tenant. Data may not have loaded data or admin user may not have been created (see other messages).</message></if>
         </actions>
     </service>
     <service verb="provision" noun="TenantMySQL">
@@ -252,6 +264,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- add TenantHostDefault record if hostName specified -->
                 <if condition="hostName"><service-call name="create#moqui.tenant.TenantHostDefault"
                         in-map="[hostName:hostName, tenantId:tenantId, allowOverride:hostAllowOverride]"/></if>
+
+                <message>Created tenant ${tenantId} and added MySQL database settings</message>
             <script>})</script>
 
             <!-- create database; as with other code above assumes on same server as DEFAULT tenant, so connects to that and creates the database -->
@@ -274,6 +288,8 @@ along with this software (see the LICENSE.md file). If not, see
                 def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callWaiter()
                 if (waitForSetup) srw.waitForResult()
             </script>
+            <if condition="ec.message.hasError()">
+                <message error="true">Found errors setting up tenant. Data may not have loaded data or admin user may not have been created (see other messages).</message></if>
         </actions>
     </service>
 </services>
