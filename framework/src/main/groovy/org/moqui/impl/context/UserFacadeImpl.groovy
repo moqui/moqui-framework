@@ -64,9 +64,7 @@ class UserFacadeImpl implements UserFacade {
 
     UserFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
-        UserInfo userInfo = new UserInfo(this, null)
-        userInfoStack.addFirst(userInfo)
-        currentInfo = userInfo
+        pushUser(null, eci.tenantId)
     }
 
     Subject makeEmptySubject() {
@@ -89,7 +87,7 @@ class UserFacadeImpl implements UserFacade {
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
             // effectively login the user
-            pushUser(webSubject)
+            pushUserSubject(webSubject, null)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
@@ -367,6 +365,7 @@ class UserFacadeImpl implements UserFacade {
             eci.message.addError("No password specified")
             return false
         }
+        if (!tenantId) tenantId = eci.tenantId
         if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
             this.visitId = null
@@ -381,7 +380,7 @@ class UserFacadeImpl implements UserFacade {
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
-            pushUser(loginSubject)
+            pushUserSubject(loginSubject, tenantId)
 
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
@@ -406,7 +405,8 @@ class UserFacadeImpl implements UserFacade {
             eci.message.addError("No username specified")
             return false
         }
-        if (tenantId) {
+        if (!tenantId) tenantId = eci.tenantId
+        if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
             this.visitId = null
             if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
@@ -430,7 +430,7 @@ class UserFacadeImpl implements UserFacade {
 
         // do this first so that the rest will be done as this user
         // just in case there is already a user authenticated push onto a stack to remember
-        pushUser(username)
+        pushUser(username, tenantId)
 
         // after successful login trigger the after-login actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runAfterLoginActions()
@@ -628,42 +628,64 @@ class UserFacadeImpl implements UserFacade {
         return eci.getNotificationMessages(currentInfo.userId, topic)
     }
 
+    // ========== UserInfo ==========
 
-    UserInfo pushUser(Subject subject) {
-        UserInfo userInfo = pushUser((String) subject.getPrincipal())
+    UserInfo pushUserSubject(Subject subject, String tenantId) {
+        UserInfo userInfo = pushUser((String) subject.getPrincipal(), tenantId)
         userInfo.subject = subject
         return userInfo
     }
-    UserInfo pushUser(String username) {
-        if (userInfoStack.size() == 0 || userInfoStack.getFirst().username != username) {
-            UserInfo userInfo = new UserInfo(this, username)
+    UserInfo pushUser(String username, String tenantId) {
+        if (currentInfo != null && currentInfo.username == username && currentInfo.tenantId == tenantId)
+            return currentInfo
+
+        if (currentInfo == null || currentInfo.isPopulated()) {
+            // logger.info("Pushing UserInfo for ${username}:${tenantId} to stack, was ${currentInfo.username}:${currentInfo.tenantId}")
+            UserInfo userInfo = new UserInfo(this, username, tenantId)
             userInfoStack.addFirst(userInfo)
             currentInfo = userInfo
             return userInfo
         } else {
-            return userInfoStack.getFirst()
+            currentInfo.setInfo(username, tenantId)
+            return currentInfo
         }
-        // logger.info("Got UserAccount [${userAccount}] with usernameStack ${usernameStack}")
     }
-    boolean popUser() {
-        // always leave at least the empty UserInfo from init on the stack
-        if (userInfoStack.size() > 1) {
-            UserInfo userInfo = userInfoStack.removeFirst()
-            if (userInfo.subject != null && userInfo.subject.isAuthenticated()) userInfo.subject.logout()
+    void popUser() {
+        if (currentInfo.subject != null && currentInfo.subject.isAuthenticated()) currentInfo.subject.logout()
+        userInfoStack.removeFirst()
 
-            currentInfo = userInfoStack.getFirst()
-            return true
-        } else {
-            // if the last one probably means log out from anonymous, so clear that
-            currentInfo.loggedInAnonymous = false
-            return false
-        }
+        // always leave at least an empty UserInfo on the stack
+        if (userInfoStack.size() == 0) userInfoStack.addFirst(new UserInfo(this, null, null))
+
+        UserInfo newCurInfo = userInfoStack.getFirst()
+        // logger.info("Popping UserInfo ${currentInfo.username}:${currentInfo.tenantId}, new current is ${newCurInfo.username}:${newCurInfo.tenantId}")
+
+        // whether previous user on stack or new one, set the currentInfo
+        currentInfo = newCurInfo
+    }
+
+    /** Called by ExecutionContextInfo when tenant pushed (changeTenant()) */
+    void pushTenant(String toTenantId) {
+        UserInfo wasInfo = currentInfo
+        // if there is a previous user populated and it is not in the toTenantId tenant, push an empty UserInfo
+        if (currentInfo.tenantId != toTenantId) pushUser(null, toTenantId)
+
+        // logger.info("UserFacade pushed tenant: from ${wasInfo.tenantId} to ${currentInfo.tenantId}, user was ${wasInfo.username} and is ${currentInfo.username}")
+    }
+    /** Called by ExecutionContextInfo when tenant popped (popTenant()) */
+    void popTenant(String fromTenantId) {
+        UserInfo wasInfo = currentInfo
+        // pop current user (if populated effectively logs out, if not will get an empty user in current tenant, already set in eci)
+        if (currentInfo.tenantId == fromTenantId) popUser()
+
+        // logger.info("UserFacade popped tenant: ${wasInfo.tenantId} to ${currentInfo.tenantId}, user was ${wasInfo.username} and is ${currentInfo.username}")
     }
 
     static class UserInfo {
         UserFacadeImpl ufi
         // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
         protected EntityValueBase userAccount = (EntityValueBase) null
+        protected String tenantId = (String) null
         protected String username = (String) null
         protected String userId = (String) null
         Set<String> internalUserGroupIdSet = (Set<String>) null
@@ -682,14 +704,25 @@ class UserFacadeImpl implements UserFacade {
 
         protected Map<String, Object> userContext = (Map<String, Object>) null
 
-        UserInfo(UserFacadeImpl ufi, String username) {
+        UserInfo(UserFacadeImpl ufi, String username, String tenantId) {
             this.ufi = ufi
+            setInfo(username, tenantId)
+        }
+
+        boolean isPopulated() { return (username != null && username.length() > 0) || loggedInAnonymous }
+
+        void setInfo(String username, String tenantId) {
+            // this shouldn't happen unless there is a bug in the framework
+            if (isPopulated()) throw new IllegalStateException("Cannot set user info, UserInfo already populated")
+
+            this.username = username
+            this.tenantId = tenantId ?: ufi.eci.tenantId
+
             EntityValueBase ua = (EntityValueBase) null
             if (username != null && username.length() > 0) {
                 ua = (EntityValueBase) ufi.eci.getEntity().find("moqui.security.UserAccount")
                         .condition("username", username).useCache(true).disableAuthz().one()
             }
-
             if (ua != null) {
                 userAccount = ua
                 this.username = ua.username
