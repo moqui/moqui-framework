@@ -19,6 +19,7 @@ import net.sf.ehcache.Element
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.CacheFacadeImpl
 import org.moqui.impl.context.CacheImpl
 import org.moqui.util.MNode
@@ -40,6 +41,7 @@ class EntityCache {
     protected final String listViewRaKeyBase
     protected final String countKeyBase
 
+    protected final Map<String, ArrayList<String>> cachedViewEntitiesByMember = new HashMap<>()
 
     EntityCache(EntityFacadeImpl efi) {
         this.efi = efi
@@ -251,6 +253,28 @@ class EntityCache {
                 }
             }
 
+            // see if this entity is a member of a cached view-entity
+            ArrayList<String> cachedViewEntityNames = cachedViewEntitiesByMember.get(fullEntityName)
+            if (cachedViewEntityNames != null && cachedViewEntityNames.size() > 0) {
+                for (int i = 0; i < cachedViewEntityNames.size(); i++) {
+                    String cachedViewEntityName = (String) cachedViewEntityNames.get(i)
+                    // logger.info("Found ${cachedViewEntityName} as a cached view-entity for member ${fullEntityName}")
+
+                    String viewListKey = listKeyBase.concat(cachedViewEntityName)
+                    CacheImpl entityListCache = cfi.getCacheImpl(viewListKey)
+                    Ehcache elEhc = entityListCache.getInternalCache()
+
+                    // Ehcache returns a plain List, may or may not be faster to iterate with index
+                    List<EntityCondition> elEhcKeys = (List<EntityCondition>) elEhc.getKeys()
+                    Iterator<EntityCondition> elEhcKeysIter = elEhcKeys.iterator()
+                    while (elEhcKeysIter.hasNext()) {
+                        EntityCondition ec = (EntityCondition) elEhcKeysIter.next()
+                        // any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
+                        if (ec.mapMatches(evbMap)) elEhc.remove(ec)
+                    }
+                }
+            }
+
             // clear count cache (no RA because we only have a count to work with, just match by condition)
             String countKey = countKeyBase.concat(fullEntityName)
             if (cfi.cacheExists(countKey)) {
@@ -306,6 +330,19 @@ class EntityCache {
                 // with cache key of member-entity PK EntityCondition obj
                 EntityDefinition memberEd = efi.getEntityDefinition(memberEntityNode.attribute('entity-name'))
                 String memberEntityName = memberEd.getFullEntityName()
+
+                // remember that this member entity has been used in a cached view entity
+                ArrayList<String> cachedViewEntityNames = cachedViewEntitiesByMember.get(memberEntityName)
+                if (cachedViewEntityNames == null) {
+                    cachedViewEntityNames = new ArrayList<>()
+                    cachedViewEntitiesByMember.put(memberEntityName, cachedViewEntityNames)
+                    cachedViewEntityNames.add(entityName)
+                    // logger.info("Added ${entityName} as a cached view-entity for member ${memberEntityName}")
+                } else if (!cachedViewEntityNames.contains(entityName)) {
+                    cachedViewEntityNames.add(entityName)
+                    // logger.info("Added ${entityName} as a cached view-entity for member ${memberEntityName}")
+                }
+
                 CacheImpl listViewRaCache = getCacheListViewRa(memberEntityName)
                 int eliSize = eli.size()
                 for (int i = 0; i < eliSize; i++) {

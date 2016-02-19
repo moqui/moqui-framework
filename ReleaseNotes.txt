@@ -92,6 +92,9 @@ Bug Fixes
 - Fixed issue with cached entity lists not getting cleared when a record is
   updated that wasn't in a list already in the cache but that matches its
   condition
+- Fixed issue with cached view-entity lists not getting cleared on new or
+  updated records; fixes issues with new authz, tarpits and much more not
+  applied immediately
 - Entities in the tenantcommon group no longer available for find and CrUD
   operations outside the DEFAULT instance (protect tenant data)
 - Fixed ElasticSearch automatic mappings where sub-object mappings always

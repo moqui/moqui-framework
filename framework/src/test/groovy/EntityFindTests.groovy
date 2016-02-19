@@ -165,4 +165,24 @@ class EntityFindTests extends Specification {
         testEntityList.size() == 1
         testEntityList.first.testNumberInteger == 1234
     }
+
+
+    def "auto cache clear for view list on create of record not included"() {
+        // this is similar to what happens with authz checking with changes after startup
+        when:
+        EntityList beforeList = ec.entity.find("moqui.security.ArtifactAuthzCheckView").condition("userGroupId", "ADMIN").useCache(true).list()
+        // this record exists for ALL_USERS, but not for ADMIN (redundant for ADMIN, but a good test)
+        ec.entity.makeValue("moqui.security.ArtifactAuthz")
+                .setAll([artifactAuthzId:"SCREEN_TREE_ADMIN", userGroupId:"ADMIN", artifactGroupId:"SCREEN_TREE",
+                         authzTypeEnumId:"AUTHZT_ALWAYS", authzActionEnumId:"AUTHZA_VIEW"]).create()
+        EntityList afterList = ec.entity.find("moqui.security.ArtifactAuthzCheckView")
+                .condition("userGroupId", "ADMIN").useCache(true).list()
+
+        // logger.info("ArtifactAuthzCheckView before (${beforeList.size()}):\n${beforeList}\n after (${afterList.size()}):\n${afterList}")
+
+        then:
+        // afterList will have 2 more records because SCREEN_TREE artifact group has 2 records
+        afterList.size() == beforeList.size() + 2
+        afterList.filterByAnd([artifactGroupId:"SCREEN_TREE"]).size() == 2
+    }
 }
