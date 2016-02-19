@@ -67,6 +67,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <description>Defaults to datasource.@database-conf-name for the transactional datasource.</description></parameter>
             <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
             <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
+            <parameter name="waitForSetup" type="Boolean" default="false"/>
         </in-parameters>
         <actions>
             <if condition="!databaseConfName">
@@ -91,17 +92,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tenantId" required="true"/>
         </in-parameters>
         <actions>
-            <!-- add TenantHostDefault record if hostName specified -->
-            <if condition="hostName">
-                <entity-find-one entity-name="moqui.tenant.TenantHostDefault" value-field="thDefault"/>
-                <if condition="thDefault"><then>
-                    <message>Tenant host mapping for host name ${hostName} already exists. Not stopping the tenant setup, but you will need to set up a different tenant host mapping.</message>
-                </then><else>
-                    <service-call name="create#moqui.tenant.TenantHostDefault" in-map="[hostName:hostName,
-                            tenantId:tenantId, allowOverride:hostAllowOverride]"/>
-                </else></if>
-            </if>
-
             <script><![CDATA[
                 import org.moqui.context.ExecutionContext
                 import org.moqui.entity.EntityDataLoader
@@ -110,8 +100,6 @@ along with this software (see the LICENSE.md file). If not, see
                 ExecutionContext ec = context.ec
 
                 // switch to new Tenant
-                previousTenantId = ec.tenantId
-                previousUsername = ec.user.username
                 ec.changeTenant(tenantId)
 
                 // auth anonymous user, turn off authz for data loading
@@ -144,13 +132,9 @@ along with this software (see the LICENSE.md file). If not, see
                     ec.getArtifactExecution().enableAuthz()
                 }
 
-                // login previous user, switch back to previous tenantId
-                ec.changeTenant(previousTenantId)
-                ec.user.internalLoginUser(previousUsername, previousTenantId)
-                // NOTE: when running this in the Tools app results in the Login screen showing because
-                //     session auth is lost! (internalLoginUser() doesn't auth in session because we can't through
-                //     Shiro without the password
-                ec.logger.info("Restored login for user ${previousUsername} in tenant ${previousTenantId}.")
+                ec.popTenant()
+
+                ec.logger.info("Finished data load for tenant ${tenantId}")
             ]]></script>
         </actions>
     </service>
@@ -166,6 +150,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="dbPassword"/>
             <parameter name="useXa" type="Boolean" default="false"/>
             -->
+            <parameter name="waitForSetup" type="Boolean" default="false"/>
         </in-parameters>
         <actions>
             <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
@@ -180,7 +165,7 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'createDatabase', propValue:'create']"/>
 
             <!-- call setup#Tenant -->
-            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
+            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context" async="true"/>
         </actions>
     </service>
     <service verb="provision" noun="TenantH2">
@@ -188,6 +173,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
             <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
+            <parameter name="waitForSetup" type="Boolean" default="false"/>
         </in-parameters>
         <actions>
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
@@ -195,22 +181,32 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!dbUser"><set field="dbUser" from="xaProperties ? xaProperties.attribute('user') : 'sa'"/></if>
             <if condition="!dbPassword"><set field="dbPassword" from="xaProperties ? xaProperties.attribute('password') : 'sa'"/></if>
 
-            <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
+            <!-- Run this in a separate TX so the records are committed before we try to activate the tenant -->
+            <script>ec.transaction.runRequireNew(null, "Error creating Tenant", {</script>
+                <service-call name="create#moqui.tenant.Tenant" in-map="context" out-map="context"/>
 
-            <!-- create TenantDataSource and optionally TenantDataSourceXaProp records -->
-            <service-call name="create#moqui.tenant.TenantDataSource"
-                    in-map="[tenantId:tenantId, entityGroupName:'transactional', defaultToConfProps:'Y']"/>
-            <set field="dbName" from="tenantId.charAt(0).isDigit() ? 'T' + tenantId : tenantId"/>
-            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
-                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'url',
-                        propValue:('jdbc:h2:${moqui.runtime}/db/h2/' + dbName)]"/>
-            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
-                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'user', propValue:dbUser]"/>
-            <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
-                    in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'password', propValue:dbPassword]"/>
+                <!-- create TenantDataSource and optionally TenantDataSourceXaProp records -->
+                <service-call name="create#moqui.tenant.TenantDataSource"
+                        in-map="[tenantId:tenantId, entityGroupName:'transactional', defaultToConfProps:'Y']"/>
+                <set field="dbName" from="tenantId.charAt(0).isDigit() ? 'T' + tenantId : tenantId"/>
+                <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                        in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'url',
+                            propValue:('jdbc:h2:${moqui.runtime}/db/h2/' + dbName)]"/>
+                <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                        in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'user', propValue:dbUser]"/>
+                <service-call name="create#moqui.tenant.TenantDataSourceXaProp"
+                        in-map="[tenantId:tenantId, entityGroupName:'transactional', propName:'password', propValue:dbPassword]"/>
+
+                <!-- add TenantHostDefault record if hostName specified -->
+                <if condition="hostName"><service-call name="create#moqui.tenant.TenantHostDefault"
+                        in-map="[hostName:hostName, tenantId:tenantId, allowOverride:hostAllowOverride]"/></if>
+            <script>})</script>
 
             <!-- call setup#Tenant -->
-            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
+            <script>
+                def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callWaiter()
+                if (waitForSetup) srw.waitForResult()
+            </script>
         </actions>
     </service>
     <service verb="provision" noun="TenantMySQL">
@@ -218,6 +214,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="dbUser"><description>Defaults to xa-properties.@user</description></parameter>
             <parameter name="dbPassword"><description>Defaults to xa-properties.@password</description></parameter>
+            <parameter name="waitForSetup" type="Boolean" default="false"/>
         </in-parameters>
         <actions>
             <set field="datasourceNode" from="ec.entity.getDatasourceNode('transactional')"/>
@@ -256,7 +253,7 @@ along with this software (see the LICENSE.md file). If not, see
             <log level="info" message="Created MySQL database ${dbName} with user ${dbUser}, rows affected: ${rowsAffected}"/>
 
             <!-- call setup#Tenant -->
-            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context"/>
+            <service-call name="org.moqui.impl.TenantServices.setup#Tenant" in-map="context" out-map="context" async="true"/>
         </actions>
     </service>
 </services>
