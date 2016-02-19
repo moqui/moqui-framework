@@ -21,7 +21,6 @@ import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
-
 import org.elasticsearch.client.Client
 import org.elasticsearch.node.NodeBuilder
 import org.kie.api.KieServices
@@ -35,6 +34,7 @@ import org.kie.api.runtime.StatelessKieSession
 
 import org.moqui.BaseException
 import org.moqui.context.*
+import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
 import org.moqui.impl.StupidClassLoader
 import org.moqui.impl.StupidUtilities
@@ -142,12 +142,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (!confPartialPath) confPartialPath = moquiInitProperties.getProperty("moqui.conf")
         if (!confPartialPath) throw new IllegalArgumentException("No moqui.conf property found in MoquiInit.properties or in a system property (with: -Dmoqui.conf=... on the command line)")
 
+        String confFullPath
+        if (confPartialPath.startsWith("/")) {
+            confFullPath = confPartialPath
+        } else {
+            confFullPath = this.runtimePath + "/" + confPartialPath
+        }
         // setup the confFile
-        if (confPartialPath.startsWith("/")) confPartialPath = confPartialPath.substring(1)
-        String confFullPath = this.runtimePath + "/" + confPartialPath
         File confFile = new File(confFullPath)
-        if (confFile.exists()) { this.confPath = confFullPath }
-        else { this.confPath = null; logger.warn("The moqui.conf path [${confFullPath}] was not found.") }
+        if (confFile.exists()) {
+            this.confPath = confFullPath
+        } else {
+            this.confPath = null
+            throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
+        }
 
         confXmlRoot = this.initConfig()
 
@@ -263,10 +271,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
+        long entityStartTime = System.currentTimeMillis()
         this.entityFacade.loadAllEntityLocations()
-        this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
+        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
         // load/warm framework entities
         this.entityFacade.loadFrameworkEntities()
+        logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
         // init ESAPI
         StupidWebUtilities.canonicalizeValue("test")
 
@@ -361,6 +371,44 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     }
                 }
             }
+        }
+    }
+
+    /** Called from MoquiContextListener.contextInitialized after ECFI init */
+    boolean checkEmptyDb() {
+        String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
+        if (!emptyDbLoad || emptyDbLoad == 'none') return false
+
+        long enumCount = getEntity().find("moqui.basic.Enumeration").disableAuthz().count()
+        if (enumCount == 0) {
+            logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
+
+            ExecutionContext ec = getExecutionContext()
+            try {
+                ec.getArtifactExecution().disableAuthz()
+                ec.getArtifactExecution().push("loadData", "AT_OTHER", "AUTHZA_ALL", false)
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                ec.getUser().loginAnonymousIfNoUser()
+
+                EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                if (emptyDbLoad != 'all') edl.dataTypes(new HashSet(emptyDbLoad.split(",") as List))
+
+                try {
+                    long startTime = System.currentTimeMillis()
+                    long records = edl.load()
+
+                    logger.info("Loaded [${records}] records (with types: ${emptyDbLoad}) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                } catch (Throwable t) {
+                    logger.error("Error loading empty DB data (with types: ${emptyDbLoad})", t)
+                }
+
+            } finally {
+                ec.destroy()
+            }
+            return true
+        } else {
+            logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
+            return false
         }
     }
 
@@ -485,7 +533,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     EntityFacadeImpl getEntityFacade(String tenantId) {
         // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now
         if (tenantId == null) throw new IllegalArgumentException("For getEntityFacade tenantId cannot be null")
-        EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
+        EntityFacadeImpl efi = (EntityFacadeImpl) entityFacadeByTenantMap.get(tenantId)
         if (efi == null) efi = initEntityFacade(tenantId)
 
         return efi
@@ -719,17 +767,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @CompileStatic
     ExecutionContextImpl getEci() {
-        ExecutionContextImpl ec = this.activeContext.get()
-        if (ec != null) {
-            return ec
-        } else {
-            if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
-            if (!(Thread.currentThread().getContextClassLoader() instanceof StupidClassLoader))
-                Thread.currentThread().setContextClassLoader(cachedClassLoader)
-            ec = new ExecutionContextImpl(this)
-            this.activeContext.set(ec)
-            return ec
-        }
+        // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
+        ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
+        if (ec != null) return ec
+
+        if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
+        if (!(Thread.currentThread().getContextClassLoader() instanceof StupidClassLoader))
+            Thread.currentThread().setContextClassLoader(cachedClassLoader)
+        ec = new ExecutionContextImpl(this)
+        this.activeContext.set(ec)
+        return ec
     }
 
     void destroyActiveExecutionContext() {
@@ -738,6 +785,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ec.destroy()
             this.activeContext.remove()
         }
+    }
+
+    /** Using an EC in multiple threads is dangerous as much of the ECI is not designed to be thread safe. */
+    void useExecutionContextInThread(ExecutionContextImpl eci) {
+        ExecutionContextImpl curEc = activeContext.get()
+        if (curEc != null) curEc.destroy()
+        activeContext.set(eci)
     }
 
     @Override
@@ -969,7 +1023,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected boolean artifactPersistHit(String artifactType, String artifactSubType) {
         // now checked before calling this: if ("entity".equals(artifactType)) return false
         String cacheKey = artifactType + artifactSubType
-        Boolean ph = artifactPersistHitByType.get(cacheKey)
+        Boolean ph = (Boolean) artifactPersistHitByType.get(cacheKey)
         if (ph == null) {
             MNode artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
             ph = 'true'.equals(artifactStats.attribute('persist-hit'))
@@ -980,7 +1034,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @CompileStatic
     protected boolean artifactPersistBin(String artifactType, String artifactSubType) {
         String cacheKey = artifactType + artifactSubType
-        Boolean pb = artifactPersistBinByType.get(cacheKey)
+        Boolean pb = (Boolean) artifactPersistBinByType.get(cacheKey)
         if (pb == null) {
             MNode artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
             pb = 'true'.equals(artifactStats.attribute('persist-bin'))
@@ -991,7 +1045,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @CompileStatic
     boolean isAuthzEnabled(String artifactTypeEnumId) {
-        Boolean en = artifactTypeAuthzEnabled.get(artifactTypeEnumId)
+        Boolean en = (Boolean) artifactTypeAuthzEnabled.get(artifactTypeEnumId)
         if (en == null) {
             MNode aeNode = getArtifactExecutionNode(artifactTypeEnumId)
             en = aeNode != null ? !(aeNode.attribute('authz-enabled') == "false") : true
@@ -1001,7 +1055,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     @CompileStatic
     boolean isTarpitEnabled(String artifactTypeEnumId) {
-        Boolean en = artifactTypeTarpitEnabled.get(artifactTypeEnumId)
+        Boolean en = (Boolean) artifactTypeTarpitEnabled.get(artifactTypeEnumId)
         if (en == null) {
             MNode aeNode = getArtifactExecutionNode(artifactTypeEnumId)
             en = aeNode != null ? !(aeNode.attribute('tarpit-enabled') == "false") : true

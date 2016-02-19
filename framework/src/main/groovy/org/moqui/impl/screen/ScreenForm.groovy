@@ -110,9 +110,13 @@ class ScreenForm {
                     ScreenForm esf = esd ? esd.getForm(formName) : null
                     formNode = esf?.formNode
 
-                    // see if the included section contains any SECTIONS, need to reference those here too!
-                    for (MNode inclRefNode in formNode.depthFirst({ MNode it -> it.name == "section" || it.name == "section-iterate" })) {
-                        this.sd.sectionByName.put(inclRefNode.attribute("name"), esd.getSection(inclRefNode.attribute("name")))
+                    if (formNode != null) {
+                        // see if the included section contains any SECTIONS, need to reference those here too!
+                        Map<String, ArrayList<MNode>> descMap = formNode.descendants(new HashSet<String>(['section', 'section-iterate']))
+                        for (MNode inclRefNode in descMap.get("section"))
+                            this.sd.sectionByName.put(inclRefNode.attribute("name"), esd.getSection(inclRefNode.attribute("name")))
+                        for (MNode inclRefNode in descMap.get("section-iterate"))
+                            this.sd.sectionByName.put(inclRefNode.attribute("name"), esd.getSection(inclRefNode.attribute("name")))
                     }
                 }
             } else {
@@ -766,7 +770,7 @@ class ScreenForm {
         if (oneRelNode != null) {
             if (internalFormNode.attribute("name") == "UpdateMasterEntityValue") {
                 MNode linkNode = subFieldNode.append("link", [url:"edit",
-                        text:"Edit ${relatedEd.getPrettyName(null, null)} [\${fieldValues." + keyField + "}]".toString(),
+                        text:("Edit ${relatedEd.getPrettyName(null, null)} [\${fieldValues." + keyField + "}]").toString(),
                         condition:keyField, 'link-type':'anchor'] as Map<String, String>)
                 linkNode.append("parameter", [name:"aen", value:relatedEntityName])
                 linkNode.append("parameter", [name:relKeyField, from:"fieldValues.${keyField}".toString()])

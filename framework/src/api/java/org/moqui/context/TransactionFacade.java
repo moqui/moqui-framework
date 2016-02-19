@@ -13,6 +13,8 @@
  */
 package org.moqui.context;
 
+import groovy.lang.Closure;
+
 import javax.transaction.Synchronization;
 import javax.transaction.xa.XAResource;
 
@@ -60,6 +62,11 @@ import javax.transaction.xa.XAResource;
  * </pre>
  */
 public interface TransactionFacade {
+
+    /** Run in current transaction if one is in place, begin and commit/rollback if none is. */
+    Object runUseOrBegin(Integer timeout, String rollbackMessage, Closure closure);
+    /** Run in a separate transaction, even if one is in place. */
+    Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure);
 
     javax.transaction.TransactionManager getTransactionManager();
     javax.transaction.UserTransaction getUserTransaction();

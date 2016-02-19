@@ -146,19 +146,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
             }
         }
 
-        MNode screenNode = null
-        InputStream screenFileIs = null
-
-        try {
-            screenFileIs = screenRr.openStream()
-            screenNode = new MNode(new XmlParser().parse(screenFileIs))
-        } catch (IOException e) {
-            // probably because there is no resource at that location, so do nothing
-            throw new IllegalArgumentException("Error finding screen at location ${location}", e)
-        } finally {
-            if (screenFileIs != null) screenFileIs.close()
-        }
-
+        MNode screenNode = MNode.parse(screenRr)
         if (screenNode == null) {
             throw new IllegalArgumentException("Cound not find definition for screen at location [${location}]")
         }
@@ -261,16 +249,15 @@ public class ScreenFacadeImpl implements ScreenFacade {
     @CompileStatic
     MNode getWidgetTemplatesNodeByLocation(String templateLocation) {
         MNode templatesNode = (MNode) widgetTemplateLocationCache.get(templateLocation)
-        if (templatesNode) return templatesNode
+        if (templatesNode != null) return templatesNode
         return makeWidgetTemplatesNodeByLocation(templateLocation)
     }
 
     protected synchronized MNode makeWidgetTemplatesNodeByLocation(String templateLocation) {
         MNode templatesNode = (MNode) widgetTemplateLocationCache.get(templateLocation)
-        if (templatesNode) return templatesNode
+        if (templatesNode != null) return templatesNode
 
-        templatesNode = new MNode(new XmlParser().parse(ecfi.resourceFacade.getLocationStream(templateLocation)))
-
+        templatesNode = MNode.parse(templateLocation, ecfi.resourceFacade.getLocationStream(templateLocation))
         widgetTemplateLocationCache.put(templateLocation, templatesNode)
         return templatesNode
     }

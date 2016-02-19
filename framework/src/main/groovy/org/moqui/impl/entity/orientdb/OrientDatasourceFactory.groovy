@@ -25,6 +25,7 @@ import org.moqui.context.TransactionFacade
 import org.moqui.entity.*
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -193,10 +194,10 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
 
             // create all properties
             List<String> pkFieldNames = ed.getPkFieldNames()
-            ArrayList<EntityDefinition.FieldInfo> allFieldInfoList = ed.getAllFieldInfoList()
+            ArrayList<EntityJavaUtil.FieldInfo> allFieldInfoList = ed.getAllFieldInfoList()
             int allFieldInfoListSize = allFieldInfoList.size()
             for (int i = 0; i < allFieldInfoListSize; i++) {
-                EntityDefinition.FieldInfo fieldInfo = allFieldInfoList.get(i)
+                EntityJavaUtil.FieldInfo fieldInfo = allFieldInfoList.get(i)
                 String fieldName = fieldInfo.name
                 OProperty op = oc.createProperty(fieldInfo.columnName, getFieldType(fieldInfo.typeValue))
                 if (pkFieldNames.contains(fieldName)) op.setMandatory(true).setNotNull(true)

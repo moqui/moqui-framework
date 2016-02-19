@@ -201,13 +201,13 @@ class ScreenUrlInfo {
 
     boolean isPermitted(ExecutionContext ec) {
         ArtifactExecutionFacadeImpl aefi = (ArtifactExecutionFacadeImpl) ec.getArtifactExecution()
-        String username = ec.getUser().getUsername()
+        String userId = ec.getUser().getUserId()
 
         // if a user is permitted to view a certain location once in a render/ec they can safely be always allowed to, so cache it
         // add the username to the key just in case user changes during an EC instance
         String permittedCacheKey = null
         if (fullPathNameList) {
-            permittedCacheKey = (username ?: '_anonymous') + fullPathNameList.toString()
+            permittedCacheKey = (userId ?: '_anonymous') + fullPathNameList.toString()
             Boolean cachedPermitted = aefi.screenPermittedCache.get(permittedCacheKey)
             if (cachedPermitted != null) return cachedPermitted
         } else {
@@ -231,7 +231,7 @@ class ScreenUrlInfo {
             if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) return false
 
             String requireAuthentication = screenNode.attribute('require-authentication')
-            if (!aefi.isPermitted(username, aeii, lastAeii,
+            if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || requireAuthentication == "true") : false,
                     false, ec.getUser().getNowTimestamp())) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")

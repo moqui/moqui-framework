@@ -39,7 +39,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected ExecutionContextFactoryImpl ecfi
 
-    protected ContextStack context = new ContextStack()
+    protected final ContextStack context = new ContextStack()
+    protected final ContextBinding contextBinding = new ContextBinding(context)
     protected String activeTenantId = "DEFAULT"
     protected LinkedList<String> tenantIdStack = null
 
@@ -67,6 +68,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     Map<String, Object> getContextRoot() { return context.getRootMap() }
+
+    ContextBinding getContextBinding() { return contextBinding }
 
     @Override
     String getTenantId() { return activeTenantId }
@@ -182,7 +185,7 @@ class ExecutionContextImpl implements ExecutionContext {
         String sessionTenantId = request.session.getAttribute("moqui.tenantId")
         if (!sessionTenantId) {
             EntityValue tenantHostDefault = ecfi.getEntityFacade("DEFAULT").find("moqui.tenant.TenantHostDefault")
-                    .condition("hostName", request.getServerName()).useCache(true).disableAuthz().one()
+                    .condition("hostName", wfi.getHostName(false)).useCache(true).disableAuthz().one()
             if (tenantHostDefault) {
                 sessionTenantId = tenantHostDefault.tenantId
                 request.session.setAttribute("moqui.tenantId", sessionTenantId)
@@ -219,9 +222,10 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     boolean changeTenant(String tenantId) {
-        if (tenantId == activeTenantId) return false
+        String fromTenantId = activeTenantId
+        if (tenantId == fromTenantId) return false
 
-        logger.info("Changing to tenant ${tenantId} (from tenant ${activeTenantId})")
+        logger.info("Changing to tenant ${tenantId} (from tenant ${fromTenantId})")
         EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
         EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(true).one()
         if (tenant == null) throw new BaseException("Tenant not found with ID ${tenantId}")
@@ -234,23 +238,29 @@ class ExecutionContextImpl implements ExecutionContext {
         if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
             throw new BaseException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
 
-        // logout the current user, won't be valid in other tenant
-        if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
-
         activeTenantId = tenantId
         if (tenantIdStack == null) {
             tenantIdStack = new LinkedList<>()
-            tenantIdStack.addFirst(tenantId)
+            tenantIdStack.addFirst(fromTenantId)
         } else {
-            if (tenantIdStack.size() > 0 && tenantIdStack.getFirst() != tenantId) tenantIdStack.addFirst(tenantId)
+            if (tenantIdStack.size() == 0 || tenantIdStack.getFirst() != tenantId) tenantIdStack.addFirst(fromTenantId)
         }
         if (webFacade != null) webFacade.session.setAttribute("moqui.tenantId", tenantId)
+
+        // instead of logout the current user (won't be valid in other tenant) push empty user onto user stack
+        // if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
+        if (userFacade != null) userFacade.pushTenant(tenantId)
+
+        // logger.info("Tenant now ${activeTenantId}, username ${userFacade?.username}")
+
         return true
     }
     @Override
     boolean popTenant() {
         String lastTenantId = tenantIdStack ? tenantIdStack.removeFirst() : null
         if (lastTenantId) {
+            // logger.info("Pop tenant, last was ${lastTenantId}")
+            if (userFacade != null) userFacade.popTenant(activeTenantId)
             return changeTenant(lastTenantId)
         } else {
             return false

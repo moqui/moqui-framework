@@ -100,7 +100,7 @@ class SystemScreenRenderTests extends Specification {
         "Scheduler/History" | "Job Scheduled" | "clean_ArtifactData_daily"
 
         // Security screens
-        "Security/UserAccount/UserAccountList" | "john.doe" | "John Doe"
+        "Security/UserAccount/UserAccountList?username=john.doe" | "john.doe" | "John Doe"
         "Security/UserAccount/UserAccountDetail?userId=EX_JOHN_DOE" |
                 "john.doe@test.com" | "Administrators (full access)"
         "Security/UserGroup/UserGroupList" | "Administrators (full access)" | ""

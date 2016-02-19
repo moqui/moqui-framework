@@ -109,10 +109,11 @@ class EntityDataFeed {
         // logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.getEntityName()}] value: ${ev}")
         // if the value isn't modified don't register for DataFeed at all
         if (!ev.isModified()) return
+        if (oldValues == null) return
 
         // see if this should be added to the feed
-        List<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
-        if (entityInfoList) {
+        ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+        if (entityInfoList.size() > 0) {
             // logger.warn("============== found registered entity [${ev.getEntityName()}] value: ${ev}")
 
             // populate and pass the dataDocumentIdSet, and/or other things needed?
@@ -171,16 +172,20 @@ class EntityDataFeed {
     }
 
     final Set<String> dataFeedSkipEntities = new HashSet<String>(['moqui.entity.SequenceValueItem'])
+    protected final static ArrayList<DocumentEntityInfo> emptyList = new ArrayList<DocumentEntityInfo>()
 
-    List<DocumentEntityInfo> getDataFeedEntityInfoList(String fullEntityName) {
-        List<DocumentEntityInfo> entityInfoList = (List<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
+    // NOTE: this is called frequently (every create/update/delete)
+    ArrayList<DocumentEntityInfo> getDataFeedEntityInfoList(String fullEntityName) {
+        // this results in a castToType, maybe consider changing it to a local HashMap<String, ArrayList<DocumentEntityInfo>>
+        ArrayList<DocumentEntityInfo> entityInfoList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
         if (entityInfoList != null) return entityInfoList
+
         // after this point entityInfoList is null
-        if (dataFeedEntityInfo.containsKey(fullEntityName)) return null
+        if (dataFeedEntityInfo.containsKey(fullEntityName)) return emptyList
         // if this is an entity to skip, return now (do after primary lookup to avoid additional performance overhead in common case)
         if (dataFeedSkipEntities.contains(fullEntityName)) {
-            dataFeedEntityInfo.put(fullEntityName, [])
-            return null
+            dataFeedEntityInfo.put(fullEntityName, emptyList)
+            return emptyList
         }
 
         // logger.warn("=============== getting DocumentEntityInfo for [${fullEntityName}], from cache: ${entityInfoList}")
@@ -190,11 +195,14 @@ class EntityDataFeed {
             rebuildDataFeedEntityInfo()
 
             // now we should have all document entityInfos for all entities
-            entityInfoList = (List<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
+            entityInfoList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
             //logger.warn("============ got DocumentEntityInfo entityInfoList for [${fullEntityName}]: ${entityInfoList}")
         }
         // remember that we don't have any info
-        if (entityInfoList == null) dataFeedEntityInfo.put(fullEntityName, [])
+        if (entityInfoList == null) {
+            dataFeedEntityInfo.put(fullEntityName, emptyList)
+            entityInfoList = emptyList
+        }
         return entityInfoList
     }
 
@@ -217,15 +225,15 @@ class EntityDataFeed {
         }
         Set<String> fullDataDocumentIdSet = new HashSet<String>()
         for (EntityValue dataFeedAndDocument in dataFeedAndDocumentList)
-            fullDataDocumentIdSet.add((String) dataFeedAndDocument.dataDocumentId)
+            fullDataDocumentIdSet.add(dataFeedAndDocument.getString("dataDocumentId"))
 
         for (String dataDocumentId in fullDataDocumentIdSet) {
             Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId)
             // got a Map for all entities in the document, now split them by entity and add to master list for the entity
             for (Map.Entry<String, DocumentEntityInfo> entityInfoMapEntry in entityInfoMap.entrySet()) {
-                List<DocumentEntityInfo> newEntityInfoList = (List<DocumentEntityInfo>) dataFeedEntityInfo.get(entityInfoMapEntry.getKey())
+                ArrayList<DocumentEntityInfo> newEntityInfoList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(entityInfoMapEntry.getKey())
                 if (newEntityInfoList == null) {
-                    newEntityInfoList = []
+                    newEntityInfoList = new ArrayList<DocumentEntityInfo>()
                     dataFeedEntityInfo.put(entityInfoMapEntry.getKey(), newEntityInfoList)
                     // logger.warn("============= added dataFeedEntityInfo entry for entity [${entityInfoMapEntry.getKey()}]")
                 }
@@ -277,7 +285,7 @@ class EntityDataFeed {
                     currentTree = subTree
 
                     // make sure we have an entityInfo Map
-                    EntityDefinition.RelationshipInfo relInfo = currentEd.getRelationshipInfo(fieldPathElement)
+                    RelationshipInfo relInfo = currentEd.getRelationshipInfo(fieldPathElement)
                     if (relInfo == null) throw new EntityException("Could not find relationship [${fieldPathElement}] from entity [${currentEd.getFullEntityName()}] as part of DataDocumentField.fieldPath [${fieldPath}]")
                     String relEntityName = relInfo.relatedEntityName
                     EntityDefinition relEd = relInfo.relatedEd

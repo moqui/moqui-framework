@@ -16,7 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.entity.EntityException
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.util.MNode
 
 import java.sql.Connection
@@ -42,13 +42,13 @@ class EntityQueryBuilder {
     EntityDefinition mainEntityDefinition
     // init the StringBuilder fairly large to avoid having to grow the buffer
     protected final static int sqlInitSize = 500
-    protected StringBuilder sqlTopLevel = new StringBuilder(sqlInitSize)
+    protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize)
     protected final static int parametersInitSize = 10
     protected ArrayList<EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
 
-    protected PreparedStatement ps
-    protected ResultSet rs
-    protected Connection connection
+    protected PreparedStatement ps = (PreparedStatement) null
+    protected ResultSet rs = (ResultSet) null
+    protected Connection connection = (Connection) null
     protected boolean externalConnection = false
 
     EntityQueryBuilder(EntityDefinition entityDefinition, EntityFacadeImpl efi) {
@@ -59,80 +59,80 @@ class EntityQueryBuilder {
     EntityDefinition getMainEd() { return mainEntityDefinition }
 
     /** @return StringBuilder meant to be appended to */
-    StringBuilder getSqlTopLevel() { return this.sqlTopLevel }
+    StringBuilder getSqlTopLevel() { return sqlTopLevelInternal }
 
     /** returns List of EntityConditionParameter meant to be added to */
-    ArrayList<EntityConditionParameter> getParameters() { return this.parameters }
+    ArrayList<EntityConditionParameter> getParameters() { return parameters }
 
     Connection makeConnection() {
-        this.connection = this.efi.getConnection(mainEntityDefinition.getEntityGroupName())
-        return this.connection
+        connection = efi.getConnection(mainEntityDefinition.getEntityGroupName())
+        return connection
     }
 
-    void useConnection(Connection c) { this.connection = c; externalConnection = true }
+    void useConnection(Connection c) { connection = c; externalConnection = true }
 
     protected static void handleSqlException(Exception e, String sql) {
         throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)
     }
 
     PreparedStatement makePreparedStatement() {
-        if (this.connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
-        String sql = this.getSqlTopLevel().toString()
+        if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
+        String sql = sqlTopLevelInternal.toString()
         // if (this.mainEntityDefinition.getFullEntityName().contains("foo")) logger.warn("========= making crud PreparedStatement for SQL: ${sql}")
         if (logger.isDebugEnabled()) logger.debug("making crud PreparedStatement for SQL: ${sql}")
         try {
-            this.ps = connection.prepareStatement(sql)
+            ps = connection.prepareStatement(sql)
         } catch (SQLException sqle) {
             handleSqlException(sqle, sql)
         }
-        return this.ps
+        return ps
     }
 
     ResultSet executeQuery() throws EntityException {
-        if (this.ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
+        if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
         try {
             long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
-            this.rs = this.ps.executeQuery()
-            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
-            return this.rs
+            rs = ps.executeQuery()
+            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
+            return rs
         } catch (SQLException sqle) {
-            throw new EntityException("Error in query for:" + this.sqlTopLevel, sqle)
+            throw new EntityException("Error in query for:" + sqlTopLevelInternal, sqle)
         }
     }
 
     public int executeUpdate() throws EntityException {
         if (this.ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place")
         try {
-            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0
+            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
             int rows = ps.executeUpdate()
-            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${getSqlTopLevel().toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
+            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
         } catch (SQLException sqle) {
-            throw new EntityException("Error in update for:" + this.sqlTopLevel, sqle)
+            throw new EntityException("Error in update for:" + sqlTopLevelInternal, sqle)
         }
     }
 
     /** NOTE: this should be called in a finally clause to make sure things are closed */
     void closeAll() {
-        if (this.ps != null) {
-            this.ps.close()
-            this.ps = null
+        if (ps != null) {
+            ps.close()
+            ps = (PreparedStatement) null
         }
-        if (this.rs != null) {
-            this.rs.close()
-            this.rs = null
+        if (rs != null) {
+            rs.close()
+            rs = (ResultSet) null
         }
-        if (this.connection != null && !externalConnection) {
-            this.connection.close()
-            this.connection = null
+        if (connection != null && !externalConnection) {
+            connection.close()
+            connection = (Connection) null
         }
     }
 
     /** For when closing to be done in other places, like a EntityListIteratorImpl */
     void releaseAll() {
-        this.ps = null
-        this.rs = null
-        this.connection = null
+        ps = (PreparedStatement) null
+        rs = (ResultSet) null
+        connection = (Connection) null
     }
 
     static String sanitizeColumnName(String colName) {
@@ -143,9 +143,13 @@ class EntityQueryBuilder {
         return interim
     }
 
+    /* no longer used, the static method is used directly everywhere, more efficient
     void getResultSetValue(int index, FieldInfo fieldInfo, EntityValueImpl entityValueImpl) throws EntityException {
-        getResultSetValue(this.rs, index, fieldInfo, entityValueImpl, this.efi)
+        Map<String, Object> valueMap = entityValueImpl.getValueMap()
+        String entityName = entityValueImpl.getEntityName()
+        getResultSetValue(this.rs, index, fieldInfo, valueMap, entityName, this.efi)
     }
+    */
 
     void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
         setPreparedStatementValue(this.ps, index, value, fieldInfo, this.mainEntityDefinition, this.efi)
@@ -156,7 +160,7 @@ class EntityQueryBuilder {
         ArrayList<EntityConditionParameter> parms = parameters
         int size = parms.size()
         for (int i = 0; i < size; i++) {
-            EntityConditionParameter entityConditionParam = parms.get(i)
+            EntityConditionParameter entityConditionParam = (EntityConditionParameter) parms.get(i)
             entityConditionParam.setPreparedStatementValue(i + 1)
         }
     }
@@ -188,24 +192,23 @@ class EntityQueryBuilder {
         String toString() { return fieldInfo.name + ':' + value }
     }
 
-    static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, EntityValueImpl entityValueImpl,
-                                            EntityFacadeImpl efi) throws EntityException {
+    static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, Map<String, Object> valueMap,
+                                  String entityName, EntityFacadeImpl efi) throws EntityException {
         String fieldName = fieldInfo.name
-
-        Object value = EntityJavaUtil.getResultSetValue(rs, index, fieldInfo.type, fieldInfo.typeValue, efi)
+        Object value = EntityJavaUtil.getResultSetValue(rs, index, fieldInfo, efi)
 
         // if field is to be encrypted, do it now
-        if (fieldInfo.encrypt && value != null) {
-            if (fieldInfo.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityValueImpl.getEntityName()}]")
+        if (value != null && fieldInfo.encrypt) {
+            if (fieldInfo.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityName}]")
             String original = value.toString()
             try {
                 value = enDeCrypt(original, false, efi)
             } catch (Exception e) {
-                logger.error("Error decrypting field [${fieldName}] of entity [${entityValueImpl.getEntityName()}]", e)
+                logger.error("Error decrypting field [${fieldName}] of entity [${entityName}]", e)
             }
         }
 
-        entityValueImpl.getValueMap().put(fieldName, value)
+        valueMap.put(fieldName, value)
     }
 
     public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
@@ -247,14 +250,13 @@ class EntityQueryBuilder {
         return encrypt ? Hex.encodeHexString(outBytes) : new String(outBytes)
     }
 
+    static final boolean checkPreparedStatementValueType = false
     static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fieldInfo,
                                           EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
-        String entityName = ed.getFullEntityName()
-        String fieldName = fieldInfo.name
         String javaType = fieldInfo.javaType
         int typeValue = fieldInfo.typeValue
         if (value != null) {
-            if (!StupidJavaUtilities.isInstanceOf(value, javaType)) {
+            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, javaType)) {
                 // this is only an info level message because under normal operation for most JDBC
                 // drivers this will be okay, but if not then the JDBC driver will throw an exception
                 // and when lower debug levels are on this should help give more info on what happened
@@ -265,7 +267,7 @@ class EntityQueryBuilder {
                     fieldClassName = "char[]"
                 }
 
-                if (logger.isTraceEnabled()) logger.trace((String) "Type of field " + entityName + "." + fieldName +
+                if (logger.isTraceEnabled()) logger.trace((String) "Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
                         " is " + fieldClassName + ", was expecting " + javaType + " this may " +
                         "indicate an error in the configuration or in the class, and may result " +
                         "in an SQL-Java data conversion error. Will use the real field type: " +
@@ -276,7 +278,7 @@ class EntityQueryBuilder {
 
             // if field is to be encrypted, do it now
             if (fieldInfo.encrypt) {
-                if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityName}]")
+                if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldInfo.name}] of entity [${ed.getFullEntityName()}]")
                 String original = value as String
                 value = enDeCrypt(original, true, efi)
             }
@@ -287,23 +289,11 @@ class EntityQueryBuilder {
             useBinaryTypeForBlob = ("true" == efi.getDatabaseNode(ed.getEntityGroupName()).attribute('use-binary-type-for-blob'))
         }
         try {
-            EntityJavaUtil.setPreparedStatementValue(ps, index, value, typeValue, useBinaryTypeForBlob, efi)
+            EntityJavaUtil.setPreparedStatementValue(ps, index, value, fieldInfo, useBinaryTypeForBlob, efi)
         } catch (EntityException e) {
             throw e
         } catch (Exception e) {
-            throw new EntityException("Error setting prepared statement field [${fieldName}] of entity [${entityName}]", e)
+            throw new EntityException("Error setting prepared statement field [${fieldInfo.name}] of entity [${ed.getFullEntityName()}]", e)
         }
-    }
-
-    static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, EntityDefinition ed,
-                                          EntityFacadeImpl efi) throws EntityException {
-        int typeValue = value ? EntityFacadeImpl.getJavaTypeInt(value.class.name) : 1
-        // useBinaryTypeForBlob is only needed for types 11/Object and 12/Blob, faster to not determine otherwise
-        boolean useBinaryTypeForBlob = false
-        if (typeValue == 11 || typeValue == 12) {
-            useBinaryTypeForBlob = ("true" == efi.getDatabaseNode(ed.getEntityGroupName()).attribute('use-binary-type-for-blob'))
-        }
-        EntityJavaUtil.setPreparedStatementValue(ps, index, value, typeValue, useBinaryTypeForBlob, efi)
-
     }
 }

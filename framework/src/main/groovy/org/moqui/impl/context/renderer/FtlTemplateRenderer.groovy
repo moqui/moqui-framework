@@ -24,6 +24,7 @@ import freemarker.template.TemplateExceptionHandler
 import freemarker.template.TemplateException
 import freemarker.template.TemplateNotFoundException
 import freemarker.template.Version
+import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
@@ -33,6 +34,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class FtlTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class)
 
