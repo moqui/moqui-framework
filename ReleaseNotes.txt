@@ -77,6 +77,9 @@ New Features
     separate thread and waits for the service to complete
   - Added service.@semaphore-parameter attribute which creates a distinct
     semaphore per value of that parameter
+  - Services called with a ServiceResultWaiter now get messages passed
+    through from the service job in the current MessageFacade (through
+    the MessageFacadeException), better handling for other Throwable
 
 Bug Fixes
 

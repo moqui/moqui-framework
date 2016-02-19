@@ -130,7 +130,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     ServiceResultWaiter callWaiter() {
-        ServiceResultWaiter resultWaiter = new ServiceResultWaiter()
+        ServiceResultWaiter resultWaiter = new ServiceResultWaiter(sfi.getEcfi().getEci())
         this.resultReceiver(resultWaiter)
         this.call()
         return resultWaiter

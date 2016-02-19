@@ -375,15 +375,15 @@ class ScreenRenderImpl implements ScreenRender {
                 }
             }
 
+            // save messages in session before redirecting so they can be displayed on the next screen
+            if (wfi != null) {
+                wfi.saveMessagesToSession()
+                if (ri.saveParameters) wfi.saveRequestParametersToSession()
+                if (ec.message.hasError()) wfi.saveErrorParametersToSession()
+            }
+
             // either send a redirect for the response, if possible, or just render the response now
             if (this.response != null) {
-                // save messages in session before redirecting so they can be displayed on the next screen
-                if (wfi != null) {
-                    wfi.saveMessagesToSession()
-                    if (ri.saveParameters) wfi.saveRequestParametersToSession()
-                    if (ec.message.hasError()) wfi.saveErrorParametersToSession()
-                }
-
                 if (urlType == "plain") {
                     StringBuilder ps = new StringBuilder()
                     Map<String, String> pm = (Map<String, String>) ri.expandParameters(screenUrlInfo.getExtraPathNameList(), ec)
