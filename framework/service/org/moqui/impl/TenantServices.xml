@@ -142,6 +142,25 @@ along with this software (see the LICENSE.md file). If not, see
             ]]></script>
         </actions>
     </service>
+    <service verb="create" noun="TenantAdminAccount">
+        <implements service="org.moqui.impl.UserServices.create#UserAccount"/>
+        <in-parameters><parameter name="tenantId" required="true"/></in-parameters>
+        <actions>
+            <if condition="ec.tenantId != 'DEFAULT'"><return error="true" message="Tenants can only be managed from the DEFAULT tenant"/></if>
+
+            <script>
+                ec.changeTenant(tenantId)
+                ec.getUser().loginAnonymousIfNoUser()
+                ec.getArtifactExecution().disableAuthz()
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+            </script>
+
+            <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
+            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"/>
+
+            <script>ec.popTenant()</script>
+        </actions>
+    </service>
 
     <service verb="provision" noun="TenantDerby">
         <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
