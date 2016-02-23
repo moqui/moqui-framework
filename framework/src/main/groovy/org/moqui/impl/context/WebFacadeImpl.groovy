@@ -292,7 +292,11 @@ class WebFacadeImpl implements WebFacade {
 
     @Override
     @CompileStatic
-    List<Map> getScreenHistory() { return (LinkedList<Map>) session.getAttribute("moqui.screen.history") }
+    List<Map> getScreenHistory() {
+        LinkedList<Map> histList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
+        if (histList == null) histList = new LinkedList<Map>()
+        return histList
+    }
 
 
     @Override
