@@ -47,7 +47,7 @@
         <cache name="resource.text.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
         <cache name="resource.reference.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
 
-        <cache name="l10n.message" expire-time-idle="0" expire-time-live="0" max-elements="50000"/>
+        <cache name="l10n.message" expire-time-idle="3600" expire-time-live="0" max-elements="50000"/>
 
         <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
         <cache name="artifact.tarpit.hits" expire-time-idle="900" expire-time-live="0" max-elements="10000"/>
