@@ -53,6 +53,26 @@ public class CacheFacadeImpl implements CacheFacade {
 
     void destroy() { cacheManager.shutdown() }
 
+    protected String getFullName(String cacheName, String tenantId) {
+        if (cacheName == null) return null
+        if (cacheName.contains("__")) return cacheName
+        MNode cacheElement = getCacheNode(cacheName)
+        if (cacheElement?.attribute("tenants-share") == "true") {
+            return cacheName
+        } else {
+            if (!tenantId) tenantId = ecfi.getEci().getTenantId()
+            return tenantId.concat("__").concat(cacheName)
+        }
+    }
+    protected MNode getCacheNode(String cacheName) {
+        MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
+        MNode cacheElement = cacheListNode.first({ MNode it -> it.name == "cache" && it.attribute("name") == cacheName })
+        // nothing found? try starts with, ie allow the cache configuration to be a prefix
+        if (cacheElement == null) cacheElement = cacheListNode
+                .first({ MNode it -> it.name == "cache" && cacheName.startsWith(it.attribute("name")) })
+        return cacheElement
+    }
+
     @Override
     void clearAllCaches() { cacheManager.clearAll() }
 
@@ -66,24 +86,22 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     @Override
-    void clearCachesByPrefix(String prefix) { cacheManager.clearAllStartingWith(prefix) }
+    void clearCachesByPrefix(String prefix) { cacheManager.clearAllStartingWith(getFullName(prefix, null)) }
 
     @Override
-    @CompileStatic
-    Cache getCache(String cacheName) { return getCacheImpl(cacheName) }
+    Cache getCache(String cacheName) { return getCacheImpl(cacheName, null) }
 
-    @CompileStatic
-    CacheImpl getCacheImpl(String cacheName) {
-        CacheImpl theCache = localCacheImplMap.get(cacheName)
+    CacheImpl getCacheImpl(String cacheName, String tenantId) {
+        String fullName = getFullName(cacheName, tenantId)
+        CacheImpl theCache = localCacheImplMap.get(fullName)
         if (theCache == null) {
-            localCacheImplMap.putIfAbsent(cacheName, new CacheImpl(initCache(cacheName)))
-            theCache = localCacheImplMap.get(cacheName)
+            localCacheImplMap.putIfAbsent(fullName, new CacheImpl(initCache(cacheName, tenantId)))
+            theCache = localCacheImplMap.get(fullName)
         }
         return theCache
     }
 
-    @CompileStatic
-    boolean cacheExists(String cacheName) { return cacheManager.cacheExists(cacheName) }
+    boolean cacheExists(String cacheName) { return cacheManager.cacheExists(getFullName(cacheName, null)) }
     String[] getCacheNames() { return cacheManager.getCacheNames() }
 
     List<Map<String, Object>> getAllCachesInfo(String orderByField) {
@@ -110,21 +128,19 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
 
-    protected synchronized net.sf.ehcache.Cache initCache(String cacheName) {
-        if (cacheManager.cacheExists(cacheName)) return cacheManager.getCache(cacheName)
+    protected synchronized net.sf.ehcache.Cache initCache(String cacheName, String tenantId) {
+        if (cacheName.contains("__")) cacheName = cacheName.substring(cacheName.indexOf("__") + 2)
+        String fullCacheName = getFullName(cacheName, tenantId)
+        if (cacheManager.cacheExists(fullCacheName)) return cacheManager.getCache(fullCacheName)
 
         // make a cache with the default settings from ehcache.xml
-        cacheManager.addCacheIfAbsent(cacheName)
-        net.sf.ehcache.Cache newCache = cacheManager.getCache(cacheName)
+        cacheManager.addCacheIfAbsent(fullCacheName)
+        net.sf.ehcache.Cache newCache = cacheManager.getCache(fullCacheName)
         // not supported in 2.7.2: newCache.setSampledStatisticsEnabled(true)
 
         // set any applicable settings from the moqui conf xml file
         CacheConfiguration newCacheConf = newCache.getCacheConfiguration()
-        MNode confXmlRoot = this.ecfi.getConfXmlRoot()
-        MNode cacheElement = confXmlRoot.first("cache-list").first({ MNode it -> it.name == "cache" && it.attribute("name") == cacheName })
-        // nothing found? try starts with, ie allow the cache configuration to be a prefix
-        if (cacheElement == null) cacheElement = confXmlRoot.first("cache-list")
-                .first({ MNode it -> it.name == "cache" && cacheName.startsWith(it.attribute("name")) })
+        MNode cacheElement = getCacheNode(cacheName)
 
         boolean eternal = true
         if (cacheElement?.attribute("expire-time-idle")) {
@@ -151,7 +167,7 @@ public class CacheFacadeImpl implements CacheFacade {
             }
         }
 
-        if (logger.isTraceEnabled()) logger.trace("Initialized new cache [${cacheName}]")
+        if (logger.isTraceEnabled()) logger.trace("Initialized new cache [${fullCacheName}]")
         return newCache
     }
 }

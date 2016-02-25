@@ -74,6 +74,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="tenants-share" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 

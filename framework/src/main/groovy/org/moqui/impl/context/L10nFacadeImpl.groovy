@@ -39,11 +39,9 @@ public class L10nFacadeImpl implements L10nFacade {
     final static CalendarValidator calendarValidator = new CalendarValidator()
 
     protected final ExecutionContextImpl eci
-    protected final Cache l10nMessage
 
     L10nFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
-        l10nMessage = eci.getEcfi().getCacheFacade().getCache("l10n.message")
     }
 
     protected Locale getLocale() { return eci.getUser().getLocale() }
@@ -64,7 +62,7 @@ public class L10nFacadeImpl implements L10nFacade {
         String localeString = locale.toString()
 
         String cacheKey = original + "::" + localeString
-        String lmsg = l10nMessage.get(cacheKey)
+        String lmsg = eci.getL10nMessageCache().get(cacheKey)
         if (lmsg != null) return lmsg
 
         String defaultValue = original
@@ -95,7 +93,7 @@ public class L10nFacadeImpl implements L10nFacade {
         }
 
         String result = localizedMessage != null ? localizedMessage.localized : defaultValue
-        l10nMessage.put(cacheKey, result)
+        eci.getL10nMessageCache().put(cacheKey, result)
         return result
     }
 

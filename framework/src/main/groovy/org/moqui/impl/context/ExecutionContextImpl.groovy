@@ -52,6 +52,12 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected Boolean skipStats = null
 
+    // Caches from EC level facades that are per-tenant so managed here
+    protected CacheImpl l10nMessageCache
+    // NOTE: there is no code to clean out old entries in tarpitHitCache, using the cache idle expire time for that
+    protected CacheImpl tarpitHitCache
+
+
     ExecutionContextImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
         // NOTE: no WebFacade init here, wait for call in to do that
@@ -64,10 +70,19 @@ class ExecutionContextImpl implements ExecutionContext {
         artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this)
         l10nFacade = new L10nFacadeImpl(this)
 
+        initCaches()
+
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl initialized")
     }
 
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
+
+    void initCaches() {
+        tarpitHitCache = ecfi.getCacheFacade().getCacheImpl("artifact.tarpit.hits", activeTenantId)
+        l10nMessageCache = ecfi.getCacheFacade().getCacheImpl("l10n.message", activeTenantId)
+    }
+    CacheImpl getTarpitHitCache() { return tarpitHitCache }
+    CacheImpl getL10nMessageCache() { return l10nMessageCache }
 
     @Override
     ContextStack getContext() { return context }
@@ -258,6 +273,9 @@ class ExecutionContextImpl implements ExecutionContext {
         if (userFacade != null) userFacade.pushTenant(tenantId)
 
         // logger.info("Tenant now ${activeTenantId}, username ${userFacade?.username}")
+
+        // re-init caches for new tenantId
+        initCaches()
 
         return true
     }

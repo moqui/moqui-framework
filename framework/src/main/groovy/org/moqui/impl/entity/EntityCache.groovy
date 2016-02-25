@@ -45,26 +45,26 @@ class EntityCache {
         this.efi = efi
         this.cfi = efi.ecfi.getCacheFacade()
 
-        oneKeyBase = "entity.record.one.${efi.tenantId}.".toString()
-        oneRaKeyBase = "entity.record.one_ra.${efi.tenantId}.".toString()
-        oneBfKey = "entity.record.one_bf.${efi.tenantId}".toString()
-        listKeyBase = "entity.record.list.${efi.tenantId}.".toString()
-        listRaKeyBase = "entity.record.list_ra.${efi.tenantId}.".toString()
-        listViewRaKeyBase = "entity.record.list_view_ra.${efi.tenantId}.".toString()
-        countKeyBase = "entity.record.count.${efi.tenantId}.".toString()
+        oneKeyBase = "entity.record.one."
+        oneRaKeyBase = "entity.record.one_ra."
+        oneBfKey = "entity.record.one_bf"
+        listKeyBase = "entity.record.list."
+        listRaKeyBase = "entity.record.list_ra."
+        listViewRaKeyBase = "entity.record.list_view_ra."
+        countKeyBase = "entity.record.count."
     }
 
     // EntityFacadeImpl getEfi() { return efi }
 
-    CacheImpl getCacheOne(String entityName) { return cfi.getCacheImpl(oneKeyBase.concat(entityName)) }
-    private CacheImpl getCacheOneRa(String entityName) { return cfi.getCacheImpl(oneRaKeyBase.concat(entityName)) }
-    private CacheImpl getCacheOneBf() { return cfi.getCacheImpl(oneBfKey) }
+    CacheImpl getCacheOne(String entityName) { return cfi.getCacheImpl(oneKeyBase.concat(entityName), efi.tenantId) }
+    private CacheImpl getCacheOneRa(String entityName) { return cfi.getCacheImpl(oneRaKeyBase.concat(entityName), efi.tenantId) }
+    private CacheImpl getCacheOneBf() { return cfi.getCacheImpl(oneBfKey, efi.tenantId) }
 
-    CacheImpl getCacheList(String entityName) { return cfi.getCacheImpl(listKeyBase.concat(entityName)) }
-    private CacheImpl getCacheListRa(String entityName) { return cfi.getCacheImpl(listRaKeyBase.concat(entityName)) }
-    private CacheImpl getCacheListViewRa(String entityName) { return cfi.getCacheImpl(listViewRaKeyBase.concat(entityName)) }
+    CacheImpl getCacheList(String entityName) { return cfi.getCacheImpl(listKeyBase.concat(entityName), efi.tenantId) }
+    private CacheImpl getCacheListRa(String entityName) { return cfi.getCacheImpl(listRaKeyBase.concat(entityName), efi.tenantId) }
+    private CacheImpl getCacheListViewRa(String entityName) { return cfi.getCacheImpl(listViewRaKeyBase.concat(entityName), efi.tenantId) }
 
-    CacheImpl getCacheCount(String entityName) { return cfi.getCacheImpl(countKeyBase.concat(entityName)) }
+    CacheImpl getCacheCount(String entityName) { return cfi.getCacheImpl(countKeyBase.concat(entityName), efi.tenantId) }
 
     static class EmptyRecord extends EntityValueImpl {
         EmptyRecord(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip) }
@@ -149,7 +149,7 @@ class EntityCache {
             if (cfi.cacheExists(oneKey)) {
                 pkCondition = efi.getConditionFactory().makeCondition(evb.getPrimaryKeys())
 
-                CacheImpl entityOneCache = cfi.getCacheImpl(oneKey)
+                CacheImpl entityOneCache = cfi.getCacheImpl(oneKey, efi.tenantId)
                 Ehcache eocEhc = entityOneCache.getInternalCache()
                 // clear by PK, most common scenario
                 eocEhc.remove(pkCondition)
@@ -192,7 +192,7 @@ class EntityCache {
             if (cfi.cacheExists(listKey)) {
                 if (pkCondition == null) pkCondition = efi.getConditionFactory().makeCondition(evb.getPrimaryKeys())
 
-                CacheImpl entityListCache = cfi.getCacheImpl(listKey)
+                CacheImpl entityListCache = cfi.getCacheImpl(listKey, efi.tenantId)
                 Ehcache elEhc = entityListCache.getInternalCache()
 
                 // if this was a create the RA cache won't help, so go through EACH entry and see if it matches the created value
@@ -254,7 +254,7 @@ class EntityCache {
             // clear count cache (no RA because we only have a count to work with, just match by condition)
             String countKey = countKeyBase.concat(fullEntityName)
             if (cfi.cacheExists(countKey)) {
-                CacheImpl entityCountCache = cfi.getCacheImpl(countKey)
+                CacheImpl entityCountCache = cfi.getCacheImpl(countKey, efi.tenantId)
                 Ehcache ecEhc = entityCountCache.getInternalCache()
                 List<EntityCondition> ecEhcKeys = (List<EntityCondition>) ecEhc.getKeys()
                 Iterator<EntityCondition> ecEhcKeysIter = ecEhcKeys.iterator()
