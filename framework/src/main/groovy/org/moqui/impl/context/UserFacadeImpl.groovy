@@ -746,6 +746,10 @@ class UserFacadeImpl implements UserFacade {
                 localeCache = ufi.request != null ? ufi.request.getLocale() : Locale.getDefault()
                 tzCache = TimeZone.getDefault()
             }
+
+            internalUserGroupIdSet = (Set<String>) null
+            internalArtifactTarpitCheckList = (EntityList) null
+            internalArtifactAuthzCheckList = (EntityList) null
         }
 
         String getUsername() { return username }

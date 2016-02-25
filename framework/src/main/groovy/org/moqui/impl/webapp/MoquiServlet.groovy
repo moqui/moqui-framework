@@ -102,7 +102,7 @@ class MoquiServlet extends HttpServlet {
 
         if (logger.isInfoEnabled() || logger.isTraceEnabled()) {
             String contentType = response.getContentType()
-            String logMsg = "Finished request to [${pathInfo}] of content type [${response.getContentType()}] in [${(System.currentTimeMillis()-startTime)/1000}] seconds in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]"
+            String logMsg = "Finished request to ${pathInfo} of content type ${response.getContentType()} in ${(System.currentTimeMillis()-startTime)/1000} seconds in session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}"
             if (logger.isInfoEnabled() && contentType && contentType.contains("text/html")) logger.info(logMsg)
             if (logger.isTraceEnabled()) logger.trace(logMsg)
         }

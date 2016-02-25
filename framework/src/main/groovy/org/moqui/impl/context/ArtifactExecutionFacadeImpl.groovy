@@ -52,8 +52,6 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected Deque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
     protected List<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
 
-    // NOTE: there is no code to clean out old entries in tarpitHitCache, using the cache idle expire time for that
-    protected Cache tarpitHitCache
     protected EntityCondition nameIsPatternEqualsY
     // this is used by ScreenUrlInfo.isPermitted() which is called a lot, but that is transient so put here to have one per EC instance
     protected Map<String, Boolean> screenPermittedCache = null
@@ -63,7 +61,6 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     ArtifactExecutionFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
-        this.tarpitHitCache = eci.cache.getCache("artifact.tarpit.hits")
         nameIsPatternEqualsY = eci.getEntity().getConditionFactory().makeCondition("nameIsPattern", ComparisonOperator.EQUALS, "Y")
     }
 
@@ -274,7 +271,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                                 aeii.getName().matches(artifactTarpit.getString('artifactName'))) ||
                                 aeii.getName().equals(artifactTarpit.get('artifactName'))) {
                             recordHitTime = true
-                            if (hitTimeList == null) hitTimeList = (ArrayList<Long>) tarpitHitCache.get(tarpitKey)
+                            if (hitTimeList == null) hitTimeList = (ArrayList<Long>) eci.tarpitHitCache.get(tarpitKey)
                             long maxHitsDuration = artifactTarpit.getLong('maxHitsDuration')
                             // count hits in this duration; start with 1 to count the current hit
                             long hitsInDuration = 1
@@ -295,7 +292,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         }
                     }
                     if (recordHitTime) {
-                        if (hitTimeList == null) { hitTimeList = new ArrayList<Long>(); tarpitHitCache.put(tarpitKey, hitTimeList) }
+                        if (hitTimeList == null) { hitTimeList = new ArrayList<Long>(); eci.tarpitHitCache.put(tarpitKey, hitTimeList) }
                         hitTimeList.add(System.currentTimeMillis())
                         // logger.warn("TOREMOVE recorded hit time for [${tarpitKey}], now has ${hitTimeList.size()} hits")
 
@@ -316,7 +313,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         eci.getService().sync().name('create', 'moqui.security.ArtifactTarpitLock').parameters(
                                 [userId:userId, artifactName:aeii.getName(), artifactTypeEnumId:aeii.getTypeEnumId(),
                                  releaseDateTime:(new Timestamp(checkTime + ((lockForSeconds as BigDecimal) * 1000).intValue()))]).call()
-                        tarpitHitCache.remove(tarpitKey)
+                        eci.tarpitHitCache.remove(tarpitKey)
                     }
                 }
             }

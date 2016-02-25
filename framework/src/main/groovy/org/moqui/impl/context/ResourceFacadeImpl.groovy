@@ -493,11 +493,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
         if (!inputString) return ""
 
+        ExecutionContextImpl eci = ecfi.getEci()
+
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         ContextStack cs = null
         if (doPushPop) {
-            ExecutionContext ec = ecfi.getExecutionContext()
-            cs = (ContextStack) ec.context
+            cs = (ContextStack) eci.context
         }
         try {
             if (doPushPop) {
@@ -508,7 +509,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
 
             // localize string before expanding
-            if (localize && inputString.length() < 256) inputString = ecfi.l10nFacade.localize(inputString)
+            if (localize && inputString.length() < 256) inputString = eci.l10nFacade.localize(inputString)
             // if no $ then it's a plain String, just return it
             if (!inputString.contains('$')) return inputString
 

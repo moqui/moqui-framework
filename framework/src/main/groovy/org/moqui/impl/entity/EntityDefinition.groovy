@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextImpl
 
 import java.sql.Timestamp
 
@@ -737,6 +738,11 @@ public class EntityDefinition {
     }
 
     protected void buildComplexAliasName(MNode parentNode, String operator, StringBuilder colNameBuilder) {
+        //TODO expand expression against current context
+        colNameBuilder.append(parentNode.attribute('expression') ?: '')
+        if (parentNode.children.isEmpty()) {
+            return
+        }
         colNameBuilder.append('(')
         boolean isFirst = true
         for (MNode childNode in parentNode.children) {
@@ -1437,6 +1443,8 @@ public class EntityDefinition {
 
     void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks) {
         if (src == null || dest == null) return
+
+        ExecutionContextImpl eci = efi.ecfi.getEci()
         boolean destIsEntityValueBase = dest instanceof EntityValueBase
         EntityValueBase destEvb = destIsEntityValueBase ? (EntityValueBase) dest : null
 
@@ -1469,10 +1477,10 @@ public class EntityDefinition {
                 if (!isEmpty) {
                     if (isCharSequence) {
                         try {
-                            Object converted = convertFieldString(fieldName, value.toString())
+                            Object converted = convertFieldString(fieldName, value.toString(), eci)
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted) else dest.put(fieldName, converted)
                         } catch (BaseException be) {
-                            this.efi.ecfi.executionContext.message.addValidationError(null, fieldName, null, be.getMessage(), be)
+                            eci.message.addValidationError(null, fieldName, null, be.getMessage(), be)
                         }
                     } else {
                         if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value) else dest.put(fieldName, value)
@@ -1492,6 +1500,7 @@ public class EntityDefinition {
         // like above with setIfEmpty=true, namePrefix=null, pks=null
         if (src == null || dest == null) return
 
+        ExecutionContextImpl eci = efi.ecfi.getEci()
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
         // ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
@@ -1517,10 +1526,10 @@ public class EntityDefinition {
                 if (!isEmpty) {
                     if (isCharSequence) {
                         try {
-                            Object converted = convertFieldInfoString(fi, value.toString())
+                            Object converted = convertFieldInfoString(fi, value.toString(), eci)
                             dest.putNoCheck(fieldName, converted)
                         } catch (BaseException be) {
-                            this.efi.ecfi.executionContext.message.addValidationError(null, fieldName, null, be.getMessage(), be)
+                            eci.message.addValidationError(null, fieldName, null, be.getMessage(), be)
                         }
                     } else {
                         dest.putNoCheck(fieldName, value)
@@ -1537,17 +1546,17 @@ public class EntityDefinition {
         }
     }
 
-    Object convertFieldString(String name, String value) {
+    Object convertFieldString(String name, String value, ExecutionContextImpl eci) {
         if (value == null) return null
         FieldInfo fieldInfo = getFieldInfo(name)
         if (fieldInfo == null) throw new EntityException("The name [${name}] is not a valid field name for entity [${entityName}]")
-        return convertFieldInfoString(fieldInfo, value)
+        return convertFieldInfoString(fieldInfo, value, eci)
     }
 
-    Object convertFieldInfoString(FieldInfo fi, String value) {
+    Object convertFieldInfoString(FieldInfo fi, String value, ExecutionContextImpl eci) {
         if (value == null) return null
         if ('null'.equals(value)) return null
-        return EntityJavaUtil.convertFromString(value, fi, efi.getEcfi().getL10nFacade())
+        return EntityJavaUtil.convertFromString(value, fi, eci.getL10nFacade())
     }
 
     String getFieldString(String name, Object value) {
@@ -1662,6 +1671,7 @@ public class EntityDefinition {
 
     protected EntityConditionImplBase makeViewListCondition(MNode conditionsParent) {
         if (conditionsParent == null) return null
+        ExecutionContextImpl eci = efi.ecfi.getEci()
         List<EntityCondition> condList = new ArrayList()
         for (MNode dateFilter in conditionsParent.children("date-filter")) {
             // NOTE: this doesn't do context expansion of the valid-date as it doesn't make sense for an entity def to depend on something being in the context
@@ -1700,7 +1710,7 @@ public class EntityDefinition {
                 String condValue = econdition.attribute("value") ?: null
                 // NOTE: only expand if contains "${", expanding normal strings does l10n and messes up key values; hopefully this won't result in a similar issue
                 if (condValue && condValue.contains("\${")) condValue = efi.getEcfi().getResourceFacade().expand(condValue, "") as String
-                Object condValueObj = condEd.convertFieldString(field.fieldName, condValue);
+                Object condValueObj = condEd.convertFieldString(field.fieldName, condValue, eci);
                 cond = new FieldValueCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field,
                         EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
             }
