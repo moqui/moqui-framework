@@ -42,12 +42,13 @@ class ExecutionContextImpl implements ExecutionContext {
     protected final ContextStack context = new ContextStack()
     protected final ContextBinding contextBinding = new ContextBinding(context)
     protected String activeTenantId = "DEFAULT"
-    protected LinkedList<String> tenantIdStack = null
+    protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
-    protected WebFacade webFacade = null
-    protected UserFacadeImpl userFacade = null
-    protected MessageFacadeImpl messageFacade = null
-    protected ArtifactExecutionFacadeImpl artifactExecutionFacade = null
+    protected WebFacade webFacade = (WebFacade) null
+    protected final UserFacadeImpl userFacade
+    protected final MessageFacadeImpl messageFacade
+    protected final ArtifactExecutionFacadeImpl artifactExecutionFacade
+    protected final L10nFacadeImpl l10nFacade
 
     protected Boolean skipStats = null
 
@@ -57,6 +58,11 @@ class ExecutionContextImpl implements ExecutionContext {
         // NOTE: don't init userFacade, messageFacade, artifactExecutionFacade here, lazy init when first used instead
         // put reference to this in the context root
         getContextRoot().put("ec", this)
+
+        userFacade = new UserFacadeImpl(this)
+        messageFacade = new MessageFacadeImpl()
+        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this)
+        l10nFacade = new L10nFacadeImpl(this)
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl initialized")
     }
@@ -79,7 +85,7 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    WebFacade getWeb() { webFacade }
+    WebFacade getWeb() { return webFacade }
     WebFacadeImpl getWebImpl() {
         if (webFacade instanceof WebFacadeImpl) {
             return (WebFacadeImpl) webFacade
@@ -89,23 +95,23 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    UserFacade getUser() { return getUserFacade() }
-    UserFacadeImpl getUserFacade() { if (userFacade != null) return userFacade else return (userFacade = new UserFacadeImpl(this)) }
+    UserFacade getUser() { return userFacade }
+    UserFacadeImpl getUserFacade() { return userFacade }
 
     @Override
-    MessageFacade getMessage() { if (messageFacade != null) return messageFacade else return (messageFacade = new MessageFacadeImpl()) }
+    MessageFacade getMessage() { return messageFacade }
 
     @Override
-    ArtifactExecutionFacade getArtifactExecution() { return getArtifactExecutionImpl() }
-    ArtifactExecutionFacadeImpl getArtifactExecutionImpl() {
-        if (artifactExecutionFacade != null) return artifactExecutionFacade
-        else return (artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this))
-    }
+    ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade }
+    ArtifactExecutionFacadeImpl getArtifactExecutionImpl() { return artifactExecutionFacade }
+
+    @Override
+    L10nFacade getL10n() { return l10nFacade }
+    L10nFacade getL10nFacade() { return l10nFacade }
+
+
 
     // ==== More Permanent Objects (get from the factory instead of locally) ===
-
-    @Override
-    L10nFacade getL10n() { ecfi.getL10nFacade() }
 
     @Override
     ResourceFacade getResource() { ecfi.getResourceFacade() }

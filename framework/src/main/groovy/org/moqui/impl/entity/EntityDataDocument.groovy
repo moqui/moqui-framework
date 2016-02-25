@@ -26,6 +26,7 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.util.MNode
@@ -122,6 +123,8 @@ class EntityDataDocument {
 
     List<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
                                Timestamp thruUpdatedStamp) {
+        ExecutionContextImpl eci = efi.getEcfi().getEci()
+
         EntityValue dataDocument = efi.find("moqui.entity.document.DataDocument")
                 .condition("dataDocumentId", dataDocumentId).useCache(true).one()
         if (dataDocument == null) throw new EntityException("No DataDocument found with ID [${dataDocumentId}]")
@@ -219,9 +222,9 @@ class EntityDataDocument {
                 if (docMap == null) {
                     // add special entries
                     docMap = [_type:dataDocumentId, _id:docId] as Map<String, Object>
-                    docMap.put('_timestamp', efi.ecfi.getL10nFacade().format(
+                    docMap.put('_timestamp', eci.getL10nFacade().format(
                             thruUpdatedStamp ?: new Timestamp(System.currentTimeMillis()), "yyyy-MM-dd'T'HH:mm:ssZ"))
-                    String _index = efi.getEcfi().getExecutionContext().getTenantId()
+                    String _index = eci.getTenantId()
                     if (dataDocument.indexName) _index = _index + "__" + dataDocument.indexName
                     docMap.put('_index', _index.toLowerCase())
                     docMap.put('_entity', primaryEd.getShortAlias() ?: primaryEd.getFullEntityName())

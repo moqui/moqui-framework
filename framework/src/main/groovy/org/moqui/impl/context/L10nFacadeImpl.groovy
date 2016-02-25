@@ -38,16 +38,16 @@ public class L10nFacadeImpl implements L10nFacade {
     final static BigDecimalValidator bigDecimalValidator = new BigDecimalValidator(false)
     final static CalendarValidator calendarValidator = new CalendarValidator()
 
-    protected final ExecutionContextFactoryImpl ecfi
+    protected final ExecutionContextImpl eci
     protected final Cache l10nMessage
 
-    L10nFacadeImpl(ExecutionContextFactoryImpl ecfi) {
-        this.ecfi = ecfi
-        l10nMessage = ecfi.getCacheFacade().getCache("l10n.message")
+    L10nFacadeImpl(ExecutionContextImpl eci) {
+        this.eci = eci
+        l10nMessage = eci.getEcfi().getCacheFacade().getCache("l10n.message")
     }
 
-    protected Locale getLocale() { return ecfi.getExecutionContext().getUser().getLocale() }
-    protected TimeZone getTimeZone() { return ecfi.getExecutionContext().getUser().getTimeZone() }
+    protected Locale getLocale() { return eci.getUser().getLocale() }
+    protected TimeZone getTimeZone() { return eci.getUser().getTimeZone() }
 
     @Override
     String getLocalizedMessage(String original) { return localize(original) }
@@ -70,7 +70,7 @@ public class L10nFacadeImpl implements L10nFacade {
         String defaultValue = original
         int localeUnderscoreIndex = localeString.indexOf('_')
 
-        EntityFind find = ecfi.getEntityFacade().find("moqui.basic.LocalizedMessage")
+        EntityFind find = eci.getEntity().find("moqui.basic.LocalizedMessage")
                 .condition(["original":original, "locale":localeString] as Map<String, Object>).useCache(true)
         EntityValue localizedMessage = find.one()
         if (!localizedMessage && localeUnderscoreIndex > 0)
@@ -84,7 +84,7 @@ public class L10nFacadeImpl implements L10nFacade {
             int indexOfHash = original.lastIndexOf('##')
             if (indexOfHash > 0 && indexOfHash > indexOfCloseCurly) {
                 defaultValue = original.substring(0, indexOfHash)
-                EntityFind findHash = ecfi.getEntityFacade().find("moqui.basic.LocalizedMessage")
+                EntityFind findHash = eci.getEntity().find("moqui.basic.LocalizedMessage")
                         .condition(["original":defaultValue, "locale":localeString] as Map<String, Object>).useCache(true)
                 localizedMessage = findHash.one()
                 if (!localizedMessage && localeUnderscoreIndex > 0)

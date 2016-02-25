@@ -264,13 +264,15 @@ abstract class EntityValueBase implements EntityValue {
             addThreeFieldPkValues(parms)
 
             EntityFacadeImpl efi = getEntityFacadeImpl()
-            Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
+            ExecutionContextImpl eci = efi.ecfi.getEci()
+
+            Set<String> userGroupIdSet = eci.getUser().getUserGroupIdSet()
             EntityList userFieldValueList = efi.find("moqui.entity.UserFieldValue")
                     .condition("userGroupId", EntityCondition.IN, userGroupIdSet)
                     .condition(parms).disableAuthz().list()
             if (userFieldValueList) {
                 // do type conversion according to field type
-                return ed.convertFieldString(name, (String) userFieldValueList.get(0).valueText)
+                return ed.convertFieldString(name, (String) userFieldValueList.get(0).valueText, eci)
             }
         }
 
@@ -313,7 +315,9 @@ abstract class EntityValueBase implements EntityValue {
     @Override
     EntityValue setString(String name, String value) {
         // this will do a field name check
-        Object converted = entityDefinition.convertFieldString(name, value)
+        ExecutionContextImpl eci = getEntityFacadeImpl().ecfi.getEci()
+
+        Object converted = entityDefinition.convertFieldString(name, value, eci)
         putNoCheck(name, converted)
         return this
     }
