@@ -180,7 +180,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (response != null) {
             response.sendRedirect(redirectUrl)
             dontDoRender = true
-            logger.info("Redirecting to [${redirectUrl}] instead of rendering [${this.getScreenUrlInfo().getFullPathNameList()}]")
+            logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
         }
     }
 
@@ -422,7 +422,7 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
                     String fullUrlString = fullUrl.getUrlWithParams()
-                    logger.info("Finished transition [${getScreenUrlInfo().getFullPathNameList()}] in [${(System.currentTimeMillis() - transitionStartTime)/1000}] seconds , redirecting to [${fullUrlString}]")
+                    logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to ${fullUrlString}")
                     response.sendRedirect(fullUrlString)
                 }
             } else {
@@ -470,7 +470,7 @@ class ScreenRenderImpl implements ScreenRender {
                                     (ec.getWeb() != null ? ec.getWeb().requestParameters : null), resourceStartTime,
                                     (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
                         }
-                        if (logger.traceEnabled) logger.trace("Sent binary response of length [${totalLen}] with from file [${screenUrlInfo.fileResourceRef.location}] for request to [${screenUrlInstance.url}]")
+                        if (logger.traceEnabled) logger.trace("Sent binary response of length ${totalLen} from file ${screenUrlInfo.fileResourceRef.location} for request to ${screenUrlInstance.url}")
                         return
                     } finally {
                         if (is != null) is.close()
@@ -505,7 +505,7 @@ class ScreenRenderImpl implements ScreenRender {
                         int length = text.getBytes(charset).length
                         if (response != null) response.setContentLength(length)
 
-                        if (logger.traceEnabled) logger.trace("Sending text response of length [${length}] with [${charset}] encoding from file [${screenUrlInfo.fileResourceRef.location}] for request to [${screenUrlInstance.url}]")
+                        if (logger.traceEnabled) logger.trace("Sending text response of length ${length} with ${charset} encoding from file ${screenUrlInfo.fileResourceRef.location} for request to ${screenUrlInstance.url}")
 
                         writer.write(text)
 
