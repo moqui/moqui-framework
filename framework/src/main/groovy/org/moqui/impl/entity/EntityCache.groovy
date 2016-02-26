@@ -261,7 +261,7 @@ class EntityCache {
                     // logger.info("Found ${cachedViewEntityName} as a cached view-entity for member ${fullEntityName}")
 
                     String viewListKey = listKeyBase.concat(cachedViewEntityName)
-                    CacheImpl entityListCache = cfi.getCacheImpl(viewListKey)
+                    CacheImpl entityListCache = cfi.getCacheImpl(viewListKey, efi.tenantId)
                     Ehcache elEhc = entityListCache.getInternalCache()
 
                     // Ehcache returns a plain List, may or may not be faster to iterate with index
