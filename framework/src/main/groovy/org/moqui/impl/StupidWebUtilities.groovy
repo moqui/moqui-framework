@@ -13,8 +13,6 @@
  */
 package org.moqui.impl
 
-import groovy.json.JsonBuilder
-import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.apache.http.HttpEntity
 import org.apache.http.NameValuePair
@@ -27,7 +25,6 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.apache.http.util.EntityUtils
-import org.moqui.BaseException
 
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpSession
@@ -46,6 +43,9 @@ import java.nio.charset.Charset
 @CompileStatic
 class StupidWebUtilities {
     protected final static Logger logger = LoggerFactory.getLogger(StupidUtilities.class)
+
+    static final Encoder defaultWebEncoder = DefaultEncoder.getInstance()
+    static final Validator defaultWebValidator = DefaultValidator.getInstance()
 
     public static Map<String, Object> getPathInfoParameterMap(String pathInfoStr) {
         Map<String, Object> paramMap = new HashMap()
@@ -202,9 +202,6 @@ class StupidWebUtilities {
         }
     }
     
-    static final Encoder defaultWebEncoder = DefaultEncoder.getInstance()
-    static final Validator defaultWebValidator = DefaultValidator.getInstance()
-
     static class CanonicalizeMap implements Map<String, Object> {
         protected Map mp
         protected boolean supportsNull = true
