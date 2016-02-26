@@ -14,11 +14,11 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.context.Cache
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.context.CacheImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 
@@ -38,11 +38,11 @@ class EntityDataFeed {
 
     protected final EntityFacadeImpl efi
 
-    protected final Cache dataFeedEntityInfo
+    protected final CacheImpl dataFeedEntityInfo
 
     EntityDataFeed(EntityFacadeImpl efi) {
         this.efi = efi
-        dataFeedEntityInfo = efi.ecfi.getCacheFacade().getCache("entity.data.feed.info.${efi.tenantId}")
+        dataFeedEntityInfo = efi.ecfi.getCacheFacade().getCacheImpl("entity.data.feed.info", efi.tenantId)
     }
 
     EntityFacadeImpl getEfi() { return efi }

@@ -11,41 +11,54 @@
         <!-- Production mode by default - No expiration of conf and impl artifacts. -->
         <cache name="entity.definition" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
         <cache name="entity.location" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
-        <cache name="entity.tables.checked" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
+        <cache name="entity.sequence.bank" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
         <!-- this is info for each entity for real-time push DataFeeds; expires every 15 min to get DataFeed and DataDocument updates -->
-        <cache name="entity.data.feed.info." expire-time-idle="0" expire-time-live="900" max-elements="2000"/>
+        <cache name="entity.data.feed.info" expire-time-idle="0" expire-time-live="900" max-elements="2000"/>
 
-        <cache name="entity.record.one." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.one_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list_view_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.count." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.one." expire-time-idle="0" expire-time-live="0" max-elements="10000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.one_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list." expire-time-idle="0" expire-time-live="0" max-elements="10000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list_view_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.count." expire-time-idle="0" expire-time-live="0" max-elements="10000"
+               eviction-strategy="least-frequently-used"/>
 
-        <cache name="service.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="service.java.class" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="service.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="service.java.class" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
 
         <cache name="kie.component.releaseId" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
 
-        <cache name="screen.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.location.perm" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.info" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.template.mode" expire-time-idle="0" expire-time-live="0" max-elements="100"/>
-        <cache name="screen.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100"/>
-        <cache name="screen.find.path" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.form.db.node" expire-time-idle="0" expire-time-live="0" max-elements="1000"/>
+        <!-- TODO: Potential issue for multi-tenant where DbForm*, SubscreenItem, etc comes from wrong tenant...
+            would need to change ScreenFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI -->
+        <cache name="screen.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.location.perm" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.url" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.info" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.info.ref.rev" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.template.mode" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
+        <cache name="screen.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
+        <cache name="widget.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
+        <cache name="screen.find.path" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.form.db.node" expire-time-idle="0" expire-time-live="0" max-elements="1000" tenants-share="true"/>
 
-        <cache name="resource.xml-actions.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.groovy.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.groovy.expression" expire-time-idle="0" expire-time-live="0" max-elements="50000"/>
-        <cache name="resource.javascript.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <!-- TODO: Potential issue for multi-tenant where DbResource, etc comes from wrong tenant...
+            would need to change ResourceFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI -->
+        <cache name="resource.xml-actions.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.groovy.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.groovy.expression" expire-time-idle="0" expire-time-live="0" max-elements="50000" tenants-share="true"/>
+        <cache name="resource.javascript.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
 
-        <cache name="resource.ftl.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.gstring.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.wiki.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.markdown.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.text.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.reference.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.ftl.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.gstring.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.wiki.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.markdown.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.text.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.reference.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
 
         <cache name="l10n.message" expire-time-idle="3600" expire-time-live="0" max-elements="50000"/>
 

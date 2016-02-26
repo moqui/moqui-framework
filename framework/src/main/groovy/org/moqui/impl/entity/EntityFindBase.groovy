@@ -271,14 +271,14 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate) {
-        ExecutionContext ec = efi.getEcfi().getExecutionContext()
+        ExecutionContextImpl ec = efi.getEcfi().getEci()
         Map inf = inputFieldsMapName ? (Map) ec.resource.expression(inputFieldsMapName, "") : ec.context
         return searchFormMap(inf, defaultOrderBy, alwaysPaginate)
     }
 
     @Override
     EntityFind searchFormMap(Map inf, String defaultOrderBy, boolean alwaysPaginate) {
-        ExecutionContext ec = efi.getEcfi().getExecutionContext()
+        ExecutionContextImpl ec = efi.getEcfi().getEci()
         EntityDefinition ed = getEntityDef()
 
         // to avoid issues with entities that have cache=true, if no cache value is specified for this set it to false (avoids pagination errors, etc)
@@ -298,7 +298,7 @@ abstract class EntityFindBase implements EntityFind {
                 switch (op) {
                     case "equals":
                         if (value) {
-                            Object convertedValue = value instanceof String ? ed.convertFieldString(fn, (String) value) : value
+                            Object convertedValue = value instanceof String ? ed.convertFieldString(fn, (String) value, ec) : value
                             cond = efi.conditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
                             if (ic) cond.ignoreCase()
@@ -359,9 +359,9 @@ abstract class EntityFindBase implements EntityFind {
             } else {
                 // these will handle range-find and date-find
                 Object fromValue = inf.get(fn + "_from")
-                if (fromValue && fromValue instanceof CharSequence) fromValue = ed.convertFieldString(fn, fromValue.toString())
+                if (fromValue && fromValue instanceof CharSequence) fromValue = ed.convertFieldString(fn, fromValue.toString(), ec)
                 Object thruValue = inf.get(fn + "_thru")
-                if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString())
+                if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
                 if (fromValue) this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
                 if (thruValue) this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
@@ -393,7 +393,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     EntityFind findNode(MNode node) {
-        ExecutionContext ec = this.efi.ecfi.executionContext
+        ExecutionContextImpl ec = efi.ecfi.getEci()
 
         this.entity(node.attribute('entity-name'))
         String cache = node.attribute('cache')

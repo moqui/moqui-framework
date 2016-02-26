@@ -42,14 +42,21 @@ class ExecutionContextImpl implements ExecutionContext {
     protected final ContextStack context = new ContextStack()
     protected final ContextBinding contextBinding = new ContextBinding(context)
     protected String activeTenantId = "DEFAULT"
-    protected LinkedList<String> tenantIdStack = null
+    protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
-    protected WebFacade webFacade = null
-    protected UserFacadeImpl userFacade = null
-    protected MessageFacadeImpl messageFacade = null
-    protected ArtifactExecutionFacadeImpl artifactExecutionFacade = null
+    protected WebFacade webFacade = (WebFacade) null
+    protected final UserFacadeImpl userFacade
+    protected final MessageFacadeImpl messageFacade
+    protected final ArtifactExecutionFacadeImpl artifactExecutionFacade
+    protected final L10nFacadeImpl l10nFacade
 
     protected Boolean skipStats = null
+
+    // Caches from EC level facades that are per-tenant so managed here
+    protected CacheImpl l10nMessageCache
+    // NOTE: there is no code to clean out old entries in tarpitHitCache, using the cache idle expire time for that
+    protected CacheImpl tarpitHitCache
+
 
     ExecutionContextImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -58,10 +65,24 @@ class ExecutionContextImpl implements ExecutionContext {
         // put reference to this in the context root
         getContextRoot().put("ec", this)
 
+        userFacade = new UserFacadeImpl(this)
+        messageFacade = new MessageFacadeImpl()
+        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this)
+        l10nFacade = new L10nFacadeImpl(this)
+
+        initCaches()
+
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl initialized")
     }
 
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
+
+    void initCaches() {
+        tarpitHitCache = ecfi.getCacheFacade().getCacheImpl("artifact.tarpit.hits", activeTenantId)
+        l10nMessageCache = ecfi.getCacheFacade().getCacheImpl("l10n.message", activeTenantId)
+    }
+    CacheImpl getTarpitHitCache() { return tarpitHitCache }
+    CacheImpl getL10nMessageCache() { return l10nMessageCache }
 
     @Override
     ContextStack getContext() { return context }
@@ -79,7 +100,7 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    WebFacade getWeb() { webFacade }
+    WebFacade getWeb() { return webFacade }
     WebFacadeImpl getWebImpl() {
         if (webFacade instanceof WebFacadeImpl) {
             return (WebFacadeImpl) webFacade
@@ -89,23 +110,23 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    UserFacade getUser() { return getUserFacade() }
-    UserFacadeImpl getUserFacade() { if (userFacade != null) return userFacade else return (userFacade = new UserFacadeImpl(this)) }
+    UserFacade getUser() { return userFacade }
+    UserFacadeImpl getUserFacade() { return userFacade }
 
     @Override
-    MessageFacade getMessage() { if (messageFacade != null) return messageFacade else return (messageFacade = new MessageFacadeImpl()) }
+    MessageFacade getMessage() { return messageFacade }
 
     @Override
-    ArtifactExecutionFacade getArtifactExecution() { return getArtifactExecutionImpl() }
-    ArtifactExecutionFacadeImpl getArtifactExecutionImpl() {
-        if (artifactExecutionFacade != null) return artifactExecutionFacade
-        else return (artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this))
-    }
+    ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade }
+    ArtifactExecutionFacadeImpl getArtifactExecutionImpl() { return artifactExecutionFacade }
+
+    @Override
+    L10nFacade getL10n() { return l10nFacade }
+    L10nFacade getL10nFacade() { return l10nFacade }
+
+
 
     // ==== More Permanent Objects (get from the factory instead of locally) ===
-
-    @Override
-    L10nFacade getL10n() { ecfi.getL10nFacade() }
 
     @Override
     ResourceFacade getResource() { ecfi.getResourceFacade() }
@@ -252,6 +273,9 @@ class ExecutionContextImpl implements ExecutionContext {
         if (userFacade != null) userFacade.pushTenant(tenantId)
 
         // logger.info("Tenant now ${activeTenantId}, username ${userFacade?.username}")
+
+        // re-init caches for new tenantId
+        initCaches()
 
         return true
     }
