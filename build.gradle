@@ -267,6 +267,8 @@ task addRuntime {
         copy { from fileTree(dir: moquiRuntime+'/component', include: '**/*.jar').files; into 'wartemp/WEB-INF/lib' }
         // add MoquiInit.properties fresh copy, just in case it was changed
         copy { from file('MoquiInit.properties'); into 'wartemp/WEB-INF/classes' }
+        // copy jackrabbit standalone jar
+        copy { from fileTree(dir: moquiRuntime + '/jackrabbit', include: 'jackrabbit-standalone-*.jar').files; into 'wartemp/' + moquiRuntime + '/jackrabbit' }
 
         // zip it up again
         ant.zip(destfile: plusRuntimeName) { fileset(dir: 'wartemp') { include(name: '**/*') } }

@@ -106,7 +106,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final ScreenFacadeImpl screenFacade
     protected final ServiceFacadeImpl serviceFacade
     protected final TransactionFacadeImpl transactionFacade
-    protected final L10nFacadeImpl l10nFacade
 
     // Some direct-cached values for better performance
     protected String skipStatsCond
@@ -178,8 +177,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
-        this.l10nFacade = new L10nFacadeImpl(this)
-        logger.info("Moqui L10nFacadeImpl Initialized")
 
         kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
         kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component")
@@ -224,8 +221,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
-        this.l10nFacade = new L10nFacadeImpl(this)
-        logger.info("Moqui L10nFacadeImpl Initialized")
 
         kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
 
@@ -477,7 +472,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     List<NotificationMessageListener> getNotificationMessageListeners() { return registeredNotificationMessageListeners }
 
-    @CompileStatic
     org.apache.shiro.mgt.SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) return internalSecurityManager
 
@@ -490,7 +484,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         return internalSecurityManager
     }
-    @CompileStatic
     CredentialsMatcher getCredentialsMatcher(String hashType) {
         HashedCredentialsMatcher hcm = new HashedCredentialsMatcher()
         if (hashType) {
@@ -500,15 +493,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         return hcm
     }
-    @CompileStatic
     static String getRandomSalt() { return StupidUtilities.getRandomString(8) }
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
-    @CompileStatic
     String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType()) }
-    @CompileStatic
     String getSimpleHash(String source, String salt, String hashType) {
         return new SimpleHash(hashType ?: getPasswordHashType(), source, salt).toString()
     }
@@ -524,12 +514,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // ========== Getters ==========
 
-    @CompileStatic
     CacheFacadeImpl getCacheFacade() { return this.cacheFacade }
 
-    @CompileStatic
     EntityFacadeImpl getEntityFacade() { return getEntityFacade(getExecutionContext().getTenantId()) }
-    @CompileStatic
     EntityFacadeImpl getEntityFacade(String tenantId) {
         // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now
         if (tenantId == null) throw new IllegalArgumentException("For getEntityFacade tenantId cannot be null")
@@ -538,7 +525,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         return efi
     }
-    @CompileStatic
     synchronized EntityFacadeImpl initEntityFacade(String tenantId) {
         EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
         if (efi != null) return efi
@@ -549,27 +535,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return efi
     }
 
-    @CompileStatic
     LoggerFacadeImpl getLoggerFacade() { return loggerFacade }
-
-    @CompileStatic
     ResourceFacadeImpl getResourceFacade() { return resourceFacade }
-
-    @CompileStatic
     ScreenFacadeImpl getScreenFacade() { return screenFacade }
-
-    @CompileStatic
     ServiceFacadeImpl getServiceFacade() { return serviceFacade }
-
-    @CompileStatic
     TransactionFacadeImpl getTransactionFacade() { return transactionFacade }
-
-    @CompileStatic
-    L10nFacade getL10nFacade() { return l10nFacade }
+    L10nFacade getL10nFacade() { return getEci().getL10nFacade() }
+    // TODO: find references, change to eci where more direct
 
     // =============== Apache Camel Methods ===============
     @Override
-    @CompileStatic
     CamelContext getCamelContext() { return camelContext }
 
     MoquiServiceComponent getMoquiServiceComponent() { return moquiServiceComponent }
@@ -589,7 +564,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // =============== ElasticSearch Methods ===============
     @Override
-    @CompileStatic
     Client getElasticSearchClient() { return elasticSearchClient }
 
     protected void initElasticSearch() {
@@ -762,10 +736,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Interface Implementations ==========
 
     @Override
-    @CompileStatic
     ExecutionContext getExecutionContext() { return getEci() }
-
-    @CompileStatic
     ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
         ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
@@ -970,7 +941,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
 
     @Override
-    @CompileStatic
     LinkedHashMap<String, String> getComponentBaseLocations() {
         LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
         for (ComponentInfo componentInfo in componentInfoMap.values()) {
@@ -980,46 +950,36 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    @CompileStatic
-    L10nFacade getL10n() { getL10nFacade() }
+    L10nFacade getL10n() { getEci().getL10nFacade() }
 
     @Override
-    @CompileStatic
-    ResourceFacade getResource() { getResourceFacade() }
+    ResourceFacade getResource() { return resourceFacade }
 
     @Override
-    @CompileStatic
-    LoggerFacade getLogger() { getLoggerFacade() }
+    LoggerFacade getLogger() { return loggerFacade }
 
     @Override
-    @CompileStatic
-    CacheFacade getCache() { getCacheFacade() }
+    CacheFacade getCache() { return this.cacheFacade }
 
     @Override
-    @CompileStatic
-    TransactionFacade getTransaction() { getTransactionFacade() }
+    TransactionFacade getTransaction() { return transactionFacade }
 
     @Override
-    @CompileStatic
     EntityFacade getEntity() { getEntityFacade(getExecutionContext()?.getTenantId()) }
 
     @Override
-    @CompileStatic
-    ServiceFacade getService() { getServiceFacade() }
+    ServiceFacade getService() { return serviceFacade }
 
     @Override
-    @CompileStatic
-    ScreenFacade getScreen() { getScreenFacade() }
+    ScreenFacade getScreen() { return screenFacade }
 
     // ========== Server Stat Tracking ==========
-    @CompileStatic
     boolean getSkipStats() {
         // NOTE: the results of this condition eval can't be cached because the expression can use any data in the ec
         ExecutionContextImpl eci = getEci()
         return skipStatsCond ? eci.resource.condition(skipStatsCond, null, [pathInfo:eci.web?.request?.pathInfo]) : false
     }
 
-    @CompileStatic
     protected boolean artifactPersistHit(String artifactType, String artifactSubType) {
         // now checked before calling this: if ("entity".equals(artifactType)) return false
         String cacheKey = artifactType + artifactSubType
@@ -1031,7 +991,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         return ph.booleanValue()
     }
-    @CompileStatic
     protected boolean artifactPersistBin(String artifactType, String artifactSubType) {
         String cacheKey = artifactType + artifactSubType
         Boolean pb = (Boolean) artifactPersistBinByType.get(cacheKey)
@@ -1043,7 +1002,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return pb.booleanValue()
     }
 
-    @CompileStatic
     boolean isAuthzEnabled(String artifactTypeEnumId) {
         Boolean en = (Boolean) artifactTypeAuthzEnabled.get(artifactTypeEnumId)
         if (en == null) {
@@ -1053,7 +1011,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         return en.booleanValue()
     }
-    @CompileStatic
     boolean isTarpitEnabled(String artifactTypeEnumId) {
         Boolean en = (Boolean) artifactTypeTarpitEnabled.get(artifactTypeEnumId)
         if (en == null) {
@@ -1146,7 +1103,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    @CompileStatic
     void countArtifactHit(String artifactType, String artifactSubType, String artifactName, Map<String, Object> parameters,
                           long startTime, double runningTimeMillis, Long outputSize) {
         boolean isEntity = artifactType == 'entity' || artifactSubType == 'entity-implicit'
@@ -1263,7 +1219,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    @CompileStatic
     protected synchronized void advanceArtifactHitBin(ArtifactStatsInfo statsInfo, String artifactType, String artifactSubType,
                                                      String artifactName, long startTime, int hitBinLengthMillis) {
         ArtifactBinInfo abi = statsInfo.curHitBin
