@@ -19,7 +19,6 @@ import net.sf.ehcache.Element
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.CacheFacadeImpl
 import org.moqui.impl.context.CacheImpl
 import org.moqui.util.MNode
@@ -261,7 +260,7 @@ class EntityCache {
                     // logger.info("Found ${cachedViewEntityName} as a cached view-entity for member ${fullEntityName}")
 
                     String viewListKey = listKeyBase.concat(cachedViewEntityName)
-                    CacheImpl entityListCache = cfi.getCacheImpl(viewListKey)
+                    CacheImpl entityListCache = cfi.getCacheImpl(viewListKey, efi.tenantId)
                     Ehcache elEhc = entityListCache.getInternalCache()
 
                     // Ehcache returns a plain List, may or may not be faster to iterate with index
