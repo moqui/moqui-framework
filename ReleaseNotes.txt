@@ -295,3 +295,19 @@ Long Term To Do List
     is probably the best way to tie a feed to WebSocket notifications for data updates
     - Use the dataFeedId as the NotificationMessage topic
     - Use this in HiveMind to send notifications of project, task, and wiki changes (maybe?)
+
+- Angular 2 Apps
+  - support by screen + subscreens, or enable/disable for all apps (with separate webroot or something)?
+  - update bootstrap (maybe get from CDN instead of including in source...)
+  - for screen generate
+    - component.ts file
+    - service.ts/js file with:
+      - service for each transition
+      - service to get data for screen actions
+      - services for section actions
+      - services for form row actions
+    - component.html file (use 'templateUrl' in Component annotation instead of 'template')
+    - or use single JS file with component, embedded template (use template: and not templateUrl:), transition services?
+  - with system.js need to transpile in the browser?
+    - can transpile into JS file using typescript4j; or generate component.js
+    - https://github.com/martypitt/typescript4j
