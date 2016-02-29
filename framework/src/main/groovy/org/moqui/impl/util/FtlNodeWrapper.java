@@ -62,15 +62,11 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
     public TemplateModel get(String s) {
         // first try the attribute and children caches, then if not found in either pick it apart and create what is needed
 
-        FtlAttributeWrapper attributeWrapper = attributeWrapperMap.get(s);
-        if (attributeWrapper != null) return attributeWrapper;
-        if (attributeWrapperMap.containsKey(s)) return null;
-
-        FtlNodeListWrapper nodeListWrapper = childrenByName.get(s);
-        if (nodeListWrapper != null) return nodeListWrapper;
-        if (childrenByName.containsKey(s)) return null;
-
         if (s.startsWith("@")) {
+            FtlAttributeWrapper attributeWrapper = attributeWrapperMap.get(s);
+            if (attributeWrapper != null) return attributeWrapper;
+            if (attributeWrapperMap.containsKey(s)) return null;
+
             // check for @@text
             if (s.equals("@@text")) {
                 if (textNode == null) textNode = new FtlTextWrapper(mNode.getText(), this);
@@ -84,13 +80,16 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
             attributeWrapper = attrValue != null ? new FtlAttributeWrapper(key, attrValue, this) : null;
             attributeWrapperMap.put(s, attributeWrapper);
             return attributeWrapper;
-        }
+        } else {
+            FtlNodeListWrapper nodeListWrapper = childrenByName.get(s);
+            if (nodeListWrapper != null) return nodeListWrapper;
 
-        // no @ prefix, looking for a child node
-        // logger.info("Looking for child nodes with name [${s}] found: ${childList}")
-        nodeListWrapper = new FtlNodeListWrapper(mNode.children(s), this);
-        childrenByName.put(s, nodeListWrapper);
-        return nodeListWrapper;
+            // no @ prefix, looking for a child node
+            // logger.info("Looking for child nodes with name [${s}] found: ${childList}")
+            nodeListWrapper = new FtlNodeListWrapper(mNode.children(s), this);
+            childrenByName.put(s, nodeListWrapper);
+            return nodeListWrapper;
+        }
     }
 
     public boolean isEmpty() {

@@ -735,7 +735,7 @@ class ScreenUrlInfo {
                 ServiceDefinition sd = ((ServiceFacadeImpl) ec.getService()).getServiceDefinition(targetServiceName)
                 if (sd != null) {
                     for (String pn in sd.getInParameterNames()) {
-                        Object value = ec.getContext().get(pn)
+                        Object value = ec.getContext().getByString(pn)
                         if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(pn)
                         if (value) allParameterMap.put(pn, StupidUtilities.toPlainString(value))
                     }
@@ -747,7 +747,7 @@ class ScreenUrlInfo {
                         EntityDefinition ed = ((EntityFacadeImpl) ec.getEntity()).getEntityDefinition(en)
                         if (ed != null) {
                             for (String fn in ed.getPkFieldNames()) {
-                                Object value = ec.getContext().get(fn)
+                                Object value = ec.getContext().getByString(fn)
                                 if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(fn)
                                 if (value) allParameterMap.put(fn, StupidUtilities.toPlainString(value))
                             }

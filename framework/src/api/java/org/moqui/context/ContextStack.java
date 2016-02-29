@@ -29,6 +29,8 @@ public class ContextStack implements Map<String, Object> {
         clearCombinedMap();
     }
 
+    // Internal methods for managing combinedMap
+
     protected void clearCombinedMap() {
         combinedMap.clear();
         combinedMap.put("context", this);
@@ -40,6 +42,25 @@ public class ContextStack implements Map<String, Object> {
             Map<String, Object> curMap = stackList.get(i);
             combinedMap.putAll(curMap);
         }
+    }
+    protected void resetCombinedEntries(Set<String> keySet) {
+        if (keySet.size() == 0) return;
+        // use a faster approach than rebuildCombinedMap()
+        // for each key in the popped Map see if a Map on the stack contains it and if so set it, otherwise remove it
+        int stackListSize = stackList.size();
+        for (String key : keySet) resetCombinedEntry(key, stackListSize);
+    }
+    protected void resetCombinedEntry(String key, int stackListSize) {
+        boolean found = false;
+        for (int i = 0; i < stackListSize; i++) {
+            Map<String, Object> curMap = stackList.get(i).getWrapped();
+            if (curMap.containsKey(key)) {
+                combinedMap.put(key, curMap.get(key));
+                found = true;
+                break;
+            }
+        }
+        if (!found) combinedMap.remove(key);
     }
 
     /** Push (save) the entire context, ie the whole Map stack, to create an isolated empty context. */
@@ -91,25 +112,6 @@ public class ContextStack implements Map<String, Object> {
         resetCombinedEntries(poppedMap.keySet());
         return poppedMap;
     }
-    protected void resetCombinedEntries(Set<String> keySet) {
-        if (keySet.size() == 0) return;
-        // use a faster approach than rebuildCombinedMap()
-        // for each key in the popped Map see if a Map on the stack contains it and if so set it, otherwise remove it
-        int stackListSize = stackList.size();
-        for (String key : keySet) resetCombinedEntry(key, stackListSize);
-    }
-    protected void resetCombinedEntry(String key, int stackListSize) {
-        boolean found = false;
-        for (int i = 0; i < stackListSize; i++) {
-            Map<String, Object> curMap = stackList.get(i).getWrapped();
-            if (curMap.containsKey(key)) {
-                combinedMap.put(key, curMap.get(key));
-                found = true;
-                break;
-            }
-        }
-        if (!found) combinedMap.remove(key);
-    }
 
     /** Add an existing Map as the Root Map, ie on the BOTTOM of the stack meaning it will be overridden by other Maps on the stack
      * @param  existingMap An existing Map
@@ -151,7 +153,8 @@ public class ContextStack implements Map<String, Object> {
 
     public boolean containsKey(Object key) {
         return combinedMap.containsKey(key);
-        /* no longer allow changes to maps pushed on the context stack externally, turns this into a simple operation
+
+        /* with combinedMap now handling all changes this is a simple call
         if (combinedMap.containsKey(key)) return true;
 
         int size = stackList.size();
@@ -167,7 +170,7 @@ public class ContextStack implements Map<String, Object> {
     public boolean containsValue(Object value) {
         return combinedMap.containsValue(value);
 
-        /* no longer allow changes to maps pushed on the context stack externally, turns this into a simple operation
+        /* with combinedMap now handling all changes this is a simple call
         if (combinedMap.containsValue(value)) return true;
 
         // this keeps track of keys looked at for values at each level of the stack so that the same key is not
@@ -191,6 +194,10 @@ public class ContextStack implements Map<String, Object> {
         */
     }
 
+    public Object getByString(String key) {
+        return combinedMap.get(key);
+    }
+
     public Object get(Object keyObj) {
         String key = null;
         if (keyObj instanceof String) {
@@ -203,7 +210,7 @@ public class ContextStack implements Map<String, Object> {
             }
         }
 
-        // no longer allow changes to maps pushed on the context stack externally, turns this into a simple get
+        // with combinedMap now handling all changes this is a simple call
         return combinedMap.get(key);
 
         /*

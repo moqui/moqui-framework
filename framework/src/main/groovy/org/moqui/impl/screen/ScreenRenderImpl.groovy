@@ -632,7 +632,7 @@ class ScreenRenderImpl implements ScreenRender {
             // we've run always and pre actions, it's now or never for required parameters so check them
             for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
                 for (ScreenDefinition.ParameterItem pi in sd.getParameterMap().values()) {
-                    if (pi.required && ec.context.get(pi.name) == null) {
+                    if (pi.required && ec.context.getByString(pi.name) == null) {
                         ec.message.addError("Required parameter missing (${pi.name})")
                         logger.warn("Tried to render screen [${sd.getLocation()}] without required parameter [${pi.name}], error message added and adding to stop list to not render")
                         stopRenderScreenLocations.add(sd.getLocation())
@@ -1135,7 +1135,7 @@ class ScreenRenderImpl implements ScreenRender {
         ContextStack cs = ec.getContext()
         MNode formNode = formNodeWrapper.getMNode()
         String mapName = formNode.attribute('map') ?: "fieldValues"
-        Map valueMap = (Map) cs.get(mapName)
+        Map valueMap = (Map) cs.getByString(mapName)
 
         cs.push()
         if (valueMap) cs.putAll(valueMap)
@@ -1190,7 +1190,7 @@ class ScreenRenderImpl implements ScreenRender {
             } else if (formNode.name == "form-list" && formNode.attribute('list-entry')) {
                 // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
                 //     putting all Map entries in the context for each row)
-                Object entryObj = ec.getContext().get(formNode.attribute('list-entry'))
+                Object entryObj = ec.getContext().getByString(formNode.attribute('list-entry'))
                 if (entryObj != null && !(entryObj instanceof Map)) {
                     try {
                         value = entryObj.getAt(fieldName)
@@ -1200,7 +1200,7 @@ class ScreenRenderImpl implements ScreenRender {
                 }
             }
         }
-        if (StupidUtilities.isEmpty(value)) value = ec.getContext().get(fieldName)
+        if (StupidUtilities.isEmpty(value)) value = ec.getContext().getByString(fieldName)
         // this isn't needed since the parameters are copied to the context: if (!isError && isWebAndSameForm && !value) value = ec.getWeb().parameters.get(fieldName)
 
         if (!StupidUtilities.isEmpty(value)) return value
@@ -1218,9 +1218,9 @@ class ScreenRenderImpl implements ScreenRender {
         if (fieldValue == null) {
             String fieldName = fieldNode.attribute('name')
             String mapName = fieldNode.parent.attribute('map') ?: "fieldValues"
-            if (ec.getContext().get(mapName) != null && fieldNode.parent.name == "form-single") {
+            if (ec.getContext().getByString(mapName) != null && fieldNode.parent.name == "form-single") {
                 try {
-                    Map valueMap = (Map) ec.getContext().get(mapName)
+                    Map valueMap = (Map) ec.getContext().getByString(mapName)
                     if (valueMap instanceof EntityValueImpl) {
                         // if it is an EntityValueImpl, only get if the fieldName is a value
                         EntityValueImpl evi = (EntityValueImpl) valueMap
@@ -1233,7 +1233,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
             }
-            if (StupidUtilities.isEmpty(fieldValue)) fieldValue = ec.getContext().get(fieldName)
+            if (StupidUtilities.isEmpty(fieldValue)) fieldValue = ec.getContext().getByString(fieldName)
         }
 
         return fieldValue != null ? fieldValue.getClass().getSimpleName() : "String"

@@ -525,7 +525,7 @@ class ScreenDefinition {
                     value = valueString
                 }
             }
-            if (value == null) value = ec.context.get(name)
+            if (value == null) value = ec.context.getByString(name)
             if (value == null && ec.web) value = ec.web.parameters.get(name)
             return value
         }

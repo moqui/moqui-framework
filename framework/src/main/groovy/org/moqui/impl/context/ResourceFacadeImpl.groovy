@@ -168,9 +168,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         contentSessions.remove()
     }
 
-    @CompileStatic
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
-    @CompileStatic
     Map<String, TemplateRenderer> getTemplateRenderers() { return templateRenderers }
 
     Repository getContentRepository(String name) { return contentRepositories.get(name) }
@@ -209,7 +207,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @CompileStatic
     ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
@@ -235,7 +232,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @CompileStatic
     InputStream getLocationStream(String location) {
         ResourceReference rr = getLocationReference(location)
         if (rr == null) return null
@@ -243,7 +239,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @CompileStatic
     String getLocationText(String location, boolean cache) {
         if (cache && textLocationCache.containsKey(location)) return (String) textLocationCache.get(location)
         InputStream locStream = getLocationStream(location)
@@ -254,7 +249,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @CompileStatic
     DataSource getLocationDataSource(String location) {
         ResourceReference fileResourceRef = getLocationReference(location)
 
@@ -283,10 +277,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @CompileStatic
     void renderTemplateInCurrentContext(String location, Writer writer) { template(location, writer) }
     @Override
-    @CompileStatic
     void template(String location, Writer writer) {
         TemplateRenderer tr = getTemplateRendererByLocation(location)
         if (tr != null) {
@@ -298,7 +290,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @CompileStatic
     TemplateRenderer getTemplateRendererByLocation(String location) {
         // match against extension for template renderer, with as many dots that match as possible (most specific match)
         int mostDots = 0
@@ -317,23 +308,20 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @CompileStatic
     @Deprecated
     Object runScriptInCurrentContext(String location, String method) { return script(location, method) }
 
     @Override
-    @CompileStatic
     @Deprecated
     Object runScriptInCurrentContext(String location, String method, Map additionalContext) {
         return script(location, method, additionalContext)
     }
 
     @Override
-    @CompileStatic
     Object script(String location, String method) {
-        ExecutionContext ec = ecfi.getExecutionContext()
+        ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
-        ScriptRunner sr = this.scriptRunners.get(extension)
+        ScriptRunner sr = scriptRunners.get(extension)
 
         if (sr != null) {
             return sr.run(location, method, ec)
@@ -348,10 +336,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     }
     @Override
-    @CompileStatic
     Object script(String location, String method, Map additionalContext) {
-        ExecutionContext ec = ecfi.getExecutionContext()
-        ContextStack cs = (ContextStack) ec.context
+        ExecutionContextImpl ec = ecfi.getEci()
+        ContextStack cs = ec.context
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
             if (doPushPop) {
@@ -366,7 +353,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @CompileStatic
     Object setInContext(String field, String from, String value, String defaultValue, String type, String setIfEmpty) {
         def tempValue = getValueFromContext(from, value, defaultValue, type)
         ecfi.getExecutionContext().getContext().put("_tempValue", tempValue)
@@ -374,7 +360,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         return tempValue
     }
-    @CompileStatic
     Object getValueFromContext(String from, String value, String defaultValue, String type) {
         def tempValue = from ? expression(from, "") : expand(value, "", null, false)
         if (!tempValue && defaultValue) tempValue = expand(defaultValue, "", null, false)
@@ -383,23 +368,23 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @CompileStatic
     @Deprecated
     boolean evaluateCondition(String expression, String debugLocation) { return condition(expression, debugLocation) }
 
     @Override
-    @CompileStatic
     @Deprecated
     boolean evaluateCondition(String expression, String debugLocation, Map additionalContext) {
         return condition(expression, debugLocation, additionalContext)
     }
 
     @Override
-    @CompileStatic
     boolean condition(String expression, String debugLocation) {
+        return conditionInternal(expression, debugLocation, ecfi.getEci())
+    }
+    protected boolean conditionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
         if (expression == null || expression.length() == 0) return false
         try {
-            Script script = getGroovyScript(expression)
+            Script script = getGroovyScript(expression, ec)
             Object result = script.run()
             script.setBinding(null)
             return result as boolean
@@ -408,51 +393,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
     @Override
-    @CompileStatic
     boolean condition(String expression, String debugLocation, Map additionalContext) {
-        ExecutionContext ec = ecfi.getExecutionContext()
-        ContextStack cs = (ContextStack) ec.context
-        boolean doPushPop = additionalContext != null && additionalContext.size() > 0
-        try {
-            if (doPushPop) {
-                if (additionalContext instanceof EntityValueBase) cs.push(((EntityValueBase) additionalContext).getValueMap())
-                else cs.push(additionalContext)
-                // do another push so writes to the context don't modify the passed in Map
-                cs.push()
-            }
-            return condition(expression, debugLocation)
-        } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
-        }
-    }
-
-    @Override
-    @CompileStatic
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation) { return expression(expr, debugLocation) }
-    @Override
-    @CompileStatic
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation, Map additionalContext) {
-        return expression(expr, debugLocation, additionalContext)
-    }
-    @Override
-    @CompileStatic
-    Object expression(String expression, String debugLocation) {
-        if (expression == null || expression.length() == 0) return null
-        try {
-            Script script = getGroovyScript(expression)
-            Object result = script.run()
-            script.setBinding(null)
-            return result
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
-        }
-    }
-    @Override
-    @CompileStatic
-    Object expression(String expr, String debugLocation, Map additionalContext) {
-        ExecutionContext ec = ecfi.getExecutionContext()
+        ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.context
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
@@ -462,7 +404,48 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
             }
-            return expression(expr, debugLocation)
+            return conditionInternal(expression, debugLocation, ec)
+        } finally {
+            if (doPushPop) { cs.pop(); cs.pop(); }
+        }
+    }
+
+    @Override
+    @Deprecated
+    Object evaluateContextField(String expr, String debugLocation) { return expression(expr, debugLocation) }
+    @Override
+    @Deprecated
+    Object evaluateContextField(String expr, String debugLocation, Map additionalContext) {
+        return expression(expr, debugLocation, additionalContext)
+    }
+    @Override
+    Object expression(String expression, String debugLocation) {
+        return expressionInternal(expression, debugLocation, ecfi.getEci())
+    }
+    protected Object expressionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
+        if (expression == null || expression.length() == 0) return null
+        try {
+            Script script = getGroovyScript(expression, ec)
+            Object result = script.run()
+            script.setBinding(null)
+            return result
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
+        }
+    }
+    @Override
+    Object expression(String expr, String debugLocation, Map additionalContext) {
+        ExecutionContextImpl ec = ecfi.getEci()
+        ContextStack cs = ec.context
+        boolean doPushPop = additionalContext != null && additionalContext.size() > 0
+        try {
+            if (doPushPop) {
+                if (additionalContext instanceof EntityValueBase) cs.push(((EntityValueBase) additionalContext).getValueMap())
+                else cs.push(additionalContext)
+                // do another push so writes to the context don't modify the passed in Map
+                cs.push()
+            }
+            return expressionInternal(expr, debugLocation, ec)
         } finally {
             if (doPushPop) { cs.pop(); cs.pop(); }
         }
@@ -470,29 +453,24 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
 
     @Override
-    @CompileStatic
     @Deprecated
     String evaluateStringExpand(String inputString, String debugLocation) { expand(inputString, debugLocation) }
     @Override
-    @CompileStatic
     @Deprecated
     String evaluateStringExpand(String inputString, String debugLocation, Map additionalContext) {
         return expand(inputString, debugLocation, additionalContext)
     }
 
     @Override
-    @CompileStatic
     String expand(String inputString, String debugLocation) {
         return expand(inputString, debugLocation, null, true)
     }
     @Override
-    @CompileStatic
     String expand(String inputString, String debugLocation, Map additionalContext) {
         return expand(inputString, debugLocation, additionalContext, true)
     }
 
     @Override
-    @CompileStatic
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
         if (inputString == null || inputString.length() == 0) return ""
 
@@ -516,7 +494,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
             String expression = '"""' + inputString + '"""'
             try {
-                Script script = getGroovyScript(expression)
+                Script script = getGroovyScript(expression, eci)
                 if (script == null) return ""
                 Object result = script.run()
                 script.setBinding(null)
@@ -529,20 +507,21 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @CompileStatic
-    Script getGroovyScript(String expression) {
-        ContextBinding curBinding = ecfi.eci.getContextBinding()
+    Script getGroovyScript(String expression, ExecutionContextImpl eci) {
+        ContextBinding curBinding = eci.getContextBinding()
+
         Map<String, Script> curScriptByExpr = threadScriptByExpression.get()
         if (curScriptByExpr == null) {
             curScriptByExpr = new HashMap<String, Script>()
             threadScriptByExpression.set(curScriptByExpr)
         }
+
         Script script = curScriptByExpr.get(expression)
         if (script == null) {
-            Class groovyClass = this.scriptGroovyExpressionCache.get(expression)
+            Class groovyClass = scriptGroovyExpressionCache.get(expression)
             if (groovyClass == null) {
                 groovyClass = new GroovyClassLoader().parseClass(expression)
-                this.scriptGroovyExpressionCache.put(expression, groovyClass)
+                scriptGroovyExpressionCache.put(expression, groovyClass)
             }
             script = InvokerHelper.createScript(groovyClass, curBinding)
             curScriptByExpr.put(expression, script)
@@ -553,7 +532,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return script
     }
 
-    @CompileStatic
     static String stripLocationPrefix(String location) {
         if (!location) return ""
 
@@ -572,7 +550,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return strippedLocation.toString()
     }
 
-    @CompileStatic
     static String getLocationPrefix(String location) {
         if (!location) return ""
 
@@ -585,7 +562,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @CompileStatic
     String getContentType(String filename) {
         if (!filename || !filename.contains(".")) return null
         String type = mimetypesFileTypeMap.getContentType(filename)
@@ -594,7 +570,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return type
     }
 
-    @CompileStatic
     static boolean isBinaryContentType(String contentType) {
         if (!contentType) return false
         if (contentType.startsWith("text/")) return false
@@ -610,7 +585,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return true
     }
 
-    @CompileStatic
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
         TransformerFactory factory = TransformerFactory.newInstance()
         factory.setURIResolver(new LocalResolver(ecfi, factory.getURIResolver()))
@@ -626,7 +600,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         transformer.transform(xslFoSrc, new SAXResult(fop.getDefaultHandler()))
     }
 
-    @CompileStatic
     FopFactory getFopFactory() {
         if (internalFopFactory != null) return internalFopFactory
 

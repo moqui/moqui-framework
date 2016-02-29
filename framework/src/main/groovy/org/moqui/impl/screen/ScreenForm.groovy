@@ -371,7 +371,7 @@ class ScreenForm {
         // NOTE: this is cached in the ScreenRenderImpl as it may be called multiple times for a single form render
         List<MNode> dbFormNodeList = getDbFormNodeList()
         ExecutionContext ec = ecfi.getExecutionContext()
-        boolean isDisplayOnly = ec.getContext().get("formDisplayOnly") == "true" || ec.getContext().get("formDisplayOnly_${formName}") == "true"
+        boolean isDisplayOnly = ec.getContext().getByString("formDisplayOnly") == "true" || ec.getContext().getByString("formDisplayOnly_${formName}") == "true"
 
         if (isDynamic) {
             MNode newFormNode = new MNode(internalFormNode.name, null)
@@ -1088,9 +1088,9 @@ class ScreenForm {
                 if (key == "null") key = null
             } else if (listOptionEvb != null) {
                 String keyFieldName = listOptionEvb.getEntityDefinition().getPkFieldNames().get(0)
-                if (keyFieldName) key = ec.context.get(keyFieldName)
+                if (keyFieldName) key = ec.context.getByString(keyFieldName)
             }
-            if (key == null) key = ec.context.get(fieldNode.attribute('name'))
+            if (key == null) key = ec.context.getByString(fieldNode.attribute('name'))
             if (key == null) return
 
             String text = childNode.attribute('text')

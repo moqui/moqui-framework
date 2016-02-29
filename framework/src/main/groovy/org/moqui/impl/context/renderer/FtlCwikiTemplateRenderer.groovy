@@ -58,7 +58,7 @@ class FtlCwikiTemplateRenderer implements TemplateRenderer {
             // avoid the <html> and <body> tags
             builder.setEmitAsDocument(false)
             // if we're in the context of a screen render, use it's URL for the base
-            ScreenRenderImpl sri = (ScreenRenderImpl) ecfi.getExecutionContext().getContext().get("sri")
+            ScreenRenderImpl sri = (ScreenRenderImpl) ecfi.getExecutionContext().getContext().getByString("sri")
             if (sri != null) builder.setBase(sri.getBaseLinkUri())
 
             MarkupParser parser = new MarkupParser(new ConfluenceLanguage())

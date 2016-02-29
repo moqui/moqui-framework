@@ -54,8 +54,8 @@ public class ScriptServiceRunner implements ServiceRunner {
             } else {
                 // if there are fields in ec.context that match out-parameters but that aren't in the result, set them
                 for (String outParameterName in sd.getOutParameterNames()) {
-                    if (!autoResult.containsKey(outParameterName) && cs.get(outParameterName) != null)
-                        autoResult.put(outParameterName, cs.get(outParameterName))
+                    if (!autoResult.containsKey(outParameterName) && cs.getByString(outParameterName) != null)
+                        autoResult.put(outParameterName, cs.getByString(outParameterName))
                 }
                 return autoResult
             }
