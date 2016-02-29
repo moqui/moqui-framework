@@ -27,7 +27,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
-import org.moqui.screen.ScreenTest
+import org.moqui.impl.entity.EntityValueBase
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -352,16 +352,17 @@ public class ResourceFacadeImpl implements ResourceFacade {
     Object script(String location, String method, Map additionalContext) {
         ExecutionContext ec = ecfi.getExecutionContext()
         ContextStack cs = (ContextStack) ec.context
+        boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
-            if (additionalContext) {
-                if (additionalContext instanceof EntityValue) cs.push(((EntityValue) additionalContext).getMap())
+            if (doPushPop) {
+                if (additionalContext instanceof EntityValueBase) cs.push(((EntityValueBase) additionalContext).getValueMap())
                 else cs.push(additionalContext)
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
             }
             return script(location, method)
         } finally {
-            if (additionalContext) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop(); }
         }
     }
 
@@ -396,11 +397,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override
     @CompileStatic
     boolean condition(String expression, String debugLocation) {
-        if (!expression) return false
+        if (expression == null || expression.length() == 0) return false
         try {
             Script script = getGroovyScript(expression)
             Object result = script.run()
-            closeScript(expression, script)
+            script.setBinding(null)
             return result as boolean
         } catch (Exception e) {
             throw new IllegalArgumentException("Error in condition [${expression}] from [${debugLocation}]", e)
@@ -411,16 +412,17 @@ public class ResourceFacadeImpl implements ResourceFacade {
     boolean condition(String expression, String debugLocation, Map additionalContext) {
         ExecutionContext ec = ecfi.getExecutionContext()
         ContextStack cs = (ContextStack) ec.context
+        boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
-            if (additionalContext) {
-                if (additionalContext instanceof EntityValue) cs.push(((EntityValue) additionalContext).getMap())
+            if (doPushPop) {
+                if (additionalContext instanceof EntityValueBase) cs.push(((EntityValueBase) additionalContext).getValueMap())
                 else cs.push(additionalContext)
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
             }
             return condition(expression, debugLocation)
         } finally {
-            if (additionalContext) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop(); }
         }
     }
 
@@ -437,11 +439,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override
     @CompileStatic
     Object expression(String expression, String debugLocation) {
-        if (!expression) return null
+        if (expression == null || expression.length() == 0) return null
         try {
             Script script = getGroovyScript(expression)
             Object result = script.run()
-            closeScript(expression, script)
+            script.setBinding(null)
             return result
         } catch (Exception e) {
             throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
@@ -451,17 +453,18 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @CompileStatic
     Object expression(String expr, String debugLocation, Map additionalContext) {
         ExecutionContext ec = ecfi.getExecutionContext()
-        ContextStack cs = (ContextStack) ec.context
+        ContextStack cs = ec.context
+        boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
-            if (additionalContext) {
-                if (additionalContext instanceof EntityValue) cs.push(((EntityValue) additionalContext).getMap())
+            if (doPushPop) {
+                if (additionalContext instanceof EntityValueBase) cs.push(((EntityValueBase) additionalContext).getValueMap())
                 else cs.push(additionalContext)
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
             }
             return expression(expr, debugLocation)
         } finally {
-            if (additionalContext) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop(); }
         }
     }
 
@@ -491,15 +494,13 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override
     @CompileStatic
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
-        if (!inputString) return ""
+        if (inputString == null || inputString.length() == 0) return ""
 
         ExecutionContextImpl eci = ecfi.getEci()
 
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
-        ContextStack cs = null
-        if (doPushPop) {
-            cs = (ContextStack) eci.context
-        }
+        ContextStack cs = (ContextStack) null
+        if (doPushPop) cs = eci.context
         try {
             if (doPushPop) {
                 if (additionalContext instanceof EntityValue) { cs.push(((EntityValue) additionalContext).getMap()) }
@@ -516,9 +517,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
             String expression = '"""' + inputString + '"""'
             try {
                 Script script = getGroovyScript(expression)
-                if (script == null) return null
+                if (script == null) return ""
                 Object result = script.run()
-                closeScript(expression, script)
+                script.setBinding(null)
                 return result as String
             } catch (Exception e) {
                 throw new IllegalArgumentException("Error in string expression [${expression}] from [${debugLocation}]", e)
@@ -544,14 +545,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 this.scriptGroovyExpressionCache.put(expression, groovyClass)
             }
             script = InvokerHelper.createScript(groovyClass, curBinding)
+            curScriptByExpr.put(expression, script)
         } else {
             script.setBinding(curBinding)
         }
 
         return script
-    }
-    void closeScript(String expression, Script script) {
-        script.setBinding(null)
     }
 
     @CompileStatic

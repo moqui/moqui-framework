@@ -206,7 +206,7 @@ class ScreenUrlInfo {
         // if a user is permitted to view a certain location once in a render/ec they can safely be always allowed to, so cache it
         // add the username to the key just in case user changes during an EC instance
         String permittedCacheKey = null
-        if (fullPathNameList) {
+        if (fullPathNameList != null) {
             permittedCacheKey = (userId ?: '_anonymous') + fullPathNameList.toString()
             Boolean cachedPermitted = aefi.screenPermittedCache.get(permittedCacheKey)
             if (cachedPermitted != null) return cachedPermitted
@@ -250,15 +250,16 @@ class ScreenUrlInfo {
 
     String getBaseUrl(ScreenRenderImpl sri) {
         // support the stub mode for ScreenUrlInfo, representing a plain URL and not a screen URL
-        if (plainUrl) return plainUrl
+        if (plainUrl != null && plainUrl.length() > 0) return plainUrl
 
         if (sri == null) return ""
         String baseUrl
-        if (sri.baseLinkUrl) {
+        if (sri.baseLinkUrl != null && sri.baseLinkUrl.length() > 0) {
             baseUrl = sri.baseLinkUrl
             if (baseUrl && baseUrl.charAt(baseUrl.length()-1) == (char) '/') baseUrl = baseUrl.substring(0, baseUrl.length()-1)
         } else {
-            if (!sri.webappName) throw new BaseException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
+            if (sri.webappName == null || sri.webappName.length() == 0)
+                throw new BaseException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
             baseUrl = WebFacadeImpl.getWebappRootUrl(sri.webappName, sri.servletContextPath, true,
                     this.requireEncryption, (ExecutionContextImpl) sri.getEc())
         }
@@ -267,7 +268,7 @@ class ScreenUrlInfo {
 
     String getUrlWithBase(String baseUrl) {
         StringBuilder urlBuilder = new StringBuilder(baseUrl)
-        if (fullPathNameList) {
+        if (fullPathNameList != null) {
             int listSize = fullPathNameList.size()
             for (int i = 0; i < listSize; i++) {
                 String pathName = fullPathNameList.get(i)
@@ -281,7 +282,7 @@ class ScreenUrlInfo {
         StringBuilder urlBuilder = new StringBuilder(baseUrl)
         if (alwaysUseFullPath) {
             // really get the full path instead of minimal
-            if (fullPathNameList) {
+            if (fullPathNameList != null) {
                 int listSize = fullPathNameList.size()
                 for (int i = 0; i < listSize; i++) {
                     String pathName = fullPathNameList.get(i)
@@ -289,7 +290,7 @@ class ScreenUrlInfo {
                 }
             }
         } else {
-            if (minimalPathNameList) {
+            if (minimalPathNameList != null) {
                 int listSize = minimalPathNameList.size()
                 for (int i = 0; i < listSize; i++) {
                     String pathName = minimalPathNameList.get(i)

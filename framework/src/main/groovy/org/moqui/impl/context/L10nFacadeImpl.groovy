@@ -53,8 +53,10 @@ public class L10nFacadeImpl implements L10nFacade {
     String localize(String original) { return localize(original, getLocale()) }
     @Override
     String localize(String original, Locale locale) {
-        if (!original) return ""
-        if (original.length() > 255) {
+        if (original == null) return ""
+        int originalLength = original.length()
+        if (originalLength == 0) return ""
+        if (originalLength > 255) {
             throw new IllegalArgumentException("Original String cannot be more than 255 characters long, passed in string was [${original.length()}] characters long")
         }
 

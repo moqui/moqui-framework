@@ -1152,7 +1152,8 @@ class ScreenRenderImpl implements ScreenRender {
     String getFieldValuePlainString(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
-        if (!obj && defaultValue) return ec.getResource().expand(defaultValue, "")
+        if (StupidUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
+            return ec.getResource().expand(defaultValue, "")
         return StupidUtilities.toPlainString(obj)
         // NOTE: this approach causes problems with currency fields, but kills the string expand for default-value... a better approach?
         //return obj ? obj.toString() : (defaultValue ? ec.getResource().expand(defaultValue, null) : "")
@@ -1161,9 +1162,10 @@ class ScreenRenderImpl implements ScreenRender {
     Object getFieldValue(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
         MNode fieldNode = fieldNodeWrapper.getMNode()
         String entryName = fieldNode.attribute('entry-name')
-        if (entryName) return ec.getResource().expression(entryName, null)
+        if (entryName != null && entryName.length() > 0) return ec.getResource().expression(entryName, null)
         String fieldName = fieldNode.attribute('name')
-        String mapName = fieldNode.parent.attribute('map') ?: "fieldValues"
+        String mapAttr = fieldNode.parent.attribute('map')
+        String mapName = mapAttr != null && mapAttr.length() > 0 ? mapAttr : "fieldValues"
         Object value = null
         // if this is an error situation try parameters first, otherwise try parameters last
         Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
@@ -1172,7 +1174,7 @@ class ScreenRenderImpl implements ScreenRender {
         Map valueMap = (Map) ec.resource.expression(mapName, "")
         if (StupidUtilities.isEmpty(value)) {
             MNode formNode = fieldNode.parent
-            if (valueMap && formNode.name == "form-single") {
+            if (valueMap != null && formNode.name == "form-single") {
                 try {
                     if (valueMap instanceof EntityValueBase) {
                         // if it is an EntityValueImpl, only get if the fieldName is a value
@@ -1204,7 +1206,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (!StupidUtilities.isEmpty(value)) return value
 
         String defaultStr = ec.getResource().expand(defaultValue, null)
-        if (defaultStr) return defaultStr
+        if (defaultStr != null && defaultStr.length() > 0) return defaultStr
         return value
     }
     String getFieldValueClass(FtlNodeWrapper fieldNodeWrapper) {
@@ -1212,11 +1214,11 @@ class ScreenRenderImpl implements ScreenRender {
 
         MNode fieldNode = fieldNodeWrapper.getMNode()
         String entryName = fieldNode.attribute('entry-name')
-        if (entryName) fieldValue = ec.getResource().expression(entryName, null)
+        if (entryName != null && entryName.length() > 0) fieldValue = ec.getResource().expression(entryName, null)
         if (fieldValue == null) {
             String fieldName = fieldNode.attribute('name')
             String mapName = fieldNode.parent.attribute('map') ?: "fieldValues"
-            if (ec.getContext().get(mapName) && fieldNode.parent.name == "form-single") {
+            if (ec.getContext().get(mapName) != null && fieldNode.parent.name == "form-single") {
                 try {
                     Map valueMap = (Map) ec.getContext().get(mapName)
                     if (valueMap instanceof EntityValueImpl) {
@@ -1231,7 +1233,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
             }
-            if (!fieldValue) fieldValue = ec.getContext().get(fieldName)
+            if (StupidUtilities.isEmpty(fieldValue)) fieldValue = ec.getContext().get(fieldName)
         }
 
         return fieldValue != null ? fieldValue.getClass().getSimpleName() : "String"
@@ -1240,7 +1242,7 @@ class ScreenRenderImpl implements ScreenRender {
     String getFieldEntityValue(FtlNodeWrapper widgetNodeWrapper) {
         FtlNodeWrapper fieldNodeWrapper = (FtlNodeWrapper) widgetNodeWrapper.parentNode.parentNode
         Object fieldValue = getFieldValue(fieldNodeWrapper, "")
-        if (!fieldValue) return ""
+        if (fieldValue == null) return ""
         MNode widgetNode = widgetNodeWrapper.getMNode()
         String entityName = widgetNode.attribute('entity-name')
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName)
@@ -1256,7 +1258,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         String value = ""
         String text = (String) widgetNode.attribute('text')
-        if (text) {
+        if (text != null && text.length() > 0) {
             // push onto the context and then expand the text
             ec.context.push(ev.getMap())
             try {
@@ -1307,7 +1309,7 @@ class ScreenRenderImpl implements ScreenRender {
     String getCurrentThemeId() {
         String stteId = null
         // loop through entire screenRenderDefList and look for @screen-theme-type-enum-id, use last one found
-        if (screenUrlInfo.screenRenderDefList) for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
+        if (screenUrlInfo.screenRenderDefList != null) for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
             String stteiStr = (String) sd.screenNode?.attribute('screen-theme-type-enum-id')
             if (stteiStr) stteId = stteiStr
         }
@@ -1319,7 +1321,7 @@ class ScreenRenderImpl implements ScreenRender {
                 .condition([userId:ec.user.userId, screenThemeTypeEnumId:stteId] as Map<String, Object>)
                 .useCache(true).disableAuthz().one()?.screenThemeId
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
-        if (!themeId) {
+        if (themeId == null || themeId.length() == 0) {
             boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
             try {
                 EntityValue themeTypeEnum = sfi.ecfi.entityFacade.find("moqui.basic.Enumeration")
@@ -1330,7 +1332,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
         }
         // theme with "DEFAULT" in the ID
-        if (!themeId) {
+        if (themeId == null || themeId.length() == 0) {
             EntityValue stv = sfi.ecfi.entityFacade.find("moqui.screen.ScreenTheme")
                     .condition("screenThemeTypeEnumId", stteId)
                     .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").one()
