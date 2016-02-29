@@ -46,13 +46,13 @@ class EntityCache {
         this.efi = efi
         this.cfi = efi.ecfi.getCacheFacade()
 
-        oneKeyBase = "entity.record.one."
-        oneRaKeyBase = "entity.record.one_ra."
-        oneBfKey = "entity.record.one_bf"
-        listKeyBase = "entity.record.list."
-        listRaKeyBase = "entity.record.list_ra."
-        listViewRaKeyBase = "entity.record.list_view_ra."
-        countKeyBase = "entity.record.count."
+        oneKeyBase = efi.tenantId + "__entity.record.one."
+        oneRaKeyBase = efi.tenantId + "__entity.record.one_ra."
+        oneBfKey = efi.tenantId + "__entity.record.one_bf"
+        listKeyBase = efi.tenantId + "__entity.record.list."
+        listRaKeyBase = efi.tenantId + "__entity.record.list_ra."
+        listViewRaKeyBase = efi.tenantId + "__entity.record.list_view_ra."
+        countKeyBase = efi.tenantId + "__entity.record.count."
     }
 
     // EntityFacadeImpl getEfi() { return efi }

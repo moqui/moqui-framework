@@ -45,6 +45,7 @@ public class CacheFacadeImpl implements CacheFacade {
     protected final CacheManager cacheManager
 
     protected final ConcurrentMap<String, CacheImpl> localCacheImplMap = new ConcurrentHashMap<String, CacheImpl>()
+    protected final Map<String, Boolean> cacheTenantsShare = new HashMap<String, Boolean>()
 
     CacheFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -56,13 +57,21 @@ public class CacheFacadeImpl implements CacheFacade {
     protected String getFullName(String cacheName, String tenantId) {
         if (cacheName == null) return null
         if (cacheName.contains("__")) return cacheName
-        MNode cacheElement = getCacheNode(cacheName)
-        if (cacheElement?.attribute("tenants-share") == "true") {
+        if (isTenantsShare(cacheName)) {
             return cacheName
         } else {
             if (!tenantId) tenantId = ecfi.getEci().getTenantId()
             return tenantId.concat("__").concat(cacheName)
         }
+    }
+    protected boolean isTenantsShare(String cacheName) {
+        Boolean savedVal = cacheTenantsShare.get(cacheName)
+        if (savedVal != null) return savedVal.booleanValue()
+
+        MNode cacheElement = getCacheNode(cacheName)
+        boolean attrVal = cacheElement?.attribute("tenants-share") == "true"
+        cacheTenantsShare.put(cacheName, attrVal)
+        return attrVal
     }
     protected MNode getCacheNode(String cacheName) {
         MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
