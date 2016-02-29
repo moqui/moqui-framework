@@ -104,9 +104,13 @@ public class CacheFacadeImpl implements CacheFacade {
     boolean cacheExists(String cacheName) { return cacheManager.cacheExists(getFullName(cacheName, null)) }
     String[] getCacheNames() { return cacheManager.getCacheNames() }
 
-    List<Map<String, Object>> getAllCachesInfo(String orderByField) {
+    List<Map<String, Object>> getAllCachesInfo(String orderByField, String filterRegexp) {
+        String tenantId = ecfi.getEci().getTenantId()
+        String tenantPrefix = tenantId + "__"
         List<Map<String, Object>> ci = new LinkedList()
         for (String cn in cacheManager.getCacheNames()) {
+            if (tenantId != "DEFAULT" && !cn.startsWith(tenantPrefix)) continue
+            if (filterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue
             Cache co = getCache(cn)
             ci.add([name:co.getName(), expireTimeIdle:co.getExpireTimeIdle(),
                     expireTimeLive:co.getExpireTimeLive(), maxElements:co.getMaxElements(),
