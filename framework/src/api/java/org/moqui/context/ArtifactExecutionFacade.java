@@ -63,6 +63,9 @@ public interface ArtifactExecutionFacade {
      */
     void enableAuthz();
 
+    boolean disableTarpit();
+    void enableTarpit();
+
     void setAnonymousAuthorizedAll();
     void setAnonymousAuthorizedView();
 
