@@ -59,7 +59,7 @@ public class ContextStack implements Map<String, Object> {
         if ("context".equals(key)) return;
         boolean found = false;
         for (int i = 0; i < stackListSize; i++) {
-            Map<String, Object> curMap = stackList.get(i).getWrapped();
+            MapWrapper curMap = stackList.get(i);
             if (curMap.containsKey(key)) {
                 combinedMap.put(key, curMap.get(key));
                 found = true;
