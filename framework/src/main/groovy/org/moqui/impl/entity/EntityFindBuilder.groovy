@@ -164,13 +164,17 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
         if (localEntityDefinition.isViewEntity()) {
             MNode databaseNode = efi.getDatabaseNode(localEntityDefinition.getEntityGroupName())
-            String joinStyle = databaseNode?.attribute('join-style') ?: "ansi"
+            String jsAttr = databaseNode?.attribute('join-style')
+            String joinStyle = jsAttr != null && jsAttr.length() > 0 ? jsAttr : "ansi"
 
-            if ("ansi" != joinStyle && "ansi-no-parenthesis" != joinStyle) {
+            if (!"ansi".equals(joinStyle) && !"ansi-no-parenthesis".equals(joinStyle)) {
                 throw new IllegalArgumentException("The join-style [${joinStyle}] is not supported, found on database [${databaseNode?.attribute('name')}]")
             }
 
             boolean useParenthesis = ("ansi" == joinStyle)
+
+            ArrayList<MNode> memberEntityNodes = entityNode.children("member-entity")
+            int memberEntityNodesSize = memberEntityNodes.size()
 
             // get a list of all aliased fields selected or ordered by and don't bother joining in a member-entity
             //     that is not selected or ordered by
@@ -188,22 +192,31 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 if (!fi.isUserField) fieldUsedSet.add(fi.name)
             }
 
-            if (entityFindBase.orderByFields) for (String orderByField in entityFindBase.orderByFields) {
-                FieldOrderOptions foo = new FieldOrderOptions(orderByField)
-                fieldUsedSet.add(foo.fieldName)
+            ArrayList<String> orderByFields = entityFindBase.orderByFields
+            if (orderByFields != null) {
+                int orderByFieldsSize = orderByFields.size()
+                for (int i = 0; i < orderByFieldsSize; i++) {
+                    String orderByField = (String) orderByFields.get(i)
+                    FieldOrderOptions foo = new FieldOrderOptions(orderByField)
+                    fieldUsedSet.add(foo.fieldName)
+                }
             }
             // additional fields to look for, when this is a sub-select for a member-entity that is a view-entity
-            if (additionalFieldsUsed) fieldUsedSet.addAll(additionalFieldsUsed)
+            if (additionalFieldsUsed != null) fieldUsedSet.addAll(additionalFieldsUsed)
             // get a list of entity aliases used
             for (String fieldName in fieldUsedSet) {
                 MNode aliasNode = localEntityDefinition.getFieldNode(fieldName)
-                String entityAlias = aliasNode?.attribute('entity-alias')
-                if (entityAlias) entityAliasUsedSet.add(entityAlias)
-                if (aliasNode != null && aliasNode.hasChild("complex-alias")) {
-                    MNode complexAliasNode = aliasNode.first("complex-alias")
-                    for (MNode cafNode in complexAliasNode.children("complex-alias-field")) {
+                String entityAlias = aliasNode != null ? aliasNode.attribute('entity-alias') : null
+                if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias)
+
+                MNode complexAliasNode = aliasNode.first("complex-alias")
+                if (aliasNode != null && complexAliasNode != null) {
+                    ArrayList<MNode> cafList = complexAliasNode.children("complex-alias-field")
+                    int cafListSize = cafList.size()
+                    for (int i = 0; i < cafListSize; i++) {
+                        MNode cafNode = (MNode) cafList.get(i)
                         String cafEntityAlias = cafNode.attribute('entity-alias')
-                        if (cafEntityAlias) entityAliasUsedSet.add(cafEntityAlias)
+                        if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias)
                     }
                 }
             }
@@ -211,10 +224,16 @@ class EntityFindBuilder extends EntityQueryBuilder {
             //    logger.warn("============== entityAliasUsedSet=${entityAliasUsedSet} for entity ${localEntityDefinition.entityName}\n fieldUsedSet=${fieldUsedSet}\n fieldInfoList=${fieldInfoList}\n orderByFields=${entityFindBase.orderByFields}")
 
             // make sure each entityAlias in the entityAliasUsedSet links back to the main
-            MNode memberEntityNode = entityNode.children("member-entity").find({ !it.attribute('join-from-alias') })
-            String mainEntityAlias = memberEntityNode?.attribute('entity-alias')
+            MNode memberEntityNode = (MNode) null
+            for (int i = 0; i < memberEntityNodesSize; i++) {
+                MNode curMeNode = (MNode) memberEntityNodes.get(i)
+                String jfa = curMeNode.attribute('join-from-alias')
+                if (jfa == null || jfa.length() == 0) { memberEntityNode = curMeNode; break }
+            }
+            String mainEntityAlias = memberEntityNode != null ? memberEntityNode.attribute('entity-alias') : null
+
             Set<String> entityAliasesJoinedInSet = new HashSet<String>()
-            entityAliasesJoinedInSet.add(mainEntityAlias)
+            if (mainEntityAlias != null) entityAliasesJoinedInSet.add(mainEntityAlias)
             for (String entityAlias in new HashSet(entityAliasUsedSet)) {
                 expandJoinFromAlias(entityNode, entityAlias, entityAliasUsedSet, entityAliasesJoinedInSet)
             }
@@ -228,14 +247,16 @@ class EntityFindBuilder extends EntityQueryBuilder {
             // on initial pass only add opening parenthesis since easier than going back and inserting them, then insert the rest
             boolean isFirst = true
             boolean fromEmpty = true
-            for (MNode relatedMemberEntityNode in entityNode.children("member-entity")) {
-                Map relatedMemberEntityAttr = relatedMemberEntityNode.attributes
+            for (int meInd = 0; meInd < memberEntityNodesSize; meInd++) {
+                MNode relatedMemberEntityNode = (MNode) memberEntityNodes.get(meInd)
 
-                String entityAlias = (String) relatedMemberEntityAttr.get('entity-alias')
-                String joinFromAlias = (String) relatedMemberEntityAttr.get('join-from-alias')
+                String entityAlias = relatedMemberEntityNode.attribute('entity-alias')
+                String joinFromAlias = relatedMemberEntityNode.attribute('join-from-alias')
                 // logger.warn("=================== joining member-entity ${relatedMemberEntity}")
+
                 // if this isn't joined in skip it (should be first one only); the first is handled below
-                if (!joinFromAlias) continue
+                if (joinFromAlias == null || joinFromAlias.length() == 0) continue
+
                 // if entity alias not used don't join it in
                 if (!entityAliasUsedSet.contains(entityAlias)) continue
                 if (!entityAliasUsedSet.contains(joinFromAlias)) continue
@@ -245,11 +266,11 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 // adding to from, then it's not empty
                 fromEmpty = false
 
-                MNode linkMemberNode = entityNode.children("member-entity").find({ it.attribute('entity-alias') == joinFromAlias })
-                String linkEntityName = linkMemberNode?.attribute('entity-name')
-                EntityDefinition linkEntityDefinition = this.efi.getEntityDefinition(linkEntityName)
-                String relatedLinkEntityName = relatedMemberEntityAttr.get('entity-name')
-                EntityDefinition relatedLinkEntityDefinition = this.efi.getEntityDefinition(relatedLinkEntityName)
+                MNode linkMemberNode = memberEntityNodes.find({ it.attribute('entity-alias') == joinFromAlias })
+                String linkEntityName = linkMemberNode != null ? linkMemberNode.attribute('entity-name') : null
+                EntityDefinition linkEntityDefinition = efi.getEntityDefinition(linkEntityName)
+                String relatedLinkEntityName = relatedMemberEntityNode.attribute('entity-name')
+                EntityDefinition relatedLinkEntityDefinition = efi.getEntityDefinition(relatedLinkEntityName)
 
                 if (isFirst) {
                     // first link, add link entity for this one only, for others add related link entity
@@ -261,15 +282,15 @@ class EntityFindBuilder extends EntityQueryBuilder {
                     // make sure the left entity alias is already in the join...
                     if (!joinedAliasSet.contains(joinFromAlias)) {
                         logger.error("For view-entity [${localEntityDefinition.getFullEntityName()}] found member-entity with @join-from-alias [${joinFromAlias}] that isn't in the joinedAliasSet: ${joinedAliasSet}; view-entity Node: ${entityNode}")
-                        throw new IllegalArgumentException((String) "Tried to link the " + relatedMemberEntityAttr.get('entity-alias') +
-                                " alias to the " + joinFromAlias + " alias of the " +
-                                localEntityDefinition.getFullEntityName() + " view-entity, but it is not the first member-entity and has not been joined to a previous member-entity. In other words, the left/main alias isn't connected to the rest of the member-entities yet.")
+                        throw new EntityException("Tried to link the " + entityAlias + " alias to the " + joinFromAlias +
+                                " alias of the " + localEntityDefinition.getFullEntityName() +
+                                " view-entity, but it is not the first member-entity and has not been joined to a previous member-entity. In other words, the left/main alias isn't connected to the rest of the member-entities yet.".toString())
                     }
                 }
                 // now put the rel (right) entity alias into the set that is in the join
                 joinedAliasSet.add(entityAlias)
 
-                if (relatedMemberEntityAttr.get('join-optional') == "true") {
+                if (relatedMemberEntityNode.attribute('join-optional') == "true") {
                     localBuilder.append(" LEFT OUTER JOIN ")
                 } else {
                     localBuilder.append(" INNER JOIN ")
@@ -279,7 +300,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 localBuilder.append(" ").append(entityAlias).append(" ON ")
 
                 ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map")
-                if (!keyMaps) {
+                if (keyMaps == null || keyMaps.size() == 0) {
                     throw new IllegalArgumentException((String) "No member-entity/join key-maps found for the " +
                             joinFromAlias + " and the " + entityAlias +
                             " member-entities of the " + localEntityDefinition.getFullEntityName() + " view-entity.")
@@ -291,12 +312,13 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
                     localBuilder.append(joinFromAlias).append(".")
                     // NOTE: sanitizeColumnName caused issues elsewhere, eliminate here too since we're not using AS clauses
-                    localBuilder.append(linkEntityDefinition.getColumnName((String) keyMap.attribute('field-name'), false))
+                    localBuilder.append(linkEntityDefinition.getColumnName(keyMap.attribute('field-name'), false))
                     // localBuilder.append(sanitizeColumnName(linkEntityDefinition.getColumnName((String) keyMap.attribute('field-name'), false)))
 
                     localBuilder.append(" = ")
 
-                    String relatedFieldName = keyMap.attribute('related-field-name') ?: keyMap.attribute('field-name')
+                    String relatedFieldName = keyMap.attribute('related-field-name')
+                    if (relatedFieldName == null || relatedFieldName.length() == 0) relatedFieldName = keyMap.attribute('field-name')
                     if (!relatedLinkEntityDefinition.isField(relatedFieldName) &&
                             relatedLinkEntityDefinition.pkFieldNames.size() == 1 && keyMaps.size() == 1) {
                         relatedFieldName = relatedLinkEntityDefinition.pkFieldNames.get(0)
@@ -310,7 +332,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 }
 
                 ArrayList<MNode> entityConditionList = relatedMemberEntityNode.children("entity-condition")
-                if (entityConditionList) {
+                if (entityConditionList != null && entityConditionList.size() > 0) {
                     // add any additional manual conditions for the member-entity view link here
                     MNode entityCondition = entityConditionList.get(0)
                     EntityConditionImplBase linkEcib = localEntityDefinition.makeViewListCondition(entityCondition)
@@ -323,7 +345,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
             if (!fromEmpty && useParenthesis) localBuilder.append(')')
 
             // handle member-entities not referenced in any member-entity.@join-from-alias attribute
-            for (MNode memberEntity in entityNode.children("member-entity")) {
+            for (int meInd = 0; meInd < memberEntityNodesSize; meInd++) {
+                MNode memberEntity = (MNode) memberEntityNodes.get(meInd)
                 String memberEntityAlias = memberEntity.attribute('entity-alias')
 
                 // if entity alias not used don't join it in
@@ -331,7 +354,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
                 if (joinedAliasSet.contains(memberEntityAlias)) continue
 
-                EntityDefinition fromEntityDefinition = this.efi.getEntityDefinition((String) memberEntity.attribute('entity-name'))
+                EntityDefinition fromEntityDefinition = efi.getEntityDefinition(memberEntity.attribute('entity-name'))
                 if (fromEmpty) fromEmpty = false else localBuilder.append(", ")
                 makeSqlViewTableName(fromEntityDefinition, fieldInfoList, localBuilder)
                 localBuilder.append(" ").append(memberEntityAlias)

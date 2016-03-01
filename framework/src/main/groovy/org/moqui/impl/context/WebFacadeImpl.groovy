@@ -437,7 +437,7 @@ class WebFacadeImpl implements WebFacade {
     static String getWebappRootUrl(String webappName, String servletContextPath, boolean requireFullUrl, Boolean useEncryption, ExecutionContextImpl eci) {
         WebFacade webFacade = eci.getWeb()
         HttpServletRequest request = webFacade?.getRequest()
-        boolean requireEncryption = useEncryption == null && request != null ? request.isSecure() : useEncryption
+        boolean requireEncryption = useEncryption == null && request != null ? request.isSecure() : (useEncryption != null ? useEncryption.booleanValue() : false)
         boolean needFullUrl = requireFullUrl || request == null ||
                 (requireEncryption && !request.isSecure()) || (!requireEncryption && request.isSecure())
 
@@ -454,13 +454,18 @@ class WebFacadeImpl implements WebFacade {
         // cache the root URLs just within the request, common to generate various URLs in a single request
         String cacheKey = null
         if (request != null) {
-            cacheKey = webappName + servletContextPath + needFullUrl.toString() + requireEncryption.toString()
+            StringBuilder keyBuilder = new StringBuilder(200)
+            keyBuilder.append(webappName).append(servletContextPath)
+            if (needFullUrl) keyBuilder.append("T") else keyBuilder.append("F")
+            if (requireEncryption) keyBuilder.append("T") else keyBuilder.append("F")
+            cacheKey = keyBuilder.toString()
+
             String cachedRootUrl = request.getAttribute(cacheKey)
             if (cachedRootUrl != null) return cachedRootUrl
         }
 
         String urlValue = makeWebappRootUrl(webappName, servletContextPath, eci, webFacade, requireEncryption, needFullUrl)
-        if (cacheKey) request.setAttribute(cacheKey, urlValue)
+        if (cacheKey != null) request.setAttribute(cacheKey, urlValue)
         return urlValue
     }
     static String makeWebappRootUrl(String webappName, String servletContextPath, ExecutionContextImpl eci, WebFacade webFacade,

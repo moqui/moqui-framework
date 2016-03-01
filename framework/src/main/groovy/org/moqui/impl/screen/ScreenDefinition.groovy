@@ -19,6 +19,7 @@ import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.context.ResourceReference
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
@@ -516,7 +517,7 @@ class ScreenDefinition {
             if (fromFieldGroovy != null) {
                 value = InvokerHelper.createScript(fromFieldGroovy, ec.contextBinding).run()
             }
-            if (!value) {
+            if (value == null) {
                 if (valueGroovy != null) {
                     value = InvokerHelper.createScript(valueGroovy, ec.contextBinding).run()
                 } else {

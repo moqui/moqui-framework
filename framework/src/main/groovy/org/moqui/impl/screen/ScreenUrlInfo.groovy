@@ -662,19 +662,19 @@ class ScreenUrlInfo {
             ec = sri.getEc()
 
             this.expandAliasTransition = expandAliasTransition != null ? expandAliasTransition : true
-            if (this.expandAliasTransition) expandTransitionAliasUrl()
+            if (expandAliasTransition != null && expandAliasTransition.booleanValue()) expandTransitionAliasUrl()
 
             // logger.warn("======= Creating UrlInstance ${sui.getFullPathNameList()} - ${sui.targetScreen.getLocation()} - ${sui.getTargetTransitionActualName()}")
         }
 
-        String getRequestMethod() { return ec.web ? ec.web.request.method : "" }
+        String getRequestMethod() { return ec.web != null ? ec.web.request.method : "" }
         TransitionItem getTargetTransition() {
             if (curTargetTransition == null && sui.targetScreen != null && sui.targetTransitionActualName != null)
                 curTargetTransition = sui.targetScreen.getTransitionItem(sui.targetTransitionActualName, getRequestMethod())
             return curTargetTransition
         }
-        boolean getHasActions() { getTargetTransition() && getTargetTransition().actions }
-        boolean getDisableLink() { return (getTargetTransition() && !getTargetTransition().checkCondition(ec)) || !sui.isPermitted(ec) }
+        boolean getHasActions() { getTargetTransition() != null && getTargetTransition().actions }
+        boolean getDisableLink() { return (getTargetTransition() != null && !getTargetTransition().checkCondition(ec)) || !sui.isPermitted(ec) }
         boolean isPermitted() { return sui.isPermitted(ec) }
         boolean getInCurrentScreenPath() {
             List<String> currentPathNameList = new ArrayList<String>(sri.screenUrlInfo.fullPathNameList)
@@ -704,7 +704,7 @@ class ScreenUrlInfo {
                         (sui.lastStandalone || transitionAliasParameters.lastStandalone == "true"))
 
                 sui = aliasUrlInfo
-                curTargetTransition = null
+                curTargetTransition = (TransitionItem) null
             }
         }
         Map getTransitionAliasParameters() { return transitionAliasParameters }
@@ -712,13 +712,17 @@ class ScreenUrlInfo {
         String getUrl() { return sui.getUrlWithBase(sui.getBaseUrl(sri)) }
         String getUrlWithParams() {
             String ps = getParameterString()
-            return getUrl() + (ps ? "?" + ps : "")
+            String url = getUrl()
+            if (ps != null && ps.length() > 0) url = url.concat("?").concat(ps)
+            return url
         }
 
         String getMinimalPathUrl() { return sui.getMinimalPathUrlWithBase(sui.getBaseUrl(sri)) }
         String getMinimalPathUrlWithParams() {
             String ps = getParameterString()
-            return getMinimalPathUrl() + (ps ? "?" + ps : "")
+            String url = getMinimalPathUrl()
+            if (ps != null && ps.length() > 0) url = url.concat("?").concat(ps)
+            return url
         }
 
         String getScreenPathUrl() { return sui.getScreenPathUrlWithBase(sui.getBaseUrl(sri)) }

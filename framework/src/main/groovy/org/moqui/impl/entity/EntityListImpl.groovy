@@ -202,7 +202,7 @@ class EntityListImpl implements EntityList {
     @Override
     EntityList orderByFields(List<String> fieldNames) {
         if (fromCache) return this.cloneList().orderByFields(fieldNames)
-        if (fieldNames) Collections.sort(valueList, new MapOrderByComparator(fieldNames))
+        if (fieldNames != null && fieldNames.size() > 0) Collections.sort(valueList, new MapOrderByComparator(fieldNames))
         return this
     }
 
