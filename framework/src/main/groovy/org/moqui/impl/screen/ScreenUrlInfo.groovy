@@ -22,6 +22,7 @@ import org.moqui.context.ResourceReference
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -312,13 +313,13 @@ class ScreenUrlInfo {
 
     ScreenUrlInfo addParameter(Object name, Object value) {
         if (!name || value == null) return this
-        pathParameterMap.put(name as String, StupidUtilities.toPlainString(value))
+        pathParameterMap.put(name as String, StupidJavaUtilities.toPlainString(value))
         return this
     }
     ScreenUrlInfo addParameters(Map manualParameters) {
         if (!manualParameters) return this
         for (Map.Entry mpEntry in manualParameters.entrySet()) {
-            pathParameterMap.put(mpEntry.getKey() as String, StupidUtilities.toPlainString(mpEntry.getValue()))
+            pathParameterMap.put(mpEntry.getKey() as String, StupidJavaUtilities.toPlainString(mpEntry.getValue()))
         }
         return this
     }
@@ -721,13 +722,13 @@ class ScreenUrlInfo {
             if (sui.targetScreen != null) {
                 for (ParameterItem pi in sui.targetScreen.getParameterMap().values()) {
                     Object value = pi.getValue(ec)
-                    if (value) allParameterMap.put(pi.name, StupidUtilities.toPlainString(value))
+                    if (value) allParameterMap.put(pi.name, StupidJavaUtilities.toPlainString(value))
                 }
             }
             if (targetTransition != null && targetTransition.getParameterMap()) {
                 for (ParameterItem pi in targetTransition.getParameterMap().values()) {
                     Object value = pi.getValue(ec)
-                    if (value) allParameterMap.put(pi.name, StupidUtilities.toPlainString(value))
+                    if (value) allParameterMap.put(pi.name, StupidJavaUtilities.toPlainString(value))
                 }
             }
             if (targetTransition != null && targetTransition.getSingleServiceName()) {
@@ -737,7 +738,7 @@ class ScreenUrlInfo {
                     for (String pn in sd.getInParameterNames()) {
                         Object value = ec.getContext().getByString(pn)
                         if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(pn)
-                        if (value) allParameterMap.put(pn, StupidUtilities.toPlainString(value))
+                        if (value) allParameterMap.put(pn, StupidJavaUtilities.toPlainString(value))
                     }
                 } else if (targetServiceName.contains("#")) {
                     // service name but no service def, see if it is an entity op and if so try the pk fields
@@ -749,7 +750,7 @@ class ScreenUrlInfo {
                             for (String fn in ed.getPkFieldNames()) {
                                 Object value = ec.getContext().getByString(fn)
                                 if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(fn)
-                                if (value) allParameterMap.put(fn, StupidUtilities.toPlainString(value))
+                                if (value) allParameterMap.put(fn, StupidJavaUtilities.toPlainString(value))
                             }
                         }
                     }
@@ -790,7 +791,7 @@ class ScreenUrlInfo {
 
         UrlInstance addParameter(Object name, Object value) {
             if (!name || value == null) return this
-            String parmValue = StupidUtilities.toPlainString(value)
+            String parmValue = StupidJavaUtilities.toPlainString(value)
             otherParameterMap.put(name as String, parmValue)
             if (allParameterMap != null) allParameterMap.put(name as String, parmValue)
             return this
@@ -799,7 +800,7 @@ class ScreenUrlInfo {
             if (!manualParameters) return this
             for (Map.Entry mpEntry in manualParameters.entrySet()) {
                 String parmKey = mpEntry.getKey() as String
-                String parmValue = StupidUtilities.toPlainString(mpEntry.getValue())
+                String parmValue = StupidJavaUtilities.toPlainString(mpEntry.getValue())
                 otherParameterMap.put(parmKey, parmValue)
                 if (allParameterMap != null) allParameterMap.put(parmKey, parmValue)
             }

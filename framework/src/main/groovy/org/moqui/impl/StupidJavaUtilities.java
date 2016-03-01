@@ -13,12 +13,51 @@
  */
 package org.moqui.impl;
 
+import groovy.lang.GString;
+
+import java.math.BigDecimal;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.*;
+
 /** Methods that work better in Java than Groovy, helps with performance and for syntax and language feature reasons */
 public class StupidJavaUtilities {
     public static class KeyValue {
         public String key;
         public Object value;
         public KeyValue(String key, Object value) { this.key = key; this.value = value; }
+    }
+
+    public static String toPlainString(Object obj) {
+        if (obj == null) return "";
+        Class objClass = obj.getClass();
+        // BigDecimal toString() uses scientific notation, annoying, so use toPlainString()
+        if (objClass == BigDecimal.class) return ((BigDecimal) obj).toPlainString();
+        // handle the special case of timestamps used for primary keys, make sure we avoid TZ, etc problems
+        if (objClass == Timestamp.class) return Long.toString(((Timestamp) obj).getTime());
+        if (objClass == java.sql.Date.class) return Long.toString(((java.sql.Date) obj).getTime());
+        if (objClass == Time.class) return Long.toString(((Time) obj).getTime());
+
+        // no special case? do a simple toString()
+        return obj.toString();
+    }
+
+    /** Like the Groovy empty except doesn't consider empty 0 value numbers, false Boolean, etc; only null values,
+     *   0 length String (actually CharSequence to include GString, etc), and 0 size Collection/Map are considered empty. */
+    public static boolean isEmpty(Object obj) {
+        if (obj == null) return true;
+        Class objClass = obj.getClass();
+        // some common direct classes
+        if (objClass == String.class) return ((String) obj).length() == 0;
+        if (objClass == GString.class) return ((GString) obj).length() == 0;
+        if (objClass == ArrayList.class) return ((ArrayList) obj).size() == 0;
+        if (objClass == HashMap.class) return ((HashMap) obj).size() == 0;
+        if (objClass == LinkedHashMap.class) return ((HashMap) obj).size() == 0;
+        // hopefully less common sub-classes
+        if (obj instanceof CharSequence) return ((CharSequence) obj).length() == 0;
+        if (obj instanceof Collection) return ((Collection) obj).size() == 0;
+        if (obj instanceof Map) return ((Map) obj).size() == 0;
+        return false;
     }
 
     public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {

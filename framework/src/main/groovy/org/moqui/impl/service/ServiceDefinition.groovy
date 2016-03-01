@@ -355,7 +355,7 @@ class ServiceDefinition {
 
             // do this after the convert so defaults are in place
             // check if required and empty - use groovy non-empty rules for String only
-            if (StupidUtilities.isEmpty(parameterValue)) {
+            if (StupidJavaUtilities.isEmpty(parameterValue)) {
                 if (validate && parameterNode.attribute('required') == "true") {
                     eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
                 }
@@ -479,7 +479,7 @@ class ServiceDefinition {
     protected Object checkConvertType(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
                                       Map<String, Object> rootParameters, ExecutionContextImpl eci) {
         // set the default if applicable
-        boolean parameterIsEmpty = StupidUtilities.isEmpty(parameterValue)
+        boolean parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
         String defaultStr = parameterNode.attribute('default')
         if (parameterIsEmpty && defaultStr) {
             eci.context.push(rootParameters)
@@ -613,7 +613,7 @@ class ServiceDefinition {
         // run through validations under parameter node
 
         // no validation done if value is empty, that should be checked with the required attribute only
-        if (StupidUtilities.isEmpty(pv)) return true
+        if (StupidJavaUtilities.isEmpty(pv)) return true
 
         boolean allPass = true
         for (MNode child in vpNode.children) {

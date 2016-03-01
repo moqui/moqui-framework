@@ -11,14 +11,16 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.context;
+package org.moqui.context;
 
 import groovy.lang.Binding;
 
-import java.util.Map;
-
 public class ContextBinding extends Binding {
-    public ContextBinding(Map variables) { super(variables); }
+    ContextStack contextStack;
+    public ContextBinding(ContextStack variables) {
+        super(variables);
+        contextStack = variables;
+    }
 
     @Override
     public Object getVariable(String name) {
@@ -27,7 +29,12 @@ public class ContextBinding extends Binding {
         //if (result == null && !variables.containsKey(name)) {
         //    throw new MissingPropertyException(name, this.getClass());
         //}
-        return getVariables().get(name);
+        return contextStack.getByString(name);
+    }
+
+    @Override
+    public void setVariable(String name, Object value) {
+        contextStack.put(name, value);
     }
 
     @Override

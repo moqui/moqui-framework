@@ -40,12 +40,13 @@ public class ContextStack implements Map<String, Object> {
         clearCombinedMap();
         // iterate through stackList from end to beginning
         for (int i = stackList.size() - 1; i >= 0; i--) {
-            Map<String, Object> curMap = stackList.get(i);
+            Map<String, Object> curMap = stackList.get(i).getWrapped();
             combinedMap.putAll(curMap);
         }
         // make sure 'context' refers to this no matter what is in maps
         combinedMap.put("context", this);
     }
+    // faster than rebuildCombinedMap, but not by much
     protected void resetCombinedEntries(Set<String> keySet) {
         if (keySet.size() == 0) return;
         // if (keySet.contains("context")) throw new IllegalArgumentException("Cannot reset combined entry with key 'context', reserved key");
@@ -82,7 +83,7 @@ public class ContextStack implements Map<String, Object> {
     public ContextStack popContext() {
         if (contextStack == null || contextStack.size() == 0) throw new IllegalStateException("Cannot pop context, no context pushed");
         stackList = contextStack.remove(0);
-        topMap = stackList.get(0);
+        topMap = stackList.get(0).getWrapped();
         rebuildCombinedMap();
         return this;
     }
@@ -125,8 +126,9 @@ public class ContextStack implements Map<String, Object> {
 
         Map<String, Object> oldMap = topMap;
         stackList.remove(0);
-        topMap = stackList.size() > 0 ? stackList.get(0) : null;
+        topMap = stackList.size() > 0 ? stackList.get(0).getWrapped() : null;
         resetCombinedEntries(oldMap.keySet());
+        // rebuildCombinedMap();
         return oldMap;
     }
 
@@ -299,8 +301,10 @@ public class ContextStack implements Map<String, Object> {
     }
 
     public void clear() {
-        resetCombinedEntries(topMap.keySet());
+        Set<String> keySet = topMap.keySet();
         topMap.clear();
+        resetCombinedEntries(keySet);
+        // rebuildCombinedMap();
     }
 
     public Set<String> keySet() {

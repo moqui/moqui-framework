@@ -17,7 +17,6 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.actions.XmlAction
-import org.moqui.impl.context.ContextBinding
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.context.ContextStack
 import org.moqui.util.MNode
@@ -114,7 +113,7 @@ class ScreenSection {
         boolean conditionPassed = true
         if (condition != null) conditionPassed = condition.checkCondition(ec)
         if (conditionPassed && conditionClass != null) {
-            Script script = InvokerHelper.createScript(conditionClass, new ContextBinding(ec.getContext()))
+            Script script = InvokerHelper.createScript(conditionClass, ec.getContextBinding())
             Object result = script.run()
             conditionPassed = result as boolean
         }

@@ -20,6 +20,7 @@ import org.moqui.context.Cache
 import org.moqui.context.ResourceReference
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.*
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -1218,7 +1219,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (localPath.size() > 0) {
             for (String pkFieldName in firstEd.getPkFieldNames()) {
                 String pkValue = localPath.remove(0)
-                if (!StupidUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
+                if (!StupidJavaUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
                 if (localPath.size() == 0) break
             }
         }
@@ -1247,7 +1248,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (parameters.containsKey(pkFieldName)) continue
 
                     String pkValue = localPath.remove(0)
-                    if (!StupidUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
+                    if (!StupidJavaUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
                     if (localPath.size() == 0) break
                 }
             }
@@ -1332,13 +1333,13 @@ class EntityFacadeImpl implements EntityFacade {
         for (EntityDefinition.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             Object relParmObj = value.get(relInfo.shortAlias)
             String relKey = null
-            if (relParmObj != null && !StupidUtilities.isEmpty(relParmObj)) {
+            if (relParmObj != null && !StupidJavaUtilities.isEmpty(relParmObj)) {
                 relKey = relInfo.shortAlias
             } else {
                 relParmObj = value.get(relInfo.relationshipName)
                 if (relParmObj) relKey = relInfo.relationshipName
             }
-            if (relParmObj != null && !StupidUtilities.isEmpty(relParmObj)) {
+            if (relParmObj != null && !StupidJavaUtilities.isEmpty(relParmObj)) {
                 if (relParmObj instanceof Map) {
                     // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
                     //     allow them to be left out of related records

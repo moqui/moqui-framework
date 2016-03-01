@@ -25,6 +25,7 @@ import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
@@ -1141,9 +1142,9 @@ class ScreenRenderImpl implements ScreenRender {
     String getFieldValuePlainString(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
-        if (StupidUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
+        if (StupidJavaUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
             return ec.getResource().expand(defaultValue, "")
-        return StupidUtilities.toPlainString(obj)
+        return StupidJavaUtilities.toPlainString(obj)
         // NOTE: this approach causes problems with currency fields, but kills the string expand for default-value... a better approach?
         //return obj ? obj.toString() : (defaultValue ? ec.getResource().expand(defaultValue, null) : "")
     }
@@ -1161,7 +1162,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute('name')))
             value = errorParameters.get(fieldName)
         Map valueMap = (Map) ec.resource.expression(mapName, "")
-        if (StupidUtilities.isEmpty(value)) {
+        if (StupidJavaUtilities.isEmpty(value)) {
             MNode formNode = fieldNode.parent
             if (valueMap != null && formNode.name == "form-single") {
                 try {
@@ -1189,10 +1190,10 @@ class ScreenRenderImpl implements ScreenRender {
                 }
             }
         }
-        if (StupidUtilities.isEmpty(value)) value = ec.getContext().getByString(fieldName)
+        if (StupidJavaUtilities.isEmpty(value)) value = ec.getContext().getByString(fieldName)
         // this isn't needed since the parameters are copied to the context: if (!isError && isWebAndSameForm && !value) value = ec.getWeb().parameters.get(fieldName)
 
-        if (!StupidUtilities.isEmpty(value)) return value
+        if (!StupidJavaUtilities.isEmpty(value)) return value
 
         String defaultStr = ec.getResource().expand(defaultValue, null)
         if (defaultStr != null && defaultStr.length() > 0) return defaultStr
@@ -1222,7 +1223,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
             }
-            if (StupidUtilities.isEmpty(fieldValue)) fieldValue = ec.getContext().getByString(fieldName)
+            if (StupidJavaUtilities.isEmpty(fieldValue)) fieldValue = ec.getContext().getByString(fieldName)
         }
 
         return fieldValue != null ? fieldValue.getClass().getSimpleName() : "String"

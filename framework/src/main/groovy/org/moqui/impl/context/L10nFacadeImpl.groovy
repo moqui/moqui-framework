@@ -284,18 +284,18 @@ public class L10nFacadeImpl implements L10nFacade {
     }
     @Override
     String format(Object value, String format, Locale locale, TimeZone tz) {
+        if (value == null) return ""
         if (locale == null) locale = getLocale()
         if (tz == null) tz = getTimeZone()
-        if (value == null) return ""
         Class valueClass = value.getClass()
-        if (valueClass == String.class) return value
+        if (valueClass == String.class) return (String) value
         if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz)
         if (valueClass == Date.class) return formatDate((Date) value, format, locale, tz)
         if (valueClass == Time.class) return formatTime((Time) value, format, locale, tz)
+        // this one needs to be instanceof to include the many sub-classes of Number
+        if (value instanceof Number) return formatNumber((Number) value, format, locale)
         // Calendar is an abstract class, so must use instanceof here as well
         if (value instanceof Calendar) return formatDateTime((Calendar) value, format, locale, tz)
-        // this one needs to be instanceof to include the many sub-classes of Number
-        if (value instanceof Number) return formatNumber(value, format, locale)
-        return value as String
+        return value.toString()
     }
 }

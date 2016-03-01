@@ -70,30 +70,6 @@ class StupidUtilities {
         }
     }
 
-    static String toPlainString(Object obj) {
-        if (obj == null) return ""
-        Class objClass = obj.getClass()
-        // BigDecimal toString() uses scientific notation, annoying, so use toPlainString()
-        if (objClass == BigDecimal.class) return ((BigDecimal) obj).toPlainString()
-        // handle the special case of timestamps used for primary keys, make sure we avoid TZ, etc problems
-        if (objClass == Timestamp.class) return ((Timestamp) obj).getTime() as String
-        if (objClass == java.sql.Date.class) return ((java.sql.Date) obj).getTime() as String
-        if (objClass == Time.class) return ((Time) obj).getTime() as String
-
-        // no special case? do a simple toString()
-        return obj.toString()
-    }
-
-    /** Like the Groovy empty except doesn't consider empty 0 value numbers, false Boolean, etc; only null values,
-     *   0 length String (actually CharSequence to include GString, etc), and 0 size Collection/Map are considered empty. */
-    static boolean isEmpty(Object obj) {
-        if (obj == null) return true
-        if (obj instanceof CharSequence) return obj.length() == 0
-        if (obj instanceof Collection) return obj.size() == 0
-        if (obj instanceof Map) return obj.size() == 0
-        return false
-    }
-
     static final boolean compareLike(Object value1, Object value2) {
         // nothing to be like? consider a match
         if (!value2) return true

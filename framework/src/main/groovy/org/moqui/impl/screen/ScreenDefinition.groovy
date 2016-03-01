@@ -15,7 +15,6 @@ package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
-import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityList
@@ -25,7 +24,6 @@ import org.moqui.context.ResourceReference
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.StupidUtilities
 import org.moqui.entity.EntityFind
-import org.moqui.impl.context.ContextBinding
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -516,11 +514,11 @@ class ScreenDefinition {
         Object getValue(ExecutionContext ec) {
             Object value = null
             if (fromFieldGroovy != null) {
-                value = InvokerHelper.createScript(fromFieldGroovy, new ContextBinding(ec.context)).run()
+                value = InvokerHelper.createScript(fromFieldGroovy, ec.contextBinding).run()
             }
             if (!value) {
                 if (valueGroovy != null) {
-                    value = InvokerHelper.createScript(valueGroovy, new ContextBinding(ec.context)).run()
+                    value = InvokerHelper.createScript(valueGroovy, ec.contextBinding).run()
                 } else {
                     value = valueString
                 }
@@ -774,7 +772,7 @@ class ScreenDefinition {
             Map ep = new HashMap()
             for (ParameterItem pi in parameterMap.values()) ep.put(pi.getName(), pi.getValue(ec))
             if (parameterMapNameGroovy != null) {
-                Object pm = InvokerHelper.createScript(parameterMapNameGroovy, new ContextBinding(ec.getContext())).run()
+                Object pm = InvokerHelper.createScript(parameterMapNameGroovy, ec.getContextBinding()).run()
                 if (pm && pm instanceof Map) ep.putAll(pm)
             }
             // logger.warn("========== Expanded response map to url [${url}] to: ${ep}; parameterMap=${parameterMap}; parameterMapNameGroovy=[${parameterMapNameGroovy}]")
@@ -855,7 +853,7 @@ class ScreenDefinition {
         @CompileStatic
         boolean getDisable(ExecutionContext ec) {
             if (!disableWhenGroovy) return false
-            return InvokerHelper.createScript(disableWhenGroovy, new ContextBinding(ec.context)).run() as boolean
+            return InvokerHelper.createScript(disableWhenGroovy, ec.contextBinding).run() as boolean
         }
         @CompileStatic
         String getUserGroupId() { return userGroupId }

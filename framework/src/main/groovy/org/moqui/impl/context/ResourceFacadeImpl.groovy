@@ -510,15 +510,15 @@ public class ResourceFacadeImpl implements ResourceFacade {
     Script getGroovyScript(String expression, ExecutionContextImpl eci) {
         ContextBinding curBinding = eci.getContextBinding()
 
-        Map<String, Script> curScriptByExpr = threadScriptByExpression.get()
+        Map<String, Script> curScriptByExpr = (Map<String, Script>) threadScriptByExpression.get()
         if (curScriptByExpr == null) {
             curScriptByExpr = new HashMap<String, Script>()
             threadScriptByExpression.set(curScriptByExpr)
         }
 
-        Script script = curScriptByExpr.get(expression)
+        Script script = (Script) curScriptByExpr.get(expression)
         if (script == null) {
-            Class groovyClass = scriptGroovyExpressionCache.get(expression)
+            Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
             if (groovyClass == null) {
                 groovyClass = new GroovyClassLoader().parseClass(expression)
                 scriptGroovyExpressionCache.put(expression, groovyClass)

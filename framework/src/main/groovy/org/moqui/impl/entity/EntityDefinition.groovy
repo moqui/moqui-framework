@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 
 import java.sql.Timestamp
@@ -557,7 +558,7 @@ public class EntityDefinition {
             Map<String, Object> targetParameterMap = new HashMap<String, Object>()
             for (Map.Entry<String, String> keyEntry in keyMap.entrySet()) {
                 Object value = valueSource.get(keyEntry.key)
-                if (!StupidUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.value, value)
+                if (!StupidJavaUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.value, value)
             }
             return targetParameterMap
         }
@@ -800,7 +801,7 @@ public class EntityDefinition {
         for (int i = 0; i < size; i++) {
             String fieldName = fieldNameList.get(i)
             Object fieldValue = fields.get(fieldName)
-            if (StupidUtilities.isEmpty(fieldValue)) return false
+            if (StupidJavaUtilities.isEmpty(fieldValue)) return false
         }
         return true
     }
