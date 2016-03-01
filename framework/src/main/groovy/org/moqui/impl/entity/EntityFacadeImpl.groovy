@@ -78,6 +78,8 @@ class EntityFacadeImpl implements EntityFacade {
     protected final EntityDataFeed entityDataFeed
     protected final EntityDataDocument entityDataDocument
 
+    protected final EntityListImpl emptyList
+
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi, String tenantId) {
         this.ecfi = ecfi
         this.tenantId = tenantId ?: "DEFAULT"
@@ -121,6 +123,9 @@ class EntityFacadeImpl implements EntityFacade {
         entityCache = new EntityCache(this)
         entityDataFeed = new EntityDataFeed(this)
         entityDataDocument = new EntityDataDocument(this)
+
+        emptyList = new EntityListImpl(this)
+        emptyList.setFromCache()
     }
 
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
@@ -131,6 +136,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     TimeZone getDatabaseTimeZone() { return databaseTimeZone }
     Locale getDatabaseLocale() { return databaseLocale }
+
+    EntityListImpl getEmptyList() { return emptyList }
 
     @Override
     Calendar getCalendarForTzLc() {
@@ -1026,11 +1033,11 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    List<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
+    ArrayList<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
                                                  boolean excludeViewEntities, boolean excludeTenantCommon) {
         if (masterEntitiesOnly) createAllAutoReverseManyRelationships()
 
-        List<Map<String, Object>> eil = new LinkedList()
+        ArrayList<Map<String, Object>> eil = new ArrayList<>()
         for (String en in getAllEntityNames()) {
             // Added (?i) to ignore the case and '*' in the starting and at ending to match if searched string is sub-part of entity name
             if (filterRegexp && !en.matches("(?i).*" + filterRegexp + ".*")) continue
@@ -1054,13 +1061,13 @@ class EntityFacadeImpl implements EntityFacade {
         return eil
     }
 
-    List<Map<String, Object>> getAllEntityRelatedFields(String en, String orderByField, String dbViewEntityName) {
+    ArrayList<Map<String, Object>> getAllEntityRelatedFields(String en, String orderByField, String dbViewEntityName) {
         // make sure reverse-one many relationships exist
         createAllAutoReverseManyRelationships()
 
         EntityValue dbViewEntity = dbViewEntityName ? makeFind("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null
 
-        List<Map<String, Object>> efl = new LinkedList()
+        ArrayList<Map<String, Object>> efl = new ArrayList<>()
         EntityDefinition ed = null
         try { ed = getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
         if (ed == null) return efl

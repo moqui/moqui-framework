@@ -527,7 +527,7 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     int getPageIndex() { return offset == null ? 0 : (offset/getPageSize()).intValue() }
     @Override
-    int getPageSize() { return limit ?: 20 }
+    int getPageSize() { return limit != null ? limit : 20 }
 
     @Override
     EntityFind forUpdate(boolean forUpdate) { this.forUpdate = forUpdate; return this }
@@ -841,10 +841,10 @@ abstract class EntityFindBase implements EntityFind {
         // NOTE: don't cache if there is a having condition, for now just support where
         boolean doEntityCache = shouldCache()
         CacheImpl entityListCache = doEntityCache ? efi.getEntityCache().getCacheList(getEntityDef().getFullEntityName()) : (CacheImpl) null
-        EntityList cacheList = (EntityList) null
+        EntityListImpl cacheList = (EntityListImpl) null
         if (doEntityCache) cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
 
-        EntityList el
+        EntityListImpl el
         if (txcEli != null) {
             el = txcEli
             // if (ed.getFullEntityName().contains("OrderItem")) logger.warn("======== Got OrderItem from txCache ${el.size()} results where: ${whereCondition}")
@@ -909,7 +909,7 @@ abstract class EntityFindBase implements EntityFind {
 
             MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
             if (limit != null && databaseNode != null && "cursor".equals(databaseNode.attribute('offset-style'))) {
-                el = (EntityListImpl) eli.getPartialList(offset ?: 0, limit, true)
+                el = (EntityListImpl) eli.getPartialList(offset != null ? offset : 0, limit, true)
             } else {
                 el = (EntityListImpl) eli.getCompleteList(true)
             }
@@ -925,7 +925,7 @@ abstract class EntityFindBase implements EntityFind {
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-list", false)
         // count the artifact hit
         efi.ecfi.countArtifactHit("entity", "list", ed.getFullEntityName(), simpleAndMap, startTime,
-                (System.nanoTime() - startTimeNanos)/1E6, el ? (long) el.size() : 0L)
+                (System.nanoTime() - startTimeNanos)/1E6, el != null ? (long) el.size() : 0L)
 
         return el
     }

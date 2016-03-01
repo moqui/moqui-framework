@@ -177,60 +177,20 @@ class StupidUtilities {
     }
 
     static void orderMapList(List<Map> theList, List<String> fieldNames) {
-        if (theList && fieldNames) Collections.sort(theList, new MapOrderByComparator(fieldNames))
+        if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list")
+        // this seems unnecessary, but is because Groovy allows a GString even in a List<String>, but MapOrderByComparator in Java blows up
+        ArrayList<String> fieldNameArray = new ArrayList<>()
+        for (String fieldName in fieldNames) fieldNameArray.add(fieldName.toString())
+        if (theList && fieldNames) Collections.sort(theList, new StupidJavaUtilities.MapOrderByComparator(fieldNameArray))
     }
 
-    static class MapOrderByComparator implements Comparator<Map> {
-        protected List<String> fieldNameList = new ArrayList<String>()
-
-        public MapOrderByComparator(List<String> fieldNameList) { this.fieldNameList = fieldNameList }
-
-        @Override
-        public int compare(Map map1, Map map2) {
-            if (!map1) return -1
-            if (!map2) return 1
-            for (String fieldName in this.fieldNameList) {
-                boolean ascending = true
-                if (fieldName.charAt(0) == (char) '-') {
-                    ascending = false
-                    fieldName = fieldName.substring(1)
-                } else if (fieldName.charAt(0) == (char) '+') {
-                    fieldName = fieldName.substring(1)
-                }
-                Comparable value1 = (Comparable) map1.get(fieldName)
-                Comparable value2 = (Comparable) map2.get(fieldName)
-                // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
-                if (value1 == null) {
-                    if (value2 != null) return ascending ? 1 : -1
-                } else {
-                    if (value2 == null) {
-                        return ascending ? -1 : 1
-                    } else {
-                        int comp = value1.compareTo(value2)
-                        if (comp != 0) return ascending ? comp : -comp
-                    }
-                }
-            }
-            // all evaluated to 0, so is the same, so return 0
-            return 0
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (!(obj instanceof MapOrderByComparator)) return false
-            return this.fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList)
-        }
-
-        @Override
-        public String toString() { return this.fieldNameList.toString() }
-    }
-
-    /** NOTE: in Groovy this method is not necessary, just use something like: theList.field */
+    /** NOTE: in Groovy this method is not necessary, just use something like: theList.field
     static Set<Object> getFieldValuesFromMapList(List<Map> theList, String fieldName) {
         Set<Object> theSet = new HashSet<>()
         for (Map curMap in theList) if (curMap.get(fieldName)) theSet.add(curMap.get(fieldName))
         return theSet
     }
+     */
 
     static int countChars(String s, boolean countDigits, boolean countLetters, boolean countOthers) {
         // this seems like it should be part of some standard Java API, but I haven't found it

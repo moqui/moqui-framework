@@ -95,7 +95,7 @@ class EntityCache {
         registerCacheOneRa(ed.getFullEntityName(), whereCondition, newEntityValue)
     }
 
-    EntityList getFromListCache(EntityDefinition ed, EntityCondition whereCondition, List<String> orderByList, CacheImpl entityListCache) {
+    EntityListImpl getFromListCache(EntityDefinition ed, EntityCondition whereCondition, List<String> orderByList, CacheImpl entityListCache) {
         if (entityListCache == null) entityListCache = getCacheList(ed.getFullEntityName())
 
         Element cacheElement = entityListCache.getElement(whereCondition)
@@ -103,8 +103,8 @@ class EntityCache {
             if (cacheElement.expired) {
                 entityListCache.removeElement(cacheElement)
             } else {
-                EntityList cacheHit = (EntityList) cacheElement.objectValue
-                if (orderByList) cacheHit.orderByFields(orderByList)
+                EntityListImpl cacheHit = (EntityListImpl) cacheElement.getObjectValue()
+                if (orderByList != null && orderByList.size() > 0) cacheHit.orderByFields(orderByList)
                 return cacheHit
             }
         }
@@ -114,7 +114,8 @@ class EntityCache {
         if (whereCondition == null) return
         if (entityListCache == null) entityListCache = getCacheList(ed.getFullEntityName())
 
-        EntityList elToCache = el ?: EntityListImpl.EMPTY
+        // EntityList elToCache = el != null ? el : EntityListImpl.EMPTY
+        EntityListImpl elToCache = el != null ? el : efi.getEmptyList()
         elToCache.setFromCache()
         entityListCache.put(whereCondition, elToCache)
         registerCacheListRa(ed.getFullEntityName(), whereCondition, elToCache)

@@ -31,6 +31,8 @@ public class StupidJavaUtilities {
     public static String toPlainString(Object obj) {
         if (obj == null) return "";
         Class objClass = obj.getClass();
+        // Common case, check first
+        if (objClass == String.class) return (String) obj;
         // BigDecimal toString() uses scientific notation, annoying, so use toPlainString()
         if (objClass == BigDecimal.class) return ((BigDecimal) obj).toPlainString();
         // handle the special case of timestamps used for primary keys, make sure we avoid TZ, etc problems
@@ -101,6 +103,59 @@ public class StupidJavaUtilities {
         }
     }
     public static boolean internedNonNullStringsEqual(String s1, String s2) { return (s1 == s2); }
+
+    public static class MapOrderByComparator implements Comparator<Map> {
+        protected ArrayList<String> fieldNameList;
+        protected int fieldNameListSize;
+
+        protected final static char minusChar = '-';
+        protected final static char plusChar = '+';
+
+        public MapOrderByComparator(List<String> fieldNameList) {
+            this.fieldNameList = fieldNameList instanceof ArrayList ? (ArrayList<String>) fieldNameList : new ArrayList<>(fieldNameList);
+            fieldNameListSize = fieldNameList.size();
+        }
+
+        @Override
+        public int compare(Map map1, Map map2) {
+            if (map1 == null) return -1;
+            if (map2 == null) return 1;
+            for (int i = 0; i < fieldNameListSize; i++) {
+                String fieldName = fieldNameList.get(i);
+                boolean ascending = true;
+                if (fieldName.charAt(0) == minusChar) {
+                    ascending = false;
+                    fieldName = fieldName.substring(1);
+                } else if (fieldName.charAt(0) == plusChar) {
+                    fieldName = fieldName.substring(1);
+                }
+                Comparable value1 = (Comparable) map1.get(fieldName);
+                Comparable value2 = (Comparable) map2.get(fieldName);
+                // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
+                if (value1 == null) {
+                    if (value2 != null) return ascending ? 1 : -1;
+                } else {
+                    if (value2 == null) {
+                        return ascending ? -1 : 1;
+                    } else {
+                        int comp = value1.compareTo(value2);
+                        if (comp != 0) return ascending ? comp : -comp;
+                    }
+                }
+            }
+            // all evaluated to 0, so is the same, so return 0
+            return 0;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof MapOrderByComparator)) return false;
+            return fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList);
+        }
+
+        @Override
+        public String toString() { return fieldNameList.toString(); }
+    }
 
     // Lookup table for CRC16 based on irreducible polynomial: 1 + x^2 + x^15 + x^16
     public static final int[] crc16Table = {

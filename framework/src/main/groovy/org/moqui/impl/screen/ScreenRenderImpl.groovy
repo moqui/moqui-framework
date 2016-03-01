@@ -22,6 +22,7 @@ import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityException
+import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
@@ -34,6 +35,7 @@ import org.moqui.impl.context.ResourceFacadeImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.entity.EntityValueImpl
 import org.moqui.impl.screen.ScreenDefinition.ResponseItem
@@ -55,46 +57,48 @@ class ScreenRenderImpl implements ScreenRender {
     protected final static URLCodec urlCodec = new URLCodec()
 
     protected final ScreenFacadeImpl sfi
-    protected ExecutionContextImpl localEc = null
+    protected ExecutionContextImpl localEc
     protected boolean rendering = false
 
-    protected String rootScreenLocation = null
-    protected ScreenDefinition rootScreenDef = null
-    protected ScreenDefinition overrideActiveScreenDef = null
+    protected String rootScreenLocation = (String) null
+    protected ScreenDefinition rootScreenDef = (ScreenDefinition) null
+    protected ScreenDefinition overrideActiveScreenDef = (ScreenDefinition) null
 
-    protected List<String> originalScreenPathNameList = new ArrayList<String>()
-    protected ScreenUrlInfo screenUrlInfo = null
-    protected UrlInstance screenUrlInstance = null
+    protected ArrayList<String> originalScreenPathNameList = new ArrayList<String>()
+    protected ScreenUrlInfo screenUrlInfo = (ScreenUrlInfo) null
+    protected UrlInstance screenUrlInstance = (UrlInstance) null
     protected Map<String, ScreenUrlInfo> subscreenUrlInfos = new HashMap()
     protected int screenPathIndex = 0
     protected Set<String> stopRenderScreenLocations = new HashSet()
 
-    protected String baseLinkUrl = null
-    protected String servletContextPath = null
-    protected String webappName = null
+    protected String baseLinkUrl = (String) null
+    protected String servletContextPath = (String) null
+    protected String webappName = (String) null
 
-    protected String renderMode = null
+    protected String renderMode = (String) null
     protected String characterEncoding = "UTF-8"
     /** For HttpServletRequest/Response renders this will be set on the response either as this default or a value
      * determined during render, especially for screen sub-content based on the extension of the filename. */
-    protected String outputContentType = null
+    protected String outputContentType = (String) null
 
-    protected String macroTemplateLocation = null
-    protected Boolean boundaryComments = null
+    protected String macroTemplateLocation = (String) null
+    protected Boolean boundaryComments = (Boolean) null
 
-    protected HttpServletRequest request = null
-    protected HttpServletResponse response = null
-    protected Writer internalWriter = null
-    protected Writer afterScreenWriter = null
-    protected Writer scriptWriter= null
+    protected HttpServletRequest request = (HttpServletRequest) null
+    protected HttpServletResponse response = (HttpServletResponse) null
+    protected Writer internalWriter = (Writer) null
+    protected Writer afterScreenWriter = (Writer) null
+    protected Writer scriptWriter = (Writer) null
 
     protected boolean dontDoRender = false
 
-    protected Map<String, FtlNodeWrapper> screenFormNodeCache = new HashMap()
+    protected Map<String, FtlNodeWrapper> screenFormNodeCache = new HashMap<>()
+    protected String curThemeId = (String) null
+    protected Map<String, ArrayList<String>> curThemeValuesByType = new HashMap<>()
 
     ScreenRenderImpl(ScreenFacadeImpl sfi) {
         this.sfi = sfi
-        this.localEc = sfi.ecfi.getEci()
+        localEc = sfi.ecfi.getEci()
     }
 
     Writer getWriter() {
@@ -112,7 +116,7 @@ class ScreenRenderImpl implements ScreenRender {
     UrlInstance getScreenUrlInstance() { return screenUrlInstance }
 
     @Override
-    ScreenRender rootScreen(String rootScreenLocation) { this.rootScreenLocation = rootScreenLocation; return this }
+    ScreenRender rootScreen(String rsLocation) { rootScreenLocation = rsLocation; return this }
 
     ScreenRender rootScreenFromHost(String host) {
         for (MNode rootScreenNode in getWebappNode().children("root-screen")) {
@@ -123,12 +127,12 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     @Override
-    ScreenRender screenPath(List<String> screenNameList) { this.originalScreenPathNameList.addAll(screenNameList); return this }
+    ScreenRender screenPath(List<String> screenNameList) { originalScreenPathNameList.addAll(screenNameList); return this }
 
     @Override
     ScreenRender renderMode(String renderMode) { this.renderMode = renderMode; return this }
 
-    String getRenderMode() { return this.renderMode }
+    String getRenderMode() { return renderMode }
 
     @Override
     ScreenRender encoding(String characterEncoding) { this.characterEncoding = characterEncoding;  return this }
@@ -427,7 +431,7 @@ class ScreenRenderImpl implements ScreenRender {
                     response.sendRedirect(fullUrlString)
                 }
             } else {
-                List<String> pathElements = url.split("/") as List
+                ArrayList<String> pathElements = new ArrayList<>(Arrays.asList(url.split("/")))
                 if (url.startsWith("/")) {
                     this.originalScreenPathNameList = pathElements
                 } else {
@@ -718,7 +722,7 @@ class ScreenRenderImpl implements ScreenRender {
 
             if (screenUrlInfo.isLastStandalone() || screenUrlInstance.getTargetTransition() != null) {
                 // respond with 401 and the login screen instead of a redirect; JS client libraries handle this much better
-                List<String> pathElements = loginPath.split("/") as List
+                ArrayList<String> pathElements = new ArrayList(Arrays.asList(loginPath.split("/")))
                 if (loginPath.startsWith("/")) {
                     this.originalScreenPathNameList = pathElements
                 } else {
@@ -732,7 +736,7 @@ class ScreenRenderImpl implements ScreenRender {
                 return false
             } else {
                 // now prepare and send the redirect
-                ScreenUrlInfo suInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, [], loginPath, false)
+                ScreenUrlInfo suInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, new ArrayList<String>(), loginPath, false)
                 UrlInstance urlInstance = suInfo.getInstance(this, false)
                 response.sendRedirect(urlInstance.url)
                 return false
@@ -766,13 +770,16 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     ScreenDefinition getRootScreenDef() { return rootScreenDef }
-    ScreenDefinition getActiveScreenDef() { return overrideActiveScreenDef ?: screenUrlInfo.screenRenderDefList.get(screenPathIndex) }
+    ScreenDefinition getActiveScreenDef() {
+        if (overrideActiveScreenDef != null) return overrideActiveScreenDef
+        return (ScreenDefinition) screenUrlInfo.screenRenderDefList.get(screenPathIndex)
+    }
 
-    List<String> getActiveScreenPath() {
+    ArrayList<String> getActiveScreenPath() {
         // handle case where root screen is first/zero in list versus a standalone screen
         int fullPathIndex = screenUrlInfo.renderPathDifference + screenPathIndex
-        if (fullPathIndex == 0) return []
-        List<String> activePath = screenUrlInfo.fullPathNameList[0..fullPathIndex-1]
+        if (fullPathIndex == 0) return new ArrayList<String>()
+        ArrayList<String> activePath = new ArrayList<>(screenUrlInfo.fullPathNameList[0..fullPathIndex-1])
         // logger.info("===== activePath=${activePath}, rpd=${screenUrlInfo.renderPathDifference}, spi=${screenPathIndex}, fpi=${fullPathIndex}\nroot: ${screenUrlInfo.rootSd.location}\ntarget: ${screenUrlInfo.targetScreen.location}\nfrom: ${screenUrlInfo.fromSd.location}\nfrom path: ${screenUrlInfo.fromPathList}")
         return activePath
     }
@@ -1052,7 +1059,7 @@ class ScreenRenderImpl implements ScreenRender {
         return buildUrlInfo(subscreenPath).getInstance(this, null)
     }
 
-    UrlInstance buildUrl(ScreenDefinition fromSd, List<String> fromPathList, String subscreenPathOrig) {
+    UrlInstance buildUrl(ScreenDefinition fromSd, ArrayList<String> fromPathList, String subscreenPathOrig) {
         String subscreenPath = subscreenPathOrig?.contains("\${") ? ec.resource.expand(subscreenPathOrig, "") : subscreenPathOrig
         ScreenUrlInfo ui = ScreenUrlInfo.getScreenUrlInfo(this, fromSd, fromPathList, subscreenPath, null)
         return ui.getInstance(this, null)
@@ -1297,29 +1304,32 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     String getCurrentThemeId() {
+        if (curThemeId != null) return curThemeId
+
         String stteId = null
         // loop through entire screenRenderDefList and look for @screen-theme-type-enum-id, use last one found
-        if (screenUrlInfo.screenRenderDefList != null) for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
-            String stteiStr = (String) sd.screenNode?.attribute('screen-theme-type-enum-id')
-            if (stteiStr) stteId = stteiStr
+        ArrayList<ScreenDefinition> screenRenderDefList = screenUrlInfo.screenRenderDefList
+        if (screenRenderDefList != null) {
+            int screenRenderDefListSize = screenRenderDefList.size()
+            for (int i = 0; i < screenRenderDefListSize; i++) {
+                ScreenDefinition sd = (ScreenDefinition) screenRenderDefList.get(i)
+                String stteiStr = sd.screenNode.attribute('screen-theme-type-enum-id')
+                if (stteiStr != null && stteiStr.length() > 0) stteId = stteiStr
+            }
         }
         // if no setting default to STT_INTERNAL
-        if (!stteId) stteId = "STT_INTERNAL"
+        if (stteId == null) stteId = "STT_INTERNAL"
 
+        EntityFacade entityFacade = sfi.ecfi.getEntityFacade(localEc.tenantId)
         // see if there is a user setting for the theme
-        String themeId = sfi.ecfi.entityFacade.find("moqui.security.UserScreenTheme")
-                .condition([userId:ec.user.userId, screenThemeTypeEnumId:stteId] as Map<String, Object>)
+        String themeId = entityFacade.find("moqui.security.UserScreenTheme")
+                .condition("userId", localEc.user.userId).condition("screenThemeTypeEnumId", stteId)
                 .useCache(true).disableAuthz().one()?.screenThemeId
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {
-            boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
-            try {
-                EntityValue themeTypeEnum = sfi.ecfi.entityFacade.find("moqui.basic.Enumeration")
-                        .condition("enumId", stteId).useCache(true).disableAuthz().one()
-                if (themeTypeEnum?.enumCode) themeId = themeTypeEnum.enumCode
-            } finally {
-                if (!alreadyDisabled) ec.getArtifactExecution().enableAuthz()
-            }
+            EntityValue themeTypeEnum = entityFacade.find("moqui.basic.Enumeration")
+                    .condition("enumId", stteId).useCache(true).disableAuthz().one()
+            if (themeTypeEnum?.enumCode) themeId = themeTypeEnum.enumCode
         }
         // theme with "DEFAULT" in the ID
         if (themeId == null || themeId.length() == 0) {
@@ -1328,26 +1338,47 @@ class ScreenRenderImpl implements ScreenRender {
                     .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").one()
             if (stv) themeId = stv.screenThemeId
         }
+
+        curThemeId = themeId ?: ""
         return themeId
     }
 
-    List<String> getThemeValues(String resourceTypeEnumId) {
+    ArrayList<String> getThemeValues(String resourceTypeEnumId) {
+        ArrayList<String> cachedList = (ArrayList<String>) curThemeValuesByType.get(resourceTypeEnumId)
+        if (cachedList != null) return cachedList
+
         EntityList strList = sfi.ecfi.entityFacade.find("moqui.screen.ScreenThemeResource")
-                .condition([screenThemeId:getCurrentThemeId(), resourceTypeEnumId:resourceTypeEnumId] as Map<String, Object>)
+                .condition("screenThemeId", getCurrentThemeId()).condition("resourceTypeEnumId", resourceTypeEnumId)
                 .orderBy("sequenceNum").useCache(true).disableAuthz().list()
-        List<String> values = new LinkedList()
-        for (EntityValue str in strList) values.add(str.resourceValue as String)
+        int strListSize = strList.size()
+        ArrayList<String> values = new ArrayList<>(strListSize)
+        for (int i = 0; i < strListSize; i++) {
+            EntityValue str = (EntityValue) strList.get(i)
+            values.add(str.getString("resourceValue"))
+        }
+
+        curThemeValuesByType.put(resourceTypeEnumId, values)
         return values
     }
-
+    // NOTE: this is called a LOT during screen renders, for links/buttons/etc
     String getThemeIconClass(String text) {
-        EntityList stiList = sfi.ecfi.entityFacade.find("moqui.screen.ScreenThemeIcon").disableAuthz()
-                .condition([screenThemeId:getCurrentThemeId()] as Map<String, Object>).useCache(true).list()
-        for (EntityValue sti in stiList) {
-            if (text.matches((String) sti.textPattern)) {
-                return (String) sti.iconClass
+        String screenThemeId = getCurrentThemeId()
+        Map<String, String> curThemeIconByText = sfi.getThemeIconByText(screenThemeId)
+        if (curThemeIconByText.containsKey(text)) return curThemeIconByText.get(text)
+
+        EntityList stiList = sfi.ecfi.entityFacade.find("moqui.screen.ScreenThemeIcon")
+                .condition("screenThemeId", screenThemeId).useCache(true).disableAuthz().list()
+        int stiListSize = stiList.size()
+        String iconClass = (String) null
+        for (int i = 0; i < stiListSize; i++) {
+            EntityValue sti = (EntityValue) stiList.get(i)
+            if (text.matches(sti.getString("textPattern"))) {
+                iconClass = sti.getString("iconClass")
+                break
             }
         }
-        return null
+
+        curThemeIconByText.put(text, iconClass)
+        return iconClass
     }
 }

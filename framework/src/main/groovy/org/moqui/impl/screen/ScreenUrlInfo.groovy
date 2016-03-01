@@ -23,7 +23,6 @@ import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -49,11 +48,11 @@ class ScreenUrlInfo {
     ExecutionContextFactoryImpl ecfi
     ScreenFacadeImpl sfi
     ScreenDefinition rootSd
-    String plainUrl = null
+    String plainUrl = (String) null
 
-    ScreenDefinition fromSd = null
-    List<String> fromPathList = null
-    String fromScreenPath = null
+    ScreenDefinition fromSd = (ScreenDefinition) null
+    ArrayList<String> fromPathList = (ArrayList<String>) null
+    String fromScreenPath = (String) null
 
     Map<String, String> pathParameterMap = new HashMap()
     boolean requireEncryption = false
@@ -62,24 +61,24 @@ class ScreenUrlInfo {
     boolean alwaysUseFullPath = false
     boolean beginTransaction = false
 
-    String menuImage = null
-    String menuImageType = null
+    String menuImage = (String) null
+    String menuImageType = (String) null
 
     /** The full path name list for the URL, including extraPathNameList */
-    ArrayList<String> fullPathNameList = null
+    ArrayList<String> fullPathNameList = (ArrayList<String>) null
 
     /** The minimal path name list for the URL, basically without following the defaults */
-    ArrayList<String> minimalPathNameList = null
+    ArrayList<String> minimalPathNameList = (ArrayList<String>) null
 
     /** Everything in the path after the screen or transition, may be used to pass additional info */
-    ArrayList<String> extraPathNameList = null
+    ArrayList<String> extraPathNameList = (ArrayList<String>) null
 
     /** The path for a file resource (template or static), relative to the targetScreen.location */
-    List<String> fileResourcePathList = null
+    ArrayList<String> fileResourcePathList = (ArrayList<String>) null
     /** If the full path led to a file resource that is verified to exist, the URL goes here; the URL for access on the
      * server, the client will get the resource from the url field as normal */
-    ResourceReference fileResourceRef = null
-    String fileResourceContentType = null
+    ResourceReference fileResourceRef = (ResourceReference) null
+    String fileResourceContentType = (String) null
 
     /** All screens found in the path list */
     ArrayList<ScreenDefinition> screenPathDefList = new ArrayList<ScreenDefinition>()
@@ -89,8 +88,8 @@ class ScreenUrlInfo {
     boolean lastStandalone = false
 
     /** The last screen found in the path list */
-    ScreenDefinition targetScreen = null
-    String targetTransitionActualName = null
+    ScreenDefinition targetScreen = (ScreenDefinition) null
+    String targetTransitionActualName = (String) null
     ArrayList<String> preTransitionPathNameList = new ArrayList<String>()
 
     boolean reusable = true
@@ -109,7 +108,7 @@ class ScreenUrlInfo {
     }
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
-                                          List<String> fpnl, String subscreenPath, Boolean lastStandalone) {
+                                          ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
         Cache screenUrlCache = sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromScreenDef, fpnl, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
@@ -120,11 +119,11 @@ class ScreenUrlInfo {
         return newSui
     }
 
-    static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, ScreenDefinition fromScreenDef, List<String> fpnl,
+    static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
                                           String subscreenPath, Boolean lastStandalone) {
         ScreenDefinition rootSd = sri.getRootScreenDef()
         ScreenDefinition fromSd = fromScreenDef
-        List<String> fromPathList = fpnl
+        ArrayList<String> fromPathList = fpnl
         if (fromSd == null) fromSd = sri.getActiveScreenDef()
         if (fromPathList == null) fromPathList = sri.getActiveScreenPath()
 
@@ -139,7 +138,7 @@ class ScreenUrlInfo {
     }
 
     final static char slashChar = (char) '/'
-    static String makeCacheKey(ScreenDefinition rootSd, ScreenDefinition fromScreenDef, List<String> fpnl,
+    static String makeCacheKey(ScreenDefinition rootSd, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
                                String subscreenPath, Boolean lastStandalone) {
         StringBuilder sb = new StringBuilder()
         // shouldn't be too many root screens, so the screen name (filename) should be sufficiently unique and much shorter
@@ -149,7 +148,13 @@ class ScreenUrlInfo {
         boolean skipFpnl = hasSsp && subscreenPath.charAt(0) == slashChar
         // NOTE: we will get more cache hits (less cache redundancy) if we combine with fpnl and use cleanupPathNameList,
         //     but is it worth it? no, let there be redundant cache entries for the same screen path, will be faster
-        if (!skipFpnl && fpnl) for (String fpn in fpnl) sb.append('/').append(fpn)
+        if (!skipFpnl && fpnl != null) {
+            int fpnlSize = fpnl.size()
+            for (int i = 0; i < fpnlSize; i++) {
+                String fpn = (String) fpnl.get(i)
+                sb.append('/').append(fpn)
+            }
+        }
         if (hasSsp) sb.append(subscreenPath)
         if (lastStandalone) sb.append(":LS")
 
@@ -166,7 +171,7 @@ class ScreenUrlInfo {
     }
 
     ScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
-                  List<String> fpnl, String subscreenPath, Boolean lastStandalone) {
+                  ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
         this.sfi = sfi
         this.ecfi = sfi.getEcfi()
         this.rootSd = rootSd
@@ -208,44 +213,48 @@ class ScreenUrlInfo {
         // add the username to the key just in case user changes during an EC instance
         String permittedCacheKey = null
         if (fullPathNameList != null) {
-            permittedCacheKey = (userId ?: '_anonymous') + fullPathNameList.toString()
-            Boolean cachedPermitted = aefi.screenPermittedCache.get(permittedCacheKey)
-            if (cachedPermitted != null) return cachedPermitted
+            String keyUserId = userId != null ? userId : '_anonymous'
+            permittedCacheKey = keyUserId.concat(fullPathNameList.toString())
+            Boolean cachedPermitted = (Boolean) aefi.screenPermittedCache.get(permittedCacheKey)
+            if (cachedPermitted != null) return cachedPermitted.booleanValue()
         } else {
             // logger.warn("======== Not caching isPermitted, username=${username}, fullPathNameList=${fullPathNameList}")
         }
 
         Deque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
 
-        int index = 1
-        for (ScreenDefinition screenDef in screenPathDefList) {
+        int screenPathDefListSize = screenPathDefList.size()
+        for (int i = 0; i < screenPathDefListSize; i++) {
+            ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(), "AT_XML_SCREEN", "AUTHZA_VIEW")
 
-            ArtifactExecutionInfoImpl lastAeii = artifactExecutionInfoStack.peekFirst()
+            ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
             // logger.warn("TOREMOVE checking screen for user ${username} - ${aeii}")
 
-            boolean isLast = (index == screenPathDefList.size())
+            boolean isLast = ((i + 1) == screenPathDefListSize)
             MNode screenNode = screenDef.getScreenNode()
 
             // if screen is limited to certain tenants, and current tenant is not in the Set, it is not permitted
-            if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) return false
+            if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
+                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
+                return false
+            }
 
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || requireAuthentication == "true") : false,
                     false, ec.getUser().getNowTimestamp())) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
-                if (permittedCacheKey) aefi.screenPermittedCache.put(permittedCacheKey, false)
+                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
             }
 
             artifactExecutionInfoStack.addFirst(aeii)
-            index++
         }
 
         // logger.warn("TOREMOVE user ${username} IS allowed to view screen at path ${this.fullPathNameList}")
-        if (permittedCacheKey) aefi.screenPermittedCache.put(permittedCacheKey, true)
+        if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, true)
         return true
     }
 
@@ -637,15 +646,15 @@ class ScreenUrlInfo {
     static class UrlInstance {
         ScreenUrlInfo sui
         ScreenRenderImpl sri
-        ExecutionContext ec
+        ExecutionContextImpl ec
         boolean expandAliasTransition
 
         /** If a transition is specified, the target transition within the targetScreen */
-        TransitionItem curTargetTransition = null
+        TransitionItem curTargetTransition = (TransitionItem) null
 
         Map<String, String> otherParameterMap = new HashMap<String, String>()
-        Map transitionAliasParameters = null
-        Map<String, String> allParameterMap = null
+        Map transitionAliasParameters = (Map) null
+        Map<String, String> allParameterMap = (Map<String, String>) null
 
         UrlInstance(ScreenUrlInfo sui, ScreenRenderImpl sri, Boolean expandAliasTransition) {
             this.sui = sui
@@ -660,7 +669,7 @@ class ScreenUrlInfo {
 
         String getRequestMethod() { return ec.web ? ec.web.request.method : "" }
         TransitionItem getTargetTransition() {
-            if (curTargetTransition == null && sui.targetScreen != null && sui.targetTransitionActualName)
+            if (curTargetTransition == null && sui.targetScreen != null && sui.targetTransitionActualName != null)
                 curTargetTransition = sui.targetScreen.getTransitionItem(sui.targetTransitionActualName, getRequestMethod())
             return curTargetTransition
         }
@@ -694,8 +703,8 @@ class ScreenUrlInfo {
                         sui.preTransitionPathNameList, expandedUrl,
                         (sui.lastStandalone || transitionAliasParameters.lastStandalone == "true"))
 
-                this.sui = aliasUrlInfo
-                this.curTargetTransition = null
+                sui = aliasUrlInfo
+                curTargetTransition = null
             }
         }
         Map getTransitionAliasParameters() { return transitionAliasParameters }
@@ -720,37 +729,46 @@ class ScreenUrlInfo {
             allParameterMap = new HashMap<>()
             // get default parameters for the target screen
             if (sui.targetScreen != null) {
-                for (ParameterItem pi in sui.targetScreen.getParameterMap().values()) {
+                for (ParameterItem pi in (Collection<ParameterItem>) sui.targetScreen.getParameterMap().values()) {
                     Object value = pi.getValue(ec)
-                    if (value) allParameterMap.put(pi.name, StupidJavaUtilities.toPlainString(value))
+                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                    if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
                 }
             }
-            if (targetTransition != null && targetTransition.getParameterMap()) {
-                for (ParameterItem pi in targetTransition.getParameterMap().values()) {
+
+            TransitionItem targetTrans = getTargetTransition()
+            if (targetTrans != null) {
+                Map<String, ParameterItem> transParameterMap = targetTrans.getParameterMap()
+                for (ParameterItem pi in (Collection<ParameterItem>) transParameterMap.values()) {
                     Object value = pi.getValue(ec)
-                    if (value) allParameterMap.put(pi.name, StupidJavaUtilities.toPlainString(value))
+                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                    if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
                 }
-            }
-            if (targetTransition != null && targetTransition.getSingleServiceName()) {
                 String targetServiceName = targetTransition.getSingleServiceName()
-                ServiceDefinition sd = ((ServiceFacadeImpl) ec.getService()).getServiceDefinition(targetServiceName)
-                if (sd != null) {
-                    for (String pn in sd.getInParameterNames()) {
-                        Object value = ec.getContext().getByString(pn)
-                        if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(pn)
-                        if (value) allParameterMap.put(pn, StupidJavaUtilities.toPlainString(value))
-                    }
-                } else if (targetServiceName.contains("#")) {
-                    // service name but no service def, see if it is an entity op and if so try the pk fields
-                    String verb = targetServiceName.substring(0, targetServiceName.indexOf("#"))
-                    if (verb == "create" || verb == "update" || verb == "delete" || verb == "store") {
-                        String en = targetServiceName.substring(targetServiceName.indexOf("#") + 1)
-                        EntityDefinition ed = ((EntityFacadeImpl) ec.getEntity()).getEntityDefinition(en)
-                        if (ed != null) {
-                            for (String fn in ed.getPkFieldNames()) {
-                                Object value = ec.getContext().getByString(fn)
-                                if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(fn)
-                                if (value) allParameterMap.put(fn, StupidJavaUtilities.toPlainString(value))
+                if (targetServiceName != null && targetServiceName.length() > 0) {
+                    ServiceDefinition sd = ec.ecfi.getServiceFacade().getServiceDefinition(targetServiceName)
+                    if (sd != null) {
+                        for (String pn in sd.getInParameterNames()) {
+                            Object value = ec.getContext().getByString(pn)
+                            if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
+                                value = ec.getWeb().getParameters().get(pn)
+                            String valueStr = StupidJavaUtilities.toPlainString(value)
+                            if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pn, valueStr)
+                        }
+                    } else if (targetServiceName.contains("#")) {
+                        // service name but no service def, see if it is an entity op and if so try the pk fields
+                        String verb = targetServiceName.substring(0, targetServiceName.indexOf("#"))
+                        if (verb == "create" || verb == "update" || verb == "delete" || verb == "store") {
+                            String en = targetServiceName.substring(targetServiceName.indexOf("#") + 1)
+                            EntityDefinition ed = ec.ecfi.getEntityFacade(ec.tenantId).getEntityDefinition(en)
+                            if (ed != null) {
+                                for (String fn in ed.getPkFieldNames()) {
+                                    Object value = ec.getContext().getByString(fn)
+                                    if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
+                                        value = ec.getWeb().getParameters().get(fn)
+                                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                                    if (valueStr != null && valueStr.length() > 0) allParameterMap.put(fn, valueStr)
+                                }
                             }
                         }
                     }

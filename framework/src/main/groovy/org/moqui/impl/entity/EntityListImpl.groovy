@@ -21,7 +21,7 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
-import org.moqui.impl.StupidUtilities.MapOrderByComparator
+import org.moqui.impl.StupidJavaUtilities.MapOrderByComparator
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,7 +29,8 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class EntityListImpl implements EntityList {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class)
-    public static final EntityList EMPTY = new EmptyEntityList()
+
+    // no longer used: public static final EntityList EMPTY = new EmptyEntityList()
 
     protected EntityFacadeImpl efi
 
@@ -201,7 +202,7 @@ class EntityListImpl implements EntityList {
     @Override
     EntityList orderByFields(List<String> fieldNames) {
         if (fromCache) return this.cloneList().orderByFields(fieldNames)
-        if (fieldNames) Collections.sort(this.valueList, new MapOrderByComparator(fieldNames))
+        if (fieldNames) Collections.sort(valueList, new MapOrderByComparator(fieldNames))
         return this
     }
 
@@ -348,7 +349,7 @@ class EntityListImpl implements EntityList {
     }
 
     @Override
-    EntityValue get(int i) { return this.valueList.get(i) }
+    EntityValue get(int i) { return (EntityValue) valueList.get(i) }
 
     @Override
     EntityValue set(int i, EntityValue e) {
