@@ -48,12 +48,14 @@ public class ContextStack implements Map<String, Object> {
     }
     protected void resetCombinedEntries(Set<String> keySet) {
         if (keySet.size() == 0) return;
+        // if (keySet.contains("context")) throw new IllegalArgumentException("Cannot reset combined entry with key 'context', reserved key");
         // use a faster approach than rebuildCombinedMap()
         // for each key in the popped Map see if a Map on the stack contains it and if so set it, otherwise remove it
         int stackListSize = stackList.size();
         for (String key : keySet) resetCombinedEntry(key, stackListSize);
     }
     protected void resetCombinedEntry(String key, int stackListSize) {
+        if ("context".equals(key)) return;
         boolean found = false;
         for (int i = 0; i < stackListSize; i++) {
             Map<String, Object> curMap = stackList.get(i).getWrapped();
@@ -101,9 +103,12 @@ public class ContextStack implements Map<String, Object> {
      */
     public ContextStack push(Map<String, Object> existingMap) {
         if (existingMap == null) throw new IllegalArgumentException("Cannot push null as an existing Map");
+        // if (existingMap.containsKey("context")) throw new IllegalArgumentException("Cannot push existing with key 'context', reserved key");
         stackList.add(0, new MapWrapper(this, existingMap));
         topMap = existingMap;
         combinedMap.putAll(existingMap);
+        // make sure 'context' refers to this no matter what is in the existingMap (may even be a ContextStack instance)
+        combinedMap.put("context", this);
         return this;
     }
 
@@ -272,7 +277,7 @@ public class ContextStack implements Map<String, Object> {
     }
 
     public Object put(String key, Object value) {
-        // if ("context".equals(key)) throw new IllegalArgumentException("Cannot put with key 'context', reserved key");
+        if ("context".equals(key)) throw new IllegalArgumentException("Cannot put with key 'context', reserved key");
         combinedMap.put(key, value);
         return topMap.put(key, value);
     }
@@ -284,8 +289,13 @@ public class ContextStack implements Map<String, Object> {
     }
 
     public void putAll(Map<? extends String, ?> arg0) {
-        combinedMap.putAll(arg0);
-        topMap.putAll(arg0);
+        if (arg0 == null) return;
+        for (Map.Entry<? extends String, ?> entry : arg0.entrySet()) {
+            String key = entry.getKey();
+            if ("context".equals(key)) continue;
+            combinedMap.put(key, entry.getValue());
+            topMap.put(key, entry.getValue());
+        }
     }
 
     public void clear() {
@@ -416,7 +426,7 @@ public class ContextStack implements Map<String, Object> {
         public boolean containsValue(Object value) { return internal.containsValue(value); }
         public Object get(Object key) { return internal.get(key); }
         public Object put(String key, Object value) {
-            // if ("context".equals(key)) throw new IllegalArgumentException("Cannot put with key 'context', reserved key");
+            if ("context".equals(key)) throw new IllegalArgumentException("Cannot put with key 'context', reserved key");
             Object orig = internal.put(key, value);
             contextStack.rebuildCombinedMap();
             return orig;
