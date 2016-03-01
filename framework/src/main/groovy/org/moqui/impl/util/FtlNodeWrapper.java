@@ -41,8 +41,7 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
     protected FtlTextWrapper textNode = null;
     protected FtlNodeListWrapper allChildren = null;
 
-    protected Map<String, FtlAttributeWrapper> attributeWrapperMap = new HashMap<>();
-    protected Map<String, FtlNodeListWrapper> childrenByName = new HashMap<>();
+    protected Map<String, TemplateModel> attrAndChildrenByName = new HashMap<>();
 
     protected FtlNodeWrapper(MNode wrapNode) {
         this.mNode = wrapNode;
@@ -61,12 +60,12 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
 
     public TemplateModel get(String s) {
         // first try the attribute and children caches, then if not found in either pick it apart and create what is needed
+        TemplateModel attrOrChildWrapper = attrAndChildrenByName.get(s);
+        if (attrOrChildWrapper != null) return attrOrChildWrapper;
+        if (attrAndChildrenByName.containsKey(s)) return null;
 
+        // odd performance note: String.startsWith and String.charAt both take nearly as long as a HashMap.get
         if (s.startsWith("@")) {
-            FtlAttributeWrapper attributeWrapper = attributeWrapperMap.get(s);
-            if (attributeWrapper != null) return attributeWrapper;
-            if (attributeWrapperMap.containsKey(s)) return null;
-
             // check for @@text
             if (s.equals("@@text")) {
                 if (textNode == null) textNode = new FtlTextWrapper(mNode.getText(), this);
@@ -77,17 +76,14 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
             String key = s.substring(1);
 
             String attrValue = mNode.attribute(key);
-            attributeWrapper = attrValue != null ? new FtlAttributeWrapper(key, attrValue, this) : null;
-            attributeWrapperMap.put(s, attributeWrapper);
+            FtlAttributeWrapper attributeWrapper = attrValue != null ? new FtlAttributeWrapper(key, attrValue, this) : null;
+            attrAndChildrenByName.put(s, attributeWrapper);
             return attributeWrapper;
         } else {
-            FtlNodeListWrapper nodeListWrapper = childrenByName.get(s);
-            if (nodeListWrapper != null) return nodeListWrapper;
-
             // no @ prefix, looking for a child node
             // logger.info("Looking for child nodes with name [${s}] found: ${childList}")
-            nodeListWrapper = new FtlNodeListWrapper(mNode.children(s), this);
-            childrenByName.put(s, nodeListWrapper);
+            FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(mNode.children(s), this);
+            attrAndChildrenByName.put(s, nodeListWrapper);
             return nodeListWrapper;
         }
     }

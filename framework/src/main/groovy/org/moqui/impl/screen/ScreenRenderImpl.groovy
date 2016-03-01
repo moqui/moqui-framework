@@ -89,7 +89,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     protected boolean dontDoRender = false
 
-    protected Map<String, MNode> screenFormNodeCache = new HashMap()
+    protected Map<String, FtlNodeWrapper> screenFormNodeCache = new HashMap()
 
     ScreenRenderImpl(ScreenFacadeImpl sfi) {
         this.sfi = sfi
@@ -876,50 +876,40 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
-    MNode getFormNode(String formName) {
+    FtlNodeWrapper getFtlFormNode(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
         String nodeCacheKey = sd.getLocation() + "#" + formName
         // NOTE: this is cached in the context of the renderer for multiple accesses; because of form overrides may not
         // be valid outside the scope of a single screen render
-        MNode formNode = screenFormNodeCache.get(nodeCacheKey)
+        FtlNodeWrapper formNode = screenFormNodeCache.get(nodeCacheKey)
         if (formNode == null) {
             ScreenForm form = sd.getForm(formName)
             if (!form) throw new IllegalArgumentException("No form with name [${formName}] in screen [${sd.location}]")
-            formNode = form.getFormNode()
+            formNode = form.getFtlFormNode()
             screenFormNodeCache.put(nodeCacheKey, formNode)
         }
         return formNode
     }
-    FtlNodeWrapper getFtlFormNode(String formName) { return FtlNodeWrapper.wrapNode(getFormNode(formName)) }
     List<FtlNodeWrapper> getFtlFormFieldLayoutNonReferencedFieldList(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
-        List<MNode> fieldNodeList = sd.getForm(formName).getFieldLayoutNonReferencedFieldList()
-        List<FtlNodeWrapper> fieldFtlNodeList = []
-        for (MNode fieldNode in fieldNodeList) fieldFtlNodeList.add(FtlNodeWrapper.wrapNode(fieldNode))
-        return fieldFtlNodeList
+        return sd.getForm(formName).getFieldLayoutNonReferencedFieldList()
     }
     List<FtlNodeWrapper> getFtlFormListColumnNonReferencedHiddenFieldList(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
-        List<MNode> fieldNodeList = sd.getForm(formName).getColumnNonReferencedHiddenFieldList()
-        List<FtlNodeWrapper> fieldFtlNodeList = []
-        for (MNode fieldNode in fieldNodeList) fieldFtlNodeList.add(FtlNodeWrapper.wrapNode(fieldNode))
-        return fieldFtlNodeList
+        return sd.getForm(formName).getColumnNonReferencedHiddenFieldList()
     }
 
 
     boolean isFormUpload(String formName) {
-        MNode cachedFormNode = this.getFormNode(formName)
-        return getActiveScreenDef().getForm(formName).isUpload(cachedFormNode)
+        return getActiveScreenDef().getForm(formName).isUpload(getFtlFormNode(formName))
     }
     boolean isFormHeaderForm(String formName) {
-        MNode cachedFormNode = this.getFormNode(formName)
-        return getActiveScreenDef().getForm(formName).isFormHeaderForm(cachedFormNode)
+        return getActiveScreenDef().getForm(formName).isFormHeaderForm(getFtlFormNode(formName))
     }
 
     String getFormFieldValidationClasses(String formName, String fieldName) {
         ScreenForm form = getActiveScreenDef().getForm(formName)
-        MNode cachedFormNode = getFormNode(formName)
-        MNode validateNode = form.getFieldValidateNode(fieldName, cachedFormNode)
+        MNode validateNode = form.getFieldValidateNode(fieldName, getFtlFormNode(formName))
         if (validateNode == null) return ""
 
         Set<String> vcs = new HashSet()
@@ -951,8 +941,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     Map getFormFieldValidationRegexpInfo(String formName, String fieldName) {
         ScreenForm form = getActiveScreenDef().getForm(formName)
-        MNode cachedFormNode = getFormNode(formName)
-        MNode validateNode = form.getFieldValidateNode(fieldName, cachedFormNode)
+        MNode validateNode = form.getFieldValidateNode(fieldName, getFtlFormNode(formName))
         if (validateNode?.hasChild("matches")) {
             MNode matchesNode = validateNode.first("matches")
             return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]

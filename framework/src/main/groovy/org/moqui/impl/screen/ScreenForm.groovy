@@ -16,8 +16,10 @@ package org.moqui.impl.screen
 import groovy.transform.CompileStatic
 import org.apache.commons.collections.map.ListOrderedMap
 import org.moqui.BaseException
+import org.moqui.context.ContextStack
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 import org.moqui.impl.entity.EntityFindImpl
@@ -49,6 +51,7 @@ class ScreenForm {
     protected ExecutionContextFactoryImpl ecfi
     protected ScreenDefinition sd
     protected MNode internalFormNode
+    protected FtlNodeWrapper internalFormNodeWrapper
     protected String location
     protected String formName
     protected String fullFormName
@@ -59,7 +62,7 @@ class ScreenForm {
 
     protected XmlAction rowActions = null
 
-    protected ArrayList<MNode> nonReferencedFieldList = null
+    protected ArrayList<FtlNodeWrapper> nonReferencedFieldList = null
 
     ScreenForm(ExecutionContextFactoryImpl ecfi, ScreenDefinition sd, MNode baseFormNode, String location) {
         this.ecfi = ecfi
@@ -88,6 +91,7 @@ class ScreenForm {
             internalFormNode = new MNode(baseFormNode.name, null)
             initForm(baseFormNode, internalFormNode)
         }
+        internalFormNodeWrapper = FtlNodeWrapper.wrapNode(internalFormNode)
     }
 
     void initForm(MNode baseFormNode, MNode newFormNode) {
@@ -220,23 +224,23 @@ class ScreenForm {
         }
     }
 
-    ArrayList<MNode> getFieldLayoutNonReferencedFieldList() {
+    ArrayList<FtlNodeWrapper> getFieldLayoutNonReferencedFieldList() {
         if (nonReferencedFieldList != null) return nonReferencedFieldList
-        ArrayList<MNode> fieldList = new ArrayList<>()
+        ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
 
         if (getFormNode().hasChild("field-layout")) for (MNode fieldNode in getFormNode().children("field")) {
             MNode fieldLayoutNode = getFormNode().first("field-layout")
             if (!fieldLayoutNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldNode.attribute("name") }))
-                fieldList.add(fieldNode)
+                fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
         }
 
         nonReferencedFieldList = fieldList
         return fieldList
     }
 
-    ArrayList<MNode> getColumnNonReferencedHiddenFieldList() {
+    ArrayList<FtlNodeWrapper> getColumnNonReferencedHiddenFieldList() {
         if (nonReferencedFieldList != null) return nonReferencedFieldList
-        ArrayList<MNode> fieldList = new ArrayList<>()
+        ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
 
         if (getFormNode().hasChild("form-list-column")) for (MNode fieldNode in getFormNode().children("field")) {
             if (!fieldNode.depthFirst({ MNode it -> it.name == "hidden" })) continue
@@ -245,7 +249,7 @@ class ScreenForm {
             for (MNode formListColumnNode in formListColumnNodeList)
                 if (formListColumnNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldNode.attribute("name") }))
                     foundReference = true
-            if (!foundReference) fieldList.add(fieldNode)
+            if (!foundReference) fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
         }
 
         nonReferencedFieldList = fieldList
@@ -365,13 +369,16 @@ class ScreenForm {
         return dbFormNode
     }
 
+    boolean isDisplayOnly() {
+        ContextStack cs = ecfi.getEci().getContext()
+        return cs.getByString("formDisplayOnly") == "true" || cs.getByString("formDisplayOnly_${formName}") == "true"
+    }
+
     /** This is the main method for using an XML Form, the rendering is done based on the Node returned. */
-    @CompileStatic
     MNode getFormNode() {
         // NOTE: this is cached in the ScreenRenderImpl as it may be called multiple times for a single form render
-        List<MNode> dbFormNodeList = getDbFormNodeList()
-        ExecutionContext ec = ecfi.getExecutionContext()
-        boolean isDisplayOnly = ec.getContext().getByString("formDisplayOnly") == "true" || ec.getContext().getByString("formDisplayOnly_${formName}") == "true"
+        List<MNode> dbFormNodeList = hasDbExtensions ? getDbFormNodeList() : null
+        boolean displayOnly = isDisplayOnly()
 
         if (isDynamic) {
             MNode newFormNode = new MNode(internalFormNode.name, null)
@@ -380,14 +387,14 @@ class ScreenForm {
                 for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
             }
             return newFormNode
-        } else if (dbFormNodeList || isDisplayOnly) {
+        } else if (dbFormNodeList || displayOnly) {
             MNode newFormNode = new MNode(internalFormNode.name, null)
             // deep copy true to avoid bleed over of new fields and such
             mergeFormNodes(newFormNode, internalFormNode, true, true)
             // logger.warn("========== merging in dbFormNodeList: ${dbFormNodeList}", new BaseException("getFormNode call location"))
             for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
 
-            if (isDisplayOnly) {
+            if (displayOnly) {
                 // change all non-display fields to simple display elements
                 for (MNode fieldNode in newFormNode.children("field")) {
                     // don't replace header form, should be just for searching: if (fieldNode."header-field") fieldSubNodeToDisplay(newFormNode, fieldNode, (Node) fieldNode."header-field"[0])
@@ -423,7 +430,6 @@ class ScreenForm {
     }
 
     static Set displayOnlyIgnoreNodeNames = ["hidden", "ignored", "label", "image"] as Set
-    @CompileStatic
     protected void fieldSubNodeToDisplay(MNode baseFormNode, MNode fieldNode, MNode fieldSubNode) {
         MNode widgetNode = fieldSubNode.children ? fieldSubNode.children.first() : null
         if (widgetNode == null) return
@@ -449,11 +455,15 @@ class ScreenForm {
         // not as good, puts it after other child Nodes: fieldSubNode.remove(widgetNode); fieldSubNode.appendNode("display")
     }
 
-    @CompileStatic
-    FtlNodeWrapper getFtlFormNode() { return FtlNodeWrapper.wrapNode(getFormNode()) }
+    FtlNodeWrapper getFtlFormNode() {
+        if (isDynamic || hasDbExtensions || isDisplayOnly()) {
+            return FtlNodeWrapper.wrapNode(getFormNode())
+        } else {
+            return internalFormNodeWrapper
+        }
+    }
 
-    @CompileStatic
-    boolean isUpload(MNode cachedFormNode) {
+    boolean isUpload(FtlNodeWrapper cachedFormNode) {
         if (isUploadForm != null) return isUploadForm
 
         // if there is a "file" element, then it's an upload form
@@ -463,15 +473,14 @@ class ScreenForm {
             return true
         } else {
             if (isDynamic || hasDbExtensions) {
-                MNode testNode = cachedFormNode != null ? cachedFormNode : getFormNode()
+                MNode testNode = cachedFormNode != null ? cachedFormNode.getMNode() : getFormNode()
                 return testNode.depthFirst({ MNode it -> it.name == "file" }).size() > 0
             } else {
                 return false
             }
         }
     }
-    @CompileStatic
-    boolean isFormHeaderForm(MNode cachedFormNode) {
+    boolean isFormHeaderForm(FtlNodeWrapper cachedFormNode) {
         if (isFormHeaderFormVal != null) return isFormHeaderFormVal
 
         // if there is a "header-field" element, then it needs a header form
@@ -488,7 +497,7 @@ class ScreenForm {
         } else {
             if (isDynamic || hasDbExtensions) {
                 boolean extFormHeaderFormVal = false
-                MNode testNode = cachedFormNode ?: getFormNode()
+                MNode testNode = cachedFormNode != null ? cachedFormNode.getMNode() : getFormNode()
                 for (MNode hfNode in testNode.depthFirst({ MNode it -> it.name == "header-field" })) {
                     if (hfNode.children) {
                         extFormHeaderFormVal = true
@@ -502,9 +511,8 @@ class ScreenForm {
         }
     }
 
-    @CompileStatic
-    MNode getFieldValidateNode(String fieldName, MNode cachedFormNode) {
-        MNode formNodeToUse = cachedFormNode ?: getFormNode()
+    MNode getFieldValidateNode(String fieldName, FtlNodeWrapper cachedFormNode) {
+        MNode formNodeToUse = cachedFormNode != null ? cachedFormNode.getMNode() : getFormNode()
         MNode fieldNode = formNodeToUse.first({ MNode it -> it.name == 'field' && it.attribute('name') == fieldName })
         if (fieldNode == null) throw new IllegalArgumentException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
         String validateService = fieldNode.attribute('validate-service')
@@ -778,7 +786,6 @@ class ScreenForm {
         }
     }
 
-    @CompileStatic
     protected void addEntityFieldDropDown(MNode oneRelNode, MNode subFieldNode, EntityDefinition relatedEd,
                                           String relKeyField, String dropDownStyle) {
         String title = oneRelNode.attribute("title")
@@ -993,7 +1000,6 @@ class ScreenForm {
         }
     }
 
-    @CompileStatic
     void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
         // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
         MNode localFormNode = getFormNode()
@@ -1003,7 +1009,9 @@ class ScreenForm {
             sri.ec.context.put(listEntryStr + "_index", index)
             sri.ec.context.put(listEntryStr + "_has_next", hasNext)
         } else {
-            if (listEntry instanceof Map) {
+            if (listEntry instanceof EntityValueBase) {
+                sri.ec.context.putAll(((EntityValueBase) listEntry).getValueMap())
+            } else if (listEntry instanceof Map) {
                 sri.ec.context.putAll((Map) listEntry)
             } else {
                 sri.ec.context.put("listEntry", listEntry)
@@ -1016,7 +1024,6 @@ class ScreenForm {
         if (rowActions) rowActions.run(sri.ec)
     }
 
-    @CompileStatic
     static ListOrderedMap getFieldOptions(MNode widgetNode, ExecutionContext ec) {
         MNode fieldNode = widgetNode.parent.parent
         ListOrderedMap options = new ListOrderedMap()
@@ -1070,7 +1077,6 @@ class ScreenForm {
         return options
     }
 
-    @CompileStatic
     static void addFieldOption(ListOrderedMap options, MNode fieldNode, MNode childNode, Map listOption,
                                ExecutionContext ec) {
         EntityValueBase listOptionEvb = listOption instanceof EntityValueImpl ? listOption : null
