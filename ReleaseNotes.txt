@@ -24,7 +24,7 @@ Non Backward Compatible Changes
 New Features
 
 - Many performance improvements based on profiling; cached entities finds
-  around 5x faster, non cached around 2x faster
+  around 5x faster, non cached around 2x; screen rendering also faster
 - Added JDBC Connection stash by tenant, entity group, and transaction,
   can be disabled with transaction-facade.@use-connection-stash=false in
   the Moqui Conf XML file

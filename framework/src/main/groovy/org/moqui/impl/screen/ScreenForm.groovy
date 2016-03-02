@@ -1046,7 +1046,11 @@ class ScreenForm {
                     }
                 }
 
-                for (EntityValue ev in eli) addFieldOption(options, fieldNode, childNode, ev, ec)
+                int eliSize = eli.size()
+                for (int i = 0; i < eliSize; i++) {
+                    EntityValue ev = (EntityValue) eli.get(i)
+                    addFieldOption(options, fieldNode, childNode, ev, ec)
+                }
             } else if (childNode.name == "list-options") {
                 Object listObject = ec.resource.expression(childNode.attribute('list'), null)
                 if (listObject instanceof EntityListIterator) {
