@@ -185,4 +185,20 @@ class EntityFindTests extends Specification {
         afterList.size() == beforeList.size() + 2
         afterList.filterByAnd([artifactGroupId:"SCREEN_TREE"]).size() == 2
     }
+
+    def "auto cache clear for view one after update of member"() {
+        when:
+        EntityValue before = ec.entity.find("moqui.basic.GeoAndType").condition("geoId", "USA").useCache(true).one()
+        ec.entity.makeValue("moqui.basic.Enumeration").setAll([enumId:"GEOT_COUNTRY", description:"Country2"]).update()
+        EntityValue after = ec.entity.find("moqui.basic.GeoAndType").condition("geoId", "USA").useCache(true).one()
+
+        // set it back so data isn't funny after tests
+        ec.entity.makeValue("moqui.basic.Enumeration").setAll([enumId:"GEOT_COUNTRY", description:"Country"]).update()
+        EntityValue reset = ec.entity.find("moqui.basic.GeoAndType").condition("geoId", "USA").useCache(true).one()
+
+        then:
+        before.typeDescription == "Country"
+        after.typeDescription == "Country2"
+        reset.typeDescription == "Country"
+    }
 }
