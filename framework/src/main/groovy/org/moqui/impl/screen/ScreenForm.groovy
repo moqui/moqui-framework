@@ -554,21 +554,24 @@ class ScreenForm {
                     break
                 }
 
+                /* NOTE: used to do this but doesn't make sense for main use of this in ServiceRun/etc screens; for app
+                    forms should separates pks and use display or hidden instead of edit:
                 if (parameterNode.attribute("required") == "true" && serviceVerb.startsWith("update")) {
                     subFieldNode.append("hidden", null)
                 } else {
-                    if (spType.endsWith("Date") && spType != "java.util.Date") {
-                        subFieldNode.append("date-time", [type:"date", format:parameterNode.attribute("format")])
-                    } else if (spType.endsWith("Time")) {
-                        subFieldNode.append("date-time", [type:"time", format:parameterNode.attribute("format")])
-                    } else if (spType.endsWith("Timestamp") || spType == "java.util.Date") {
-                        subFieldNode.append("date-time", [type:"date-time", format:parameterNode.attribute("format")])
+                }
+                */
+                if (spType.endsWith("Date") && spType != "java.util.Date") {
+                    subFieldNode.append("date-time", [type:"date", format:parameterNode.attribute("format")])
+                } else if (spType.endsWith("Time")) {
+                    subFieldNode.append("date-time", [type:"time", format:parameterNode.attribute("format")])
+                } else if (spType.endsWith("Timestamp") || spType == "java.util.Date") {
+                    subFieldNode.append("date-time", [type:"date-time", format:parameterNode.attribute("format")])
+                } else {
+                    if (efType == "text-long" || efType == "text-very-long") {
+                        subFieldNode.append("text-area", null)
                     } else {
-                        if (efType == "text-long" || efType == "text-very-long") {
-                            subFieldNode.append("text-area", null)
-                        } else {
-                            subFieldNode.append("text-line", ['default-value':parameterNode.attribute("default-value")])
-                        }
+                        subFieldNode.append("text-line", ['default-value':parameterNode.attribute("default-value")])
                     }
                 }
                 break
@@ -687,32 +690,35 @@ class ScreenForm {
                 break
             }
 
+            /* NOTE: used to do this but doesn't make sense for main use of this in ServiceRun/etc screens; for app
+                forms should separates pks and use display or hidden instead of edit:
             if (pkFieldNameSet.contains(fieldName) && serviceVerb == "update") {
                 subFieldNode.append("hidden", null)
             } else {
-                if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
-                    newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
-                if (efType.startsWith("date") || efType.startsWith("time")) {
-                    MNode dateTimeNode = subFieldNode.append("date-time", [type:efType])
-                    if (fieldName == "fromDate") dateTimeNode.attributes.put("default-value", "\${ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm')}")
-                } else if (efType == "text-long" || efType == "text-very-long") {
-                    subFieldNode.append("text-area", null)
-                } else if (efType == "text-indicator") {
-                    MNode dropDownNode = subFieldNode.append("drop-down", ["allow-empty":"true"])
-                    dropDownNode.append("option", ["key":"Y"])
-                    dropDownNode.append("option", ["key":"N"])
-                } else if (efType == "binary-very-long") {
-                    // would be nice to have something better for this, like a download somehow
-                    subFieldNode.append("display", null)
+            }
+            */
+            if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
+                newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+            if (efType.startsWith("date") || efType.startsWith("time")) {
+                MNode dateTimeNode = subFieldNode.append("date-time", [type:efType])
+                if (fieldName == "fromDate") dateTimeNode.attributes.put("default-value", "\${ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm')}")
+            } else if (efType == "text-long" || efType == "text-very-long") {
+                subFieldNode.append("text-area", null)
+            } else if (efType == "text-indicator") {
+                MNode dropDownNode = subFieldNode.append("drop-down", ["allow-empty":"true"])
+                dropDownNode.append("option", ["key":"Y"])
+                dropDownNode.append("option", ["key":"N"])
+            } else if (efType == "binary-very-long") {
+                // would be nice to have something better for this, like a download somehow
+                subFieldNode.append("display", null)
+            } else {
+                if (oneRelNode != null) {
+                    addEntityFieldDropDown(oneRelNode, subFieldNode, relatedEd, relKeyField, "chosen-wider")
                 } else {
-                    if (oneRelNode != null) {
-                        addEntityFieldDropDown(oneRelNode, subFieldNode, relatedEd, relKeyField, "chosen-wider")
+                    if (efType.startsWith("number-") || efType.startsWith("currency-")) {
+                        subFieldNode.append("text-line", [size:"10"])
                     } else {
-                        if (efType.startsWith("number-") || efType.startsWith("currency-")) {
-                            subFieldNode.append("text-line", [size:"10"])
-                        } else {
-                            subFieldNode.append("text-line", [size:"30"])
-                        }
+                        subFieldNode.append("text-line", [size:"30"])
                     }
                 }
             }
