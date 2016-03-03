@@ -612,20 +612,22 @@ class ScreenUrlInfo {
                 }
             }
         } else {
-            if (screenPath.startsWith("/")) fromPathList = new ArrayList<String>()
+            if (screenPath.startsWith("/")) fromPathList = (List<String>) null
 
             ArrayList<String> tempPathNameList = new ArrayList<String>()
-            tempPathNameList.addAll(fromPathList)
-            tempPathNameList.addAll(screenPath.split("/") as List)
+            if (fromPathList != null) tempPathNameList.addAll(fromPathList)
+            tempPathNameList.addAll(Arrays.asList(screenPath.split("/")))
             return cleanupPathNameList(tempPathNameList, inlineParameters)
         }
     }
 
     static ArrayList<String> cleanupPathNameList(ArrayList<String> inputPathNameList, Map inlineParameters) {
         // filter the list: remove empty, remove ".", remove ".." and previous
-        ArrayList<String> cleanList = new ArrayList<String>(inputPathNameList.size())
-        for (String pathName in inputPathNameList) {
-            if (!pathName) continue
+        int inputPathNameListSize = inputPathNameList.size()
+        ArrayList<String> cleanList = new ArrayList<String>(inputPathNameListSize)
+        for (int i = 0; i < inputPathNameListSize; i++) {
+            String pathName = (String) inputPathNameList.get(i)
+            if (pathName == null || pathName.length() == 0) continue
             if (pathName == ".") continue
             // .. means go up a level, ie drop the last in the list
             if (pathName == "..") { if (cleanList.size()) cleanList.remove(cleanList.size()-1); continue }
