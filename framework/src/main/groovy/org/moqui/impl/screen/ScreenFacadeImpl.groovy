@@ -46,6 +46,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
     protected final Cache dbFormNodeByIdCache
 
     protected final Map<String, Map<String, String>> themeIconByTextByTheme = new HashMap<>()
+    protected final Map<String, MNode> webappNodeByName = new HashMap<>()
 
     ScreenFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -263,6 +264,15 @@ public class ScreenFacadeImpl implements ScreenFacade {
             themeIconByTextByTheme.put(screenThemeId, themeIconByText)
         }
         return themeIconByText
+    }
+    MNode getWebappNode(String webappName) {
+        if (webappName == null) return null
+        MNode webappNode = (MNode) webappNodeByName.get(webappName)
+        if (webappNode != null) return webappNode
+
+        webappNode = ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
+        webappNodeByName.put(webappName, webappNode)
+        return webappNode
     }
 
     List<ScreenInfo> getScreenInfoList(String rootLocation, int levels) {

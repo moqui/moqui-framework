@@ -937,12 +937,15 @@ abstract class EntityValueBase implements EntityValue {
 
     Object putNoCheck(String name, Object value) {
         if (!mutable) throw new EntityException("Cannot set field [${name}], this entity value is not mutable (it is read-only)")
-        Object curValue = valueMap.get(name)
-        if (curValue != value) {
-            modified = true
-            if (curValue != null) {
-                if (dbValueMap == null) dbValueMap = new LinkedHashMap<String, Object>()
-                dbValueMap.put(name, curValue)
+        Object curValue = null
+        if (isFromDb) {
+            curValue = valueMap.get(name)
+            if (curValue != value) {
+                modified = true
+                if (curValue != null) {
+                    if (dbValueMap == null) dbValueMap = new LinkedHashMap<String, Object>()
+                    dbValueMap.put(name, curValue)
+                }
             }
         }
         valueMap.put(name, value)

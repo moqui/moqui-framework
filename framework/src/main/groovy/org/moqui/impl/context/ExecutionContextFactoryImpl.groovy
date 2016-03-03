@@ -37,11 +37,13 @@ import org.moqui.context.*
 import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
 import org.moqui.impl.StupidClassLoader
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.camel.MoquiServiceComponent
@@ -1105,16 +1107,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     void countArtifactHit(String artifactType, String artifactSubType, String artifactName, Map<String, Object> parameters,
                           long startTime, double runningTimeMillis, Long outputSize) {
-        boolean isEntity = artifactType == 'entity' || artifactSubType == 'entity-implicit'
+        boolean isEntity = 'entity'.equals(artifactType) || 'entity-implicit'.equals(artifactSubType)
         // don't count the ones this calls
         if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return
-        ExecutionContextImpl eci = this.getEci()
+        ExecutionContextImpl eci = getEci()
         if (eci.getSkipStats() && artifactTypesForStatsSkip.contains(artifactType)) return
 
         boolean isSlowHit = false
         if (artifactPersistBin(artifactType, artifactSubType)) {
             String binKey = new StringBuilder(200).append(artifactType).append('.').append(artifactSubType).append(':').append(artifactName).toString()
-            ArtifactStatsInfo statsInfo = artifactStatsInfoByType.get(binKey)
+            ArtifactStatsInfo statsInfo = (ArtifactStatsInfo) artifactStatsInfoByType.get(binKey)
             if (statsInfo == null) {
                 // consider seeding this from the DB using ArtifactHitReport to get all past data, or maybe not to better handle different servers/etc over time, etc
                 statsInfo = new ArtifactStatsInfo()
@@ -1129,7 +1131,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // has the current bin expired since the last hit record?
             long binStartTime = abi.startTime
-            if (startTime > (binStartTime + hitBinLengthMillis)) {
+            if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
                 if (logger.isTraceEnabled()) logger.trace("Advancing ArtifactHitBin [${artifactType}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(abi.startTime)}] bin length ${hitBinLengthMillis/1000} seconds")
                 advanceArtifactHitBin(statsInfo, artifactType, artifactSubType, artifactName, startTime, hitBinLengthMillis)
                 abi = statsInfo.curHitBin
@@ -1179,43 +1181,52 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         //     (could also be done by checking for ArtifactHit/etc of course)
         // Always save slow hits above userImpactMinMillis regardless of settings
         if (!isEntity && ((isSlowHit && runningTimeMillis > userImpactMinMillis) || artifactPersistHit(artifactType, artifactSubType))) {
-            Map<String, Object> ahp = [visitId:eci.user.visitId, userId:eci.user.userId, isSlowHit:(isSlowHit ? 'Y' : 'N'),
-                                       artifactType:artifactType, artifactSubType:artifactSubType, artifactName:artifactName,
-                                       startDateTime:new Timestamp(startTime), runningTimeMillis:runningTimeMillis] as Map<String, Object>
+            EntityValueBase ahp = (EntityValueBase) eci.entity.makeValue("moqui.server.ArtifactHit")
+            ahp.putNoCheck("visitId", eci.user.visitId)
+            ahp.putNoCheck("userId", eci.user.userId)
+            ahp.putNoCheck("isSlowHit", isSlowHit ? 'Y' : 'N')
+            ahp.putNoCheck("artifactType", artifactType)
+            ahp.putNoCheck("artifactSubType", artifactSubType)
+            ahp.putNoCheck("artifactName", artifactName)
+            ahp.putNoCheck("startDateTime", new Timestamp(startTime))
+            ahp.putNoCheck("runningTimeMillis", runningTimeMillis)
 
-            if (parameters) {
+            if (parameters != null && parameters.size() > 0) {
                 StringBuilder ps = new StringBuilder()
                 for (Map.Entry<String, Object> pme in parameters.entrySet()) {
-                    if (!pme.value) continue
+                    if (StupidJavaUtilities.isEmpty(pme.value)) continue
                     if (pme.key?.contains("password")) continue
                     if (ps.length() > 0) ps.append(",")
                     ps.append(pme.key).append("=").append(pme.value)
                 }
                 if (ps.length() > 255) ps.delete(255, ps.length())
-                ahp.parameterString = ps.toString()
+                ahp.putNoCheck("parameterString", ps.toString())
             }
-            if (outputSize != null) ahp.outputSize = outputSize
+            if (outputSize != null) ahp.putNoCheck("outputSize", outputSize)
             if (eci.getMessage().hasError()) {
-                ahp.wasError = "Y"
+                ahp.putNoCheck("wasError", "Y")
                 StringBuilder errorMessage = new StringBuilder()
                 for (String curErr in eci.message.errors) errorMessage.append(curErr).append(";")
                 if (errorMessage.length() > 255) errorMessage.delete(255, errorMessage.length())
-                ahp.errorMessage = errorMessage.toString()
+                ahp.putNoCheck("errorMessage", errorMessage.toString())
             } else {
-                ahp.wasError = "N"
+                ahp.putNoCheck("wasError", "N")
             }
             if (eci.web != null) {
                 String fullUrl = eci.web.getRequestUrl()
                 fullUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl.toString()
-                ahp.requestUrl = fullUrl
-                ahp.referrerUrl = eci.web.request.getHeader("Referrer") ?: ""
+                ahp.putNoCheck("requestUrl", fullUrl)
+                String referrer = eci.web.request.getHeader("Referrer")
+                if (referrer != null && referrer.length() > 0) ahp.putNoCheck("referrerUrl", referrer)
             }
 
-            ahp.serverIpAddress = localhostAddress?.getHostAddress() ?: "127.0.0.1"
-            ahp.serverHostName = localhostAddress?.getHostName() ?: "localhost"
+            ahp.putNoCheck("serverIpAddress", localhostAddress != null ? localhostAddress.getHostAddress() : "127.0.0.1")
+            ahp.putNoCheck("serverHostName", localhostAddress != null ? localhostAddress.getHostName() : "localhost")
 
-            // call async, let the server do it whenever
-            eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
+            // NOTE: async service scheduling is slow enough that it is faster to just create the record now
+            // eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
+            // have an authorize-skip=create on the entity so don't need to disable authz here
+            ahp.setSequencedIdPrimary().create()
         }
     }
 

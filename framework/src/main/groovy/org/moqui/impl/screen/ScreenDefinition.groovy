@@ -39,6 +39,7 @@ class ScreenDefinition {
     protected final ScreenFacadeImpl sfi
     protected final MNode screenNode
     protected final MNode subscreensNode
+    protected final MNode webSettingsNode
     protected final String location
     protected final String screenName
     protected boolean standalone = false
@@ -65,6 +66,7 @@ class ScreenDefinition {
         this.sfi = sfi
         this.screenNode = screenNode
         this.subscreensNode = screenNode.first("subscreens")
+        this.webSettingsNode = screenNode.first("web-settings")
         this.location = location
 
         long startTime = System.currentTimeMillis()
@@ -225,8 +227,8 @@ class ScreenDefinition {
 
     MNode getScreenNode() { return screenNode }
     MNode getSubscreensNode() { return subscreensNode }
-    String getDefaultSubscreensItem() { return (String) subscreensNode?.attribute('default-item') }
-    MNode getWebSettingsNode() { return screenNode.first("web-settings") }
+    String getDefaultSubscreensItem() { return subscreensNode?.attribute('default-item') }
+    MNode getWebSettingsNode() { return webSettingsNode }
     String getLocation() { return location }
     Set<String> getTenantsAllowed() { return tenantsAllowed }
 

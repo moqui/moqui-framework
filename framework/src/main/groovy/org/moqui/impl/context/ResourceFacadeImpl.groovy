@@ -67,13 +67,15 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final Cache textLocationCache
     protected final Cache resourceReferenceByLocation
 
-    protected final Map<String, Class> resourceReferenceClasses = new HashMap()
-    protected final Map<String, TemplateRenderer> templateRenderers = new HashMap()
-    protected final Map<String, ScriptRunner> scriptRunners = new HashMap()
-    protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+    protected final Map<String, Class> resourceReferenceClasses = new HashMap<>()
+    protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>()
+    protected final ArrayList<String> templateRendererExtensions = new ArrayList<>()
+    protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>()
+    protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>()
+    protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager()
     protected FopFactory internalFopFactory = null
 
-    protected final Map<String, Repository> contentRepositories = new HashMap()
+    protected final Map<String, Repository> contentRepositories = new HashMap<>()
     protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<Map<String, Session>>()
 
     ResourceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
@@ -119,6 +121,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
             TemplateRenderer tr = (TemplateRenderer) Thread.currentThread().getContextClassLoader()
                     .loadClass(templateRendererNode.attribute("class")).newInstance()
             templateRenderers.put(templateRendererNode.attribute("extension"), tr.init(ecfi))
+        }
+        for (String ext in templateRenderers.keySet()) {
+            templateRendererExtensions.add(ext)
+            templateRendererExtensionsDots.add(StupidUtilities.countChars(ext, (char) '.'))
         }
 
         // Setup script runners
@@ -169,7 +175,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
-    Map<String, TemplateRenderer> getTemplateRenderers() { return templateRenderers }
+    Map<String, TemplateRenderer> getTemplateRenderers() { return Collections.unmodifiableMap(templateRenderers) }
 
     Repository getContentRepository(String name) { return contentRepositories.get(name) }
 
@@ -294,13 +300,14 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // match against extension for template renderer, with as many dots that match as possible (most specific match)
         int mostDots = 0
         TemplateRenderer tr = null
-        for (Map.Entry<String, TemplateRenderer> trEntry in templateRenderers.entrySet()) {
-            String ext = trEntry.getKey()
+        int templateRendererExtensionsSize = templateRendererExtensions.size()
+        for (int i = 0; i < templateRendererExtensionsSize; i++) {
+            String ext = (String) templateRendererExtensions.get(i)
             if (location.endsWith(ext)) {
-                int dots = StupidUtilities.countChars(ext, (char) '.')
+                int dots = templateRendererExtensionsDots.get(i).intValue()
                 if (dots > mostDots) {
                     mostDots = dots
-                    tr = trEntry.getValue()
+                    tr = (TemplateRenderer) templateRenderers.get(ext)
                 }
             }
         }

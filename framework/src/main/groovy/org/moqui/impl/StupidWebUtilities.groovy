@@ -47,21 +47,23 @@ class StupidWebUtilities {
     static final Encoder defaultWebEncoder = DefaultEncoder.getInstance()
     static final Validator defaultWebValidator = DefaultValidator.getInstance()
 
+    static final char tildeChar = '~' as char
     public static Map<String, Object> getPathInfoParameterMap(String pathInfoStr) {
-        Map<String, Object> paramMap = new HashMap()
+        if (pathInfoStr == null || pathInfoStr.length() == 0) return null
+
+        Map<String, Object> paramMap = (Map<String, Object>) null
 
         // add in all path info parameters /~name1=value1/~name2=value2/
         if (pathInfoStr) {
-            if (!pathInfoStr.endsWith("/")) pathInfoStr += "/"
-            int current = pathInfoStr.indexOf('/')
-            int last = current
-            while ((current = pathInfoStr.indexOf('/', last + 1)) != -1) {
-                String element = pathInfoStr.substring(last + 1, current)
-                last = current
-                if (element.length() > 0 && element.charAt(0) == ((char) '~') && element.contains('=')) {
-                    String name = element.substring(1, element.indexOf('='))
-                    String value = element.substring(element.indexOf('=') + 1)
+            String[] pathElements = pathInfoStr.split("/")
+            for (int i = 0; i < pathElements.size(); i++) {
+                String element = (String) pathElements[i]
+                int equalsIndex = element.indexOf("=")
+                if (element.length() > 0 && element.charAt(0) == tildeChar && equalsIndex > 0) {
+                    String name = element.substring(1, equalsIndex)
+                    String value = element.substring(equalsIndex + 1)
                     // NOTE: currently ignoring existing values, likely won't be any: Object curValue = paramMap.get(name)
+                    if (paramMap == null) paramMap = new HashMap<String, Object>()
                     paramMap.put(name, value)
                 }
             }

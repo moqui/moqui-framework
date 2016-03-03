@@ -61,22 +61,22 @@ class WebFacadeImpl implements WebFacade {
     protected HttpServletRequest request
     protected HttpServletResponse response
 
-    protected Map<String, Object> savedParameters = null
-    protected Map<String, Object> multiPartParameters = null
-    protected Map<String, Object> jsonParameters = null
-    protected Map<String, Object> declaredPathParameters = null
+    protected Map<String, Object> savedParameters = (Map<String, Object>) null
+    protected Map<String, Object> multiPartParameters = (Map<String, Object>) null
+    protected Map<String, Object> jsonParameters = (Map<String, Object>) null
+    protected Map<String, Object> declaredPathParameters = (Map<String, Object>) null
 
-    protected ContextStack parameters = null
-    protected Map<String, Object> requestAttributes = null
-    protected Map<String, Object> requestParameters = null
-    protected Map<String, Object> sessionAttributes = null
-    protected Map<String, Object> applicationAttributes = null
+    protected ContextStack parameters = (ContextStack) null
+    protected Map<String, Object> requestAttributes = (Map<String, Object>) null
+    protected Map<String, Object> requestParameters = (Map<String, Object>) null
+    protected Map<String, Object> sessionAttributes = (Map<String, Object>) null
+    protected Map<String, Object> applicationAttributes = (Map<String, Object>) null
 
-    protected Map<String, Object> errorParameters = null
+    protected Map<String, Object> errorParameters = (Map<String, Object>) null
 
-    protected List<String> savedMessages = null
-    protected List<String> savedErrors = null
-    protected List<ValidationError> savedValidationErrors = null
+    protected List<String> savedMessages = (List<String>) null
+    protected List<String> savedErrors = (List<String>) null
+    protected List<ValidationError> savedValidationErrors = (List<ValidationError>) null
 
     WebFacadeImpl(String webappMoquiName, HttpServletRequest request, HttpServletResponse response,
                   ExecutionContextImpl eci) {
@@ -89,29 +89,29 @@ class WebFacadeImpl implements WebFacade {
         request.setAttribute("ec", eci)
 
         // get any parameters saved to the session from the last request, and clear that session attribute if there
-        savedParameters = (Map) request.session.getAttribute("moqui.saved.parameters")
+        savedParameters = (Map<String, Object>) request.session.getAttribute("moqui.saved.parameters")
         if (savedParameters != null) request.session.removeAttribute("moqui.saved.parameters")
 
-        errorParameters = (Map) request.session.getAttribute("moqui.error.parameters")
+        errorParameters = (Map<String, Object>) request.session.getAttribute("moqui.error.parameters")
         if (errorParameters != null) request.session.removeAttribute("moqui.error.parameters")
 
         // get any messages saved to the session, and clear them from the session
-        if (session.getAttribute("moqui.message.messages")) {
+        if (session.getAttribute("moqui.message.messages") != null) {
             savedMessages = (List<String>) session.getAttribute("moqui.message.messages")
             session.removeAttribute("moqui.message.messages")
         }
-        if (session.getAttribute("moqui.message.errors")) {
+        if (session.getAttribute("moqui.message.errors") != null) {
             savedErrors = (List<String>) session.getAttribute("moqui.message.errors")
             session.removeAttribute("moqui.message.errors")
         }
-        if (session.getAttribute("moqui.message.validationErrors")) {
+        if (session.getAttribute("moqui.message.validationErrors") != null) {
             savedValidationErrors = (List<ValidationError>) session.getAttribute("moqui.message.validationErrors")
             session.removeAttribute("moqui.message.validationErrors")
         }
 
         // if there is a JSON document submitted consider those as parameters too
         String contentType = request.getHeader("Content-Type")
-        if (contentType && (contentType.contains("application/json") || contentType.contains("text/json"))) {
+        if (contentType != null && contentType.length() > 0 && (contentType.contains("application/json") || contentType.contains("text/json"))) {
             JsonSlurper slurper = new JsonSlurper()
             Object jsonObj = null
             try {
@@ -173,7 +173,7 @@ class WebFacadeImpl implements WebFacade {
 
         // create the session token if needed (protection against CSRF/XSRF attacks; see ScreenRenderImpl)
         String sessionToken = session.getAttribute("moqui.session.token")
-        if (!sessionToken) {
+        if (sessionToken == null || sessionToken.length() == 0) {
             SecureRandom sr = new SecureRandom()
             byte[] randomBytes = new byte[20]
             sr.nextBytes(randomBytes)
@@ -360,12 +360,13 @@ class WebFacadeImpl implements WebFacade {
         if (requestParameters != null) return requestParameters
 
         ContextStack cs = new ContextStack()
-        if (savedParameters) cs.push(savedParameters)
-        if (multiPartParameters) cs.push(multiPartParameters)
-        if (jsonParameters) cs.push(jsonParameters)
-        if (declaredPathParameters) cs.push(declaredPathParameters)
+        if (savedParameters != null) cs.push(savedParameters)
+        if (multiPartParameters != null) cs.push(multiPartParameters)
+        if (jsonParameters != null) cs.push(jsonParameters)
+        if (declaredPathParameters != null) cs.push(declaredPathParameters)
         cs.push((Map<String, Object>) request.getParameterMap())
-        cs.push(StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo()))
+        Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
+        if (pathInfoParameterMap != null) cs.push(pathInfoParameterMap)
 
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
         requestParameters = new StupidWebUtilities.CanonicalizeMap(cs)
