@@ -1419,13 +1419,13 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     void tempSetSequencedIdPrimary(String seqName, long nextSeqNum, long bankSize) {
-        ArrayList<Long> bank = new ArrayList<Long>(2)
+        long[] bank = new long[2]
         bank[0] = nextSeqNum
         bank[1] = nextSeqNum + bankSize
-        this.entitySequenceBankCache.put(seqName, bank)
+        entitySequenceBankCache.put(seqName, bank)
     }
     void tempResetSequencedIdPrimary(String seqName) {
-        this.entitySequenceBankCache.put(seqName, null)
+        entitySequenceBankCache.put(seqName, null)
     }
 
     @Override
