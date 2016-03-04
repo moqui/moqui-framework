@@ -19,6 +19,7 @@ import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
 import org.moqui.entity.EntityConditionFactory
 import org.moqui.entity.EntityException
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidJavaUtilities.KeyValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.entity.condition.*
@@ -310,7 +311,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             } else {
                 condValue = fromObj
             }
-            if (ignoreIfEmpty && StupidUtilities.isEmpty(condValue)) return null
+            if (ignoreIfEmpty && StupidJavaUtilities.isEmpty(condValue)) return null
 
             EntityCondition mainEc = makeCondition(fieldName, getComparisonOperator(operator), condValue)
             if (ignoreCase) mainEc.ignoreCase()

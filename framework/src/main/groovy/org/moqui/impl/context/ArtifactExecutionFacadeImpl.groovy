@@ -57,6 +57,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected Map<String, Boolean> screenPermittedCache = null
 
     protected boolean authzDisabled = false
+    protected boolean tarpitDisabled = false
     protected boolean entityEcaDisabled = false
 
     ArtifactExecutionFacadeImpl(ExecutionContextImpl eci) {
@@ -195,6 +196,10 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     void enableAuthz() { this.authzDisabled = false }
     boolean getAuthzDisabled() { return authzDisabled }
 
+    boolean disableTarpit() { boolean alreadyDisabled = this.tarpitDisabled; this.tarpitDisabled = true; return alreadyDisabled }
+    void enableTarpit() { this.tarpitDisabled = false }
+    boolean getTarpitDisabled() { return tarpitDisabled }
+
     boolean disableEntityEca() { boolean alreadyDisabled = this.entityEcaDisabled; this.entityEcaDisabled = true; return alreadyDisabled }
     void enableEntityEca() { this.entityEcaDisabled = false }
     boolean entityEcaDisabled() { return this.entityEcaDisabled }
@@ -241,7 +246,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         boolean alreadyDisabled = disableAuthz()
         try {
-            if (countTarpit && ecfi.isTarpitEnabled(aeii.getTypeEnumId())) {
+            if (countTarpit && !tarpitDisabled && ecfi.isTarpitEnabled(aeii.getTypeEnumId())) {
                 // record and check velocity limit (tarpit)
                 boolean recordHitTime = false
                 long lockForSeconds = 0

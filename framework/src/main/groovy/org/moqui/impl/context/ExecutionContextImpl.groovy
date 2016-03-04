@@ -33,6 +33,9 @@ import javax.servlet.http.HttpServletRequest
 import org.apache.camel.CamelContext
 import org.moqui.entity.EntityValue
 
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+
 @CompileStatic
 class ExecutionContextImpl implements ExecutionContext {
     protected final static Logger loggerDirect = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
@@ -45,6 +48,7 @@ class ExecutionContextImpl implements ExecutionContext {
     protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
     protected WebFacade webFacade = (WebFacade) null
+    protected WebFacadeImpl webFacadeImpl = (WebFacadeImpl) null
     protected final UserFacadeImpl userFacade
     protected final MessageFacadeImpl messageFacade
     protected final ArtifactExecutionFacadeImpl artifactExecutionFacade
@@ -101,13 +105,7 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     WebFacade getWeb() { return webFacade }
-    WebFacadeImpl getWebImpl() {
-        if (webFacade instanceof WebFacadeImpl) {
-            return (WebFacadeImpl) webFacade
-        } else {
-            return null
-        }
-    }
+    WebFacadeImpl getWebImpl() { return webFacadeImpl }
 
     @Override
     UserFacade getUser() { return userFacade }
@@ -122,8 +120,7 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     L10nFacade getL10n() { return l10nFacade }
-    L10nFacade getL10nFacade() { return l10nFacade }
-
+    L10nFacadeImpl getL10nFacade() { return l10nFacade }
 
 
     // ==== More Permanent Objects (get from the factory instead of locally) ===
@@ -202,6 +199,7 @@ class ExecutionContextImpl implements ExecutionContext {
     void initWebFacade(String webappMoquiName, HttpServletRequest request, HttpServletResponse response) {
         WebFacadeImpl wfi = new WebFacadeImpl(webappMoquiName, request, response, this)
         webFacade = wfi
+        webFacadeImpl = wfi
 
         String sessionTenantId = request.session.getAttribute("moqui.tenantId")
         if (!sessionTenantId) {
@@ -232,6 +230,7 @@ class ExecutionContextImpl implements ExecutionContext {
     /** Meant to be used to set a test stub that implements the WebFacade interface */
     void setWebFacade(WebFacade wf) {
         webFacade = wf
+        if (wf instanceof WebFacadeImpl) webFacadeImpl = (WebFacadeImpl) wf
         context.putAll(webFacade.requestParameters)
     }
 
@@ -291,11 +290,47 @@ class ExecutionContextImpl implements ExecutionContext {
         }
     }
 
+    static class ThreadPoolRunnable implements Runnable {
+        ExecutionContextFactoryImpl ecfi
+        String threadTenantId
+        String threadUsername
+        Closure closure
+
+        ThreadPoolRunnable(ExecutionContextImpl eci, Closure closure) {
+            ecfi = eci.ecfi
+            threadTenantId = eci.tenantId
+            threadUsername = eci.user.username
+            this.closure = closure
+        }
+
+        @Override
+        void run() {
+            ExecutionContextImpl threadEci = (ExecutionContextImpl) null
+            try {
+                threadEci = ecfi.getEci()
+                threadEci.changeTenant(threadTenantId)
+                if (threadUsername != null && threadUsername.length() > 0)
+                    threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
+                closure.call()
+            } catch (Throwable t) {
+                loggerDirect.error("Error in EC thread pool runner", t)
+            } finally {
+                if (threadEci != null) threadEci.destroy()
+            }
+        }
+    }
+
+    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
+     * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+    void runInWorkerThread(Closure closure) {
+        ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure)
+        ecfi.workerPool.execute(runnable)
+    }
+
     @Override
     void destroy() {
         // if webFacade exists this is the end of a request, so trigger after-request actions
-        WebFacadeImpl wfi = getWebImpl()
-        if (wfi != null) wfi.runAfterRequestActions()
+        if (webFacadeImpl != null) webFacadeImpl.runAfterRequestActions()
 
         // make sure there are no transactions open, if any commit them all now
         ecfi.transactionFacade.destroyAllInThread()

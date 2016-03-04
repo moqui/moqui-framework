@@ -16,6 +16,7 @@ package org.moqui.impl.service
 import groovy.transform.CompileStatic
 
 import org.moqui.Moqui
+import org.moqui.context.MessageFacadeException
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.entity.EntityList
@@ -104,6 +105,9 @@ class ServiceQuartzJob implements Job {
             logger.error(sb.toString())
 
             // TODO handle retry on error with max-retry?
+
+            // throw an exception wrapping the MessageFacade, the only way to get error messages back through Quartz
+            throw new MessageFacadeException(ec.getMessage(), null)
         }
 
         // all done, kill the ExecutionContext

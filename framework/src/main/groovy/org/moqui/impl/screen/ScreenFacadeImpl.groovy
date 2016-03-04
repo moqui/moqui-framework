@@ -45,18 +45,24 @@ public class ScreenFacadeImpl implements ScreenFacade {
     protected final Cache screenFindPathCache
     protected final Cache dbFormNodeByIdCache
 
+    protected final Map<String, Map<String, String>> themeIconByTextByTheme = new HashMap<>()
+    protected final Map<String, MNode> webappNodeByName = new HashMap<>()
+
     ScreenFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        this.screenLocationCache = ecfi.cacheFacade.getCache("screen.location")
-        this.screenLocationPermCache = ecfi.cacheFacade.getCache("screen.location.perm")
-        this.screenUrlCache = ecfi.cacheFacade.getCache("screen.url")
-        this.screenInfoCache = ecfi.cacheFacade.getCache("screen.info")
-        this.screenInfoRefRevCache = ecfi.cacheFacade.getCache("screen.info.ref.rev")
-        this.screenTemplateModeCache = ecfi.cacheFacade.getCache("screen.template.mode")
-        this.screenTemplateLocationCache = ecfi.cacheFacade.getCache("screen.template.location")
-        this.widgetTemplateLocationCache = ecfi.cacheFacade.getCache("widget.template.location")
-        this.screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path")
-        this.dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node")
+        screenLocationCache = ecfi.cacheFacade.getCache("screen.location")
+        screenLocationPermCache = ecfi.cacheFacade.getCache("screen.location.perm")
+        screenUrlCache = ecfi.cacheFacade.getCache("screen.url")
+        screenInfoCache = ecfi.cacheFacade.getCache("screen.info")
+        screenInfoRefRevCache = ecfi.cacheFacade.getCache("screen.info.ref.rev")
+        screenTemplateModeCache = ecfi.cacheFacade.getCache("screen.template.mode")
+        screenTemplateLocationCache = ecfi.cacheFacade.getCache("screen.template.location")
+        widgetTemplateLocationCache = ecfi.cacheFacade.getCache("widget.template.location")
+        screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path")
+        dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node")
+
+        for (MNode webappNode in ecfi.confXmlRoot.first("webapp-list").children("webapp"))
+            webappNodeByName.put(webappNode.attribute("name"), webappNode)
     }
 
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
@@ -97,7 +103,6 @@ public class ScreenFacadeImpl implements ScreenFacade {
         return allLocations
     }
 
-    @CompileStatic
     boolean isScreen(String location) {
         if (!location.endsWith(".xml")) return false
         if (screenLocationCache.containsKey(location)) return true
@@ -112,16 +117,14 @@ public class ScreenFacadeImpl implements ScreenFacade {
         }
     }
 
-    @CompileStatic
     ScreenDefinition getScreenDefinition(String location) {
-        if (!location) return null
+        if (location == null || location.length() == 0) return null
         ScreenDefinition sd = (ScreenDefinition) screenLocationCache.get(location)
-        if (sd) return sd
+        if (sd != null) return sd
 
         return makeScreenDefinition(location)
     }
 
-    @CompileStatic
     protected synchronized ScreenDefinition makeScreenDefinition(String location) {
         ScreenDefinition sd = (ScreenDefinition) screenLocationCache.get(location)
         if (sd != null) return sd
@@ -159,7 +162,6 @@ public class ScreenFacadeImpl implements ScreenFacade {
         return sd
     }
 
-    @CompileStatic
     MNode getFormNode(String location) {
         if (!location) return null
         if (location.contains("#")) {
@@ -183,7 +185,6 @@ public class ScreenFacadeImpl implements ScreenFacade {
         return stoNode != null ? stoNode.attribute("mime-type") : null
     }
 
-    @CompileStatic
     Template getTemplateByMode(String renderMode) {
         Template template = (Template) screenTemplateModeCache.get(renderMode)
         if (template) return template
@@ -216,14 +217,12 @@ public class ScreenFacadeImpl implements ScreenFacade {
         return newTemplate
     }
 
-    @CompileStatic
     Template getTemplateByLocation(String templateLocation) {
         Template template = (Template) screenTemplateLocationCache.get(templateLocation)
         if (template) return template
         return makeTemplateByLocation(templateLocation)
     }
 
-    @CompileStatic
     protected synchronized Template makeTemplateByLocation(String templateLocation) {
         Template template = (Template) screenTemplateLocationCache.get(templateLocation)
         if (template) return template
@@ -246,7 +245,6 @@ public class ScreenFacadeImpl implements ScreenFacade {
         return newTemplate
     }
 
-    @CompileStatic
     MNode getWidgetTemplatesNodeByLocation(String templateLocation) {
         MNode templatesNode = (MNode) widgetTemplateLocationCache.get(templateLocation)
         if (templatesNode != null) return templatesNode
@@ -261,6 +259,16 @@ public class ScreenFacadeImpl implements ScreenFacade {
         widgetTemplateLocationCache.put(templateLocation, templatesNode)
         return templatesNode
     }
+
+    Map<String, String> getThemeIconByText(String screenThemeId) {
+        Map<String, String> themeIconByText = (Map<String, String>) themeIconByTextByTheme.get(screenThemeId)
+        if (themeIconByText == null) {
+            themeIconByText = new HashMap<>()
+            themeIconByTextByTheme.put(screenThemeId, themeIconByText)
+        }
+        return themeIconByText
+    }
+    MNode getWebappNode(String webappName) { return webappNodeByName.get(webappName) as MNode }
 
     List<ScreenInfo> getScreenInfoList(String rootLocation, int levels) {
         ScreenInfo rootInfo = new ScreenInfo(getScreenDefinition(rootLocation), null, null, 0)
@@ -279,7 +287,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         Map<String, TransitionInfo> transitionInfoByName = new TreeMap()
         int level
         String name
-        List<String> screenPath = []
+        ArrayList<String> screenPath = new ArrayList<>()
 
         boolean isNonPlaceholder = false
         int subscreens = 0, allSubscreens = 0, subscreensNonPlaceholder = 0, allSubscreensNonPlaceholder = 0

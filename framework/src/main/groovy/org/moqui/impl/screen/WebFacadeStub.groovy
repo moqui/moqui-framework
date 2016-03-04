@@ -43,7 +43,7 @@ class WebFacadeStub implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeStub.class)
 
     ExecutionContextFactoryImpl ecfi
-    ContextStack parameters = null
+    ContextStack parameters = (ContextStack) null
     Map<String, Object> requestParameters = [:]
     Map<String, Object> sessionAttributes = [:]
     String requestMethod = "get"
@@ -59,9 +59,9 @@ class WebFacadeStub implements WebFacade {
     WebFacadeStub(ExecutionContextFactoryImpl ecfi, Map<String, Object> requestParameters,
                   Map<String, Object> sessionAttributes, String requestMethod) {
         this.ecfi = ecfi
-        if (requestParameters) this.requestParameters.putAll(requestParameters)
+        if (requestParameters != null) this.requestParameters.putAll(requestParameters)
         if (sessionAttributes != null) this.sessionAttributes = sessionAttributes
-        if (requestMethod) this.requestMethod = requestMethod
+        if (requestMethod != null) this.requestMethod = requestMethod
 
         servletContext = new ServletContextStub(this)
         httpSession = new HttpSessionStub(this)

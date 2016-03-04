@@ -13,10 +13,12 @@
  */
 package org.moqui.impl.context.reference
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.impl.context.ResourceFacadeImpl
 
+@CompileStatic
 class ClasspathResourceReference extends UrlResourceReference {
 
     protected String strippedLocation
@@ -34,8 +36,8 @@ class ClasspathResourceReference extends UrlResourceReference {
         if (locationUrl == null) locationUrl = ClassLoader.getSystemResource(strippedLocation)
         // if the URL was found this way then it exists, so remember that
         if (locationUrl != null) {
-            this.exists = true
-            this.isFileProtocol = (locationUrl?.protocol == "file")
+            exists = true
+            isFileProtocol = (locationUrl?.protocol == "file")
         } else {
             logger.warn("Could not find location [${strippedLocation}] on the classpath")
         }

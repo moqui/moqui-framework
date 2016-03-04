@@ -103,7 +103,7 @@ public class MoquiStart extends ClassLoader {
             try {
                 System.out.println("Loading data with args [" + argMap + "]");
                 Class<?> c = moquiStartLoader.loadClass("org.moqui.Moqui");
-                Method m = c.getMethod("loadData", new Class[] { Map.class });
+                Method m = c.getMethod("loadData", Map.class);
                 m.invoke(null, argMap);
             } catch (Exception e) {
                 System.out.println("Error loading or running Moqui.loadData with args [" + argMap + "]: " + e.toString());
@@ -149,7 +149,7 @@ public class MoquiStart extends ClassLoader {
             Method start = c.getMethod("start");
             // Method shutdown = c.getMethod("shutdown");
             // start Winstone with a new instance of the server
-            Constructor wlc = c.getConstructor(new Class[] { Map.class });
+            Constructor wlc = c.getConstructor(Map.class);
             Object winstone = wlc.newInstance(argMap);
             start.invoke(winstone);
 

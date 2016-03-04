@@ -552,7 +552,7 @@ class UserFacadeImpl implements UserFacade {
         if (userGroupId == "ALL_USERS") return true
         if (!userId) return false
         if ((Object) whenTimestamp == null) whenTimestamp = new Timestamp(System.currentTimeMillis())
-        return (eci.getEntity().find("moqui.security.UserGroupMember").condition([userId:userId, userGroupId:userGroupId] as Map<String, Object>)
+        return (eci.getEntity().find("moqui.security.UserGroupMember").condition("userId", userId).condition("userGroupId", userGroupId)
                 .useCache(true).disableAuthz().list().filterByDate("fromDate", "thruDate", whenTimestamp)) as boolean
     }
 
@@ -729,7 +729,7 @@ class UserFacadeImpl implements UserFacade {
                 userId = ua.userId
 
                 String localeStr = ua.locale
-                if (localeStr) {
+                if (localeStr != null && localeStr.length() > 0) {
                     localeCache = localeStr.contains("_") ?
                         new Locale(localeStr.substring(0, localeStr.indexOf("_")), localeStr.substring(localeStr.indexOf("_")+1).toUpperCase()) :
                         new Locale(localeStr)

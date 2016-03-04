@@ -13,9 +13,11 @@
  */
 package org.moqui.impl.context.reference
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 
+@CompileStatic
 class WrapperResourceReference extends BaseResourceReference  {
     ResourceReference rr = null
 

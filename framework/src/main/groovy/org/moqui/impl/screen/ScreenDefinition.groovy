@@ -15,17 +15,16 @@ package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
-import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.context.ResourceReference
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.StupidUtilities
 import org.moqui.entity.EntityFind
-import org.moqui.impl.context.ContextBinding
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -40,6 +39,7 @@ class ScreenDefinition {
     protected final ScreenFacadeImpl sfi
     protected final MNode screenNode
     protected final MNode subscreensNode
+    protected final MNode webSettingsNode
     protected final String location
     protected final String screenName
     protected boolean standalone = false
@@ -66,6 +66,7 @@ class ScreenDefinition {
         this.sfi = sfi
         this.screenNode = screenNode
         this.subscreensNode = screenNode.first("subscreens")
+        this.webSettingsNode = screenNode.first("web-settings")
         this.location = location
 
         long startTime = System.currentTimeMillis()
@@ -226,8 +227,8 @@ class ScreenDefinition {
 
     MNode getScreenNode() { return screenNode }
     MNode getSubscreensNode() { return subscreensNode }
-    String getDefaultSubscreensItem() { return (String) subscreensNode?.attribute('default-item') }
-    MNode getWebSettingsNode() { return screenNode.first("web-settings") }
+    String getDefaultSubscreensItem() { return subscreensNode?.attribute('default-item') }
+    MNode getWebSettingsNode() { return webSettingsNode }
     String getLocation() { return location }
     Set<String> getTenantsAllowed() { return tenantsAllowed }
 
@@ -516,16 +517,16 @@ class ScreenDefinition {
         Object getValue(ExecutionContext ec) {
             Object value = null
             if (fromFieldGroovy != null) {
-                value = InvokerHelper.createScript(fromFieldGroovy, new ContextBinding(ec.context)).run()
+                value = InvokerHelper.createScript(fromFieldGroovy, ec.contextBinding).run()
             }
-            if (!value) {
+            if (value == null) {
                 if (valueGroovy != null) {
-                    value = InvokerHelper.createScript(valueGroovy, new ContextBinding(ec.context)).run()
+                    value = InvokerHelper.createScript(valueGroovy, ec.contextBinding).run()
                 } else {
                     value = valueString
                 }
             }
-            if (value == null) value = ec.context.get(name)
+            if (value == null) value = ec.context.getByString(name)
             if (value == null && ec.web) value = ec.web.parameters.get(name)
             return value
         }
@@ -774,7 +775,7 @@ class ScreenDefinition {
             Map ep = new HashMap()
             for (ParameterItem pi in parameterMap.values()) ep.put(pi.getName(), pi.getValue(ec))
             if (parameterMapNameGroovy != null) {
-                Object pm = InvokerHelper.createScript(parameterMapNameGroovy, new ContextBinding(ec.getContext())).run()
+                Object pm = InvokerHelper.createScript(parameterMapNameGroovy, ec.getContextBinding()).run()
                 if (pm && pm instanceof Map) ep.putAll(pm)
             }
             // logger.warn("========== Expanded response map to url [${url}] to: ${ep}; parameterMap=${parameterMap}; parameterMapNameGroovy=[${parameterMapNameGroovy}]")
@@ -855,7 +856,7 @@ class ScreenDefinition {
         @CompileStatic
         boolean getDisable(ExecutionContext ec) {
             if (!disableWhenGroovy) return false
-            return InvokerHelper.createScript(disableWhenGroovy, new ContextBinding(ec.context)).run() as boolean
+            return InvokerHelper.createScript(disableWhenGroovy, ec.contextBinding).run() as boolean
         }
         @CompileStatic
         String getUserGroupId() { return userGroupId }

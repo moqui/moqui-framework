@@ -25,6 +25,7 @@ import org.moqui.entity.EntityException
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -388,16 +389,16 @@ abstract class EntityValueBase implements EntityValue {
     EntityValue setSequencedIdPrimary() {
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl localEfi = getEntityFacadeImpl()
-        List<String> pkFields = ed.getPkFieldNames()
+        ArrayList<String> pkFields = ed.getPkFieldNames()
 
         // get the entity-specific prefix, support string expansion for it too
-        String entityPrefix = null
+        String entityPrefix = (String) null
         String rawPrefix = ed.sequencePrimaryPrefix
         if (rawPrefix != null && rawPrefix.length() > 0)
             entityPrefix = localEfi.getEcfi().getResourceFacade().expand(rawPrefix, null, valueMap)
-        String sequenceValue = localEfi.sequencedIdPrimary(getEntityName(), ed.sequencePrimaryStagger, ed.sequenceBankSize)
+        String sequenceValue = localEfi.sequencedIdPrimaryEd(ed)
 
-        set(pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue)
+        putNoCheck((String) pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue)
         return this
     }
 
@@ -765,7 +766,7 @@ abstract class EntityValueBase implements EntityValue {
                 continue
             }
 
-            String valueStr = StupidUtilities.toPlainString(fieldValue)
+            String valueStr = StupidJavaUtilities.toPlainString(fieldValue)
             if (!valueStr) continue
             if (valueStr.contains('\n') || valueStr.contains('\r') || valueStr.length() > 255) {
                 cdataMap.put(fieldName, valueStr)
@@ -936,12 +937,15 @@ abstract class EntityValueBase implements EntityValue {
 
     Object putNoCheck(String name, Object value) {
         if (!mutable) throw new EntityException("Cannot set field [${name}], this entity value is not mutable (it is read-only)")
-        Object curValue = valueMap.get(name)
-        if (curValue != value) {
-            modified = true
-            if (curValue != null) {
-                if (dbValueMap == null) dbValueMap = new LinkedHashMap<String, Object>()
-                dbValueMap.put(name, curValue)
+        Object curValue = null
+        if (isFromDb) {
+            curValue = valueMap.get(name)
+            if (curValue != value) {
+                modified = true
+                if (curValue != null) {
+                    if (dbValueMap == null) dbValueMap = new LinkedHashMap<String, Object>()
+                    dbValueMap.put(name, curValue)
+                }
             }
         }
         valueMap.put(name, value)
@@ -1045,7 +1049,7 @@ abstract class EntityValueBase implements EntityValue {
         } else if (dbValueMap != null) {
             curVal = dbValueMap.get(fieldName)
         }
-        if (StupidUtilities.isEmpty(curVal)) {
+        if (StupidJavaUtilities.isEmpty(curVal)) {
             if (dbValueMap != null) ec.getContext().push(dbValueMap)
             ec.getContext().push(valueMap)
             try {

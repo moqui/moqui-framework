@@ -23,7 +23,6 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidUtilities
-import org.moqui.impl.context.ContextBinding
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

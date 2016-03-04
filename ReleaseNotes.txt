@@ -24,7 +24,7 @@ Non Backward Compatible Changes
 New Features
 
 - Many performance improvements based on profiling; cached entities finds
-  around 5x faster, non cached around 2x faster
+  around 5x faster, non cached around 2x; screen rendering also faster
 - Added JDBC Connection stash by tenant, entity group, and transaction,
   can be disabled with transaction-facade.@use-connection-stash=false in
   the Moqui Conf XML file
@@ -55,6 +55,9 @@ New Features
   than the current user's locale is needed
 - Added TransactionFacade runUseOrBegin() and runRequireNew() methods to
   run code (through a Groovy Closure) in a transaction
+- ArtifactHit/Bin persistence now done in a worker thread instead of async
+  service; uses new ec.runInWorkerThread() method, may be in interface in
+  the future
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
@@ -77,6 +80,11 @@ New Features
     separate thread and waits for the service to complete
   - Added service.@semaphore-parameter attribute which creates a distinct
     semaphore per value of that parameter
+  - Services called with a ServiceResultWaiter now get messages passed
+    through from the service job in the current MessageFacade (through
+    the MessageFacadeException), better handling for other Throwable
+  - Async service calls now run through lighter weight worker thread pool
+    if persist not set (if persist set still through Quartz Scheduler)
 
 Bug Fixes
 
@@ -92,6 +100,11 @@ Bug Fixes
 - Fixed issue with cached entity lists not getting cleared when a record is
   updated that wasn't in a list already in the cache but that matches its
   condition
+- Fixed issue with cached view-entity lists not getting cleared on new or
+  updated records; fixes issues with new authz, tarpits and much more not
+  applied immediately
+- Fixed issue with cached view-entity one results not getting cleared when
+  a member entity is updated (was never implemented)
 - Entities in the tenantcommon group no longer available for find and CrUD
   operations outside the DEFAULT instance (protect tenant data)
 - Fixed ElasticSearch automatic mappings where sub-object mappings always
@@ -289,3 +302,19 @@ Long Term To Do List
     is probably the best way to tie a feed to WebSocket notifications for data updates
     - Use the dataFeedId as the NotificationMessage topic
     - Use this in HiveMind to send notifications of project, task, and wiki changes (maybe?)
+
+- Angular 2 Apps
+  - support by screen + subscreens, or enable/disable for all apps (with separate webroot or something)?
+  - update bootstrap (maybe get from CDN instead of including in source...)
+  - for screen generate
+    - component.ts file
+    - service.ts/js file with:
+      - service for each transition
+      - service to get data for screen actions
+      - services for section actions
+      - services for form row actions
+    - component.html file (use 'templateUrl' in Component annotation instead of 'template')
+    - or use single JS file with component, embedded template (use template: and not templateUrl:), transition services?
+  - with system.js need to transpile in the browser?
+    - can transpile into JS file using typescript4j; or generate component.js
+    - https://github.com/martypitt/typescript4j

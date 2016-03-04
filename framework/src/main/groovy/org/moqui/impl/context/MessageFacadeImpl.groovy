@@ -81,6 +81,13 @@ public class MessageFacadeImpl implements MessageFacade {
     }
 
     @Override
+    void copyMessages(MessageFacade mf) {
+        if (mf.getMessages()) getMessages().addAll(mf.getMessages())
+        if (mf.getErrors()) getErrors().addAll(mf.getErrors())
+        if (mf.getValidationErrors()) getValidationErrors().addAll(mf.getValidationErrors())
+    }
+
+    @Override
     void pushErrors() {
         if (savedErrorsStack == null) savedErrorsStack = new LinkedList<SavedErrors>()
         savedErrorsStack.addFirst(new SavedErrors(errorList, validationErrorList))
