@@ -71,7 +71,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
         boolean isGroupBy = this.mainEntityDefinition.hasFunctionAlias()
 
         if (isGroupBy) {
-            sqlTopLevelInternal.append("COUNT(1) FROM (SELECT ")
+            sqlTopLevelInternal.append("COUNT(*) FROM (SELECT ")
         }
 
         if (isDistinct) {
@@ -96,9 +96,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 sqlTopLevelInternal.append("COUNT(DISTINCT *) ")
             }
         } else {
-            // This is COUNT(1) instead of COUNT(*) for better performance, and should get the same results at least
-            // when there is no DISTINCT
-            sqlTopLevelInternal.append("COUNT(1) ")
+            // NOTE: on H2 COUNT(*) is faster than COUNT(1) (and perhaps other databases? docs hint may be faster in MySQL)
+            sqlTopLevelInternal.append("COUNT(*) ")
         }
     }
 
