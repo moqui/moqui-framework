@@ -389,16 +389,16 @@ abstract class EntityValueBase implements EntityValue {
     EntityValue setSequencedIdPrimary() {
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl localEfi = getEntityFacadeImpl()
-        List<String> pkFields = ed.getPkFieldNames()
+        ArrayList<String> pkFields = ed.getPkFieldNames()
 
         // get the entity-specific prefix, support string expansion for it too
-        String entityPrefix = null
+        String entityPrefix = (String) null
         String rawPrefix = ed.sequencePrimaryPrefix
         if (rawPrefix != null && rawPrefix.length() > 0)
             entityPrefix = localEfi.getEcfi().getResourceFacade().expand(rawPrefix, null, valueMap)
-        String sequenceValue = localEfi.sequencedIdPrimary(getEntityName(), ed.sequencePrimaryStagger, ed.sequenceBankSize)
+        String sequenceValue = localEfi.sequencedIdPrimaryEd(ed)
 
-        set(pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue)
+        putNoCheck((String) pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue)
         return this
     }
 

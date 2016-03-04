@@ -50,16 +50,19 @@ public class ScreenFacadeImpl implements ScreenFacade {
 
     ScreenFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        this.screenLocationCache = ecfi.cacheFacade.getCache("screen.location")
-        this.screenLocationPermCache = ecfi.cacheFacade.getCache("screen.location.perm")
-        this.screenUrlCache = ecfi.cacheFacade.getCache("screen.url")
-        this.screenInfoCache = ecfi.cacheFacade.getCache("screen.info")
-        this.screenInfoRefRevCache = ecfi.cacheFacade.getCache("screen.info.ref.rev")
-        this.screenTemplateModeCache = ecfi.cacheFacade.getCache("screen.template.mode")
-        this.screenTemplateLocationCache = ecfi.cacheFacade.getCache("screen.template.location")
-        this.widgetTemplateLocationCache = ecfi.cacheFacade.getCache("widget.template.location")
-        this.screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path")
-        this.dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node")
+        screenLocationCache = ecfi.cacheFacade.getCache("screen.location")
+        screenLocationPermCache = ecfi.cacheFacade.getCache("screen.location.perm")
+        screenUrlCache = ecfi.cacheFacade.getCache("screen.url")
+        screenInfoCache = ecfi.cacheFacade.getCache("screen.info")
+        screenInfoRefRevCache = ecfi.cacheFacade.getCache("screen.info.ref.rev")
+        screenTemplateModeCache = ecfi.cacheFacade.getCache("screen.template.mode")
+        screenTemplateLocationCache = ecfi.cacheFacade.getCache("screen.template.location")
+        widgetTemplateLocationCache = ecfi.cacheFacade.getCache("widget.template.location")
+        screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path")
+        dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node")
+
+        for (MNode webappNode in ecfi.confXmlRoot.first("webapp-list").children("webapp"))
+            webappNodeByName.put(webappNode.attribute("name"), webappNode)
     }
 
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
@@ -115,9 +118,9 @@ public class ScreenFacadeImpl implements ScreenFacade {
     }
 
     ScreenDefinition getScreenDefinition(String location) {
-        if (!location) return null
+        if (location == null || location.length() == 0) return null
         ScreenDefinition sd = (ScreenDefinition) screenLocationCache.get(location)
-        if (sd) return sd
+        if (sd != null) return sd
 
         return makeScreenDefinition(location)
     }
@@ -265,15 +268,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         }
         return themeIconByText
     }
-    MNode getWebappNode(String webappName) {
-        if (webappName == null) return null
-        MNode webappNode = (MNode) webappNodeByName.get(webappName)
-        if (webappNode != null) return webappNode
-
-        webappNode = ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
-        webappNodeByName.put(webappName, webappNode)
-        return webappNode
-    }
+    MNode getWebappNode(String webappName) { return webappNodeByName.get(webappName) as MNode }
 
     List<ScreenInfo> getScreenInfoList(String rootLocation, int levels) {
         ScreenInfo rootInfo = new ScreenInfo(getScreenDefinition(rootLocation), null, null, 0)

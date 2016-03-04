@@ -133,20 +133,20 @@ class ScreenTestImpl implements ScreenTest {
     @CompileStatic
     static class ScreenTestRenderImpl implements ScreenTestRender {
         protected final ScreenTestImpl sti
-        String screenPath = null
+        String screenPath = (String) null
         Map<String, Object> parameters = [:]
-        String requestMethod = null
+        String requestMethod = (String) null
 
-        protected ScreenRender screenRender = null
-        protected String outputString = null
+        protected ScreenRender screenRender = (ScreenRender) null
+        protected String outputString = (String) null
         protected long renderTime = 0
-        protected Map postRenderContext = null
+        protected Map postRenderContext = (Map) null
         protected List<String> errorMessages = []
 
         ScreenTestRenderImpl(ScreenTestImpl sti, String screenPath, Map<String, Object> parameters, String requestMethod) {
             this.sti = sti
             this.screenPath = screenPath
-            if (parameters) this.parameters.putAll(parameters)
+            if (parameters != null) this.parameters.putAll(parameters)
             this.requestMethod = requestMethod
         }
 
@@ -168,12 +168,12 @@ class ScreenTestImpl implements ScreenTest {
             // make the ScreenRender
             screenRender = sti.sfi.makeRender()
             // pass through various settings
-            if (sti.rootScreenLocation) screenRender.rootScreen(sti.rootScreenLocation)
-            if (sti.outputType) screenRender.renderMode(sti.outputType)
-            if (sti.characterEncoding) screenRender.encoding(sti.characterEncoding)
-            if (sti.macroTemplateLocation) screenRender.macroTemplate(sti.macroTemplateLocation)
-            if (sti.baseLinkUrl) screenRender.baseLinkUrl(sti.baseLinkUrl)
-            if (sti.servletContextPath) screenRender.servletContextPath(sti.servletContextPath)
+            if (sti.rootScreenLocation != null && sti.rootScreenLocation.length() > 0) screenRender.rootScreen(sti.rootScreenLocation)
+            if (sti.outputType != null && sti.outputType.length() > 0) screenRender.renderMode(sti.outputType)
+            if (sti.characterEncoding != null && sti.characterEncoding.length() > 0) screenRender.encoding(sti.characterEncoding)
+            if (sti.macroTemplateLocation != null && sti.macroTemplateLocation.length() > 0) screenRender.macroTemplate(sti.macroTemplateLocation)
+            if (sti.baseLinkUrl != null && sti.baseLinkUrl.length() > 0) screenRender.baseLinkUrl(sti.baseLinkUrl)
+            if (sti.servletContextPath != null && sti.servletContextPath.length() > 0) screenRender.servletContextPath(sti.servletContextPath)
             screenRender.webappName(sti.webappName)
 
             // set the screenPath
@@ -207,7 +207,7 @@ class ScreenTestImpl implements ScreenTest {
             }
 
             // check for error strings in output
-            if (outputString) for (String errorStr in sti.errorStrings) if (outputString.contains(errorStr)) {
+            if (outputString != null) for (String errorStr in sti.errorStrings) if (outputString.contains(errorStr)) {
                 String errMsg = "Found error [${errorStr}] in output from ${screenPath}"
                 errorMessages.add(errMsg)
                 sti.errorCount++
@@ -216,7 +216,7 @@ class ScreenTestImpl implements ScreenTest {
 
             // update stats
             sti.renderCount++
-            if (outputString) sti.totalChars += outputString.length()
+            if (outputString != null) sti.totalChars += outputString.length()
 
             return this
         }

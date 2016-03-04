@@ -157,9 +157,12 @@ class ScreenRenderImpl implements ScreenRender {
         this.request = request
         this.response = response
         // NOTE: don't get the writer at this point, we don't yet know if we're writing text or binary
-        if (!webappName) webappName(request.session.servletContext.getInitParameter("moqui-name"))
-        if (webappName && !rootScreenLocation) rootScreenFromHost(request.getServerName())
-        if (!originalScreenPathNameList) screenPath(request.getPathInfo().split("/") as List)
+        if (webappName == null || webappName.length() == 0)
+            webappName(request.session.servletContext.getInitParameter("moqui-name"))
+        if (webappName != null && webappName.length() > 0 && (rootScreenLocation == null || rootScreenLocation.length() == 0))
+            rootScreenFromHost(request.getServerName())
+        if (originalScreenPathNameList == null || originalScreenPathNameList.size() == 0)
+            screenPath(request.getPathInfo().split("/") as List)
         // now render
         internalRender()
     }
@@ -307,7 +310,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (curToken != null && curToken.length() > 0) {
                         if (passedToken == null || passedToken.length() == 0) {
                             throw new IllegalArgumentException("Session token required (in moquiSessionToken) for URL ${screenUrlInstance.url}")
-                        } else if (curToken != passedToken) {
+                        } else if (!curToken.equals(passedToken)) {
                             throw new IllegalArgumentException("Session token does not match (in moquiSessionToken) for URL ${screenUrlInstance.url}")
                         }
                     }
@@ -376,9 +379,9 @@ class ScreenRenderImpl implements ScreenRender {
                         wfi.removeScreenLastParameters(ri.type == "screen-last")
                     } else {
                         // try screen history when no last was saved
-                        List historyList = wfi.getScreenHistory()
-                        Map historyMap = historyList ? historyList.first() : null
-                        if (historyMap) {
+                        List<Map> historyList = wfi.getScreenHistory()
+                        Map historyMap = historyList != null && historyList.size() > 0 ? historyList.first() : (Map) null
+                        if (historyMap != null) {
                             url = ri.type == "screen-last" ? historyMap.url : historyMap.urlNoParams
                             urlType = "plain"
                         } else {
@@ -422,15 +425,19 @@ class ScreenRenderImpl implements ScreenRender {
                     Map savedParameters = wfi?.getSavedParameters()
                     UrlInstance.copySpecialParameters(savedParameters, fullUrl.getOtherParameterMap())
                     // screen parameters
-                    if (ri.type == "screen-last" && savedParameters && fullUrl.sui.getTargetScreen()?.getParameterMap()) {
-                        for (String parmName in fullUrl.sui.getTargetScreen().getParameterMap().keySet()) {
+                    Map<String, ScreenDefinition.ParameterItem> parameterItemMap = fullUrl.sui.getTargetScreen()?.getParameterMap()
+                    if (ri.type == "screen-last" && savedParameters != null && savedParameters.size() > 0 &&
+                            parameterItemMap != null && parameterItemMap.size() > 0) {
+                        for (String parmName in parameterItemMap.keySet()) {
                             if (savedParameters.get(parmName))
                                 fullUrl.addParameter(parmName, savedParameters.get(parmName))
                         }
                     }
                     // transition parameters
-                    if (ri.type == "screen-last" && savedParameters && fullUrl.getTargetTransition()?.getParameterMap()) {
-                        for (String parmName in fullUrl.getTargetTransition().getParameterMap().keySet()) {
+                    Map<String, ScreenDefinition.ParameterItem> transParameterItemMap = fullUrl.getTargetTransition()?.getParameterMap()
+                    if (ri.type == "screen-last" && savedParameters != null && savedParameters.size() > 0 &&
+                            transParameterItemMap != null && transParameterItemMap.size() > 0) {
+                        for (String parmName in transParameterItemMap.keySet()) {
                             if (savedParameters.get(parmName))
                                 fullUrl.addParameter(parmName, savedParameters.get(parmName))
                         }
@@ -466,7 +473,7 @@ class ScreenRenderImpl implements ScreenRender {
             // if (logger.traceEnabled) logger.trace("Content type for screen sub-content filename [${fileName}] is [${fileContentType}], default [${this.outputContentType}], is binary? ${isBinary}")
 
             if (isBinary) {
-                if (response) {
+                if (response != null) {
                     this.outputContentType = fileContentType
                     response.setContentType(this.outputContentType)
                     // static binary, tell the browser to cache it
@@ -495,7 +502,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             // not binary, render as text
-            if (screenUrlInfo.targetScreen.screenNode.attribute('include-child-content') != "true") {
+            if (!"true".equals(screenUrlInfo.targetScreen.screenNode.attribute('include-child-content'))) {
                 // not a binary object (hopefully), read it and write it to the writer
                 if (fileContentType != null && fileContentType.length() > 0) this.outputContentType = fileContentType
                 if (response != null) {
@@ -516,17 +523,18 @@ class ScreenRenderImpl implements ScreenRender {
                     if (text != null && text.length() > 0) {
                         // NOTE: String.length not correct for byte length
                         String charset = response?.getCharacterEncoding() ?: "UTF-8"
-                        int length = text.getBytes(charset).length
-                        if (response != null) response.setContentLength(length)
 
-                        if (logger.traceEnabled) logger.trace("Sending text response of length ${length} with ${charset} encoding from file ${screenUrlInfo.fileResourceRef.location} for request to ${screenUrlInstance.url}")
+                        // getBytes() is pretty slow, seems to be only way to get accurate length, perhaps better without it (definitely faster)
+                        // int length = text.getBytes(charset).length
+                        // if (response != null) response.setContentLength(length)
+
+                        if (logger.isTraceEnabled()) logger.trace("Sending text response with ${charset} encoding from file ${screenUrlInfo.fileResourceRef.location} for request to ${screenUrlInstance.url}")
 
                         writer.write(text)
-
                         if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit'))) {
                             sfi.ecfi.countArtifactHit("screen-content", fileContentType, screenUrlInfo.fileResourceRef.location,
                                     (web != null ? web.requestParameters : null), resourceStartTime,
-                                    (System.nanoTime() - startTimeNanos)/1E6, (long) length)
+                                    (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
                         }
                     } else {
                         logger.warn("Not sending text response from file [${screenUrlInfo.fileResourceRef.location}] for request to [${screenUrlInstance.url}] because no text was found in the file.")

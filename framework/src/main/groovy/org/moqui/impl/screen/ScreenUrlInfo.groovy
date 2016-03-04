@@ -156,7 +156,7 @@ class ScreenUrlInfo {
             }
         }
         if (hasSsp) sb.append(subscreenPath)
-        if (lastStandalone) sb.append(":LS")
+        if (lastStandalone != null && lastStandalone.booleanValue()) sb.append(":LS")
 
         // logger.warn("======= makeCacheKey subscreenPath=${subscreenPath}, fpnl=${fpnl}\n key=${sb}")
         return sb.toString()
@@ -628,9 +628,13 @@ class ScreenUrlInfo {
         for (int i = 0; i < inputPathNameListSize; i++) {
             String pathName = (String) inputPathNameList.get(i)
             if (pathName == null || pathName.length() == 0) continue
-            if (pathName == ".") continue
+            if (".".equals(pathName)) continue
             // .. means go up a level, ie drop the last in the list
-            if (pathName == "..") { if (cleanList.size()) cleanList.remove(cleanList.size()-1); continue }
+            if ("..".equals(pathName)) {
+                int cleanListSize = cleanList.size()
+                if (cleanListSize > 0) cleanList.remove(cleanListSize - 1)
+                continue
+            }
             // if it has a tilde it is a parameter, so skip it but remember it
             if (pathName.startsWith("~")) {
                 if (inlineParameters != null) {
@@ -813,17 +817,18 @@ class ScreenUrlInfo {
             return ps.toString()
         }
 
-        UrlInstance addParameter(Object name, Object value) {
-            if (!name || value == null) return this
+        UrlInstance addParameter(Object nameObj, Object value) {
+            String name = nameObj.toString()
+            if (name == null || name.length() == 0 || value == null) return this
             String parmValue = StupidJavaUtilities.toPlainString(value)
             otherParameterMap.put(name as String, parmValue)
             if (allParameterMap != null) allParameterMap.put(name as String, parmValue)
             return this
         }
         UrlInstance addParameters(Map manualParameters) {
-            if (!manualParameters) return this
+            if (manualParameters == null || manualParameters.size() == 0) return this
             for (Map.Entry mpEntry in manualParameters.entrySet()) {
-                String parmKey = mpEntry.getKey() as String
+                String parmKey = mpEntry.getKey().toString()
                 String parmValue = StupidJavaUtilities.toPlainString(mpEntry.getValue())
                 otherParameterMap.put(parmKey, parmValue)
                 if (allParameterMap != null) allParameterMap.put(parmKey, parmValue)

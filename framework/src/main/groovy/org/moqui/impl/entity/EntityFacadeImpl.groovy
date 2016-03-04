@@ -71,7 +71,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected final TimeZone databaseTimeZone
     protected final Locale databaseLocale
     protected final Calendar databaseTzLcCalendar
-    protected String sequencedIdPrefix = ""
+    protected final String sequencedIdPrefix
 
     protected EntityDbMeta dbMeta = null
     protected final EntityCache entityCache
@@ -83,11 +83,11 @@ class EntityFacadeImpl implements EntityFacade {
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi, String tenantId) {
         this.ecfi = ecfi
         this.tenantId = tenantId ?: "DEFAULT"
-        this.entityConditionFactory = new EntityConditionFactoryImpl(this)
+        entityConditionFactory = new EntityConditionFactoryImpl(this)
 
         MNode entityFacadeNode = getEntityFacadeNode()
-        this.defaultGroupName = entityFacadeNode.attribute("default-group-name")
-        this.sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: ""
+        defaultGroupName = entityFacadeNode.attribute("default-group-name")
+        sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
 
         TimeZone theTimeZone = null
         if (entityFacadeNode.attribute("database-time-zone")) {
@@ -1444,7 +1444,21 @@ class EntityFacadeImpl implements EntityFacade {
             if (logger.isTraceEnabled()) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
         }
         // fall through to default to the db sequenced ID
-        return dbSequencedIdPrimary(seqName, staggerMax, bankSize)
+        long staggerMaxPrim = staggerMax != null ? staggerMax.longValue() : 0L
+        long bankSizePrim = (bankSize != null && bankSize.longValue() > 0) ? bankSize.longValue() : defaultBankSize
+        return dbSequencedIdPrimary(seqName, staggerMaxPrim, bankSizePrim)
+    }
+
+    String sequencedIdPrimaryEd(EntityDefinition ed) {
+        try {
+            // is the seqName an entityName?
+            if (ed.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
+        } catch (EntityException e) {
+            // do nothing, just means seqName is not an entity name
+            if (logger.isTraceEnabled()) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
+        }
+        // fall through to default to the db sequenced ID
+        return dbSequencedIdPrimary(ed.getFullEntityName(), ed.sequencePrimaryStagger, ed.sequenceBankSize)
     }
 
     protected final static long defaultBankSize = 50L
@@ -1453,13 +1467,11 @@ class EntityFacadeImpl implements EntityFacade {
         if (dbSequenceLock == null) {
             dbSequenceLock = new ReentrantLock()
             oldLock = dbSequenceLocks.putIfAbsent(seqName, dbSequenceLock)
-            if(oldLock != null) {
-                return oldLock
-            }
+            if (oldLock != null) return oldLock
         }
         return dbSequenceLock
     }
-    protected String dbSequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
+    protected String dbSequencedIdPrimary(String seqName, long staggerMax, long bankSize) {
 
         // TODO: find some way to get this running non-synchronized for performance reasons (right now if not
         // TODO:     synchronized the forUpdate won't help if the record doesn't exist yet, causing errors in high
@@ -1473,12 +1485,13 @@ class EntityFacadeImpl implements EntityFacade {
 
         try {
             // first get a bank if we don't have one already
-            String bankCacheKey = seqName
-            ArrayList<Long> bank = (ArrayList<Long>) this.entitySequenceBankCache.get(bankCacheKey)
-            if (bank == null || bank[0] == null || bank[0] > bank[1]) {
+            long[] bank = (long[]) entitySequenceBankCache.get(seqName)
+            if (bank == null || bank[0] > bank[1]) {
                 if (bank == null) {
-                    bank = new ArrayList<Long>(2)
-                    this.entitySequenceBankCache.put(bankCacheKey, bank)
+                    bank = new long[2]
+                    bank[0] = 0
+                    bank[1] = -1
+                    entitySequenceBankCache.put(seqName, bank)
                 }
 
                 ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", true, true, {
@@ -1489,13 +1502,13 @@ class EntityFacadeImpl implements EntityFacade {
                         svi.set("seqName", seqName)
                         // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
                         bank[0] = 100000L
-                        bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
+                        bank[1] = bank[0] + bankSize
                         svi.set("seqNum", bank[1])
                         svi.create()
                     } else {
                         Long lastSeqNum = svi.getLong("seqNum")
                         bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
-                        bank[1] = bank[0] + ((bankSize ?: defaultBankSize) - 1L) as Long
+                        bank[1] = bank[0] + bankSize
                         svi.set("seqNum", bank[1])
                         svi.update()
                     }
@@ -1503,9 +1516,8 @@ class EntityFacadeImpl implements EntityFacade {
             }
 
             long seqNum = bank[0]
-            if (staggerMax != null && staggerMax > 1L) {
+            if (staggerMax > 1L) {
                 long stagger = Math.round(Math.random() * staggerMax)
-                if (stagger == 0L) stagger = 1L
                 bank[0] = seqNum + stagger
                 // NOTE: if bank[0] > bank[1] because of this just leave it and the next time we try to get a sequence
                 //     value we'll get one from a new bank
@@ -1513,7 +1525,7 @@ class EntityFacadeImpl implements EntityFacade {
                 bank[0] = seqNum + 1L
             }
 
-            return sequencedIdPrefix + seqNum
+            return sequencedIdPrefix != null ? sequencedIdPrefix + seqNum : seqNum
         } finally {
             dbSequenceLock.unlock()
         }

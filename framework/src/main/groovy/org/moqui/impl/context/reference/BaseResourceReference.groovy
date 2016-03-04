@@ -13,19 +13,21 @@
  */
 package org.moqui.impl.context.reference
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.impl.context.ResourceFacadeImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 abstract class BaseResourceReference implements ResourceReference {
     protected final static Logger logger = LoggerFactory.getLogger(BaseResourceReference.class)
 
-    ExecutionContextFactory ecf = null
-    protected Map<String, ResourceReference> subContentRefByPath = null
+    ExecutionContextFactory ecf = (ExecutionContextFactory) null
+    protected Map<String, ResourceReference> subContentRefByPath = (Map<String, ResourceReference>) null
 
-    ResourceReference childOfResource = null
+    ResourceReference childOfResource = (ResourceReference) null
 
     BaseResourceReference() { }
 
@@ -43,7 +45,7 @@ abstract class BaseResourceReference implements ResourceReference {
     @Override
     URI getUri() {
         String loc = getLocation()
-        if (!loc) return null
+        if (!loc) return (URI) null
         if (supportsUrl()) {
             URL locUrl = getUrl()
             // use the multi-argument constructor to have it do character encoding and avoid an exception
@@ -60,8 +62,9 @@ abstract class BaseResourceReference implements ResourceReference {
     @Override
     String getFileName() {
         String loc = getLocation()
-        if (!loc) return null
-        return loc.contains("/") ? loc.substring(loc.lastIndexOf("/")+1) : loc
+        if (loc == null || loc.length() == 0) return null
+        int slashIndex = loc.lastIndexOf("/")
+        return slashIndex >= 0 ? loc.substring(slashIndex + 1) : loc
     }
 
     @Override
@@ -75,7 +78,7 @@ abstract class BaseResourceReference implements ResourceReference {
     @Override
     String getContentType() {
         String fn = getFileName()
-        return fn ? ecf.getResource().getContentType(fn) : null
+        return fn != null && fn.length() > 0 ? ecf.getResource().getContentType(fn) : (String) null
     }
 
     @Override
@@ -115,8 +118,8 @@ abstract class BaseResourceReference implements ResourceReference {
     ResourceReference getChild(String childName) {
         ResourceReference directoryRef = findMatchingDirectory()
         StringBuilder fileLoc = new StringBuilder(directoryRef.getLocation())
-        if (fileLoc.charAt(fileLoc.length()-1) == '/') fileLoc.deleteCharAt(fileLoc.length()-1)
-        if (childName.charAt(0) != '/') fileLoc.append('/')
+        if (fileLoc.charAt(fileLoc.length()-1) == (char) '/') fileLoc.deleteCharAt(fileLoc.length()-1)
+        if (childName.charAt(0) != (char) '/') fileLoc.append('/')
         fileLoc.append(childName)
 
         // NOTE: don't really care if it exists or not at this point
@@ -158,8 +161,8 @@ abstract class BaseResourceReference implements ResourceReference {
         // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}]")
         if (directoryRef.exists) {
             StringBuilder fileLoc = new StringBuilder(directoryRef.getLocation())
-            if (fileLoc.charAt(fileLoc.length()-1) == '/') fileLoc.deleteCharAt(fileLoc.length()-1)
-            if (relativePath.charAt(0) != '/') fileLoc.append('/')
+            if (fileLoc.charAt(fileLoc.length()-1) == (char) '/') fileLoc.deleteCharAt(fileLoc.length()-1)
+            if (relativePath.charAt(0) != (char) '/') fileLoc.append('/')
             fileLoc.append(relativePath)
 
             ResourceReference theFile = ecf.resource.getLocationReference(fileLoc.toString())
@@ -234,7 +237,7 @@ abstract class BaseResourceReference implements ResourceReference {
         ResourceReference childRef = getSubContentRefByPath().get(relativePath)
         if (childRef != null && childRef.exists) return childRef
 
-        List<String> relativePathNameList = relativePath.split("/")
+        List<String> relativePathNameList = Arrays.asList(relativePath.split("/"))
 
         ResourceReference childDirectoryRef = this
         if (this.isFile()) childDirectoryRef = this.findMatchingDirectory()
@@ -280,8 +283,8 @@ abstract class BaseResourceReference implements ResourceReference {
 
         // try a direct sub-directory, if it is there it's more efficient than a brute-force search
         StringBuilder dirLocation = new StringBuilder(directoryRef.getLocation())
-        if (dirLocation.charAt(dirLocation.length()-1) == '/') dirLocation.deleteCharAt(dirLocation.length()-1)
-        if (childDirName.charAt(0) != '/') dirLocation.append('/')
+        if (dirLocation.charAt(dirLocation.length()-1) == (char) '/') dirLocation.deleteCharAt(dirLocation.length()-1)
+        if (childDirName.charAt(0) != (char) '/') dirLocation.append('/')
         dirLocation.append(childDirName)
         ResourceReference directRef = ecf.resource.getLocationReference(dirLocation.toString())
         if (directRef != null && directRef.exists) return directRef

@@ -121,7 +121,8 @@ public class EntityDefinition {
             sequencePrimaryStagger = internalEntityNode.attribute("sequence-primary-stagger") as long
         if (internalEntityNode.attribute("sequence-bank-size"))
             sequenceBankSize = internalEntityNode.attribute("sequence-bank-size") as long
-        sequencePrimaryUseUuid = internalEntityNode.attribute('sequence-primary-use-uuid') == "true"
+        sequencePrimaryUseUuid = internalEntityNode.attribute('sequence-primary-use-uuid') == "true" ||
+            "true".equals(efi.getDatasourceNode(groupName)?.attribute('sequence-primary-use-uuid'))
 
         createOnlyVal = "true".equals(internalEntityNode.attribute('create-only'))
 

@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import net.sf.ehcache.Element
 import org.apache.fop.apps.*
 import org.apache.fop.apps.io.ResourceResolverFactory
 import org.apache.jackrabbit.rmi.repository.URLRemoteRepository
@@ -64,8 +65,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>()
     protected final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>()
 
-    protected final Cache textLocationCache
-    protected final Cache resourceReferenceByLocation
+    protected final CacheImpl textLocationCache
+    protected final CacheImpl resourceReferenceByLocation
 
     protected final Map<String, Class> resourceReferenceClasses = new HashMap<>()
     protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>()
@@ -87,9 +88,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
         xmlActionsScriptRunner = new XmlActionsScriptRunner()
         xmlActionsScriptRunner.init(ecfi)
 
-        textLocationCache = ecfi.getCacheFacade().getCache("resource.text.location")
+        textLocationCache = ecfi.getCacheFacade().getCacheImpl("resource.text.location", null)
         // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
-        resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location")
+        resourceReferenceByLocation = ecfi.getCacheFacade().getCacheImpl("resource.reference.location", null)
 
         // Setup resource reference classes
         for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
@@ -216,8 +217,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
     ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
-        ResourceReference cachedRr = (ResourceReference) resourceReferenceByLocation.get(location)
-        if (cachedRr != null) return cachedRr
+        Element rrElement = resourceReferenceByLocation.getElement(location)
+        if (rrElement != null && !rrElement.isExpired()) return (ResourceReference) rrElement.getObjectValue()
 
         String scheme = "file"
         // Q: how to get the scheme for windows? the Java URI class doesn't like spaces, the if we look for the first ":"
@@ -246,7 +247,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     String getLocationText(String location, boolean cache) {
-        if (cache && textLocationCache.containsKey(location)) return (String) textLocationCache.get(location)
+        if (cache) {
+            Element textElement = textLocationCache.getElement(location)
+            if (textElement != null && !textElement.isExpired()) return (String) textElement.getObjectValue()
+        }
         InputStream locStream = getLocationStream(location)
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
         String text = StupidUtilities.getStreamText(locStream)
@@ -298,8 +302,13 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     TemplateRenderer getTemplateRendererByLocation(String location) {
         // match against extension for template renderer, with as many dots that match as possible (most specific match)
+        int lastSlashIndex = location.lastIndexOf("/")
+        int dotIndex = location.indexOf(".", lastSlashIndex)
+        String fullExt = location.substring(dotIndex + 1)
+        TemplateRenderer tr = (TemplateRenderer) templateRenderers.get(fullExt)
+        if (tr != null || templateRenderers.containsKey(fullExt)) return tr
+
         int mostDots = 0
-        TemplateRenderer tr = null
         int templateRendererExtensionsSize = templateRendererExtensions.size()
         for (int i = 0; i < templateRendererExtensionsSize; i++) {
             String ext = (String) templateRendererExtensions.get(i)
@@ -311,6 +320,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 }
             }
         }
+        // if there is no template renderer for extension remember that
+        if (tr == null) templateRenderers.put(fullExt, null)
         return tr
     }
 
@@ -569,22 +580,25 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
+    @Override
     String getContentType(String filename) {
-        if (!filename || !filename.contains(".")) return null
+        // need to check this, or type mapper handles it fine? || !filename.contains(".")
+        if (filename == null || filename.length() == 0) return null
         String type = mimetypesFileTypeMap.getContentType(filename)
         // strip any parameters, ie after the ;
-        if (type.contains(";")) type = type.substring(0, type.indexOf(";"))
+        int semicolonIndex = type.indexOf(";")
+        if (semicolonIndex >= 0) type = type.substring(0, semicolonIndex)
         return type
     }
 
     static boolean isBinaryContentType(String contentType) {
-        if (!contentType) return false
+        if (contentType == null || contentType.length() == 0) return false
         if (contentType.startsWith("text/")) return false
         // aside from text/*, a few notable exceptions:
-        if (contentType == "application/javascript") return false
-        if (contentType == "application/json") return false
+        if ("application/javascript".equals(contentType)) return false
+        if ("application/json".equals(contentType)) return false
         if (contentType.endsWith("+json")) return false
-        if (contentType == "application/rtf") return false
+        if ("application/rtf".equals(contentType)) return false
         if (contentType.startsWith("application/xml")) return false
         if (contentType.endsWith("+xml")) return false
         if (contentType.startsWith("application/yaml")) return false
