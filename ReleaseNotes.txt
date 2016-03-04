@@ -55,6 +55,9 @@ New Features
   than the current user's locale is needed
 - Added TransactionFacade runUseOrBegin() and runRequireNew() methods to
   run code (through a Groovy Closure) in a transaction
+- ArtifactHit/Bin persistence now done in a worker thread instead of async
+  service; uses new ec.runInWorkerThread() method, may be in interface in
+  the future
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
@@ -80,6 +83,8 @@ New Features
   - Services called with a ServiceResultWaiter now get messages passed
     through from the service job in the current MessageFacade (through
     the MessageFacadeException), better handling for other Throwable
+  - Async service calls now run through lighter weight worker thread pool
+    if persist not set (if persist set still through Quartz Scheduler)
 
 Bug Fixes
 
