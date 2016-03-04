@@ -1006,9 +1006,9 @@ class ScreenForm {
         }
     }
 
-    void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
+    void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext, FtlNodeWrapper ftlFormNode) {
         // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
-        MNode localFormNode = getFormNode()
+        MNode localFormNode = ftlFormNode != null ? ftlFormNode.getMNode() : getFormNode()
         String listEntryStr = localFormNode.attribute('list-entry')
         if (listEntryStr) {
             sri.ec.context.put(listEntryStr, listEntry)
