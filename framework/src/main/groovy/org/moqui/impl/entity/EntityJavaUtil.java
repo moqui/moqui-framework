@@ -18,6 +18,8 @@ import org.moqui.BaseException;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
+import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +104,7 @@ public class EntityJavaUtil {
         return outValue;
     }
 
-    public static String convertToString(Object value, FieldInfo fi, L10nFacade l10n) {
+    public static String convertToString(Object value, FieldInfo fi, EntityFacadeImpl efi) {
         String outValue;
         try {
             switch (fi.typeValue) {
@@ -116,6 +118,7 @@ public class EntityJavaUtil {
                 case 8:
                 case 9:
                     if (value instanceof BigDecimal) value = ((BigDecimal) value).stripTrailingZeros();
+                    L10nFacadeImpl l10n = efi.getEcfi().getL10nFacade();
                     outValue = l10n.format(value, null);
                     break;
                 case 10: outValue = value.toString(); break;

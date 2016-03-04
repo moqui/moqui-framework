@@ -120,8 +120,7 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     L10nFacade getL10n() { return l10nFacade }
-    L10nFacade getL10nFacade() { return l10nFacade }
-
+    L10nFacadeImpl getL10nFacade() { return l10nFacade }
 
 
     // ==== More Permanent Objects (get from the factory instead of locally) ===

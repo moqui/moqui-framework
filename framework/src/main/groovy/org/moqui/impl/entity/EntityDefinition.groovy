@@ -1568,7 +1568,7 @@ public class EntityDefinition {
     }
     String getFieldInfoString(FieldInfo fi, Object value) {
         if (value == null) return null
-        return EntityJavaUtil.convertToString(value, fi, efi.getEcfi().getL10nFacade())
+        return EntityJavaUtil.convertToString(value, fi, efi)
     }
 
     String getFieldStringForFile(String name, Object value) {

@@ -578,7 +578,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     ScreenFacadeImpl getScreenFacade() { return screenFacade }
     ServiceFacadeImpl getServiceFacade() { return serviceFacade }
     TransactionFacadeImpl getTransactionFacade() { return transactionFacade }
-    L10nFacade getL10nFacade() { return getEci().getL10nFacade() }
+    L10nFacadeImpl getL10nFacade() { return getEci().getL10nFacade() }
     // TODO: find references, change to eci where more direct
 
     // =============== Apache Camel Methods ===============
