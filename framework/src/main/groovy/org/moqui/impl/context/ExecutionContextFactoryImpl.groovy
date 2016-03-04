@@ -36,6 +36,7 @@ import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
+import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidClassLoader
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
@@ -56,6 +57,11 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.jar.JarFile
 
 @CompileStatic
@@ -114,6 +120,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected Integer hitBinLengthMillis
     protected Map<String, Boolean> artifactPersistHitByType = new HashMap<String, Boolean>()
     protected Map<String, Boolean> artifactPersistBinByType = new HashMap<String, Boolean>()
+
+    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
+    private final BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>()
+    private static class WorkerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r) }
+    }
+    final ThreadPoolExecutor workerPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -412,17 +426,36 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     synchronized void destroy() {
         if (destroyed) return
 
+        // shutdown worker pool
+        try {
+            workerPool.shutdown()
+            logger.info("Worker pool shut down")
+        } catch (Throwable t) { logger.error("Error in workerPool shutdown", t) }
+
         // stop Camel to prevent more calls coming in
-        if (camelContext != null) camelContext.stop()
+        if (camelContext != null) try {
+            camelContext.stop()
+            logger.info("Camel stopped")
+        } catch (Throwable t) { logger.error("Error in Camel stop", t) }
 
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
 
         // stop ElasticSearch
-        if (elasticSearchNode != null) elasticSearchNode.close()
+        if (elasticSearchNode != null) try {
+            elasticSearchNode.close()
+            while (!elasticSearchNode.isClosed()) {
+                logger.info("ElasticSearch still closing")
+                this.wait(1000)
+            }
+            logger.info("ElasticSearch closed")
+        } catch (Throwable t) { logger.error("Error in ElasticSearch node close", t) }
 
         // Stop Jackrabbit process
-        if (jackrabbitProcess != null) jackrabbitProcess.destroy()
+        if (jackrabbitProcess != null) try {
+            jackrabbitProcess.destroy()
+            logger.info("Jackrabbit process destroyed")
+        } catch (Throwable t) { logger.error("Error in JackRabbit process destroy", t) }
 
         // persist any remaining bins in artifactHitBinByType
         Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
@@ -430,15 +463,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         artifactStatsInfoByType.clear()
         for (ArtifactStatsInfo asi in asiList) {
             if (asi.curHitBin == null) continue
-            Map<String, Object> ahb = asi.curHitBin.makeAhbMap(this, currentTimestamp)
-            executionContext.service.sync().name("create", "moqui.server.ArtifactHitBin").parameters(ahb).call()
+            EntityValue ahb = asi.curHitBin.makeAhbValue(this, currentTimestamp)
+            ahb.setSequencedIdPrimary().create()
         }
+        logger.info("ArtifactHitBins stored")
 
         // this destroy order is important as some use others so must be destroyed first
-        if (this.serviceFacade != null) { this.serviceFacade.destroy() }
-        if (this.entityFacade != null) { this.entityFacade.destroy() }
-        if (this.transactionFacade != null) { this.transactionFacade.destroy() }
-        if (this.cacheFacade != null) { this.cacheFacade.destroy() }
+        if (this.serviceFacade != null) this.serviceFacade.destroy()
+        if (this.entityFacade != null) this.entityFacade.destroy()
+        if (this.transactionFacade != null) this.transactionFacade.destroy()
+        if (this.cacheFacade != null) this.cacheFacade.destroy()
+        logger.info("Facades destroyed")
 
         activeContext.remove()
 
@@ -1094,7 +1129,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             totalSquaredTime = totalSquaredTime + (runningTime * runningTime)
         }
 
-        Map<String, Object> makeAhbMap(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
+        // NOTE: ArtifactHitBin always created in DEFAULT tenant since data is aggregated across all tenants, mostly used to monitor performance
+        EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
             Map<String, Object> ahb = [artifactType:artifactType, artifactSubType:artifactSubType,
                                        artifactName:artifactName, binStartDateTime:new Timestamp(startTime), binEndDateTime:binEndDateTime,
                                        hitCount:hitCount, totalTimeMillis:new BigDecimal(totalTimeMillis),
@@ -1102,7 +1138,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                                        maxTimeMillis:new BigDecimal(maxTimeMillis), slowHitCount:slowHitCount] as Map<String, Object>
             ahb.serverIpAddress = ecfi.localhostAddress?.getHostAddress() ?: "127.0.0.1"
             ahb.serverHostName = ecfi.localhostAddress?.getHostName() ?: "localhost"
-            return ahb
+            EntityValue ahbValue = ecfi.getEntityFacade("DEFAULT").makeValue("moqui.server.ArtifactHitBin")
+            ahbValue.setAll(ahb)
+            return ahbValue
         }
     }
 
@@ -1134,7 +1172,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             long binStartTime = abi.startTime
             if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
                 if (logger.isTraceEnabled()) logger.trace("Advancing ArtifactHitBin [${artifactType}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(abi.startTime)}] bin length ${hitBinLengthMillis/1000} seconds")
-                advanceArtifactHitBin(statsInfo, artifactType, artifactSubType, artifactName, startTime, hitBinLengthMillis)
+                advanceArtifactHitBin(eci, statsInfo, artifactType, artifactSubType, artifactName, startTime, hitBinLengthMillis)
                 abi = statsInfo.curHitBin
             }
 
@@ -1182,6 +1220,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         //     (could also be done by checking for ArtifactHit/etc of course)
         // Always save slow hits above userImpactMinMillis regardless of settings
         if (!isEntity && ((isSlowHit && runningTimeMillis > userImpactMinMillis) || artifactPersistHit(artifactType, artifactSubType))) {
+            // NOTE: ArtifactHit saved in current tenant, ArtifactHitBin saved in DEFAULT tenant
             EntityValueBase ahp = (EntityValueBase) eci.entity.makeValue("moqui.server.ArtifactHit")
             ahp.putNoCheck("visitId", eci.user.visitId)
             ahp.putNoCheck("userId", eci.user.userId)
@@ -1227,12 +1266,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             // NOTE: async service scheduling is slow enough that it is faster to just create the record now
             // eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
             // have an authorize-skip=create on the entity so don't need to disable authz here
-            ahp.setSequencedIdPrimary().create()
+            eci.runInWorkerThread({ ahp.setSequencedIdPrimary().create() })
         }
     }
 
-    protected synchronized void advanceArtifactHitBin(ArtifactStatsInfo statsInfo, String artifactType, String artifactSubType,
-                                                     String artifactName, long startTime, int hitBinLengthMillis) {
+    protected synchronized void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
+                String artifactType, String artifactSubType, String artifactName, long startTime, int hitBinLengthMillis) {
         ArtifactBinInfo abi = statsInfo.curHitBin
         if (abi == null) {
             statsInfo.curHitBin = new ArtifactBinInfo(artifactType, artifactSubType, artifactName, startTime)
@@ -1244,21 +1283,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (startTime < (binStartTime + hitBinLengthMillis)) return
 
         // otherwise, persist the old and create a new one
-        Map<String, Object> ahb = abi.makeAhbMap(this, new Timestamp(binStartTime + hitBinLengthMillis))
-        // do this sync to avoid overhead of job scheduling for a very simple service call, and to avoid infinite recursion when EntityJobStore is in place
-        try {
-            executionContext.service.sync().name("create", "moqui.server.ArtifactHitBin").parameters(ahb)
-                    .requireNewTransaction(true).ignorePreviousError(true).disableAuthz().call()
-            if (executionContext.message.hasError()) {
-                logger.error("Error creating ArtifactHitBin: ${executionContext.message.getErrorsString()}")
-                executionContext.message.clearErrors()
-            }
-        } catch (Throwable t) {
-            executionContext.message.clearErrors()
-            logger.error("Error creating ArtifactHitBin", t)
-            // just return, don't advance the bin so we can try again to save it later
-            return
-        }
+        EntityValue ahb = abi.makeAhbValue(this, new Timestamp(binStartTime + hitBinLengthMillis))
+        eci.runInWorkerThread({ ahb.setSequencedIdPrimary().create() })
 
         statsInfo.curHitBin = new ArtifactBinInfo(artifactType, artifactSubType, artifactName, startTime)
     }

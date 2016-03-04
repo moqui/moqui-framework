@@ -33,6 +33,9 @@ import javax.servlet.http.HttpServletRequest
 import org.apache.camel.CamelContext
 import org.moqui.entity.EntityValue
 
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+
 @CompileStatic
 class ExecutionContextImpl implements ExecutionContext {
     protected final static Logger loggerDirect = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
@@ -286,6 +289,43 @@ class ExecutionContextImpl implements ExecutionContext {
         } else {
             return false
         }
+    }
+
+    static class ThreadPoolRunnable implements Runnable {
+        ExecutionContextFactoryImpl ecfi
+        String threadTenantId
+        String threadUsername
+        Closure closure
+
+        ThreadPoolRunnable(ExecutionContextImpl eci, Closure closure) {
+            ecfi = eci.ecfi
+            threadTenantId = eci.tenantId
+            threadUsername = eci.user.username
+            this.closure = closure
+        }
+
+        @Override
+        void run() {
+            ExecutionContextImpl threadEci = (ExecutionContextImpl) null
+            try {
+                threadEci = ecfi.getEci()
+                threadEci.changeTenant(threadTenantId)
+                if (threadUsername != null && threadUsername.length() > 0)
+                    threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
+                closure.call()
+            } catch (Throwable t) {
+                loggerDirect.error("Error in EC thread pool runner", t)
+            } finally {
+                if (threadEci != null) threadEci.destroy()
+            }
+        }
+    }
+
+    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
+     * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+    void runInWorkerThread(Closure closure) {
+        ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure)
+        ecfi.workerPool.execute(runnable)
     }
 
     @Override
