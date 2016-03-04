@@ -360,6 +360,8 @@ class EntityCache {
                     Map<String, Object> pkCondMap = new HashMap<>()
                     for (Map.Entry<String, String> mePkEntry in mePkFieldToAliasNameMap.entrySet())
                         pkCondMap.put(mePkEntry.getKey(), evb.get(mePkEntry.getValue()))
+                    // no PK fields? view-entity must not have them, skip it
+                    if (pkCondMap.size() == 0) continue
 
                     // logger.warn("====== for view-entity ${entityName}, member-entity ${memberEd.fullEntityName}, got PK field to alias map: ${mePkFieldToAliasNameMap}\npkCondMap: ${pkCondMap}")
 
