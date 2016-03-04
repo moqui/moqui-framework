@@ -16,6 +16,7 @@ package org.moqui.impl.service
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.service.ServiceCallAsync
 import org.moqui.service.ServiceResultReceiver
 import org.moqui.service.ServiceResultWaiter
@@ -78,7 +79,8 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         // TODO: how to handle maxRetry
         if (logger.traceEnabled) logger.trace("Setting up call to async service [${serviceName}] with parameters [${parameters}]")
 
-        ExecutionContextImpl eci = sfi.getEcfi().getEci()
+        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextImpl eci = ecfi.getEci()
         // Before scheduling the service check a few basic things so they show up sooner than later:
         ServiceDefinition sd = sfi.getServiceDefinition(getServiceName())
         if (sd == null && !isEntityAutoPattern()) throw new IllegalArgumentException("Could not find service with name [${getServiceName()}]")
@@ -103,26 +105,31 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
         // logger.warn("=========== async call ${serviceName}, parameters: ${parameters}")
 
-        // NOTE: is this the best way to get a unique job name? (needed to register a listener below)
-        String uniqueJobName = UUID.randomUUID()
-        // NOTE: don't store durably, ie tell it to get rid of it after it is run
-        JobBuilder jobBuilder = JobBuilder.newJob(ServiceQuartzJob.class)
-                .withIdentity(uniqueJobName, serviceName)
-                .usingJobData(new JobDataMap(parameters))
-                .requestRecovery().storeDurably(false)
-        JobDetail job = jobBuilder.build()
+        if (persist) {
+            // NOTE: is this the best way to get a unique job name? (needed to register a listener below)
+            String uniqueJobName = UUID.randomUUID()
+            // NOTE: don't store durably, ie tell it to get rid of it after it is run
+            JobBuilder jobBuilder = JobBuilder.newJob(ServiceQuartzJob.class)
+                    .withIdentity(uniqueJobName, serviceName)
+                    .usingJobData(new JobDataMap(parameters))
+                    .requestRecovery().storeDurably(false)
+            JobDetail job = jobBuilder.build()
 
-        Trigger nowTrigger = TriggerBuilder.newTrigger()
-                .withIdentity(uniqueJobName, "NowTrigger").startNow().withPriority(5)
-                .forJob(job).build()
+            Trigger nowTrigger = TriggerBuilder.newTrigger()
+                    .withIdentity(uniqueJobName, "NowTrigger").startNow().withPriority(5)
+                    .forJob(job).build()
 
-        if (resultReceiver) {
-            ServiceRequesterListener sqjl = new ServiceRequesterListener(resultReceiver)
-            // NOTE: is this the best way to get this to run for ONLY this job?
-            sfi.scheduler.getListenerManager().addJobListener(sqjl, NameMatcher.nameEquals(uniqueJobName))
+            if (resultReceiver != null) {
+                ServiceRequesterListener sqjl = new ServiceRequesterListener(resultReceiver)
+                // NOTE: is this the best way to get this to run for ONLY this job?
+                sfi.scheduler.getListenerManager().addJobListener(sqjl, NameMatcher.nameEquals(uniqueJobName))
+            }
+
+            sfi.scheduler.scheduleJob(job, nowTrigger)
+        } else {
+            AsyncServiceRunnable runnable = new AsyncServiceRunnable(eci, serviceName, parameters, resultReceiver)
+            ecfi.workerPool.execute(runnable)
         }
-
-        sfi.scheduler.scheduleJob(job, nowTrigger)
 
         // we did an authz before scheduling, so pop it now
         eci.getArtifactExecution().pop(aei)
@@ -134,5 +141,44 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         this.resultReceiver(resultWaiter)
         this.call()
         return resultWaiter
+    }
+
+    static class AsyncServiceRunnable implements Runnable {
+        ExecutionContextFactoryImpl ecfi
+        String threadTenantId
+        String threadUsername
+        String serviceName
+        Map<String, Object> parameters
+        ServiceResultReceiver resultReceiver
+
+        AsyncServiceRunnable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters, ServiceResultReceiver resultReceiver) {
+            ecfi = eci.ecfi
+            threadTenantId = eci.tenantId
+            threadUsername = eci.user.username
+            this.serviceName = serviceName
+            this.parameters = new HashMap<>(parameters)
+            this.resultReceiver = resultReceiver
+        }
+
+        @Override
+        void run() {
+            ExecutionContextImpl threadEci = (ExecutionContextImpl) null
+            try {
+                threadEci = ecfi.getEci()
+                threadEci.changeTenant(threadTenantId)
+                if (threadUsername != null && threadUsername.length() > 0)
+                    threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
+
+                // NOTE: authz is disabled because authz is checked before queueing
+                Map<String, Object> result = threadEci.service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+
+                if (resultReceiver != null) resultReceiver.receiveResult(result)
+            } catch (Throwable t) {
+                logger.error("Error in async service", t)
+                if (resultReceiver != null) resultReceiver.receiveThrowable(t)
+            } finally {
+                if (threadEci != null) threadEci.destroy()
+            }
+        }
     }
 }
