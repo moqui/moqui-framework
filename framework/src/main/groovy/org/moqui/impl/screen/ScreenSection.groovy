@@ -55,7 +55,15 @@ class ScreenSection {
             // if (location.contains("FOO")) logger.warn("====== Actions for ${location}: ${actions.writeGroovyWithLines()}")
         }
         // prep widgets
-        if (sectionNode.hasChild("widgets")) widgets = new ScreenWidgets(sectionNode.first("widgets"), location + ".widgets")
+        if (sectionNode.hasChild("widgets")) {
+            if (sectionNode.getName() == "screen") {
+                MNode widgetsNode = sectionNode.first("widgets")
+                MNode screenNode = new MNode("screen", null, null, [widgetsNode], null)
+                widgets = new ScreenWidgets(screenNode, location + ".widgets")
+            } else {
+                widgets = new ScreenWidgets(sectionNode.first("widgets"), location + ".widgets")
+            }
+        }
         // prep fail-widgets
         if (sectionNode.hasChild("fail-widgets"))
             failWidgets = new ScreenWidgets(sectionNode.first("fail-widgets"), location + ".fail-widgets")
