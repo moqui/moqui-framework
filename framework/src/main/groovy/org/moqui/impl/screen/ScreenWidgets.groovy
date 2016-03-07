@@ -35,7 +35,7 @@ class ScreenWidgets {
     }
 
     void render(ScreenRenderImpl sri) {
-        ContextStack cs = (ContextStack) sri.ec.context
+        ContextStack cs = sri.ec.context
         cs.push()
         try {
             cs.sri = sri
