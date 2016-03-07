@@ -256,8 +256,8 @@ class WebFacadeImpl implements WebFacade {
             nameBuilder.append(targetMenuName)
             // append parameter values
             Map parameters = urlInstance.getParameterMap()
+            StringBuilder paramBuilder = new StringBuilder()
             if (parameters) {
-                nameBuilder.append(' (')
                 int pCount = 0
                 Iterator<Map.Entry<String, String>> entryIter = parameters.entrySet().iterator()
                 while (entryIter.hasNext() && pCount < 2) {
@@ -265,19 +265,19 @@ class WebFacadeImpl implements WebFacade {
                     if (entry.key.contains("_op")) continue
                     if (entry.key.contains("_not")) continue
                     if (entry.key.contains("_ic")) continue
-                    if (entry.key.contains("moquiSessionToken")) continue
-                    if (!entry.value.trim()) continue
+                    if ("moquiSessionToken".equals(entry.key)) continue
+                    if (entry.value.trim().length() == 0) continue
 
                     // injection issue with name field: userId=%3Cscript%3Ealert(%27Test%20Crack!%27)%3C/script%3E
                     String parmValue = entry.value
                     if (parmValue) parmValue = StupidWebUtilities.defaultWebEncoder.encodeForHTML(parmValue)
-                    nameBuilder.append(parmValue)
+                    paramBuilder.append(parmValue)
 
                     pCount++
-                    if (entryIter.hasNext() && pCount < 2) nameBuilder.append(', ')
+                    if (entryIter.hasNext() && pCount < 2) paramBuilder.append(', ')
                 }
-                nameBuilder.append(')')
             }
+            if (paramBuilder.length() > 0) nameBuilder.append(' (').append(paramBuilder).append(')')
         }
 
         // remove existing item(s) from list with same URL
@@ -333,7 +333,7 @@ class WebFacadeImpl implements WebFacade {
         // Uses the approach of creating a series of this objects wrapping the other non-Map attributes/etc instead of
         // copying everything from the various places into a single combined Map; this should be much faster to create
         // and only slightly slower when running.
-        ContextStack cs = new ContextStack()
+        ContextStack cs = new ContextStack(false)
         cs.push(getRequestParameters())
         cs.push(getApplicationAttributes())
         cs.push(getSessionAttributes())
@@ -359,7 +359,7 @@ class WebFacadeImpl implements WebFacade {
     Map<String, Object> getRequestParameters() {
         if (requestParameters != null) return requestParameters
 
-        ContextStack cs = new ContextStack()
+        ContextStack cs = new ContextStack(false)
         if (savedParameters != null) cs.push(savedParameters)
         if (multiPartParameters != null) cs.push(multiPartParameters)
         if (jsonParameters != null) cs.push(jsonParameters)
@@ -375,7 +375,7 @@ class WebFacadeImpl implements WebFacade {
     @Override
     @CompileStatic
     Map<String, Object> getSecureRequestParameters() {
-        ContextStack cs = new ContextStack()
+        ContextStack cs = new ContextStack(false)
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)

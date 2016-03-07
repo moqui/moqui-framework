@@ -23,8 +23,15 @@ public class ContextStack implements Map<String, Object> {
     protected ArrayList<MapWrapper> stackList = new ArrayList<>();
     protected Map<String, Object> topMap = null;
     protected Map<String, Object> combinedMap = null;
+    protected boolean includeContext = true;
 
     public ContextStack() {
+        // start with a single Map
+        clearCombinedMap();
+        push();
+    }
+    public ContextStack(boolean includeContext) {
+        this.includeContext = includeContext;
         // start with a single Map
         clearCombinedMap();
         push();
@@ -34,7 +41,7 @@ public class ContextStack implements Map<String, Object> {
 
     protected void clearCombinedMap() {
         combinedMap = new HashMap<>();
-        combinedMap.put("context", this);
+        if (includeContext) combinedMap.put("context", this);
     }
     protected void rebuildCombinedMap() {
         clearCombinedMap();
@@ -50,7 +57,7 @@ public class ContextStack implements Map<String, Object> {
             curCombined.putAll(curMap);
             parentCombined = curCombined;
             // make sure 'context' refers to this no matter what is in maps
-            curCombined.put("context", this);
+            if (includeContext) curCombined.put("context", this);
         }
         combinedMap = parentCombined;
     }
@@ -122,7 +129,7 @@ public class ContextStack implements Map<String, Object> {
         Map<String, Object> newCombined = new HashMap<>(combinedMap);
         newCombined.putAll(existingMap);
         // make sure 'context' refers to this no matter what is in the existingMap (may even be a ContextStack instance)
-        newCombined.put("context", this);
+        if (includeContext) newCombined.put("context", this);
         stackList.add(0, new MapWrapper(this, existingMap, newCombined));
         topMap = existingMap;
         combinedMap = newCombined;

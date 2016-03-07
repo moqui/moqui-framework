@@ -785,9 +785,9 @@ class ScreenUrlInfo {
                 }
             }
             // add all of the parameters specified inline in the screen path or added after
-            if (sui.pathParameterMap) allParameterMap.putAll(sui.pathParameterMap)
+            if (sui.pathParameterMap != null) allParameterMap.putAll(sui.pathParameterMap)
             // add transition parameters, for alias transitions
-            if (transitionAliasParameters) allParameterMap.putAll(transitionAliasParameters)
+            if (transitionAliasParameters != null) allParameterMap.putAll(transitionAliasParameters)
             // add all parameters added to the instance after
             allParameterMap.putAll(otherParameterMap)
 
@@ -797,7 +797,7 @@ class ScreenUrlInfo {
 
         String getParameterString() {
             StringBuilder ps = new StringBuilder()
-            Map<String, String> pm = this.getParameterMap()
+            Map<String, String> pm = getParameterMap()
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.value) continue
                 if (pme.key == "moquiSessionToken") continue
@@ -808,7 +808,7 @@ class ScreenUrlInfo {
         }
         String getParameterPathString() {
             StringBuilder ps = new StringBuilder()
-            Map<String, String> pm = this.getParameterMap()
+            Map<String, String> pm = getParameterMap()
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.getValue()) continue
                 ps.append("/~")
@@ -829,6 +829,8 @@ class ScreenUrlInfo {
             if (manualParameters == null || manualParameters.size() == 0) return this
             for (Map.Entry mpEntry in manualParameters.entrySet()) {
                 String parmKey = mpEntry.getKey().toString()
+                // just in case a ContextStack with the context entry used is passed
+                if ("context".equals(parmKey)) continue
                 String parmValue = StupidJavaUtilities.toPlainString(mpEntry.getValue())
                 otherParameterMap.put(parmKey, parmValue)
                 if (allParameterMap != null) allParameterMap.put(parmKey, parmValue)
@@ -842,7 +844,7 @@ class ScreenUrlInfo {
             return this
         }
         static void copySpecialParameters(Map fromMap, Map toMap) {
-            if (!fromMap || !toMap) return
+            if (!fromMap || toMap == null) return
             for (String fieldName in fromMap.keySet()) {
                 if (fieldName.startsWith("formDisplayOnly")) toMap.put(fieldName, (String) fromMap.get(fieldName))
             }
