@@ -179,6 +179,8 @@
                             macro-template-location="template/screen-macro/DefaultScreenMacros.html.ftl"/>
         <screen-text-output type="text" mime-type="text/plain"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
+        <screen-text-output type="ts" mime-type="text/x-typescript"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.ts.ftl"/>
         <screen-text-output type="xml" mime-type="text/xml"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
         <screen-text-output type="xsl-fo" mime-type="text/xml"
