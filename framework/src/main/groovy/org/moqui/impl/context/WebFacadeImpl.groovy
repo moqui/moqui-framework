@@ -277,7 +277,7 @@ class WebFacadeImpl implements WebFacade {
                     if (entryIter.hasNext() && pCount < 2) paramBuilder.append(', ')
                 }
             }
-            if (paramBuilder.length() > 0) nameBuilder.append(' (').append(paramBuilder).append(')')
+            if (paramBuilder.length() > 0) nameBuilder.append(' (').append(paramBuilder.toString()).append(')')
         }
 
         // remove existing item(s) from list with same URL
