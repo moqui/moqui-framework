@@ -380,6 +380,7 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="mime-type" type="xs:string" use="optional"/>
             <xs:attribute name="always-standalone" type="boolean" default="false"/>
+            <xs:attribute name="skip-actions" type="boolean" default="false"/>
             <xs:attribute name="macro-template-location" type="xs:string" use="required"/>
         </xs:complexType>
     </xs:element>

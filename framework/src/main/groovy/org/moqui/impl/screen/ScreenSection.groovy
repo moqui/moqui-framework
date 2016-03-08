@@ -119,15 +119,18 @@ class ScreenSection {
         if (logger.traceEnabled) logger.trace("Begin rendering screen section at [${location}]")
         ExecutionContext ec = sri.getEc()
         boolean conditionPassed = true
-        if (condition != null) conditionPassed = condition.checkCondition(ec)
-        if (conditionPassed && conditionClass != null) {
-            Script script = InvokerHelper.createScript(conditionClass, ec.getContextBinding())
-            Object result = script.run()
-            conditionPassed = result as boolean
+        boolean skipActions = sri.sfi.isRenderModeSkipActions(sri.renderMode)
+        if (!skipActions) {
+            if (condition != null) conditionPassed = condition.checkCondition(ec)
+            if (conditionPassed && conditionClass != null) {
+                Script script = InvokerHelper.createScript(conditionClass, ec.getContextBinding())
+                Object result = script.run()
+                conditionPassed = result as boolean
+            }
         }
 
         if (conditionPassed) {
-            if (actions != null) actions.run(ec)
+            if (!skipActions && actions != null) actions.run(ec)
             if (widgets != null) {
                 // was there an error in the actions? don't try to render the widgets, likely to be more and more errors
                 if (ec.message.hasError()) {

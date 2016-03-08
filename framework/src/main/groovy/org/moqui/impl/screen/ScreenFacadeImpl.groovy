@@ -42,6 +42,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
     protected final Cache screenTemplateModeCache
     protected final Map<String, String> mimeTypeByRenderMode = new HashMap<>()
     protected final Map<String, Boolean> alwaysStandaloneByRenderMode = new HashMap<>()
+    protected final Map<String, Boolean> skipActionsByRenderMode = new HashMap<>()
     protected final Cache screenTemplateLocationCache
     protected final Cache widgetTemplateLocationCache
     protected final Cache screenFindPathCache
@@ -70,6 +71,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         for (MNode stoNode in stoNodes) {
             mimeTypeByRenderMode.put(stoNode.attribute("type"), stoNode.attribute("mime-type"))
             alwaysStandaloneByRenderMode.put(stoNode.attribute("type"), stoNode.attribute("always-standalone") == "true")
+            skipActionsByRenderMode.put(stoNode.attribute("type"), stoNode.attribute("skip-actions") == "true")
         }
     }
 
@@ -189,6 +191,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
 
     boolean isRenderModeValid(String renderMode) { return mimeTypeByRenderMode.containsKey(renderMode) }
     boolean isRenderModeAlwaysStandalone(String renderMode) { return alwaysStandaloneByRenderMode.get(renderMode) }
+    boolean isRenderModeSkipActions(String renderMode) { return skipActionsByRenderMode.get(renderMode) }
     String getMimeTypeByMode(String renderMode) { return (String) mimeTypeByRenderMode.get(renderMode) }
 
     Template getTemplateByMode(String renderMode) {
