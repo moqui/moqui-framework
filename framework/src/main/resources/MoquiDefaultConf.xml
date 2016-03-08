@@ -173,13 +173,13 @@
     </resource-facade>
 
     <screen-facade boundary-comments="false" default-autocomplete-rows="20" default-paginate-rows="20">
-        <screen-text-output type="csv" mime-type="text/csv"
+        <screen-text-output type="csv" mime-type="text/csv" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.csv.ftl"/>
         <screen-text-output type="html" mime-type="text/html"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.html.ftl"/>
         <screen-text-output type="text" mime-type="text/plain"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
-        <screen-text-output type="ts" mime-type="text/x-typescript"
+        <screen-text-output type="ts" mime-type="text/x-typescript" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.ts.ftl"/>
         <screen-text-output type="xml" mime-type="text/xml"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>

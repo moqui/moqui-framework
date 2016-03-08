@@ -263,14 +263,17 @@ class ScreenRenderImpl implements ScreenRender {
 
         // check this here after the ScreenUrlInfo (with transition alias, etc) has already been handled
         String localRenderMode = web != null ? web.requestParameters.renderMode : null
-        if (localRenderMode != null && localRenderMode.length() > 0) {
-            // we know this is a web request, set defaults if missing
-            renderMode = localRenderMode
+        if (localRenderMode != null && localRenderMode.length() > 0) renderMode = localRenderMode
+        // if no renderMode get from target screen extension in URL
+        if ((renderMode == null || renderMode.length() == 0) && screenUrlInfo.targetScreenRenderMode != null)
+            renderMode = screenUrlInfo.targetScreenRenderMode
+        // if no outputContentType but there is a renderMode get outputContentType based on renderMode
+        if ((outputContentType == null || outputContentType.length() == 0) && renderMode != null && renderMode.length() > 0) {
             String mimeType = sfi.getMimeTypeByMode(renderMode)
             if (mimeType != null && mimeType.length() > 0) outputContentType = mimeType
         }
 
-        // if these aren't set in any screen (in the checkWebappSettings method), set them here
+        // if these aren't set yet then set to basic defaults
         if (renderMode == null || renderMode.length() == 0) renderMode = "html"
         if (characterEncoding == null || characterEncoding.length() == 0) characterEncoding = "UTF-8"
         if (outputContentType == null || outputContentType.length() == 0) outputContentType = "text/html"

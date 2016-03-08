@@ -89,6 +89,7 @@ class ScreenUrlInfo {
 
     /** The last screen found in the path list */
     ScreenDefinition targetScreen = (ScreenDefinition) null
+    String targetScreenRenderMode = (String) null
     String targetTransitionActualName = (String) null
     ArrayList<String> preTransitionPathNameList = new ArrayList<String>()
 
@@ -369,10 +370,11 @@ class ScreenUrlInfo {
         //     to its response url, etc
         ScreenDefinition lastSd = rootSd
         extraPathNameList = new ArrayList<String>(fullPathNameList)
-        for (String pathName in fullPathNameList) {
-            String nextLoc = lastSd.getSubscreensItem(pathName)?.location
+        for (int i = 0; i < fullPathNameList.size(); i++) {
+            String pathName = (String) fullPathNameList.get(i)
+            ScreenDefinition.SubscreensItem nextSi = lastSd.getSubscreensItem(pathName)
 
-            if (!nextLoc) {
+            if (nextSi == null) {
                 // handle case where last one may be a transition name, and not a subscreen name
                 if (lastSd.hasTransition(pathName)) {
                     // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
@@ -393,15 +395,35 @@ class ScreenUrlInfo {
                     }
                 }
 
-                if (lastSd.screenNode.attribute('allow-extra-path') == "true") {
-                    // call it good
-                    break
+                // is there an extension with a render-mode added to the screen name?
+                int dotIndex = pathName.indexOf('.')
+                if (dotIndex > 0) {
+                    String extension = pathName.substring(dotIndex + 1)
+                    if (sfi.isRenderModeValid(extension)) {
+                        String subscreenName = pathName.substring(0, dotIndex)
+                        nextSi = lastSd.getSubscreensItem(subscreenName)
+                        if (nextSi != null) {
+                            targetScreenRenderMode = extension
+                            if (sfi.isRenderModeAlwaysStandalone(extension)) lastStandalone = true
+                            fullPathNameList.set(i, subscreenName)
+                            pathName = subscreenName
+                        }
+                    }
                 }
 
-                throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, extraPathNameList?.last(), null,
-                        new Exception("Screen sub-content not found here"))
+                // next SubscreenItem still not found?
+                if (nextSi == null) {
+                    if (lastSd.screenNode.attribute('allow-extra-path') == "true") {
+                        // call it good
+                        break
+                    }
+
+                    throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, extraPathNameList?.last(), null,
+                            new Exception("Screen sub-content not found here"))
+                }
             }
 
+            String nextLoc = nextSi.location
             ScreenDefinition nextSd = sfi.getScreenDefinition(nextLoc)
             if (nextSd == null) {
                 throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, pathName, nextLoc,
@@ -434,7 +456,8 @@ class ScreenUrlInfo {
 
         // beyond the last screenPathName, see if there are any screen.default-item values (keep following until none found)
         int defaultSubScreenCount = 0
-        while (targetTransitionActualName == null && fileResourceRef == null && lastSd.getDefaultSubscreensItem()) {
+        // NOTE: don't look for defaults if we have a target screen with a render mode, means we want to render that screen
+        while (targetScreenRenderMode == null && targetTransitionActualName == null && fileResourceRef == null && lastSd.getDefaultSubscreensItem()) {
             if (lastSd.getSubscreensNode()?.attribute('always-use-full-path') == "true") alwaysUseFullPath = true
             // logger.warn("TOREMOVE lastSd ${minimalPathNameList} subscreens: ${lastSd.screenNode?.subscreens}, alwaysUseFullPath=${alwaysUseFullPath}, from ${lastSd.screenNode."subscreens"?."@always-use-full-path"?.getAt(0)}, subscreenName=${subscreenName}")
 
