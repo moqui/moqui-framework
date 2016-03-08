@@ -791,6 +791,10 @@ class ScreenRenderImpl implements ScreenRender {
         if (overrideActiveScreenDef != null) return overrideActiveScreenDef
         return (ScreenDefinition) screenUrlInfo.screenRenderDefList.get(screenPathIndex)
     }
+    String getActiveScreenPathName() {
+        int fullPathIndex = screenUrlInfo.renderPathDifference + screenPathIndex - 1
+        return screenUrlInfo.fullPathNameList.get(fullPathIndex)
+    }
 
     ArrayList<String> getActiveScreenPath() {
         // handle case where root screen is first/zero in list versus a standalone screen
