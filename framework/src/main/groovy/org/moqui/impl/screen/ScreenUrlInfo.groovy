@@ -91,6 +91,7 @@ class ScreenUrlInfo {
     ScreenDefinition targetScreen = (ScreenDefinition) null
     String targetScreenRenderMode = (String) null
     String targetTransitionActualName = (String) null
+    String targetTransitionExtension = (String) null
     ArrayList<String> preTransitionPathNameList = new ArrayList<String>()
 
     boolean reusable = true
@@ -379,7 +380,7 @@ class ScreenUrlInfo {
                 if (lastSd.hasTransition(pathName)) {
                     // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
                     extraPathNameList.remove(0)
-                    this.targetTransitionActualName = pathName
+                    targetTransitionActualName = pathName
 
                     // break out; a transition means we're at the end
                     break
@@ -395,19 +396,31 @@ class ScreenUrlInfo {
                     }
                 }
 
-                // is there an extension with a render-mode added to the screen name?
                 int dotIndex = pathName.indexOf('.')
+
                 if (dotIndex > 0) {
+                    // is there an extension with a render-mode added to the screen name?
                     String extension = pathName.substring(dotIndex + 1)
+                    String pathNamePreDot = pathName.substring(0, dotIndex)
                     if (sfi.isRenderModeValid(extension)) {
-                        String subscreenName = pathName.substring(0, dotIndex)
-                        nextSi = lastSd.getSubscreensItem(subscreenName)
+                        nextSi = lastSd.getSubscreensItem(pathNamePreDot)
                         if (nextSi != null) {
                             targetScreenRenderMode = extension
                             if (sfi.isRenderModeAlwaysStandalone(extension)) lastStandalone = true
-                            fullPathNameList.set(i, subscreenName)
-                            pathName = subscreenName
+                            fullPathNameList.set(i, pathNamePreDot)
+                            pathName = pathNamePreDot
                         }
+                    }
+
+                    // is there an extension beyond a transition name?
+                    if (nextSi == null && lastSd.hasTransition(pathNamePreDot)) {
+                        // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
+                        extraPathNameList.remove(0)
+                        targetTransitionActualName = pathNamePreDot
+                        targetTransitionExtension = extension
+
+                        // break out; a transition means we're at the end
+                        break
                     }
                 }
 
@@ -590,7 +603,9 @@ class ScreenUrlInfo {
         sui.renderPathDifference = this.renderPathDifference
         sui.lastStandalone = this.lastStandalone
         sui.targetScreen = this.targetScreen
+        sui.targetScreenRenderMode = this.targetScreenRenderMode
         sui.targetTransitionActualName = this.targetTransitionActualName
+        sui.targetTransitionExtension = this.targetTransitionExtension
         sui.preTransitionPathNameList = this.preTransitionPathNameList!=null ? new ArrayList<String>(this.preTransitionPathNameList) : null
     }
 

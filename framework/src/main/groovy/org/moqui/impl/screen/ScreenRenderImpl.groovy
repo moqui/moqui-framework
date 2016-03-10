@@ -280,7 +280,7 @@ class ScreenRenderImpl implements ScreenRender {
 
 
         // before we render, set the character encoding (set the content type later, after we see if there is sub-content with a different type)
-        if (this.response != null) response.setCharacterEncoding(this.characterEncoding)
+        if (response != null) response.setCharacterEncoding(characterEncoding)
 
         // if there is a transition run that INSTEAD of the screen to render
         ScreenDefinition.TransitionItem targetTransition = screenUrlInstance.getTargetTransition()
@@ -365,7 +365,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if ("none".equals(ri.type)) {
-                logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds.")
+                logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds; type none response.")
                 return
             }
 
@@ -419,6 +419,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (url.contains("?")) fullUrl += "&" else fullUrl += "?"
                         fullUrl += ps.toString()
                     }
+                    // NOTE: even if transition extension is json still send redirect when we just have a plain url
                     response.sendRedirect(fullUrl)
                 } else {
                     // default is screen-path
@@ -445,9 +446,36 @@ class ScreenRenderImpl implements ScreenRender {
                                 fullUrl.addParameter(parmName, savedParameters.get(parmName))
                         }
                     }
-                    String fullUrlString = fullUrl.getUrlWithParams()
-                    logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to ${fullUrlString}")
-                    response.sendRedirect(fullUrlString)
+
+                    if ("json".equals(screenUrlInfo.targetTransitionExtension)) {
+                        Map<String, Object> responseMap = new HashMap<>()
+                        // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
+                        // add all plain object data from session?
+                        if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+                        if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
+                        if (ec.message.getValidationErrors().size() > 0) {
+                            List<ValidationError> valErrorList = ec.message.getValidationErrors()
+                            int valErrorListSize = valErrorList.size()
+                            ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
+                            for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
+                            responseMap.put("validationErrors", valErrMapList)
+                        }
+
+                        Map parms = new HashMap()
+                        if (web.requestParameters != null) parms.putAll(web.requestParameters)
+                        if (web.requestAttributes != null) parms.putAll(web.requestAttributes)
+                        responseMap.put("currentParameters", ScreenDefinition.unwrapMap(parms))
+
+                        // add screen path, parameters from fullUrl
+                        responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
+                        responseMap.put("screenParameters", fullUrl.getParameterMap())
+
+                        web.sendJsonResponse(responseMap)
+                    } else {
+                        String fullUrlString = fullUrl.getUrlWithParams()
+                        logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to ${fullUrlString}")
+                        response.sendRedirect(fullUrlString)
+                    }
                 }
             } else {
                 ArrayList<String> pathElements = new ArrayList<>(Arrays.asList(url.split("/")))

@@ -293,6 +293,8 @@ class ScreenDefinition {
         return ti
     }
 
+    Collection<TransitionItem> getAllTransitions() { return transitionByName.values() }
+
     @CompileStatic
     SubscreensItem getSubscreensItem(String name) { return (SubscreensItem) subscreensByName.get(name) }
 
@@ -744,8 +746,6 @@ class ScreenDefinition {
             WebFacade wf = ec.getWeb()
             if (wf == null) throw new BaseException("Cannot run actions.json transition outside of a web request")
 
-            Map<String, Object> returnResult = new HashMap<>()
-
             // run actions (if there are any)
             XmlAction actions = parentScreen.rootSection.actions
             if (actions != null) {
@@ -755,57 +755,61 @@ class ScreenDefinition {
                 actions.run(ec)
                 ec.context.pop()
 
-                // the Groovy JsonBuilder doesn't handle various Moqui objects very well, ends up trying to access all
-                // properties and results in infinite recursion, so need to unwrap and exclude some
-                for (Map.Entry<String, Object> entry in actionsResult) {
-                    String key = entry.getKey()
-                    Object value = entry.getValue()
-                    if (value == null) continue
-                    // logger.warn("======== actionsResult - ${entry.key} (${entry.value?.getClass()?.getName()}): ${entry.value}")
-                    Object unwrapped = unwrap(key, value)
-                    if (unwrapped != null) returnResult.put(key, unwrapped)
-                }
+                wf.sendJsonResponse(unwrapMap(actionsResult))
+            } else {
+                wf.sendJsonResponse(new HashMap())
             }
-
-            // send JSON response
-            wf.sendJsonResponse(returnResult)
 
             return defaultResponse
         }
+    }
 
-        static Object unwrap(String key, Object value) {
-            if (value == null) return null
-            if (value instanceof CharSequence || value instanceof Number || value instanceof Date) {
-                return value
-            } else if (value instanceof EntityValue) {
-                EntityValue ev = (EntityValue) value
-                return ev.getPlainValueMap(0)
-            } else if (value instanceof EntityList) {
-                EntityList el = (EntityList) value
-                ArrayList<Map> newList = new ArrayList<>()
-                int elSize = el.size()
-                for (int i = 0; i < elSize; i++) {
-                    EntityValue ev = (EntityValue) el.get(i)
-                    newList.add(ev.getPlainValueMap(0))
-                }
-                return newList
-            } else if (value instanceof Collection) {
-                Collection valCol = (Collection) value
-                ArrayList newList = new ArrayList(valCol.size())
-                for (Object entry in valCol) newList.add(unwrap(key, entry))
-                return newList
-            } else if (value instanceof Map) {
-                Map valMap = (Map) value
-                Map newMap = new HashMap(valMap.size())
-                for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
-                return newMap
-            } else if (value instanceof EntityFind) {
-                // intentionally skip, commonly left in context by entity-find XML action
-                return null
-            } else {
-                logger.info("In screen actions.json skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
-                return null
+    // the Groovy JsonBuilder doesn't handle various Moqui objects very well, ends up trying to access all
+    // properties and results in infinite recursion, so need to unwrap and exclude some
+    static Map<String, Object> unwrapMap(Map<String, Object> sourceMap) {
+        Map<String, Object> targetMap = new HashMap<>()
+        for (Map.Entry<String, Object> entry in sourceMap) {
+            String key = entry.getKey()
+            Object value = entry.getValue()
+            if (value == null) continue
+            // logger.warn("======== actionsResult - ${entry.key} (${entry.value?.getClass()?.getName()}): ${entry.value}")
+            Object unwrapped = unwrap(key, value)
+            if (unwrapped != null) targetMap.put(key, unwrapped)
+        }
+        return targetMap
+    }
+    static Object unwrap(String key, Object value) {
+        if (value == null) return null
+        if (value instanceof CharSequence || value instanceof Number || value instanceof Date) {
+            return value
+        } else if (value instanceof EntityValue) {
+            EntityValue ev = (EntityValue) value
+            return ev.getPlainValueMap(0)
+        } else if (value instanceof EntityList) {
+            EntityList el = (EntityList) value
+            ArrayList<Map> newList = new ArrayList<>()
+            int elSize = el.size()
+            for (int i = 0; i < elSize; i++) {
+                EntityValue ev = (EntityValue) el.get(i)
+                newList.add(ev.getPlainValueMap(0))
             }
+            return newList
+        } else if (value instanceof Collection) {
+            Collection valCol = (Collection) value
+            ArrayList newList = new ArrayList(valCol.size())
+            for (Object entry in valCol) newList.add(unwrap(key, entry))
+            return newList
+        } else if (value instanceof Map) {
+            Map valMap = (Map) value
+            Map newMap = new HashMap(valMap.size())
+            for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
+            return newMap
+        } else if (value instanceof EntityFind || value instanceof ExecutionContextImpl) {
+            // intentionally skip, commonly left in context by entity-find XML action
+            return null
+        } else {
+            logger.info("In screen actions.json skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
+            return null
         }
     }
 
