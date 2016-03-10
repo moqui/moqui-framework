@@ -88,6 +88,9 @@ New Features
 - Dynamic (SPA) browser features
   - Added screen element when render screen to support macros at the screen
     level, such as code for components and services in Angular 2
+  - Added support for render mode extension (like .html, .js, etc) to
+    last screen name in screen path (or URL), uses the specified
+    render-mode and doesn't try to render additional subscreens
   - Added automatic actions.json transition for all screens, runs actions
     and returns results as JSON for use in client-side template rendering
   - Added support for .json extension to transitions, will run the
