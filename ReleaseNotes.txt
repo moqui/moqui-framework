@@ -54,10 +54,10 @@ New Features
 - Added methods to L10nFacade that accept a Locale when something other
   than the current user's locale is needed
 - Added TransactionFacade runUseOrBegin() and runRequireNew() methods to
-  run code (through a Groovy Closure) in a transaction
+  run code (in a Groovy Closure) in a transaction
 - ArtifactHit/Bin persistence now done in a worker thread instead of async
-  service; uses new ec.runInWorkerThread() method, may be in interface in
-  the future
+  service; uses new eci.runInWorkerThread() method, may be added
+  ExecutionContext interface in the future
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
@@ -119,6 +119,10 @@ Bug Fixes
   a member entity is updated (was never implemented)
 - Entities in the tenantcommon group no longer available for find and CrUD
   operations outside the DEFAULT instance (protect tenant data)
+- Fixed issue with find one when using a Map as a condition that may
+  contain non-PK fields and having an artifact authz filter applied, was
+  getting non-PK fields and constraining query when it shouldn't
+  (inconsistent with previous behavior)
 - Fixed ElasticSearch automatic mappings where sub-object mappings always
   had just the first property
 
