@@ -193,7 +193,7 @@ class ScreenRenderImpl implements ScreenRender {
         }
     }
 
-    protected ResponseItem recursiveRunTransition(Iterator<ScreenDefinition> sdIterator) {
+    protected ResponseItem recursiveRunTransition(Iterator<ScreenDefinition> sdIterator, boolean runPreActions) {
         ScreenDefinition sd = sdIterator.next()
         // for these authz is not required, as long as something authorizes on the way to the transition, or
         // the transition itself, it's fine
@@ -201,33 +201,37 @@ class ScreenRenderImpl implements ScreenRender {
         ec.getArtifactExecutionImpl().pushInternal(aei, false)
 
         boolean loggedInAnonymous = false
-        MNode screenNode = sd.getScreenNode()
-        String requireAuthentication = screenNode.attribute('require-authentication')
-        if (requireAuthentication == "anonymous-all") {
-            ec.artifactExecution.setAnonymousAuthorizedAll()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
-        } else if (requireAuthentication == "anonymous-view") {
-            ec.artifactExecution.setAnonymousAuthorizedView()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
-        }
+        ResponseItem ri = (ResponseItem) null
 
-        if (sd.alwaysActions != null) sd.alwaysActions.run(ec)
-
-        ResponseItem ri = null
-        if (sdIterator.hasNext()) {
-            screenPathIndex++
-            try {
-                ri = recursiveRunTransition(sdIterator)
-            } finally {
-                screenPathIndex--
+        try {
+            MNode screenNode = sd.getScreenNode()
+            String requireAuthentication = screenNode.attribute('require-authentication')
+            if (requireAuthentication == "anonymous-all") {
+                ec.artifactExecution.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            } else if (requireAuthentication == "anonymous-view") {
+                ec.artifactExecution.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
             }
-        } else {
-            // run the transition
-            ri = screenUrlInstance.targetTransition.run(this)
-        }
 
-        ec.getArtifactExecution().pop(aei)
-        if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+            if (sd.alwaysActions != null) sd.alwaysActions.run(ec)
+            if (runPreActions && sd.preActions != null) sd.preActions.run(ec)
+
+            if (sdIterator.hasNext()) {
+                screenPathIndex++
+                try {
+                    ri = recursiveRunTransition(sdIterator, runPreActions)
+                } finally {
+                    screenPathIndex--
+                }
+            } else {
+                // run the transition
+                ri = screenUrlInstance.targetTransition.run(this)
+            }
+        } finally {
+            ec.getArtifactExecution().pop(aei)
+            if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+        }
 
         return ri
     }
@@ -327,7 +331,8 @@ class ScreenRenderImpl implements ScreenRender {
             boolean beganTransaction = beginTransaction ? sfi.getEcfi().getTransactionFacade().begin(null) : false
             ResponseItem ri = null
             try {
-                ri = recursiveRunTransition(screenUrlInfo.screenPathDefList.iterator())
+                boolean runPreActions = targetTransition instanceof ScreenDefinition.ActionsTransitionItem
+                ri = recursiveRunTransition(screenUrlInfo.screenPathDefList.iterator(), runPreActions)
             } catch (Throwable t) {
                 sfi.ecfi.transactionFacade.rollback(beganTransaction, "Error running transition in [${screenUrlInstance.url}]", t)
                 throw t
@@ -589,26 +594,28 @@ class ScreenRenderImpl implements ScreenRender {
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
         ec.artifactExecutionImpl.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
-        if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
-
         boolean loggedInAnonymous = false
-        if (requireAuthentication == "anonymous-all") {
-            ec.artifactExecution.setAnonymousAuthorizedAll()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
-        } else if (requireAuthentication == "anonymous-view") {
-            ec.artifactExecution.setAnonymousAuthorizedView()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+        try {
+            if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
+                throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+
+            if (requireAuthentication == "anonymous-all") {
+                ec.artifactExecution.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            } else if (requireAuthentication == "anonymous-view") {
+                ec.artifactExecution.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            }
+
+            if (runAlwaysActions && sd.alwaysActions != null) sd.alwaysActions.run(ec)
+            if (runPreActions && sd.preActions != null) sd.preActions.run(ec)
+
+            if (screenDefIterator.hasNext()) recursiveRunActions(screenDefIterator, runAlwaysActions, runPreActions)
+        } finally {
+            // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally clause because if there is an error this will help us know how we got there
+            ec.artifactExecution.pop(aei)
+            if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
         }
-
-        if (runAlwaysActions && sd.alwaysActions != null) sd.alwaysActions.run(ec)
-        if (runPreActions && sd.preActions != null) sd.preActions.run(ec)
-
-        if (screenDefIterator.hasNext()) recursiveRunActions(screenDefIterator, runAlwaysActions, runPreActions)
-
-        // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally clause because if there is an error this will help us know how we got there
-        ec.artifactExecution.pop(aei)
-        if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
     }
 
     void doActualRender() {

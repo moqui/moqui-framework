@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ContextStack
 import org.moqui.context.ExecutionContext
 import org.moqui.context.WebFacade
 import org.moqui.entity.EntityList
@@ -741,6 +742,7 @@ class ScreenDefinition {
             defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
 
+        // NOTE: runs pre-actions too, see sri.recursiveRunTransition() call in sri.internalRender()
         ResponseItem run(ScreenRenderImpl sri) {
             ExecutionContextImpl ec = sri.getEc()
             WebFacade wf = ec.getWeb()
@@ -749,13 +751,10 @@ class ScreenDefinition {
             // run actions (if there are any)
             XmlAction actions = parentScreen.rootSection.actions
             if (actions != null) {
-                Map<String, Object> actionsResult = new HashMap<>()
                 ec.context.put("sri", sri)
-                ec.context.push(actionsResult)
                 actions.run(ec)
-                ec.context.pop()
-
-                wf.sendJsonResponse(unwrapMap(actionsResult))
+                // use entire ec.context to get values from always-actions and pre-actions
+                wf.sendJsonResponse(unwrapMap(ec.context))
             } else {
                 wf.sendJsonResponse(new HashMap())
             }
@@ -782,6 +781,10 @@ class ScreenDefinition {
         if (value == null) return null
         if (value instanceof CharSequence || value instanceof Number || value instanceof Date) {
             return value
+        } else if (value instanceof EntityFind || value instanceof ExecutionContextImpl ||
+                value instanceof ScreenRenderImpl || value instanceof ContextStack) {
+            // intentionally skip, commonly left in context by entity-find XML action
+            return null
         } else if (value instanceof EntityValue) {
             EntityValue ev = (EntityValue) value
             return ev.getPlainValueMap(0)
@@ -804,9 +807,6 @@ class ScreenDefinition {
             Map newMap = new HashMap(valMap.size())
             for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
             return newMap
-        } else if (value instanceof EntityFind || value instanceof ExecutionContextImpl) {
-            // intentionally skip, commonly left in context by entity-find XML action
-            return null
         } else {
             logger.info("In screen actions.json skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
             return null
