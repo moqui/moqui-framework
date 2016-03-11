@@ -151,7 +151,7 @@ class DbResourceReference extends BaseResourceReference {
             dbResourceFile = null
         } else {
             // first make sure the directory exists that this is in
-            List<String> filenameList = Arrays.asList(getPath().split("/"))
+            List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
             if (filenameList) filenameList.remove(filenameList.size()-1)
             String parentResourceId = findDirectoryId(filenameList, true)
 
@@ -201,7 +201,7 @@ class DbResourceReference extends BaseResourceReference {
         if (!newLocation.startsWith(locationPrefix))
             throw new IllegalArgumentException("Location [${newLocation}] is not a dbresource location, not moving resource at ${getLocation()}")
 
-        List<String> filenameList = Arrays.asList(newLocation.substring(locationPrefix.length()).split("/"))
+        List<String> filenameList = new ArrayList<>(Arrays.asList(newLocation.substring(locationPrefix.length()).split("/")))
         if (filenameList) {
             String newFilename = filenameList.get(filenameList.size()-1)
             filenameList.remove(filenameList.size()-1)
@@ -239,7 +239,7 @@ class DbResourceReference extends BaseResourceReference {
     EntityValue getDbResource() {
         if (dbResource != null) return dbResource
 
-        List<String> filenameList = Arrays.asList(getPath().split("/"))
+        List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
         String parentResourceId = null
         EntityValue lastValue = null
         for (String filename in filenameList) {

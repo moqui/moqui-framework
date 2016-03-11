@@ -169,7 +169,7 @@ class ContentResourceReference extends BaseResourceReference {
             session.save()
         } else {
             // first make sure the directory exists that this is in
-            List<String> nodePathList = Arrays.asList(nodePath.split('/'))
+            List<String> nodePathList = new ArrayList<>(Arrays.asList(nodePath.split('/')))
             // if nodePath started with a '/' the first element will be empty
             if (nodePathList && nodePathList[0] == "") nodePathList.remove(0)
             // remove the filename to just get the directory
@@ -229,7 +229,7 @@ class ContentResourceReference extends BaseResourceReference {
         ContentResourceReference newCrr = (ContentResourceReference) newRr
 
         // make sure the target folder exists
-        List<String> nodePathList = Arrays.asList(newCrr.getNodePath().split('/'))
+        List<String> nodePathList = new ArrayList<>(Arrays.asList(newCrr.getNodePath().split('/')))
         if (nodePathList) nodePathList.remove(nodePathList.size()-1)
         findDirectoryNode(session, nodePathList, true)
 
