@@ -55,7 +55,15 @@ class ScreenSection {
             // if (location.contains("FOO")) logger.warn("====== Actions for ${location}: ${actions.writeGroovyWithLines()}")
         }
         // prep widgets
-        if (sectionNode.hasChild("widgets")) widgets = new ScreenWidgets(sectionNode.first("widgets"), location + ".widgets")
+        if (sectionNode.hasChild("widgets")) {
+            if (sectionNode.getName() == "screen") {
+                MNode widgetsNode = sectionNode.first("widgets")
+                MNode screenNode = new MNode("screen", null, null, [widgetsNode], null)
+                widgets = new ScreenWidgets(screenNode, location + ".widgets")
+            } else {
+                widgets = new ScreenWidgets(sectionNode.first("widgets"), location + ".widgets")
+            }
+        }
         // prep fail-widgets
         if (sectionNode.hasChild("fail-widgets"))
             failWidgets = new ScreenWidgets(sectionNode.first("fail-widgets"), location + ".fail-widgets")
@@ -111,15 +119,18 @@ class ScreenSection {
         if (logger.traceEnabled) logger.trace("Begin rendering screen section at [${location}]")
         ExecutionContext ec = sri.getEc()
         boolean conditionPassed = true
-        if (condition != null) conditionPassed = condition.checkCondition(ec)
-        if (conditionPassed && conditionClass != null) {
-            Script script = InvokerHelper.createScript(conditionClass, ec.getContextBinding())
-            Object result = script.run()
-            conditionPassed = result as boolean
+        boolean skipActions = sri.sfi.isRenderModeSkipActions(sri.renderMode)
+        if (!skipActions) {
+            if (condition != null) conditionPassed = condition.checkCondition(ec)
+            if (conditionPassed && conditionClass != null) {
+                Script script = InvokerHelper.createScript(conditionClass, ec.getContextBinding())
+                Object result = script.run()
+                conditionPassed = result as boolean
+            }
         }
 
         if (conditionPassed) {
-            if (actions != null) actions.run(ec)
+            if (!skipActions && actions != null) actions.run(ec)
             if (widgets != null) {
                 // was there an error in the actions? don't try to render the widgets, likely to be more and more errors
                 if (ec.message.hasError()) {

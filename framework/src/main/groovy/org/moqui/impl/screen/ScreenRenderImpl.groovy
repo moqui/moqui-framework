@@ -193,7 +193,7 @@ class ScreenRenderImpl implements ScreenRender {
         }
     }
 
-    protected ResponseItem recursiveRunTransition(Iterator<ScreenDefinition> sdIterator) {
+    protected ResponseItem recursiveRunTransition(Iterator<ScreenDefinition> sdIterator, boolean runPreActions) {
         ScreenDefinition sd = sdIterator.next()
         // for these authz is not required, as long as something authorizes on the way to the transition, or
         // the transition itself, it's fine
@@ -201,33 +201,37 @@ class ScreenRenderImpl implements ScreenRender {
         ec.getArtifactExecutionImpl().pushInternal(aei, false)
 
         boolean loggedInAnonymous = false
-        MNode screenNode = sd.getScreenNode()
-        String requireAuthentication = screenNode.attribute('require-authentication')
-        if (requireAuthentication == "anonymous-all") {
-            ec.artifactExecution.setAnonymousAuthorizedAll()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
-        } else if (requireAuthentication == "anonymous-view") {
-            ec.artifactExecution.setAnonymousAuthorizedView()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
-        }
+        ResponseItem ri = (ResponseItem) null
 
-        if (sd.alwaysActions != null) sd.alwaysActions.run(ec)
-
-        ResponseItem ri = null
-        if (sdIterator.hasNext()) {
-            screenPathIndex++
-            try {
-                ri = recursiveRunTransition(sdIterator)
-            } finally {
-                screenPathIndex--
+        try {
+            MNode screenNode = sd.getScreenNode()
+            String requireAuthentication = screenNode.attribute('require-authentication')
+            if (requireAuthentication == "anonymous-all") {
+                ec.artifactExecution.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            } else if (requireAuthentication == "anonymous-view") {
+                ec.artifactExecution.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
             }
-        } else {
-            // run the transition
-            ri = screenUrlInstance.targetTransition.run(this)
-        }
 
-        ec.getArtifactExecution().pop(aei)
-        if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+            if (sd.alwaysActions != null) sd.alwaysActions.run(ec)
+            if (runPreActions && sd.preActions != null) sd.preActions.run(ec)
+
+            if (sdIterator.hasNext()) {
+                screenPathIndex++
+                try {
+                    ri = recursiveRunTransition(sdIterator, runPreActions)
+                } finally {
+                    screenPathIndex--
+                }
+            } else {
+                // run the transition
+                ri = screenUrlInstance.targetTransition.run(this)
+            }
+        } finally {
+            ec.getArtifactExecution().pop(aei)
+            if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+        }
 
         return ri
     }
@@ -263,21 +267,24 @@ class ScreenRenderImpl implements ScreenRender {
 
         // check this here after the ScreenUrlInfo (with transition alias, etc) has already been handled
         String localRenderMode = web != null ? web.requestParameters.renderMode : null
-        if (localRenderMode != null && localRenderMode.length() > 0) {
-            // we know this is a web request, set defaults if missing
-            renderMode = localRenderMode
+        if (localRenderMode != null && localRenderMode.length() > 0) renderMode = localRenderMode
+        // if no renderMode get from target screen extension in URL
+        if ((renderMode == null || renderMode.length() == 0) && screenUrlInfo.targetScreenRenderMode != null)
+            renderMode = screenUrlInfo.targetScreenRenderMode
+        // if no outputContentType but there is a renderMode get outputContentType based on renderMode
+        if ((outputContentType == null || outputContentType.length() == 0) && renderMode != null && renderMode.length() > 0) {
             String mimeType = sfi.getMimeTypeByMode(renderMode)
             if (mimeType != null && mimeType.length() > 0) outputContentType = mimeType
         }
 
-        // if these aren't set in any screen (in the checkWebappSettings method), set them here
+        // if these aren't set yet then set to basic defaults
         if (renderMode == null || renderMode.length() == 0) renderMode = "html"
         if (characterEncoding == null || characterEncoding.length() == 0) characterEncoding = "UTF-8"
         if (outputContentType == null || outputContentType.length() == 0) outputContentType = "text/html"
 
 
         // before we render, set the character encoding (set the content type later, after we see if there is sub-content with a different type)
-        if (this.response != null) response.setCharacterEncoding(this.characterEncoding)
+        if (response != null) response.setCharacterEncoding(characterEncoding)
 
         // if there is a transition run that INSTEAD of the screen to render
         ScreenDefinition.TransitionItem targetTransition = screenUrlInstance.getTargetTransition()
@@ -324,7 +331,8 @@ class ScreenRenderImpl implements ScreenRender {
             boolean beganTransaction = beginTransaction ? sfi.getEcfi().getTransactionFacade().begin(null) : false
             ResponseItem ri = null
             try {
-                ri = recursiveRunTransition(screenUrlInfo.screenPathDefList.iterator())
+                boolean runPreActions = targetTransition instanceof ScreenDefinition.ActionsTransitionItem
+                ri = recursiveRunTransition(screenUrlInfo.screenPathDefList.iterator(), runPreActions)
             } catch (Throwable t) {
                 sfi.ecfi.transactionFacade.rollback(beganTransaction, "Error running transition in [${screenUrlInstance.url}]", t)
                 throw t
@@ -362,7 +370,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if ("none".equals(ri.type)) {
-                logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds.")
+                logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds; type none response.")
                 return
             }
 
@@ -416,6 +424,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (url.contains("?")) fullUrl += "&" else fullUrl += "?"
                         fullUrl += ps.toString()
                     }
+                    // NOTE: even if transition extension is json still send redirect when we just have a plain url
                     response.sendRedirect(fullUrl)
                 } else {
                     // default is screen-path
@@ -442,9 +451,36 @@ class ScreenRenderImpl implements ScreenRender {
                                 fullUrl.addParameter(parmName, savedParameters.get(parmName))
                         }
                     }
-                    String fullUrlString = fullUrl.getUrlWithParams()
-                    logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to ${fullUrlString}")
-                    response.sendRedirect(fullUrlString)
+
+                    if ("json".equals(screenUrlInfo.targetTransitionExtension)) {
+                        Map<String, Object> responseMap = new HashMap<>()
+                        // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
+                        // add all plain object data from session?
+                        if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+                        if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
+                        if (ec.message.getValidationErrors().size() > 0) {
+                            List<ValidationError> valErrorList = ec.message.getValidationErrors()
+                            int valErrorListSize = valErrorList.size()
+                            ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
+                            for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
+                            responseMap.put("validationErrors", valErrMapList)
+                        }
+
+                        Map parms = new HashMap()
+                        if (web.requestParameters != null) parms.putAll(web.requestParameters)
+                        if (web.requestAttributes != null) parms.putAll(web.requestAttributes)
+                        responseMap.put("currentParameters", ScreenDefinition.unwrapMap(parms))
+
+                        // add screen path, parameters from fullUrl
+                        responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
+                        responseMap.put("screenParameters", fullUrl.getParameterMap())
+
+                        web.sendJsonResponse(responseMap)
+                    } else {
+                        String fullUrlString = fullUrl.getUrlWithParams()
+                        logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to ${fullUrlString}")
+                        response.sendRedirect(fullUrlString)
+                    }
                 }
             } else {
                 ArrayList<String> pathElements = new ArrayList<>(Arrays.asList(url.split("/")))
@@ -558,26 +594,28 @@ class ScreenRenderImpl implements ScreenRender {
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
         ec.artifactExecutionImpl.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
-        if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
-
         boolean loggedInAnonymous = false
-        if (requireAuthentication == "anonymous-all") {
-            ec.artifactExecution.setAnonymousAuthorizedAll()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
-        } else if (requireAuthentication == "anonymous-view") {
-            ec.artifactExecution.setAnonymousAuthorizedView()
-            loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+        try {
+            if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
+                throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+
+            if (requireAuthentication == "anonymous-all") {
+                ec.artifactExecution.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            } else if (requireAuthentication == "anonymous-view") {
+                ec.artifactExecution.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            }
+
+            if (runAlwaysActions && sd.alwaysActions != null) sd.alwaysActions.run(ec)
+            if (runPreActions && sd.preActions != null) sd.preActions.run(ec)
+
+            if (screenDefIterator.hasNext()) recursiveRunActions(screenDefIterator, runAlwaysActions, runPreActions)
+        } finally {
+            // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally clause because if there is an error this will help us know how we got there
+            ec.artifactExecution.pop(aei)
+            if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
         }
-
-        if (runAlwaysActions && sd.alwaysActions != null) sd.alwaysActions.run(ec)
-        if (runPreActions && sd.preActions != null) sd.preActions.run(ec)
-
-        if (screenDefIterator.hasNext()) recursiveRunActions(screenDefIterator, runAlwaysActions, runPreActions)
-
-        // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally clause because if there is an error this will help us know how we got there
-        ec.artifactExecution.pop(aei)
-        if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
     }
 
     void doActualRender() {
@@ -652,7 +690,8 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             // we've run always and pre actions, it's now or never for required parameters so check them
-            for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
+
+            if (!sfi.isRenderModeSkipActions(renderMode)) for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
                 for (ScreenDefinition.ParameterItem pi in sd.getParameterMap().values()) {
                     if (pi.required && ec.context.getByString(pi.name) == null) {
                         ec.message.addError("Required parameter missing (${pi.name})")
@@ -787,6 +826,10 @@ class ScreenRenderImpl implements ScreenRender {
     ScreenDefinition getActiveScreenDef() {
         if (overrideActiveScreenDef != null) return overrideActiveScreenDef
         return (ScreenDefinition) screenUrlInfo.screenRenderDefList.get(screenPathIndex)
+    }
+    String getActiveScreenPathName() {
+        int fullPathIndex = screenUrlInfo.renderPathDifference + screenPathIndex - 1
+        return screenUrlInfo.fullPathNameList.get(fullPathIndex)
     }
 
     ArrayList<String> getActiveScreenPath() {

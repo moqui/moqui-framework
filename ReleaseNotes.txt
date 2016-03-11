@@ -24,7 +24,7 @@ Non Backward Compatible Changes
 New Features
 
 - Many performance improvements based on profiling; cached entities finds
-  around 5x faster, non cached around 2x; screen rendering also faster
+  around 6x faster, non cached around 3x; screen rendering also faster
 - Added JDBC Connection stash by tenant, entity group, and transaction,
   can be disabled with transaction-facade.@use-connection-stash=false in
   the Moqui Conf XML file
@@ -54,10 +54,10 @@ New Features
 - Added methods to L10nFacade that accept a Locale when something other
   than the current user's locale is needed
 - Added TransactionFacade runUseOrBegin() and runRequireNew() methods to
-  run code (through a Groovy Closure) in a transaction
+  run code (in a Groovy Closure) in a transaction
 - ArtifactHit/Bin persistence now done in a worker thread instead of async
-  service; uses new ec.runInWorkerThread() method, may be in interface in
-  the future
+  service; uses new eci.runInWorkerThread() method, may be added
+  ExecutionContext interface in the future
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
@@ -85,6 +85,18 @@ New Features
     the MessageFacadeException), better handling for other Throwable
   - Async service calls now run through lighter weight worker thread pool
     if persist not set (if persist set still through Quartz Scheduler)
+- Dynamic (SPA) browser features
+  - Added screen element when render screen to support macros at the screen
+    level, such as code for components and services in Angular 2
+  - Added support for render mode extension (like .html, .js, etc) to
+    last screen name in screen path (or URL), uses the specified
+    render-mode and doesn't try to render additional subscreens
+  - Added automatic actions.json transition for all screens, runs actions
+    and returns results as JSON for use in client-side template rendering
+  - Added support for .json extension to transitions, will run the
+    transition and if the response goes to another screen returns path to
+    that screen in a list and parameters for it, along with
+    messages/errors/etc for client side routing between screens
 
 Bug Fixes
 
@@ -107,6 +119,10 @@ Bug Fixes
   a member entity is updated (was never implemented)
 - Entities in the tenantcommon group no longer available for find and CrUD
   operations outside the DEFAULT instance (protect tenant data)
+- Fixed issue with find one when using a Map as a condition that may
+  contain non-PK fields and having an artifact authz filter applied, was
+  getting non-PK fields and constraining query when it shouldn't
+  (inconsistent with previous behavior)
 - Fixed ElasticSearch automatic mappings where sub-object mappings always
   had just the first property
 

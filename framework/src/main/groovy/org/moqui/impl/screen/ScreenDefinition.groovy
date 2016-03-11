@@ -15,8 +15,11 @@ package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
+import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ContextStack
 import org.moqui.context.ExecutionContext
+import org.moqui.context.WebFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidJavaUtilities
@@ -95,6 +98,9 @@ class ScreenDefinition {
             TransitionItem ti = new TransitionItem(transitionNode, this)
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
+        // actions.json transition, for all screens
+        transitionByName.put("actions.json", new ActionsTransitionItem(this))
+
         // subscreens
         populateSubscreens()
 
@@ -287,6 +293,8 @@ class ScreenDefinition {
         }
         return ti
     }
+
+    Collection<TransitionItem> getAllTransitions() { return transitionByName.values() }
 
     @CompileStatic
     SubscreensItem getSubscreensItem(String name) { return (SubscreensItem) subscreensByName.get(name) }
@@ -554,6 +562,10 @@ class ScreenDefinition {
         protected boolean readOnly = false
         protected boolean requireSessionToken = true
 
+        protected TransitionItem(ScreenDefinition parentScreen) {
+            this.parentScreen = parentScreen
+        }
+
         TransitionItem(MNode transitionNode, ScreenDefinition parentScreen) {
             this.parentScreen = parentScreen
             this.transitionNode = transitionNode
@@ -713,6 +725,91 @@ class ScreenDefinition {
             if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
 
             return ri
+        }
+    }
+
+    static class ActionsTransitionItem extends TransitionItem {
+        ActionsTransitionItem(ScreenDefinition parentScreen) {
+            super(parentScreen)
+            transitionNode = null
+            name = "actions.json"
+            method = "any"
+            location = "${parentScreen.location}.transition_${StupidUtilities.cleanStringForJavaName(name)}"
+            beginTransaction = true
+            readOnly = true
+            requireSessionToken = false
+
+            defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
+        }
+
+        // NOTE: runs pre-actions too, see sri.recursiveRunTransition() call in sri.internalRender()
+        ResponseItem run(ScreenRenderImpl sri) {
+            ExecutionContextImpl ec = sri.getEc()
+            WebFacade wf = ec.getWeb()
+            if (wf == null) throw new BaseException("Cannot run actions.json transition outside of a web request")
+
+            // run actions (if there are any)
+            XmlAction actions = parentScreen.rootSection.actions
+            if (actions != null) {
+                ec.context.put("sri", sri)
+                actions.run(ec)
+                // use entire ec.context to get values from always-actions and pre-actions
+                wf.sendJsonResponse(unwrapMap(ec.context))
+            } else {
+                wf.sendJsonResponse(new HashMap())
+            }
+
+            return defaultResponse
+        }
+    }
+
+    // the Groovy JsonBuilder doesn't handle various Moqui objects very well, ends up trying to access all
+    // properties and results in infinite recursion, so need to unwrap and exclude some
+    static Map<String, Object> unwrapMap(Map<String, Object> sourceMap) {
+        Map<String, Object> targetMap = new HashMap<>()
+        for (Map.Entry<String, Object> entry in sourceMap) {
+            String key = entry.getKey()
+            Object value = entry.getValue()
+            if (value == null) continue
+            // logger.warn("======== actionsResult - ${entry.key} (${entry.value?.getClass()?.getName()}): ${entry.value}")
+            Object unwrapped = unwrap(key, value)
+            if (unwrapped != null) targetMap.put(key, unwrapped)
+        }
+        return targetMap
+    }
+    static Object unwrap(String key, Object value) {
+        if (value == null) return null
+        if (value instanceof CharSequence || value instanceof Number || value instanceof Date) {
+            return value
+        } else if (value instanceof EntityFind || value instanceof ExecutionContextImpl ||
+                value instanceof ScreenRenderImpl || value instanceof ContextStack) {
+            // intentionally skip, commonly left in context by entity-find XML action
+            return null
+        } else if (value instanceof EntityValue) {
+            EntityValue ev = (EntityValue) value
+            return ev.getPlainValueMap(0)
+        } else if (value instanceof EntityList) {
+            EntityList el = (EntityList) value
+            ArrayList<Map> newList = new ArrayList<>()
+            int elSize = el.size()
+            for (int i = 0; i < elSize; i++) {
+                EntityValue ev = (EntityValue) el.get(i)
+                newList.add(ev.getPlainValueMap(0))
+            }
+            return newList
+        } else if (value instanceof Collection) {
+            Collection valCol = (Collection) value
+            ArrayList newList = new ArrayList(valCol.size())
+            for (Object entry in valCol) newList.add(unwrap(key, entry))
+            return newList
+        } else if (value instanceof Map) {
+            Map valMap = (Map) value
+            Map newMap = new HashMap(valMap.size())
+            for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
+            return newMap
+        } else {
+            logger.info("In screen actions.json skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
+            return null
         }
     }
 

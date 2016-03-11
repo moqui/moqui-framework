@@ -1275,6 +1275,7 @@ text/x-freemarker               ftl
 text/x-pascal					p pas
 text/x-java-source				java
 text/x-java-properties          properties
+text/x-typescript               ts
 text/x-setext					etx
 text/x-uuencode					uu
 text/x-vcalendar				vcs

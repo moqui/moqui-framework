@@ -326,8 +326,9 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
         if (parameters.containsKey("statusId") && ed.isField("statusId")) {
             // do the actual query so we'll have the current statusId
+            Map<String, Object> pkParms = ed.getPrimaryKeys(parameters)
             lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName())
-                    .condition(parameters).useCache(false).forUpdate(true).one()
+                    .condition(pkParms).useCache(false).forUpdate(true).one()
             if (lookedUpValue == null) {
                 throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
             }

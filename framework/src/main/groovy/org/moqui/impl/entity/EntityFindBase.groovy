@@ -15,7 +15,6 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactAuthorizationException
-import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
@@ -643,17 +642,13 @@ abstract class EntityFindBase implements EntityFind {
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-one", true)
 
-        // before combining conditions let ArtifactFacade add entity filters associated with authz
-        boolean authzFilterAdded = ec.artifactExecutionImpl.filterFindForUser(this)
-
         // if over-constrained (anything in addition to a full PK), just use the full PK
-        EntityConditionImplBase whereCondition
-        if (!authzFilterAdded && ed.containsPrimaryKey(simpleAndMap)) {
-            whereCondition = efi.getConditionFactoryImpl().makeCondition(ed.getPrimaryKeys(simpleAndMap),
-                    EntityCondition.EQUALS, EntityCondition.AND, null, null, false)
-        } else {
-            whereCondition = getWhereEntityConditionInternal()
-        }
+        if (ed.containsPrimaryKey(simpleAndMap)) simpleAndMap = ed.getPrimaryKeys(simpleAndMap)
+
+        // before combining conditions let ArtifactFacade add entity filters associated with authz
+        ec.artifactExecutionImpl.filterFindForUser(this)
+
+        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal()
 
         // no condition means no condition/parameter set, so return null for find.one()
         if (whereCondition == null) return (EntityValue) null
