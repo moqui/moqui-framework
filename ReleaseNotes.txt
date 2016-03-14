@@ -58,6 +58,8 @@ New Features
 - ArtifactHit/Bin persistence now done in a worker thread instead of async
   service; uses new eci.runInWorkerThread() method, may be added
   ExecutionContext interface in the future
+- Added XML Form text-line.depends-on element so autocomplete fields can
+  get data on the client from other form fields and clear on change
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
