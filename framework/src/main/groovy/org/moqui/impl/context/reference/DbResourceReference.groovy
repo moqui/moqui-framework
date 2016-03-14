@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context.reference
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.impl.StupidUtilities
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory
 
 import javax.sql.rowset.serial.SerialBlob
 
+@CompileStatic
 class DbResourceReference extends BaseResourceReference {
     protected final static Logger logger = LoggerFactory.getLogger(DbResourceReference.class)
     public final static String locationPrefix = "dbresource://"
@@ -149,7 +151,7 @@ class DbResourceReference extends BaseResourceReference {
             dbResourceFile = null
         } else {
             // first make sure the directory exists that this is in
-            List<String> filenameList = getPath().split("/")
+            List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
             if (filenameList) filenameList.remove(filenameList.size()-1)
             String parentResourceId = findDirectoryId(filenameList, true)
 
@@ -167,7 +169,7 @@ class DbResourceReference extends BaseResourceReference {
         if (pathList) {
             for (String filename in pathList) {
                 EntityValue directoryValue = ecf.entity.find("moqui.resource.DbResource")
-                        .condition([parentResourceId:parentResourceId, filename:filename])
+                        .condition("parentResourceId", parentResourceId).condition("filename", filename)
                         .useCache(true).list().getFirst()
                 if (directoryValue == null) {
                     if (create) {
@@ -199,7 +201,7 @@ class DbResourceReference extends BaseResourceReference {
         if (!newLocation.startsWith(locationPrefix))
             throw new IllegalArgumentException("Location [${newLocation}] is not a dbresource location, not moving resource at ${getLocation()}")
 
-        List<String> filenameList = newLocation.substring(locationPrefix.length()).split("/")
+        List<String> filenameList = new ArrayList<>(Arrays.asList(newLocation.substring(locationPrefix.length()).split("/")))
         if (filenameList) {
             String newFilename = filenameList.get(filenameList.size()-1)
             filenameList.remove(filenameList.size()-1)
@@ -237,13 +239,13 @@ class DbResourceReference extends BaseResourceReference {
     EntityValue getDbResource() {
         if (dbResource != null) return dbResource
 
-        List<String> filenameList = getPath().split("/")
+        List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
         String parentResourceId = null
         EntityValue lastValue = null
         for (String filename in filenameList) {
             // NOTE: using .useCache(true).list().getFirst() because .useCache(true).one() tries to use the one cache
             // and that doesn't auto-clear correctly for non-pk queries
-            lastValue = ecf.entity.find("moqui.resource.DbResource").condition([parentResourceId:parentResourceId, filename:filename])
+            lastValue = ecf.entity.find("moqui.resource.DbResource").condition("parentResourceId", parentResourceId).condition("filename", filename)
                     .useCache(true).list().getFirst()
             if (lastValue == null) continue
             parentResourceId = lastValue.resourceId

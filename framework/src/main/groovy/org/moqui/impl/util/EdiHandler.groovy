@@ -15,6 +15,7 @@ package org.moqui.impl.util
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContext
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -146,11 +147,11 @@ class EdiHandler {
                     Iterator compIter = element.iterator()
                     while (compIter.hasNext()) {
                         Object curComp = compIter.next()
-                        if (curComp != null) sb.append(escape(StupidUtilities.toPlainString(curComp)))
+                        if (curComp != null) sb.append(escape(StupidJavaUtilities.toPlainString(curComp)))
                         if (compIter.hasNext()) sb.append(componentDelimiter)
                     }
                 } else {
-                    String elementString = StupidUtilities.toPlainString(element)
+                    String elementString = StupidJavaUtilities.toPlainString(element)
                     if (!noEscape) elementString = escape(elementString)
                     sb.append(elementString)
                     if (elementSize != null) {

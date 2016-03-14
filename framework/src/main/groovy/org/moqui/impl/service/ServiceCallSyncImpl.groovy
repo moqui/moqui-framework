@@ -149,23 +149,12 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             } else {
                 if (this.separateThread) {
                     Thread serviceThread = null
-                    String threadUsername = eci.user.username
-                    String threadTenantId = eci.tenantId
                     Map<String, Object> resultMap = null
                     try {
                         serviceThread = Thread.start('ServiceSeparateThread', {
-                            ExecutionContextImpl threadEci = ecfi.getEci()
-                            threadEci.changeTenant(threadTenantId)
-                            if (threadUsername) threadEci.getUserFacade().internalLoginUser(threadUsername, threadTenantId)
-                            // if authz disabled need to do it here as well since we'll have a different ExecutionContext
-                            boolean threadEnableAuthz = disableAuthz ? !threadEci.getArtifactExecution().disableAuthz() : false
-                            try {
-                                resultMap = callSingle(this.parameters, sd, threadEci)
-                            } finally {
-                                if (threadEnableAuthz) threadEci.getArtifactExecution().enableAuthz()
-                                threadEci.destroy()
-                            }
-                        } )
+                            ecfi.useExecutionContextInThread(eci)
+                            resultMap = callSingle(this.parameters, sd, eci)
+                        })
                     } finally {
                         if (serviceThread != null) serviceThread.join()
                     }
@@ -184,12 +173,12 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         // NOTE: checking this here because service won't generally run after input validation, etc anyway
         if (eci.getMessage().hasError()) {
             logger.warn("Found error(s) before service [${getServiceName()}], so not running service. Errors: ${eci.getMessage().getErrorsString()}")
-            return null
+            return (Map<String, Object>) null
         }
         if (eci.getTransaction().getStatus() == 1 && !requireNewTransaction) {
             logger.warn("Transaction marked for rollback, not running service [${getServiceName()}]. Errors: ${eci.getMessage().getErrorsString()}")
             if (ignorePreviousError) eci.getMessage().popErrors()
-            return null
+            return (Map<String, Object>) null
         }
 
         if (logger.traceEnabled) logger.trace("Calling service [${getServiceName()}] initial input: ${currentParameters}")
@@ -198,9 +187,14 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         long startTimeNanos = System.nanoTime()
 
         // get these before cleaning up the parameters otherwise will be removed
-        String userId = ((Map) currentParameters.authUserAccount)?.userId ?: currentParameters.authUsername
-        String password = ((Map) currentParameters.authUserAccount)?.currentPassword ?: currentParameters.authPassword
-        String tenantId = currentParameters.authTenantId
+        String userId = (String) currentParameters.authUsername
+        String password = (String) currentParameters.authPassword
+        if (currentParameters.authUserAccount != null) {
+            Map authUserAccount = (Map) currentParameters.authUserAccount
+            userId = authUserAccount.userId ?: currentParameters.authUsername
+            password = authUserAccount.currentPassword ?: currentParameters.authPassword
+        }
+        String tenantId = (String) currentParameters.authTenantId
 
         // in-parameter validation
         sfi.runSecaRules(getServiceNameNoHash(), currentParameters, null, "pre-validate")
@@ -213,16 +207,16 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             }
             logger.warn(errMsg.toString())
             if (ignorePreviousError) eci.getMessage().popErrors()
-            return null
+            return (Map<String, Object>) null
         }
 
         boolean userLoggedIn = false
 
         // always try to login the user if parameters are specified
-        if (userId && password) {
+        if (userId != null && password != null && userId.length() > 0 && password.length() > 0) {
             userLoggedIn = eci.getUser().loginUser(userId, password, tenantId)
             // if user was not logged in we should already have an error message in place so just return
-            if (!userLoggedIn) return null
+            if (!userLoggedIn) return (Map<String, Object>) null
         }
         if (sd != null && sd.getAuthenticate() == "true" && !eci.getUser().getUsername() && !eci.getUserFacade().loggedInAnonymous) {
             if (ignorePreviousError) eci.getMessage().popErrors()
@@ -236,9 +230,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         // NOTE: don't require authz if the service def doesn't authenticate
         // NOTE: if no sd then requiresAuthz is false, ie let the authz get handled at the entity level (but still put
         //     the service on the stack)
-        ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE",
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE",
                             ServiceDefinition.getVerbAuthzActionId(verb)).setParameters(currentParameters)
-        eci.getArtifactExecution().push(aei, (sd != null && sd.getAuthenticate() == "true"))
+        eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
 
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
         boolean loggedInAnonymous = false
@@ -295,7 +289,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
         TransactionFacade tf = sfi.getEcfi().getTransactionFacade()
         boolean suspendedTransaction = false
-        Map<String, Object> result = null
+        Map<String, Object> result = (Map<String, Object>) null
         try {
             // if error in auth or for other reasons, return now with no results
             if (eci.getMessage().hasError()) {
@@ -403,10 +397,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
         String parameterValue = semParameter ? currentParameters.get(semParameter) ?: '_NULL_' : null
 
-        Thread sqlThread = Thread.start('ClearSemaphore', {
-            ExecutionContextImpl threadEci = ecfi.getEci()
-            boolean beganTx = ecfi.transactionFacade.begin(null)
-            boolean authzDisabled = threadEci.artifactExecution.disableAuthz()
+        ExecutionContextImpl eci = ecfi.getEci()
+        ecfi.getTransactionFacade().runRequireNew(null, "Error in clear service semaphore", {
+            boolean authzDisabled = eci.artifactExecution.disableAuthz()
             try {
                 if (semParameter) {
                     ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
@@ -416,12 +409,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                             .set('serviceName', getServiceName()).delete()
                 }
             } finally {
-                if (authzDisabled) threadEci.artifactExecution.enableAuthz()
-                ecfi.transactionFacade.commit(beganTx)
-                threadEci.destroy()
+                if (authzDisabled) eci.artifactExecution.enableAuthz()
             }
-        } )
-        sqlThread.join(10000)
+        })
     }
 
     protected void checkAddSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
@@ -438,10 +428,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         long currentTime = System.currentTimeMillis()
         String lockThreadName = Thread.currentThread().getName()
 
-        Thread sqlThread = Thread.start('CheckAddSemaphore', {
-            ExecutionContextImpl threadEci = ecfi.getEci()
-            boolean beganTx = ecfi.transactionFacade.begin(null)
-            boolean authzDisabled = threadEci.artifactExecution.disableAuthz()
+        ExecutionContextImpl eci = ecfi.getEci()
+        ecfi.getTransactionFacade().runRequireNew(null, "Error in check/add service semaphore", {
+            boolean authzDisabled = eci.artifactExecution.disableAuthz()
             try {
                 if (semParameter) {
                     EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
@@ -516,12 +505,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                             .set('lockTime', new Timestamp(currentTime)).create()
                 }
             } finally {
-                if (authzDisabled) threadEci.artifactExecution.enableAuthz()
-                ecfi.transactionFacade.commit(beganTx)
-                threadEci.destroy()
+                if (authzDisabled) eci.artifactExecution.enableAuthz()
             }
-        } )
-        sqlThread.join(10000)
+        })
     }
 
     protected Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ExecutionContextImpl eci) {
@@ -548,7 +534,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 sfi.runSecaRules(getServiceNameNoHash(), currentParameters, null, "pre-service")
 
                 try {
-                    EntityDefinition ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(noun)
+                    EntityDefinition ed = sfi.getEcfi().getEntityFacade(eci.tenantId).getEntityDefinition(noun)
                     switch (verb) {
                         case "create": EntityAutoServiceRunner.createEntity(sfi, ed, currentParameters, result, null); break
                         case "update": EntityAutoServiceRunner.updateEntity(sfi, ed, currentParameters, result, null, null); break

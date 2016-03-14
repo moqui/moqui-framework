@@ -14,12 +14,13 @@
 package org.moqui.impl.context.renderer
 
 import groovy.text.GStringTemplateEngine
-
+import groovy.transform.CompileStatic
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 
+@CompileStatic
 class GStringTemplateRenderer implements TemplateRenderer {
     protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(GStringTemplateRenderer.class)
 

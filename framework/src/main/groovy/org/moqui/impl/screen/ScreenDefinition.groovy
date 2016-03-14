@@ -17,15 +17,17 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ContextStack
 import org.moqui.context.ExecutionContext
+import org.moqui.context.WebFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.context.ResourceReference
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.StupidUtilities
 import org.moqui.entity.EntityFind
-import org.moqui.impl.context.ContextBinding
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -40,6 +42,7 @@ class ScreenDefinition {
     protected final ScreenFacadeImpl sfi
     protected final MNode screenNode
     protected final MNode subscreensNode
+    protected final MNode webSettingsNode
     protected final String location
     protected final String screenName
     protected boolean standalone = false
@@ -60,11 +63,13 @@ class ScreenDefinition {
     protected Map<String, ScreenTree> treeByName = new HashMap()
 
     protected Map<String, ResourceReference> subContentRefByPath = new HashMap()
+    protected Map<String, String> macroTemplateByRenderMode = null
 
     ScreenDefinition(ScreenFacadeImpl sfi, MNode screenNode, String location) {
         this.sfi = sfi
         this.screenNode = screenNode
         this.subscreensNode = screenNode.first("subscreens")
+        this.webSettingsNode = screenNode.first("web-settings")
         this.location = location
 
         long startTime = System.currentTimeMillis()
@@ -93,12 +98,21 @@ class ScreenDefinition {
             TransitionItem ti = new TransitionItem(transitionNode, this)
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
+        // actions.json transition, for all screens
+        transitionByName.put("actions.json", new ActionsTransitionItem(this))
+
         // subscreens
         populateSubscreens()
 
         // tenants-allowed
         if (screenNode.attribute("tenants-allowed")) {
             tenantsAllowed = new HashSet(Arrays.asList((screenNode.attribute("tenants-allowed")).split(",")))
+        }
+        // macro-template - go through entire list and set all found, basically we want the last one if there are more than one
+        List<MNode> macroTemplateList = screenNode.children("macro-template")
+        if (macroTemplateList.size() > 0) {
+            macroTemplateByRenderMode = new HashMap<>()
+            for (MNode mt in macroTemplateList) macroTemplateByRenderMode.put(mt.attribute('type'), mt.attribute('location'))
         }
 
         // prep pre-actions
@@ -109,24 +123,24 @@ class ScreenDefinition {
         rootSection = new ScreenSection(sfi.ecfi, screenNode, location + ".screen")
 
         if (rootSection && rootSection.widgets) {
+            Map<String, ArrayList<MNode>> descMap = rootSection.widgets.widgetsNode.descendants(
+                    new HashSet<String>(['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree']))
             // get all of the other sections by name
-            for (MNode sectionNode in rootSection.widgets.widgetsNode
-                    .depthFirst({ MNode it -> it.name == "section" || it.name == "section-iterate" })) {
-                sectionByName.put(sectionNode.attribute("name"),
-                        new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
-            }
-            for (MNode sectionNode in rootSection.widgets.widgetsNode.depthFirst({ MNode it -> it.name == "section-include" })) {
+            for (MNode sectionNode in descMap.get('section'))
+                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
+            for (MNode sectionNode in descMap.get('section-iterate'))
+                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
+            for (MNode sectionNode in descMap.get('section-include'))
                 pullSectionInclude(sectionNode)
-            }
 
             // get all forms by name
-            for (MNode formNode in rootSection.widgets.widgetsNode
-                    .depthFirst({ MNode it -> it.name == "form-single" || it.name == "form-list" })) {
+            for (MNode formNode in descMap.get('form-single'))
                 formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.${formNode.name.replace('-','_')}_${formNode.attribute("name").replace('-','_')}"))
-            }
+            for (MNode formNode in descMap.get('form-list'))
+                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.${formNode.name.replace('-','_')}_${formNode.attribute("name").replace('-','_')}"))
 
             // get all trees by name
-            for (MNode treeNode in rootSection.widgets.widgetsNode.depthFirst({ MNode it -> it.name == "tree" })) {
+            for (MNode treeNode in descMap.get('tree')) {
                 treeByName.put(treeNode.attribute("name"), new ScreenTree(sfi.ecfi, this, treeNode, "${location}.${treeNode.name.replace('-','_')}_${treeNode.attribute("name").replace('-','_')}"))
             }
         }
@@ -147,22 +161,25 @@ class ScreenDefinition {
         if (includeSection == null) throw new IllegalArgumentException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
         sectionByName.put(sectionNode.attribute("name"), includeSection)
 
+        Map<String, ArrayList<MNode>> descMap = includeSection.sectionNode.descendants(
+                new HashSet<String>(['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree']))
+
         // see if the included section contains any SECTIONS, need to reference those here too!
-        for (MNode inclRefNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "section" || it.name == "section-iterate" })) {
+        for (MNode inclRefNode in descMap.get('section'))
             sectionByName.put(inclRefNode.attribute("name"), includeScreen.getSection(inclRefNode.attribute("name")))
-        }
+        for (MNode inclRefNode in descMap.get('section-iterate'))
+            sectionByName.put(inclRefNode.attribute("name"), includeScreen.getSection(inclRefNode.attribute("name")))
         // recurse for section-include
-        for (MNode inclRefNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "section-include" })) {
+        for (MNode inclRefNode in descMap.get('section-include'))
             pullSectionInclude(inclRefNode)
-        }
 
         // see if the included section contains any FORMS or TREES, need to reference those here too!
-        for (MNode formNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "form-single" || it.name == "form-list" })) {
+        for (MNode formNode in descMap.get('form-single'))
             formByName.put(formNode.attribute("name"), includeScreen.getForm(formNode.attribute("name")))
-        }
-        for (MNode treeNode in includeSection.sectionNode.depthFirst({ MNode it -> it.name == "tree" })) {
+        for (MNode formNode in descMap.get('form-list'))
+            formByName.put(formNode.attribute("name"), includeScreen.getForm(formNode.attribute("name")))
+        for (MNode treeNode in descMap.get('tree'))
             treeByName.put(treeNode.attribute("name"), includeScreen.getTree(treeNode.attribute("name")))
-        }
     }
 
     void populateSubscreens() {
@@ -179,21 +196,14 @@ class ScreenDefinition {
                 if (logger.traceEnabled) logger.trace("Looking for subscreens in directory [${subscreensDirRef}]")
                 for (ResourceReference subscreenRef in subscreensDirRef.directoryEntries) {
                     if (!subscreenRef.isFile() || !subscreenRef.location.endsWith(".xml")) continue
-                    InputStream subscreenIs = subscreenRef.openStream()
-                    try {
-                        MNode subscreenRoot = new MNode(new XmlParser().parse(subscreenIs))
-                        if (subscreenRoot.name == "screen") {
-                            String ssName = subscreenRef.getFileName()
-                            ssName = ssName.substring(0, ssName.lastIndexOf("."))
-                            String cleanLocation = cleanLocationBase + "/" + subscreenRef.getFileName()
-                            SubscreensItem si = new SubscreensItem(ssName, cleanLocation, subscreenRoot, this)
-                            subscreensByName.put(si.name, si)
-                            if (logger.traceEnabled) logger.trace("Added file subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
-                        }
-                    } catch (Exception e) {
-                        throw new BaseException("Error parsing screen at [${subscreenRef.location}]", e)
-                    } finally {
-                        if (subscreenIs != null) subscreenIs.close()
+                    MNode subscreenRoot = MNode.parse(subscreenRef)
+                    if (subscreenRoot.name == "screen") {
+                        String ssName = subscreenRef.getFileName()
+                        ssName = ssName.substring(0, ssName.lastIndexOf("."))
+                        String cleanLocation = cleanLocationBase + "/" + subscreenRef.getFileName()
+                        SubscreensItem si = new SubscreensItem(ssName, cleanLocation, subscreenRoot, this)
+                        subscreensByName.put(si.name, si)
+                        if (logger.traceEnabled) logger.trace("Added file subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
                     }
                 }
             }
@@ -221,24 +231,16 @@ class ScreenDefinition {
         }
     }
 
-    @CompileStatic
     MNode getScreenNode() { return screenNode }
-    @CompileStatic
     MNode getSubscreensNode() { return subscreensNode }
-    @CompileStatic
-    String getDefaultSubscreensItem() { return (String) subscreensNode?.attribute('default-item') }
-    MNode getWebSettingsNode() { return screenNode.first("web-settings") }
-    @CompileStatic
+    String getDefaultSubscreensItem() { return subscreensNode?.attribute('default-item') }
+    MNode getWebSettingsNode() { return webSettingsNode }
     String getLocation() { return location }
-    @CompileStatic
     Set<String> getTenantsAllowed() { return tenantsAllowed }
 
-    @CompileStatic
     String getScreenName() { return screenName }
-    @CompileStatic
     boolean isStandalone() { return standalone }
 
-    @CompileStatic
     String getDefaultMenuName() {
         String menuName = screenNode.attribute("default-menu-title")
         if (!menuName) {
@@ -256,9 +258,13 @@ class ScreenDefinition {
         return sfi.getEcfi().getExecutionContext().getL10n().localize(menuName)
     }
 
-    @CompileStatic
+    /** Get macro template location specific to screen from marco-template elements */
+    String getMacroTemplateLocation(String renderMode) {
+        if (macroTemplateByRenderMode == null) return null
+        return macroTemplateByRenderMode.get(renderMode)
+    }
+
     Map<String, ParameterItem> getParameterMap() { return parameterByName }
-    @CompileStatic
     boolean hasRequiredParameters() {
         boolean hasRequired = false
         for (ParameterItem pi in parameterByName.values()) if (pi.required) { hasRequired = true; break }
@@ -287,6 +293,8 @@ class ScreenDefinition {
         }
         return ti
     }
+
+    Collection<TransitionItem> getAllTransitions() { return transitionByName.values() }
 
     @CompileStatic
     SubscreensItem getSubscreensItem(String name) { return (SubscreensItem) subscreensByName.get(name) }
@@ -423,8 +431,8 @@ class ScreenDefinition {
     void render(ScreenRenderImpl sri, boolean isTargetScreen) {
         // NOTE: don't require authz if the screen doesn't require auth
         String requireAuthentication = screenNode.attribute('require-authentication')
-        ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(location, "AT_XML_SCREEN", "AUTHZA_VIEW")
-        sri.ec.artifactExecution.push(aei, isTargetScreen ? (!requireAuthentication || requireAuthentication == "true") : false)
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        sri.ec.artifactExecutionImpl.pushInternal(aei, isTargetScreen ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
         if (requireAuthentication == "anonymous-all") {
@@ -493,6 +501,7 @@ class ScreenDefinition {
     static class ParameterItem {
         protected String name
         protected Class fromFieldGroovy = null
+        protected String valueString = null
         protected Class valueGroovy = null
         protected boolean required = false
 
@@ -502,8 +511,13 @@ class ScreenDefinition {
 
             if (parameterNode.attribute("from")) fromFieldGroovy = new GroovyClassLoader().parseClass(
                     parameterNode.attribute("from"), StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.from_field"))
-            if (parameterNode.attribute("value") != null) valueGroovy = new GroovyClassLoader().parseClass(
-                    ('"""' + parameterNode.attribute("value") + '"""'), StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.value"))
+
+            valueString = parameterNode.attribute("value")
+            if (valueString != null && valueString.length() == 0) valueString = null
+            if (valueString != null && valueString.contains('${')) {
+                valueGroovy = new GroovyClassLoader().parseClass(('"""' + parameterNode.attribute("value") + '"""'),
+                        StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.value"))
+            }
         }
         @CompileStatic
         String getName() { return name }
@@ -511,12 +525,16 @@ class ScreenDefinition {
         Object getValue(ExecutionContext ec) {
             Object value = null
             if (fromFieldGroovy != null) {
-                value = InvokerHelper.createScript(fromFieldGroovy, new ContextBinding(ec.context)).run()
+                value = InvokerHelper.createScript(fromFieldGroovy, ec.contextBinding).run()
             }
-            if (valueGroovy != null && !value) {
-                value = InvokerHelper.createScript(valueGroovy, new ContextBinding(ec.context)).run()
+            if (value == null) {
+                if (valueGroovy != null) {
+                    value = InvokerHelper.createScript(valueGroovy, ec.contextBinding).run()
+                } else {
+                    value = valueString
+                }
             }
-            if (value == null) value = ec.context.get(name)
+            if (value == null) value = ec.context.getByString(name)
             if (value == null && ec.web) value = ec.web.parameters.get(name)
             return value
         }
@@ -543,6 +561,10 @@ class ScreenDefinition {
         protected boolean beginTransaction = true
         protected boolean readOnly = false
         protected boolean requireSessionToken = true
+
+        protected TransitionItem(ScreenDefinition parentScreen) {
+            this.parentScreen = parentScreen
+        }
 
         TransitionItem(MNode transitionNode, ScreenDefinition parentScreen) {
             this.parentScreen = parentScreen
@@ -647,7 +669,7 @@ class ScreenDefinition {
 
         @CompileStatic
         ResponseItem run(ScreenRenderImpl sri) {
-            ExecutionContext ec = sri.getEc()
+            ExecutionContextImpl ec = sri.getEc()
 
             // NOTE: if parent screen of transition does not require auth, don't require authz
             // NOTE: use the View authz action to leave it open, ie require minimal authz; restrictions are often more
@@ -655,7 +677,7 @@ class ScreenDefinition {
             String requireAuthentication = (String) parentScreen.screenNode.attribute('require-authentication')
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
                                 "AT_XML_SCREEN_TRANS", "AUTHZA_VIEW")
-            ec.getArtifactExecution().push(aei, (!requireAuthentication || requireAuthentication == "true"))
+            ec.getArtifactExecutionImpl().pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
 
             boolean loggedInAnonymous = false
             if (requireAuthentication == "anonymous-all") {
@@ -703,6 +725,91 @@ class ScreenDefinition {
             if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
 
             return ri
+        }
+    }
+
+    static class ActionsTransitionItem extends TransitionItem {
+        ActionsTransitionItem(ScreenDefinition parentScreen) {
+            super(parentScreen)
+            transitionNode = null
+            name = "actions.json"
+            method = "any"
+            location = "${parentScreen.location}.transition_${StupidUtilities.cleanStringForJavaName(name)}"
+            beginTransaction = true
+            readOnly = true
+            requireSessionToken = false
+
+            defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
+        }
+
+        // NOTE: runs pre-actions too, see sri.recursiveRunTransition() call in sri.internalRender()
+        ResponseItem run(ScreenRenderImpl sri) {
+            ExecutionContextImpl ec = sri.getEc()
+            WebFacade wf = ec.getWeb()
+            if (wf == null) throw new BaseException("Cannot run actions.json transition outside of a web request")
+
+            // run actions (if there are any)
+            XmlAction actions = parentScreen.rootSection.actions
+            if (actions != null) {
+                ec.context.put("sri", sri)
+                actions.run(ec)
+                // use entire ec.context to get values from always-actions and pre-actions
+                wf.sendJsonResponse(unwrapMap(ec.context))
+            } else {
+                wf.sendJsonResponse(new HashMap())
+            }
+
+            return defaultResponse
+        }
+    }
+
+    // the Groovy JsonBuilder doesn't handle various Moqui objects very well, ends up trying to access all
+    // properties and results in infinite recursion, so need to unwrap and exclude some
+    static Map<String, Object> unwrapMap(Map<String, Object> sourceMap) {
+        Map<String, Object> targetMap = new HashMap<>()
+        for (Map.Entry<String, Object> entry in sourceMap) {
+            String key = entry.getKey()
+            Object value = entry.getValue()
+            if (value == null) continue
+            // logger.warn("======== actionsResult - ${entry.key} (${entry.value?.getClass()?.getName()}): ${entry.value}")
+            Object unwrapped = unwrap(key, value)
+            if (unwrapped != null) targetMap.put(key, unwrapped)
+        }
+        return targetMap
+    }
+    static Object unwrap(String key, Object value) {
+        if (value == null) return null
+        if (value instanceof CharSequence || value instanceof Number || value instanceof Date) {
+            return value
+        } else if (value instanceof EntityFind || value instanceof ExecutionContextImpl ||
+                value instanceof ScreenRenderImpl || value instanceof ContextStack) {
+            // intentionally skip, commonly left in context by entity-find XML action
+            return null
+        } else if (value instanceof EntityValue) {
+            EntityValue ev = (EntityValue) value
+            return ev.getPlainValueMap(0)
+        } else if (value instanceof EntityList) {
+            EntityList el = (EntityList) value
+            ArrayList<Map> newList = new ArrayList<>()
+            int elSize = el.size()
+            for (int i = 0; i < elSize; i++) {
+                EntityValue ev = (EntityValue) el.get(i)
+                newList.add(ev.getPlainValueMap(0))
+            }
+            return newList
+        } else if (value instanceof Collection) {
+            Collection valCol = (Collection) value
+            ArrayList newList = new ArrayList(valCol.size())
+            for (Object entry in valCol) newList.add(unwrap(key, entry))
+            return newList
+        } else if (value instanceof Map) {
+            Map valMap = (Map) value
+            Map newMap = new HashMap(valMap.size())
+            for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
+            return newMap
+        } else {
+            logger.info("In screen actions.json skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
+            return null
         }
     }
 
@@ -765,7 +872,7 @@ class ScreenDefinition {
             Map ep = new HashMap()
             for (ParameterItem pi in parameterMap.values()) ep.put(pi.getName(), pi.getValue(ec))
             if (parameterMapNameGroovy != null) {
-                Object pm = InvokerHelper.createScript(parameterMapNameGroovy, new ContextBinding(ec.getContext())).run()
+                Object pm = InvokerHelper.createScript(parameterMapNameGroovy, ec.getContextBinding()).run()
                 if (pm && pm instanceof Map) ep.putAll(pm)
             }
             // logger.warn("========== Expanded response map to url [${url}] to: ${ep}; parameterMap=${parameterMap}; parameterMapNameGroovy=[${parameterMapNameGroovy}]")
@@ -846,7 +953,7 @@ class ScreenDefinition {
         @CompileStatic
         boolean getDisable(ExecutionContext ec) {
             if (!disableWhenGroovy) return false
-            return InvokerHelper.createScript(disableWhenGroovy, new ContextBinding(ec.context)).run() as boolean
+            return InvokerHelper.createScript(disableWhenGroovy, ec.contextBinding).run() as boolean
         }
         @CompileStatic
         String getUserGroupId() { return userGroupId }

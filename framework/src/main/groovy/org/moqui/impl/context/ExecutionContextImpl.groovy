@@ -33,22 +33,34 @@ import javax.servlet.http.HttpServletRequest
 import org.apache.camel.CamelContext
 import org.moqui.entity.EntityValue
 
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+
 @CompileStatic
 class ExecutionContextImpl implements ExecutionContext {
     protected final static Logger loggerDirect = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
 
     protected ExecutionContextFactoryImpl ecfi
 
-    protected ContextStack context = new ContextStack()
+    protected final ContextStack context = new ContextStack()
+    protected final ContextBinding contextBinding = new ContextBinding(context)
     protected String activeTenantId = "DEFAULT"
-    protected LinkedList<String> tenantIdStack = null
+    protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
-    protected WebFacade webFacade = null
-    protected UserFacadeImpl userFacade = null
-    protected MessageFacadeImpl messageFacade = null
-    protected ArtifactExecutionFacadeImpl artifactExecutionFacade = null
+    protected WebFacade webFacade = (WebFacade) null
+    protected WebFacadeImpl webFacadeImpl = (WebFacadeImpl) null
+    protected final UserFacadeImpl userFacade
+    protected final MessageFacadeImpl messageFacade
+    protected final ArtifactExecutionFacadeImpl artifactExecutionFacade
+    protected final L10nFacadeImpl l10nFacade
 
     protected Boolean skipStats = null
+
+    // Caches from EC level facades that are per-tenant so managed here
+    protected CacheImpl l10nMessageCache
+    // NOTE: there is no code to clean out old entries in tarpitHitCache, using the cache idle expire time for that
+    protected CacheImpl tarpitHitCache
+
 
     ExecutionContextImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -57,16 +69,32 @@ class ExecutionContextImpl implements ExecutionContext {
         // put reference to this in the context root
         getContextRoot().put("ec", this)
 
+        userFacade = new UserFacadeImpl(this)
+        messageFacade = new MessageFacadeImpl()
+        artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this)
+        l10nFacade = new L10nFacadeImpl(this)
+
+        initCaches()
+
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl initialized")
     }
 
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
+
+    void initCaches() {
+        tarpitHitCache = ecfi.getCacheFacade().getCacheImpl("artifact.tarpit.hits", activeTenantId)
+        l10nMessageCache = ecfi.getCacheFacade().getCacheImpl("l10n.message", activeTenantId)
+    }
+    CacheImpl getTarpitHitCache() { return tarpitHitCache }
+    CacheImpl getL10nMessageCache() { return l10nMessageCache }
 
     @Override
     ContextStack getContext() { return context }
 
     @Override
     Map<String, Object> getContextRoot() { return context.getRootMap() }
+
+    ContextBinding getContextBinding() { return contextBinding }
 
     @Override
     String getTenantId() { return activeTenantId }
@@ -76,33 +104,26 @@ class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    WebFacade getWeb() { webFacade }
-    WebFacadeImpl getWebImpl() {
-        if (webFacade instanceof WebFacadeImpl) {
-            return (WebFacadeImpl) webFacade
-        } else {
-            return null
-        }
-    }
+    WebFacade getWeb() { return webFacade }
+    WebFacadeImpl getWebImpl() { return webFacadeImpl }
 
     @Override
-    UserFacade getUser() { return getUserFacade() }
-    UserFacadeImpl getUserFacade() { if (userFacade != null) return userFacade else return (userFacade = new UserFacadeImpl(this)) }
+    UserFacade getUser() { return userFacade }
+    UserFacadeImpl getUserFacade() { return userFacade }
 
     @Override
-    MessageFacade getMessage() { if (messageFacade != null) return messageFacade else return (messageFacade = new MessageFacadeImpl()) }
+    MessageFacade getMessage() { return messageFacade }
 
     @Override
-    ArtifactExecutionFacade getArtifactExecution() { return getArtifactExecutionImpl() }
-    ArtifactExecutionFacadeImpl getArtifactExecutionImpl() {
-        if (artifactExecutionFacade != null) return artifactExecutionFacade
-        else return (artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this))
-    }
+    ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade }
+    ArtifactExecutionFacadeImpl getArtifactExecutionImpl() { return artifactExecutionFacade }
+
+    @Override
+    L10nFacade getL10n() { return l10nFacade }
+    L10nFacadeImpl getL10nFacade() { return l10nFacade }
+
 
     // ==== More Permanent Objects (get from the factory instead of locally) ===
-
-    @Override
-    L10nFacade getL10n() { ecfi.getL10nFacade() }
 
     @Override
     ResourceFacade getResource() { ecfi.getResourceFacade() }
@@ -178,11 +199,12 @@ class ExecutionContextImpl implements ExecutionContext {
     void initWebFacade(String webappMoquiName, HttpServletRequest request, HttpServletResponse response) {
         WebFacadeImpl wfi = new WebFacadeImpl(webappMoquiName, request, response, this)
         webFacade = wfi
+        webFacadeImpl = wfi
 
         String sessionTenantId = request.session.getAttribute("moqui.tenantId")
         if (!sessionTenantId) {
             EntityValue tenantHostDefault = ecfi.getEntityFacade("DEFAULT").find("moqui.tenant.TenantHostDefault")
-                    .condition("hostName", request.getServerName()).useCache(true).disableAuthz().one()
+                    .condition("hostName", wfi.getHostName(false)).useCache(true).disableAuthz().one()
             if (tenantHostDefault) {
                 sessionTenantId = tenantHostDefault.tenantId
                 request.session.setAttribute("moqui.tenantId", sessionTenantId)
@@ -208,6 +230,7 @@ class ExecutionContextImpl implements ExecutionContext {
     /** Meant to be used to set a test stub that implements the WebFacade interface */
     void setWebFacade(WebFacade wf) {
         webFacade = wf
+        if (wf instanceof WebFacadeImpl) webFacadeImpl = (WebFacadeImpl) wf
         context.putAll(webFacade.requestParameters)
     }
 
@@ -219,9 +242,10 @@ class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     boolean changeTenant(String tenantId) {
-        if (tenantId == activeTenantId) return false
+        String fromTenantId = activeTenantId
+        if (tenantId == fromTenantId) return false
 
-        logger.info("Changing to tenant ${tenantId} (from tenant ${activeTenantId})")
+        logger.info("Changing to tenant ${tenantId} (from tenant ${fromTenantId})")
         EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
         EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(true).one()
         if (tenant == null) throw new BaseException("Tenant not found with ID ${tenantId}")
@@ -234,34 +258,79 @@ class ExecutionContextImpl implements ExecutionContext {
         if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
             throw new BaseException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
 
-        // logout the current user, won't be valid in other tenant
-        if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
-
         activeTenantId = tenantId
         if (tenantIdStack == null) {
             tenantIdStack = new LinkedList<>()
-            tenantIdStack.addFirst(tenantId)
+            tenantIdStack.addFirst(fromTenantId)
         } else {
-            if (tenantIdStack.size() > 0 && tenantIdStack.getFirst() != tenantId) tenantIdStack.addFirst(tenantId)
+            if (tenantIdStack.size() == 0 || tenantIdStack.getFirst() != tenantId) tenantIdStack.addFirst(fromTenantId)
         }
         if (webFacade != null) webFacade.session.setAttribute("moqui.tenantId", tenantId)
+
+        // instead of logout the current user (won't be valid in other tenant) push empty user onto user stack
+        // if (userFacade != null && !userFacade.getLoggedInAnonymous()) userFacade.logoutUser()
+        if (userFacade != null) userFacade.pushTenant(tenantId)
+
+        // logger.info("Tenant now ${activeTenantId}, username ${userFacade?.username}")
+
+        // re-init caches for new tenantId
+        initCaches()
+
         return true
     }
     @Override
     boolean popTenant() {
         String lastTenantId = tenantIdStack ? tenantIdStack.removeFirst() : null
         if (lastTenantId) {
+            // logger.info("Pop tenant, last was ${lastTenantId}")
+            if (userFacade != null) userFacade.popTenant(activeTenantId)
             return changeTenant(lastTenantId)
         } else {
             return false
         }
     }
 
+    static class ThreadPoolRunnable implements Runnable {
+        ExecutionContextFactoryImpl ecfi
+        String threadTenantId
+        String threadUsername
+        Closure closure
+
+        ThreadPoolRunnable(ExecutionContextImpl eci, Closure closure) {
+            ecfi = eci.ecfi
+            threadTenantId = eci.tenantId
+            threadUsername = eci.user.username
+            this.closure = closure
+        }
+
+        @Override
+        void run() {
+            ExecutionContextImpl threadEci = (ExecutionContextImpl) null
+            try {
+                threadEci = ecfi.getEci()
+                threadEci.changeTenant(threadTenantId)
+                if (threadUsername != null && threadUsername.length() > 0)
+                    threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
+                closure.call()
+            } catch (Throwable t) {
+                loggerDirect.error("Error in EC thread pool runner", t)
+            } finally {
+                if (threadEci != null) threadEci.destroy()
+            }
+        }
+    }
+
+    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
+     * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+    void runInWorkerThread(Closure closure) {
+        ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure)
+        ecfi.workerPool.execute(runnable)
+    }
+
     @Override
     void destroy() {
         // if webFacade exists this is the end of a request, so trigger after-request actions
-        WebFacadeImpl wfi = getWebImpl()
-        if (wfi != null) wfi.runAfterRequestActions()
+        if (webFacadeImpl != null) webFacadeImpl.runAfterRequestActions()
 
         // make sure there are no transactions open, if any commit them all now
         ecfi.transactionFacade.destroyAllInThread()

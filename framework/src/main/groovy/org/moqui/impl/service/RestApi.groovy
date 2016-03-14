@@ -15,14 +15,15 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
-import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
 import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -47,7 +48,7 @@ class RestApi {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".rest.xml")) continue
-                    MNode rootNode = new MNode(new XmlParser().parseText(rr.getText()))
+                    MNode rootNode = MNode.parse(rr)
                     ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
                     rootResourceMap.put(rn.name, rn)
                     logger.info("Loaded REST API from ${rr.getLocation()}; paths: ${rn.childPaths}, methods: ${rn.childMethods}")
@@ -59,7 +60,7 @@ class RestApi {
         }
     }
 
-    RestResult run(List<String> pathList, ExecutionContext ec) {
+    RestResult run(List<String> pathList, ExecutionContextImpl ec) {
         if (!pathList) throw new ResourceNotFoundException("Cannot run REST service with no path")
         String firstPath = pathList[0]
         ResourceNode resourceNode = rootResourceMap.get(firstPath)
@@ -345,7 +346,7 @@ class RestApi {
             List<Map> parameters = []
             ArrayList<String> remainingPkFields = new ArrayList<String>(ed.getPkFieldNames())
             for (String pathParm in pathNode.pathParameters) {
-                EntityDefinition.FieldInfo fi = ed.getFieldInfo(pathParm)
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(pathParm)
                 if (fi == null) throw new IllegalArgumentException("No field found for path parameter ${pathParm} in entity ${ed.getFullEntityName()}")
                 parameters.add([name:pathParm, in:'path', required:true, type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 description:fi.fieldNode.first("description")?.text])
@@ -362,7 +363,7 @@ class RestApi {
             if (operation  == 'one') {
                 if (remainingPkFields) {
                     for (String fieldName in remainingPkFields) {
-                        EntityDefinition.FieldInfo fi = ed.getFieldInfo(fieldName)
+                        EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
                         Map<String, Object> fieldMap = [name:fieldName, in:'query', required:false,
                                 type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
@@ -377,7 +378,7 @@ class RestApi {
                 parameters.addAll(EntityDefinition.swaggerPaginationParameters)
                 for (String fieldName in ed.getAllFieldNames(false)) {
                     if (fieldName in pathNode.pathParameters) continue
-                    EntityDefinition.FieldInfo fi = ed.getFieldInfo(fieldName)
+                    EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
                     parameters.add([name:fieldName, in:'query', required:false,
                                         type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                         format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
@@ -431,14 +432,14 @@ class RestApi {
             }
             Map pkQpMap = [:]
             for (int i = 0; i < remainingPkFields.size(); i++) {
-                EntityDefinition.FieldInfo fi = ed.getFieldInfo(remainingPkFields.get(i))
-                pkQpMap.put(fi.getName(), ed.getRamlFieldMap(fi))
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(remainingPkFields.get(i))
+                pkQpMap.put(fi.name, ed.getRamlFieldMap(fi))
             }
             Map allQpMap = [:]
             ArrayList<String> allFields = ed.getAllFieldNames(true)
             for (int i = 0; i < allFields.size(); i++) {
-                EntityDefinition.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
-                allQpMap.put(fi.getName(), ed.getRamlFieldMap(fi))
+                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+                allQpMap.put(fi.name, ed.getRamlFieldMap(fi))
             }
 
             boolean addEntityDef = true
@@ -548,16 +549,16 @@ class RestApi {
             return mh.run(pathList, ec)
         }
 
-        RestResult visitChildOrRun(List<String> pathList, int pathIndex, ExecutionContext ec) {
+        RestResult visitChildOrRun(List<String> pathList, int pathIndex, ExecutionContextImpl ec) {
             // more in path? visit the next, otherwise run by request method
             int nextPathIndex = pathIndex + 1
             boolean moreInPath = pathList.size() > nextPathIndex
 
             // push onto artifact stack, check authz
             String curPath = getFullPathName([])
-            ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(curPath, "AT_REST_PATH", getActionFromMethod(ec))
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, "AT_REST_PATH", getActionFromMethod(ec))
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
-            ec.getArtifactExecution().push(aei, !moreInPath)
+            ec.getArtifactExecutionImpl().pushInternal(aei, !moreInPath)
 
             try {
                 if (moreInPath) {
@@ -639,13 +640,13 @@ class RestApi {
             if (idNode != null) idNode.toString(level + 1, sb)
         }
 
-        abstract Object visit(List<String> pathList, int pathIndex, ExecutionContext ec)
+        abstract Object visit(List<String> pathList, int pathIndex, ExecutionContextImpl ec)
     }
     static class ResourceNode extends PathNode {
         ResourceNode(MNode node, PathNode parent, ExecutionContextFactoryImpl ecfi) {
             super(node, parent, ecfi, false)
         }
-        RestResult visit(List<String> pathList, int pathIndex, ExecutionContext ec) {
+        RestResult visit(List<String> pathList, int pathIndex, ExecutionContextImpl ec) {
             // logger.info("Visit resource ${name}")
             // visit child or run here
             visitChildOrRun(pathList, pathIndex, ec)
@@ -667,7 +668,7 @@ class RestApi {
         IdNode(MNode node, PathNode parent, ExecutionContextFactoryImpl ecfi) {
             super(node, parent, ecfi, true)
         }
-        RestResult visit(List<String> pathList, int pathIndex, ExecutionContext ec) {
+        RestResult visit(List<String> pathList, int pathIndex, ExecutionContextImpl ec) {
             // logger.info("Visit id ${name}")
             // set ID value in context
             ec.context.put(name, pathList[pathIndex])

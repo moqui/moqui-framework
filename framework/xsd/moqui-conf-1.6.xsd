@@ -42,13 +42,18 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="enable-elasticsearch" type="boolean" default="true"/>
             <xs:attribute name="enable-camel" type="boolean" default="true"/>
             <xs:attribute name="run-jackrabbit" type="boolean" default="false"/>
+            <xs:attribute name="empty-db-load" type="xs:string" default="seed"><xs:annotation><xs:documentation>
+                Comma-separated list of data file types to load if database is empty (if there are no records in the
+                table for moqui.basic.Enumeration). Empty or 'none' means load nothing, use 'all' to load all found
+                data files regardless of type. This is for the DEFAULT tenant only.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 
     <!-- ===================== Cache Conf Root ===================== -->
     <xs:element name="cache-list">
         <xs:complexType>
-            <xs:sequence><xs:element maxOccurs="unbounded" ref="cache"/></xs:sequence>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="cache"/></xs:sequence>
             <xs:attribute name="warm-on-start" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
@@ -56,11 +61,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="expire-time-idle" type="xs:nonNegativeInteger" use="optional">
-                <xs:annotation><xs:documentation>Idle expire time in seconds.</xs:documentation></xs:annotation>
-            </xs:attribute>
+                <xs:annotation><xs:documentation>Idle expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="expire-time-live" type="xs:nonNegativeInteger" use="optional">
-                <xs:annotation><xs:documentation>Live expire time in seconds.</xs:documentation></xs:annotation>
-            </xs:attribute>
+                <xs:annotation><xs:documentation>Live expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="max-elements" type="xs:nonNegativeInteger" use="optional"/>
             <xs:attribute name="eviction-strategy" use="optional">
                 <xs:simpleType>
@@ -71,6 +74,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="tenants-share" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 
@@ -298,6 +302,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="use-transaction-cache" default="true" type="boolean"/>
+            <xs:attribute name="use-connection-stash" default="true" type="boolean"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="transaction-jndi">
@@ -374,6 +379,8 @@ along with this software (see the LICENSE.md file). If not, see
                     xml, and csv.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="mime-type" type="xs:string" use="optional"/>
+            <xs:attribute name="always-standalone" type="boolean" default="false"/>
+            <xs:attribute name="skip-actions" type="boolean" default="false"/>
             <xs:attribute name="macro-template-location" type="xs:string" use="required"/>
         </xs:complexType>
     </xs:element>
@@ -617,6 +624,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="Serializable"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="use-tm-join" default="true" type="boolean">
+                <xs:annotation><xs:documentation>For Bitronix set this to false to not use tm join (for Atomikos this is
+                set in the serial_jta_transactions property in jta.properties)</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="default-jdbc-driver" type="xs:string"/>
             <xs:attribute name="default-xa-ds-class" type="xs:string"/>
             <xs:attribute name="default-test-query" type="xs:string"/>

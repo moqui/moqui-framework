@@ -36,7 +36,7 @@ class ResourceFacadeTests extends Specification {
     def "get Location ResourceReference (#location)"() {
         expect:
         ResourceReference rr = ec.resource.getLocationReference(location)
-        // the resolved location is unpredictable, so don't test for that: rr.location == location
+        // the resolved location is different for some of these tests, so don't test for that: rr.location == location
         rr.uri.scheme == scheme
         rr.uri.host == host
         rr.fileName == fileName
@@ -53,7 +53,7 @@ class ResourceFacadeTests extends Specification {
         "classpath://jta.properties" | "file" | null | "jta.properties" | "text/x-java-properties" | true | true | false
         "classpath://shiro.ini" | "file" | null | "shiro.ini" | "text/plain" | true | true | false
         "template/screen-macro/ScreenHtmlMacros.ftl" | "file" | null | "ScreenHtmlMacros.ftl" | "text/x-freemarker" | true | true | false
-        "template/screen-macro" | "file" | null | "screen-macro" | null | true | false | true
+        "template/screen-macro" | "file" | null | "screen-macro" | "application/octet-stream" | true | false | true
     }
 
     @Unroll

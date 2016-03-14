@@ -59,12 +59,12 @@ class FieldToFieldCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean mapMatches(Map<String, ?> map) {
+    boolean mapMatches(Map<String, Object> map) {
         return EntityConditionFactoryImpl.compareByOperator(map.get(field.getFieldName()), operator, map.get(toField.getFieldName()))
     }
 
     @Override
-    boolean populateMap(Map<String, ?> map) { return false }
+    boolean populateMap(Map<String, Object> map) { return false }
 
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName

@@ -19,6 +19,8 @@ import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
 import org.moqui.entity.EntityConditionFactory
 import org.moqui.entity.EntityException
+import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.StupidJavaUtilities.KeyValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.entity.condition.*
 import org.moqui.util.MNode
@@ -39,6 +41,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     @Override
     EntityCondition makeCondition(EntityCondition lhs, JoinOperator operator, EntityCondition rhs) {
+        return makeConditionImpl((EntityConditionImplBase) lhs, operator, (EntityConditionImplBase) rhs)
+    }
+    EntityConditionImplBase makeConditionImpl(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
         if (lhs != null) {
             if (rhs != null) {
                 // we have both lhs and rhs
@@ -156,24 +161,18 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         }
     }
 
-    @CompileStatic
-    static class KeyValue {
-        String key
-        Object value
-        KeyValue(String key, Object value) { this.key = key; this.value = value }
-    }
     @Override
     EntityCondition makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator, JoinOperator joinOperator) {
         return makeCondition(fieldMap, comparisonOperator, joinOperator, null, null, false)
     }
     EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
             JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
-        if (fieldMap == null || fieldMap.size() == 0) return null
+        if (fieldMap == null || fieldMap.size() == 0) return (EntityConditionImplBase) null
 
         JoinOperator joinOp = joinOperator != null ? joinOperator : JoinOperator.AND
         ComparisonOperator compOp = comparisonOperator != null ? comparisonOperator : ComparisonOperator.EQUALS
-        ArrayList<EntityConditionImplBase> condList = null
-        ArrayList<KeyValue> fieldList = new ArrayList()
+        ArrayList<EntityConditionImplBase> condList = new ArrayList<EntityConditionImplBase>()
+        ArrayList<KeyValue> fieldList = new ArrayList<KeyValue>()
 
         for (Map.Entry<String, Object> entry in fieldMap.entrySet()) {
             String key = entry.getKey()
@@ -189,7 +188,6 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                     // if there is an _list treat each as a condition Map, ie call back into this method
                     if (value instanceof List) {
                         List valueList = (List) value
-                        if (condList == null) condList = new ArrayList<EntityConditionImplBase>()
                         for (Object listEntry in valueList) {
                             if (listEntry instanceof Map) {
                                 EntityConditionImplBase entryCond = makeCondition((Map) listEntry, ComparisonOperator.EQUALS,
@@ -217,21 +215,20 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
         // has fields? make conditions for them
         if (fieldList.size() > 0) {
-            if (condList == null) condList = new ArrayList<EntityConditionImplBase>()
             int fieldListSize = fieldList.size()
             for (int i = 0; i < fieldListSize; i++) {
-                KeyValue fieldValue = fieldList.get(i)
+                KeyValue fieldValue = (KeyValue) fieldList.get(i)
                 String fieldName = fieldValue.key
                 Object value = fieldValue.value
 
                 if (memberFieldAliases != null && memberFieldAliases.size() > 0) {
                     // we have a view entity, more complex
-                    ArrayList<MNode> aliases = memberFieldAliases.get(fieldName)
+                    ArrayList<MNode> aliases = (ArrayList<MNode>) memberFieldAliases.get(fieldName)
                     if (aliases == null || aliases.size() == 0)
                         throw new EntityException("Tried to filter on field ${fieldName} which is not included in view-entity ${findEd.fullEntityName}")
 
                     for (int k = 0; k < aliases.size(); k++) {
-                        MNode aliasNode = aliases.get(k)
+                        MNode aliasNode = (MNode) aliases.get(k)
                         // could be same as field name, but not if aliased with different name
                         String aliasName = aliasNode.attribute("name")
                         condList.add(new FieldValueCondition(this, new ConditionField(aliasName), compOp, value))
@@ -243,10 +240,10 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
         }
 
-        if (condList == null || condList.size() == 0) return null
+        if (condList.size() == 0) return (EntityConditionImplBase) null
 
         if (condList.size() == 1) {
-            return condList.get(0)
+            return (EntityConditionImplBase) condList.get(0)
         } else {
             return new ListCondition(this, condList, joinOp)
         }
@@ -314,7 +311,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             } else {
                 condValue = fromObj
             }
-            if (ignoreIfEmpty && StupidUtilities.isEmpty(condValue)) return null
+            if (ignoreIfEmpty && StupidJavaUtilities.isEmpty(condValue)) return null
 
             EntityCondition mainEc = makeCondition(fieldName, getComparisonOperator(operator), condValue)
             if (ignoreCase) mainEc.ignoreCase()

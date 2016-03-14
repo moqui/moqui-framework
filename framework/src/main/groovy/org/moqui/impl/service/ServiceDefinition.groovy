@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.apache.commons.validator.routines.CreditCardValidator
 import org.apache.commons.validator.routines.EmailValidator
 import org.apache.commons.validator.routines.UrlValidator
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
@@ -59,7 +60,7 @@ class ServiceDefinition {
 
     ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
         this.sfi = sfi
-        this.serviceNode = sn
+        this.serviceNode = sn.deepCopy(null)
         this.path = path
         this.verb = serviceNode.attribute("verb")
         this.noun = serviceNode.attribute("noun")
@@ -281,16 +282,18 @@ class ServiceDefinition {
     @CompileStatic
     XmlAction getXmlAction() { return xmlAction }
 
-    MNode getInParameter(String name) { return inParametersNode.children("parameter").find({ it.attribute("name") == name }) }
+    MNode getInParameter(String name) { return inParametersNode != null ? inParametersNode.children("parameter").find({ it.attribute("name") == name }) : null }
     Set<String> getInParameterNames() {
         Set<String> inNames = new LinkedHashSet()
+        if (inParametersNode == null) return inNames
         for (MNode parameter in inParametersNode.children("parameter")) inNames.add(parameter.attribute("name"))
         return inNames
     }
 
-    MNode getOutParameter(String name) { return outParametersNode.children("parameter").find({ it.attribute("name" )== name }) }
+    MNode getOutParameter(String name) { return outParametersNode != null ? outParametersNode.children("parameter").find({ it.attribute("name" )== name }) : null }
     Set<String> getOutParameterNames() {
         Set<String> outNames = new LinkedHashSet()
+        if (outParametersNode == null) return outNames
         for (MNode parameter in outParametersNode.children("parameter")) outNames.add(parameter.attribute("name"))
         return outNames
     }
@@ -305,8 +308,7 @@ class ServiceDefinition {
     protected void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map parameters,
                                      MNode parametersParentNode, boolean validate, ExecutionContextImpl eci) {
         Map<String, MNode> parameterNodeMap = new HashMap<String, MNode>()
-        List<MNode> parameterNodeList = parametersParentNode.children("parameter")
-        for (MNode parameter in parameterNodeList) {
+        if (parametersParentNode != null) for (MNode parameter in parametersParentNode.children("parameter")) {
             String name = (String) parameter.attribute('name')
             parameterNodeMap.put(name, parameter)
         }
@@ -353,7 +355,7 @@ class ServiceDefinition {
 
             // do this after the convert so defaults are in place
             // check if required and empty - use groovy non-empty rules for String only
-            if (StupidUtilities.isEmpty(parameterValue)) {
+            if (StupidJavaUtilities.isEmpty(parameterValue)) {
                 if (validate && parameterNode.attribute('required') == "true") {
                     eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
                 }
@@ -477,21 +479,21 @@ class ServiceDefinition {
     protected Object checkConvertType(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
                                       Map<String, Object> rootParameters, ExecutionContextImpl eci) {
         // set the default if applicable
-        boolean parameterIsEmpty = StupidUtilities.isEmpty(parameterValue)
+        boolean parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
         String defaultStr = parameterNode.attribute('default')
         if (parameterIsEmpty && defaultStr) {
-            ((ContextStack) eci.context).push(rootParameters)
+            eci.context.push(rootParameters)
             parameterValue = eci.getResource().expression(defaultStr, "${this.location}_${parameterName}_default")
             // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default [${parameterNode.'@default'}] and context: ${eci.context}")
-            ((ContextStack) eci.context).pop()
+            eci.context.pop()
         }
         // set the default-value if applicable
         String defaultValueStr = parameterNode.attribute('default-value')
         if (parameterIsEmpty && defaultValueStr) {
-            ((ContextStack) eci.context).push(rootParameters)
+            eci.context.push(rootParameters)
             parameterValue = eci.getResource().expand(defaultValueStr, "${this.location}_${parameterName}_default_value")
             // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default-value [${parameterNode.'@default-value'}] and context: ${eci.context}")
-            ((ContextStack) eci.context).pop()
+            eci.context.pop()
         }
 
         // if null value, don't try to convert
@@ -611,7 +613,7 @@ class ServiceDefinition {
         // run through validations under parameter node
 
         // no validation done if value is empty, that should be checked with the required attribute only
-        if (StupidUtilities.isEmpty(pv)) return true
+        if (StupidJavaUtilities.isEmpty(pv)) return true
 
         boolean allPass = true
         for (MNode child in vpNode.children) {
@@ -1000,7 +1002,7 @@ class ServiceDefinition {
         Map<String, Object> propMap = [type:jsonType] as Map<String, Object>
         String format = RestApi.getJsonFormat(objectType)
         if (format) propMap.put("format", format)
-        String description = parmNode.first("description").text
+        String description = parmNode.first("description")?.text
         if (description) propMap.put("description", description)
         if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))
         if (parmNode.attribute("default")) propMap.put("default", "{${parmNode.attribute("default")}}".toString())
@@ -1036,7 +1038,7 @@ class ServiceDefinition {
         if (entityName && fieldName) {
             EntityDefinition ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(entityName)
             if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${getServiceName()}")
-            EntityDefinition.FieldInfo fi = ed.getFieldInfo(fieldName)
+            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
             if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${getServiceName()}")
             List enumList = ed.getFieldEnums(fi)
             if (enumList) propMap.put('enum', enumList)
@@ -1068,7 +1070,7 @@ class ServiceDefinition {
         String objectType = parmNode?.attribute('type')
         String ramlType = RestApi.getRamlType(objectType)
         Map<String, Object> propMap = [type:ramlType] as Map<String, Object>
-        String description = parmNode.first("description").text
+        String description = parmNode.first("description")?.text
         if (description) propMap.put("description", description)
         if (parmNode.attribute("required") == "true") propMap.put("required", true)
         if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))

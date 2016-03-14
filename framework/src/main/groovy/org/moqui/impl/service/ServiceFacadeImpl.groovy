@@ -62,7 +62,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final Cache serviceLocationCache
 
-    protected final Map<String, List<ServiceEcaRule>> secaRulesByServiceName = new HashMap()
+    protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
     protected RestApi restApi
 
@@ -154,7 +154,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     @CompileStatic
     boolean isEntityAutoPattern(String path, String verb, String noun) {
         // if no path, verb is create|update|delete and noun is a valid entity name, do an implicit entity-auto
-        return !path && EntityAutoServiceRunner.verbSet.contains(verb) && getEcfi().getEntityFacade().isEntityDefined(noun)
+        return !path && EntityAutoServiceRunner.verbSet.contains(verb) && getEcfi().getEntityFacade("DEFAULT").isEntityDefined(noun)
     }
 
 
@@ -181,7 +181,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     @CompileStatic
-    protected ServiceDefinition makeServiceDefinition(String origServiceName, String path, String verb, String noun) {
+    protected synchronized ServiceDefinition makeServiceDefinition(String origServiceName, String path, String verb, String noun) {
         String cacheKey = makeCacheKey(path, verb, noun)
         if (serviceLocationCache.containsKey(cacheKey)) {
             // NOTE: this could be null if it's a known non-existing service
@@ -364,8 +364,8 @@ class ServiceFacadeImpl implements ServiceFacade {
             // remove the hash if there is one to more consistently match the service name
             serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
             List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-            if (!lst) {
-                lst = new LinkedList()
+            if (lst == null) {
+                lst = new ArrayList<>()
                 secaRulesByServiceName.put(serviceName, lst)
             }
             lst.add(ser)
@@ -379,10 +379,13 @@ class ServiceFacadeImpl implements ServiceFacade {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
         // remove the hash if there is one to more consistently match the service name
         // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-        if (lst) {
+        ArrayList<ServiceEcaRule> lst = (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
+        if (lst != null && lst.size() > 0) {
             ExecutionContext ec = ecfi.getExecutionContext()
-            for (ServiceEcaRule ser in lst) ser.runIfMatches(serviceName, parameters, results, when, ec)
+            for (int i = 0; i < lst.size(); i++) {
+                ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
+                ser.runIfMatches(serviceName, parameters, results, when, ec)
+            }
         }
     }
 
@@ -391,9 +394,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
         // remove the hash if there is one to more consistently match the service name
         // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-        if (lst) for (ServiceEcaRule ser in lst)
+        ArrayList<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
+        if (lst != null && lst.size() > 0) for (ServiceEcaRule ser in lst) {
             if (ser.when.startsWith("tx-")) ser.registerTx(serviceName, parameters, results, ecfi)
+        }
     }
 
     int getSecaRuleCount() {
@@ -422,23 +426,14 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
     protected void loadEmecaRulesFile(ResourceReference rr) {
-        InputStream is = null
-        try {
-            is = rr.openStream()
-            MNode emecasRoot = new MNode(new XmlParser().parse(is))
-            int numLoaded = 0
-            for (MNode emecaNode in emecasRoot.children("emeca")) {
-                EmailEcaRule eer = new EmailEcaRule(ecfi, emecaNode, rr.location)
-                emecaRuleList.add(eer)
-                numLoaded++
-            }
-            if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Email ECA rules from [${rr.location}]")
-        } catch (IOException e) {
-            // probably because there is no resource at that location, so do nothing
-            if (logger.traceEnabled) logger.trace("Error loading Email ECA rules from [${rr.location}]", e)
-        } finally {
-            if (is != null) is.close()
+        MNode emecasRoot = MNode.parse(rr)
+        int numLoaded = 0
+        for (MNode emecaNode in emecasRoot.children("emeca")) {
+            EmailEcaRule eer = new EmailEcaRule(ecfi, emecaNode, rr.location)
+            emecaRuleList.add(eer)
+            numLoaded++
         }
+        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Email ECA rules from [${rr.location}]")
     }
 
     @CompileStatic

@@ -18,7 +18,7 @@ import com.orientechnologies.orient.core.record.impl.ODocument
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery
 import groovy.transform.CompileStatic
 import org.moqui.impl.entity.condition.EntityConditionImplBase
-import org.moqui.impl.entity.EntityDefinition.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 import org.moqui.entity.*
 import org.moqui.impl.entity.*

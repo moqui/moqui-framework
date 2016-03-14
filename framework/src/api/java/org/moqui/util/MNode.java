@@ -21,59 +21,94 @@ import org.moqui.BaseException;
 import org.moqui.context.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.Locator;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import javax.xml.parsers.SAXParserFactory;
+import java.io.*;
 import java.util.*;
 
 /** An alternative to groovy.util.Node with methods more type safe and generally useful in Moqui. */
 public class MNode {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
 
+    final static Map<String, MNode> parsedNodeCache = new HashMap<>();
+
+    /* ========== Factories (XML Parsing) ========== */
+
     public static MNode parse(ResourceReference rr) throws BaseException {
         if (rr == null || !rr.getExists()) return null;
-        return parse(rr.getLocation(), rr.openStream());
+        String location = rr.getLocation();
+        MNode cached = parsedNodeCache.get(location);
+        if (cached != null && cached.lastModified >= rr.getLastModified()) return cached;
+
+        MNode node = parse(location, rr.openStream());
+        node.lastModified = rr.getLastModified();
+        if (node.lastModified > 0) parsedNodeCache.put(location, node);
+        return node;
     }
+    /** Parse from an InputStream and close the stream */
     public static MNode parse(String location, InputStream is) throws BaseException {
         if (is == null) return null;
         try {
-            Node node = new XmlParser().parse(is);
-            return new MNode(node);
-        } catch (Exception e) {
-            throw new BaseException("Error parsing XML stream from " + location, e);
+            return parse(location, new InputSource(is));
         } finally {
-            try {
-                is.close();
-            } catch (IOException e) {
-                throw new BaseException("Error closing XML stream from " + location, e);
-            }
+            try { is.close(); }
+            catch (IOException e) { throw new BaseException("Error closing XML stream from " + location, e); }
         }
     }
     public static MNode parse(File fl) throws BaseException {
         if (fl == null || !fl.exists()) return null;
+
+        String location = fl.getPath();
+        MNode cached = parsedNodeCache.get(location);
+        if (cached != null && cached.lastModified >= fl.lastModified()) return cached;
+
+        FileReader fr = null;
         try {
-            Node node = new XmlParser().parse(fl);
-            return new MNode(node);
+            fr = new FileReader(fl);
+            MNode node = parse(fl.getPath(), new InputSource(fr));
+            node.lastModified = fl.lastModified();
+            if (node.lastModified > 0) parsedNodeCache.put(location, node);
+            return node;
         } catch (Exception e) {
             throw new BaseException("Error parsing XML file at " + fl.getPath(), e);
+        } finally {
+            try { if (fr != null) fr.close(); }
+            catch (IOException e) { throw new BaseException("Error closing XML file at " + fl.getPath(), e); }
         }
     }
-    public static MNode parseText(String text) throws BaseException {
+    public static MNode parseText(String location, String text) throws BaseException {
         if (text == null || text.length() == 0) return null;
+        return parse(location, new InputSource(new StringReader(text)));
+    }
+
+    public static MNode parse(String location, InputSource isrc) {
         try {
-            Node node = new XmlParser().parseText(text);
-            return new MNode(node);
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
+            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            reader.setContentHandler(xmlHandler);
+            reader.parse(isrc);
+            return xmlHandler.getRootNode();
         } catch (Exception e) {
-            throw new BaseException("Error parsing XML text", e);
+            throw new BaseException("Error parsing XML from " + location, e);
         }
     }
+
+    /* ========== Fields ========== */
 
     protected final String nodeName;
     protected final Map<String, String> attributeMap = new LinkedHashMap<>();
     protected MNode parentNode = null;
     protected final ArrayList<MNode> childList = new ArrayList<>();
+    protected final Map<String, ArrayList<MNode>> childrenByName = new HashMap<>();
     protected String childText = null;
+    protected long lastModified = 0;
+
+    /* ========== Constructors ========== */
 
     public MNode(Node node) {
         nodeName = (String) node.name();
@@ -112,6 +147,19 @@ public class MNode {
         if (attributes != null) attributeMap.putAll(attributes);
     }
 
+    /* ========== Get Methods ========== */
+
+    /** If name starts with an ampersand (@) then get an attribute, otherwise get a list of child nodes with the given name. */
+    public Object get(String name) {
+        if (name != null && name.length() > 0 && name.charAt(0) == '@') {
+            return attribute(name.substring(1));
+        } else {
+            return children(name);
+        }
+    }
+    /** Groovy specific method for square brace syntax */
+    public Object getAt(String name) { return get(name); }
+
     public String getName() { return nodeName; }
     public Map<String, String> getAttributes() { return attributeMap; }
     public String attribute(String attrName) { return attributeMap.get(attrName); }
@@ -119,13 +167,17 @@ public class MNode {
     public MNode getParent() { return parentNode; }
     public ArrayList<MNode> getChildren() { return childList; }
     public ArrayList<MNode> children(String name) {
-        ArrayList<MNode> curList = new ArrayList<>();
-        if (name == null) return curList;
+        if (name == null) return childList;
+        ArrayList<MNode> curList = childrenByName.get(name);
+        if (curList != null) return curList;
+
+        curList = new ArrayList<>();
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
             if (name.equals(curChild.nodeName)) curList.add(curChild);
         }
+        childrenByName.put(name, curList);
         return curList;
     }
     public ArrayList<MNode> children(Closure<Boolean> condition) {
@@ -145,6 +197,26 @@ public class MNode {
             if (name.equals(curChild.nodeName)) return true;
         }
         return false;
+    }
+
+    /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
+     * found or empty List if no nodes found */
+    public Map<String, ArrayList<MNode>> descendants(Set<String> names) {
+        Map<String, ArrayList<MNode>> nodes = new HashMap<>();
+        for (String name : names) nodes.put(name, new ArrayList<MNode>());
+        descendantsInternal(names, nodes);
+        return nodes;
+    }
+    protected void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (names == null || names.contains(curChild.nodeName)) {
+                ArrayList<MNode> curList = nodes.get(curChild.nodeName);
+                curList.add(curChild);
+            }
+            curChild.descendantsInternal(names, nodes);
+        }
     }
 
     public ArrayList<MNode> depthFirst(Closure<Boolean> condition) {
@@ -188,13 +260,20 @@ public class MNode {
     public MNode first() { return childList.size() > 0 ? childList.get(0) : null; }
     /** Get the first child node with the given name */
     public MNode first(String name) {
-        if (name == null) return null;
+        if (name == null) return first();
+
+        ArrayList<MNode> nameChildren = children(name);
+        if (nameChildren.size() > 0) return nameChildren.get(0);
+        return null;
+
+        /* with cache in children(name) that is faster than searching every time here:
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
             if (name.equals(curChild.nodeName)) return curChild;
         }
         return null;
+        */
     }
     public MNode first(Closure<Boolean> condition) {
         if (condition == null) return first();
@@ -208,32 +287,6 @@ public class MNode {
 
     public String getText() { return childText; }
 
-    public void append(MNode child) {
-        childList.add(child);
-        child.parentNode = this;
-    }
-    public MNode append(Node child) {
-        MNode newNode = new MNode(child);
-        childList.add(newNode);
-        newNode.parentNode = this;
-        return newNode;
-    }
-    public MNode append(String name, Map<String, String> attributes, List<MNode> children, String text) {
-        MNode newNode = new MNode(name, attributes, this, children, text);
-        childList.add(newNode);
-        return newNode;
-    }
-    public MNode append(String name, Map<String, String> attributes) {
-        MNode newNode = new MNode(name, attributes, this, null, null);
-        childList.add(newNode);
-        return newNode;
-    }
-    public MNode replace(int index, String name, Map<String, String> attributes) {
-        MNode newNode = new MNode(name, attributes, this, null, null);
-        childList.set(index, newNode);
-        return newNode;
-    }
-
     public MNode deepCopy(MNode parent) {
         MNode newNode = new MNode(nodeName, attributeMap, parent, null, childText);
         int childListSize = childList.size();
@@ -245,7 +298,41 @@ public class MNode {
         return newNode;
     }
 
+    /* ========== Child Modify Methods ========== */
+
+    public void append(MNode child) {
+        childrenByName.remove(child.nodeName);
+        childList.add(child);
+        child.parentNode = this;
+    }
+    public MNode append(Node child) {
+        MNode newNode = new MNode(child);
+        childrenByName.remove(newNode.nodeName);
+        childList.add(newNode);
+        newNode.parentNode = this;
+        return newNode;
+    }
+    public MNode append(String name, Map<String, String> attributes, List<MNode> children, String text) {
+        childrenByName.remove(name);
+        MNode newNode = new MNode(name, attributes, this, children, text);
+        childList.add(newNode);
+        return newNode;
+    }
+    public MNode append(String name, Map<String, String> attributes) {
+        childrenByName.remove(name);
+        MNode newNode = new MNode(name, attributes, this, null, null);
+        childList.add(newNode);
+        return newNode;
+    }
+    public MNode replace(int index, String name, Map<String, String> attributes) {
+        childrenByName.remove(name);
+        MNode newNode = new MNode(name, attributes, this, null, null);
+        childList.set(index, newNode);
+        return newNode;
+    }
+
     public boolean remove(String name) {
+        childrenByName.remove(name);
         boolean removed = false;
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
@@ -263,6 +350,7 @@ public class MNode {
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
             if (condition.call(curChild)) {
+                childrenByName.remove(curChild.nodeName);
                 childList.remove(i);
                 removed = true;
             } else {
@@ -271,6 +359,8 @@ public class MNode {
         }
         return removed;
     }
+
+    /* ========== String Methods ========== */
 
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -322,5 +412,52 @@ public class MNode {
         } else {
             return "";
         }
+    }
+
+    static class MNodeXmlHandler extends DefaultHandler {
+        protected Locator locator = null;
+        protected long nodesRead = 0;
+
+        protected MNode rootNode = null;
+        protected MNode curNode = null;
+        protected StringBuilder curText = null;
+
+        MNodeXmlHandler() { }
+        MNode getRootNode() { return rootNode; }
+        long getNodesRead() { return nodesRead; }
+
+        public void startElement(String ns, String localName, String qName, Attributes attributes) {
+            // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
+            if (curNode == null) {
+                curNode = new MNode(qName, null);
+                if (rootNode == null) rootNode = curNode;
+            } else {
+                curNode = curNode.append(qName, null);
+            }
+
+            int length = attributes.getLength();
+            for (int i = 0; i < length; i++) {
+                String name = attributes.getLocalName(i);
+                String value = attributes.getValue(i);
+                if (name == null || name.length() == 0) name = attributes.getQName(i);
+                curNode.attributeMap.put(name, value);
+            }
+        }
+
+        public void characters(char[] chars, int offset, int length) {
+            if (curText == null) curText = new StringBuilder();
+            curText.append(chars, offset, length);
+        }
+        public void endElement(String ns, String localName, String qName) {
+            if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
+            if (curText != null) {
+                String curString = curText.toString().trim();
+                if (curString.length() > 0) curNode.childText = curString;
+            }
+            curNode = curNode.parentNode;
+            curText = null;
+        }
+
+        public void setDocumentLocator(Locator locator) { this.locator = locator; }
     }
 }

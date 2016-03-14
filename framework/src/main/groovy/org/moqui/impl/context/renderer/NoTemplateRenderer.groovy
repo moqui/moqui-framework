@@ -13,12 +13,12 @@
  */
 package org.moqui.impl.context.renderer
 
-import org.moqui.impl.context.ResourceFacadeImpl
+import groovy.transform.CompileStatic
 import org.moqui.context.TemplateRenderer
-import org.moqui.context.ExecutionContext
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 
+@CompileStatic
 class NoTemplateRenderer implements TemplateRenderer {
     protected ExecutionContextFactoryImpl ecfi
 

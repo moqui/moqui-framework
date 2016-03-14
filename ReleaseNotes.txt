@@ -9,13 +9,36 @@ Moqui Framework 1.6.2 is a minor new feature and bug fix release.
 
 TODO
 
+Non Backward Compatible Changes
+
+- Entity field types are somewhat more strict for database operations; this
+  is partly for performance reasons and partly to avoid database errors
+  that happen only on certain databases (ie some allow passing a String for
+  a Timestamp, others don't; now you have to use a Timestamp or other date
+  object); use EntityValue.setString or similar methods to do data
+  conversions higher up
+- Removed the TenantCurrency, TenantLocale, TenantTimeZone, and
+  TenantCountry entities; they aren't generally used and better not to have
+  business settings in these restricted technical config entities
+
 New Features
 
-- Performance improvements based on profiling, entity find one with and
-  without cache about 3x faster (on H2, cached finds will have same
-  increase regardless of database, other databases will see less app server
-  load but DB speeds vary more); other entity and service operations are
-  faster and screen rendering marginally faster
+- Many performance improvements based on profiling; cached entities finds
+  around 6x faster, non cached around 3x; screen rendering also faster
+- Added JDBC Connection stash by tenant, entity group, and transaction,
+  can be disabled with transaction-facade.@use-connection-stash=false in
+  the Moqui Conf XML file
+- Many code cleanups and more CompileStatic with XML handling using new
+  MNode class instead of Groovy Node; UserFacadeImpl and
+  TransactionFacadeImpl much cleaner with internal classes for state
+- Added tools.@empty-db-load attribute with data file types to load on
+  startup (through webapp ContextListener init only) if the database is
+  empty (no records for moqui.basic.Enumeration)
+- If the moqui.conf property (system property, command line, or in
+  MoquiInit.properties) starts with a forward slash ('/') it is now
+  considered an absolute path instead of relative to the runtime directory
+  allowing a conf file outside the runtime directory (an alternative
+  to using ../)
 - UserAccount.userId and various other ID fields changed from id-long to id
   as userId is only an internal/sequenced ID now, and for various others
   the 40 char length changed years ago is more than adequate; existing
@@ -30,6 +53,13 @@ New Features
   previous release compatibility version
 - Added methods to L10nFacade that accept a Locale when something other
   than the current user's locale is needed
+- Added TransactionFacade runUseOrBegin() and runRequireNew() methods to
+  run code (in a Groovy Closure) in a transaction
+- ArtifactHit/Bin persistence now done in a worker thread instead of async
+  service; uses new eci.runInWorkerThread() method, may be added
+  ExecutionContext interface in the future
+- Added XML Form text-line.depends-on element so autocomplete fields can
+  get data on the client from other form fields and clear on change
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
@@ -52,6 +82,23 @@ New Features
     separate thread and waits for the service to complete
   - Added service.@semaphore-parameter attribute which creates a distinct
     semaphore per value of that parameter
+  - Services called with a ServiceResultWaiter now get messages passed
+    through from the service job in the current MessageFacade (through
+    the MessageFacadeException), better handling for other Throwable
+  - Async service calls now run through lighter weight worker thread pool
+    if persist not set (if persist set still through Quartz Scheduler)
+- Dynamic (SPA) browser features
+  - Added screen element when render screen to support macros at the screen
+    level, such as code for components and services in Angular 2
+  - Added support for render mode extension (like .html, .js, etc) to
+    last screen name in screen path (or URL), uses the specified
+    render-mode and doesn't try to render additional subscreens
+  - Added automatic actions.json transition for all screens, runs actions
+    and returns results as JSON for use in client-side template rendering
+  - Added support for .json extension to transitions, will run the
+    transition and if the response goes to another screen returns path to
+    that screen in a list and parameters for it, along with
+    messages/errors/etc for client side routing between screens
 
 Bug Fixes
 
@@ -64,8 +111,22 @@ Bug Fixes
   for disabled accounts, expired passwords, etc just like normal login
 - Fixed issue with entity lists in TransactionCache, were not cloned so
   new/updated records changed lists that calling code might use
+- Fixed issue with cached entity lists not getting cleared when a record is
+  updated that wasn't in a list already in the cache but that matches its
+  condition
+- Fixed issue with cached view-entity lists not getting cleared on new or
+  updated records; fixes issues with new authz, tarpits and much more not
+  applied immediately
+- Fixed issue with cached view-entity one results not getting cleared when
+  a member entity is updated (was never implemented)
 - Entities in the tenantcommon group no longer available for find and CrUD
   operations outside the DEFAULT instance (protect tenant data)
+- Fixed issue with find one when using a Map as a condition that may
+  contain non-PK fields and having an artifact authz filter applied, was
+  getting non-PK fields and constraining query when it shouldn't
+  (inconsistent with previous behavior)
+- Fixed ElasticSearch automatic mappings where sub-object mappings always
+  had just the first property
 
 
 ===========================================================================
@@ -259,3 +320,19 @@ Long Term To Do List
     is probably the best way to tie a feed to WebSocket notifications for data updates
     - Use the dataFeedId as the NotificationMessage topic
     - Use this in HiveMind to send notifications of project, task, and wiki changes (maybe?)
+
+- Angular 2 Apps
+  - support by screen + subscreens, or enable/disable for all apps (with separate webroot or something)?
+  - update bootstrap (maybe get from CDN instead of including in source...)
+  - for screen generate
+    - component.ts file
+    - service.ts/js file with:
+      - service for each transition
+      - service to get data for screen actions
+      - services for section actions
+      - services for form row actions
+    - component.html file (use 'templateUrl' in Component annotation instead of 'template')
+    - or use single JS file with component, embedded template (use template: and not templateUrl:), transition services?
+  - with system.js need to transpile in the browser?
+    - can transpile into JS file using typescript4j; or generate component.js
+    - https://github.com/martypitt/typescript4j

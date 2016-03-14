@@ -13,6 +13,9 @@
  */
 package org.moqui.impl.context.reference
 
+import groovy.transform.CompileStatic
+
+import javax.jcr.NodeIterator
 import javax.jcr.Session
 import javax.jcr.Property
 
@@ -24,6 +27,7 @@ import org.moqui.impl.context.ResourceFacadeImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ContentResourceReference extends BaseResourceReference {
     protected final static Logger logger = LoggerFactory.getLogger(ContentResourceReference.class)
     public final static String locationPrefix = "content://"
@@ -109,7 +113,9 @@ class ContentResourceReference extends BaseResourceReference {
         javax.jcr.Node node = getNode()
         if (node == null) return dirEntries
 
-        for (javax.jcr.Node childNode in node.getNodes()) {
+        NodeIterator childNodes = node.getNodes()
+        while (childNodes.hasNext()) {
+            javax.jcr.Node childNode = childNodes.nextNode()
             dirEntries.add(new ContentResourceReference().init(repositoryName, childNode, ecf))
         }
         return dirEntries
@@ -163,7 +169,7 @@ class ContentResourceReference extends BaseResourceReference {
             session.save()
         } else {
             // first make sure the directory exists that this is in
-            List<String> nodePathList = nodePath.split('/')
+            List<String> nodePathList = new ArrayList<>(Arrays.asList(nodePath.split('/')))
             // if nodePath started with a '/' the first element will be empty
             if (nodePathList && nodePathList[0] == "") nodePathList.remove(0)
             // remove the filename to just get the directory
@@ -223,7 +229,7 @@ class ContentResourceReference extends BaseResourceReference {
         ContentResourceReference newCrr = (ContentResourceReference) newRr
 
         // make sure the target folder exists
-        List<String> nodePathList = newCrr.getNodePath().split('/')
+        List<String> nodePathList = new ArrayList<>(Arrays.asList(newCrr.getNodePath().split('/')))
         if (nodePathList) nodePathList.remove(nodePathList.size()-1)
         findDirectoryNode(session, nodePathList, true)
 

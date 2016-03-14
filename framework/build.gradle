@@ -12,9 +12,8 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-tasks.withType(JavaCompile) {
-    options.compilerArgs << "-Xlint:unchecked"
-}
+// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 
 // Leaving this commented out, REALLY slows things down (about 10x in Java 1.7.0_71 and 1.7.0_75, about 6x in 1.8.0_40, all on Mac)
 // tasks.withType(GroovyCompile) { groovyOptions.optimizationOptions.indy = true }
@@ -216,6 +215,9 @@ dependencies {
     runtime group: 'org.codehaus.janino', name: 'commons-compiler', version: '2.7.8' // New BSD
     // NOTE: poi-ooxml-schemas is a required dependency for drools-decisiontables,  but it's a huge file and runs fine without it
     providedCompile ('org.apache.poi:poi-ooxml-schemas:3.13') // Apache 2.0
+
+    // NOTE: not currently used, may use in the future for transpiling TS to JS on the server
+    // compile group: 'com.mangofactory', name: 'typescript4j', version: '0.4.0'
 
     // ========== runtime-only dependencies ==========
 

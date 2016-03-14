@@ -76,7 +76,7 @@ class SystemScreenRenderTests extends Specification {
         "ArtifactHitSummary?artifactName=basic&artifactName_op=contains" | "moqui.basic.Enumeration" | "entity"
         "ArtifactHitBins?artifactName=basic&artifactName_op=contains" | "moqui.basic.Enumeration" | "create"
         // Cache screens
-        "Cache/CacheList" | "entity.definition" | "screen.location"
+        "Cache/CacheList" | "entity.definition" | "artifact.tarpit.hits"
         "Cache/CacheElements?orderByField=key&cacheName=l10n.message" | "\${artifactName}::en_US" | "evictionStrategy"
 
         // Localization screens
@@ -100,7 +100,7 @@ class SystemScreenRenderTests extends Specification {
         "Scheduler/History" | "Job Scheduled" | "clean_ArtifactData_daily"
 
         // Security screens
-        "Security/UserAccount/UserAccountList" | "john.doe" | "John Doe"
+        "Security/UserAccount/UserAccountList?username=john.doe" | "john.doe" | "John Doe"
         "Security/UserAccount/UserAccountDetail?userId=EX_JOHN_DOE" |
                 "john.doe@test.com" | "Administrators (full access)"
         "Security/UserGroup/UserGroupList" | "Administrators (full access)" | ""

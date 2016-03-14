@@ -64,7 +64,7 @@ public class MessageFacadeImpl implements MessageFacade {
     }
 
     @Override
-    boolean hasError() { return errorList || validationErrorList }
+    boolean hasError() { return (errorList != null && errorList.size() > 0) || (validationErrorList != null && validationErrorList.size() > 0) }
     @Override
     String getErrorsString() {
         StringBuilder errorBuilder = new StringBuilder()
@@ -78,6 +78,13 @@ public class MessageFacadeImpl implements MessageFacade {
     void clearErrors() {
         if (errorList != null) errorList.clear()
         if (validationErrorList != null) validationErrorList.clear()
+    }
+
+    @Override
+    void copyMessages(MessageFacade mf) {
+        if (mf.getMessages()) getMessages().addAll(mf.getMessages())
+        if (mf.getErrors()) getErrors().addAll(mf.getErrors())
+        if (mf.getValidationErrors()) getValidationErrors().addAll(mf.getValidationErrors())
     }
 
     @Override

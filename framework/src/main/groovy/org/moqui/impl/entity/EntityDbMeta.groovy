@@ -37,7 +37,6 @@ class EntityDbMeta {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDbMeta.class)
 
     static final boolean useTxForMetaData = false
-    static final boolean suspendTx = false
 
     // this keeps track of when tables are checked and found to exist or are created
     protected Map entityTablesChecked = new HashMap()
@@ -57,13 +56,13 @@ class EntityDbMeta {
     @CompileStatic
     void checkTableRuntime(EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
-        Boolean runtimeAddMissing = runtimeAddMissingMap.get(groupName)
+        Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
         if (runtimeAddMissing == null) {
             MNode datasourceNode = efi.getDatasourceNode(groupName)
             runtimeAddMissing = datasourceNode?.attribute('runtime-add-missing') != "false"
             runtimeAddMissingMap.put(groupName, runtimeAddMissing)
         }
-        if (!runtimeAddMissing) return
+        if (runtimeAddMissing == null || runtimeAddMissing == Boolean.FALSE) return
 
         if (ed.isViewEntity()) {
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
@@ -113,33 +112,17 @@ class EntityDbMeta {
 
         long startTime = System.currentTimeMillis()
         if (!tableExists(ed)) {
-            boolean suspendedTransaction = false
-            try {
-                if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
-
-                createTable(ed)
-                // create explicit and foreign key auto indexes
-                createIndexes(ed)
-                // create foreign keys to all other tables that exist
-                createForeignKeys(ed, false)
-            } finally {
-                if (suspendedTransaction) efi.ecfi.transactionFacade.resume()
-            }
+            createTable(ed)
+            // create explicit and foreign key auto indexes
+            createIndexes(ed)
+            // create foreign keys to all other tables that exist
+            createForeignKeys(ed, false)
         } else {
             // table exists, see if it is missing any columns
             List<String> mcs = getMissingColumns(ed)
-            if (mcs) {
-                boolean suspendedTransaction = false
-                try {
-                    if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
-
-                    for (String fieldName in mcs) addColumn(ed, fieldName)
-                } finally {
-                    if (suspendedTransaction) efi.ecfi.transactionFacade.resume()
-                }
-            }
+            if (mcs) for (String fieldName in mcs) addColumn(ed, fieldName)
             // create foreign keys after checking each to see if it already exists
-            if (startup || datasourceNode?.attribute('@runtime-add-fks') == "true") createForeignKeys(ed, true)
+            if (startup || datasourceNode?.attribute('runtime-add-fks') == "true") createForeignKeys(ed, true)
         }
         entityTablesChecked.put(ed.getFullEntityName(), new Timestamp(System.currentTimeMillis()))
         entityTablesExist.put(ed.getFullEntityName(), true)
@@ -159,66 +142,51 @@ class EntityDbMeta {
         if (exists != null) return exists.booleanValue()
 
         Boolean dbResult = null
-        boolean suspendedTransaction = false
-        try {
-            if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
+        if (ed.isViewEntity()) {
+            boolean anyExist = false
+            for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
+                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
+                if (tableExists(med)) { anyExist = true; break }
+            }
+            dbResult = anyExist
+        } else {
+            String groupName = ed.getEntityGroupName()
+            Connection con = null
+            ResultSet tableSet = null
+            boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
+            try {
+                con = efi.getConnection(groupName)
+                DatabaseMetaData dbData = con.getMetaData()
 
-            if (ed.isViewEntity()) {
-                boolean anyExist = false
-                for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
-                    EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
-                    if (tableExists(med)) { anyExist = true; break }
-                }
-                dbResult = anyExist
-            } else {
-                String groupName = ed.getEntityGroupName()
-                Connection con = null
-                ResultSet tableSet = null
-                boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
-                try {
-                    con = efi.getConnection(groupName)
-                    DatabaseMetaData dbData = con.getMetaData()
-
-                    String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
-                    tableSet = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types)
+                String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
+                tableSet = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types)
+                if (tableSet.next()) {
+                    dbResult = true
+                } else {
+                    // try lower case, just in case DB is case sensitive
+                    tableSet = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
                     if (tableSet.next()) {
                         dbResult = true
                     } else {
-                        // try lower case, just in case DB is case sensitive
-                        tableSet = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
-                        if (tableSet.next()) {
-                            dbResult = true
-                        } else {
-                            if (logger.isTraceEnabled()) logger.trace("Table for entity [${ed.getFullEntityName()}] does NOT exist")
-                            dbResult = false
-                        }
+                        if (logger.isTraceEnabled()) logger.trace("Table for entity [${ed.getFullEntityName()}] does NOT exist")
+                        dbResult = false
                     }
-                } catch (Exception e) {
-                    throw new EntityException("Exception checking to see if table [${ed.getTableName()}] exists", e)
-                } finally {
-                    if (tableSet != null) tableSet.close()
-                    if (con != null) con.close()
-                    if (beganTx) efi.ecfi.transactionFacade.commit()
                 }
+            } catch (Exception e) {
+                throw new EntityException("Exception checking to see if table [${ed.getTableName()}] exists", e)
+            } finally {
+                if (tableSet != null) tableSet.close()
+                if (con != null) con.close()
+                if (beganTx) efi.ecfi.transactionFacade.commit()
             }
-        } finally {
-            if (suspendedTransaction) efi.ecfi.transactionFacade.resume()
         }
+
         if (dbResult == null) throw new EntityException("No result checking if entity [${ed.getFullEntityName()}] table exists")
 
         if (dbResult && !ed.isViewEntity()) {
             // on the first check also make sure all columns/etc exist; we'll do this even on read/exist check otherwise query will blow up when doesn't exist
             List<String> mcs = getMissingColumns(ed)
-            if (mcs) {
-                suspendedTransaction = false
-                try {
-                    if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
-
-                    for (String fieldName in mcs) addColumn(ed, fieldName)
-                } finally {
-                    if (suspendedTransaction) efi.ecfi.transactionFacade.resume()
-                }
-            }
+            if (mcs) for (String fieldName in mcs) addColumn(ed, fieldName)
         }
         // don't remember the result for view-entities, get if from member-entities... if we remember it we have to set
         //     it for all view-entities when a member-entity is created
@@ -285,22 +253,36 @@ class EntityDbMeta {
     List<String> getMissingColumns(EntityDefinition ed) {
         if (ed.isViewEntity()) return new ArrayList<String>()
 
-        boolean suspendedTransaction = false
+        String groupName = ed.getEntityGroupName()
+        Connection con = null
+        ResultSet colSet = null
+        boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
         try {
-            if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
+            con = efi.getConnection(groupName)
+            DatabaseMetaData dbData = con.getMetaData()
+            // con.setAutoCommit(false)
 
-            String groupName = ed.getEntityGroupName()
-            Connection con = null
-            ResultSet colSet = null
-            boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
-            try {
-                con = efi.getConnection(groupName)
-                DatabaseMetaData dbData = con.getMetaData()
-                // con.setAutoCommit(false)
+            List<String> fnSet = new ArrayList(ed.getFieldNames(true, true, false))
+            int fieldCount = fnSet.size()
+            colSet = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
+            if (colSet.isClosed()) {
+                logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
+                return new ArrayList<String>()
+            }
+            while (colSet.next()) {
+                String colName = colSet.getString("COLUMN_NAME")
+                for (String fn in fnSet) {
+                    String fieldColName = ed.getColumnName(fn, false)
+                    if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
+                        fnSet.remove(fn)
+                        break
+                    }
+                }
+            }
 
-                List<String> fnSet = new ArrayList(ed.getFieldNames(true, true, false))
-                int fieldCount = fnSet.size()
-                colSet = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
+            if (fnSet.size() == fieldCount) {
+                // try lower case table name
+                colSet = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
                 if (colSet.isClosed()) {
                     logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
                     return new ArrayList<String>()
@@ -317,39 +299,18 @@ class EntityDbMeta {
                 }
 
                 if (fnSet.size() == fieldCount) {
-                    // try lower case table name
-                    colSet = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
-                    if (colSet.isClosed()) {
-                        logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
-                        return new ArrayList<String>()
-                    }
-                    while (colSet.next()) {
-                        String colName = colSet.getString("COLUMN_NAME")
-                        for (String fn in fnSet) {
-                            String fieldColName = ed.getColumnName(fn, false)
-                            if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
-                                fnSet.remove(fn)
-                                break
-                            }
-                        }
-                    }
-
-                    if (fnSet.size() == fieldCount) {
-                        logger.warn("Could not find any columns to match fields for entity [${ed.getFullEntityName()}]")
-                        return null
-                    }
+                    logger.warn("Could not find any columns to match fields for entity [${ed.getFullEntityName()}]")
+                    return null
                 }
-                return fnSet
-            } catch (Exception e) {
-                logger.error("Exception checking for missing columns in table [${ed.getTableName()}]", e)
-                return new ArrayList<String>()
-            } finally {
-                if (colSet != null && !colSet.isClosed()) colSet.close()
-                if (con != null && !con.isClosed()) con.close()
-                if (beganTx) efi.ecfi.transactionFacade.commit()
             }
+            return fnSet
+        } catch (Exception e) {
+            logger.error("Exception checking for missing columns in table [${ed.getTableName()}]", e)
+            return new ArrayList<String>()
         } finally {
-            if (suspendedTransaction) efi.ecfi.transactionFacade.resume()
+            if (colSet != null && !colSet.isClosed()) colSet.close()
+            if (con != null && !con.isClosed()) con.close()
+            if (beganTx) efi.ecfi.transactionFacade.commit()
         }
     }
 
@@ -636,14 +597,7 @@ class EntityDbMeta {
                 sql.append(" INITIALLY DEFERRED")
             }
 
-            boolean suspendedTransaction = false
-            try {
-                if (suspendTx && efi.ecfi.transactionFacade.isTransactionInPlace()) suspendedTransaction = efi.ecfi.transactionFacade.suspend()
-
-                runSqlUpdate(sql, groupName)
-            } finally {
-                if (suspendedTransaction) efi.ecfi.transactionFacade.resume()
-            }
+            runSqlUpdate(sql, groupName)
         }
     }
 
@@ -666,32 +620,22 @@ class EntityDbMeta {
         sqlLock.lock()
         int records = 0
         try {
-            // separate thread to avoid suspend/resume transaction
-            Thread sqlThread = Thread.start('DbMetaSql', {
-                ExecutionContextImpl threadEci = efi.ecfi.getEci()
-                // NOTE: changeTenant not required here because we'll continue using the reference to this instance of the EFI
+            // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
+            efi.ecfi.getTransactionFacade().runRequireNew(10, "Error in DB meta data change", useTxForMetaData, true, {
                 Connection con = null
                 Statement stmt = null
 
-                // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
-                boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
                 try {
                     con = efi.getConnection(groupName)
                     stmt = con.createStatement()
                     records = stmt.executeUpdate(sql.toString())
-                } catch (SQLException e) {
-                    logger.error("SQL Exception while executing the following SQL [${sql.toString()}]: ${e.toString()}")
-                    if (useTxForMetaData) efi.ecfi.transactionFacade.rollback(beganTx, "SQL meta data update failed; SQL [${sql.toString()}]", e)
                 } finally {
                     if (stmt != null) stmt.close()
                     if (con != null) con.close()
-                    if (beganTx) efi.ecfi.transactionFacade.commit()
-                    threadEci.destroy()
                 }
-            } )
-            // wait for thread to finish, following operations often depend on this being done
-            // 10 seconds, shouldn't have DB operations longer than this, but want some sort of timeout
-            sqlThread.join(10000)
+            })
+        } catch (Throwable t) {
+            logger.error("SQL Exception while executing the following SQL [${sql.toString()}]: ${t.toString()}")
         } finally {
             sqlLock.unlock()
         }

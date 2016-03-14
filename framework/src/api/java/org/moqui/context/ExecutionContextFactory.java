@@ -40,6 +40,8 @@ public interface ExecutionContextFactory {
     /** Destroy this Execution Context Factory. */
     void destroy();
 
+    String getRuntimePath();
+
     /**
      * Register a component with the framework. The component name will be the last directory in the location path
      * unless there is a component.xml file in the directory and the component.@name attribute is specified.

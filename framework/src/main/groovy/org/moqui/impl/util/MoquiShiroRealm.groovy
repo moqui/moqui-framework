@@ -79,7 +79,7 @@ class MoquiShiroRealm implements Realm {
             if (newUserAccount.disabledDateTime != null) {
                 // account temporarily disabled (probably due to excessive attempts
                 Integer disabledMinutes = eci.ecfi.confXmlRoot.first("user-facade").first("login").attribute("disable-minutes") as Integer ?: 30I
-                Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes*60I*1000I))
+                Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes.intValue()*60I*1000I))
                 if (reEnableTime > eci.user.nowTimestamp) {
                     // only blow up if the re-enable time is not passed
                     eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
@@ -212,8 +212,9 @@ class MoquiShiroRealm implements Realm {
      * @return boolean true if principal is permitted to access the resource, false otherwise.
      */
     boolean isPermitted(PrincipalCollection principalCollection, String resourceAccess) {
-        String username = (String) principalCollection.primaryPrincipal
-        return ArtifactExecutionFacadeImpl.isPermitted(username, resourceAccess, null, ecfi.eci)
+        // String username = (String) principalCollection.primaryPrincipal
+        // TODO: if we want to support other users than the current need to look them up here
+        return ArtifactExecutionFacadeImpl.isPermitted(resourceAccess, null, ecfi.eci)
     }
 
     boolean[] isPermitted(PrincipalCollection principalCollection, String... resourceAccesses) {

@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context.reference
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.impl.StupidUtilities
@@ -21,6 +22,7 @@ import org.moqui.BaseException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class UrlResourceReference extends BaseResourceReference {
     protected final static Logger logger = LoggerFactory.getLogger(UrlResourceReference.class)
 
