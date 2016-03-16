@@ -42,32 +42,32 @@ class EntityNoSqlCrud extends Specification {
         ec.transaction.commit()
     }
 
-    def "create and find ToolsTestNoSqlEntity TEST1"() {
+    def "create and find TestNoSqlEntity TEST1"() {
         when:
-        ec.entity.makeValue("moqui.tools.test.ToolsTestNoSqlEntity").setAll([testId:"TEST1", testMedium:"Test Name"]).createOrUpdate()
+        ec.entity.makeValue("moqui.test.TestNoSqlEntity").setAll([testId:"TEST1", testMedium:"Test Name"]).createOrUpdate()
 
         then:
-        EntityValue testCheck = ec.entity.find("moqui.tools.test.ToolsTestNoSqlEntity").condition("testId", "TEST1").one()
+        EntityValue testCheck = ec.entity.find("moqui.test.TestNoSqlEntity").condition("testId", "TEST1").one()
         testCheck.testMedium == "Test Name"
     }
 
-    def "update Example TEST1"() {
+    def "update TestNoSqlEntity TEST1"() {
         when:
-        EntityValue testValue = ec.entity.find("moqui.tools.test.ToolsTestNoSqlEntity").condition("testId", "TEST1").one()
+        EntityValue testValue = ec.entity.find("moqui.test.TestNoSqlEntity").condition("testId", "TEST1").one()
         testValue.testMedium = "Test Name 2"
         testValue.update()
 
         then:
-        EntityValue testCheck = ec.entity.find("moqui.tools.test.ToolsTestNoSqlEntity").condition([testId:"TEST1"]).one()
+        EntityValue testCheck = ec.entity.find("moqui.test.TestNoSqlEntity").condition([testId:"TEST1"]).one()
         testCheck.testMedium == "Test Name 2"
     }
 
-    def "delete Example TEST1"() {
+    def "delete TestNoSqlEntity TEST1"() {
         when:
-        ec.entity.find("moqui.tools.test.ToolsTestNoSqlEntity").condition([testId:"TEST1"]).one().delete()
+        ec.entity.find("moqui.test.TestNoSqlEntity").condition([testId:"TEST1"]).one().delete()
 
         then:
-        EntityValue testCheck = ec.entity.find("moqui.tools.test.ToolsTestNoSqlEntity").condition([testId:"TEST1"]).one()
+        EntityValue testCheck = ec.entity.find("moqui.test.TestNoSqlEntity").condition([testId:"TEST1"]).one()
         testCheck == null
     }
 }

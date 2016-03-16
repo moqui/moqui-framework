@@ -22,7 +22,7 @@ import org.moqui.context.ResourceReference
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidUtilities
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -35,7 +35,7 @@ import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -48,11 +48,11 @@ class ScreenUrlInfo {
     ExecutionContextFactoryImpl ecfi
     ScreenFacadeImpl sfi
     ScreenDefinition rootSd
-    String plainUrl = null
+    String plainUrl = (String) null
 
-    ScreenDefinition fromSd = null
-    List<String> fromPathList = null
-    String fromScreenPath = null
+    ScreenDefinition fromSd = (ScreenDefinition) null
+    ArrayList<String> fromPathList = (ArrayList<String>) null
+    String fromScreenPath = (String) null
 
     Map<String, String> pathParameterMap = new HashMap()
     boolean requireEncryption = false
@@ -61,24 +61,24 @@ class ScreenUrlInfo {
     boolean alwaysUseFullPath = false
     boolean beginTransaction = false
 
-    String menuImage = null
-    String menuImageType = null
+    String menuImage = (String) null
+    String menuImageType = (String) null
 
     /** The full path name list for the URL, including extraPathNameList */
-    ArrayList<String> fullPathNameList = null
+    ArrayList<String> fullPathNameList = (ArrayList<String>) null
 
     /** The minimal path name list for the URL, basically without following the defaults */
-    ArrayList<String> minimalPathNameList = null
+    ArrayList<String> minimalPathNameList = (ArrayList<String>) null
 
     /** Everything in the path after the screen or transition, may be used to pass additional info */
-    ArrayList<String> extraPathNameList = null
+    ArrayList<String> extraPathNameList = (ArrayList<String>) null
 
     /** The path for a file resource (template or static), relative to the targetScreen.location */
-    List<String> fileResourcePathList = null
+    ArrayList<String> fileResourcePathList = (ArrayList<String>) null
     /** If the full path led to a file resource that is verified to exist, the URL goes here; the URL for access on the
      * server, the client will get the resource from the url field as normal */
-    ResourceReference fileResourceRef = null
-    String fileResourceContentType = null
+    ResourceReference fileResourceRef = (ResourceReference) null
+    String fileResourceContentType = (String) null
 
     /** All screens found in the path list */
     ArrayList<ScreenDefinition> screenPathDefList = new ArrayList<ScreenDefinition>()
@@ -88,8 +88,10 @@ class ScreenUrlInfo {
     boolean lastStandalone = false
 
     /** The last screen found in the path list */
-    ScreenDefinition targetScreen = null
-    String targetTransitionActualName = null
+    ScreenDefinition targetScreen = (ScreenDefinition) null
+    String targetScreenRenderMode = (String) null
+    String targetTransitionActualName = (String) null
+    String targetTransitionExtension = (String) null
     ArrayList<String> preTransitionPathNameList = new ArrayList<String>()
 
     boolean reusable = true
@@ -108,7 +110,7 @@ class ScreenUrlInfo {
     }
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
-                                          List<String> fpnl, String subscreenPath, Boolean lastStandalone) {
+                                          ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
         Cache screenUrlCache = sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromScreenDef, fpnl, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
@@ -119,11 +121,11 @@ class ScreenUrlInfo {
         return newSui
     }
 
-    static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, ScreenDefinition fromScreenDef, List<String> fpnl,
+    static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
                                           String subscreenPath, Boolean lastStandalone) {
         ScreenDefinition rootSd = sri.getRootScreenDef()
         ScreenDefinition fromSd = fromScreenDef
-        List<String> fromPathList = fpnl
+        ArrayList<String> fromPathList = fpnl
         if (fromSd == null) fromSd = sri.getActiveScreenDef()
         if (fromPathList == null) fromPathList = sri.getActiveScreenPath()
 
@@ -138,7 +140,7 @@ class ScreenUrlInfo {
     }
 
     final static char slashChar = (char) '/'
-    static String makeCacheKey(ScreenDefinition rootSd, ScreenDefinition fromScreenDef, List<String> fpnl,
+    static String makeCacheKey(ScreenDefinition rootSd, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
                                String subscreenPath, Boolean lastStandalone) {
         StringBuilder sb = new StringBuilder()
         // shouldn't be too many root screens, so the screen name (filename) should be sufficiently unique and much shorter
@@ -148,9 +150,15 @@ class ScreenUrlInfo {
         boolean skipFpnl = hasSsp && subscreenPath.charAt(0) == slashChar
         // NOTE: we will get more cache hits (less cache redundancy) if we combine with fpnl and use cleanupPathNameList,
         //     but is it worth it? no, let there be redundant cache entries for the same screen path, will be faster
-        if (!skipFpnl && fpnl) for (String fpn in fpnl) sb.append('/').append(fpn)
+        if (!skipFpnl && fpnl != null) {
+            int fpnlSize = fpnl.size()
+            for (int i = 0; i < fpnlSize; i++) {
+                String fpn = (String) fpnl.get(i)
+                sb.append('/').append(fpn)
+            }
+        }
         if (hasSsp) sb.append(subscreenPath)
-        if (lastStandalone) sb.append(":LS")
+        if (lastStandalone != null && lastStandalone.booleanValue()) sb.append(":LS")
 
         // logger.warn("======= makeCacheKey subscreenPath=${subscreenPath}, fpnl=${fpnl}\n key=${sb}")
         return sb.toString()
@@ -165,7 +173,7 @@ class ScreenUrlInfo {
     }
 
     ScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
-                  List<String> fpnl, String subscreenPath, Boolean lastStandalone) {
+                  ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
         this.sfi = sfi
         this.ecfi = sfi.getEcfi()
         this.rootSd = rootSd
@@ -201,64 +209,69 @@ class ScreenUrlInfo {
 
     boolean isPermitted(ExecutionContext ec) {
         ArtifactExecutionFacadeImpl aefi = (ArtifactExecutionFacadeImpl) ec.getArtifactExecution()
-        String username = ec.getUser().getUsername()
+        String userId = ec.getUser().getUserId()
 
         // if a user is permitted to view a certain location once in a render/ec they can safely be always allowed to, so cache it
         // add the username to the key just in case user changes during an EC instance
         String permittedCacheKey = null
-        if (fullPathNameList) {
-            permittedCacheKey = (username ?: '_anonymous') + fullPathNameList.toString()
-            Boolean cachedPermitted = aefi.screenPermittedCache.get(permittedCacheKey)
-            if (cachedPermitted != null) return cachedPermitted
+        if (fullPathNameList != null) {
+            String keyUserId = userId != null ? userId : '_anonymous'
+            permittedCacheKey = keyUserId.concat(fullPathNameList.toString())
+            Boolean cachedPermitted = (Boolean) aefi.screenPermittedCache.get(permittedCacheKey)
+            if (cachedPermitted != null) return cachedPermitted.booleanValue()
         } else {
             // logger.warn("======== Not caching isPermitted, username=${username}, fullPathNameList=${fullPathNameList}")
         }
 
         Deque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
 
-        int index = 1
-        for (ScreenDefinition screenDef in screenPathDefList) {
+        int screenPathDefListSize = screenPathDefList.size()
+        for (int i = 0; i < screenPathDefListSize; i++) {
+            ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(), "AT_XML_SCREEN", "AUTHZA_VIEW")
 
-            ArtifactExecutionInfoImpl lastAeii = artifactExecutionInfoStack.peekFirst()
+            ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
             // logger.warn("TOREMOVE checking screen for user ${username} - ${aeii}")
 
-            boolean isLast = (index == screenPathDefList.size())
-            Node screenNode = screenDef.getScreenNode()
+            boolean isLast = ((i + 1) == screenPathDefListSize)
+            MNode screenNode = screenDef.getScreenNode()
 
             // if screen is limited to certain tenants, and current tenant is not in the Set, it is not permitted
-            if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) return false
+            if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
+                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
+                return false
+            }
 
-            String requireAuthentication = (String) screenNode.attribute('require-authentication')
-            if (!aefi.isPermitted(username, aeii, lastAeii,
+            String requireAuthentication = screenNode.attribute('require-authentication')
+            if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || requireAuthentication == "true") : false,
                     false, ec.getUser().getNowTimestamp())) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
-                if (permittedCacheKey) aefi.screenPermittedCache.put(permittedCacheKey, false)
+                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
             }
 
             artifactExecutionInfoStack.addFirst(aeii)
-            index++
         }
 
         // logger.warn("TOREMOVE user ${username} IS allowed to view screen at path ${this.fullPathNameList}")
-        if (permittedCacheKey) aefi.screenPermittedCache.put(permittedCacheKey, true)
+        if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, true)
         return true
     }
 
     String getBaseUrl(ScreenRenderImpl sri) {
         // support the stub mode for ScreenUrlInfo, representing a plain URL and not a screen URL
-        if (plainUrl) return plainUrl
+        if (plainUrl != null && plainUrl.length() > 0) return plainUrl
 
         if (sri == null) return ""
         String baseUrl
-        if (sri.baseLinkUrl) {
+        if (sri.baseLinkUrl != null && sri.baseLinkUrl.length() > 0) {
             baseUrl = sri.baseLinkUrl
             if (baseUrl && baseUrl.charAt(baseUrl.length()-1) == (char) '/') baseUrl = baseUrl.substring(0, baseUrl.length()-1)
         } else {
-            if (!sri.webappName) throw new BaseException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
+            if (sri.webappName == null || sri.webappName.length() == 0)
+                throw new BaseException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
             baseUrl = WebFacadeImpl.getWebappRootUrl(sri.webappName, sri.servletContextPath, true,
                     this.requireEncryption, (ExecutionContextImpl) sri.getEc())
         }
@@ -267,7 +280,7 @@ class ScreenUrlInfo {
 
     String getUrlWithBase(String baseUrl) {
         StringBuilder urlBuilder = new StringBuilder(baseUrl)
-        if (fullPathNameList) {
+        if (fullPathNameList != null) {
             int listSize = fullPathNameList.size()
             for (int i = 0; i < listSize; i++) {
                 String pathName = fullPathNameList.get(i)
@@ -281,7 +294,7 @@ class ScreenUrlInfo {
         StringBuilder urlBuilder = new StringBuilder(baseUrl)
         if (alwaysUseFullPath) {
             // really get the full path instead of minimal
-            if (fullPathNameList) {
+            if (fullPathNameList != null) {
                 int listSize = fullPathNameList.size()
                 for (int i = 0; i < listSize; i++) {
                     String pathName = fullPathNameList.get(i)
@@ -289,7 +302,7 @@ class ScreenUrlInfo {
                 }
             }
         } else {
-            if (minimalPathNameList) {
+            if (minimalPathNameList != null) {
                 int listSize = minimalPathNameList.size()
                 for (int i = 0; i < listSize; i++) {
                     String pathName = minimalPathNameList.get(i)
@@ -311,13 +324,13 @@ class ScreenUrlInfo {
 
     ScreenUrlInfo addParameter(Object name, Object value) {
         if (!name || value == null) return this
-        pathParameterMap.put(name as String, StupidUtilities.toPlainString(value))
+        pathParameterMap.put(name as String, StupidJavaUtilities.toPlainString(value))
         return this
     }
     ScreenUrlInfo addParameters(Map manualParameters) {
         if (!manualParameters) return this
         for (Map.Entry mpEntry in manualParameters.entrySet()) {
-            pathParameterMap.put(mpEntry.getKey() as String, StupidUtilities.toPlainString(mpEntry.getValue()))
+            pathParameterMap.put(mpEntry.getKey() as String, StupidJavaUtilities.toPlainString(mpEntry.getValue()))
         }
         return this
     }
@@ -358,15 +371,16 @@ class ScreenUrlInfo {
         //     to its response url, etc
         ScreenDefinition lastSd = rootSd
         extraPathNameList = new ArrayList<String>(fullPathNameList)
-        for (String pathName in fullPathNameList) {
-            String nextLoc = lastSd.getSubscreensItem(pathName)?.location
+        for (int i = 0; i < fullPathNameList.size(); i++) {
+            String pathName = (String) fullPathNameList.get(i)
+            ScreenDefinition.SubscreensItem nextSi = lastSd.getSubscreensItem(pathName)
 
-            if (!nextLoc) {
+            if (nextSi == null) {
                 // handle case where last one may be a transition name, and not a subscreen name
                 if (lastSd.hasTransition(pathName)) {
                     // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
                     extraPathNameList.remove(0)
-                    this.targetTransitionActualName = pathName
+                    targetTransitionActualName = pathName
 
                     // break out; a transition means we're at the end
                     break
@@ -382,15 +396,47 @@ class ScreenUrlInfo {
                     }
                 }
 
-                if (lastSd.screenNode.attribute('allow-extra-path') == "true") {
-                    // call it good
-                    break
+                int dotIndex = pathName.indexOf('.')
+
+                if (dotIndex > 0) {
+                    // is there an extension with a render-mode added to the screen name?
+                    String extension = pathName.substring(dotIndex + 1)
+                    String pathNamePreDot = pathName.substring(0, dotIndex)
+                    if (sfi.isRenderModeValid(extension)) {
+                        nextSi = lastSd.getSubscreensItem(pathNamePreDot)
+                        if (nextSi != null) {
+                            targetScreenRenderMode = extension
+                            if (sfi.isRenderModeAlwaysStandalone(extension)) lastStandalone = true
+                            fullPathNameList.set(i, pathNamePreDot)
+                            pathName = pathNamePreDot
+                        }
+                    }
+
+                    // is there an extension beyond a transition name?
+                    if (nextSi == null && lastSd.hasTransition(pathNamePreDot)) {
+                        // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
+                        extraPathNameList.remove(0)
+                        targetTransitionActualName = pathNamePreDot
+                        targetTransitionExtension = extension
+
+                        // break out; a transition means we're at the end
+                        break
+                    }
                 }
 
-                throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, extraPathNameList?.last(), null,
-                        new Exception("Screen sub-content not found here"))
+                // next SubscreenItem still not found?
+                if (nextSi == null) {
+                    if (lastSd.screenNode.attribute('allow-extra-path') == "true") {
+                        // call it good
+                        break
+                    }
+
+                    throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, extraPathNameList?.last(), null,
+                            new Exception("Screen sub-content not found here"))
+                }
             }
 
+            String nextLoc = nextSi.location
             ScreenDefinition nextSd = sfi.getScreenDefinition(nextLoc)
             if (nextSd == null) {
                 throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, pathName, nextLoc,
@@ -423,7 +469,8 @@ class ScreenUrlInfo {
 
         // beyond the last screenPathName, see if there are any screen.default-item values (keep following until none found)
         int defaultSubScreenCount = 0
-        while (targetTransitionActualName == null && fileResourceRef == null && lastSd.getDefaultSubscreensItem()) {
+        // NOTE: don't look for defaults if we have a target screen with a render mode, means we want to render that screen
+        while (targetScreenRenderMode == null && targetTransitionActualName == null && fileResourceRef == null && lastSd.getDefaultSubscreensItem()) {
             if (lastSd.getSubscreensNode()?.attribute('always-use-full-path') == "true") alwaysUseFullPath = true
             // logger.warn("TOREMOVE lastSd ${minimalPathNameList} subscreens: ${lastSd.screenNode?.subscreens}, alwaysUseFullPath=${alwaysUseFullPath}, from ${lastSd.screenNode."subscreens"?."@always-use-full-path"?.getAt(0)}, subscreenName=${subscreenName}")
 
@@ -445,10 +492,9 @@ class ScreenUrlInfo {
             }
 
             // if any conditional-default.@condition eval to true, use that conditional-default.@item instead
-            NodeList condDefaultList = (NodeList) lastSd.getSubscreensNode()?.get("conditional-default")
-            if (condDefaultList) for (Object conditionalDefaultObj in condDefaultList) {
-                Node conditionalDefaultNode = (Node) conditionalDefaultObj
-                String condStr = (String) conditionalDefaultNode.attribute('condition')
+            List<MNode> condDefaultList = lastSd.getSubscreensNode()?.children("conditional-default")
+            if (condDefaultList) for (MNode conditionalDefaultNode in condDefaultList) {
+                String condStr = conditionalDefaultNode.attribute('condition')
                 if (!condStr) continue
                 if (ecfi.getResource().condition(condStr, null)) {
                     subscreenName = conditionalDefaultNode.attribute('item')
@@ -557,7 +603,9 @@ class ScreenUrlInfo {
         sui.renderPathDifference = this.renderPathDifference
         sui.lastStandalone = this.lastStandalone
         sui.targetScreen = this.targetScreen
+        sui.targetScreenRenderMode = this.targetScreenRenderMode
         sui.targetTransitionActualName = this.targetTransitionActualName
+        sui.targetTransitionExtension = this.targetTransitionExtension
         sui.preTransitionPathNameList = this.preTransitionPathNameList!=null ? new ArrayList<String>(this.preTransitionPathNameList) : null
     }
 
@@ -602,23 +650,29 @@ class ScreenUrlInfo {
                 }
             }
         } else {
-            if (screenPath.startsWith("/")) fromPathList = new ArrayList<String>()
+            if (screenPath.startsWith("/")) fromPathList = (List<String>) null
 
             ArrayList<String> tempPathNameList = new ArrayList<String>()
-            tempPathNameList.addAll(fromPathList)
-            tempPathNameList.addAll(screenPath.split("/") as List)
+            if (fromPathList != null) tempPathNameList.addAll(fromPathList)
+            tempPathNameList.addAll(Arrays.asList(screenPath.split("/")))
             return cleanupPathNameList(tempPathNameList, inlineParameters)
         }
     }
 
     static ArrayList<String> cleanupPathNameList(ArrayList<String> inputPathNameList, Map inlineParameters) {
         // filter the list: remove empty, remove ".", remove ".." and previous
-        ArrayList<String> cleanList = new ArrayList<String>(inputPathNameList.size())
-        for (String pathName in inputPathNameList) {
-            if (!pathName) continue
-            if (pathName == ".") continue
+        int inputPathNameListSize = inputPathNameList.size()
+        ArrayList<String> cleanList = new ArrayList<String>(inputPathNameListSize)
+        for (int i = 0; i < inputPathNameListSize; i++) {
+            String pathName = (String) inputPathNameList.get(i)
+            if (pathName == null || pathName.length() == 0) continue
+            if (".".equals(pathName)) continue
             // .. means go up a level, ie drop the last in the list
-            if (pathName == "..") { if (cleanList.size()) cleanList.remove(cleanList.size()-1); continue }
+            if ("..".equals(pathName)) {
+                int cleanListSize = cleanList.size()
+                if (cleanListSize > 0) cleanList.remove(cleanListSize - 1)
+                continue
+            }
             // if it has a tilde it is a parameter, so skip it but remember it
             if (pathName.startsWith("~")) {
                 if (inlineParameters != null) {
@@ -636,15 +690,15 @@ class ScreenUrlInfo {
     static class UrlInstance {
         ScreenUrlInfo sui
         ScreenRenderImpl sri
-        ExecutionContext ec
+        ExecutionContextImpl ec
         boolean expandAliasTransition
 
         /** If a transition is specified, the target transition within the targetScreen */
-        TransitionItem curTargetTransition = null
+        TransitionItem curTargetTransition = (TransitionItem) null
 
         Map<String, String> otherParameterMap = new HashMap<String, String>()
-        Map transitionAliasParameters = null
-        Map<String, String> allParameterMap = null
+        Map transitionAliasParameters = (Map) null
+        Map<String, String> allParameterMap = (Map<String, String>) null
 
         UrlInstance(ScreenUrlInfo sui, ScreenRenderImpl sri, Boolean expandAliasTransition) {
             this.sui = sui
@@ -652,19 +706,19 @@ class ScreenUrlInfo {
             ec = sri.getEc()
 
             this.expandAliasTransition = expandAliasTransition != null ? expandAliasTransition : true
-            if (this.expandAliasTransition) expandTransitionAliasUrl()
+            if (expandAliasTransition != null && expandAliasTransition.booleanValue()) expandTransitionAliasUrl()
 
             // logger.warn("======= Creating UrlInstance ${sui.getFullPathNameList()} - ${sui.targetScreen.getLocation()} - ${sui.getTargetTransitionActualName()}")
         }
 
-        String getRequestMethod() { return ec.web ? ec.web.request.method : "" }
+        String getRequestMethod() { return ec.web != null ? ec.web.request.method : "" }
         TransitionItem getTargetTransition() {
-            if (curTargetTransition == null && sui.targetScreen != null && sui.targetTransitionActualName)
+            if (curTargetTransition == null && sui.targetScreen != null && sui.targetTransitionActualName != null)
                 curTargetTransition = sui.targetScreen.getTransitionItem(sui.targetTransitionActualName, getRequestMethod())
             return curTargetTransition
         }
-        boolean getHasActions() { getTargetTransition() && getTargetTransition().actions }
-        boolean getDisableLink() { return (getTargetTransition() && !getTargetTransition().checkCondition(ec)) || !sui.isPermitted(ec) }
+        boolean getHasActions() { getTargetTransition() != null && getTargetTransition().actions }
+        boolean getDisableLink() { return (getTargetTransition() != null && !getTargetTransition().checkCondition(ec)) || !sui.isPermitted(ec) }
         boolean isPermitted() { return sui.isPermitted(ec) }
         boolean getInCurrentScreenPath() {
             List<String> currentPathNameList = new ArrayList<String>(sri.screenUrlInfo.fullPathNameList)
@@ -693,8 +747,8 @@ class ScreenUrlInfo {
                         sui.preTransitionPathNameList, expandedUrl,
                         (sui.lastStandalone || transitionAliasParameters.lastStandalone == "true"))
 
-                this.sui = aliasUrlInfo
-                this.curTargetTransition = null
+                sui = aliasUrlInfo
+                curTargetTransition = (TransitionItem) null
             }
         }
         Map getTransitionAliasParameters() { return transitionAliasParameters }
@@ -702,13 +756,17 @@ class ScreenUrlInfo {
         String getUrl() { return sui.getUrlWithBase(sui.getBaseUrl(sri)) }
         String getUrlWithParams() {
             String ps = getParameterString()
-            return getUrl() + (ps ? "?" + ps : "")
+            String url = getUrl()
+            if (ps != null && ps.length() > 0) url = url.concat("?").concat(ps)
+            return url
         }
 
         String getMinimalPathUrl() { return sui.getMinimalPathUrlWithBase(sui.getBaseUrl(sri)) }
         String getMinimalPathUrlWithParams() {
             String ps = getParameterString()
-            return getMinimalPathUrl() + (ps ? "?" + ps : "")
+            String url = getMinimalPathUrl()
+            if (ps != null && ps.length() > 0) url = url.concat("?").concat(ps)
+            return url
         }
 
         String getScreenPathUrl() { return sui.getScreenPathUrlWithBase(sui.getBaseUrl(sri)) }
@@ -719,46 +777,55 @@ class ScreenUrlInfo {
             allParameterMap = new HashMap<>()
             // get default parameters for the target screen
             if (sui.targetScreen != null) {
-                for (ParameterItem pi in sui.targetScreen.getParameterMap().values()) {
+                for (ParameterItem pi in (Collection<ParameterItem>) sui.targetScreen.getParameterMap().values()) {
                     Object value = pi.getValue(ec)
-                    if (value) allParameterMap.put(pi.name, StupidUtilities.toPlainString(value))
+                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                    if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
                 }
             }
-            if (targetTransition != null && targetTransition.getParameterMap()) {
-                for (ParameterItem pi in targetTransition.getParameterMap().values()) {
+
+            TransitionItem targetTrans = getTargetTransition()
+            if (targetTrans != null) {
+                Map<String, ParameterItem> transParameterMap = targetTrans.getParameterMap()
+                for (ParameterItem pi in (Collection<ParameterItem>) transParameterMap.values()) {
                     Object value = pi.getValue(ec)
-                    if (value) allParameterMap.put(pi.name, StupidUtilities.toPlainString(value))
+                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                    if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
                 }
-            }
-            if (targetTransition != null && targetTransition.getSingleServiceName()) {
                 String targetServiceName = targetTransition.getSingleServiceName()
-                ServiceDefinition sd = ((ServiceFacadeImpl) ec.getService()).getServiceDefinition(targetServiceName)
-                if (sd != null) {
-                    for (String pn in sd.getInParameterNames()) {
-                        Object value = ec.getContext().get(pn)
-                        if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(pn)
-                        if (value) allParameterMap.put(pn, StupidUtilities.toPlainString(value))
-                    }
-                } else if (targetServiceName.contains("#")) {
-                    // service name but no service def, see if it is an entity op and if so try the pk fields
-                    String verb = targetServiceName.substring(0, targetServiceName.indexOf("#"))
-                    if (verb == "create" || verb == "update" || verb == "delete" || verb == "store") {
-                        String en = targetServiceName.substring(targetServiceName.indexOf("#") + 1)
-                        EntityDefinition ed = ((EntityFacadeImpl) ec.getEntity()).getEntityDefinition(en)
-                        if (ed != null) {
-                            for (String fn in ed.getPkFieldNames()) {
-                                Object value = ec.getContext().get(fn)
-                                if (!value && ec.getWeb() != null) value = ec.getWeb().getParameters().get(fn)
-                                if (value) allParameterMap.put(fn, StupidUtilities.toPlainString(value))
+                if (targetServiceName != null && targetServiceName.length() > 0) {
+                    ServiceDefinition sd = ec.ecfi.getServiceFacade().getServiceDefinition(targetServiceName)
+                    if (sd != null) {
+                        for (String pn in sd.getInParameterNames()) {
+                            Object value = ec.getContext().getByString(pn)
+                            if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
+                                value = ec.getWeb().getParameters().get(pn)
+                            String valueStr = StupidJavaUtilities.toPlainString(value)
+                            if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pn, valueStr)
+                        }
+                    } else if (targetServiceName.contains("#")) {
+                        // service name but no service def, see if it is an entity op and if so try the pk fields
+                        String verb = targetServiceName.substring(0, targetServiceName.indexOf("#"))
+                        if (verb == "create" || verb == "update" || verb == "delete" || verb == "store") {
+                            String en = targetServiceName.substring(targetServiceName.indexOf("#") + 1)
+                            EntityDefinition ed = ec.ecfi.getEntityFacade(ec.tenantId).getEntityDefinition(en)
+                            if (ed != null) {
+                                for (String fn in ed.getPkFieldNames()) {
+                                    Object value = ec.getContext().getByString(fn)
+                                    if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
+                                        value = ec.getWeb().getParameters().get(fn)
+                                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                                    if (valueStr != null && valueStr.length() > 0) allParameterMap.put(fn, valueStr)
+                                }
                             }
                         }
                     }
                 }
             }
             // add all of the parameters specified inline in the screen path or added after
-            if (sui.pathParameterMap) allParameterMap.putAll(sui.pathParameterMap)
+            if (sui.pathParameterMap != null) allParameterMap.putAll(sui.pathParameterMap)
             // add transition parameters, for alias transitions
-            if (transitionAliasParameters) allParameterMap.putAll(transitionAliasParameters)
+            if (transitionAliasParameters != null) allParameterMap.putAll(transitionAliasParameters)
             // add all parameters added to the instance after
             allParameterMap.putAll(otherParameterMap)
 
@@ -768,7 +835,7 @@ class ScreenUrlInfo {
 
         String getParameterString() {
             StringBuilder ps = new StringBuilder()
-            Map<String, String> pm = this.getParameterMap()
+            Map<String, String> pm = getParameterMap()
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.value) continue
                 if (pme.key == "moquiSessionToken") continue
@@ -779,7 +846,7 @@ class ScreenUrlInfo {
         }
         String getParameterPathString() {
             StringBuilder ps = new StringBuilder()
-            Map<String, String> pm = this.getParameterMap()
+            Map<String, String> pm = getParameterMap()
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.getValue()) continue
                 ps.append("/~")
@@ -788,18 +855,21 @@ class ScreenUrlInfo {
             return ps.toString()
         }
 
-        UrlInstance addParameter(Object name, Object value) {
-            if (!name || value == null) return this
-            String parmValue = StupidUtilities.toPlainString(value)
+        UrlInstance addParameter(Object nameObj, Object value) {
+            String name = nameObj.toString()
+            if (name == null || name.length() == 0 || value == null) return this
+            String parmValue = StupidJavaUtilities.toPlainString(value)
             otherParameterMap.put(name as String, parmValue)
             if (allParameterMap != null) allParameterMap.put(name as String, parmValue)
             return this
         }
         UrlInstance addParameters(Map manualParameters) {
-            if (!manualParameters) return this
+            if (manualParameters == null || manualParameters.size() == 0) return this
             for (Map.Entry mpEntry in manualParameters.entrySet()) {
-                String parmKey = mpEntry.getKey() as String
-                String parmValue = StupidUtilities.toPlainString(mpEntry.getValue())
+                String parmKey = mpEntry.getKey().toString()
+                // just in case a ContextStack with the context entry used is passed
+                if ("context".equals(parmKey)) continue
+                String parmValue = StupidJavaUtilities.toPlainString(mpEntry.getValue())
                 otherParameterMap.put(parmKey, parmValue)
                 if (allParameterMap != null) allParameterMap.put(parmKey, parmValue)
             }
@@ -812,7 +882,7 @@ class ScreenUrlInfo {
             return this
         }
         static void copySpecialParameters(Map fromMap, Map toMap) {
-            if (!fromMap || !toMap) return
+            if (!fromMap || toMap == null) return
             for (String fieldName in fromMap.keySet()) {
                 if (fieldName.startsWith("formDisplayOnly")) toMap.put(fieldName, (String) fromMap.get(fieldName))
             }

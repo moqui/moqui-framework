@@ -1,5 +1,7 @@
 package org.moqui.impl.service
 
+import groovy.transform.CompileStatic
+
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a 
  * Grant of Patent License.
@@ -25,6 +27,7 @@ import org.slf4j.LoggerFactory
 
 /* NOTE: see JSON-RPC2 specs at: http://www.jsonrpc.org/specification */
 
+@CompileStatic
 public class ServiceJsonRpcDispatcher {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceJsonRpcDispatcher.class)
 
@@ -43,7 +46,7 @@ public class ServiceJsonRpcDispatcher {
     public void dispatch(HttpServletRequest request, HttpServletResponse response) {
         Map callMap = eci.web.getRequestParameters()
         if (callMap._requestBodyJsonList) {
-            List callList = callMap._requestBodyJsonList
+            List callList = (List) callMap._requestBodyJsonList
             List<Map> jsonRespList = []
             for (Object callSingleObj in callList) {
                 if (callSingleObj instanceof Map) {
@@ -65,7 +68,7 @@ public class ServiceJsonRpcDispatcher {
 
         String errorMessage = null
         Integer errorCode = null
-        ServiceDefinition sd = method ? eci.service.getServiceDefinition(method) : null
+        ServiceDefinition sd = method ? eci.ecfi.serviceFacade.getServiceDefinition(method) : null
         if (eci.web.getRequestParameters()._requestBodyJsonParseError) {
             errorMessage = eci.web.getRequestParameters()._requestBodyJsonParseError
             errorCode = PARSE_ERROR
@@ -79,7 +82,7 @@ public class ServiceJsonRpcDispatcher {
             // We expect named parameters (JSON object)
             errorMessage = "Parameters must be named parameters (JSON object, Java Map), got type [${paramsObj.class.getName()}]"
             errorCode = INVALID_PARAMS
-        } else if (sd.serviceNode."@allow-remote" != "true") {
+        } else if (sd.serviceNode.attribute("allow-remote") != "true") {
             errorMessage = "Service [${sd.serviceName}] does not allow remote calls"
             errorCode = METHOD_NOT_FOUND
         }

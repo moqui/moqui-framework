@@ -13,6 +13,8 @@
  */
 package org.moqui.impl.service
 
+import groovy.transform.CompileStatic
+
 import javax.transaction.Synchronization
 import javax.transaction.Transaction
 import javax.transaction.xa.XAException
@@ -25,6 +27,7 @@ import org.moqui.service.ServiceCallSpecial
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ServiceCallSpecialImpl extends ServiceCallImpl implements ServiceCallSpecial {
 
     ServiceCallSpecialImpl(ServiceFacadeImpl sfi) {

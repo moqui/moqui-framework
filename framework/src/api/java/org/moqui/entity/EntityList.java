@@ -13,6 +13,8 @@
  */
 package org.moqui.entity;
 
+import groovy.lang.Closure;
+
 import java.io.Writer;
 import java.sql.Timestamp;
 import java.util.Iterator;
@@ -64,6 +66,16 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
      * @return List with filtered values.
      */
     EntityList filterByCondition(EntityCondition condition, Boolean include);
+
+    /** Modify this EntityList so that it includes (or excludes) entity values where the closure evaluates to true.
+     * The closure is called with a single argument, the current EntityValue in the list, and should evaluate to a Boolean. */
+    EntityList filter(Closure<Boolean> closure, Boolean include);
+
+    /** Find the first value in this EntityList where the closure evaluates to true. */
+    EntityValue find(Closure<Boolean> closure);
+    /** Different from filter* method semantics, does not modify this EntityList. Returns a new EntityList with just the
+     * values where the closure evaluates to true. */
+    EntityList findAll(Closure<Boolean> closure);
 
     /** Modify this EntityList to only contain up to limit values starting at the offset.
      *

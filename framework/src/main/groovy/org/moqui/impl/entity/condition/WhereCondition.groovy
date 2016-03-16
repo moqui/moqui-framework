@@ -13,11 +13,16 @@
  */
 package org.moqui.impl.entity.condition
 
+import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityQueryBuilder
 import org.moqui.impl.entity.EntityConditionFactoryImpl
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
+@CompileStatic
 class WhereCondition extends EntityConditionImplBase {
+    protected final static Logger logger = LoggerFactory.getLogger(WhereCondition.class)
     protected String sqlWhereClause
 
     WhereCondition(EntityConditionFactoryImpl ecFactoryImpl, String sqlWhereClause) {
@@ -31,7 +36,7 @@ class WhereCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean mapMatches(Map<String, ?> map) {
+    boolean mapMatches(Map<String, Object> map) {
         // NOTE: always return false unless we eventually implement some sort of SQL parsing, for caching/etc
         // always consider not matching
         logger.warn("The mapMatches for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
@@ -39,7 +44,7 @@ class WhereCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean populateMap(Map<String, ?> map) { return false }
+    boolean populateMap(Map<String, Object> map) { return false }
 
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) { }
 

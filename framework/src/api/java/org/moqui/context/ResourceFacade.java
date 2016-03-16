@@ -96,4 +96,6 @@ public interface ResourceFacade {
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize);
 
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);
+
+    String getContentType(String filename);
 }

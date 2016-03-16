@@ -13,15 +13,18 @@
  */
 package org.moqui.impl.service
 
+import groovy.transform.CompileStatic
 import org.quartz.JobListener
 import org.quartz.JobExecutionContext
 import org.quartz.JobExecutionException
 
 import org.moqui.service.ServiceResultReceiver
+import org.quartz.SchedulerException
 import org.quartz.TriggerListener
 import org.quartz.Trigger
 import org.quartz.Trigger.CompletedExecutionInstruction
 
+@CompileStatic
 class ServiceRequesterListener implements JobListener, TriggerListener {
     protected ServiceResultReceiver resultReceiver
 
@@ -42,7 +45,10 @@ class ServiceRequesterListener implements JobListener, TriggerListener {
 
     void jobWasExecuted(JobExecutionContext jobExecutionContext, JobExecutionException jobExecutionException) {
         if (jobExecutionException) {
-            resultReceiver.receiveThrowable(jobExecutionException.getUnderlyingException())
+            Throwable throwable = jobExecutionException.getUnderlyingException()
+            if (throwable instanceof SchedulerException)
+                throwable = ((SchedulerException) throwable).getUnderlyingException()
+            resultReceiver.receiveThrowable(throwable)
         } else {
             // TODO: need to clean up Map based on out-parameter defs?
             resultReceiver.receiveResult(jobExecutionContext.getMergedJobDataMap())

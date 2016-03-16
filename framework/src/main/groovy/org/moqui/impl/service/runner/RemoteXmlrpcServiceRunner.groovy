@@ -29,8 +29,8 @@ public class RemoteXmlrpcServiceRunner implements ServiceRunner {
     public ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; return this }
 
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
-        String location = sd.serviceNode."@location"
-        String method = sd.serviceNode."@method"
+        String location = sd.serviceNode.attribute("location")
+        String method = sd.serviceNode.attribute("method")
         if (!location) throw new IllegalArgumentException("Cannot call remote service [${sd.serviceName}] because it has no location specified.")
         if (!method) throw new IllegalArgumentException("Cannot call remote service [${sd.serviceName}] because it has no method specified.")
 

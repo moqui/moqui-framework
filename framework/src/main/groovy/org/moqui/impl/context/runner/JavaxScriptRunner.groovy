@@ -30,6 +30,7 @@ import javax.script.ScriptEngineManager
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class JavaxScriptRunner implements ScriptRunner {
     protected final static Logger logger = LoggerFactory.getLogger(JavaxScriptRunner.class)
 
@@ -48,7 +49,6 @@ class JavaxScriptRunner implements ScriptRunner {
         return this
     }
 
-    @CompileStatic
     Object run(String location, String method, ExecutionContext ec) {
         // this doesn't support methods, so if passed warn about that
         if (method) logger.warn("Tried to invoke script at [${location}] with method [${method}] through javax.script (JSR-223) runner which does NOT support methods, so it is being ignored.", new BaseException("Script Run Location"))
@@ -59,7 +59,6 @@ class JavaxScriptRunner implements ScriptRunner {
 
     void destroy() { }
 
-    @CompileStatic
     static Object bindAndRun(String location, ExecutionContext ec, ScriptEngine engine, Cache scriptLocationCache) {
         Bindings bindings = new SimpleBindings()
         for (Map.Entry ce in ec.getContext().entrySet()) bindings.put((String) ce.getKey(), ce.getValue())

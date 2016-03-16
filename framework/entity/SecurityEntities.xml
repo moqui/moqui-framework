@@ -121,7 +121,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="artifactName" type="text-medium"/>
         <field name="artifactTypeEnumId" type="id"/>
         <field name="authzActionEnumId" type="id"/>
-        <field name="userId" type="id-long"/>
+        <field name="userId" type="id"/>
         <field name="failureDate" type="date-time"/>
         <field name="isDeny" type="text-indicator"/>
         <relationship type="one" title="ArtifactType" related-entity-name="moqui.basic.Enumeration">
@@ -258,7 +258,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========== User ========== -->
     <entity entity-name="UserAccount" package-name="moqui.security" short-alias="users">
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="username" type="text-medium" enable-audit-log="true">
             <description>The username used along with the password to login</description></field>
         <field name="userFullName" type="text-medium"><description>User's first, middle, last, etc name</description></field>
@@ -277,8 +277,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="requirePasswordChange" type="text-indicator"/>
         <field name="currencyUomId" type="id"/>
         <field name="locale" type="text-short"/>
-        <field name="timeZone" type="id-long"/>
-        <field name="externalUserId" type="id-long"/>
+        <field name="timeZone" type="text-short"/>
+        <field name="externalUserId" type="text-medium"/>
         <field name="emailAddress" type="text-medium">
             <description>The email address to use for forgot password emails and other system messages.</description></field>
         <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom" short-alias="currencyUom">
@@ -307,7 +307,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="UserGroupMember" package-name="moqui.security" cache="true">
         <field name="userGroupId" type="id" is-pk="true"/>
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.security.UserGroup" short-alias="group"/>
@@ -348,13 +348,13 @@ along with this software (see the LICENSE.md file). If not, see
             like a session.</description>
         <field name="loginKey" type="text-medium" is-pk="true"><description>NOTE: not an encrypted field because one way
             hash encryption used for it (uses login-key.@encrypt-hash-type, no salt, hash before lookup on verify)</description></field>
-        <field name="userId" type="id-long"/>
+        <field name="userId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
     </entity>
     <entity entity-name="UserLoginHistory" package-name="moqui.security" cache="never">
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="visitId" type="id"/>
@@ -364,7 +364,7 @@ along with this software (see the LICENSE.md file). If not, see
             <description>No FK in order to allow externally authenticated users.</description></relationship>
     </entity>
     <entity entity-name="UserPasswordHistory" package-name="moqui.security" cache="never">
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="password" type="text-medium"/>
         <field name="passwordSalt" type="text-medium"/>
@@ -378,7 +378,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="UserPreference" package-name="moqui.security">
         <description>Use this entity for user-specific preferences (or properties). For default preferences use userId="_NA_".</description>
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="preferenceKey" type="text-medium" is-pk="true"/>
         <field name="preferenceValue" type="text-long"/>
         <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user">
@@ -403,7 +403,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="preferenceKey"/></relationship>
     </entity>
     <entity entity-name="UserScreenTheme" package-name="moqui.security" authorize-skip="view" cache="true">
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="screenThemeTypeEnumId" type="id" is-pk="true"/>
         <field name="screenThemeId" type="id"/>
         <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user">
@@ -424,7 +424,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="NotificationMessageUser" package-name="moqui.security.user">
         <field name="notificationMessageId" type="id" is-pk="true"/>
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="sentDate" type="date-time"/>
         <field name="receivedDate" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount" short-alias="user"/>

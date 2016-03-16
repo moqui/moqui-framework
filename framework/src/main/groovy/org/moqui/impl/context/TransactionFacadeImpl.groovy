@@ -18,6 +18,7 @@ import org.moqui.BaseException
 import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.context.TransactionInternal
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -26,10 +27,12 @@ import javax.naming.InitialContext
 import javax.naming.NamingException
 import javax.sql.XAConnection
 import javax.transaction.*
+import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
-import java.sql.Connection
-import java.sql.SQLException
+import java.sql.*
+import java.util.concurrent.Executor
 
+@CompileStatic
 class TransactionFacadeImpl implements TransactionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionFacadeImpl.class)
 
@@ -40,37 +43,37 @@ class TransactionFacadeImpl implements TransactionFacade {
     protected UserTransaction ut
     protected TransactionManager tm
 
-    private ThreadLocal<ArrayList<Exception>> transactionBeginStackList = new ThreadLocal<ArrayList<Exception>>()
-    private ThreadLocal<ArrayList<Long>> transactionBeginStartTimeList = new ThreadLocal<ArrayList<Long>>()
-    private ThreadLocal<ArrayList<RollbackInfo>> rollbackOnlyInfoStackList = new ThreadLocal<ArrayList<RollbackInfo>>()
-    private ThreadLocal<ArrayList<Transaction>> suspendedTxStackList = new ThreadLocal<ArrayList<Transaction>>()
-    private ThreadLocal<List<Exception>> suspendedTxLocationStack = new ThreadLocal<List<Exception>>()
-    private ThreadLocal<ArrayList<Map<String, XAResource>>> activeXaResourceStackList = new ThreadLocal<ArrayList<Map<String, XAResource>>>()
-    private ThreadLocal<ArrayList<Map<String, Synchronization>>> activeSynchronizationStackList = new ThreadLocal<ArrayList<Map<String, Synchronization>>>()
-
     protected boolean useTransactionCache = true
+    protected boolean useConnectionStash = true
+
+    private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>()
+    private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>()
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
+        initTransactionInternal()
+    }
 
-        Node transactionFacadeNode = this.ecfi.getConfXmlRoot()."transaction-facade"[0]
-        if (transactionFacadeNode."transaction-jndi") {
+    void initTransactionInternal() {
+        MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade")
+        if (transactionFacadeNode.hasChild("transaction-jndi")) {
             this.populateTransactionObjectsJndi()
-        } else if (transactionFacadeNode."transaction-internal") {
+        } else if (transactionFacadeNode.hasChild("transaction-internal")) {
             // initialize internal
-            Node transactionInternalNode = transactionFacadeNode."transaction-internal"[0]
-            String tiClassName = (String) transactionInternalNode."@class"
+            MNode transactionInternalNode = transactionFacadeNode.first("transaction-internal")
+            String tiClassName = transactionInternalNode.attribute("class")
             transactionInternal = (TransactionInternal) Thread.currentThread().getContextClassLoader()
                     .loadClass(tiClassName).newInstance()
             transactionInternal.init(ecfi)
 
-            this.ut = transactionInternal.getUserTransaction()
-            this.tm = transactionInternal.getTransactionManager()
+            ut = transactionInternal.getUserTransaction()
+            tm = transactionInternal.getTransactionManager()
         } else {
-            throw new IllegalArgumentException("Transaction factory type [${transactionFactory."@factory-type"}] not supported")
+            throw new IllegalArgumentException("No transaction-jndi or transaction-internal elements found in Moqui Conf XML file")
         }
 
-        if (transactionFacadeNode."@use-transaction-cache" == "false") useTransactionCache = false
+        if (transactionFacadeNode.attribute("use-transaction-cache") == "false") useTransactionCache = false
+        if (transactionFacadeNode.attribute("use-connection-stash") == "false") useConnectionStash = false
     }
 
     void destroy() {
@@ -81,13 +84,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         // destroy internal if applicable; nothing for JNDI
         if (transactionInternal != null) transactionInternal.destroy()
 
-        transactionBeginStackList.remove()
-        transactionBeginStartTimeList.remove()
-        rollbackOnlyInfoStackList.remove()
-        suspendedTxStackList.remove()
-        suspendedTxLocationStack.remove()
-        activeXaResourceStackList.remove()
-        activeSynchronizationStackList.remove()
+        txStackInfoListThread.remove()
     }
 
     /** This is called to make sure all transactions, etc are closed for the thread.
@@ -99,9 +96,11 @@ class TransactionFacadeImpl implements TransactionFacade {
             this.commit()
         }
 
-        if (suspendedTxStackList.get()) {
+        LinkedList<TxStackInfo> txStackInfoList = txStackInfoListThread.get()
+        if (txStackInfoList) {
             int numSuspended = 0;
-            for (Transaction tx in suspendedTxStackList.get()) {
+            for (TxStackInfo txStackInfo in txStackInfoList) {
+                Transaction tx = txStackInfo.suspendedTx
                 if (tx != null) {
                     this.resume()
                     this.commit()
@@ -111,151 +110,140 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (numSuspended > 0) logger.warn("Cleaned up [" + numSuspended + "] suspended transactions.")
         }
 
-        transactionBeginStackList.remove()
-        transactionBeginStartTimeList.remove()
-        rollbackOnlyInfoStackList.remove()
-        suspendedTxStackList.remove()
-        suspendedTxLocationStack.remove()
-        activeXaResourceStackList.remove()
-        activeSynchronizationStackList.remove()
+        txStackInfoListThread.remove()
     }
 
-    @CompileStatic
     TransactionInternal getTransactionInternal() { return transactionInternal }
-    @CompileStatic
     TransactionManager getTransactionManager() { return tm }
-    @CompileStatic
     UserTransaction getUserTransaction() { return ut }
-    @CompileStatic
     Long getCurrentTransactionStartTime() {
-        Long time = getTransactionBeginStartTimeList() ? getTransactionBeginStartTimeList().get(0) : null
-        if (time == null && logger.traceEnabled) logger.trace("The transactionBeginStackList is empty, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
+        TxStackInfo txStackInfo = getTxStackInfo()
+        Long time = txStackInfo != null ? (Long) txStackInfo.transactionBeginStartTime : (Long) null
+        if (time == null && logger.isTraceEnabled()) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
         return time
     }
 
-    @CompileStatic
-    protected ArrayList<Exception> getTransactionBeginStack() {
-        ArrayList<Exception> list = (ArrayList<Exception>) transactionBeginStackList.get()
+    protected LinkedList<TxStackInfo> getTxStackInfoList() {
+        LinkedList<TxStackInfo> list = (LinkedList<TxStackInfo>) txStackInfoListThread.get()
         if (list == null) {
-            list = new ArrayList<Exception>(10)
-            list.add(null)
-            transactionBeginStackList.set(list)
+            list = new LinkedList<TxStackInfo>()
+            txStackInfoListThread.set(list)
+            TxStackInfo txStackInfo = new TxStackInfo()
+            list.add(txStackInfo)
+            txStackInfoCurThread.set(txStackInfo)
         }
         return list
     }
-    @CompileStatic
-    protected ArrayList<Long> getTransactionBeginStartTimeList() {
-        ArrayList<Long> list = (ArrayList<Long>) transactionBeginStartTimeList.get()
-        if (list == null) {
-            list = new ArrayList<Long>(10)
-            list.add(null)
-            transactionBeginStartTimeList.set(list)
+    protected TxStackInfo getTxStackInfo() {
+        TxStackInfo txStackInfo = (TxStackInfo) txStackInfoCurThread.get()
+        if (txStackInfo == null) {
+            LinkedList<TxStackInfo> list = getTxStackInfoList()
+            txStackInfo = list.getFirst()
         }
-        return list
+        return txStackInfo
     }
-    @CompileStatic
-    protected ArrayList<RollbackInfo> getRollbackOnlyInfoStack() {
-        ArrayList<RollbackInfo> list = (ArrayList<RollbackInfo>) rollbackOnlyInfoStackList.get()
-        if (list == null) {
-            list = new ArrayList<RollbackInfo>(10)
-            list.add(null)
-            rollbackOnlyInfoStackList.set(list)
-        }
-        return list
+    protected void pushTxStackInfo(Transaction tx, Exception txLocation) {
+        TxStackInfo txStackInfo = new TxStackInfo()
+        txStackInfo.suspendedTx = tx
+        txStackInfo.suspendedTxLocation = txLocation
+        getTxStackInfoList().addFirst(txStackInfo)
+        txStackInfoCurThread.set(txStackInfo)
     }
-    @CompileStatic
-    protected ArrayList<Transaction> getSuspendedTxStack() {
-        ArrayList<Transaction> list = (ArrayList<Transaction>) suspendedTxStackList.get()
-        if (list == null) {
-            list = new ArrayList<Transaction>(10)
-            list.add(null)
-            suspendedTxStackList.set(list)
-        }
-        return list
-    }
-    @CompileStatic
-    protected ArrayList<Exception> getSuspendedTxLocationStack() {
-        ArrayList<Exception> list = (ArrayList<Exception>) suspendedTxLocationStack.get()
-        if (list == null) {
-            list = new ArrayList<Exception>(10)
-            list.add(null)
-            suspendedTxLocationStack.set(list)
-        }
-        return list
+    protected void popTxStackInfo() {
+        LinkedList<TxStackInfo> list = getTxStackInfoList()
+        list.removeFirst()
+        txStackInfoCurThread.set(list.getFirst())
     }
 
-    @CompileStatic
+
+    @Override
+    Object runUseOrBegin(Integer timeout, String rollbackMessage, Closure closure) {
+        if (rollbackMessage == null) rollbackMessage = ""
+        boolean beganTransaction = begin(timeout)
+        try {
+            return closure.call()
+        } catch (Throwable t) {
+            rollback(beganTransaction, rollbackMessage, t)
+            throw t
+        } finally {
+            commit(beganTransaction)
+        }
+    }
+    @Override
+    Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure) {
+        return runRequireNew(timeout, rollbackMessage, true, true, closure)
+    }
+    protected final static boolean requireNewThread = true
+    Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadReuseEci, Closure closure) {
+        Object result = null
+        if (requireNewThread) {
+            // if there is a timeout for this thread wait 10x the timeout (so multiple seconds by 10k instead of 1k)
+            long threadWait = timeout != null ? timeout * 10000 : 60000
+
+            Thread txThread = null
+            ExecutionContextImpl eci = ecfi.getEci()
+            Throwable threadThrown = null
+
+            try {
+                txThread = Thread.start('RequireNewTx', {
+                    if (threadReuseEci) ecfi.useExecutionContextInThread(eci)
+                    try {
+                        if (beginTx) {
+                            result = runUseOrBegin(timeout, rollbackMessage, closure)
+                        } else {
+                            result = closure.call()
+                        }
+                    } catch (Throwable t) {
+                        threadThrown = t
+                    }
+                })
+            } finally {
+                if (txThread != null) {
+                    txThread.join(threadWait)
+                    if (txThread.state != Thread.State.TERMINATED) {
+                        // TODO: do more than this?
+                        logger.warn("New transaction thread not terminated, in state ${txThread.state}")
+                    }
+                }
+            }
+            if (threadThrown != null) throw threadThrown
+        } else {
+            boolean suspendedTransaction = false
+            try {
+                if (isTransactionInPlace()) suspendedTransaction = suspend()
+                if (beginTx) {
+                    result = runUseOrBegin(timeout, rollbackMessage, closure)
+                } else {
+                    result = closure.call()
+                }
+            } finally {
+                if (suspendedTransaction) resume()
+            }
+        }
+        return result
+    }
+
     @Override
     XAResource getActiveXaResource(String resourceName) {
-        ArrayList<Map<String, XAResource>> activeXaResourceStack = getActiveXaResourceStack()
-        if (activeXaResourceStack.size() == 0) return null
-        Map<String, XAResource> activeXaResourceMap = activeXaResourceStack.get(0)
-        if (activeXaResourceMap != null) return activeXaResourceMap.get(resourceName)
-        return null
+        return getTxStackInfo().getActiveXaResourceMap().get(resourceName)
     }
-    @CompileStatic
     @Override
     void putAndEnlistActiveXaResource(String resourceName, XAResource xar) {
-        ArrayList<Map<String, XAResource>> activeXaResourceStack = getActiveXaResourceStack()
-        Map<String, XAResource> activeXaResourceMap = activeXaResourceStack.size() > 0 ? activeXaResourceStack.get(0) : null
-        if (activeXaResourceMap == null) {
-            activeXaResourceMap = [:]
-            if (activeXaResourceStack.size() == 0) {
-                activeXaResourceStack.add(0, activeXaResourceMap)
-            } else {
-                activeXaResourceStack.set(0, activeXaResourceMap)
-            }
-        }
         enlistResource(xar)
-        activeXaResourceMap.put(resourceName, xar)
-    }
-    @CompileStatic
-    ArrayList<Map<String, XAResource>> getActiveXaResourceStack() {
-        ArrayList<Map<String, XAResource>> list = (ArrayList<Map<String, XAResource>>) activeXaResourceStackList.get()
-        if (list == null) {
-            list = new ArrayList<Map<String, XAResource>>(10)
-            activeXaResourceStackList.set(list)
-        }
-        return list
+        getTxStackInfo().getActiveXaResourceMap().put(resourceName, xar)
     }
 
-    @CompileStatic
     @Override
     Synchronization getActiveSynchronization(String syncName) {
-        ArrayList<Map<String, Synchronization>> activeSynchronizationStack = getActiveSynchronizationStack()
-        if (activeSynchronizationStack.size() == 0) return null
-        Map<String, Synchronization> activeSynchronizationMap = activeSynchronizationStack.get(0)
-        if (activeSynchronizationMap != null) return activeSynchronizationMap.get(syncName)
-        return null
+        return getTxStackInfo().getActiveSynchronizationMap().get(syncName)
     }
-    @CompileStatic
     @Override
     void putAndEnlistActiveSynchronization(String syncName, Synchronization sync) {
-        ArrayList<Map<String, Synchronization>> activeSynchronizationStack = getActiveSynchronizationStack()
-        Map<String, Synchronization> activeSynchronizationMap = activeSynchronizationStack.size() > 0 ? activeSynchronizationStack.get(0) : null
-        if (activeSynchronizationMap == null) {
-            activeSynchronizationMap = [:]
-            if (activeSynchronizationStack.size() == 0) {
-                activeSynchronizationStack.add(0, activeSynchronizationMap)
-            } else {
-                activeSynchronizationStack.set(0, activeSynchronizationMap)
-            }
-        }
         registerSynchronization(sync)
-        activeSynchronizationMap.put(syncName, sync)
-    }
-    @CompileStatic
-    ArrayList<Map<String, Synchronization>> getActiveSynchronizationStack() {
-        ArrayList<Map<String, Synchronization>> list = (ArrayList<Map<String, Synchronization>>) activeSynchronizationStackList.get()
-        if (list == null) {
-            list = new ArrayList<Map<String, Synchronization>>(10)
-            activeSynchronizationStackList.set(list)
-        }
-        return list
+        getTxStackInfo().getActiveSynchronizationMap().put(syncName, sync)
     }
 
 
-    @CompileStatic
     @Override
     int getStatus() {
         try {
@@ -265,7 +253,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     String getStatusString() {
         int statusInt = getStatus()
@@ -308,30 +295,29 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     boolean isTransactionInPlace() { return getStatus() != Status.STATUS_NO_TRANSACTION }
 
-    @CompileStatic
     @Override
     boolean begin(Integer timeout) {
         try {
             int currentStatus = ut.getStatus()
             // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
 
+            TxStackInfo txStackInfo = getTxStackInfo()
             if (currentStatus == Status.STATUS_ACTIVE) {
                 // don't begin, and return false so caller knows we didn't
                 return false
             } else if (currentStatus == Status.STATUS_MARKED_ROLLBACK) {
-                if (getTransactionBeginStack()) {
-                    logger.warn("Current transaction marked for rollback, so no transaction begun. This stack trace shows where the transaction began: ", getTransactionBeginStack().get(0))
+                if (txStackInfo.transactionBegin != null) {
+                    logger.warn("Current transaction marked for rollback, so no transaction begun. This stack trace shows where the transaction began: ", txStackInfo.transactionBegin)
                 } else {
                     logger.warn("Current transaction marked for rollback, so no transaction begun (NOTE: No stack trace to show where transaction began).")
                 }
 
-                if (getRollbackOnlyInfoStack()) {
-                    logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", getRollbackOnlyInfoStack()?.get(0)?.rollbackLocation)
-                    throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + getRollbackOnlyInfoStack()?.get(0)?.causeMessage, getRollbackOnlyInfoStack()?.get(0)?.causeThrowable)
+                if (txStackInfo.rollbackOnlyInfo != null) {
+                    logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                    throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
                 } else {
                     return false
                 }
@@ -341,8 +327,8 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (timeout) ut.setTransactionTimeout(timeout)
             ut.begin()
 
-            getTransactionBeginStack().set(0, new Exception("Tx Begin Placeholder"))
-            getTransactionBeginStartTimeList().set(0, System.currentTimeMillis())
+            txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder")
+            txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
 
             return true
@@ -356,17 +342,17 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     void commit(boolean beganTransaction) { if (beganTransaction) this.commit() }
 
-    @CompileStatic
     @Override
     void commit() {
+        TxStackInfo txStackInfo = getTxStackInfo()
         try {
             int status = ut.getStatus();
             // logger.warn("================ commit TX, currentStatus=${status}")
 
+            txStackInfo.closeTxConnections()
             if (status == Status.STATUS_MARKED_ROLLBACK) {
                 ut.rollback()
             } else if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
@@ -378,10 +364,9 @@ class TransactionFacadeImpl implements TransactionFacade {
                     logger.warn((String) "Not committing transaction because status is " + getStatusString(), new Exception("Bad TX status location"))
             }
         } catch (RollbackException e) {
-            RollbackInfo rollbackOnlyInfo = getRollbackOnlyInfoStack().get(0)
-            if (rollbackOnlyInfo) {
-                logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", rollbackOnlyInfo.rollbackLocation)
-                throw new TransactionException("Could not commit transaction, was marked rollback-only. The rollback was originally caused by: " + rollbackOnlyInfo.causeMessage, rollbackOnlyInfo.causeThrowable)
+            if (txStackInfo.rollbackOnlyInfo != null) {
+                logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                throw new TransactionException("Could not commit transaction, was marked rollback-only. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
             } else {
                 throw new TransactionException("Could not commit transaction, was rolled back instead (and we don't have a rollback-only cause)", e)
             }
@@ -397,16 +382,10 @@ class TransactionFacadeImpl implements TransactionFacade {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
             if (isTransactionInPlace()) rollback("Commit failed, rolling back to clean up", null)
 
-            if (getRollbackOnlyInfoStack()) getRollbackOnlyInfoStack().set(0, null)
-            if (getTransactionBeginStack()) getTransactionBeginStack().set(0, null)
-            if (getTransactionBeginStartTimeList()) getTransactionBeginStartTimeList().set(0, null)
-            if (getActiveXaResourceStack()) getActiveXaResourceStack().set(0, null)
-            if (getActiveSynchronizationStack()) getActiveSynchronizationStack().set(0, null)
-            // logger.warn("================ commit TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
+            txStackInfo.clearCurrent()
         }
     }
 
-    @CompileStatic
     @Override
     void rollback(boolean beganTransaction, String causeMessage, Throwable causeThrowable) {
         if (beganTransaction) {
@@ -416,9 +395,9 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     void rollback(String causeMessage, Throwable causeThrowable) {
+        TxStackInfo txStackInfo = getTxStackInfo()
         try {
             // logger.warn("================ rollback TX, currentStatus=${getStatus()}")
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
@@ -429,6 +408,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}", causeThrowable)
             logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", new BaseException("Rollback location"))
 
+            txStackInfo.closeTxConnections()
             ut.rollback()
         } catch (IllegalStateException e) {
             throw new TransactionException("Could not rollback transaction", e)
@@ -438,16 +418,10 @@ class TransactionFacadeImpl implements TransactionFacade {
             // NOTE: should this really be in finally? maybe we only want to do this if there is a successful rollback
             // to avoid removing things that should still be there, or maybe here in finally it will match up the adds
             // and removes better
-            if (getRollbackOnlyInfoStack()) getRollbackOnlyInfoStack().set(0, null)
-            if (getTransactionBeginStack()) getTransactionBeginStack().set(0, null)
-            if (getTransactionBeginStartTimeList()) getTransactionBeginStartTimeList().set(0, null)
-            if (getActiveXaResourceStack()) getActiveXaResourceStack().set(0, null)
-            if (getActiveSynchronizationStack()) getActiveSynchronizationStack().set(0, null)
-            // logger.warn("================ rollback TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
+            txStackInfo.clearCurrent()
         }
     }
 
-    @CompileStatic
     @Override
     void setRollbackOnly(String causeMessage, Throwable causeThrowable) {
         try {
@@ -459,7 +433,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
                     ut.setRollbackOnly()
                     // do this after setRollbackOnly so it only tracks it if rollback-only was actually set
-                    getRollbackOnlyInfoStack().set(0, new RollbackInfo(causeMessage, causeThrowable, new Exception("Set rollback-only location")))
+                    getTxStackInfo().rollbackOnlyInfo = new RollbackInfo(causeMessage, causeThrowable, new Exception("Set rollback-only location"))
                 }
             } else {
                 logger.warn("Rollback only not set on current transaction, status is STATUS_NO_TRANSACTION")
@@ -471,7 +445,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     boolean suspend() {
         try {
@@ -479,16 +452,14 @@ class TransactionFacadeImpl implements TransactionFacade {
                 logger.warn("No transaction in place, so not suspending.")
                 return false
             }
+
+            // close connections before suspend, let the pool reuse them
+            TxStackInfo txStackInfo = getTxStackInfo()
+            txStackInfo.closeTxConnections()
+
             Transaction tx = tm.suspend()
             // only do these after successful suspend
-            getRollbackOnlyInfoStack().add(0, null)
-            getTransactionBeginStack().add(0, null)
-            getTransactionBeginStartTimeList().add(0, null)
-            getSuspendedTxStack().add(0, tx)
-            getSuspendedTxLocationStack().add(0, new Exception("Transaction Suspend Location"))
-            getActiveXaResourceStack().add(0, null)
-            getActiveSynchronizationStack().add(0, null)
-            // logger.warn("================ suspending TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
+            pushTxStackInfo(tx, new Exception("Transaction Suspend Location"))
 
             return true
         } catch (SystemException e) {
@@ -496,24 +467,14 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     void resume() {
         try {
-            ArrayList<Transaction> sts = getSuspendedTxStack()
-            if (sts.size() > 0 && sts.get(0) != null) {
-                Transaction parentTx = sts.get(0)
-                tm.resume(parentTx)
-                // only do these after successful resume
-                getRollbackOnlyInfoStack().remove(0)
-                getTransactionBeginStack().remove(0)
-                getTransactionBeginStartTimeList().remove(0)
-
-                sts.remove(0)
-                getSuspendedTxLocationStack().remove(0)
-                getActiveXaResourceStack().remove(0)
-                getActiveSynchronizationStack().remove(0)
-                // logger.warn("================ resuming TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
+            TxStackInfo txStackInfo = getTxStackInfo()
+            if (txStackInfo.suspendedTx != null) {
+                tm.resume(txStackInfo.suspendedTx)
+                // only do this after successful resume
+                popTxStackInfo()
             } else {
                 logger.warn("No transaction suspended, so not resuming.")
             }
@@ -524,7 +485,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     Connection enlistConnection(XAConnection con) {
         if (con == null) return null
@@ -537,7 +497,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     void enlistResource(XAResource resource) {
         if (resource == null) return
@@ -563,7 +522,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     void registerSynchronization(Synchronization sync) {
         if (sync == null) return
@@ -585,23 +543,65 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    @CompileStatic
     @Override
     void initTransactionCache() {
-        if (useTransactionCache && !isTransactionCacheActive()) {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        if (useTransactionCache && txStackInfo.txCache == null) {
             if (logger.isInfoEnabled()) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
                 for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append("\n").append(infoAei)
                 logger.info(infoString.toString())
             }
-            new TransactionCache(this.ecfi).enlist()
+
+            TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
+            if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
+            Transaction tx = tm.getTransaction()
+            if (tx == null) throw new XAException(XAException.XAER_NOTA)
+
+            TransactionCache txCache = new TransactionCache(this.ecfi, tx)
+            txStackInfo.txCache = txCache
+            registerSynchronization(txCache)
         }
     }
-    @CompileStatic
     @Override
-    boolean isTransactionCacheActive() { return getActiveSynchronization("TransactionCache") != null }
+    boolean isTransactionCacheActive() { return getTxStackInfo().txCache != null }
+    TransactionCache getTransactionCache() { return getTxStackInfo().txCache }
 
+    Connection getTxConnection(String tenantId, String groupName) {
+        if (!useConnectionStash) return null
+
+        String conKey = tenantId.concat(groupName)
+        TxStackInfo txStackInfo = getTxStackInfo()
+        ConnectionWrapper con = (ConnectionWrapper) txStackInfo.txConByGroup.get(conKey)
+        if (con != null && con.isClosed()) {
+            txStackInfo.txConByGroup.remove(conKey)
+            logger.info("Stashed connection closed elsewhere for tenant ${tenantId} group ${groupName}: ${con.toString()}")
+            return null
+        } else {
+            return con
+        }
+    }
+    Connection stashTxConnection(String tenantId, String groupName, Connection con) {
+        if (!useConnectionStash || !isTransactionInPlace()) return con
+
+        TxStackInfo txStackInfo = getTxStackInfo()
+        // if transactionBeginStartTime is null we didn't begin the transaction, so can't count on commit/rollback through this
+        if (txStackInfo.transactionBeginStartTime == null) return con
+
+        String conKey = tenantId.concat(groupName)
+        ConnectionWrapper existing = (ConnectionWrapper) txStackInfo.txConByGroup.get(conKey)
+        try {
+            if (existing != null && !existing.isClosed()) existing.closeInternal()
+        } catch (Throwable t) {
+            logger.error("Error closing previously stashed connection for tenant ${tenantId} group ${groupName}: ${existing.toString()}", t)
+        }
+        ConnectionWrapper newCw = new ConnectionWrapper(con, this, tenantId, groupName)
+        txStackInfo.txConByGroup.put(conKey, newCw)
+        return newCw
+    }
+
+    @CompileStatic
     static class RollbackInfo {
         String causeMessage
         /** A rollback is often done because of another error, this represents that error. */
@@ -616,24 +616,67 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
+    @CompileStatic
+    static class TxStackInfo {
+        Exception transactionBegin = (Exception) null
+        Long transactionBeginStartTime = (Long) null
+        RollbackInfo rollbackOnlyInfo = (RollbackInfo) null
+
+        Transaction suspendedTx = (Transaction) null
+        Exception suspendedTxLocation = (Exception) null
+
+        protected Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>()
+        protected Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>()
+        protected Map<String, ConnectionWrapper> txConByGroup = new HashMap<>()
+        TransactionCache txCache = (TransactionCache) null
+
+        Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap }
+        Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap }
+        Map<String, ConnectionWrapper> getTxConByGroup() { return txConByGroup }
+
+
+        void clearCurrent() {
+            rollbackOnlyInfo = (RollbackInfo) null
+            transactionBegin = (Exception) null
+            transactionBeginStartTime = (Long) null
+            activeXaResourceMap.clear()
+            activeSynchronizationMap.clear()
+            txCache = (TransactionCache) null
+            // this should already be done, but make sure
+            closeTxConnections()
+        }
+
+        void closeTxConnections() {
+            for (Map.Entry<String, ConnectionWrapper> entry in txConByGroup.entrySet()) {
+                try {
+                    ConnectionWrapper con = entry.value
+                    if (con != null && !con.isClosed()) con.closeInternal()
+                } catch (Throwable t) {
+                    logger.error("Error closing connection for tenant/group ${entry.key}", t)
+                }
+            }
+            txConByGroup.clear()
+        }
+    }
+
     // ========== Initialize/Populate Methods ==========
 
     void populateTransactionObjectsJndi() {
-        Node transactionJndiNode = this.ecfi.getConfXmlRoot()."transaction-facade"[0]."transaction-jndi"[0]
-        String userTxJndiName = transactionJndiNode."@user-transaction-jndi-name"
-        String txMgrJndiName = transactionJndiNode."@transaction-manager-jndi-name"
+        MNode transactionJndiNode = this.ecfi.getConfXmlRoot().first("transaction-facade").first("transaction-jndi")
+        String userTxJndiName = transactionJndiNode.attribute("user-transaction-jndi-name")
+        String txMgrJndiName = transactionJndiNode.attribute("transaction-manager-jndi-name")
 
-        Node serverJndi = this.ecfi.getConfXmlRoot()."transaction-facade"[0]."server-jndi"[0]
+        MNode serverJndi = this.ecfi.getConfXmlRoot().first("transaction-facade").first("server-jndi")
 
         try {
             InitialContext ic;
             if (serverJndi) {
                 Hashtable<String, Object> h = new Hashtable<String, Object>()
-                h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi."@initial-context-factory")
-                h.put(Context.PROVIDER_URL, serverJndi."@context-provider-url")
-                if (serverJndi."@url-pkg-prefixes") h.put(Context.URL_PKG_PREFIXES, serverJndi."@url-pkg-prefixes")
-                if (serverJndi."@security-principal") h.put(Context.SECURITY_PRINCIPAL, serverJndi."@security-principal")
-                if (serverJndi."@security-credentials") h.put(Context.SECURITY_CREDENTIALS, serverJndi."@security-credentials")
+                h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi.attribute("initial-context-factory"))
+                h.put(Context.PROVIDER_URL, serverJndi.attribute("context-provider-url"))
+                if (serverJndi.attribute("url-pkg-prefixes")) h.put(Context.URL_PKG_PREFIXES, serverJndi.attribute("url-pkg-prefixes"))
+                if (serverJndi.attribute("security-principal")) h.put(Context.SECURITY_PRINCIPAL, serverJndi.attribute("security-principal"))
+                if (serverJndi.attribute("security-credentials")) h.put(Context.SECURITY_CREDENTIALS, serverJndi.attribute("security-credentials"))
                 ic = new InitialContext(h)
             } else {
                 ic = new InitialContext()
@@ -642,10 +685,129 @@ class TransactionFacadeImpl implements TransactionFacade {
             this.ut = (UserTransaction) ic.lookup(userTxJndiName)
             this.tm = (TransactionManager) ic.lookup(txMgrJndiName)
         } catch (NamingException ne) {
-            logger.error("Error while finding JNDI Transaction objects [${userTxJndiName}] and [${txMgrJndiName}] from server [${serverJndi ? serverJndi."@context-provider-url" : "default"}].", ne)
+            logger.error("Error while finding JNDI Transaction objects [${userTxJndiName}] and [${txMgrJndiName}] from server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].", ne)
         }
 
-        if (!this.ut) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi."@context-provider-url" : "default"}].")
-        if (!this.tm) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi."@context-provider-url" : "default"}].")
+        if (!this.ut) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
+        if (!this.tm) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
+    }
+
+    /** A simple delegating wrapper for java.sql.Connection.
+     *
+     * The close() method does nothing, only closed when closeInternal() called by TransactionFacade on commit,
+     * rollback, or destroy (when transactions are also cleaned up as a last resort).
+     *
+     * Connections are attached to 3 things: entity group, tenant, and transaction.
+     */
+    static class ConnectionWrapper implements Connection {
+        protected Connection con
+        protected TransactionFacadeImpl tfi
+        protected String tenantId, groupName
+
+        ConnectionWrapper(Connection con, TransactionFacadeImpl tfi, String tenantId, String groupName) {
+            this.con = con
+            this.tfi = tfi
+            this.tenantId = tenantId
+            this.groupName = groupName
+        }
+
+        String getTenantId() { return tenantId }
+        String getGroupName() { return groupName }
+
+        void closeInternal() {
+            con.close()
+        }
+
+
+        Statement createStatement() throws SQLException { return con.createStatement() }
+        PreparedStatement prepareStatement(String sql) throws SQLException { return con.prepareStatement(sql) }
+        CallableStatement prepareCall(String sql) throws SQLException { return con.prepareCall(sql) }
+        String nativeSQL(String sql) throws SQLException { return con.nativeSQL(sql) }
+        void setAutoCommit(boolean autoCommit) throws SQLException { con.setAutoCommit(autoCommit) }
+        boolean getAutoCommit() throws SQLException { return con.getAutoCommit() }
+        void commit() throws SQLException { con.commit() }
+        void rollback() throws SQLException { con.rollback() }
+
+        void close() throws SQLException {
+            // do nothing! see closeInternal
+        }
+
+        boolean isClosed() throws SQLException { return con.isClosed() }
+        DatabaseMetaData getMetaData() throws SQLException { return con.getMetaData() }
+        void setReadOnly(boolean readOnly) throws SQLException { con.setReadOnly(readOnly) }
+        boolean isReadOnly() throws SQLException { return con.isReadOnly() }
+        void setCatalog(String catalog) throws SQLException { con.setCatalog(catalog) }
+        String getCatalog() throws SQLException { return con.getCatalog() }
+        void setTransactionIsolation(int level) throws SQLException { con.setTransactionIsolation(level) }
+        int getTransactionIsolation() throws SQLException { return con.getTransactionIsolation() }
+        SQLWarning getWarnings() throws SQLException { return con.getWarnings() }
+        void clearWarnings() throws SQLException { con.clearWarnings() }
+
+        Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
+            return con.createStatement(resultSetType, resultSetConcurrency) }
+        PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+            return con.prepareStatement(sql, resultSetType, resultSetConcurrency) }
+        CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+            return con.prepareCall(sql, resultSetType, resultSetConcurrency) }
+
+        Map<String, Class<?>> getTypeMap() throws SQLException { return con.getTypeMap() }
+        void setTypeMap(Map<String, Class<?>> map) throws SQLException { con.setTypeMap(map) }
+        void setHoldability(int holdability) throws SQLException { con.setHoldability(holdability) }
+        int getHoldability() throws SQLException { return con.getHoldability() }
+        Savepoint setSavepoint() throws SQLException { return con.setSavepoint() }
+        Savepoint setSavepoint(String name) throws SQLException { return con.setSavepoint(name) }
+        void rollback(Savepoint savepoint) throws SQLException { con.rollback(savepoint) }
+        void releaseSavepoint(Savepoint savepoint) throws SQLException { con.releaseSavepoint(savepoint) }
+
+        Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+            return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability) }
+        PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+            return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability) }
+        CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+            return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability) }
+        PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
+            return con.prepareStatement(sql, autoGeneratedKeys) }
+        PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
+            return con.prepareStatement(sql, columnIndexes) }
+        PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
+            return con.prepareStatement(sql, columnNames) }
+
+        Clob createClob() throws SQLException { return con.createClob() }
+        Blob createBlob() throws SQLException { return con.createBlob() }
+        NClob createNClob() throws SQLException { return con.createNClob() }
+        SQLXML createSQLXML() throws SQLException { return con.createSQLXML() }
+        boolean isValid(int timeout) throws SQLException { return con.isValid(timeout) }
+        void setClientInfo(String name, String value) throws SQLClientInfoException { con.setClientInfo(name, value) }
+        void setClientInfo(Properties properties) throws SQLClientInfoException { con.setClientInfo(properties) }
+        String getClientInfo(String name) throws SQLException { return con.getClientInfo(name) }
+        Properties getClientInfo() throws SQLException { return con.getClientInfo() }
+        Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+            return con.createArrayOf(typeName, elements) }
+        Struct createStruct(String typeName, Object[] attributes) throws SQLException {
+            return con.createStruct(typeName, attributes) }
+
+        void setSchema(String schema) throws SQLException { con.setSchema(schema) }
+        String getSchema() throws SQLException { return con.getSchema() }
+
+        void abort(Executor executor) throws SQLException { con.abort(executor) }
+        void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
+            con.setNetworkTimeout(executor, milliseconds) }
+        int getNetworkTimeout() throws SQLException { return con.getNetworkTimeout() }
+
+        def <T> T unwrap(Class<T> iface) throws SQLException { return con.unwrap(iface) }
+        boolean isWrapperFor(Class<?> iface) throws SQLException { return con.isWrapperFor(iface) }
+
+        // Object overrides
+        int hashCode() { return con.hashCode() }
+        boolean equals(Object obj) { return con.equals(obj) }
+        String toString() {
+            return new StringBuilder().append("Tenant: ").append(tenantId).append(", Group: ").append(groupName)
+                    .append(", Con: ").append(con.toString()).toString()
+        }
+        /* these don't work, don't think we need them anyway:
+        protected Object clone() throws CloneNotSupportedException {
+            return new ConnectionWrapper((Connection) con.clone(), tfi, tenantId, groupName) }
+        protected void finalize() throws Throwable { con.finalize() }
+        */
     }
 }

@@ -36,7 +36,7 @@ import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
 import org.moqui.impl.service.ServiceXmlRpcDispatcher
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.DumperOptions
@@ -49,6 +49,7 @@ import javax.servlet.http.HttpSession
 import java.security.SecureRandom
 
 /** This class is a facade to easily get information from and about the web context. */
+@CompileStatic
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
 
@@ -60,22 +61,22 @@ class WebFacadeImpl implements WebFacade {
     protected HttpServletRequest request
     protected HttpServletResponse response
 
-    protected Map<String, Object> savedParameters = null
-    protected Map<String, Object> multiPartParameters = null
-    protected Map<String, Object> jsonParameters = null
-    protected Map<String, Object> declaredPathParameters = null
+    protected Map<String, Object> savedParameters = (Map<String, Object>) null
+    protected Map<String, Object> multiPartParameters = (Map<String, Object>) null
+    protected Map<String, Object> jsonParameters = (Map<String, Object>) null
+    protected Map<String, Object> declaredPathParameters = (Map<String, Object>) null
 
-    protected ContextStack parameters = null
-    protected Map<String, Object> requestAttributes = null
-    protected Map<String, Object> requestParameters = null
-    protected Map<String, Object> sessionAttributes = null
-    protected Map<String, Object> applicationAttributes = null
+    protected ContextStack parameters = (ContextStack) null
+    protected Map<String, Object> requestAttributes = (Map<String, Object>) null
+    protected Map<String, Object> requestParameters = (Map<String, Object>) null
+    protected Map<String, Object> sessionAttributes = (Map<String, Object>) null
+    protected Map<String, Object> applicationAttributes = (Map<String, Object>) null
 
-    protected Map<String, Object> errorParameters = null
+    protected Map<String, Object> errorParameters = (Map<String, Object>) null
 
-    protected List<String> savedMessages = null
-    protected List<String> savedErrors = null
-    protected List<ValidationError> savedValidationErrors = null
+    protected List<String> savedMessages = (List<String>) null
+    protected List<String> savedErrors = (List<String>) null
+    protected List<ValidationError> savedValidationErrors = (List<ValidationError>) null
 
     WebFacadeImpl(String webappMoquiName, HttpServletRequest request, HttpServletResponse response,
                   ExecutionContextImpl eci) {
@@ -88,29 +89,29 @@ class WebFacadeImpl implements WebFacade {
         request.setAttribute("ec", eci)
 
         // get any parameters saved to the session from the last request, and clear that session attribute if there
-        savedParameters = (Map) request.session.getAttribute("moqui.saved.parameters")
+        savedParameters = (Map<String, Object>) request.session.getAttribute("moqui.saved.parameters")
         if (savedParameters != null) request.session.removeAttribute("moqui.saved.parameters")
 
-        errorParameters = (Map) request.session.getAttribute("moqui.error.parameters")
+        errorParameters = (Map<String, Object>) request.session.getAttribute("moqui.error.parameters")
         if (errorParameters != null) request.session.removeAttribute("moqui.error.parameters")
 
         // get any messages saved to the session, and clear them from the session
-        if (session.getAttribute("moqui.message.messages")) {
+        if (session.getAttribute("moqui.message.messages") != null) {
             savedMessages = (List<String>) session.getAttribute("moqui.message.messages")
             session.removeAttribute("moqui.message.messages")
         }
-        if (session.getAttribute("moqui.message.errors")) {
+        if (session.getAttribute("moqui.message.errors") != null) {
             savedErrors = (List<String>) session.getAttribute("moqui.message.errors")
             session.removeAttribute("moqui.message.errors")
         }
-        if (session.getAttribute("moqui.message.validationErrors")) {
+        if (session.getAttribute("moqui.message.validationErrors") != null) {
             savedValidationErrors = (List<ValidationError>) session.getAttribute("moqui.message.validationErrors")
             session.removeAttribute("moqui.message.validationErrors")
         }
 
         // if there is a JSON document submitted consider those as parameters too
         String contentType = request.getHeader("Content-Type")
-        if (contentType && (contentType.contains("application/json") || contentType.contains("text/json"))) {
+        if (contentType != null && contentType.length() > 0 && (contentType.contains("application/json") || contentType.contains("text/json"))) {
             JsonSlurper slurper = new JsonSlurper()
             Object jsonObj = null
             try {
@@ -118,7 +119,7 @@ class WebFacadeImpl implements WebFacade {
                         request.getCharacterEncoding() ?: "UTF-8")))
             } catch (Throwable t) {
                 logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
-                jsonParameters = [_requestBodyJsonParseError:t.getMessage()]
+                jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
             }
             if (jsonObj instanceof Map) {
                 jsonParameters = (Map<String, Object>) jsonObj
@@ -172,7 +173,7 @@ class WebFacadeImpl implements WebFacade {
 
         // create the session token if needed (protection against CSRF/XSRF attacks; see ScreenRenderImpl)
         String sessionToken = session.getAttribute("moqui.session.token")
-        if (!sessionToken) {
+        if (sessionToken == null || sessionToken.length() == 0) {
             SecureRandom sr = new SecureRandom()
             byte[] randomBytes = new byte[20]
             sr.nextBytes(randomBytes)
@@ -255,8 +256,8 @@ class WebFacadeImpl implements WebFacade {
             nameBuilder.append(targetMenuName)
             // append parameter values
             Map parameters = urlInstance.getParameterMap()
+            StringBuilder paramBuilder = new StringBuilder()
             if (parameters) {
-                nameBuilder.append(' (')
                 int pCount = 0
                 Iterator<Map.Entry<String, String>> entryIter = parameters.entrySet().iterator()
                 while (entryIter.hasNext() && pCount < 2) {
@@ -264,14 +265,19 @@ class WebFacadeImpl implements WebFacade {
                     if (entry.key.contains("_op")) continue
                     if (entry.key.contains("_not")) continue
                     if (entry.key.contains("_ic")) continue
-                    if (entry.key.contains("moquiSessionToken")) continue
-                    if (!entry.value.trim()) continue
-                    nameBuilder.append(entry.value)
+                    if ("moquiSessionToken".equals(entry.key)) continue
+                    if (entry.value.trim().length() == 0) continue
+
+                    // injection issue with name field: userId=%3Cscript%3Ealert(%27Test%20Crack!%27)%3C/script%3E
+                    String parmValue = entry.value
+                    if (parmValue) parmValue = StupidWebUtilities.defaultWebEncoder.encodeForHTML(parmValue)
+                    paramBuilder.append(parmValue)
+
                     pCount++
-                    if (entryIter.hasNext() && pCount < 2) nameBuilder.append(', ')
+                    if (entryIter.hasNext() && pCount < 2) paramBuilder.append(', ')
                 }
-                nameBuilder.append(')')
             }
+            if (paramBuilder.length() > 0) nameBuilder.append(' (').append(paramBuilder.toString()).append(')')
         }
 
         // remove existing item(s) from list with same URL
@@ -291,7 +297,11 @@ class WebFacadeImpl implements WebFacade {
 
     @Override
     @CompileStatic
-    List<Map> getScreenHistory() { return (LinkedList<Map>) session.getAttribute("moqui.screen.history") }
+    List<Map> getScreenHistory() {
+        LinkedList<Map> histList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
+        if (histList == null) histList = new LinkedList<Map>()
+        return histList
+    }
 
 
     @Override
@@ -323,7 +333,7 @@ class WebFacadeImpl implements WebFacade {
         // Uses the approach of creating a series of this objects wrapping the other non-Map attributes/etc instead of
         // copying everything from the various places into a single combined Map; this should be much faster to create
         // and only slightly slower when running.
-        ContextStack cs = new ContextStack()
+        ContextStack cs = new ContextStack(false)
         cs.push(getRequestParameters())
         cs.push(getApplicationAttributes())
         cs.push(getSessionAttributes())
@@ -349,13 +359,14 @@ class WebFacadeImpl implements WebFacade {
     Map<String, Object> getRequestParameters() {
         if (requestParameters != null) return requestParameters
 
-        ContextStack cs = new ContextStack()
-        if (savedParameters) cs.push(savedParameters)
-        if (multiPartParameters) cs.push(multiPartParameters)
-        if (jsonParameters) cs.push(jsonParameters)
-        if (declaredPathParameters) cs.push(declaredPathParameters)
+        ContextStack cs = new ContextStack(false)
+        if (savedParameters != null) cs.push(savedParameters)
+        if (multiPartParameters != null) cs.push(multiPartParameters)
+        if (jsonParameters != null) cs.push(jsonParameters)
+        if (declaredPathParameters != null) cs.push(declaredPathParameters)
         cs.push((Map<String, Object>) request.getParameterMap())
-        cs.push(StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo()))
+        Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
+        if (pathInfoParameterMap != null) cs.push(pathInfoParameterMap)
 
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
         requestParameters = new StupidWebUtilities.CanonicalizeMap(cs)
@@ -364,7 +375,7 @@ class WebFacadeImpl implements WebFacade {
     @Override
     @CompileStatic
     Map<String, Object> getSecureRequestParameters() {
-        ContextStack cs = new ContextStack()
+        ContextStack cs = new ContextStack(false)
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
@@ -427,7 +438,7 @@ class WebFacadeImpl implements WebFacade {
     static String getWebappRootUrl(String webappName, String servletContextPath, boolean requireFullUrl, Boolean useEncryption, ExecutionContextImpl eci) {
         WebFacade webFacade = eci.getWeb()
         HttpServletRequest request = webFacade?.getRequest()
-        boolean requireEncryption = useEncryption == null && request != null ? request.isSecure() : useEncryption
+        boolean requireEncryption = useEncryption == null && request != null ? request.isSecure() : (useEncryption != null ? useEncryption.booleanValue() : false)
         boolean needFullUrl = requireFullUrl || request == null ||
                 (requireEncryption && !request.isSecure()) || (!requireEncryption && request.isSecure())
 
@@ -444,19 +455,24 @@ class WebFacadeImpl implements WebFacade {
         // cache the root URLs just within the request, common to generate various URLs in a single request
         String cacheKey = null
         if (request != null) {
-            cacheKey = webappName + servletContextPath + needFullUrl.toString() + requireEncryption.toString()
+            StringBuilder keyBuilder = new StringBuilder(200)
+            keyBuilder.append(webappName).append(servletContextPath)
+            if (needFullUrl) keyBuilder.append("T") else keyBuilder.append("F")
+            if (requireEncryption) keyBuilder.append("T") else keyBuilder.append("F")
+            cacheKey = keyBuilder.toString()
+
             String cachedRootUrl = request.getAttribute(cacheKey)
             if (cachedRootUrl != null) return cachedRootUrl
         }
 
         String urlValue = makeWebappRootUrl(webappName, servletContextPath, eci, webFacade, requireEncryption, needFullUrl)
-        if (cacheKey) request.setAttribute(cacheKey, urlValue)
+        if (cacheKey != null) request.setAttribute(cacheKey, urlValue)
         return urlValue
     }
     static String makeWebappRootUrl(String webappName, String servletContextPath, ExecutionContextImpl eci, WebFacade webFacade,
                                     boolean requireEncryption, boolean needFullUrl) {
         HttpServletRequest request = webFacade.getRequest()
-        Node webappNode = (Node) eci.ecfi.confXmlRoot."webapp-list"[0]."webapp".find({ it.@name == webappName })
+        MNode webappNode = eci.ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
         StringBuilder urlBuilder = new StringBuilder()
         // build base from conf
         if (needFullUrl && webappNode) {
@@ -655,7 +671,7 @@ class WebFacadeImpl implements WebFacade {
         response.setContentType(contentType)
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
-        int length = responseText ? responseText.getBytes(charset).length : 0
+        int length = responseText ? responseText.getBytes(charset).length : 0I
         response.setContentLength(length)
 
         if (!filename) {

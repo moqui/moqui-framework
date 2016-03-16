@@ -50,6 +50,7 @@ public interface MessageFacade {
     String getErrorsString();
 
     void clearErrors();
+    void copyMessages(MessageFacade mf);
 
     /** Save current errors on a stack and clear them */
     void pushErrors();

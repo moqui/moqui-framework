@@ -37,6 +37,7 @@ import javax.servlet.http.HttpServletResponse;
 public interface ExecutionContext {
     /** Returns a Map that represents the current local variable space (context) in whatever is being run. */
     ContextStack getContext();
+    ContextBinding getContextBinding();
 
     /** Returns a Map that represents the global/root variable space (context), ie the bottom of the context stack. */
     Map<String, Object> getContextRoot();
@@ -107,7 +108,12 @@ public interface ExecutionContext {
      */
     void initWebFacade(String webappMoquiName, HttpServletRequest request, HttpServletResponse response);
 
-    void changeTenant(String tenantId);
+    /** Change the active tenant and push the tenantId on a stack. Does nothing if tenantId is the current.
+     *  @return True if tenant changed, false otherwise (tenantId matches the current tenantId) */
+    boolean changeTenant(String tenantId);
+    /** Change the tenant to the last tenantId on the stack. Returns false if the tenantId stack is empty.
+     * @return True if tenant changed, false otherwise (tenantId stack is empty or tenantId matches the current tenantId) */
+    boolean popTenant();
 
     /** This should be called when the ExecutionContext won't be used any more. Implementations should make sure
      * any active transactions, database connections, etc are closed.

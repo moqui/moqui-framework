@@ -13,11 +13,13 @@
  */
 package org.moqui.impl.entity.condition
 
+import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import java.sql.Timestamp
 import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityQueryBuilder
 
+@CompileStatic
 class DateCondition extends EntityConditionImplBase {
     protected String fromFieldName
     protected String thruFieldName
@@ -42,12 +44,12 @@ class DateCondition extends EntityConditionImplBase {
     }
 
     @Override
-    boolean mapMatches(Map<String, ?> map) {
+    boolean mapMatches(Map<String, Object> map) {
         return this.makeCondition().mapMatches(map)
     }
 
     @Override
-    boolean populateMap(Map<String, ?> map) { return false }
+    boolean populateMap(Map<String, Object> map) { return false }
 
     @Override
     EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }
@@ -60,15 +62,15 @@ class DateCondition extends EntityConditionImplBase {
     protected EntityConditionImplBase makeCondition() {
         return (EntityConditionImplBase) ecFactoryImpl.makeCondition(
             ecFactoryImpl.makeCondition(
-                ecFactoryImpl.makeCondition(thruFieldName, EntityCondition.EQUALS, null),
+                ecFactoryImpl.makeCondition(thruFieldName, EQUALS, null),
                 EntityCondition.JoinOperator.OR,
-                ecFactoryImpl.makeCondition(thruFieldName, EntityCondition.GREATER_THAN, compareStamp)
+                ecFactoryImpl.makeCondition(thruFieldName, GREATER_THAN, compareStamp)
             ),
             EntityCondition.JoinOperator.AND,
             ecFactoryImpl.makeCondition(
-                ecFactoryImpl.makeCondition(fromFieldName, EntityCondition.EQUALS, null),
+                ecFactoryImpl.makeCondition(fromFieldName, EQUALS, null),
                 EntityCondition.JoinOperator.OR,
-                ecFactoryImpl.makeCondition(fromFieldName, EntityCondition.LESS_THAN_EQUAL_TO, compareStamp)
+                ecFactoryImpl.makeCondition(fromFieldName, LESS_THAN_EQUAL_TO, compareStamp)
             )
         )
     }
@@ -82,9 +84,9 @@ class DateCondition extends EntityConditionImplBase {
     boolean equals(Object o) {
         if (o == null || o.getClass() != this.getClass()) return false
         DateCondition that = (DateCondition) o
-        if (this.compareStamp == null && that.compareStamp != null) return false
-        if (this.compareStamp != null) {
-            if (that.compareStamp == null) {
+        if ((Object) this.compareStamp == null && (Object) that.compareStamp != null) return false
+        if ((Object) this.compareStamp != null) {
+            if ((Object) that.compareStamp == null) {
                 return false
             } else {
                 if (!this.compareStamp.equals(that.compareStamp)) return false

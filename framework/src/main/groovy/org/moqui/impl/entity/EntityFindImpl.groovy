@@ -23,6 +23,8 @@ import org.moqui.entity.EntityDynamicView
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -37,7 +39,7 @@ class EntityFindImpl extends EntityFindBase {
 
     @Override
     EntityDynamicView makeEntityDynamicView() {
-        if (this.dynamicView) return this.dynamicView
+        if (this.dynamicView != null) return this.dynamicView
         this.dynamicView = new EntityDynamicViewImpl(this)
         return this.dynamicView
     }
@@ -45,31 +47,32 @@ class EntityFindImpl extends EntityFindBase {
     // ======================== Run Find Methods ==============================
 
     @Override
-    EntityValueBase oneExtended(EntityConditionImplBase whereCondition) throws EntityException {
-        EntityDefinition ed = this.getEntityDef()
+    EntityValueBase oneExtended(EntityConditionImplBase whereCondition, ArrayList<FieldInfo> fieldInfoList,
+                                ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
+        EntityDefinition ed = getEntityDef()
 
         // table doesn't exist, just return null
-        if (!efi.getEntityDbMeta().tableExists(ed)) return null
+        if (!efi.getEntityDbMeta().tableExists(ed)) return (EntityValueBase) null
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 
         // SELECT fields
-        efb.makeSqlSelectFields(this.fieldsToSelect)
+        efb.makeSqlSelectFields(fieldInfoList, fieldOptionsList)
         // FROM Clause
-        efb.makeSqlFromClause()
+        efb.makeSqlFromClause(fieldInfoList)
 
         // WHERE clause only for one/pk query
-        if (whereCondition) {
+        if (whereCondition != null) {
             efb.startWhereClause()
             whereCondition.makeSqlWhere(efb)
         }
         // GROUP BY clause
-        efb.makeGroupByClause(this.fieldsToSelect)
+        efb.makeGroupByClause(fieldInfoList)
 
         if (this.forUpdate) efb.makeForUpdate()
 
         // run the SQL now that it is built
-        EntityValueBase newEntityValue = null
+        EntityValueBase newEntityValue = (EntityValueBase) null
         try {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
@@ -83,17 +86,21 @@ class EntityFindImpl extends EntityFindBase {
             String condSql = whereCondition.toString()
             ResultSet rs = efb.executeQuery()
             if (rs.next()) {
-                newEntityValue = new EntityValueImpl(this.entityDef, this.efi)
-                int size = fieldsToSelect.size()
+                boolean checkUserFields = entityDef.allowUserField
+                newEntityValue = new EntityValueImpl(entityDef, efi)
+                Map<String, Object> valueMap = newEntityValue.getValueMap()
+                String entityName = ed.getFullEntityName()
+                int size = fieldInfoList.size()
                 for (int i = 0; i < size; i++) {
-                    String fieldName = fieldsToSelect.get(i)
-                    EntityQueryBuilder.getResultSetValue(rs, i+1, this.entityDef.getFieldInfo(fieldName), newEntityValue, this.efi)
+                    FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
+                    if (checkUserFields && fi.isUserField) continue
+                    EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
                 }
             } else {
-                if (logger.isTraceEnabled()) logger.trace("Result set was empty for find on entity [${this.entityName}] with condition [${condSql}]")
+                if (logger.isTraceEnabled()) logger.trace("Result set was empty for find on entity [${entityName}] with condition [${condSql}]")
             }
             if (rs.next()) {
-                if (logger.isTraceEnabled()) logger.trace("Found more than one result for condition [${condSql}] on entity [${this.entityDef.getFullEntityName()}]")
+                if (logger.isTraceEnabled()) logger.trace("Found more than one result for condition [${condSql}] on entity [${entityDef.getFullEntityName()}]")
             }
         } catch (SQLException e) {
             throw new EntityException("Error finding value", e)
@@ -106,29 +113,30 @@ class EntityFindImpl extends EntityFindBase {
 
     @Override
     EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                                        List<String> orderByExpanded) throws EntityException {
+                                        ArrayList<String> orderByExpanded, ArrayList<FieldInfo> fieldInfoList,
+                                        ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
         EntityDefinition ed = this.getEntityDef()
 
         // table doesn't exist, just return empty ELI
-        if (!efi.getEntityDbMeta().tableExists(ed)) return new EntityListIteratorWrapper([], ed, this.fieldsToSelect, this.efi)
+        if (!efi.getEntityDbMeta().tableExists(ed)) return new EntityListIteratorWrapper([], ed, fieldsToSelect, efi)
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
-        if (this.getDistinct()) efb.makeDistinct()
+        if (getDistinct()) efb.makeDistinct()
 
         // select fields
-        efb.makeSqlSelectFields(this.fieldsToSelect)
+        efb.makeSqlSelectFields(fieldInfoList, fieldOptionsList)
         // FROM Clause
-        efb.makeSqlFromClause()
+        efb.makeSqlFromClause(fieldInfoList)
 
         // WHERE clause
-        if (whereCondition) {
+        if (whereCondition != null) {
             efb.startWhereClause()
             whereCondition.makeSqlWhere(efb)
         }
         // GROUP BY clause
-        efb.makeGroupByClause(this.fieldsToSelect)
+        efb.makeGroupByClause(fieldInfoList)
         // HAVING clause
-        if (havingCondition) {
+        if (havingCondition != null) {
             efb.startHavingClause()
             havingCondition.makeSqlWhere(efb)
         }
@@ -136,9 +144,9 @@ class EntityFindImpl extends EntityFindBase {
         // ORDER BY clause
         efb.makeOrderByClause(orderByExpanded)
         // LIMIT/OFFSET clause
-        efb.addLimitOffset(this.limit, this.offset)
+        efb.addLimitOffset(limit, offset)
         // FOR UPDATE
-        if (this.forUpdate) efb.makeForUpdate()
+        if (forUpdate) efb.makeForUpdate()
 
         // run the SQL now that it is built
         EntityListIteratorImpl elii
@@ -153,7 +161,7 @@ class EntityFindImpl extends EntityFindBase {
             efb.setPreparedStatementValues()
 
             ResultSet rs = efb.executeQuery()
-            elii = new EntityListIteratorImpl(con, rs, ed, this.fieldsToSelect, this.efi)
+            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoList, efi)
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll()
         } catch (EntityException e) {
@@ -168,9 +176,9 @@ class EntityFindImpl extends EntityFindBase {
     }
 
     @Override
-    long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition)
-            throws EntityException {
-        EntityDefinition ed = this.getEntityDef()
+    long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
+                       ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) throws EntityException {
+        EntityDefinition ed = getEntityDef()
 
         // table doesn't exist, just return 0
         if (!efi.getEntityDbMeta().tableExists(ed)) return 0
@@ -178,19 +186,19 @@ class EntityFindImpl extends EntityFindBase {
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 
         // count function instead of select fields
-        efb.makeCountFunction()
+        efb.makeCountFunction(fieldInfoList)
         // FROM Clause
-        efb.makeSqlFromClause()
+        efb.makeSqlFromClause(fieldInfoList)
 
         // WHERE clause
-        if (whereCondition) {
+        if (whereCondition != null) {
             efb.startWhereClause()
             whereCondition.makeSqlWhere(efb)
         }
         // GROUP BY clause
-        efb.makeGroupByClause(this.fieldsToSelect)
+        efb.makeGroupByClause(fieldInfoList)
         // HAVING clause
-        if (havingCondition) {
+        if (havingCondition != null) {
             efb.startHavingClause()
             havingCondition.makeSqlWhere(efb)
         }

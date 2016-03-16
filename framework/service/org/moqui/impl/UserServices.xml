@@ -42,6 +42,8 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
                 in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify,
                     requirePasswordChange:requirePasswordChange]"/>
+            <if condition="ec.message.hasError()">
+                <message error="true">Because of password errors not creating account with username ${username}</message></if>
         </actions>
     </service>
 
@@ -51,7 +53,7 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
             <set field="userAccount.successiveFailedLogins"
                  from="userAccount.successiveFailedLogins ? userAccount.successiveFailedLogins + 1 : 1"/>
-            <set field="maxFailures" from="(ec.ecfi.confXmlRoot.'user-facade'[0].login[0].'@max-failures' ?: 3) as Integer"/>
+            <set field="maxFailures" from="(ec.ecfi.confXmlRoot.first('user-facade').first('login').attribute('max-failures') ?: 3) as Integer"/>
             <!-- if successiveFailedLogins is greater than max in conf then disable account -->
             <if condition="userAccount.successiveFailedLogins > maxFailures &amp;&amp; userAccount.disabled != 'Y'">
                 <set field="userAccount.disabled" value="Y"/>
@@ -71,35 +73,34 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="oldPassword" required="true"><description>Ignored if user has password admin permissions.</description></parameter>
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
+            <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
+            <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
+
             <!-- TODO get perm from ? -->
             <set field="hasPwAdminPermission" from="false"/>
 
-            <if condition="userId">
-                <then><entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/></then>
-                <else-if condition="username">
-                    <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                        <field-map field-name="username"/>
-                    </entity-find-one>
-                </else-if>
-                <else>
-                    <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                        <field-map field-name="userId" from="ec.user.userId"/>
-                    </entity-find-one>
-                </else>
-            </if>
-            <if condition="!userAccount"><return error="true" message="Could not find user with username ${username}"/></if>
+            <if condition="userId"><then>
+                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
+            </then><else-if condition="username">
+                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                    <field-map field-name="username"/>
+                </entity-find-one>
+            </else-if><else>
+                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                    <field-map field-name="userId" from="ec.user.userId"/>
+                </entity-find-one>
+            </else></if>
+            <if condition="!userAccount"><return error="true" message="Could not find user with name ${username} in tenant ${tenantId}"/></if>
             <set field="userId" from="userAccount.userId"/>
 
             <!-- compare the passwords, encrypted -->
             <if condition="!hasPwAdminPermission">
                 <if condition="ec.user.userId &amp;&amp; userId != ec.user.userId">
-                    <return message="Cannot update the password of another user without password admin permission" error="true"/>
-                </if>
+                    <return message="Cannot update the password of another user without password admin permission" error="true"/></if>
                 <if condition="!oldPassword">
-                    <return message="Please enter current password" error="true"/>
-                </if>
+                    <return message="Please enter current password" error="true"/></if>
 
                 <script>
                     def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
@@ -108,27 +109,25 @@ along with this software (see the LICENSE.md file). If not, see
                             "moquiRealm")
                 </script>
                 <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType).doCredentialsMatch(token, info)">
-                    <if condition="userAccount.resetPassword">
-                        <then>
-                            <!-- try the resetPassword -->
-                            <script>
-                                info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
-                                        userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null,
-                                        "moquiRealm")
-                            </script>
-                            <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType).doCredentialsMatch(token, info)">
-                                <return message="Current password did not match" error="true"/>
-                            </if>
-                        </then>
-                        <else>
-                            <return message="Current password did not match" error="true"/>
-                        </else>
-                    </if>
+                    <if condition="userAccount.resetPassword"><then>
+                        <!-- try the resetPassword -->
+                        <script>
+                            info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
+                                    userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null,
+                                    "moquiRealm")
+                        </script>
+                        <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType).doCredentialsMatch(token, info)">
+                            <return message="Current password did not match password or reset password for user ${username} in tenant ${tenantId}" error="true"/></if>
+                    </then><else>
+                        <return message="Current password incorrect for user ${username} in tenant ${tenantId}" error="true"/>
+                    </else></if>
                 </if>
             </if>
 
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
-                in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify]"/>
+                in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify, tenantId:tenantId]"/>
+
+            <script>if (changedTenant) ec.popTenant()</script>
         </actions>
     </service>
     <service verb="update" noun="PasswordInternal" authenticate="false" allow-remote="false">
@@ -137,44 +136,44 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
             <parameter name="requirePasswordChange" default-value="N"/>
+            <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
+            <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
+
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
+            <if condition="userAccount == null">
+                <return error="true" message="Cannot update password, Account not found with ID ${userId}"/></if>
 
             <!-- check a bunch of stuff about the new password -->
-            <set field="passwordNode" from="ec.ecfi.confXmlRoot.'user-facade'[0].'password'[0]"/>
+            <set field="passwordNode" from="ec.ecfi.confXmlRoot.first('user-facade').first('password')"/>
 
             <if condition="newPassword != newPasswordVerify">
-                <message error="true">New Password and New Password Verify do not match</message>
-            </if>
+                <message error="true">New Password and New Password Verify do not match</message></if>
 
-            <set field="minLength" from="passwordNode.'@min-length'" default-value="6" type="Integer"/>
+            <set field="minLength" from="passwordNode.attribute('min-length')" default-value="6" type="Integer"/>
             <if condition="newPassword.length() &lt; minLength">
-                <message error="true">Password shorter than ${minLength} characters</message>
-            </if>
+                <message error="true">Password shorter than ${minLength} characters</message></if>
 
-            <set field="minDigits" from="passwordNode.'@min-digits'" default-value="1" type="Integer"/>
+            <set field="minDigits" from="passwordNode.attribute('min-digits')" default-value="1" type="Integer"/>
             <set field="digits" from="StupidUtilities.countChars(newPassword, true, false, false)"/>
             <if condition="digits &lt; minDigits">
-                <message error="true">Password needs ${minDigits} digit/number characters</message>
-            </if>
+                <message error="true">Password needs ${minDigits} digit/number characters</message></if>
 
-            <set field="minOthers" from="passwordNode.'@min-others'" default-value="1" type="Integer"/>
+            <set field="minOthers" from="passwordNode.attribute('min-others')" default-value="1" type="Integer"/>
             <set field="others" from="StupidUtilities.countChars(newPassword, false, false, true)"/>
             <if condition="others &lt; minOthers">
-                <message error="true">Password needs ${minOthers} other characters (not letter or digit)</message>
-            </if>
+                <message error="true">Password needs ${minOthers} other characters (not letter or digit)</message></if>
 
             <!-- don't log this by default, security hole: <log level="info" message="newPassword=${newPassword}, length=${newPassword.length()}, digits=${digits}, others=${others}"/> -->
 
             <!-- if password is same as current don't allow it -->
             <set field="hashedNewPassword" from="ec.ecfi.getSimpleHash(newPassword, userAccount.passwordSalt, userAccount.passwordHashType)"/>
             <if condition="userAccount.currentPassword == hashedNewPassword">
-                <message error="true">New password is same as current password</message>
-            </if>
+                <message error="true">New password is same as current password</message></if>
 
             <!-- if password is in the history don't allow it -->
-            <set field="historyLimit" from="passwordNode.'@history-limit'" default-value="5" type="Integer"/>
+            <set field="historyLimit" from="passwordNode.attribute('history-limit')" default-value="5" type="Integer"/>
             <entity-find entity-name="moqui.security.UserPasswordHistory" list="duplicateUserPasswordHistoryList">
                 <econdition field-name="userId" from="userId"/>
                 <!-- can't query by this field since it is encrypted: <econdition field-name="password" from="newPassword"/> -->
@@ -182,8 +181,7 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="duplicateUserPasswordHistoryList" entry="duplicateUserPasswordHistory">
                 <set field="hashedNewPassword" from="ec.ecfi.getSimpleHash(newPassword, duplicateUserPasswordHistory.passwordSalt, duplicateUserPasswordHistory.passwordHashType)"/>
                 <if condition="duplicateUserPasswordHistory.password == hashedNewPassword">
-                    <message error="true">Password was used in last ${historyLimit} passwords</message>
-                </if>
+                    <message error="true">Password was used in last ${historyLimit} passwords</message></if>
             </iterate>
 
             <check-errors/>
@@ -214,7 +212,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="disabled" value="N"/>
             </service-call>
 
-            <message>Password updated</message>
+            <message>Password updated for user ${userAccount.username} in tenant ${tenantId}</message>
+
+            <script>if (changedTenant) ec.popTenant()</script>
         </actions>
     </service>
 
@@ -222,8 +222,11 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
+            <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
+            <script>ec.changeTenant(tenantId)</script>
+
             <!-- find by userId -->
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount" for-update="true"/>
             <if condition="!userAccount">
@@ -232,15 +235,15 @@ along with this software (see the LICENSE.md file). If not, see
                     <field-map field-name="username"/></entity-find-one>
             </if>
             <if condition="!userAccount">
-                <return message="Could not find user account with username [${username}]" error="true"/></if>
+                <return message="Could not find account with username ${username} in tenant ${tenantId}" error="true"/></if>
             <if condition="!userAccount.emailAddress">
-                <return message="User account with username [${username}] does not have an email address" error="true"/></if>
+                <return message="Account with username ${username} in tenant ${tenantId} does not have an email address" error="true"/></if>
 
             <!-- reset the password to a random value -->
             <set field="resetPassword" from="org.moqui.impl.StupidUtilities.getRandomString(12)"/>
-            <set field="passwordNode" from="ec.ecfi.confXmlRoot.'user-facade'[0].'password'[0]"/>
+            <set field="passwordNode" from="ec.ecfi.confXmlRoot.first('user-facade').first('password')"/>
             <set field="userAccount.resetPassword" from="ec.ecfi.getSimpleHash(resetPassword, userAccount.passwordSalt, userAccount.passwordHashType)"/>
-            <set field="userAccount.requirePasswordChange" from="(passwordNode.'@email-require-change' == 'false') ? 'N' : 'Y'"/>
+            <set field="userAccount.requirePasswordChange" from="(passwordNode.attribute('email-require-change') == 'false') ? 'N' : 'Y'"/>
             <entity-update value-field="userAccount"/>
 
             <!-- send an email with the new password -->
@@ -251,6 +254,8 @@ along with this software (see the LICENSE.md file). If not, see
             </service-call>
             <message>A reset password was sent by email to ${userAccount.emailAddress}. This password may only be used to change your password. Your current password is still valid.</message>
             <if condition="userAccount.requirePasswordChange == 'Y'"><message>You must change your password before login.</message></if>
+
+            <script>if (changedTenant) ec.popTenant()</script>
         </actions>
     </service>
 </services>

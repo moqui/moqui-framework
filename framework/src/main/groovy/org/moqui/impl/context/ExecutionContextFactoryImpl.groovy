@@ -14,6 +14,15 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.camel.CamelContext
+import org.apache.camel.impl.DefaultCamelContext
+import org.apache.shiro.SecurityUtils
+import org.apache.shiro.authc.credential.CredentialsMatcher
+import org.apache.shiro.authc.credential.HashedCredentialsMatcher
+import org.apache.shiro.config.IniSecurityManagerFactory
+import org.apache.shiro.crypto.hash.SimpleHash
+import org.elasticsearch.client.Client
+import org.elasticsearch.node.NodeBuilder
 import org.kie.api.KieServices
 import org.kie.api.builder.KieBuilder
 import org.kie.api.builder.Message
@@ -22,50 +31,40 @@ import org.kie.api.builder.Results
 import org.kie.api.runtime.KieContainer
 import org.kie.api.runtime.KieSession
 import org.kie.api.runtime.StatelessKieSession
-import org.moqui.context.Cache
-import org.moqui.context.CacheFacade
-import org.moqui.context.LoggerFacade
-import org.moqui.context.ResourceFacade
-import org.moqui.screen.ScreenFacade
-import org.moqui.context.TransactionFacade
-import org.moqui.entity.EntityFacade
-import org.moqui.impl.StupidWebUtilities
-import org.moqui.impl.context.reference.UrlResourceReference
-import org.moqui.service.ServiceFacade
-
-import java.sql.Timestamp
-import java.util.jar.JarFile
 
 import org.moqui.BaseException
-import org.moqui.context.ExecutionContext
-import org.moqui.context.ExecutionContextFactory
-import org.moqui.context.L10nFacade
-import org.moqui.context.ResourceReference
-import org.moqui.context.NotificationMessageListener
+import org.moqui.context.*
+import org.moqui.entity.EntityDataLoader
+import org.moqui.entity.EntityFacade
+import org.moqui.entity.EntityValue
+import org.moqui.impl.StupidClassLoader
+import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.StupidUtilities
+import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
+import org.moqui.impl.context.reference.UrlResourceReference
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
-import org.moqui.impl.StupidClassLoader
-import org.moqui.impl.StupidUtilities
-
-import org.apache.shiro.authc.credential.CredentialsMatcher
-import org.apache.shiro.authc.credential.HashedCredentialsMatcher
-import org.apache.shiro.crypto.hash.SimpleHash
-import org.apache.shiro.config.IniSecurityManagerFactory
-import org.apache.shiro.SecurityUtils
-
-import org.apache.camel.CamelContext
-import org.apache.camel.impl.DefaultCamelContext
 import org.moqui.impl.service.camel.MoquiServiceComponent
 import org.moqui.impl.service.camel.MoquiServiceConsumer
-
-import org.elasticsearch.node.NodeBuilder
-import org.elasticsearch.client.Client
+import org.moqui.screen.ScreenFacade
+import org.moqui.service.ServiceFacade
+import org.moqui.util.MNode
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.sql.Timestamp
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.jar.JarFile
+
+@CompileStatic
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
     
@@ -73,8 +72,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     
     protected String runtimePath
     protected final String confPath
-    protected final Node confXmlRoot
-    protected Node serverStatsNode
+    protected final MNode confXmlRoot
+    protected MNode serverStatsNode
 
     protected StupidClassLoader cachedClassLoader
     protected InetAddress localhostAddress = null
@@ -82,9 +81,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<String, ComponentInfo>()
     protected ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<ExecutionContextImpl>()
     protected Map<String, EntityFacadeImpl> entityFacadeByTenantMap = new HashMap<String, EntityFacadeImpl>()
-    protected Map<String, WebappInfo> webappInfoMap = new HashMap()
+    protected Map<String, WebappInfo> webappInfoMap = new HashMap<>()
     protected List<NotificationMessageListener> registeredNotificationMessageListeners = []
+
     protected Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
+    protected Map<String, Boolean> artifactTypeAuthzEnabled = new HashMap<>()
+    protected Map<String, Boolean> artifactTypeTarpitEnabled = new HashMap<>()
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
@@ -112,13 +114,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final ScreenFacadeImpl screenFacade
     protected final ServiceFacadeImpl serviceFacade
     protected final TransactionFacadeImpl transactionFacade
-    protected final L10nFacadeImpl l10nFacade
 
     // Some direct-cached values for better performance
     protected String skipStatsCond
     protected Integer hitBinLengthMillis
     protected Map<String, Boolean> artifactPersistHitByType = new HashMap<String, Boolean>()
     protected Map<String, Boolean> artifactPersistBinByType = new HashMap<String, Boolean>()
+
+    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
+    private final BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>()
+    private static class WorkerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r) }
+    }
+    final ThreadPoolExecutor workerPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -148,12 +157,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (!confPartialPath) confPartialPath = moquiInitProperties.getProperty("moqui.conf")
         if (!confPartialPath) throw new IllegalArgumentException("No moqui.conf property found in MoquiInit.properties or in a system property (with: -Dmoqui.conf=... on the command line)")
 
+        String confFullPath
+        if (confPartialPath.startsWith("/")) {
+            confFullPath = confPartialPath
+        } else {
+            confFullPath = this.runtimePath + "/" + confPartialPath
+        }
         // setup the confFile
-        if (confPartialPath.startsWith("/")) confPartialPath = confPartialPath.substring(1)
-        String confFullPath = this.runtimePath + "/" + confPartialPath
         File confFile = new File(confFullPath)
-        if (confFile.exists()) { this.confPath = confFullPath }
-        else { this.confPath = null; logger.warn("The moqui.conf path [${confFullPath}] was not found.") }
+        if (confFile.exists()) {
+            this.confPath = confFullPath
+        } else {
+            this.confPath = null
+            throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
+        }
 
         confXmlRoot = this.initConfig()
 
@@ -170,14 +187,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
-        this.entityFacadeByTenantMap.put("DEFAULT", new EntityFacadeImpl(this, "DEFAULT"))
+        initEntityFacade("DEFAULT")
         logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
-        this.l10nFacade = new L10nFacadeImpl(this)
-        logger.info("Moqui L10nFacadeImpl Initialized")
 
         kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
         kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component")
@@ -216,14 +231,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
-        this.entityFacadeByTenantMap.put("DEFAULT", new EntityFacadeImpl(this, "DEFAULT"))
+        initEntityFacade("DEFAULT")
         logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
-        this.l10nFacade = new L10nFacadeImpl(this)
-        logger.info("Moqui L10nFacadeImpl Initialized")
 
         kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
 
@@ -236,9 +249,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected void preFacadeInit() {
-        serverStatsNode = (Node) confXmlRoot.'server-stats'[0]
-        skipStatsCond = serverStatsNode."@stats-skip-condition"
-        hitBinLengthMillis = (serverStatsNode."@bin-length-seconds" as Integer)*1000 ?: 900000
+        serverStatsNode = confXmlRoot.first('server-stats')
+        skipStatsCond = serverStatsNode.attribute("stats-skip-condition")
+        hitBinLengthMillis = (serverStatsNode.attribute("bin-length-seconds") as Integer)*1000 ?: 900000
 
         try {
             localhostAddress = InetAddress.getLocalHost()
@@ -269,10 +282,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
+        long entityStartTime = System.currentTimeMillis()
         this.entityFacade.loadAllEntityLocations()
-        this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
+        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
         // load/warm framework entities
         this.entityFacade.loadFrameworkEntities()
+        logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
         // init ESAPI
         StupidWebUtilities.canonicalizeValue("test")
 
@@ -281,7 +296,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
         this.entityFacade.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
-        if (confXmlRoot."cache-list"[0]."@warm-on-start" != "false") warmCache()
+        if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
         logger.info("Moqui ExecutionContextFactory Initialization Complete")
     }
@@ -293,7 +308,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Initialize all permanent framework objects, ie those not sensitive to webapp or user context. */
-    protected Node initConfig() {
+    protected MNode initConfig() {
         // always set the full moqui.runtime, moqui.conf system properties for use in various places
         System.setProperty("moqui.runtime", this.runtimePath)
         System.setProperty("moqui.conf", this.confPath)
@@ -302,12 +317,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
-        Node newConfigXmlRoot = new XmlParser().parse(defaultConfUrl.newInputStream())
+        MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
 
         if (this.confPath) {
-            File confFile = new File(this.confPath)
-            Node overrideConfXmlRoot = new XmlParser().parse(confFile)
-
+            MNode overrideConfXmlRoot = MNode.parse(new File(this.confPath))
             // merge the active/override conf file into the default one to override any settings (they both have the same root node, go from there)
             mergeConfigNodes(newConfigXmlRoot, overrideConfXmlRoot)
         }
@@ -317,11 +330,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected void initComponents() {
         // init components referred to in component-list.component and component-dir elements in the conf file
-        for (Node childNode in confXmlRoot."component-list"[0].children()) {
-            if (childNode.name() == "component") {
+        for (MNode childNode in confXmlRoot.first("component-list").children) {
+            if (childNode.name == "component") {
                 addComponent(new ComponentInfo(null, childNode, this))
-            } else if (childNode.name() == "component-dir") {
-                addComponentDir((String) childNode.attribute("location"))
+            } else if (childNode.name == "component-dir") {
+                addComponentDir(childNode.attribute("location"))
             }
         }
         checkSortDependentComponents()
@@ -372,20 +385,77 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
+    /** Called from MoquiContextListener.contextInitialized after ECFI init */
+    boolean checkEmptyDb() {
+        String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
+        if (!emptyDbLoad || emptyDbLoad == 'none') return false
+
+        long enumCount = getEntity().find("moqui.basic.Enumeration").disableAuthz().count()
+        if (enumCount == 0) {
+            logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
+
+            ExecutionContext ec = getExecutionContext()
+            try {
+                ec.getArtifactExecution().disableAuthz()
+                ec.getArtifactExecution().push("loadData", "AT_OTHER", "AUTHZA_ALL", false)
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                ec.getUser().loginAnonymousIfNoUser()
+
+                EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                if (emptyDbLoad != 'all') edl.dataTypes(new HashSet(emptyDbLoad.split(",") as List))
+
+                try {
+                    long startTime = System.currentTimeMillis()
+                    long records = edl.load()
+
+                    logger.info("Loaded [${records}] records (with types: ${emptyDbLoad}) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                } catch (Throwable t) {
+                    logger.error("Error loading empty DB data (with types: ${emptyDbLoad})", t)
+                }
+
+            } finally {
+                ec.destroy()
+            }
+            return true
+        } else {
+            logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
+            return false
+        }
+    }
+
     synchronized void destroy() {
         if (destroyed) return
 
+        // shutdown worker pool
+        try {
+            workerPool.shutdown()
+            logger.info("Worker pool shut down")
+        } catch (Throwable t) { logger.error("Error in workerPool shutdown", t) }
+
         // stop Camel to prevent more calls coming in
-        if (camelContext != null) camelContext.stop()
+        if (camelContext != null) try {
+            camelContext.stop()
+            logger.info("Camel stopped")
+        } catch (Throwable t) { logger.error("Error in Camel stop", t) }
 
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
 
         // stop ElasticSearch
-        if (elasticSearchNode != null) elasticSearchNode.close()
+        if (elasticSearchNode != null) try {
+            elasticSearchNode.close()
+            while (!elasticSearchNode.isClosed()) {
+                logger.info("ElasticSearch still closing")
+                this.wait(1000)
+            }
+            logger.info("ElasticSearch closed")
+        } catch (Throwable t) { logger.error("Error in ElasticSearch node close", t) }
 
         // Stop Jackrabbit process
-        if (jackrabbitProcess != null) jackrabbitProcess.destroy()
+        if (jackrabbitProcess != null) try {
+            jackrabbitProcess.destroy()
+            logger.info("Jackrabbit process destroyed")
+        } catch (Throwable t) { logger.error("Error in JackRabbit process destroy", t) }
 
         // persist any remaining bins in artifactHitBinByType
         Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
@@ -393,15 +463,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         artifactStatsInfoByType.clear()
         for (ArtifactStatsInfo asi in asiList) {
             if (asi.curHitBin == null) continue
-            Map<String, Object> ahb = asi.curHitBin.makeAhbMap(this, currentTimestamp)
-            executionContext.service.sync().name("create", "moqui.server.ArtifactHitBin").parameters(ahb).call()
+            EntityValue ahb = asi.curHitBin.makeAhbValue(this, currentTimestamp)
+            ahb.setSequencedIdPrimary().create()
         }
+        logger.info("ArtifactHitBins stored")
 
         // this destroy order is important as some use others so must be destroyed first
-        if (this.serviceFacade != null) { this.serviceFacade.destroy() }
-        if (this.entityFacade != null) { this.entityFacade.destroy() }
-        if (this.transactionFacade != null) { this.transactionFacade.destroy() }
-        if (this.cacheFacade != null) { this.cacheFacade.destroy() }
+        if (this.serviceFacade != null) this.serviceFacade.destroy()
+        if (this.entityFacade != null) this.entityFacade.destroy()
+        if (this.transactionFacade != null) this.transactionFacade.destroy()
+        if (this.cacheFacade != null) this.cacheFacade.destroy()
+        logger.info("Facades destroyed")
 
         activeContext.remove()
 
@@ -421,12 +493,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         super.finalize()
     }
 
+    @Override
     String getRuntimePath() { return runtimePath }
-    Node getConfXmlRoot() { return confXmlRoot }
-    Node getServerStatsNode() { return serverStatsNode }
-    Node getArtifactExecutionNode(String artifactTypeEnumId) {
-        return (Node) eci.ecfi.confXmlRoot."artifact-execution-facade"[0]."artifact-execution"
-                .find({ it."@type" == artifactTypeEnumId })
+    MNode getConfXmlRoot() { return confXmlRoot }
+    MNode getServerStatsNode() { return serverStatsNode }
+    MNode getArtifactExecutionNode(String artifactTypeEnumId) {
+        return confXmlRoot.first("artifact-execution-facade")
+                .first({ MNode it -> it.name == "artifact-execution" && it.attribute("type") == artifactTypeEnumId })
     }
 
     InetAddress getLocalhostAddress() { return localhostAddress }
@@ -437,7 +510,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     List<NotificationMessageListener> getNotificationMessageListeners() { return registeredNotificationMessageListeners }
 
-    @CompileStatic
     org.apache.shiro.mgt.SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) return internalSecurityManager
 
@@ -450,7 +522,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         return internalSecurityManager
     }
-    @CompileStatic
     CredentialsMatcher getCredentialsMatcher(String hashType) {
         HashedCredentialsMatcher hcm = new HashedCredentialsMatcher()
         if (hashType) {
@@ -460,42 +531,38 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         return hcm
     }
-    @CompileStatic
     static String getRandomSalt() { return StupidUtilities.getRandomString(8) }
     String getPasswordHashType() {
-        Node passwordNode = (Node) confXmlRoot."user-facade"[0]."password"[0]
+        MNode passwordNode = confXmlRoot.first("user-facade").first("password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
-    @CompileStatic
     String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType()) }
-    @CompileStatic
     String getSimpleHash(String source, String salt, String hashType) {
         return new SimpleHash(hashType ?: getPasswordHashType(), source, salt).toString()
     }
 
     String getLoginKeyHashType() {
-        Node loginKeyNode = (Node) confXmlRoot."user-facade"[0]."login-key"[0]
+        MNode loginKeyNode = confXmlRoot.first("user-facade").first("login-key")
         return loginKeyNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
     int getLoginKeyExpireHours() {
-        Node loginKeyNode = (Node) confXmlRoot."user-facade"[0]."login-key"[0]
+        MNode loginKeyNode = confXmlRoot.first("user-facade").first("login-key")
         return (loginKeyNode.attribute("expire-hours") ?: "144") as int
     }
 
     // ========== Getters ==========
 
-    @CompileStatic
     CacheFacadeImpl getCacheFacade() { return this.cacheFacade }
 
-    @CompileStatic
     EntityFacadeImpl getEntityFacade() { return getEntityFacade(getExecutionContext().getTenantId()) }
-    @CompileStatic
     EntityFacadeImpl getEntityFacade(String tenantId) {
-        EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
+        // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now
+        if (tenantId == null) throw new IllegalArgumentException("For getEntityFacade tenantId cannot be null")
+        EntityFacadeImpl efi = (EntityFacadeImpl) entityFacadeByTenantMap.get(tenantId)
         if (efi == null) efi = initEntityFacade(tenantId)
+
         return efi
     }
-    @CompileStatic
     synchronized EntityFacadeImpl initEntityFacade(String tenantId) {
         EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
         if (efi != null) return efi
@@ -506,27 +573,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return efi
     }
 
-    @CompileStatic
     LoggerFacadeImpl getLoggerFacade() { return loggerFacade }
-
-    @CompileStatic
     ResourceFacadeImpl getResourceFacade() { return resourceFacade }
-
-    @CompileStatic
     ScreenFacadeImpl getScreenFacade() { return screenFacade }
-
-    @CompileStatic
     ServiceFacadeImpl getServiceFacade() { return serviceFacade }
-
-    @CompileStatic
     TransactionFacadeImpl getTransactionFacade() { return transactionFacade }
-
-    @CompileStatic
-    L10nFacade getL10nFacade() { return l10nFacade }
+    L10nFacadeImpl getL10nFacade() { return getEci().getL10nFacade() }
+    // TODO: find references, change to eci where more direct
 
     // =============== Apache Camel Methods ===============
     @Override
-    @CompileStatic
     CamelContext getCamelContext() { return camelContext }
 
     MoquiServiceComponent getMoquiServiceComponent() { return moquiServiceComponent }
@@ -534,7 +590,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     MoquiServiceConsumer getCamelConsumer(String uri) { return camelConsumerByUriMap.get(uri) }
 
     protected void initCamel() {
-        if (confXmlRoot."tools"[0]."@enable-camel" != "false") {
+        if (confXmlRoot.first("tools").attribute("enable-camel") != "false") {
             logger.info("Starting Camel")
             moquiServiceComponent = new MoquiServiceComponent(this)
             camelContext.addComponent("moquiservice", moquiServiceComponent)
@@ -546,13 +602,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // =============== ElasticSearch Methods ===============
     @Override
-    @CompileStatic
     Client getElasticSearchClient() { return elasticSearchClient }
 
     protected void initElasticSearch() {
         // set the ElasticSearch home directory
         System.setProperty("es.path.home", runtimePath + "/elasticsearch")
-        if (confXmlRoot."tools"[0]."@enable-elasticsearch" != "false") {
+        if (confXmlRoot.first("tools").attribute("enable-elasticsearch") != "false") {
             logger.info("Starting ElasticSearch")
             elasticSearchNode = NodeBuilder.nodeBuilder().node()
             elasticSearchClient = elasticSearchNode.client()
@@ -562,7 +617,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected void initJackrabbit() {
-        if (confXmlRoot."tools"[0]."@run-jackrabbit" == "true") {
+        if (confXmlRoot.first("tools").attribute("run-jackrabbit") == "true") {
             Properties jackrabbitProperties = new Properties()
             URL jackrabbitProps = this.class.getClassLoader().getResource("jackrabbit_moqui.properties")
             if (jackrabbitProps != null) {
@@ -682,9 +737,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         //     module they are in, then add convenience methods to get any KieBase or KieSession by name
         ResourceReference kmoduleRr = kieRr.findChildFile("src/main/resources/META-INF/kmodule.xml")
         Node kmoduleNode = new XmlParser().parseText(kmoduleRr.getText())
-        for (Node kbaseNode in kmoduleNode."kbase") {
-            for (Node ksessionNode in kbaseNode."ksession") {
-                String ksessionName = ksessionNode."@name"
+        for (Object kbObj in kmoduleNode.get("kbase")) {
+            Node kbaseNode = (Node) kbObj
+            for (Object ksObj in kbaseNode.get("ksession")) {
+                Node ksessionNode = (Node) ksObj
+                String ksessionName = (String) ksessionNode.attribute("name")
                 String existingComponentName = kieSessionComponentCache.get(ksessionName)
                 if (existingComponentName) logger.warn("Found KIE session [${ksessionName}] in component [${existingComponentName}], replacing with session in component [${componentName}]")
                 kieSessionComponentCache.put(ksessionName, componentName)
@@ -717,22 +774,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Interface Implementations ==========
 
     @Override
-    @CompileStatic
     ExecutionContext getExecutionContext() { return getEci() }
-
-    @CompileStatic
     ExecutionContextImpl getEci() {
-        ExecutionContextImpl ec = this.activeContext.get()
-        if (ec != null) {
-            return ec
-        } else {
-            if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
-            if (!(Thread.currentThread().getContextClassLoader() instanceof StupidClassLoader))
-                Thread.currentThread().setContextClassLoader(cachedClassLoader)
-            ec = new ExecutionContextImpl(this)
-            this.activeContext.set(ec)
-            return ec
-        }
+        // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
+        ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
+        if (ec != null) return ec
+
+        if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
+        if (!(Thread.currentThread().getContextClassLoader() instanceof StupidClassLoader))
+            Thread.currentThread().setContextClassLoader(cachedClassLoader)
+        ec = new ExecutionContextImpl(this)
+        this.activeContext.set(ec)
+        return ec
     }
 
     void destroyActiveExecutionContext() {
@@ -741,6 +794,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ec.destroy()
             this.activeContext.remove()
         }
+    }
+
+    /** Using an EC in multiple threads is dangerous as much of the ECI is not designed to be thread safe. */
+    void useExecutionContextInThread(ExecutionContextImpl eci) {
+        ExecutionContextImpl curEc = activeContext.get()
+        if (curEc != null) curEc.destroy()
+        activeContext.set(eci)
     }
 
     @Override
@@ -778,7 +838,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             for (String dependsOnName in componentInfo.dependsOnNames) {
                 int dependsOnIndex = sortedNames.indexOf(dependsOnName)
                 if (dependsOnIndex > i)
-                    messages.add("Broken dependency order after initial pass: [${dependsOnName}] is after [${name}]")
+                    messages.add("Broken dependency order after initial pass: [${dependsOnName}] is after [${name}]".toString())
             }
         }
 
@@ -813,12 +873,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ResourceReference cxmlRr = getResourceReference(location + "/components.xml")
 
             if (cxmlRr.getExists()) {
-                Node componentList = new XmlParser().parse(cxmlRr.openStream())
-                for (Node childNode in componentList.children()) {
-                    if (childNode.name() == 'component') {
+                MNode componentList = MNode.parse(cxmlRr)
+                for (MNode childNode in componentList.children) {
+                    if (childNode.name == 'component') {
                         ComponentInfo componentInfo = new ComponentInfo(location, childNode, this)
                         addComponent(componentInfo)
-                    } else if (childNode.name() == 'component-dir') {
+                    } else if (childNode.name == 'component-dir') {
                         String locAttr = childNode.attribute("location")
                         addComponentDir(location + "/" + locAttr)
                     }
@@ -852,7 +912,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         String name
         String location
         Set<String> dependsOnNames = new LinkedHashSet<String>()
-        ComponentInfo(String baseLocation, Node componentNode, ExecutionContextFactoryImpl ecfi) {
+        ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
             String curLoc = null
             if (baseLocation) curLoc = baseLocation + "/" + componentNode.attribute("location")
@@ -862,7 +922,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             this.ecfi = ecfi
             init(location, null)
         }
-        protected void init(String specLoc, Node origNode) {
+        protected void init(String specLoc, MNode origNode) {
             location = specLoc ?: origNode?.attribute("location")
             if (!location) throw new IllegalArgumentException("Cannot init component with no location (not specified or found in component.@location)")
 
@@ -883,9 +943,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // see if there is a component.xml file, if so use that as the componentNode instead of origNode
             ResourceReference compXmlRr = ecfi.getResourceReference(location + "/component.xml")
-            Node componentNode
+            MNode componentNode
             if (compXmlRr.getExists()) {
-                componentNode = new XmlParser().parse(compXmlRr.openStream())
+                componentNode = MNode.parse(compXmlRr)
             } else {
                 componentNode = origNode
             }
@@ -893,8 +953,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             if (componentNode != null) {
                 String nameAttr = componentNode.attribute("name")
                 if (nameAttr) name = nameAttr
-                if (componentNode["depends-on"]) for (Node dependsOnNode in componentNode["depends-on"]) {
-                    dependsOnNames.add((String) dependsOnNode.attribute("name"))
+                if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on")) {
+                    dependsOnNames.add(dependsOnNode.attribute("name"))
                 }
             }
         }
@@ -919,7 +979,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
 
     @Override
-    @CompileStatic
     LinkedHashMap<String, String> getComponentBaseLocations() {
         LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
         for (ComponentInfo componentInfo in componentInfoMap.values()) {
@@ -929,73 +988,83 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    @CompileStatic
-    L10nFacade getL10n() { getL10nFacade() }
+    L10nFacade getL10n() { getEci().getL10nFacade() }
 
     @Override
-    @CompileStatic
-    ResourceFacade getResource() { getResourceFacade() }
+    ResourceFacade getResource() { return resourceFacade }
 
     @Override
-    @CompileStatic
-    LoggerFacade getLogger() { getLoggerFacade() }
+    LoggerFacade getLogger() { return loggerFacade }
 
     @Override
-    @CompileStatic
-    CacheFacade getCache() { getCacheFacade() }
+    CacheFacade getCache() { return this.cacheFacade }
 
     @Override
-    @CompileStatic
-    TransactionFacade getTransaction() { getTransactionFacade() }
+    TransactionFacade getTransaction() { return transactionFacade }
 
     @Override
-    @CompileStatic
     EntityFacade getEntity() { getEntityFacade(getExecutionContext()?.getTenantId()) }
 
     @Override
-    @CompileStatic
-    ServiceFacade getService() { getServiceFacade() }
+    ServiceFacade getService() { return serviceFacade }
 
     @Override
-    @CompileStatic
-    ScreenFacade getScreen() { getScreenFacade() }
+    ScreenFacade getScreen() { return screenFacade }
 
     // ========== Server Stat Tracking ==========
-    @CompileStatic
     boolean getSkipStats() {
         // NOTE: the results of this condition eval can't be cached because the expression can use any data in the ec
         ExecutionContextImpl eci = getEci()
         return skipStatsCond ? eci.resource.condition(skipStatsCond, null, [pathInfo:eci.web?.request?.pathInfo]) : false
     }
 
-    @CompileStatic
     protected boolean artifactPersistHit(String artifactType, String artifactSubType) {
         // now checked before calling this: if ("entity".equals(artifactType)) return false
         String cacheKey = artifactType + artifactSubType
-        Boolean ph = artifactPersistHitByType.get(cacheKey)
+        Boolean ph = (Boolean) artifactPersistHitByType.get(cacheKey)
         if (ph == null) {
-            Node artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
+            MNode artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
             ph = 'true'.equals(artifactStats.attribute('persist-hit'))
             artifactPersistHitByType.put(cacheKey, ph)
         }
-        return ph
+        return ph.booleanValue()
     }
-    @CompileStatic
     protected boolean artifactPersistBin(String artifactType, String artifactSubType) {
         String cacheKey = artifactType + artifactSubType
-        Boolean pb = artifactPersistBinByType.get(cacheKey)
+        Boolean pb = (Boolean) artifactPersistBinByType.get(cacheKey)
         if (pb == null) {
-            Node artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
+            MNode artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
             pb = 'true'.equals(artifactStats.attribute('persist-bin'))
             artifactPersistBinByType.put(cacheKey, pb)
         }
-        return pb
+        return pb.booleanValue()
     }
 
-    protected Node getArtifactStatsNode(String artifactType, String artifactSubType) {
+    boolean isAuthzEnabled(String artifactTypeEnumId) {
+        Boolean en = (Boolean) artifactTypeAuthzEnabled.get(artifactTypeEnumId)
+        if (en == null) {
+            MNode aeNode = getArtifactExecutionNode(artifactTypeEnumId)
+            en = aeNode != null ? !(aeNode.attribute('authz-enabled') == "false") : true
+            artifactTypeAuthzEnabled.put(artifactTypeEnumId, en)
+        }
+        return en.booleanValue()
+    }
+    boolean isTarpitEnabled(String artifactTypeEnumId) {
+        Boolean en = (Boolean) artifactTypeTarpitEnabled.get(artifactTypeEnumId)
+        if (en == null) {
+            MNode aeNode = getArtifactExecutionNode(artifactTypeEnumId)
+            en = aeNode != null ? !(aeNode.attribute('tarpit-enabled') == "false") : true
+            artifactTypeTarpitEnabled.put(artifactTypeEnumId, en)
+        }
+        return en.booleanValue()
+    }
+
+    protected MNode getArtifactStatsNode(String artifactType, String artifactSubType) {
         // find artifact-stats node by type AND sub-type, if not found find by just the type
-        Node artifactStats = (Node) confXmlRoot."server-stats"[0]."artifact-stats".find({ it.@type == artifactType && it."@sub-type" == artifactSubType })
-        if (artifactStats == null) artifactStats = (Node) confXmlRoot."server-stats"[0]."artifact-stats".find({ it.@type == artifactType })
+        MNode artifactStats = confXmlRoot.first("server-stats").first({ MNode it -> it.name == "artifact-stats" &&
+                it.attribute("type") == artifactType && it.attribute("sub-type") == artifactSubType })
+        if (artifactStats == null) artifactStats = confXmlRoot.first("server-stats")
+                .first({ MNode it -> it.name == "artifact-stats" && it.attribute('type') == artifactType })
         return artifactStats
     }
 
@@ -1060,7 +1129,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             totalSquaredTime = totalSquaredTime + (runningTime * runningTime)
         }
 
-        Map<String, Object> makeAhbMap(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
+        // NOTE: ArtifactHitBin always created in DEFAULT tenant since data is aggregated across all tenants, mostly used to monitor performance
+        EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
             Map<String, Object> ahb = [artifactType:artifactType, artifactSubType:artifactSubType,
                                        artifactName:artifactName, binStartDateTime:new Timestamp(startTime), binEndDateTime:binEndDateTime,
                                        hitCount:hitCount, totalTimeMillis:new BigDecimal(totalTimeMillis),
@@ -1068,23 +1138,24 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                                        maxTimeMillis:new BigDecimal(maxTimeMillis), slowHitCount:slowHitCount] as Map<String, Object>
             ahb.serverIpAddress = ecfi.localhostAddress?.getHostAddress() ?: "127.0.0.1"
             ahb.serverHostName = ecfi.localhostAddress?.getHostName() ?: "localhost"
-            return ahb
+            EntityValue ahbValue = ecfi.getEntityFacade("DEFAULT").makeValue("moqui.server.ArtifactHitBin")
+            ahbValue.setAll(ahb)
+            return ahbValue
         }
     }
 
-    @CompileStatic
     void countArtifactHit(String artifactType, String artifactSubType, String artifactName, Map<String, Object> parameters,
                           long startTime, double runningTimeMillis, Long outputSize) {
-        boolean isEntity = artifactType == 'entity' || artifactSubType == 'entity-implicit'
+        boolean isEntity = 'entity'.equals(artifactType) || 'entity-implicit'.equals(artifactSubType)
         // don't count the ones this calls
         if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return
-        ExecutionContextImpl eci = this.getEci()
+        ExecutionContextImpl eci = getEci()
         if (eci.getSkipStats() && artifactTypesForStatsSkip.contains(artifactType)) return
 
         boolean isSlowHit = false
         if (artifactPersistBin(artifactType, artifactSubType)) {
             String binKey = new StringBuilder(200).append(artifactType).append('.').append(artifactSubType).append(':').append(artifactName).toString()
-            ArtifactStatsInfo statsInfo = artifactStatsInfoByType.get(binKey)
+            ArtifactStatsInfo statsInfo = (ArtifactStatsInfo) artifactStatsInfoByType.get(binKey)
             if (statsInfo == null) {
                 // consider seeding this from the DB using ArtifactHitReport to get all past data, or maybe not to better handle different servers/etc over time, etc
                 statsInfo = new ArtifactStatsInfo()
@@ -1099,9 +1170,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // has the current bin expired since the last hit record?
             long binStartTime = abi.startTime
-            if (startTime > (binStartTime + hitBinLengthMillis)) {
+            if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
                 if (logger.isTraceEnabled()) logger.trace("Advancing ArtifactHitBin [${artifactType}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(abi.startTime)}] bin length ${hitBinLengthMillis/1000} seconds")
-                advanceArtifactHitBin(statsInfo, artifactType, artifactSubType, artifactName, startTime, hitBinLengthMillis)
+                advanceArtifactHitBin(eci, statsInfo, artifactType, artifactSubType, artifactName, startTime, hitBinLengthMillis)
                 abi = statsInfo.curHitBin
             }
 
@@ -1149,49 +1220,58 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         //     (could also be done by checking for ArtifactHit/etc of course)
         // Always save slow hits above userImpactMinMillis regardless of settings
         if (!isEntity && ((isSlowHit && runningTimeMillis > userImpactMinMillis) || artifactPersistHit(artifactType, artifactSubType))) {
-            Map<String, Object> ahp = [visitId:eci.user.visitId, userId:eci.user.userId, isSlowHit:(isSlowHit ? 'Y' : 'N'),
-                                       artifactType:artifactType, artifactSubType:artifactSubType, artifactName:artifactName,
-                                       startDateTime:new Timestamp(startTime), runningTimeMillis:runningTimeMillis] as Map<String, Object>
+            // NOTE: ArtifactHit saved in current tenant, ArtifactHitBin saved in DEFAULT tenant
+            EntityValueBase ahp = (EntityValueBase) eci.entity.makeValue("moqui.server.ArtifactHit")
+            ahp.putNoCheck("visitId", eci.user.visitId)
+            ahp.putNoCheck("userId", eci.user.userId)
+            ahp.putNoCheck("isSlowHit", isSlowHit ? 'Y' : 'N')
+            ahp.putNoCheck("artifactType", artifactType)
+            ahp.putNoCheck("artifactSubType", artifactSubType)
+            ahp.putNoCheck("artifactName", artifactName)
+            ahp.putNoCheck("startDateTime", new Timestamp(startTime))
+            ahp.putNoCheck("runningTimeMillis", runningTimeMillis)
 
-            if (parameters) {
+            if (parameters != null && parameters.size() > 0) {
                 StringBuilder ps = new StringBuilder()
                 for (Map.Entry<String, Object> pme in parameters.entrySet()) {
-                    if (!pme.value) continue
+                    if (StupidJavaUtilities.isEmpty(pme.value)) continue
                     if (pme.key?.contains("password")) continue
                     if (ps.length() > 0) ps.append(",")
                     ps.append(pme.key).append("=").append(pme.value)
                 }
                 if (ps.length() > 255) ps.delete(255, ps.length())
-                ahp.parameterString = ps.toString()
+                ahp.putNoCheck("parameterString", ps.toString())
             }
-            if (outputSize != null) ahp.outputSize = outputSize
+            if (outputSize != null) ahp.putNoCheck("outputSize", outputSize)
             if (eci.getMessage().hasError()) {
-                ahp.wasError = "Y"
+                ahp.putNoCheck("wasError", "Y")
                 StringBuilder errorMessage = new StringBuilder()
                 for (String curErr in eci.message.errors) errorMessage.append(curErr).append(";")
                 if (errorMessage.length() > 255) errorMessage.delete(255, errorMessage.length())
-                ahp.errorMessage = errorMessage.toString()
+                ahp.putNoCheck("errorMessage", errorMessage.toString())
             } else {
-                ahp.wasError = "N"
+                ahp.putNoCheck("wasError", "N")
             }
             if (eci.web != null) {
                 String fullUrl = eci.web.getRequestUrl()
                 fullUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl.toString()
-                ahp.requestUrl = fullUrl
-                ahp.referrerUrl = eci.web.request.getHeader("Referrer") ?: ""
+                ahp.putNoCheck("requestUrl", fullUrl)
+                String referrer = eci.web.request.getHeader("Referrer")
+                if (referrer != null && referrer.length() > 0) ahp.putNoCheck("referrerUrl", referrer)
             }
 
-            ahp.serverIpAddress = localhostAddress?.getHostAddress() ?: "127.0.0.1"
-            ahp.serverHostName = localhostAddress?.getHostName() ?: "localhost"
+            ahp.putNoCheck("serverIpAddress", localhostAddress != null ? localhostAddress.getHostAddress() : "127.0.0.1")
+            ahp.putNoCheck("serverHostName", localhostAddress != null ? localhostAddress.getHostName() : "localhost")
 
-            // call async, let the server do it whenever
-            eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
+            // NOTE: async service scheduling is slow enough that it is faster to just create the record now
+            // eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
+            // have an authorize-skip=create on the entity so don't need to disable authz here
+            eci.runInWorkerThread({ ahp.setSequencedIdPrimary().create() })
         }
     }
 
-    @CompileStatic
-    protected synchronized void advanceArtifactHitBin(ArtifactStatsInfo statsInfo, String artifactType, String artifactSubType,
-                                                     String artifactName, long startTime, int hitBinLengthMillis) {
+    protected synchronized void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
+                String artifactType, String artifactSubType, String artifactName, long startTime, int hitBinLengthMillis) {
         ArtifactBinInfo abi = statsInfo.curHitBin
         if (abi == null) {
             statsInfo.curHitBin = new ArtifactBinInfo(artifactType, artifactSubType, artifactName, startTime)
@@ -1203,48 +1283,35 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (startTime < (binStartTime + hitBinLengthMillis)) return
 
         // otherwise, persist the old and create a new one
-        Map<String, Object> ahb = abi.makeAhbMap(this, new Timestamp(binStartTime + hitBinLengthMillis))
-        // do this sync to avoid overhead of job scheduling for a very simple service call, and to avoid infinite recursion when EntityJobStore is in place
-        try {
-            executionContext.service.sync().name("create", "moqui.server.ArtifactHitBin").parameters(ahb)
-                    .requireNewTransaction(true).ignorePreviousError(true).disableAuthz().call()
-            if (executionContext.message.hasError()) {
-                logger.error("Error creating ArtifactHitBin: ${executionContext.message.getErrorsString()}")
-                executionContext.message.clearErrors()
-            }
-        } catch (Throwable t) {
-            executionContext.message.clearErrors()
-            logger.error("Error creating ArtifactHitBin", t)
-            // just return, don't advance the bin so we can try again to save it later
-            return
-        }
+        EntityValue ahb = abi.makeAhbValue(this, new Timestamp(binStartTime + hitBinLengthMillis))
+        eci.runInWorkerThread({ ahb.setSequencedIdPrimary().create() })
 
         statsInfo.curHitBin = new ArtifactBinInfo(artifactType, artifactSubType, artifactName, startTime)
     }
 
     // ========== Configuration File Merging Methods ==========
 
-    protected void mergeConfigNodes(Node baseNode, Node overrideNode) {
+    protected void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
         mergeSingleChild(baseNode, overrideNode, "tools")
 
-        if (overrideNode."cache-list") {
-            mergeNodeWithChildKey((Node) baseNode."cache-list"[0], (Node) overrideNode."cache-list"[0], "cache", "name")
+        if (overrideNode.hasChild("cache-list")) {
+            mergeNodeWithChildKey(baseNode.first("cache-list"), overrideNode.first("cache-list"), "cache", "name")
         }
         
-        if (overrideNode."server-stats") {
+        if (overrideNode.hasChild("server-stats")) {
             // the artifact-stats nodes have 2 keys: type, sub-type; can't use the normal method
-            Node ssNode = baseNode."server-stats"[0]
-            Node overrideSsNode = overrideNode."server-stats"[0]
+            MNode ssNode = baseNode.first("server-stats")
+            MNode overrideSsNode = overrideNode.first("server-stats")
             // override attributes for this node
-            ssNode.attributes().putAll(overrideSsNode.attributes())
-            for (Node childOverrideNode in (Collection<Node>) overrideSsNode."artifact-stats") {
+            ssNode.attributes.putAll(overrideSsNode.attributes)
+            for (MNode childOverrideNode in overrideSsNode.children("artifact-stats")) {
                 String type = childOverrideNode.attribute("type")
                 String subType = childOverrideNode.attribute("sub-type")
-                Node childBaseNode = (Node) ssNode."artifact-stats"?.find({ it."@type" == type &&
-                        (it."@sub-type" == subType || (!it."@sub-type" && !subType)) })
+                MNode childBaseNode = ssNode.first({ MNode it -> it.name == "artifact-stats" && it.attribute("type") == type &&
+                        (it.attribute("sub-type") == subType || (!it.attribute("sub-type") && !subType)) })
                 if (childBaseNode) {
                     // merge the node attributes
-                    childBaseNode.attributes().putAll(childOverrideNode.attributes())
+                    childBaseNode.attributes.putAll(childOverrideNode.attributes)
                 } else {
                     // no matching child base node, so add a new one
                     ssNode.append(childOverrideNode)
@@ -1252,58 +1319,58 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
-        if (overrideNode."webapp-list") {
-            mergeNodeWithChildKey((Node) baseNode."webapp-list"[0], (Node) overrideNode."webapp-list"[0], "webapp", "name")
+        if (overrideNode.hasChild("webapp-list")) {
+            mergeNodeWithChildKey(baseNode.first("webapp-list"), overrideNode.first("webapp-list"), "webapp", "name")
         }
 
-        if (overrideNode."artifact-execution-facade") {
-            mergeNodeWithChildKey((Node) baseNode."artifact-execution-facade"[0],
-                    (Node) overrideNode."artifact-execution-facade"[0], "artifact-execution", "type")
+        if (overrideNode.hasChild("artifact-execution-facade")) {
+            mergeNodeWithChildKey(baseNode.first("artifact-execution-facade"),
+                    overrideNode.first("artifact-execution-facade"), "artifact-execution", "type")
         }
 
-        if (overrideNode."user-facade") {
-            Node ufBaseNode = baseNode."user-facade"[0]
-            Node ufOverrideNode = overrideNode."user-facade"[0]
+        if (overrideNode.hasChild("user-facade")) {
+            MNode ufBaseNode = baseNode.first("user-facade")
+            MNode ufOverrideNode = overrideNode.first("user-facade")
             mergeSingleChild(ufBaseNode, ufOverrideNode, "password")
             mergeSingleChild(ufBaseNode, ufOverrideNode, "login-key")
             mergeSingleChild(ufBaseNode, ufOverrideNode, "login")
         }
 
-        if (overrideNode."transaction-facade") {
-            Node tfBaseNode = baseNode."transaction-facade"[0]
-            Node tfOverrideNode = overrideNode."transaction-facade"[0]
-            tfBaseNode.attributes().putAll(tfOverrideNode.attributes())
+        if (overrideNode.hasChild("transaction-facade")) {
+            MNode tfBaseNode = baseNode.first("transaction-facade")
+            MNode tfOverrideNode = overrideNode.first("transaction-facade")
+            tfBaseNode.attributes.putAll(tfOverrideNode.attributes)
             mergeSingleChild(tfBaseNode, tfOverrideNode, "server-jndi")
             mergeSingleChild(tfBaseNode, tfOverrideNode, "transaction-jndi")
             mergeSingleChild(tfBaseNode, tfOverrideNode, "transaction-internal")
         }
 
-        if (overrideNode."resource-facade") {
-            mergeNodeWithChildKey((Node) baseNode."resource-facade"[0], (Node) overrideNode."resource-facade"[0],
+        if (overrideNode.hasChild("resource-facade")) {
+            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
                     "resource-reference", "scheme")
-            mergeNodeWithChildKey((Node) baseNode."resource-facade"[0], (Node) overrideNode."resource-facade"[0],
+            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
                     "template-renderer", "extension")
-            mergeNodeWithChildKey((Node) baseNode."resource-facade"[0], (Node) overrideNode."resource-facade"[0],
+            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
                     "script-runner", "extension")
         }
 
-        if (overrideNode."screen-facade") {
-            mergeNodeWithChildKey((Node) baseNode."screen-facade"[0], (Node) overrideNode."screen-facade"[0],
+        if (overrideNode.hasChild("screen-facade")) {
+            mergeNodeWithChildKey(baseNode.first("screen-facade"), overrideNode.first("screen-facade"),
                     "screen-text-output", "type")
         }
 
-        if (overrideNode."service-facade") {
-            Node sfBaseNode = baseNode."service-facade"[0]
-            Node sfOverrideNode = overrideNode."service-facade"[0]
+        if (overrideNode.hasChild("service-facade")) {
+            MNode sfBaseNode = baseNode.first("service-facade")
+            MNode sfOverrideNode = overrideNode.first("service-facade")
             mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-location", "name")
             mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-type", "name")
             mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-file", "location")
             mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "startup-service", "name")
 
             // handle thread-pool
-            Node tpOverrideNode = sfOverrideNode."thread-pool"[0]
+            MNode tpOverrideNode = sfOverrideNode.first("thread-pool")
             if (tpOverrideNode) {
-                Node tpBaseNode = sfBaseNode."thread-pool"[0]
+                MNode tpBaseNode = sfBaseNode.first("thread-pool")
                 if (tpBaseNode) {
                     mergeNodeWithChildKey(tpBaseNode, tpOverrideNode, "run-from-pool", "name")
                 } else {
@@ -1312,62 +1379,62 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
 
             // handle jms-service, just copy all over
-            for (Node jsOverrideNode in sfOverrideNode."jms-service") {
+            for (MNode jsOverrideNode in sfOverrideNode.children("jms-service")) {
                 sfBaseNode.append(jsOverrideNode)
             }
         }
 
-        if (overrideNode."entity-facade") {
-            Node efBaseNode = baseNode."entity-facade"[0]
-            Node efOverrideNode = overrideNode."entity-facade"[0]
+        if (overrideNode.hasChild("entity-facade")) {
+            MNode efBaseNode = baseNode.first("entity-facade")
+            MNode efOverrideNode = overrideNode.first("entity-facade")
             mergeNodeWithChildKey(efBaseNode, efOverrideNode, "datasource", "group-name")
             mergeSingleChild(efBaseNode, efOverrideNode, "server-jndi")
             // for load-entity and load-data just copy over override nodes
-            for (Node copyNode in efOverrideNode."load-entity") efBaseNode.append(copyNode)
-            for (Node copyNode in efOverrideNode."load-data") efBaseNode.append(copyNode)
+            for (MNode copyNode in efOverrideNode.children("load-entity")) efBaseNode.append(copyNode)
+            for (MNode copyNode in efOverrideNode.children("load-data")) efBaseNode.append(copyNode)
         }
 
-        if (overrideNode."database-list") {
-            mergeNodeWithChildKey((Node) baseNode."database-list"[0], (Node) overrideNode."database-list"[0], "dictionary-type", "type")
-            mergeNodeWithChildKey((Node) baseNode."database-list"[0], (Node) overrideNode."database-list"[0], "database", "name")
+        if (overrideNode.hasChild("database-list")) {
+            mergeNodeWithChildKey(baseNode.first("database-list"), overrideNode.first("database-list"), "dictionary-type", "type")
+            mergeNodeWithChildKey(baseNode.first("database-list"), overrideNode.first("database-list"), "database", "name")
         }
 
-        if (overrideNode."repository-list") {
-            mergeNodeWithChildKey((Node) baseNode."repository-list"[0], (Node) overrideNode."repository-list"[0], "repository", "name")
+        if (overrideNode.hasChild("repository-list")) {
+            mergeNodeWithChildKey(baseNode.first("repository-list"), overrideNode.first("repository-list"), "repository", "name")
         }
 
-        if (overrideNode."component-list") {
-            if (!baseNode."component-list") baseNode.appendNode("component-list")
-            Node baseComponentNode = baseNode."component-list"[0]
-            for (Node copyNode in overrideNode."component-list"[0].children()) baseComponentNode.append(copyNode)
+        if (overrideNode.hasChild("component-list")) {
+            if (!baseNode.hasChild("component-list")) baseNode.append("component-list", null)
+            MNode baseComponentNode = baseNode.first("component-list")
+            for (MNode copyNode in overrideNode.first("component-list").children) baseComponentNode.append(copyNode)
             // mergeNodeWithChildKey((Node) baseNode."component-list"[0], (Node) overrideNode."component-list"[0], "component-dir", "location")
             // mergeNodeWithChildKey((Node) baseNode."component-list"[0], (Node) overrideNode."component-list"[0], "component", "name")
         }
     }
 
-    protected static void mergeSingleChild(Node baseNode, Node overrideNode, String childNodeName) {
-        Node childOverrideNode = (Node) overrideNode[childNodeName][0]
+    protected static void mergeSingleChild(MNode baseNode, MNode overrideNode, String childNodeName) {
+        MNode childOverrideNode = overrideNode.first(childNodeName)
         if (childOverrideNode) {
-            Node childBaseNode = (Node) baseNode[childNodeName][0]
-            if (childBaseNode) {
-                childBaseNode.attributes().putAll(childOverrideNode.attributes())
+            MNode childBaseNode = baseNode.first(childNodeName)
+            if (childBaseNode != null) {
+                childBaseNode.attributes.putAll(childOverrideNode.attributes)
             } else {
                 baseNode.append(childOverrideNode)
             }
         }
     }
 
-    protected void mergeNodeWithChildKey(Node baseNode, Node overrideNode, String childNodesName, String keyAttributeName) {
+    protected void mergeNodeWithChildKey(MNode baseNode, MNode overrideNode, String childNodesName, String keyAttributeName) {
         // override attributes for this node
-        baseNode.attributes().putAll(overrideNode.attributes())
+        baseNode.attributes.putAll(overrideNode.attributes)
 
-        for (Node childOverrideNode in (Collection<Node>) overrideNode[childNodesName]) {
+        for (MNode childOverrideNode in overrideNode.children(childNodesName)) {
             String keyValue = childOverrideNode.attribute(keyAttributeName)
-            Node childBaseNode = (Node) baseNode[childNodesName]?.find({ it.attribute(keyAttributeName) == keyValue })
+            MNode childBaseNode = baseNode.first({ MNode it -> it.name == childNodesName && it.attribute(keyAttributeName) == keyValue })
 
             if (childBaseNode) {
                 // merge the node attributes
-                childBaseNode.attributes().putAll(childOverrideNode.attributes())
+                childBaseNode.attributes.putAll(childOverrideNode.attributes)
 
                 // merge child nodes for specific nodes
                 if ("webapp" == childNodesName) {
@@ -1377,14 +1444,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     mergeNodeWithChildKey(childBaseNode, childOverrideNode, "database-type", "type")
                 } else if ("datasource" == childNodesName) {
                     // handle the jndi-jdbc and inline-jdbc nodes: if either exist in override have it totally remove both from base, then copy over
-                    if (childOverrideNode."jndi-jdbc" || childOverrideNode."inline-jdbc") {
-                        if (childBaseNode."jndi-jdbc") childBaseNode.remove((Node) childBaseNode."jndi-jdbc"[0])
-                        if (childBaseNode."inline-jdbc") childBaseNode.remove((Node) childBaseNode."inline-jdbc"[0])
+                    if (childOverrideNode.hasChild("jndi-jdbc") || childOverrideNode.hasChild("inline-jdbc")) {
+                        childBaseNode.remove("jndi-jdbc")
+                        childBaseNode.remove("inline-jdbc")
 
-                        if (childOverrideNode."inline-jdbc") {
-                            childBaseNode.append((Node) childOverrideNode."inline-jdbc"[0])
-                        } else if (childOverrideNode."jndi-jdbc") {
-                            childBaseNode.append((Node) childOverrideNode."jndi-jdbc"[0])
+                        if (childOverrideNode.hasChild("inline-jdbc")) {
+                            childBaseNode.append(childOverrideNode.first("inline-jdbc"))
+                        } else if (childOverrideNode.hasChild("jndi-jdbc")) {
+                            childBaseNode.append(childOverrideNode.first("jndi-jdbc"))
                         }
                     }
                 }
@@ -1395,7 +1462,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    protected void mergeWebappChildNodes(Node baseNode, Node overrideNode) {
+    protected void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
         mergeNodeWithChildKey(baseNode, overrideNode, "root-screen", "host")
         // handle webapp -> first-hit-in-visit[1], after-request[1], before-request[1], after-login[1], before-logout[1], root-screen[1]
         mergeWebappActions(baseNode, overrideNode, "first-hit-in-visit")
@@ -1407,25 +1474,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         mergeWebappActions(baseNode, overrideNode, "before-shutdown")
     }
 
-    protected static void mergeWebappActions(Node baseWebappNode, Node overrideWebappNode, String childNodeName) {
-        List<Node> overrideActionNodes = overrideWebappNode.get(childNodeName)?.getAt(0)?."actions"?.getAt(0)?.children()
+    protected static void mergeWebappActions(MNode baseWebappNode, MNode overrideWebappNode, String childNodeName) {
+        List<MNode> overrideActionNodes = overrideWebappNode.first(childNodeName)?.first("actions")?.children
         if (overrideActionNodes) {
-            Node childNode = (Node) baseWebappNode[childNodeName][0]
-            if (!childNode) {
-                childNode = baseWebappNode.appendNode(childNodeName)
-            }
-            Node actionsNode = childNode.actions[0]
-            if (!actionsNode) {
-                actionsNode = childNode.appendNode("actions")
-            }
+            MNode childNode = baseWebappNode.first(childNodeName)
+            if (childNode == null) childNode = baseWebappNode.append(childNodeName, null)
+            MNode actionsNode = childNode.first("actions")
+            if (actionsNode == null) actionsNode = childNode.append("actions", null)
 
-            for (Node overrideActionNode in overrideActionNodes) {
-                actionsNode.append(overrideActionNode)
-            }
+            for (MNode overrideActionNode in overrideActionNodes) actionsNode.append(overrideActionNode)
         }
     }
 
-    Node getWebappNode(String webappName) { return (Node) confXmlRoot."webapp-list"[0]."webapp".find({ it."@name" == webappName }) }
+    MNode getWebappNode(String webappName) { return confXmlRoot.first("webapp-list")
+            .first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName }) }
 
     WebappInfo getWebappInfo(String webappName) {
         if (webappInfoMap.containsKey(webappName)) return webappInfoMap.get(webappName)
@@ -1449,31 +1511,35 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
+            init(ecfi)
+        }
+
+        void init(ExecutionContextFactoryImpl ecfi) {
             // prep actions
-            Node webappNode = ecfi.getWebappNode(webappName)
-            if (webappNode."first-hit-in-visit")
-                this.firstHitInVisitActions = new XmlAction(ecfi, (Node) webappNode."first-hit-in-visit"[0]."actions"[0],
+            MNode webappNode = ecfi.getWebappNode(webappName)
+            if (webappNode.hasChild("first-hit-in-visit"))
+                this.firstHitInVisitActions = new XmlAction(ecfi, webappNode.first("first-hit-in-visit").first("actions"),
                         "webapp_${webappName}.first_hit_in_visit.actions")
 
-            if (webappNode."before-request")
-                this.beforeRequestActions = new XmlAction(ecfi, (Node) webappNode."before-request"[0]."actions"[0],
+            if (webappNode.hasChild("before-request"))
+                this.beforeRequestActions = new XmlAction(ecfi, webappNode.first("before-request").first("actions"),
                         "webapp_${webappName}.before_request.actions")
-            if (webappNode."after-request")
-                this.afterRequestActions = new XmlAction(ecfi, (Node) webappNode."after-request"[0]."actions"[0],
+            if (webappNode.hasChild("after-request"))
+                this.afterRequestActions = new XmlAction(ecfi, webappNode.first("after-request").first("actions"),
                         "webapp_${webappName}.after_request.actions")
 
-            if (webappNode."after-login")
-                this.afterLoginActions = new XmlAction(ecfi, (Node) webappNode."after-login"[0]."actions"[0],
+            if (webappNode.hasChild("after-login"))
+                this.afterLoginActions = new XmlAction(ecfi, webappNode.first("after-login").first("actions"),
                         "webapp_${webappName}.after_login.actions")
-            if (webappNode."before-logout")
-                this.beforeLogoutActions = new XmlAction(ecfi, (Node) webappNode."before-logout"[0]."actions"[0],
+            if (webappNode.hasChild("before-logout"))
+                this.beforeLogoutActions = new XmlAction(ecfi, webappNode.first("before-logout").first("actions"),
                         "webapp_${webappName}.before_logout.actions")
 
-            if (webappNode."after-startup")
-                this.afterStartupActions = new XmlAction(ecfi, (Node) webappNode."after-startup"[0]."actions"[0],
+            if (webappNode.hasChild("after-startup"))
+                this.afterStartupActions = new XmlAction(ecfi, webappNode.first("after-startup").first("actions"),
                         "webapp_${webappName}.after_startup.actions")
-            if (webappNode."before-shutdown")
-                this.beforeShutdownActions = new XmlAction(ecfi, (Node) webappNode."before-shutdown"[0]."actions"[0],
+            if (webappNode.hasChild("before-shutdown"))
+                this.beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
         }
     }

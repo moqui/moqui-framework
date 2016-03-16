@@ -72,6 +72,7 @@ class ToolsRestApiTests extends Specification {
         "s1/moqui/basic/geos/USA" | "United States" | "Country"
         "s1/moqui/basic/geos/USA/regions" | "" | ""
         "s1/moqui/email/templates" | "PASSWORD_RESET" | "classpath://screen/PasswordReset.xml"
-        "s1/moqui/entity/syncs/EXAMPLE" | "Example sync to EXAMPLE1 tenant" | "example\\\\..*"
+        // depends on data in example component: "s1/moqui/entity/syncs/EXAMPLE" | "Example sync to EXAMPLE1 tenant" | "example\\\\..*"
+        // TODO add more... current are enough to make sure Service REST API working generally, but more would be nice
     }
 }

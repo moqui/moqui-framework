@@ -60,13 +60,13 @@ public class MoquiStart extends ClassLoader {
             System.out.println("Usage: java -jar moqui.war [command] [arguments]");
             System.out.println("-help, -? ---- Help (this text)");
             System.out.println("-load -------- Run data loader");
-            System.out.println("    -types=<type>[,<type>] ------- Data types to load (can be anything, common are: seed, seed-initial, demo, ...)");
+            System.out.println("    -types=<type>[,<type>] ------- Data types to load (can be anything, common are: seed, seed-initial, install, demo, ...)");
             System.out.println("    -components=<name>[,<name>] -- Component names to load for data types; if none specified loads from all");
-            System.out.println("    -location=<location> ---- Location of data file to load");
-            System.out.println("    -timeout=<seconds> ------ Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
-            System.out.println("    -dummy-fks -------------- Use dummy foreign-keys to avoid referential integrity errors");
-            System.out.println("    -use-try-insert --------- Try insert and update on error instead of checking for record first");
-            System.out.println("    -tenantId=<tenantId> ---- ID for the Tenant to load the data into");
+            System.out.println("    -location=<location> --------- Location of data file to load");
+            System.out.println("    -timeout=<seconds> ----------- Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
+            System.out.println("    -dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
+            System.out.println("    -use-try-insert -------------- Try insert and update on error instead of checking for record first");
+            System.out.println("    -tenantId=<tenantId> --------- ID for the Tenant to load the data into");
             System.out.println("  If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Winstone server.");
             System.out.println("  See https://code.google.com/p/winstone/wiki/CmdLineOption for all argument details.");
@@ -81,7 +81,7 @@ public class MoquiStart extends ClassLoader {
         }
 
         // make a list of arguments, remove the first one (the command)
-        List<String> argList = new ArrayList<String>(Arrays.asList(args));
+        List<String> argList = new ArrayList<>(Arrays.asList(args));
 
         // now run the command
         if ("-load".equals(firstArg)) {
@@ -90,7 +90,7 @@ public class MoquiStart extends ClassLoader {
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader.jarFileList));
             initSystemProperties(moquiStartLoader, false);
 
-            Map<String, String> argMap = new HashMap<String, String>();
+            Map<String, String> argMap = new HashMap<>();
             for (String arg: argList) {
                 if (arg.startsWith("-")) arg = arg.substring(1);
                 if (arg.contains("=")) {
@@ -103,7 +103,7 @@ public class MoquiStart extends ClassLoader {
             try {
                 System.out.println("Loading data with args [" + argMap + "]");
                 Class<?> c = moquiStartLoader.loadClass("org.moqui.Moqui");
-                Method m = c.getMethod("loadData", new Class[] { Map.class });
+                Method m = c.getMethod("loadData", Map.class);
                 m.invoke(null, argMap);
             } catch (Exception e) {
                 System.out.println("Error loading or running Moqui.loadData with args [" + argMap + "]: " + e.toString());
@@ -120,7 +120,7 @@ public class MoquiStart extends ClassLoader {
         // NOTE: the MoquiShutdown hook is not set here because we want to get the winstone Launcher object first, so done below...
         initSystemProperties(moquiStartLoader, true);
 
-        Map<String, String> argMap = new HashMap<String, String>();
+        Map<String, String> argMap = new HashMap<>();
         for (String arg: argList) {
             if (arg.startsWith("--")) arg = arg.substring(2);
             if (arg.contains("=")) {
@@ -149,7 +149,7 @@ public class MoquiStart extends ClassLoader {
             Method start = c.getMethod("start");
             // Method shutdown = c.getMethod("shutdown");
             // start Winstone with a new instance of the server
-            Constructor wlc = c.getConstructor(new Class[] { Map.class });
+            Constructor wlc = c.getConstructor(Map.class);
             Object winstone = wlc.newInstance(argMap);
             start.invoke(winstone);
 
@@ -249,9 +249,9 @@ public class MoquiStart extends ClassLoader {
     }
 
     protected JarFile outerFile = null;
-    protected final ArrayList<JarFile> jarFileList = new ArrayList<JarFile>();
-    protected final Map<String, Class<?>> classCache = new HashMap<String, Class<?>>();
-    protected final Map<String, URL> resourceCache = new HashMap<String, URL>();
+    protected final ArrayList<JarFile> jarFileList = new ArrayList<>();
+    protected final Map<String, Class<?>> classCache = new HashMap<>();
+    protected final Map<String, URL> resourceCache = new HashMap<>();
     protected ProtectionDomain pd;
     protected final boolean loadWebInf;
 
@@ -369,7 +369,7 @@ public class MoquiStart extends ClassLoader {
     @Override
     public Enumeration<URL> findResources(String resourceName) throws IOException {
         String webInfResourceName = "WEB-INF/classes/" + resourceName;
-        List<URL> urlList = new ArrayList<URL>();
+        List<URL> urlList = new ArrayList<>();
         int jarFileListSize = jarFileList.size();
         for (int i = 0; i < jarFileListSize; i++) {
             JarFile jarFile = jarFileList.get(i);

@@ -13,6 +13,8 @@
  */
 package org.moqui.service;
 
+import org.moqui.context.ExecutionContext;
+import org.moqui.context.MessageFacadeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,12 +34,15 @@ public class ServiceResultWaiter implements ServiceResultReceiver {
     /** Status code for a successful service */
     public static final int SERVICE_FINISHED = 1;
 
+    private ExecutionContext ec;
     private volatile Map<String, Object> result = null;
-    private volatile Throwable t = null;
+    private volatile Throwable throwable = null;
 
-    /**
-     * @see ServiceResultReceiver#receiveResult(java.util.Map)
-     */
+    public ServiceResultWaiter(ExecutionContext ec) {
+        this.ec = ec;
+    }
+
+    @Override
     public void receiveResult(Map<String, Object> result) {
         this.result = result;
         synchronized (this) {
@@ -45,11 +50,9 @@ public class ServiceResultWaiter implements ServiceResultReceiver {
         }
     }
 
-    /**
-     * @see ServiceResultReceiver#receiveThrowable(java.lang.Throwable)
-     */
+    @Override
     public void receiveThrowable(Throwable t) {
-        this.t = t;
+        this.throwable = t;
         synchronized (this) {
             this.notify();
         }
@@ -61,7 +64,7 @@ public class ServiceResultWaiter implements ServiceResultReceiver {
      */
     public int status() {
         if (this.result != null) return SERVICE_FINISHED;
-        if (this.t != null) return SERVICE_FAILED;
+        if (this.throwable != null) return SERVICE_FAILED;
         return SERVICE_RUNNING;
     }
 
@@ -70,7 +73,7 @@ public class ServiceResultWaiter implements ServiceResultReceiver {
      * @return boolean
      */
     public boolean isCompleted() {
-        return this.result != null || this.t != null;
+        return result != null || throwable != null;
     }
 
     /**
@@ -78,10 +81,8 @@ public class ServiceResultWaiter implements ServiceResultReceiver {
      * @return Exception
      */
     public Throwable getThrowable() {
-        if (!isCompleted()) {
-            throw new java.lang.IllegalStateException("Cannot return exception, service has not completed.");
-        }
-        return this.t;
+        if (!isCompleted()) throw new java.lang.IllegalStateException("Cannot get exception, service has not completed.");
+        return this.throwable;
     }
 
     /**
@@ -89,9 +90,7 @@ public class ServiceResultWaiter implements ServiceResultReceiver {
      * @return Map
      */
     public Map<String, Object> getResult() {
-        if (!isCompleted()) {
-            throw new java.lang.IllegalStateException("Cannot return result, service has not completed.");
-        }
+        if (!isCompleted()) throw new java.lang.IllegalStateException("Cannot get result, service has not completed.");
         return result;
     }
 
@@ -116,7 +115,16 @@ public class ServiceResultWaiter implements ServiceResultReceiver {
                 logger.error("Error while waiting for result of async call to service", e);
             }
         }
-        return this.getResult();
+        if (throwable != null) {
+            if (throwable instanceof MessageFacadeException) {
+                MessageFacadeException mfe = (MessageFacadeException) throwable;
+                ec.getMessage().copyMessages(mfe.getMessageFacade());
+            } else if (throwable instanceof RuntimeException) {
+                throw (RuntimeException) throwable;
+            } else {
+                logger.warn("Async service call resulted in non-runtime exception: " + throwable.toString());
+            }
+        }
+        return getResult();
     }
 }
-

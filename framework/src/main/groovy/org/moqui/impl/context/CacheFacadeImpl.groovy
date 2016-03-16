@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.moqui.util.MNode
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -32,6 +33,7 @@ import net.sf.ehcache.store.MemoryStoreEvictionPolicy
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 public class CacheFacadeImpl implements CacheFacade {
     protected final static Logger logger = LoggerFactory.getLogger(CacheFacadeImpl.class)
 
@@ -43,6 +45,7 @@ public class CacheFacadeImpl implements CacheFacade {
     protected final CacheManager cacheManager
 
     protected final ConcurrentMap<String, CacheImpl> localCacheImplMap = new ConcurrentHashMap<String, CacheImpl>()
+    protected final Map<String, Boolean> cacheTenantsShare = new HashMap<String, Boolean>()
 
     CacheFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -50,6 +53,34 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     void destroy() { cacheManager.shutdown() }
+
+    protected String getFullName(String cacheName, String tenantId) {
+        if (cacheName == null) return null
+        if (cacheName.contains("__")) return cacheName
+        if (isTenantsShare(cacheName)) {
+            return cacheName
+        } else {
+            if (!tenantId) tenantId = ecfi.getEci().getTenantId()
+            return tenantId.concat("__").concat(cacheName)
+        }
+    }
+    protected boolean isTenantsShare(String cacheName) {
+        Boolean savedVal = cacheTenantsShare.get(cacheName)
+        if (savedVal != null) return savedVal.booleanValue()
+
+        MNode cacheElement = getCacheNode(cacheName)
+        boolean attrVal = cacheElement?.attribute("tenants-share") == "true"
+        cacheTenantsShare.put(cacheName, attrVal)
+        return attrVal
+    }
+    protected MNode getCacheNode(String cacheName) {
+        MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
+        MNode cacheElement = cacheListNode.first({ MNode it -> it.name == "cache" && it.attribute("name") == cacheName })
+        // nothing found? try starts with, ie allow the cache configuration to be a prefix
+        if (cacheElement == null) cacheElement = cacheListNode
+                .first({ MNode it -> it.name == "cache" && cacheName.startsWith(it.attribute("name")) })
+        return cacheElement
+    }
 
     @Override
     void clearAllCaches() { cacheManager.clearAll() }
@@ -64,36 +95,38 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     @Override
-    void clearCachesByPrefix(String prefix) { cacheManager.clearAllStartingWith(prefix) }
+    void clearCachesByPrefix(String prefix) { cacheManager.clearAllStartingWith(getFullName(prefix, null)) }
 
     @Override
-    @CompileStatic
-    Cache getCache(String cacheName) { return getCacheImpl(cacheName) }
+    Cache getCache(String cacheName) { return getCacheImpl(cacheName, null) }
 
-    @CompileStatic
-    CacheImpl getCacheImpl(String cacheName) {
-        CacheImpl theCache = localCacheImplMap.get(cacheName)
+    CacheImpl getCacheImpl(String cacheName, String tenantId) {
+        String fullName = getFullName(cacheName, tenantId)
+        CacheImpl theCache = localCacheImplMap.get(fullName)
         if (theCache == null) {
-            localCacheImplMap.putIfAbsent(cacheName, new CacheImpl(initCache(cacheName)))
-            theCache = localCacheImplMap.get(cacheName)
+            localCacheImplMap.putIfAbsent(fullName, new CacheImpl(initCache(cacheName, tenantId)))
+            theCache = localCacheImplMap.get(fullName)
         }
         return theCache
     }
 
-    @CompileStatic
-    boolean cacheExists(String cacheName) { return cacheManager.cacheExists(cacheName) }
+    boolean cacheExists(String cacheName) { return cacheManager.cacheExists(getFullName(cacheName, null)) }
     String[] getCacheNames() { return cacheManager.getCacheNames() }
 
-    List<Map<String, Object>> getAllCachesInfo(String orderByField) {
+    List<Map<String, Object>> getAllCachesInfo(String orderByField, String filterRegexp) {
+        String tenantId = ecfi.getEci().getTenantId()
+        String tenantPrefix = tenantId + "__"
         List<Map<String, Object>> ci = new LinkedList()
         for (String cn in cacheManager.getCacheNames()) {
+            if (tenantId != "DEFAULT" && !cn.startsWith(tenantPrefix)) continue
+            if (filterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue
             Cache co = getCache(cn)
             ci.add([name:co.getName(), expireTimeIdle:co.getExpireTimeIdle(),
                     expireTimeLive:co.getExpireTimeLive(), maxElements:co.getMaxElements(),
                     evictionStrategy:getEvictionStrategyString(co.evictionStrategy), size:co.size(),
                     hitCount:co.getHitCount(), missCountNotFound:co.getMissCountNotFound(),
                     missCountExpired:co.getMissCountExpired(), missCountTotal:co.getMissCountTotal(),
-                    removeCount:co.getRemoveCount()])
+                    removeCount:co.getRemoveCount()] as Map<String, Object>)
         }
         if (orderByField) StupidUtilities.orderMapList(ci, [orderByField])
         return ci
@@ -108,36 +141,35 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
 
-    protected synchronized net.sf.ehcache.Cache initCache(String cacheName) {
-        if (cacheManager.cacheExists(cacheName)) return cacheManager.getCache(cacheName)
+    protected synchronized net.sf.ehcache.Cache initCache(String cacheName, String tenantId) {
+        if (cacheName.contains("__")) cacheName = cacheName.substring(cacheName.indexOf("__") + 2)
+        String fullCacheName = getFullName(cacheName, tenantId)
+        if (cacheManager.cacheExists(fullCacheName)) return cacheManager.getCache(fullCacheName)
 
         // make a cache with the default settings from ehcache.xml
-        cacheManager.addCacheIfAbsent(cacheName)
-        net.sf.ehcache.Cache newCache = cacheManager.getCache(cacheName)
+        cacheManager.addCacheIfAbsent(fullCacheName)
+        net.sf.ehcache.Cache newCache = cacheManager.getCache(fullCacheName)
         // not supported in 2.7.2: newCache.setSampledStatisticsEnabled(true)
 
         // set any applicable settings from the moqui conf xml file
         CacheConfiguration newCacheConf = newCache.getCacheConfiguration()
-        Node confXmlRoot = this.ecfi.getConfXmlRoot()
-        Node cacheElement = (Node) confXmlRoot."cache-list".cache.find({ it."@name" == cacheName })
-        // nothing found? try starts with, ie allow the cache configuration to be a prefix
-        if (cacheElement == null) cacheElement = (Node) confXmlRoot."cache-list".cache.find({ cacheName.startsWith(it."@name") })
+        MNode cacheElement = getCacheNode(cacheName)
 
         boolean eternal = true
-        if (cacheElement?."@expire-time-idle") {
-            newCacheConf.setTimeToIdleSeconds(Long.valueOf((String) cacheElement."@expire-time-idle"))
+        if (cacheElement?.attribute("expire-time-idle")) {
+            newCacheConf.setTimeToIdleSeconds(Long.valueOf(cacheElement.attribute("expire-time-idle")))
             eternal = false
         }
-        if (cacheElement?."@expire-time-live") {
-            newCacheConf.setTimeToLiveSeconds(Long.valueOf((String) cacheElement."@expire-time-live"))
+        if (cacheElement?.attribute("expire-time-live")) {
+            newCacheConf.setTimeToLiveSeconds(Long.valueOf(cacheElement.attribute("expire-time-live")))
             eternal = false
         }
         newCacheConf.setEternal(eternal)
 
-        if (cacheElement?."@max-elements") {
-            newCacheConf.setMaxEntriesLocalHeap(Integer.valueOf((String) cacheElement."@max-elements"))
+        if (cacheElement?.attribute("max-elements")) {
+            newCacheConf.setMaxEntriesLocalHeap(Integer.valueOf(cacheElement.attribute("max-elements")))
         }
-        String evictionStrategy = cacheElement?."@eviction-strategy"
+        String evictionStrategy = cacheElement?.attribute("eviction-strategy")
         if (evictionStrategy) {
             if ("least-recently-used" == evictionStrategy) {
                 newCacheConf.setMemoryStoreEvictionPolicyFromObject(MemoryStoreEvictionPolicy.LRU)
@@ -148,7 +180,7 @@ public class CacheFacadeImpl implements CacheFacade {
             }
         }
 
-        if (logger.isTraceEnabled()) logger.trace("Initialized new cache [${cacheName}]")
+        if (logger.isTraceEnabled()) logger.trace("Initialized new cache [${fullCacheName}]")
         return newCache
     }
 }

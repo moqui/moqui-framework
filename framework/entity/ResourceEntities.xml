@@ -42,7 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="wikiSpaceId" type="id"/>
         <field name="pagePath" type="text-medium"/>
         <field name="parentWikiPageId" type="id"/>
-        <field name="createdByUserId" type="id-long"/>
+        <field name="createdByUserId" type="id"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
         <relationship type="one" related-entity-name="moqui.resource.wiki.WikiSpace" short-alias="space"/>
@@ -56,7 +56,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="wikiPageId" type="id" is-pk="true"/>
         <field name="historySeqId" type="id" is-pk="true"/>
         <field name="oldPagePath" type="text-medium"/>
-        <field name="userId" type="id-long"/>
+        <field name="userId" type="id"/>
         <field name="changeDateTime" type="date-time"/>
         <!-- TODO: add rev data for pages in JCR -->
         <relationship type="one" related-entity-name="moqui.resource.wiki.WikiPage" short-alias="page"/>
@@ -64,7 +64,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="WikiPageUser" package-name="moqui.resource.wiki">
         <field name="wikiPageId" type="id" is-pk="true"/>
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="receiveNotifications" type="text-indicator"/>
         <field name="allowView" type="text-indicator"/>
         <field name="allowUpdate" type="text-indicator"/>
@@ -90,7 +90,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="WikiSpaceUser" package-name="moqui.resource.wiki">
         <field name="wikiSpaceId" type="id" is-pk="true"/>
-        <field name="userId" type="id-long" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
         <field name="receiveNotifications" type="text-indicator"/>
         <field name="allowAdmin" type="text-indicator"/>
         <field name="allowView" type="text-indicator"/>

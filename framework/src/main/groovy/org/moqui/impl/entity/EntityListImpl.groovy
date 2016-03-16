@@ -20,8 +20,8 @@ import java.sql.Timestamp
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityCondition
-import org.moqui.impl.StupidUtilities.MapOrderByComparator
 import org.moqui.entity.EntityException
+import org.moqui.impl.StupidJavaUtilities.MapOrderByComparator
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,7 +29,8 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class EntityListImpl implements EntityList {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class)
-    public static final EntityList EMPTY = new EmptyEntityList()
+
+    // no longer used: public static final EntityList EMPTY = new EmptyEntityList()
 
     protected EntityFacadeImpl efi
 
@@ -63,7 +64,7 @@ class EntityListImpl implements EntityList {
 
         int valueIndex = 0
         while (valueIndex < valueList.size()) {
-            EntityValue value = valueList.get(valueIndex)
+            EntityValue value = (EntityValue) valueList.get(valueIndex)
             Object fromDateObj = value.get(fromDateName)
             Object thruDateObj = value.get(thruDateName)
 
@@ -123,7 +124,7 @@ class EntityListImpl implements EntityList {
 
         int valueIndex = 0
         while (valueIndex < valueList.size()) {
-            EntityValue value = valueList.get(valueIndex)
+            EntityValue value = (EntityValue) valueList.get(valueIndex)
             boolean matches = true
             for (int i = 0; i < fieldsSize; i++) if (value.get(names[i]) != values[i]) matches = false
             if ((matches && !include) || (!matches && include)) {
@@ -135,6 +136,40 @@ class EntityListImpl implements EntityList {
         return this
     }
 
+    EntityList filter(Closure<Boolean> closure, Boolean include) {
+        if (fromCache) return this.cloneList().filter(closure, include)
+        int valueIndex = 0
+        while (valueIndex < valueList.size()) {
+            EntityValue value = (EntityValue) valueList.get(valueIndex)
+            boolean matches = closure.call(value)
+            if ((matches && !include) || (!matches && include)) {
+                valueList.remove(valueIndex)
+            } else {
+                valueIndex++
+            }
+        }
+        return this
+    }
+    EntityValue find(Closure<Boolean> closure) {
+        int valueListSize = valueList.size()
+        for (int i = 0; i < valueListSize; i++) {
+            EntityValue value = (EntityValue) valueList.get(i)
+            boolean matches = closure.call(value)
+            if (matches) return value
+        }
+        return null
+    }
+    EntityList findAll(Closure<Boolean> closure) {
+        EntityListImpl newList = new EntityListImpl(efi)
+        int valueListSize = valueList.size()
+        for (int i = 0; i < valueListSize; i++) {
+            EntityValue value = (EntityValue) valueList.get(i)
+            boolean matches = closure.call(value)
+            if (matches) newList.add(value)
+        }
+        return newList
+    }
+
     @Override
     EntityList removeByAnd(Map<String, Object> fields) { return filterByAnd(fields, false) }
 
@@ -144,7 +179,7 @@ class EntityListImpl implements EntityList {
         if (include == null) include = true
         int valueIndex = 0
         while (valueIndex < valueList.size()) {
-            EntityValue value = valueList.get(valueIndex)
+            EntityValue value = (EntityValue) valueList.get(valueIndex)
             boolean matches = condition.mapMatches(value)
             // logger.warn("TOREMOVE filter value [${value}] with condition [${condition}] include=${include}, matches=${matches}")
             // matched: if include is not true or false (default exclude) remove it
@@ -201,13 +236,13 @@ class EntityListImpl implements EntityList {
     @Override
     EntityList orderByFields(List<String> fieldNames) {
         if (fromCache) return this.cloneList().orderByFields(fieldNames)
-        if (fieldNames) Collections.sort(this.valueList, new MapOrderByComparator(fieldNames))
+        if (fieldNames != null && fieldNames.size() > 0) Collections.sort(valueList, new MapOrderByComparator(fieldNames))
         return this
     }
 
     @Override
     int indexMatching(Map valueMap) {
-        ListIterator li = this.valueList.listIterator()
+        ListIterator li = valueList.listIterator()
         int index = 0
         while (li.hasNext()) {
             EntityValue ev = li.next()
@@ -227,7 +262,7 @@ class EntityListImpl implements EntityList {
 
     @Override
     EntityList addIfMissing(EntityValue value) {
-        if (!this.valueList.contains(value)) this.valueList.add(value)
+        if (!valueList.contains(value)) valueList.add(value)
         return this
     }
     @Override
@@ -244,7 +279,7 @@ class EntityListImpl implements EntityList {
     }
 
     @Override
-    Iterator<EntityValue> iterator() { return this.valueList.iterator() }
+    Iterator<EntityValue> iterator() { return valueList.iterator() }
 
     @Override
     List<Map<String, Object>> getPlainValueList(int dependentLevels) {
@@ -266,14 +301,14 @@ class EntityListImpl implements EntityList {
     @Override
     EntityList cloneList() {
         EntityListImpl newObj = new EntityListImpl(this.efi, valueList.size())
-        newObj.valueList.addAll(this.valueList)
+        newObj.valueList.addAll(valueList)
         // NOTE: when cloning don't clone the fromCache value (normally when from cache will be cloned before filtering)
         return newObj
     }
 
     EntityListImpl deepCloneList() {
         EntityListImpl newObj = new EntityListImpl(this.efi, valueList.size())
-        for (EntityValue ev in this.valueList) newObj.valueList.add(ev.cloneValue())
+        for (EntityValue ev in valueList) newObj.valueList.add(ev.cloneValue())
         return newObj
     }
 
@@ -288,103 +323,104 @@ class EntityListImpl implements EntityList {
     // ========== List Interface Methods ==========
 
     @Override
-    int size() { return this.valueList.size() }
+    int size() { return valueList.size() }
 
     @Override
-    boolean isEmpty() { return this.valueList.isEmpty() }
+    boolean isEmpty() { return valueList.isEmpty() }
 
     @Override
-    boolean contains(Object o) { return this.valueList.contains(o) }
+    boolean contains(Object o) { return valueList.contains(o) }
 
     @Override
-    Object[] toArray() { return this.valueList.toArray() }
+    Object[] toArray() { return valueList.toArray() }
 
     @Override
-    Object[] toArray(Object[] ts) { return this.valueList.toArray((EntityValue[]) ts) }
+    Object[] toArray(Object[] ts) { return valueList.toArray((EntityValue[]) ts) }
 
     @Override
     boolean add(EntityValue e) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.add(e)
+        if (e == null) return false
+        return valueList.add(e)
     }
 
     @Override
     boolean remove(Object o) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.remove(o)
+        return valueList.remove(o)
     }
 
     @Override
-    boolean containsAll(Collection<?> objects) { return this.valueList.containsAll(objects) }
+    boolean containsAll(Collection<?> objects) { return valueList.containsAll(objects) }
 
     @Override
     boolean addAll(Collection<? extends EntityValue> es) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.addAll(es)
+        return valueList.addAll(es)
     }
 
     @Override
     boolean addAll(int i, Collection<? extends EntityValue> es) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.addAll(i, es)
+        return valueList.addAll(i, es)
     }
 
     @Override
     boolean removeAll(Collection<?> objects) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.removeAll(objects)
+        return valueList.removeAll(objects)
     }
 
     @Override
     boolean retainAll(Collection<?> objects) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.retainAll(objects)
+        return valueList.retainAll(objects)
     }
 
     @Override
     void clear() {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        this.valueList.clear()
+        valueList.clear()
     }
 
     @Override
-    EntityValue get(int i) { return this.valueList.get(i) }
+    EntityValue get(int i) { return (EntityValue) valueList.get(i) }
 
     @Override
     EntityValue set(int i, EntityValue e) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.set(i, e)
+        return valueList.set(i, e)
     }
 
     @Override
     void add(int i, EntityValue e) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        this.valueList.add(i, e)
+        valueList.add(i, e)
     }
 
     @Override
     EntityValue remove(int i) {
         if (fromCache) throw new EntityException("Cannot modify EntityList from cache")
-        return this.valueList.remove(i)
+        return valueList.remove(i)
     }
 
     @Override
-    int indexOf(Object o) { return this.valueList.indexOf(o) }
+    int indexOf(Object o) { return valueList.indexOf(o) }
 
     @Override
-    int lastIndexOf(Object o) { return this.valueList.lastIndexOf(o) }
+    int lastIndexOf(Object o) { return valueList.lastIndexOf(o) }
 
     @Override
-    ListIterator<EntityValue> listIterator() { return this.valueList.listIterator() }
+    ListIterator<EntityValue> listIterator() { return valueList.listIterator() }
 
     @Override
-    ListIterator<EntityValue> listIterator(int i) { return this.valueList.listIterator(i) }
+    ListIterator<EntityValue> listIterator(int i) { return valueList.listIterator(i) }
 
     @Override
-    List<EntityValue> subList(int start, int end) { return this.valueList.subList(start, end) }
+    List<EntityValue> subList(int start, int end) { return valueList.subList(start, end) }
 
     @Override
-    String toString() { this.valueList.toString() }
+    String toString() { valueList.toString() }
 
     @CompileStatic
     static class EmptyEntityList implements EntityList {
@@ -402,6 +438,9 @@ class EntityListImpl implements EntityList {
         EntityList filterByAnd(Map<String, Object> fields, Boolean include) { return this }
         EntityList removeByAnd(Map<String, Object> fields) { return this }
         EntityList filterByCondition(EntityCondition condition, Boolean include) { return this }
+        EntityList filter(Closure<Boolean> closure, Boolean include) { return this }
+        EntityValue find(Closure<Boolean> closure) { return null }
+        EntityList findAll(Closure<Boolean> closure) { return this }
         EntityList filterByLimit(Integer offset, Integer limit) {
             this.offset = offset
             this.limit = limit

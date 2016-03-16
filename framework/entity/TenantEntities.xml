@@ -22,6 +22,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="tenantName" type="text-medium"/>
         <field name="isEnabled" type="text-indicator"/>
+        <field name="disabledDate" type="date-time"/>
 
         <!-- Localization Defaults -->
         <field name="defaultCurrencyUomId" type="id"/>
@@ -29,6 +30,42 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="defaultTimeZone" type="text-medium"/>
         <field name="defaultCountryGeoId" type="id"/>
     </entity>
+    <entity entity-name="TenantDataSource" package-name="moqui.tenant" group-name="tenantcommon">
+        <description>
+            There should be one record for each tenant and each group-map for the active EntityProxy.
+            The jdbc fields will override the datasource -> inline-jdbc values for the per-tenant EntityProxy.
+        </description>
+        <field name="tenantId" type="id" is-pk="true"/>
+        <field name="entityGroupName" type="text-medium" is-pk="true"/>
+        <field name="jndiName" type="text-medium"/>
+        <field name="jdbcUri" type="text-medium"/>
+        <field name="jdbcUsername" type="text-medium"/>
+        <field name="jdbcPassword" type="text-medium" encrypt="true"/>
+        <field name="defaultToConfProps" type="text-indicator"><description>If Y and using XA properties, copy any
+            properties not specified in TenantDataSourceXaProp from the XML conf element</description></field>
+        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+    </entity>
+    <entity entity-name="TenantDataSourceXaProp" package-name="moqui.tenant" group-name="tenantcommon">
+        <field name="tenantId" type="id" is-pk="true"/>
+        <field name="entityGroupName" type="text-medium" is-pk="true"/>
+        <field name="propName" type="text-medium" is-pk="true"/>
+        <field name="propValue" type="text-medium" encrypt="true"/>
+        <relationship type="one" related-entity-name="moqui.tenant.TenantDataSource"/>
+    </entity>
+    <entity entity-name="TenantHostDefault" package-name="moqui.tenant" group-name="tenantcommon">
+        <field name="hostName" type="text-medium" is-pk="true"/>
+        <field name="tenantId" type="id"/>
+        <field name="allowOverride" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+    </entity>
+    <view-entity entity-name="TenantAndHostDefault" package-name="moqui.tenant">
+        <member-entity entity-alias="TNT" entity-name="moqui.tenant.Tenant"/>
+        <member-entity entity-alias="THD" entity-name="moqui.tenant.TenantHostDefault" join-from-alias="TNT">
+            <key-map field-name="tenantId"/></member-entity>
+        <alias-all entity-alias="TNT"/><alias-all entity-alias="THD"/>
+    </view-entity>
+
+    <!-- on reconsideration, these are not useful, better to keep business level stuff out of these technical level conf entities:
     <entity entity-name="TenantCurrency" package-name="moqui.tenant" group-name="tenantcommon">
         <description>Each record represents a Currency UOM to be available to the tenant.
             If no records are present all system currencies will be available.</description>
@@ -36,7 +73,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="currencyUomId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
     </entity>
-    <!-- on reconsideration, this probably won't be useful:
     <entity entity-name="TenantEmail" package-name="moqui.tenant" group-name="tenantcommon">
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="emailTypeEnumId" type="id" is-pk="true"/>
@@ -49,7 +85,6 @@ along with this software (see the LICENSE.md file). If not, see
         </relationship>
         <relationship type="one-nofk" related-entity-name="moqui.basic.email.EmailTemplate"/>
     </entity>
-    -->
     <entity entity-name="TenantLocale" package-name="moqui.tenant" group-name="tenantcommon">
         <description>Each record represents a Locale to be available to the tenant.
             If no records are present all system locales will be available.</description>
@@ -71,30 +106,5 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="countryGeoId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
     </entity>
-    <entity entity-name="TenantDataSource" package-name="moqui.tenant" group-name="tenantcommon">
-        <description>
-            There should be one record for each tenant and each group-map for the active EntityProxy.
-            The jdbc fields will override the datasource -> inline-jdbc values for the per-tenant EntityProxy.
-        </description>
-        <field name="tenantId" type="id" is-pk="true"/>
-        <field name="entityGroupName" type="text-medium" is-pk="true"/>
-        <field name="jndiName" type="text-medium"/>
-        <field name="jdbcUri" type="text-medium"/>
-        <field name="jdbcUsername" type="text-medium"/>
-        <field name="jdbcPassword" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
-    </entity>
-    <entity entity-name="TenantDataSourceXaProp" package-name="moqui.tenant" group-name="tenantcommon">
-        <field name="tenantId" type="id" is-pk="true"/>
-        <field name="entityGroupName" type="text-medium" is-pk="true"/>
-        <field name="propName" type="text-medium" is-pk="true"/>
-        <field name="propValue" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.tenant.TenantDataSource"/>
-    </entity>
-    <entity entity-name="TenantHostDefault" package-name="moqui.tenant" group-name="tenantcommon">
-        <field name="hostName" type="text-medium" is-pk="true"/>
-        <field name="tenantId" type="id"/>
-        <field name="allowOverride" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
-    </entity>
+    -->
 </entities>

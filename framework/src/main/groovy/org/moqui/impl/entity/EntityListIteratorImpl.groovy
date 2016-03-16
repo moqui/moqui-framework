@@ -40,9 +40,10 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected final ResultSet rs
 
     protected final EntityDefinition entityDefinition
-    protected final ArrayList<String> fieldsSelected
-    protected EntityCondition queryCondition = null
-    protected List<String> orderByFields = null
+    protected final ArrayList<EntityJavaUtil.FieldInfo> fieldInfoList
+    protected final int fieldInfoListSize
+    protected EntityCondition queryCondition = (EntityCondition) null
+    protected List<String> orderByFields = (List<String>) null
 
     /** This is needed to determine if the ResultSet is empty as cheaply as possible. */
     protected boolean haveMadeValue = false
@@ -50,13 +51,14 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected boolean closed = false
 
     EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition,
-                           ArrayList<String> fieldsSelected, EntityFacadeImpl efi) {
+                           ArrayList<EntityJavaUtil.FieldInfo> fieldInfoList, EntityFacadeImpl efi) {
         this.efi = efi
         this.con = con
         this.rs = rs
         this.entityDefinition = entityDefinition
-        this.fieldsSelected = fieldsSelected
-        this.txCache = (TransactionCache) efi.getEcfi().getTransactionFacade().getActiveSynchronization("TransactionCache")
+        this.fieldInfoList = fieldInfoList
+        fieldInfoListSize = fieldInfoList.size()
+        this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
     }
 
     void setQueryCondition(EntityCondition ec) { this.queryCondition = ec }
@@ -68,28 +70,22 @@ class EntityListIteratorImpl implements EntityListIterator {
             logger.warn("EntityListIterator for entity [${this.entityDefinition.getFullEntityName()}] is already closed, not closing again")
         } else {
             if (rs != null) {
-                try {
-                    rs.close()
-                } catch (SQLException e) {
-                    throw new EntityException("Could not close ResultSet in EntityListIterator", e)
-                }
+                try { rs.close() }
+                catch (SQLException e) { throw new EntityException("Could not close ResultSet in EntityListIterator", e) }
             }
             if (con != null) {
-                try {
-                    con.close()
-
-                    /* leaving commented as might be useful for future con pool debugging:
-                    try {
-                        def dataSource = efi.getDatasourceFactory(entityDefinition.getEntityGroupName()).getDataSource()
-                        logger.warn("=========== elii after close pool available size: ${dataSource.poolAvailableSize()}/${dataSource.poolTotalSize()}; ${dataSource.getMinPoolSize()}-${dataSource.getMaxPoolSize()}")
-                    } catch (Throwable t) {
-                        logger.warn("========= pool size error ${t.toString()}")
-                    }
-                    */
-                } catch (SQLException e) {
-                    throw new EntityException("Could not close Connection in EntityListIterator", e)
-                }
+                try { con.close() }
+                catch (SQLException e) { throw new EntityException("Could not close Connection in EntityListIterator", e) }
             }
+
+            /* leaving commented as might be useful for future con pool debugging:
+            try {
+                def dataSource = efi.getDatasourceFactory(entityDefinition.getEntityGroupName()).getDataSource()
+                logger.warn("=========== elii after close pool available size: ${dataSource.poolAvailableSize()}/${dataSource.poolTotalSize()}; ${dataSource.getMinPoolSize()}-${dataSource.getMaxPoolSize()}")
+            } catch (Throwable t) {
+                logger.warn("========= pool size error ${t.toString()}")
+            }
+            */
             this.closed = true
         }
     }
@@ -131,15 +127,16 @@ class EntityListIteratorImpl implements EntityListIterator {
     }
 
     @Override
-    EntityValue currentEntityValue() {
+    EntityValue currentEntityValue() { return currentEntityValueBase() }
+    EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi)
-        int size = fieldsSelected.size()
-        for (int i = 0; i < size; i++) {
-            String fieldNameFull = fieldsSelected.get(i)
-            EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(fieldNameFull)
-            String fieldName = foo.fieldName
-
-            EntityQueryBuilder.getResultSetValue(rs, i+1, entityDefinition.getFieldInfo(fieldName), newEntityValue, efi)
+        Map<String, Object> valueMap = newEntityValue.getValueMap()
+        String entityName = entityDefinition.getFullEntityName()
+        boolean checkUserFields = entityDefinition.allowUserField
+        for (int i = 0; i < fieldInfoListSize; i++) {
+            EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fieldInfoList.get(i)
+            if (checkUserFields && fi.isUserField) continue
+            EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
         }
 
         this.haveMadeValue = true
@@ -209,15 +206,15 @@ class EntityListIteratorImpl implements EntityListIterator {
     EntityValue next() {
         try {
             if (rs.next()) {
-                EntityValueBase evb = (EntityValueBase) currentEntityValue()
+                EntityValueBase evb = currentEntityValueBase()
                 if (txCache != null) {
                     TransactionCache.WriteMode writeMode = txCache.checkUpdateValue(evb)
                     // if deleted skip this value
-                    if (writeMode == TransactionCache.WriteMode.DELETE) return this.next()
+                    if (writeMode == TransactionCache.WriteMode.DELETE) return next()
                 }
                 return evb
             } else {
-                return null
+                return (EntityValue) null
             }
         } catch (SQLException e) {
             throw new EntityException("Error getting next result", e)
@@ -241,7 +238,7 @@ class EntityListIteratorImpl implements EntityListIterator {
                 }
                 return evb
             } else {
-                return null
+                return (EntityValue) null
             }
         } catch (SQLException e) {
             throw new EntityException("Error getting previous result", e)
@@ -271,7 +268,7 @@ class EntityListIteratorImpl implements EntityListIterator {
             }
             EntityList list = new EntityListImpl(efi)
             EntityValue value
-            while ((value = this.next()) != null) {
+            while ((value = next()) != null) {
                 list.add(value)
             }
 
@@ -310,7 +307,7 @@ class EntityListIteratorImpl implements EntityListIterator {
             list.add(this.currentEntityValue())
 
             int numberSoFar = 1
-            EntityValue nextValue = null
+            EntityValue nextValue = (EntityValue) null
             while (limit > numberSoFar && (nextValue = this.next()) != null) {
                 list.add(nextValue)
                 numberSoFar++

@@ -44,32 +44,32 @@ class EntityCrud extends Specification {
         ec.transaction.commit()
     }
 
-    def "create and find Example CRDTST1"() {
+    def "create and find TestEntity CRDTST1"() {
         when:
-        ec.entity.makeValue("moqui.example.Example").setAll([exampleId:"CRDTST1", exampleName:"Test Name"]).createOrUpdate()
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"CRDTST1", testMedium:"Test Name"]).create()
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition("testId", "CRDTST1").one()
 
         then:
-        EntityValue example = ec.entity.find("moqui.example.Example").condition("exampleId", "CRDTST1").one()
-        example.exampleName == "Test Name"
+        testEntity.testMedium == "Test Name"
     }
 
-    def "update Example CRDTST1"() {
+    def "update TestEntity CRDTST1"() {
         when:
-        EntityValue example = ec.entity.find("moqui.example.Example").condition("exampleId", "CRDTST1").one()
-        example.exampleName = "Test Name 2"
-        example.update()
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition("testId", "CRDTST1").one()
+        testEntity.testMedium = "Test Name 2"
+        testEntity.update()
+        EntityValue testEntityCheck = ec.entity.find("moqui.test.TestEntity").condition([testId:"CRDTST1"]).one()
 
         then:
-        EntityValue exampleCheck = ec.entity.find("moqui.example.Example").condition([exampleId:"CRDTST1"]).one()
-        exampleCheck.exampleName == "Test Name 2"
+        testEntityCheck.testMedium == "Test Name 2"
     }
 
-    def "update Example CRDTST1 through cache"() {
+    def "update TestEntity CRDTST1 through cache"() {
         when:
         Exception immutableError = null
-        EntityValue example = ec.entity.find("moqui.example.Example").condition("exampleId", "CRDTST1").useCache(true).one()
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition("testId", "CRDTST1").useCache(true).one()
         try {
-            example.exampleName = "Test Name Cache"
+            testEntity.testMedium = "Test Name Cache"
         } catch (EntityException e) {
             immutableError = e
         }
@@ -78,13 +78,13 @@ class EntityCrud extends Specification {
         immutableError != null
     }
 
-    def "update Example from list through cache"() {
+    def "update TestEntity from list through cache"() {
         when:
         Exception immutableError = null
-        EntityList exampleList = ec.entity.find("moqui.example.Example").condition("exampleId", "CRDTST1").useCache(true).list()
-        EntityValue example = exampleList.first()
+        EntityList testEntityList = ec.entity.find("moqui.test.TestEntity").condition("testId", "CRDTST1").useCache(true).list()
+        EntityValue testEntity = testEntityList.first()
         try {
-            example.exampleName = "Test Name List Cache"
+            testEntity.testMedium = "Test Name List Cache"
         } catch (EntityException e) {
             immutableError = e
         }
@@ -93,12 +93,12 @@ class EntityCrud extends Specification {
         immutableError != null
     }
 
-    def "delete Example CRDTST1"() {
+    def "delete TestEntity CRDTST1"() {
         when:
-        ec.entity.find("moqui.example.Example").condition([exampleId:"CRDTST1"]).one().delete()
+        ec.entity.find("moqui.test.TestEntity").condition([testId:"CRDTST1"]).one().delete()
+        EntityValue testEntityCheck = ec.entity.find("moqui.test.TestEntity").condition([testId:"CRDTST1"]).one()
 
         then:
-        EntityValue exampleCheck = ec.entity.find("moqui.example.Example").condition([exampleId:"CRDTST1"]).one()
-        exampleCheck == null
+        testEntityCheck == null
     }
 }

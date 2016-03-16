@@ -13,8 +13,65 @@
  */
 package org.moqui.impl;
 
+import groovy.lang.GString;
+
+import java.math.BigDecimal;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.*;
+
 /** Methods that work better in Java than Groovy, helps with performance and for syntax and language feature reasons */
 public class StupidJavaUtilities {
+    public static class KeyValue {
+        public String key;
+        public Object value;
+        public KeyValue(String key, Object value) { this.key = key; this.value = value; }
+    }
+
+    public static String toPlainString(Object obj) {
+        if (obj == null) return "";
+        Class objClass = obj.getClass();
+        // Common case, check first
+        if (objClass == String.class) return (String) obj;
+        // BigDecimal toString() uses scientific notation, annoying, so use toPlainString()
+        if (objClass == BigDecimal.class) return ((BigDecimal) obj).toPlainString();
+        // handle the special case of timestamps used for primary keys, make sure we avoid TZ, etc problems
+        if (objClass == Timestamp.class) return Long.toString(((Timestamp) obj).getTime());
+        if (objClass == java.sql.Date.class) return Long.toString(((java.sql.Date) obj).getTime());
+        if (objClass == Time.class) return Long.toString(((Time) obj).getTime());
+        if (obj instanceof Collection) {
+            Collection col = (Collection) obj;
+            StringBuilder sb = new StringBuilder();
+            for (Object entry : col) {
+                if (entry == null) continue;
+                if (sb.length() > 0) sb.append(",");
+                sb.append(entry);
+            }
+            return sb.toString();
+        }
+
+        // no special case? do a simple toString()
+        return obj.toString();
+    }
+
+    /** Like the Groovy empty except doesn't consider empty 0 value numbers, false Boolean, etc; only null values,
+     *   0 length String (actually CharSequence to include GString, etc), and 0 size Collection/Map are considered empty. */
+    public static boolean isEmpty(Object obj) {
+        if (obj == null) return true;
+        Class objClass = obj.getClass();
+        // some common direct classes
+        if (objClass == String.class) return ((String) obj).length() == 0;
+        if (objClass == GString.class) return ((GString) obj).length() == 0;
+        if (objClass == ArrayList.class) return ((ArrayList) obj).size() == 0;
+        if (objClass == HashMap.class) return ((HashMap) obj).size() == 0;
+        if (objClass == LinkedHashMap.class) return ((HashMap) obj).size() == 0;
+        // hopefully less common sub-classes
+        if (obj instanceof CharSequence) return ((CharSequence) obj).length() == 0;
+        if (obj instanceof Collection) return ((Collection) obj).size() == 0;
+        if (obj instanceof Map) return ((Map) obj).size() == 0;
+        return false;
+    }
+
     public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
         Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
         if (theClass == null) {
@@ -56,6 +113,59 @@ public class StupidJavaUtilities {
         }
     }
     public static boolean internedNonNullStringsEqual(String s1, String s2) { return (s1 == s2); }
+
+    public static class MapOrderByComparator implements Comparator<Map> {
+        protected ArrayList<String> fieldNameList;
+        protected int fieldNameListSize;
+
+        protected final static char minusChar = '-';
+        protected final static char plusChar = '+';
+
+        public MapOrderByComparator(List<String> fieldNameList) {
+            this.fieldNameList = fieldNameList instanceof ArrayList ? (ArrayList<String>) fieldNameList : new ArrayList<>(fieldNameList);
+            fieldNameListSize = fieldNameList.size();
+        }
+
+        @Override
+        public int compare(Map map1, Map map2) {
+            if (map1 == null) return -1;
+            if (map2 == null) return 1;
+            for (int i = 0; i < fieldNameListSize; i++) {
+                String fieldName = fieldNameList.get(i);
+                boolean ascending = true;
+                if (fieldName.charAt(0) == minusChar) {
+                    ascending = false;
+                    fieldName = fieldName.substring(1);
+                } else if (fieldName.charAt(0) == plusChar) {
+                    fieldName = fieldName.substring(1);
+                }
+                Comparable value1 = (Comparable) map1.get(fieldName);
+                Comparable value2 = (Comparable) map2.get(fieldName);
+                // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
+                if (value1 == null) {
+                    if (value2 != null) return ascending ? 1 : -1;
+                } else {
+                    if (value2 == null) {
+                        return ascending ? -1 : 1;
+                    } else {
+                        int comp = value1.compareTo(value2);
+                        if (comp != 0) return ascending ? comp : -comp;
+                    }
+                }
+            }
+            // all evaluated to 0, so is the same, so return 0
+            return 0;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof MapOrderByComparator)) return false;
+            return fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList);
+        }
+
+        @Override
+        public String toString() { return fieldNameList.toString(); }
+    }
 
     // Lookup table for CRC16 based on irreducible polynomial: 1 + x^2 + x^15 + x^16
     public static final int[] crc16Table = {

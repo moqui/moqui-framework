@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.util
 
+import groovy.transform.CompileStatic
 import org.apache.shiro.authc.*
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authz.Permission
@@ -28,12 +29,13 @@ import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 
+@CompileStatic
 class MoquiShiroRealm implements Realm {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiShiroRealm.class)
 
@@ -64,30 +66,35 @@ class MoquiShiroRealm implements Realm {
         return token != null && authenticationTokenClass.isAssignableFrom(token.getClass())
     }
 
-    static void loginPrePassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
+    static EntityValue loginPrePassword(ExecutionContextImpl eci, String username) {
+        EntityValue newUserAccount = eci.entity.find("moqui.security.UserAccount").condition("username", username)
+                .useCache(true).disableAuthz().one()
+
         // no account found?
-        if (newUserAccount == null) throw new UnknownAccountException("Username [${newUserAccount.username}] and/or password incorrect.")
+        if (newUserAccount == null) throw new UnknownAccountException("No account found for username ${username} in tenant ${eci.tenantId}.")
 
         // check for disabled account before checking password (otherwise even after disable could determine if
         //    password is correct or not
         if (newUserAccount.disabled == "Y") {
             if (newUserAccount.disabledDateTime != null) {
                 // account temporarily disabled (probably due to excessive attempts
-                Integer disabledMinutes = eci.ecfi.confXmlRoot."user-facade"[0]."login"[0]."@disable-minutes" as Integer ?: 30
-                Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes*60*1000))
+                Integer disabledMinutes = eci.ecfi.confXmlRoot.first("user-facade").first("login").attribute("disable-minutes") as Integer ?: 30I
+                Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes.intValue()*60I*1000I))
                 if (reEnableTime > eci.user.nowTimestamp) {
                     // only blow up if the re-enable time is not passed
                     eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                    throw new ExcessiveAttemptsException("Authenticate failed for user [${newUserAccount.username}] because account is disabled and will not be re-enabled until [${reEnableTime}] [DISTMP].")
+                    throw new ExcessiveAttemptsException("Authenticate failed for user ${newUserAccount.username} in tenant ${eci.tenantId} because account is disabled and will not be re-enabled until ${reEnableTime} [DISTMP].")
                 }
             } else {
                 // account permanently disabled
                 eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
                         .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                throw new DisabledAccountException("Authenticate failed for user [${newUserAccount.username}] because account is disabled and is not schedule to be automatically re-enabled [DISPRM].")
+                throw new DisabledAccountException("Authenticate failed for user ${newUserAccount.username} in tenant ${eci.tenantId} because account is disabled and is not schedule to be automatically re-enabled [DISPRM].")
             }
         }
+
+        return newUserAccount
     }
 
     static void loginPostPassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
@@ -98,12 +105,12 @@ class MoquiShiroRealm implements Realm {
         }
         // check time since password was last changed, if it has been too long (user-facade.password.@change-weeks default 12) then fail
         if (newUserAccount.passwordSetDate) {
-            int changeWeeks = (eci.ecfi.confXmlRoot."user-facade"[0]."password"[0]."@change-weeks" ?: 12) as int
+            int changeWeeks = (eci.ecfi.confXmlRoot.first("user-facade").first("password").attribute("change-weeks") ?: 12) as int
             if (changeWeeks > 0) {
-                int wksSinceChange = (eci.user.nowTimestamp.time - newUserAccount.passwordSetDate.time) / (7*24*60*60*1000)
+                int wksSinceChange = ((eci.user.nowTimestamp.time - newUserAccount.getTimestamp("passwordSetDate").time) / (7*24*60*60*1000)).intValue()
                 if (wksSinceChange > changeWeeks) {
                     // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
-                    throw new ExpiredCredentialsException("Authenticate failed for user [${newUserAccount.username}] because password was changed [${wksSinceChange}] weeks ago and must be changed every [${changeWeeks}] weeks [PWDTIM].")
+                    throw new ExpiredCredentialsException("Authenticate failed for user ${newUserAccount.username} in tenant ${eci.tenantId} because password was changed ${wksSinceChange} weeks ago and must be changed every ${changeWeeks} weeks [PWDTIM].")
                 }
             }
         }
@@ -124,7 +131,7 @@ class MoquiShiroRealm implements Realm {
                         .parameters((Map<String, Object>) [visitId:visit.visitId, userId:newUserAccount.userId]).disableAuthz().call()
             }
             if (!visit.clientIpCountryGeoId && !visit.clientIpTimeZone) {
-                Node ssNode = (Node) eci.ecfi.confXmlRoot."server-stats"[0]
+                MNode ssNode = eci.ecfi.confXmlRoot.first("server-stats")
                 if (ssNode.attribute("visit-ip-info-on-login") != "false") {
                     eci.service.async().name("org.moqui.impl.ServerServices.get#VisitClientIpData")
                             .parameter("visitId", visit.visitId).call()
@@ -136,14 +143,14 @@ class MoquiShiroRealm implements Realm {
     static void loginAfterAlways(ExecutionContextImpl eci, String userId, String passwordUsed, boolean successful) {
         // track the UserLoginHistory, whether the above succeeded or failed (ie even if an exception was thrown)
         if (!eci.getSkipStats()) {
-            Node loginNode = (Node) eci.ecfi.confXmlRoot."user-facade"[0]."login"[0]
+            MNode loginNode = eci.ecfi.confXmlRoot.first("user-facade").first("login")
             if (userId != null && loginNode.attribute("history-store") != "false") {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
                 EntityValue curUlh = eci.entity.find("moqui.security.UserLoginHistory")
-                        .condition([userId:userId, fromDate:fromDate]).disableAuthz().one()
+                        .condition([userId:userId, fromDate:fromDate] as Map<String, Object>).disableAuthz().one()
                 if (curUlh == null) {
                     Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
-                            visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")]
+                            visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
                     if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
                     try {
                         eci.service.sync().name("create", "moqui.security.UserLoginHistory").parameters(ulhContext)
@@ -164,18 +171,14 @@ class MoquiShiroRealm implements Realm {
     @Override
     AuthenticationInfo getAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
         ExecutionContextImpl eci = ecfi.getEci()
-        String username = token.principal
+        String username = token.principal as String
         String userId = null
         boolean successful = false
 
-        EntityValue newUserAccount = null
         SaltedAuthenticationInfo info = null
         try {
-            newUserAccount = ecfi.entityFacade.find("moqui.security.UserAccount").condition("username", username)
-                    .useCache(true).disableAuthz().one()
-
-            loginPrePassword(eci, newUserAccount)
-            userId = newUserAccount.userId
+            EntityValue newUserAccount = loginPrePassword(eci, username)
+            userId = newUserAccount.getString("userId")
 
             // create the salted SimpleAuthenticationInfo object
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
@@ -187,7 +190,7 @@ class MoquiShiroRealm implements Realm {
                 // if failed on password, increment in new transaction to make sure it sticks
                 ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                         .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                throw new IncorrectCredentialsException("Username [${username}] and/or password incorrect.")
+                throw new IncorrectCredentialsException("Username ${username} and/or password incorrect in tenant ${eci.tenantId}.")
             }
 
             loginPostPassword(eci, newUserAccount)
@@ -209,8 +212,9 @@ class MoquiShiroRealm implements Realm {
      * @return boolean true if principal is permitted to access the resource, false otherwise.
      */
     boolean isPermitted(PrincipalCollection principalCollection, String resourceAccess) {
-        String username = (String) principalCollection.primaryPrincipal
-        return ArtifactExecutionFacadeImpl.isPermitted(username, resourceAccess, null, ecfi.eci)
+        // String username = (String) principalCollection.primaryPrincipal
+        // TODO: if we want to support other users than the current need to look them up here
+        return ArtifactExecutionFacadeImpl.isPermitted(resourceAccess, null, ecfi.eci)
     }
 
     boolean[] isPermitted(PrincipalCollection principalCollection, String... resourceAccesses) {

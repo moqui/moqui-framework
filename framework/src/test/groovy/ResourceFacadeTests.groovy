@@ -36,7 +36,7 @@ class ResourceFacadeTests extends Specification {
     def "get Location ResourceReference (#location)"() {
         expect:
         ResourceReference rr = ec.resource.getLocationReference(location)
-        // the resolved location is unpredictable, so don't test for that: rr.location == location
+        // the resolved location is different for some of these tests, so don't test for that: rr.location == location
         rr.uri.scheme == scheme
         rr.uri.host == host
         rr.fileName == fileName
@@ -47,13 +47,13 @@ class ResourceFacadeTests extends Specification {
 
         where:
         location | scheme | host | fileName | contentType | exists | isFile | isDirectory
-        "component://example/screen/ExampleApp.xml" | "file" | null | "ExampleApp.xml" | "text/xml" | true | true | false
-        "component://example/screen/ExampleAppFoo.xml" | "file" | null | "ExampleAppFoo.xml" | "text/xml" | false | false | false
+        "component://tools/screen/Tools.xml" | "file" | null | "Tools.xml" | "text/xml" | true | true | false
+        "component://tools/screen/ToolsFoo.xml" | "file" | null | "ToolsFoo.xml" | "text/xml" | false | false | false
         "classpath://entity/BasicEntities.xml" | "file" | null | "BasicEntities.xml" | "text/xml" | true | true | false
         "classpath://jta.properties" | "file" | null | "jta.properties" | "text/x-java-properties" | true | true | false
         "classpath://shiro.ini" | "file" | null | "shiro.ini" | "text/plain" | true | true | false
         "template/screen-macro/ScreenHtmlMacros.ftl" | "file" | null | "ScreenHtmlMacros.ftl" | "text/x-freemarker" | true | true | false
-        "template/screen-macro" | "file" | null | "screen-macro" | null | true | false | true
+        "template/screen-macro" | "file" | null | "screen-macro" | "application/octet-stream" | true | false | true
     }
 
     @Unroll
@@ -64,7 +64,7 @@ class ResourceFacadeTests extends Specification {
 
         where:
         location | contents
-        "component://example/screen/ExampleApp.xml" | "<subscreens default-item=\"Example\">"
+        "component://tools/screen/Tools.xml" | "<subscreens default-item=\"dashboard\">"
         "classpath://shiro.ini" | "org.moqui.impl.util.MoquiShiroRealm"
     }
 

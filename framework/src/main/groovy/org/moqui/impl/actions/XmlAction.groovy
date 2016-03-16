@@ -20,10 +20,10 @@ import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidUtilities
-import org.moqui.impl.context.ContextBinding
-
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -31,71 +31,38 @@ import org.slf4j.LoggerFactory
 class XmlAction {
     protected final static Logger logger = LoggerFactory.getLogger(XmlAction.class)
 
-    /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
-    protected final Class groovyClass
-    protected final String groovyString
+    protected final ExecutionContextFactoryImpl ecfi
+    protected final FtlNodeWrapper ftlNode
     protected final String location
+    /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
+    protected Class groovyClassInternal = null
+    protected String groovyString = null
 
-    XmlAction(ExecutionContextFactoryImpl ecfi, Node xmlNode, String location) {
+    XmlAction(ExecutionContextFactoryImpl ecfi, MNode xmlNode, String location) {
+        this.ecfi = ecfi
         this.location = location
-        FtlNodeWrapper ftlNode = FtlNodeWrapper.wrapNode(xmlNode)
-        groovyString = makeGroovyString(ecfi, ftlNode, location)
-        // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${groovyString}")
-        try {
-            groovyClass = new GroovyClassLoader(Thread.currentThread().getContextClassLoader())
-                    .parseClass(groovyString, StupidUtilities.cleanStringForJavaName(location))
-        } catch (Throwable t) {
-            logger.error("Error parsing groovy String at [${location}]:\n${writeGroovyWithLines()}\n")
-            throw t
-        }
+        ftlNode = FtlNodeWrapper.wrapNode(xmlNode)
     }
 
     XmlAction(ExecutionContextFactoryImpl ecfi, String xmlText, String location) {
+        this.ecfi = ecfi
         this.location = location
-        FtlNodeWrapper ftlNode
         if (xmlText) {
-            ftlNode = FtlNodeWrapper.makeFromText(xmlText)
+            ftlNode = FtlNodeWrapper.makeFromText(location, xmlText)
         } else {
-            ftlNode = FtlNodeWrapper.makeFromText(ecfi.resourceFacade.getLocationText(location, false))
+            ftlNode = FtlNodeWrapper.makeFromText(location, ecfi.resourceFacade.getLocationText(location, false))
         }
-        groovyString = makeGroovyString(ecfi, ftlNode, location)
-        try {
-            groovyClass = new GroovyClassLoader().parseClass(groovyString, StupidUtilities.cleanStringForJavaName(location))
-        } catch (Throwable t) {
-            logger.error("Error parsing groovy String at [${location}]:\n${writeGroovyWithLines()}\n")
-            throw t
-        }
-    }
-
-    protected static String makeGroovyString(ExecutionContextFactoryImpl ecfi, FtlNodeWrapper ftlNode, String location) {
-        // transform XML to groovy
-        String groovyText
-        try {
-            Map root = ["xmlActionsRoot":ftlNode]
-
-            Writer outWriter = new StringWriter()
-            Environment env = ecfi.resourceFacade.xmlActionsScriptRunner.getXmlActionsTemplate()
-                    .createProcessingEnvironment(root, (Writer) outWriter)
-            env.process()
-
-            groovyText = outWriter.toString()
-        } catch (Exception e) {
-            logger.error("Error reading XML actions from [${location}], text: ${ftlNode.toString()}")
-            throw new BaseException("Error reading XML actions from [${location}]", e)
-        }
-
-        if (logger.traceEnabled) logger.trace("xml-actions at [${location}] produced groovy script:\n${groovyText}\nFrom ftlNode:${ftlNode}")
-
-        return groovyText
     }
 
     /** Run the XML actions in the current context of the ExecutionContext */
     Object run(ExecutionContext ec) {
-        if (!groovyClass) throw new IllegalStateException("No Groovy class in place for XML actions, look earlier in log for the error in init")
+        Class curClass = getGroovyClass()
+        if (curClass == null) throw new IllegalStateException("No Groovy class in place for XML actions, look earlier in log for the error in init")
 
         if (logger.isDebugEnabled()) logger.debug("Running groovy script: \n${writeGroovyWithLines()}\n")
 
-        Script script = InvokerHelper.createScript(groovyClass, new ContextBinding(ec.context))
+        ExecutionContextImpl eci = (ExecutionContextImpl) ec
+        Script script = InvokerHelper.createScript(curClass, eci.getContextBinding())
         try {
             Object result = script.run()
             return result
@@ -104,13 +71,62 @@ class XmlAction {
             throw t
         }
     }
+    boolean checkCondition(ExecutionContext ec) { return run(ec) as boolean }
 
     String writeGroovyWithLines() {
+        if (groovyString == null) makeGroovyClass()
         StringBuilder groovyWithLines = new StringBuilder()
         int lineNo = 1
         for (String line in groovyString.split("\n")) groovyWithLines.append(lineNo++).append(" : ").append(line).append("\n")
         return groovyWithLines.toString()
     }
 
-    boolean checkCondition(ExecutionContext ec) { return run(ec) as boolean }
+    /* ========== Lazy Init Methods ========== */
+
+    Class getGroovyClass() {
+        if (groovyClassInternal != null) return groovyClassInternal
+        return makeGroovyClass()
+    }
+    protected synchronized Class makeGroovyClass() {
+        if (groovyClassInternal != null) return groovyClassInternal
+
+        getGroovyString()
+        // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${groovyString}")
+        try {
+            groovyClassInternal = new GroovyClassLoader(Thread.currentThread().getContextClassLoader())
+                    .parseClass(groovyString, StupidUtilities.cleanStringForJavaName(location))
+        } catch (Throwable t) {
+            groovyClassInternal = null
+            logger.error("Error parsing groovy String at [${location}]:\n${writeGroovyWithLines()}\n")
+            throw t
+        }
+
+        return groovyClassInternal
+    }
+    String getGroovyString() {
+        if (groovyString != null) return groovyString
+        return makeGroovyString()
+    }
+    protected synchronized String makeGroovyString() {
+        if (groovyString != null) return groovyString
+
+        // transform XML to groovy
+        try {
+            Map root = ["xmlActionsRoot":ftlNode]
+
+            Writer outWriter = new StringWriter()
+            Environment env = ecfi.resourceFacade.xmlActionsScriptRunner.getXmlActionsTemplate()
+                    .createProcessingEnvironment(root, (Writer) outWriter)
+            env.process()
+
+            groovyString = outWriter.toString()
+        } catch (Exception e) {
+            logger.error("Error reading XML actions from [${location}], text: ${ftlNode.toString()}")
+            throw new BaseException("Error reading XML actions from [${location}]", e)
+        }
+
+        if (logger.traceEnabled) logger.trace("XML actions at [${location}] produced groovy script:\n${groovyString}\nFrom ftlNode:${ftlNode}")
+
+        return groovyString
+    }
 }

@@ -55,11 +55,11 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="responseMap">
                 <set field="formNode" from="ec.screen.getFormNode(formLocation)"/>
                 <iterate list="formNode.field" entry="fieldNode">
-                    <set field="fieldName" from="fieldNode.'@name'"/>
+                    <set field="fieldName" from="fieldNode.attribute('name')"/>
                     <if condition="responseMap.containsKey(fieldName)">
                         <service-call name="create#moqui.screen.form.FormResponseAnswer"
                                 in-map="[formResponseId:formResponseId, formId:formId, fieldName:fieldName,
-                                    valueText:StupidUtilities.toPlainString(responseMap.get(fieldName))]"/>
+                                    valueText:org.moqui.impl.StupidJavaUtilities.toPlainString(responseMap.get(fieldName))]"/>
                     </if>
                 </iterate>
             </if>
@@ -78,18 +78,18 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.screen.form.FormResponse" value-field="formResponse"/>
             <set field="formNode" from="ec.screen.getFormNode(formResponse.formLocation)"/>
             <iterate list="formNode.field" entry="fieldNode">
-                <set field="fieldName" from="fieldNode.'@name'"/>
+                <set field="fieldName" from="fieldNode.attribute('name')"/>
                 <if condition="responseMap.containsKey(fieldName)">
                     <entity-find-one entity-name="moqui.screen.form.FormResponseAnswer" value-field="answer">
                         <field-map field-name="formResponseId"/><field-map field-name="fieldName"/></entity-find-one>
                     <if condition="answer">
                         <service-call name="update#moqui.screen.form.FormResponseAnswer"
                                 in-map="[formResponseAnswerId:answer.formResponseAnswerId,
-                                    valueText:StupidUtilities.toPlainString(responseMap.get(fieldName))]"/>
+                                    valueText:org.moqui.impl.StupidJavaUtilities.toPlainString(responseMap.get(fieldName))]"/>
                         <else>
                             <service-call name="create#moqui.screen.form.FormResponseAnswer"
                                     in-map="[formResponseId:formResponseId, fieldName:fieldName,
-                                        valueText:StupidUtilities.toPlainString(responseMap.get(fieldName))]"/>
+                                        valueText:org.moqui.impl.StupidJavaUtilities.toPlainString(responseMap.get(fieldName))]"/>
                         </else>
                     </if>
                 </if>

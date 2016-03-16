@@ -15,6 +15,9 @@ package org.moqui.context;
 
 import org.moqui.BaseException;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * ValidationError - used to track information about validation errors.
  *
@@ -45,4 +48,10 @@ public class ValidationError extends BaseException {
     public String getForm() { return form; }
     public String getField() { return field; }
     public String getServiceName() { return serviceName; }
+
+    public Map<String, String> getMap() {
+        Map<String, String> veMap = new HashMap<>();
+        veMap.put("form", form); veMap.put("field", field); veMap.put("serviceName", serviceName);
+        return veMap;
+    }
 }

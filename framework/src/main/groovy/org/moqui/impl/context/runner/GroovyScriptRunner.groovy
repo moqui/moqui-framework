@@ -22,11 +22,10 @@ import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ScriptRunner
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.StupidUtilities
-import org.moqui.impl.context.ContextBinding
-
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class GroovyScriptRunner implements ScriptRunner {
     protected final static Logger logger = LoggerFactory.getLogger(GroovyScriptRunner.class)
 
@@ -41,9 +40,8 @@ class GroovyScriptRunner implements ScriptRunner {
         return this
     }
 
-    @CompileStatic
     Object run(String location, String method, ExecutionContext ec) {
-        Script script = InvokerHelper.createScript(getGroovyByLocation(location), new ContextBinding(ec.context))
+        Script script = InvokerHelper.createScript(getGroovyByLocation(location), ec.contextBinding)
         Object result
         if (method) {
             result = script.invokeMethod(method, {})
@@ -55,13 +53,11 @@ class GroovyScriptRunner implements ScriptRunner {
 
     void destroy() { }
 
-    @CompileStatic
     Class getGroovyByLocation(String location) {
         Class gc = (Class) scriptGroovyLocationCache.get(location)
         if (!gc) gc = loadGroovy(location)
         return gc
     }
-    @CompileStatic
     protected Class loadGroovy(String location) {
         Class gc = (Class) scriptGroovyLocationCache.get(location)
         if (!gc) {

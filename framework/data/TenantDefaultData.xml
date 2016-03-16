@@ -12,32 +12,8 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entity-facade-xml type="seed">
+<entity-facade-xml type="seed-tenant">
     <!-- The DEFAULT Tenant is used when no other tenant is active, ie this is for the base database. -->
     <moqui.tenant.Tenant tenantId="DEFAULT" tenantName="My Company" isEnabled="Y"
             defaultCurrencyUomId="USD" defaultLocale="en" defaultTimeZone="" defaultCountryGeoId="USA"/>
-    <!-- Below are sample options to limit what is available to users, remove all records of any type to make all
-        systems options available for that type -->
-    <moqui.tenant.TenantCurrency tenantId="DEFAULT" currencyUomId="CAD"/>
-    <moqui.tenant.TenantCurrency tenantId="DEFAULT" currencyUomId="EUR"/>
-    <moqui.tenant.TenantCurrency tenantId="DEFAULT" currencyUomId="GBP"/>
-    <moqui.tenant.TenantCurrency tenantId="DEFAULT" currencyUomId="USD"/>
-    <moqui.tenant.TenantLocale tenantId="DEFAULT" locale="de"/>
-    <moqui.tenant.TenantLocale tenantId="DEFAULT" locale="en"/>
-    <moqui.tenant.TenantLocale tenantId="DEFAULT" locale="es"/>
-    <moqui.tenant.TenantLocale tenantId="DEFAULT" locale="fr"/>
-    <moqui.tenant.TenantLocale tenantId="DEFAULT" locale="it"/>
-    <moqui.tenant.TenantLocale tenantId="DEFAULT" locale="th"/>
-    <moqui.tenant.TenantTimeZone tenantId="DEFAULT" timeZone="US/Eastern"/>
-    <moqui.tenant.TenantTimeZone tenantId="DEFAULT" timeZone="US/Central"/>
-    <moqui.tenant.TenantTimeZone tenantId="DEFAULT" timeZone="US/Mountain"/>
-    <moqui.tenant.TenantTimeZone tenantId="DEFAULT" timeZone="US/Pacific"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="CAN"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="USA"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="GBR"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="MEX"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="ITA"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="DEU"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="FRA"/>
-    <moqui.tenant.TenantCountry tenantId="DEFAULT" countryGeoId="THA"/>
 </entity-facade-xml>

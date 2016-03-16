@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.service
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.service.ServiceCallSchedule
@@ -31,6 +32,7 @@ import org.quartz.DateBuilder.IntervalUnit
 import org.quartz.CronScheduleBuilder
 import org.moqui.impl.context.ExecutionContextImpl
 
+@CompileStatic
 class ServiceCallScheduleImpl extends ServiceCallImpl implements ServiceCallSchedule {
     protected String jobName = null
     /* leaving this out for now, not easily supported by Quartz Scheduler: protected String poolName = null */
@@ -100,7 +102,7 @@ class ServiceCallScheduleImpl extends ServiceCallImpl implements ServiceCallSche
         if (sd == null && !isEntityAutoPattern()) throw new IllegalArgumentException("Could not find service with name [${getServiceName()}]")
 
         if (sd != null) {
-            String serviceType = sd.serviceNode."@type" ?: "inline"
+            String serviceType = sd.serviceNode.attribute("type") ?: "inline"
             if (serviceType == "interface") throw new IllegalArgumentException("Cannot run interface service [${getServiceName()}]")
             ServiceRunner sr = sfi.getServiceRunner(serviceType)
             if (sr == null) throw new IllegalArgumentException("Could not find service runner for type [${serviceType}] for service [${getServiceName()}]")
@@ -111,8 +113,8 @@ class ServiceCallScheduleImpl extends ServiceCallImpl implements ServiceCallSche
         }
 
         // always do an authz before scheduling the job
-        ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE", ServiceDefinition.getVerbAuthzActionId(verb))
-        eci.getArtifactExecution().push(aei, (sd != null && sd.getAuthenticate() == "true"))
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE", ServiceDefinition.getVerbAuthzActionId(verb))
+        eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
 
         parameters.authUsername = eci.getUser().getUsername()
         parameters.authTenantId = eci.getTenantId()

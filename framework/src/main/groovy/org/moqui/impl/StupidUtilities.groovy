@@ -70,29 +70,6 @@ class StupidUtilities {
         }
     }
 
-    static String toPlainString(Object obj) {
-        if (obj == null) return ""
-        // BigDecimal toString() uses scientific notation, annoying, so use toPlainString()
-        if (obj instanceof BigDecimal) return ((BigDecimal) obj).toPlainString()
-        // handle the special case of timestamps used for primary keys, make sure we avoid TZ, etc problems
-        if (obj instanceof Timestamp) return ((Timestamp) obj).getTime() as String
-        if (obj instanceof java.sql.Date) return ((java.sql.Date) obj).getTime() as String
-        if (obj instanceof Time) return ((Time) obj).getTime() as String
-
-        // no special case? do a simple toString()
-        return obj.toString()
-    }
-
-    /** Like the Groovy empty except doesn't consider empty 0 value numbers, false Boolean, etc; only null values,
-     *   0 length String (actually CharSequence to include GString, etc), and 0 size Collection/Map are considered empty. */
-    static boolean isEmpty(Object obj) {
-        if (obj == null) return true
-        if (obj instanceof CharSequence) return obj.length() == 0
-        if (obj instanceof Collection) return obj.size() == 0
-        if (obj instanceof Map) return obj.size() == 0
-        return false
-    }
-
     static final boolean compareLike(Object value1, Object value2) {
         // nothing to be like? consider a match
         if (!value2) return true
@@ -101,7 +78,7 @@ class StupidUtilities {
         if (value1 instanceof CharSequence && value2 instanceof CharSequence) {
             // first escape the characters that would be interpreted as part of the regular expression
             int length2 = value2.length()
-            StringBuilder sb = new StringBuilder(length2 * 2)
+            StringBuilder sb = new StringBuilder(length2 * 2I)
             for (int i = 0; i < length2; i++) {
                 char c = value2.charAt(i)
                 if ("[](){}.*+?\$^|#\\".indexOf((int) c.charValue()) != -1) {
@@ -200,60 +177,20 @@ class StupidUtilities {
     }
 
     static void orderMapList(List<Map> theList, List<String> fieldNames) {
-        if (theList && fieldNames) Collections.sort(theList, new MapOrderByComparator(fieldNames))
+        if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list")
+        // this seems unnecessary, but is because Groovy allows a GString even in a List<String>, but MapOrderByComparator in Java blows up
+        ArrayList<String> fieldNameArray = new ArrayList<>()
+        for (String fieldName in fieldNames) fieldNameArray.add(fieldName.toString())
+        if (theList && fieldNames) Collections.sort(theList, new StupidJavaUtilities.MapOrderByComparator(fieldNameArray))
     }
 
-    static class MapOrderByComparator implements Comparator<Map> {
-        protected List<String> fieldNameList = new ArrayList<String>()
-
-        public MapOrderByComparator(List<String> fieldNameList) { this.fieldNameList = fieldNameList }
-
-        @Override
-        public int compare(Map map1, Map map2) {
-            if (!map1) return -1
-            if (!map2) return 1
-            for (String fieldName in this.fieldNameList) {
-                boolean ascending = true
-                if (fieldName.charAt(0) == (char) '-') {
-                    ascending = false
-                    fieldName = fieldName.substring(1)
-                } else if (fieldName.charAt(0) == (char) '+') {
-                    fieldName = fieldName.substring(1)
-                }
-                Comparable value1 = (Comparable) map1.get(fieldName)
-                Comparable value2 = (Comparable) map2.get(fieldName)
-                // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
-                if (value1 == null) {
-                    if (value2 != null) return ascending ? 1 : -1
-                } else {
-                    if (value2 == null) {
-                        return ascending ? -1 : 1
-                    } else {
-                        int comp = value1.compareTo(value2)
-                        if (comp != 0) return ascending ? comp : -comp
-                    }
-                }
-            }
-            // all evaluated to 0, so is the same, so return 0
-            return 0
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (!(obj instanceof MapOrderByComparator)) return false
-            return this.fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList)
-        }
-
-        @Override
-        public String toString() { return this.fieldNameList.toString() }
-    }
-
-    /** NOTE: in Groovy this method is not necessary, just use something like: theList.field */
+    /** NOTE: in Groovy this method is not necessary, just use something like: theList.field
     static Set<Object> getFieldValuesFromMapList(List<Map> theList, String fieldName) {
         Set<Object> theSet = new HashSet<>()
         for (Map curMap in theList) if (curMap.get(fieldName)) theSet.add(curMap.get(fieldName))
         return theSet
     }
+     */
 
     static int countChars(String s, boolean countDigits, boolean countLetters, boolean countOthers) {
         // this seems like it should be part of some standard Java API, but I haven't found it
@@ -452,6 +389,12 @@ class StupidUtilities {
         } else {
             return ""
         }
+    }
+    static Node nodeChild(Node parent, String childName) {
+        if (parent == null) return null
+        NodeList childList = (NodeList) parent.get(childName)
+        if (childList != null && childList.size() > 0) return (Node) childList.get(0)
+        return null
     }
 
     static String elementValue(Element element) {

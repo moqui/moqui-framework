@@ -5,48 +5,62 @@
 
     <!-- Settings in this file can be overridden in a runtime conf file that has a any of the desired sub-elements. -->
 
-    <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false"/>
+    <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false" empty-db-load="seed"/>
 
     <cache-list warm-on-start="true">
         <!-- Production mode by default - No expiration of conf and impl artifacts. -->
         <cache name="entity.definition" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
         <cache name="entity.location" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
-        <cache name="entity.tables.checked" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
+        <cache name="entity.sequence.bank" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
         <!-- this is info for each entity for real-time push DataFeeds; expires every 15 min to get DataFeed and DataDocument updates -->
-        <cache name="entity.data.feed.info." expire-time-idle="0" expire-time-live="900" max-elements="2000"/>
+        <cache name="entity.data.feed.info" expire-time-idle="0" expire-time-live="900" max-elements="2000"/>
 
-        <cache name="entity.record.one." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.one_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000" eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.count." expire-time-idle="0" expire-time-live="0" max-elements="10000" eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.one." expire-time-idle="0" expire-time-live="0" max-elements="10000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.one_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list." expire-time-idle="0" expire-time-live="0" max-elements="10000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.list_view_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
+               eviction-strategy="least-frequently-used"/>
+        <cache name="entity.record.count." expire-time-idle="0" expire-time-live="0" max-elements="10000"
+               eviction-strategy="least-frequently-used"/>
 
-        <cache name="service.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="service.java.class" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="service.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="service.java.class" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
 
         <cache name="kie.component.releaseId" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
 
-        <cache name="screen.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.location.perm" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.info" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.template.mode" expire-time-idle="0" expire-time-live="0" max-elements="100"/>
-        <cache name="screen.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100"/>
-        <cache name="screen.find.path" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="screen.form.db.node" expire-time-idle="0" expire-time-live="0" max-elements="1000"/>
+        <!-- TODO: Potential issue for multi-tenant where DbForm*, SubscreenItem, etc comes from wrong tenant...
+            would need to change ScreenFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI -->
+        <cache name="screen.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.location.perm" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.url" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.info" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.info.ref.rev" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.template.mode" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
+        <cache name="screen.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
+        <cache name="widget.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
+        <cache name="screen.find.path" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="screen.form.db.node" expire-time-idle="0" expire-time-live="0" max-elements="1000" tenants-share="true"/>
 
-        <cache name="resource.xml-actions.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.groovy.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.groovy.expression" expire-time-idle="0" expire-time-live="0" max-elements="50000"/>
-        <cache name="resource.javascript.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <!-- TODO: Potential issue for multi-tenant where DbResource, etc comes from wrong tenant...
+            would need to change ResourceFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI -->
+        <cache name="resource.xml-actions.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.groovy.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.groovy.expression" expire-time-idle="0" expire-time-live="0" max-elements="50000" tenants-share="true"/>
+        <cache name="resource.javascript.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
 
-        <cache name="resource.ftl.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.gstring.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.wiki.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.markdown.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.text.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
-        <cache name="resource.reference.location" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="resource.ftl.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.gstring.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.wiki.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.markdown.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.text.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <cache name="resource.reference.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
 
-        <cache name="l10n.message" expire-time-idle="0" expire-time-live="0" max-elements="50000"/>
+        <cache name="l10n.message" expire-time-idle="3600" expire-time-live="0" max-elements="50000"/>
 
         <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
         <cache name="artifact.tarpit.hits" expire-time-idle="900" expire-time-live="0" max-elements="10000"/>
@@ -159,15 +173,17 @@
     </resource-facade>
 
     <screen-facade boundary-comments="false" default-autocomplete-rows="20" default-paginate-rows="20">
-        <screen-text-output type="csv" mime-type="text/csv"
+        <screen-text-output type="csv" mime-type="text/csv" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.csv.ftl"/>
         <screen-text-output type="html" mime-type="text/html"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.html.ftl"/>
         <screen-text-output type="text" mime-type="text/plain"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
+        <screen-text-output type="ts" mime-type="text/x-typescript" always-standalone="true" skip-actions="true"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.ts.ftl"/>
         <screen-text-output type="xml" mime-type="text/xml"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
-        <screen-text-output type="xsl-fo" mime-type="text/xml"
+        <screen-text-output type="xsl-fo" mime-type="text/xml" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
     </screen-facade>
 
@@ -354,6 +370,7 @@
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TenantEntities.xml"/>
+        <load-entity location="classpath://entity/TestEntities.xml"/>
         <!-- in framework/data -->
         <load-data location="classpath://data/CommonL10nData.xml"/>
         <load-data location="classpath://data/CurrencyData.xml"/>
@@ -475,7 +492,8 @@
         </database>
         <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
                 table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
-                default-isolation-level="ReadCommitted" default-jdbc-driver="com.mysql.jdbc.Driver"
+                default-isolation-level="ReadCommitted" use-tm-join="true"
+                default-jdbc-driver="com.mysql.jdbc.Driver"
                 default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
                 default-test-query="SELECT 1">
             <!-- use DATETIME instead of TIMESTAMP so can be null and gets no default value; issue with newer MySQL versions -->
@@ -515,8 +533,9 @@
                 default-xa-ds-class="">
         </database> -->
         <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
-                  default-isolation-level="ReadCommitted" default-test-query="SELECT 1"
+                  default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                   default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource">
+            <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 
             <database-type type="text-medium" sql-type="TEXT"/>

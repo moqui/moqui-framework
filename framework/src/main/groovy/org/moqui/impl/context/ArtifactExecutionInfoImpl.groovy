@@ -20,79 +20,65 @@ import org.moqui.impl.StupidUtilities
 
 import java.math.RoundingMode
 
+@CompileStatic
 class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     protected final String name
     protected final String typeEnumId
     protected final String actionEnumId
     protected String actionDetail = ""
-    protected Map<String, Object> parameters = null
-    protected String authorizedUserId = null
-    protected String authorizedAuthzTypeId = null
-    protected String authorizedActionEnumId = null
+    protected Map<String, Object> parameters = (Map) null
+    protected String authorizedUserId = (String) null
+    protected String authorizedAuthzTypeId = (String) null
+    protected String authorizedActionEnumId = (String) null
     protected boolean authorizationInheritable = false
-    protected EntityValue aacv = null
+    protected EntityValue aacv = (EntityValue) null
 
     //protected Exception createdLocation = null
-    protected ArtifactExecutionInfoImpl parentAeii = null
+    protected ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null
     protected long startTime
     protected long endTime = 0
-    protected List<ArtifactExecutionInfoImpl> childList = []
+    protected List<ArtifactExecutionInfoImpl> childList = new ArrayList<ArtifactExecutionInfoImpl>()
     protected long childrenRunningTime = 0
 
     ArtifactExecutionInfoImpl(String name, String typeEnumId, String actionEnumId) {
         this.name = name
         this.typeEnumId = typeEnumId
-        this.actionEnumId = actionEnumId ?: "AUTHZA_ALL"
+        this.actionEnumId = actionEnumId != null && actionEnumId.length() > 0 ? actionEnumId : "AUTHZA_ALL"
         //createdLocation = new Exception("Create AEII location for ${name}, type ${typeEnumId}, action ${actionEnumId}")
         this.startTime = System.nanoTime()
     }
 
-    @CompileStatic
     ArtifactExecutionInfoImpl setActionDetail(String detail) { this.actionDetail = detail; return this }
-    @CompileStatic
     ArtifactExecutionInfoImpl setParameters(Map<String, Object> parameters) { this.parameters = parameters; return this }
 
     @Override
-    @CompileStatic
     String getName() { return this.name }
 
     @Override
-    @CompileStatic
     String getTypeEnumId() { return this.typeEnumId }
 
     @Override
-    @CompileStatic
     String getActionEnumId() { return this.actionEnumId }
 
     @Override
-    @CompileStatic
     String getAuthorizedUserId() { return this.authorizedUserId }
-    @CompileStatic
     void setAuthorizedUserId(String authorizedUserId) { this.authorizedUserId = authorizedUserId }
 
     @Override
-    @CompileStatic
     String getAuthorizedAuthzTypeId() { return this.authorizedAuthzTypeId }
-    @CompileStatic
     void setAuthorizedAuthzTypeId(String authorizedAuthzTypeId) { this.authorizedAuthzTypeId = authorizedAuthzTypeId }
 
     @Override
-    @CompileStatic
     String getAuthorizedActionEnumId() { return this.authorizedActionEnumId }
-    @CompileStatic
     void setAuthorizedActionEnumId(String authorizedActionEnumId) { this.authorizedActionEnumId = authorizedActionEnumId }
 
     @Override
-    @CompileStatic
     boolean isAuthorizationInheritable() { return this.authorizationInheritable }
-    @CompileStatic
     void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.authorizationInheritable = isAuthorizationInheritable}
 
-    @CompileStatic
     EntityValue getAacv() { return aacv }
 
-    @CompileStatic
     void copyAacvInfo(EntityValue aacv, String userId) {
         this.aacv = aacv
         this.authorizedUserId = userId
@@ -101,7 +87,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         this.authorizationInheritable = aacv.get('inheritAuthz') == "Y"
     }
 
-    @CompileStatic
     void copyAuthorizedInfo(ArtifactExecutionInfoImpl aeii) {
         this.aacv = aeii.aacv
         this.authorizedUserId = aeii.authorizedUserId
@@ -110,7 +95,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         this.authorizationInheritable = aeii.authorizationInheritable
     }
 
-    @CompileStatic
     void setEndTime() { this.endTime = System.nanoTime() }
     @Override
     long getRunningTime() { return endTime != 0 ? endTime - startTime : 0 }
@@ -133,19 +117,15 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     BigDecimal getThisRunningTimeMillis() { new BigDecimal(getThisRunningTime()).movePointLeft(6).setScale(2, RoundingMode.HALF_UP) }
     BigDecimal getChildrenRunningTimeMillis() { new BigDecimal(getChildrenRunningTime()).movePointLeft(6).setScale(2, RoundingMode.HALF_UP) }
 
-    @CompileStatic
     void setParent(ArtifactExecutionInfoImpl parentAeii) { this.parentAeii = parentAeii }
     @Override
-    @CompileStatic
     ArtifactExecutionInfo getParent() { return parentAeii }
     @Override
     BigDecimal getPercentOfParentTime() { parentAeii && endTime != 0 ?
         (((getRunningTime() / parentAeii.getRunningTime()) * 100) as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP) : 0 }
 
 
-    @CompileStatic
     void addChild(ArtifactExecutionInfoImpl aeii) { childList.add(aeii) }
-    @CompileStatic
     List<ArtifactExecutionInfo> getChildList() { return childList }
 
     void print(Writer writer, int level, boolean children) {
@@ -162,7 +142,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         if (children) for (ArtifactExecutionInfoImpl aeii in childList) aeii.print(writer, level + 1, true)
     }
 
-    @CompileStatic
     String getKeyString() { return name + ":" + typeEnumId + ":" + actionEnumId + ":" + actionDetail }
 
     static List<Map> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
@@ -175,8 +154,8 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         for (Map val in hotSpotList) {
             int knockOutCount = 0
             List<BigDecimal> newTimes = []
-            def timeAvg = val.timeAvg
-            for (BigDecimal time in val.times) {
+            BigDecimal timeAvg = (BigDecimal) val.timeAvg
+            for (BigDecimal time in (List<BigDecimal>) val.times) {
                 // this ain't no standard deviation, but consider 3 times average to be abnormal
                 if (time > (timeAvg * 3)) {
                     knockOutCount++
@@ -212,8 +191,8 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                     action:ArtifactExecutionFacadeImpl.artifactActionDescriptionMap.get(actionEnumId)])
         } else {
             val = timeByArtifact[key]
-            val.count = val.count + 1
-            if (val.count == 2 && ((List) val.times)[0] > (curTime * 3)) {
+            val.count = (BigDecimal) val.count + 1
+            if (val.count == 2 && ((List<BigDecimal>) val.times)[0] > (curTime * 3)) {
                 // if the first is much higher than the 2nd, use the 2nd for both
                 val.times = [curTime, curTime]
                 val.time = curTime + curTime
@@ -222,10 +201,10 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 val.timeAvg = curTime
             } else {
                 ((List) val.times).add(curTime)
-                val.time = val.time + curTime
-                val.timeMin = val.timeMin > curTime ? curTime : val.timeMin
-                val.timeMax = val.timeMax > curTime ? val.timeMax : curTime
-                val.timeAvg = ((val.time / val.count) as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP)
+                val.time = (BigDecimal) val.time + curTime
+                val.timeMin = (BigDecimal) val.timeMin > curTime ? curTime : (BigDecimal) val.timeMin
+                val.timeMax = (BigDecimal) val.timeMax > curTime ? (BigDecimal) val.timeMax : curTime
+                val.timeAvg = (((BigDecimal) val.time / (BigDecimal) val.count) as BigDecimal).setScale(2, BigDecimal.ROUND_HALF_UP)
             }
         }
         for (ArtifactExecutionInfoImpl aeii in childList) aeii.addToMapByTime(timeByArtifact, ownTime)
@@ -267,14 +246,14 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 topLevelList.add(artifactMap)
             }
         } else {
-            artifactMap.count = artifactMap.count + 1
-            artifactMap.time = artifactMap.time + getRunningTimeMillis()
-            artifactMap.thisTime = artifactMap.thisTime + getThisRunningTimeMillis()
-            artifactMap.childrenTime = artifactMap.childrenTime + getChildrenRunningTimeMillis()
+            artifactMap.count = (BigDecimal) artifactMap.count + 1
+            artifactMap.time = (BigDecimal) artifactMap.time + getRunningTimeMillis()
+            artifactMap.thisTime = (BigDecimal) artifactMap.thisTime + getThisRunningTimeMillis()
+            artifactMap.childrenTime = (BigDecimal) artifactMap.childrenTime + getChildrenRunningTimeMillis()
             if (parentArtifactMap != null) {
                 // is the current artifact in the current parent's child list? if not add it (a given artifact may be under multiple parents, normal)
                 boolean foundMap = false
-                for (Map candidate in parentArtifactMap.childInfoList) if (candidate.key == key) { foundMap = true; break }
+                for (Map candidate in (List<Map>) parentArtifactMap.childInfoList) if (candidate.key == key) { foundMap = true; break }
                 if (!foundMap) ((List) parentArtifactMap.childInfoList).add(artifactMap)
             }
         }
