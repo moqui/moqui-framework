@@ -75,26 +75,26 @@ dependencies {
     compile group: 'org.codehaus.btm', name: 'btm', version: '3.0.0-SNAPSHOT' // Apache 2.0
 
 
-    apiCompile group: 'org.apache.camel', name: 'camel-core', version: '2.16.1' // Apache 2.0
-    compile group: 'org.apache.camel', name: 'camel-core', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-csv', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-freemarker', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-groovy', version: '2.16.1' // Apache 2.0
+    apiCompile group: 'org.apache.camel', name: 'camel-core', version: '2.16.2' // Apache 2.0
+    compile group: 'org.apache.camel', name: 'camel-core', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-csv', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-freemarker', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-groovy', version: '2.16.2' // Apache 2.0
     /* Depends on org.apache.geronimo.specs:geronimo-servlet_3.0_spec:1.0, must be required so can't remove and
         conflicts with the Servlet 2.5 jar which Moqui currently uses, (Winstone relies on this too?)
-    runtime ('org.apache.camel:camel-http-common:2.16.1') { exclude group: 'org.apache.geronimo.specs' } // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-http4', version: '2.16.1' // Apache 2.0
+    runtime ('org.apache.camel:camel-http-common:2.16.2') { exclude group: 'org.apache.geronimo.specs' } // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-http4', version: '2.16.2' // Apache 2.0
     */
     // NOTE: camel-jms uses spring-jms and a bunch of other spring stuff, significant bloat
-    // runtime group: 'org.apache.camel', name: 'camel-jms', version: '2.16.1' // Apache 2.0
+    // runtime group: 'org.apache.camel', name: 'camel-jms', version: '2.16.2' // Apache 2.0
     /* Uncomment these as desired for use in Camel:
-    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-mail', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-mqtt', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-quartz2', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-shiro', version: '2.16.1' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-xmlrpc', version: '2.16.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-mail', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-mqtt', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-quartz2', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-shiro', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-xmlrpc', version: '2.16.2' // Apache 2.0
     */
 
     compile group: 'org.apache.commons', name: 'commons-csv', version: '1.2' // Apache 2.0
