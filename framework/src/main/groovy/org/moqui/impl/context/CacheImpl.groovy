@@ -100,6 +100,20 @@ class CacheImpl implements Cache {
             return element.getObjectValue()
         }
     }
+    @Override
+    Object getIfCurrent(Serializable key, long currentTime) {
+        if (key == null) return null
+        Element element = this.ehcache.get(key)
+        if (element == null) return null
+        // System.out.println("========= get ${key}: element creationTime=${element.getCreationTime()} (${new Timestamp(element.getCreationTime())}), currentTime=${currentTime} (${new Timestamp(currentTime)})")
+        // if currentTime == 0 is effectively not considered
+        if (element.isExpired() || element.getCreationTime() < currentTime) {
+            this.ehcache.removeElement(element)
+            return null
+        } else {
+            return element.getObjectValue()
+        }
+    }
 
     Element getElement(Serializable key) {
         if (key == null) return null
