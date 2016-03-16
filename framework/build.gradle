@@ -176,8 +176,8 @@ dependencies {
     compile group: 'org.apache.shiro', name: 'shiro-core', version: '1.2.4' // Apache 2.0
     compile group: 'org.apache.shiro', name: 'shiro-web', version: '1.2.4' // Apache 2.0
 
-    apiCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.13'
-    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.13'
+    apiCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.19'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.19'
     runtime group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.5'
     runtime group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.5'
     runtime group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.5'
@@ -241,7 +241,7 @@ dependencies {
         exclude group: 'javax.servlet'
         // NOTE: winstone jndi is a dependency so included automatically
     }
-    execWarCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.13'
+    execWarCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.19'
     execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.5'
     execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.5'
     execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.5'
