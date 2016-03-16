@@ -143,15 +143,15 @@ dependencies {
     compile name: 'org.eclipse.mylyn.wikitext.twiki.core_1.8.0.I20121130-0624', version: '' // EPL
 
     // OrientDB
-    compile group: 'com.orientechnologies', name: 'orientdb-client', version: '2.1.4' // Apache 2.0
-    compile group: 'com.orientechnologies', name: 'orientdb-core', version: '2.1.4' // Apache 2.0
-    compile group: 'com.orientechnologies', name: 'orientdb-enterprise', version: '2.1.4' // Apache 2.0
-    compile('com.orientechnologies:orientdb-graphdb:2.1.4') { // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-client', version: '2.1.13' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-core', version: '2.1.13' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-enterprise', version: '2.1.13' // Apache 2.0
+    compile('com.orientechnologies:orientdb-graphdb:2.1.13') { // Apache 2.0
         exclude group: 'com.tinkerpop.gremlin'
         exclude group: 'com.orientechnologies'
         exclude group: 'com.fasterxml.jackson.core'
     }
-    compile group: 'com.orientechnologies', name: 'orientdb-server', version: '2.1.4' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-server', version: '2.1.13' // Apache 2.0
     compile('com.tinkerpop.gremlin:gremlin-java:2.6.0') // BSD
     compile('com.tinkerpop.gremlin:gremlin-groovy:2.6.0') {
         exclude group: 'org.codehaus.groovy'
@@ -162,7 +162,7 @@ dependencies {
     } // BSD
     // NOTE: explicit dependency to get latest version, older versions cause serious runtime errors
     compile group: 'org.javassist', name: 'javassist', version: '3.20.0-GA' // Apache 2.0
-    // runtime group: 'com.orientechnologies', name: 'orientdb-jdbc', version: '2.1.4' // Apache 2.0
+    // runtime group: 'com.orientechnologies', name: 'orientdb-jdbc', version: '2.1.13' // Apache 2.0
 
     // Quartz Scheduler (NOTE: depends on c3p0 (with a different group) and slf4j, but we include those elsewhere, so use module)
     apiCompile module('org.quartz-scheduler:quartz:2.2.2') // Apache 2.0
