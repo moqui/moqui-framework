@@ -1206,6 +1206,7 @@ abstract class EntityValueBase implements EntityValue {
 
             ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
             ArrayList<FieldInfo> nonPkFieldList = new ArrayList<FieldInfo>()
+            Set<String> nonPkFieldNameSet = new HashSet<>()
             ArrayList<FieldInfo> allNonPkFieldList = ed.getNonPkFieldInfoList()
             List<String> changedCreateOnlyFields = []
             int size = allNonPkFieldList.size()
@@ -1215,6 +1216,7 @@ abstract class EntityValueBase implements EntityValue {
                 if (valueMap.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
                         valueMap.get(fieldName) != dbValueMap.get(fieldName))) {
                     nonPkFieldList.add(fieldInfo)
+                    nonPkFieldNameSet.add(fieldName)
                     if (createOnlyAny && fieldInfo.createOnly) changedCreateOnlyFields.add(fieldName)
                 }
             }
@@ -1235,9 +1237,11 @@ abstract class EntityValueBase implements EntityValue {
             }
 
             // set lastUpdatedStamp
-            if (ed.isField("lastUpdatedStamp")) {
+            FieldInfo lastUpdatedStampInfo = ed.getFieldInfo("lastUpdatedStamp")
+            if (lastUpdatedStampInfo != null) {
                 long lastUpdatedLong = ecfi.getTransactionFacade().getCurrentTransactionStartTime() ?: System.currentTimeMillis()
                 this.set("lastUpdatedStamp", new Timestamp(lastUpdatedLong))
+                if (!nonPkFieldNameSet.contains("lastUpdatedStamp")) nonPkFieldList.add(lastUpdatedStampInfo)
             }
 
             // do this before the db change so modified flag isn't cleared
@@ -1245,7 +1249,10 @@ abstract class EntityValueBase implements EntityValue {
 
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
             TransactionCache curTxCache = getTxCache(ecfi)
-            if (curTxCache == null || !curTxCache.update(this)) this.basicUpdate(pkFieldList, nonPkFieldList, null, ec)
+            if (curTxCache == null || !curTxCache.update(this)) {
+                // no TX cache update, etc: ready to do actual update
+                this.basicUpdate(pkFieldList, nonPkFieldList, null, ec)
+            }
 
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false)
