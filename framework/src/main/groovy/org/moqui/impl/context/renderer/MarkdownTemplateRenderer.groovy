@@ -16,9 +16,9 @@ package org.moqui.impl.context.renderer
 import org.markdown4j.Markdown4jProcessor
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
+import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.screen.ScreenRenderImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -37,7 +37,8 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
     }
 
     void render(String location, Writer writer) {
-        String mdText = templateMarkdownLocationCache.get(location)
+        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
+        String mdText = templateMarkdownLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
         if (mdText) {
             writer.write(mdText)
             return

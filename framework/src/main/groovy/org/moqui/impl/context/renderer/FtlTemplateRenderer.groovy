@@ -28,6 +28,7 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
+import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 
@@ -66,7 +67,8 @@ class FtlTemplateRenderer implements TemplateRenderer {
     // Cache getTemplateFtlLocationCache() { return templateFtlLocationCache }
 
     Template getFtlTemplateByLocation(String location) {
-        Template theTemplate = (Template) templateFtlLocationCache.get(location)
+        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
+        Template theTemplate = (Template) templateFtlLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
         if (!theTemplate) theTemplate = makeTemplate(location)
         if (!theTemplate) throw new IllegalArgumentException("Could not find template at [${location}]")
         return theTemplate

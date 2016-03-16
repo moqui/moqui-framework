@@ -17,6 +17,7 @@ import freemarker.template.Template
 import org.markdown4j.Markdown4jProcessor
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
+import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.slf4j.Logger
@@ -38,9 +39,10 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
     }
 
     void render(String location, Writer writer) {
-        Template theTemplate = (Template) templateFtlLocationCache.get(location)
-        if (!theTemplate) theTemplate = makeTemplate(location)
-        if (!theTemplate) throw new IllegalArgumentException("Could not find template at ${location}")
+        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
+        Template theTemplate = (Template) templateFtlLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
+        if (theTemplate == null) theTemplate = makeTemplate(location)
+        if (theTemplate == null) throw new IllegalArgumentException("Could not find template at ${location}")
         theTemplate.createProcessingEnvironment(ecfi.executionContext.context, writer).process()
     }
 
