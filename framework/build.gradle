@@ -133,7 +133,7 @@ dependencies {
     compile group: 'jaxb', name: 'jsr173_api', version: '1.0' // ???
     compile group: 'org.liquibase', name: 'liquibase-core', version: '3.4.2' // Apache 2.0
 
-    compile group: 'org.commonjava.googlecode.markdown4j', name: 'markdown4j', version: '2.2-cj-1.0' // BSD
+    compile group: 'org.commonjava.googlecode.markdown4j', name: 'markdown4j', version: '2.2-cj-1.1' // BSD
     compile name: 'org.eclipse.mylyn.wikitext.core_1.8.0.I20121130-0624', version: '' // EPL
     compile name: 'org.eclipse.mylyn.wikitext.confluence.core_1.8.0.I20121130-0624', version: '' // EPL
     compile name: 'org.eclipse.mylyn.wikitext.mediawiki.core_1.8.0.I20121130-0624', version: '' // EPL
