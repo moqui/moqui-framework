@@ -214,7 +214,7 @@ dependencies {
     runtime group: 'org.codehaus.janino', name: 'janino', version: '2.7.8' // New BSD
     runtime group: 'org.codehaus.janino', name: 'commons-compiler', version: '2.7.8' // New BSD
     // NOTE: poi-ooxml-schemas is a required dependency for drools-decisiontables,  but it's a huge file and runs fine without it
-    providedCompile ('org.apache.poi:poi-ooxml-schemas:3.13') // Apache 2.0
+    providedCompile ('org.apache.poi:poi-ooxml-schemas:3.14') // Apache 2.0
 
     // NOTE: not currently used, may use in the future for transpiling TS to JS on the server
     // compile group: 'com.mangofactory', name: 'typescript4j', version: '0.4.0'
