@@ -105,7 +105,7 @@ dependencies {
     compile group: 'commons-io', name: 'commons-io', version: '2.4' // Apache 2.0
     compile group: 'commons-logging', name: 'commons-logging', version: '1.2' // Apache 2.0
     compile group: 'commons-validator', name: 'commons-validator', version: '1.5.0' // Apache 2.0
-    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.1' // Apache 2.0
+    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.2' // Apache 2.0
     compile group: 'org.apache.httpcomponents', name: 'httpcore', version: '4.4.4' // Apache 2.0
 
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
