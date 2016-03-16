@@ -107,7 +107,7 @@ class CacheImpl implements Cache {
         if (element == null) return null
         // System.out.println("========= get ${key}: element creationTime=${element.getCreationTime()} (${new Timestamp(element.getCreationTime())}), currentTime=${currentTime} (${new Timestamp(currentTime)})")
         // if currentTime == 0 is effectively not considered
-        if (element.isExpired() || element.getCreationTime() < currentTime) {
+        if (element.isExpired() || element.getLastUpdateTime() < currentTime) {
             this.ehcache.removeElement(element)
             return null
         } else {
