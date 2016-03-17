@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import net.sf.ehcache.Element
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
@@ -39,6 +40,7 @@ class EntityDataFeed {
     protected final EntityFacadeImpl efi
 
     protected final CacheImpl dataFeedEntityInfo
+    final Set<String> entitiesWithDataFeed = new HashSet<>()
 
     EntityDataFeed(EntityFacadeImpl efi) {
         this.efi = efi
@@ -107,12 +109,25 @@ class EntityDataFeed {
 
     void dataFeedCheckAndRegister(EntityValue ev, boolean isUpdate, Map valueMap, Map oldValues) {
         // logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.getEntityName()}] value: ${ev}")
+        // String debugEntityName = "Request"
+        // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister update? ${isUpdate} mod? ${ev.isModified()}\nev: ${ev}\noldValues=${oldValues}")
+
         // if the value isn't modified don't register for DataFeed at all
         if (!ev.isModified()) return
-        if (oldValues == null) return
+        if (isUpdate && oldValues == null) return
+
+        String entityName = ev.getEntityName()
+
+        // see if this is a known entity in a feed
+        // NOTE: this avoids issues with false negatives from the cache or excessive rebuilds (for every entity the
+        //     first time) but means if an entity is added to a DataDocument at runtime it won't pick it up!!!!
+        // NOTE2: this could be cleared explicitly when a DataDocument is added or changed, but that is done through
+        //     direct DB stuff now (data load, etc), there is no UI or services for it
+        if (!entitiesWithDataFeed.contains(entityName)) return
 
         // see if this should be added to the feed
-        ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+        ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(entityName)
+        // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister entityInfoList size ${entityInfoList.size()}")
         if (entityInfoList.size() > 0) {
             // logger.warn("============== found registered entity [${ev.getEntityName()}] value: ${ev}")
 
@@ -176,12 +191,9 @@ class EntityDataFeed {
 
     // NOTE: this is called frequently (every create/update/delete)
     ArrayList<DocumentEntityInfo> getDataFeedEntityInfoList(String fullEntityName) {
-        // this results in a castToType, maybe consider changing it to a local HashMap<String, ArrayList<DocumentEntityInfo>>
-        ArrayList<DocumentEntityInfo> entityInfoList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
-        if (entityInfoList != null) return entityInfoList
+        Element cacheElement = dataFeedEntityInfo.getElement(fullEntityName)
+        if (cacheElement != null) return (ArrayList<DocumentEntityInfo>) cacheElement.getObjectValue()
 
-        // after this point entityInfoList is null
-        if (dataFeedEntityInfo.containsKey(fullEntityName)) return emptyList
         // if this is an entity to skip, return now (do after primary lookup to avoid additional performance overhead in common case)
         if (dataFeedSkipEntities.contains(fullEntityName)) {
             dataFeedEntityInfo.put(fullEntityName, emptyList)
@@ -189,43 +201,31 @@ class EntityDataFeed {
         }
 
         // logger.warn("=============== getting DocumentEntityInfo for [${fullEntityName}], from cache: ${entityInfoList}")
-        // only rebuild if the cache is empty, most entities won't have any entry in it and don't want a rebuild for each one
-        if (entityInfoList == null) dataFeedEntityInfo.clearExpired()
-        if (dataFeedEntityInfo.size() == 0) {
-            rebuildDataFeedEntityInfo()
+        // MAYBE (often causes issues): only rebuild if the cache is empty, most entities won't have any entry in it and don't want a rebuild for each one
+        rebuildDataFeedEntityInfo()
+        // now we should have all document entityInfos for all entities
+        cacheElement = dataFeedEntityInfo.getElement(fullEntityName)
+        if (cacheElement != null) return (ArrayList<DocumentEntityInfo>) cacheElement.getObjectValue()
 
-            // now we should have all document entityInfos for all entities
-            entityInfoList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
-            //logger.warn("============ got DocumentEntityInfo entityInfoList for [${fullEntityName}]: ${entityInfoList}")
-        }
         // remember that we don't have any info
-        if (entityInfoList == null) {
-            dataFeedEntityInfo.put(fullEntityName, emptyList)
-            entityInfoList = emptyList
-        }
-        return entityInfoList
+        dataFeedEntityInfo.put(fullEntityName, emptyList)
+        return emptyList
     }
 
     synchronized void rebuildDataFeedEntityInfo() {
-        dataFeedEntityInfo.clearExpired()
-        if (dataFeedEntityInfo.size() > 0) return
-
-        // logger.warn("=============== rebuilding DocumentEntityInfo for [${fullEntityName}], cache size: ${dataFeedEntityInfo.size()}")
+        logger.info("Rebuilding entity.data.feed.info cache in tenant ${efi.tenantId}")
 
         // rebuild from the DB for this and other entities, ie have to do it for all DataFeeds and
         //     DataDocuments because we can't query it by entityName
-        EntityList dataFeedAndDocumentList = null
-        boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-        try {
-            dataFeedAndDocumentList = efi.find("moqui.entity.feed.DataFeedAndDocument")
-                    .condition("dataFeedTypeEnumId", "DTFDTP_RT_PUSH").useCache(true).list()
-            //logger.warn("============= got dataFeedAndDocumentList: ${dataFeedAndDocumentList}")
-        } finally {
-            if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
-        }
+        EntityList dataFeedAndDocumentList = efi.find("moqui.entity.feed.DataFeedAndDocument")
+                .condition("dataFeedTypeEnumId", "DTFDTP_RT_PUSH").useCache(true).disableAuthz().list()
+        //logger.warn("============= got dataFeedAndDocumentList: ${dataFeedAndDocumentList}")
         Set<String> fullDataDocumentIdSet = new HashSet<String>()
-        for (EntityValue dataFeedAndDocument in dataFeedAndDocumentList)
+        int dataFeedAndDocumentListSize = dataFeedAndDocumentList.size()
+        for (int i = 0; i < dataFeedAndDocumentListSize; i++) {
+            EntityValue dataFeedAndDocument = (EntityValue) dataFeedAndDocumentList.get(i)
             fullDataDocumentIdSet.add(dataFeedAndDocument.getString("dataDocumentId"))
+        }
 
         for (String dataDocumentId in fullDataDocumentIdSet) {
             Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId)
@@ -240,6 +240,9 @@ class EntityDataFeed {
                 newEntityInfoList.add(entityInfoMapEntry.getValue())
             }
         }
+        Set<Serializable> cacheKeySet = dataFeedEntityInfo.keySet()
+        for (Serializable entityName in cacheKeySet) entitiesWithDataFeed.add(entityName.toString())
+        logger.info("After entity.data.feed.info cache rebuild have entries for ${entitiesWithDataFeed.size()} entities: ${entitiesWithDataFeed}")
     }
 
     Map<String, DocumentEntityInfo> getDataDocumentEntityInfo(String dataDocumentId) {
@@ -641,17 +644,19 @@ class EntityDataFeed {
                             // if there aren't really any values for the document (a value updated that isn't really in
                             //    a document) then skip it, don't want to query with no constraints and get a huge document
                             if (!primaryPkFieldValues) {
-                                String errMsg = "Skipping feed for DataDocument [${dataDocumentId}], no primary PK values found in feed values"
-                                /*
-                                StringBuilder sb = new StringBuilder()
-                                sb.append(errMsg).append('\n')
-                                sb.append("Primary Entity: ").append(primaryEntityName).append(": ").append(primaryPkFieldNames).append('\n')
-                                sb.append("Feed Values:").append('\n')
-                                for (EntityValue ev in feedValues) {
-                                    sb.append('    ').append(ev).append('\n')
+                                if (logger.isTraceEnabled()) {
+                                    String errMsg = "Skipping feed for DataDocument [${dataDocumentId}], no primary PK values found in feed values"
+                                    /*
+                                    StringBuilder sb = new StringBuilder()
+                                    sb.append(errMsg).append('\n')
+                                    sb.append("Primary Entity: ").append(primaryEntityName).append(": ").append(primaryPkFieldNames).append('\n')
+                                    sb.append("Feed Values:").append('\n')
+                                    for (EntityValue ev in feedValues) {
+                                        sb.append('    ').append(ev).append('\n')
+                                    }
+                                    */
+                                    logger.trace(errMsg)
                                 }
-                                */
-                                if (logger.isTraceEnabled()) logger.trace(errMsg)
                                 continue
                             }
 

@@ -947,6 +947,8 @@ abstract class EntityValueBase implements EntityValue {
                     dbValueMap.put(name, curValue)
                 }
             }
+        } else {
+            modified = true
         }
         valueMap.put(name, value)
         return curValue
