@@ -127,6 +127,8 @@ Bug Fixes
   (inconsistent with previous behavior)
 - Fixed ElasticSearch automatic mappings where sub-object mappings always
   had just the first property
+- Fixed issues with Entity DataFeed where cached DataDocument mappings per
+  entity were not consistent and no feed was done for creates
 
 
 ===========================================================================
