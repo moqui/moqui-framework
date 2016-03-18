@@ -40,7 +40,7 @@ class EntityDataFeed {
     protected final EntityFacadeImpl efi
 
     protected final CacheImpl dataFeedEntityInfo
-    final Set<String> entitiesWithDataFeed = new HashSet<>()
+    Set<String> entitiesWithDataFeed = null
 
     EntityDataFeed(EntityFacadeImpl efi) {
         this.efi = efi
@@ -116,17 +116,8 @@ class EntityDataFeed {
         if (!ev.isModified()) return
         if (isUpdate && oldValues == null) return
 
-        String entityName = ev.getEntityName()
-
-        // see if this is a known entity in a feed
-        // NOTE: this avoids issues with false negatives from the cache or excessive rebuilds (for every entity the
-        //     first time) but means if an entity is added to a DataDocument at runtime it won't pick it up!!!!
-        // NOTE2: this could be cleared explicitly when a DataDocument is added or changed, but that is done through
-        //     direct DB stuff now (data load, etc), there is no UI or services for it
-        if (!entitiesWithDataFeed.contains(entityName)) return
-
         // see if this should be added to the feed
-        ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(entityName)
+        ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
         // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister entityInfoList size ${entityInfoList.size()}")
         if (entityInfoList.size() > 0) {
             // logger.warn("============== found registered entity [${ev.getEntityName()}] value: ${ev}")
@@ -191,6 +182,14 @@ class EntityDataFeed {
 
     // NOTE: this is called frequently (every create/update/delete)
     ArrayList<DocumentEntityInfo> getDataFeedEntityInfoList(String fullEntityName) {
+        // see if this is a known entity in a feed
+        // NOTE: this avoids issues with false negatives from the cache or excessive rebuilds (for every entity the
+        //     first time) but means if an entity is added to a DataDocument at runtime it won't pick it up!!!!
+        // NOTE2: this could be cleared explicitly when a DataDocument is added or changed, but that is done through
+        //     direct DB stuff now (data load, etc), there is no UI or services for it
+        if (entitiesWithDataFeed == null) rebuildDataFeedEntityInfo()
+        if (!entitiesWithDataFeed.contains(fullEntityName)) return emptyList
+
         Element cacheElement = dataFeedEntityInfo.getElement(fullEntityName)
         if (cacheElement != null) return (ArrayList<DocumentEntityInfo>) cacheElement.getObjectValue()
 
@@ -212,8 +211,10 @@ class EntityDataFeed {
         return emptyList
     }
 
-    synchronized void rebuildDataFeedEntityInfo() {
-        logger.info("Rebuilding entity.data.feed.info cache in tenant ${efi.tenantId}")
+    // this should never be called except through getDataFeedEntityInfoList()
+    protected synchronized void rebuildDataFeedEntityInfo() {
+        // logger.info("Building entity.data.feed.info cache in tenant ${efi.tenantId}")
+        long startTime = System.currentTimeMillis()
 
         // rebuild from the DB for this and other entities, ie have to do it for all DataFeeds and
         //     DataDocuments because we can't query it by entityName
@@ -241,8 +242,10 @@ class EntityDataFeed {
             }
         }
         Set<Serializable> cacheKeySet = dataFeedEntityInfo.keySet()
-        for (Serializable entityName in cacheKeySet) entitiesWithDataFeed.add(entityName.toString())
-        logger.info("After entity.data.feed.info cache rebuild have entries for ${entitiesWithDataFeed.size()} entities: ${entitiesWithDataFeed}")
+        Set<String> entityNameSet = new HashSet<>()
+        for (Serializable entityName in cacheKeySet) entityNameSet.add(entityName.toString())
+        entitiesWithDataFeed = entityNameSet
+        logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entitiesWithDataFeed.size()} entities: ${entitiesWithDataFeed}")
     }
 
     Map<String, DocumentEntityInfo> getDataDocumentEntityInfo(String dataDocumentId) {
