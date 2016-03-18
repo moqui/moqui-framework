@@ -244,8 +244,12 @@ class EntityDataFeed {
         Set<Serializable> cacheKeySet = dataFeedEntityInfo.keySet()
         Set<String> entityNameSet = new HashSet<>()
         for (Serializable entityName in cacheKeySet) entityNameSet.add(entityName.toString())
+        if (entitiesWithDataFeed == null) {
+            logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
+        } else {
+            logger.info("Rebuilt entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+        }
         entitiesWithDataFeed = entityNameSet
-        logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entitiesWithDataFeed.size()} entities: ${entitiesWithDataFeed}")
     }
 
     Map<String, DocumentEntityInfo> getDataDocumentEntityInfo(String dataDocumentId) {
