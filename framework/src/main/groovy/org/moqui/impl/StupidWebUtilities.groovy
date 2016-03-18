@@ -25,6 +25,7 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.apache.http.util.EntityUtils
+import org.owasp.validator.html.Policy
 
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpSession
@@ -46,6 +47,14 @@ class StupidWebUtilities {
 
     static final Encoder defaultWebEncoder = DefaultEncoder.getInstance()
     static final Validator defaultWebValidator = DefaultValidator.getInstance()
+
+    private static Policy antiSamyPolicy = null
+    public static Policy getAntiSamyPolicy() {
+        if (antiSamyPolicy != null) return antiSamyPolicy
+        ClassLoader cl = Thread.currentThread().getContextClassLoader()
+        antiSamyPolicy = Policy.getInstance(cl.getResourceAsStream("antisamy-esapi.xml"))
+        return antiSamyPolicy
+    }
 
     static final char tildeChar = '~' as char
     public static Map<String, Object> getPathInfoParameterMap(String pathInfoStr) {

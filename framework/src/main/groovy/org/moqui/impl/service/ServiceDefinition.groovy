@@ -31,7 +31,9 @@ import org.moqui.util.MNode
 import org.owasp.esapi.ValidationErrorList
 import org.owasp.esapi.errors.IntrusionException
 import org.owasp.esapi.errors.ValidationException
-
+import org.owasp.validator.html.AntiSamy
+import org.owasp.validator.html.CleanResults
+import org.owasp.validator.html.Policy
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -824,10 +826,9 @@ class ServiceDefinition {
         return true
     }
 
-    @CompileStatic
     protected Object canonicalizeAndCheckHtml(String parameterName, String parameterValue, boolean allowSafe,
                                               ExecutionContextImpl eci) {
-        Object value
+        String value
         try {
             value = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true)
         } catch (IntrusionException e) {
@@ -836,9 +837,16 @@ class ServiceDefinition {
         }
 
         if (allowSafe) {
+            /* Having trouble with ESAPI loading the antisamy-esapi.xml file, so using AntiSamy directly:
             ValidationErrorList vel = new ValidationErrorList()
             value = StupidWebUtilities.defaultWebValidator.getValidSafeHTML(parameterName, value, Integer.MAX_VALUE, true, vel)
-            for (ValidationException ve in vel.errors()) eci.message.addError(ve.message)
+            for (ValidationException ve in vel.errors()) eci.message.addValidationError(null, parameterName, getServiceName(), ve.message, null)
+            */
+            AntiSamy antiSamy = new AntiSamy()
+            CleanResults cr = antiSamy.scan(value, StupidWebUtilities.getAntiSamyPolicy())
+            List<String> crErrors = cr.getErrorMessages()
+            if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
+            value = cr.getCleanHTML()
         } else {
             // check for "<", ">"; this will protect against HTML/JavaScript injection
             if (value.contains("<") || value.contains(">")) {
