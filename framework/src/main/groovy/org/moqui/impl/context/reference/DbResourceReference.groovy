@@ -84,16 +84,17 @@ class DbResourceReference extends BaseResourceReference {
     @Override
     boolean supportsDirectory() { true }
     @Override
-    boolean isFile() { return getDbResource()?.isFile == "Y" }
+    boolean isFile() { return getDbResource(true)?.isFile == "Y" }
     @Override
     boolean isDirectory() {
         if (!getPath()) return true // consider root a directory
-        return getDbResource() != null && getDbResource().isFile != "Y"
+        EntityValue dbr = getDbResource(true)
+        return dbr != null && dbr.isFile != "Y"
     }
     @Override
     List<ResourceReference> getDirectoryEntries() {
         List<ResourceReference> dirEntries = new LinkedList()
-        EntityValue dbr = getDbResource()
+        EntityValue dbr = getDbResource(true)
         if (getPath() && dbr == null) return dirEntries
 
         // allow parentResourceId to be null for the root
@@ -109,13 +110,13 @@ class DbResourceReference extends BaseResourceReference {
     @Override
     boolean supportsExists() { true }
     @Override
-    boolean getExists() { return getDbResource() != null }
+    boolean getExists() { return getDbResource(true) != null }
 
     @Override
     boolean supportsLastModified() { true }
     @Override
     long getLastModified() {
-        EntityValue dbr = getDbResource()
+        EntityValue dbr = getDbResource(true)
         if (dbr == null) return 0
         if (dbr.isFile == "Y") {
             EntityValue dbrf = ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", resourceId)
@@ -198,13 +199,12 @@ class DbResourceReference extends BaseResourceReference {
 
     @Override
     void move(String newLocation) {
-        EntityValue dbr = getDbResource()
+        EntityValue dbr = getDbResource(false)
         // if the current resource doesn't exist, nothing to move
         if (!dbr) {
             logger.warn("Could not find dbresource at [${getPath()}]")
             return
         }
-
         if (!newLocation) throw new IllegalArgumentException("No location specified, not moving resource at ${getLocation()}")
         // ResourceReference newRr = ecf.resource.getLocationReference(newLocation)
         if (!newLocation.startsWith(locationPrefix))
@@ -235,7 +235,7 @@ class DbResourceReference extends BaseResourceReference {
     }
     @Override
     boolean delete() {
-        EntityValue dbr = getDbResource()
+        EntityValue dbr = getDbResource(false)
         if (dbr == null) return false
         if (dbr.isFile == "Y") {
             EntityValue dbrf = getDbResourceFile()
@@ -262,10 +262,10 @@ class DbResourceReference extends BaseResourceReference {
         return resourceId
     }
 
-    EntityValue getDbResource() {
+    EntityValue getDbResource(boolean useCache) {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
-        return ecf.entity.find("moqui.resource.DbResource").condition("resourceId", resourceId).useCache(true).one()
+        return ecf.entity.find("moqui.resource.DbResource").condition("resourceId", resourceId).useCache(useCache).one()
     }
     EntityValue getDbResourceFile() {
         String resourceId = getDbResourceId()

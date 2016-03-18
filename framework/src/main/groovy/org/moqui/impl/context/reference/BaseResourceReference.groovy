@@ -116,6 +116,7 @@ abstract class BaseResourceReference implements ResourceReference {
 
     @Override
     ResourceReference getChild(String childName) {
+        if (childName == null || childName.length() == 0) return null
         ResourceReference directoryRef = findMatchingDirectory()
         StringBuilder fileLoc = new StringBuilder(directoryRef.getLocation())
         if (fileLoc.charAt(fileLoc.length()-1) == (char) '/') fileLoc.deleteCharAt(fileLoc.length()-1)
