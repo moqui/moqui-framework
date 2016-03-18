@@ -129,6 +129,8 @@ Bug Fixes
   had just the first property
 - Fixed issues with Entity DataFeed where cached DataDocument mappings per
   entity were not consistent and no feed was done for creates
+- Fixed safe HTML service parameters (allow-html=safe), was issue loading
+  antisamy-esapi.xml though ESAPI so now using AntiSamy directly
 
 
 ===========================================================================
