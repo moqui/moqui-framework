@@ -211,7 +211,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="parentPath"/>
             <parameter name="pageName"/>
             <parameter name="wikiType" default-value="md"/>
-            <parameter name="pageText"/>
+            <parameter name="pageText" allow-html="safe"/>
         </in-parameters>
         <out-parameters><parameter name="pagePath"/></out-parameters>
         <actions>
