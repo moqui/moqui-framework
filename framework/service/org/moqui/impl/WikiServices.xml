@@ -209,7 +209,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="pagePath" default-value="${parentPath ? parentPath+'/' : ''}${pageName?:''}"/>
             <parameter name="parentPath"/>
-            <parameter name="pageName"/>
+            <parameter name="pageName" required="true"/>
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="safe"/>
         </in-parameters>
@@ -268,8 +268,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="pagePath" value="${parentPath ? parentPath+'/' : ''}${pageName?:''}"/>
                 
                 <!-- save the new pagePath on the WikiPage record -->
-                <set field="wikiPage.pagePath" from="pagePath"/>
-                <entity-update value-field="wikiPage"/>
+                <set field="wikiPageForUpdate" from="wikiPage.cloneValue()"/>
+                <set field="wikiPageForUpdate.pagePath" from="pagePath"/>
+                <entity-update value-field="wikiPageForUpdate"/>
             </if>
 
             <service-call name="create#moqui.resource.wiki.WikiPageHistory" in-map="wikiPageHistoryMap"/>
