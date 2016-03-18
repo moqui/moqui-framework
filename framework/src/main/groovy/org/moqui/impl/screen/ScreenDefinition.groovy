@@ -688,43 +688,45 @@ class ScreenDefinition {
                 loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
             }
 
-            ScreenUrlInfo screenUrlInfo = sri.getScreenUrlInfo()
-            ScreenUrlInfo.UrlInstance screenUrlInstance = sri.getScreenUrlInstance()
-            setAllParameters(screenUrlInfo.getExtraPathNameList(), ec)
-            // for alias transitions rendered in-request put the parameters in the context
-            if (screenUrlInstance.getTransitionAliasParameters()) ec.getContext().putAll(screenUrlInstance.getTransitionAliasParameters())
+            try {
+                ScreenUrlInfo screenUrlInfo = sri.getScreenUrlInfo()
+                ScreenUrlInfo.UrlInstance screenUrlInstance = sri.getScreenUrlInstance()
+                setAllParameters(screenUrlInfo.getExtraPathNameList(), ec)
+                // for alias transitions rendered in-request put the parameters in the context
+                if (screenUrlInstance.getTransitionAliasParameters()) ec.getContext().putAll(screenUrlInstance.getTransitionAliasParameters())
 
 
-            if (!checkCondition(ec)) {
-                sri.ec.message.addError("Condition failed for transition [${location}], not running actions or redirecting")
-                if (errorResponse) return errorResponse
-                return defaultResponse
+                if (!checkCondition(ec)) {
+                    sri.ec.message.addError("Condition failed for transition [${location}], not running actions or redirecting")
+                    if (errorResponse) return errorResponse
+                    return defaultResponse
+                }
+
+                // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
+                ec.getContext().put("sri", sri)
+                if (actions != null) actions.run(ec)
+
+                ResponseItem ri = null
+                // if there is an error-response and there are errors, we have a winner
+                if (ec.getMessage().hasError() && errorResponse) ri = errorResponse
+
+                // check all conditional-response, if condition then return that response
+                if (ri == null) for (ResponseItem condResp in conditionalResponseList) {
+                    if (condResp.checkCondition(ec)) ri = condResp
+                }
+                // no errors, no conditionals, return default
+                if (ri == null) ri = defaultResponse
+
+                return ri
+            } finally {
+                // don't pop the context until after evaluating conditions so that data set in the actions can be used
+                // don't pop the context at all, see note above about push: sri.ec.context.pop()
+
+                // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally
+                // clause because if there is an error this will help us know how we got there
+                ec.getArtifactExecution().pop(aei)
+                if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
             }
-
-            // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
-            ec.getContext().put("sri", sri)
-            if (actions != null) actions.run(ec)
-
-            ResponseItem ri = null
-            // if there is an error-response and there are errors, we have a winner
-            if (ec.getMessage().hasError() && errorResponse) ri = errorResponse
-
-            // check all conditional-response, if condition then return that response
-            if (ri == null) for (ResponseItem condResp in conditionalResponseList) {
-                if (condResp.checkCondition(ec)) ri = condResp
-            }
-            // no errors, no conditionals, return default
-            if (ri == null) ri = defaultResponse
-
-            // don't pop the context until after evaluating conditions so that data set in the actions can be used
-            // don't pop the context at all, see note above about push: sri.ec.context.pop()
-
-            // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally
-            // clause because if there is an error this will help us know how we got there
-            ec.getArtifactExecution().pop(aei)
-            if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
-
-            return ri
         }
     }
 
