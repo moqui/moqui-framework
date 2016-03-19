@@ -318,9 +318,7 @@ class ServiceDefinition {
             Object converted = checkConvertType(parameterNode, namePrefix, parameterName, parameterValue, rootParameters, eci)
             if (converted != null) {
                 parameterValue = converted
-                // put the final parameterValue back into the parameters Map
-                parameters.put(parameterName, parameterValue)
-            } else if (parameterValue) {
+            } else if (!StupidJavaUtilities.isEmpty(parameterValue)) {
                 // no type conversion? error time...
                 if (validate) eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field was type [${parameterValue?.class?.name}], expecting type [${type}]", null)
                 continue
@@ -328,12 +326,14 @@ class ServiceDefinition {
             if (converted == null && parameterValue != null && StupidJavaUtilities.isEmpty(parameterValue) && !StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
                 // we have an empty value of a different type, just set it to null
                 parameterValue = null
-                // put the final parameterValue back into the parameters Map
-                parameters.put(parameterName, parameterValue)
             }
 
-            if (validate && parameterNode.hasChild("subtype")) checkSubtype(parameterName, parameterNode, parameterValue, eci)
-            if (validate) validateParameterHtml(parameterNode, namePrefix, parameterName, parameterValue, eci)
+            if (validate && parameterValue != null && parameterNode.hasChild("subtype")) checkSubtype(parameterName, parameterNode, parameterValue, eci)
+            if (validate && parameterValue != null)
+                parameterValue = validateParameterHtml(parameterNode, namePrefix, parameterName, parameterValue, eci)
+
+            // put the final parameterValue back into the parameters Map
+            parameters.put(parameterName, parameterValue)
 
             // do this after the convert so defaults are in place
             // check if required and empty - use groovy non-empty rules for String only
@@ -378,11 +378,11 @@ class ServiceDefinition {
             // NOTE: required check is done later, now just validating the parameters seen
             // NOTE: no type conversion for Node attributes, they are always String
 
-            if (validate) validateParameterHtml(parameterNode, namePrefix, parameterName, parameterValue, eci)
-
             // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
             Object converted = checkConvertType(parameterNode, namePrefix, parameterName, parameterValue, rootParameters, eci)
+            if (validate && converted != null) validateParameterHtml(parameterNode, namePrefix, parameterName, converted, eci)
             if (validate) validateParameter(parameterNode, parameterName, converted, eci)
+
 
             // NOTE: no sub-nodes here, it's an attribute, so ignore child parameter elements
         }
@@ -563,7 +563,7 @@ class ServiceDefinition {
         return parameterValue
     }
 
-    protected void validateParameterHtml(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
+    protected Object validateParameterHtml(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
                                          ExecutionContextImpl eci) {
         // check for none/safe/any HTML
         boolean isString = parameterValue instanceof CharSequence
@@ -572,19 +572,23 @@ class ServiceDefinition {
             boolean allowSafe = (allowHtml == "safe")
 
             if (isString) {
-                canonicalizeAndCheckHtml(parameterName, parameterValue.toString(), allowSafe, eci)
+                return canonicalizeAndCheckHtml(parameterName, parameterValue.toString(), allowSafe, eci)
             } else {
                 List lst = parameterValue as List
-                List lstClone = new ArrayList(lst)
-                lst.clear()
-                for (Object obj in lstClone) {
+                ArrayList lstClone = new ArrayList(lst)
+                int lstSize = lstClone.size()
+                for (int i = 0; i < lstSize; i++) {
+                    Object obj = lstClone.get(i)
                     if (obj instanceof CharSequence) {
-                        lst.add(canonicalizeAndCheckHtml(parameterName, obj.toString(), allowSafe, eci))
+                        lstClone.set(i, canonicalizeAndCheckHtml(parameterName, obj.toString(), allowSafe, eci))
                     } else {
-                        lst.add(obj)
+                        lstClone.set(i, obj)
                     }
                 }
+                return lstClone
             }
+        } else {
+            return parameterValue
         }
     }
 
@@ -802,7 +806,7 @@ class ServiceDefinition {
         return true
     }
 
-    protected Object canonicalizeAndCheckHtml(String parameterName, String parameterValue, boolean allowSafe,
+    protected String canonicalizeAndCheckHtml(String parameterName, String parameterValue, boolean allowSafe,
                                               ExecutionContextImpl eci) {
         String value
         try {
@@ -821,7 +825,9 @@ class ServiceDefinition {
             AntiSamy antiSamy = new AntiSamy()
             CleanResults cr = antiSamy.scan(value, StupidWebUtilities.getAntiSamyPolicy())
             List<String> crErrors = cr.getErrorMessages()
-            if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
+            // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
+            // use message instead of error, accept cleaned up HTML
+            if (crErrors != null) for (String crError in crErrors) eci.message.addMessage(crError)
             value = cr.getCleanHTML()
         } else {
             // check for "<", ">"; this will protect against HTML/JavaScript injection
