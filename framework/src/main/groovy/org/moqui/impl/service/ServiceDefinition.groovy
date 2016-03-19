@@ -216,32 +216,20 @@ class ServiceDefinition {
         return baseParameterNode
     }
 
-    @CompileStatic
     MNode getServiceNode() { return serviceNode }
 
-    @CompileStatic
     String getServiceName() { return (path ? path + "." : "") + verb + (noun ? "#" + noun : "") }
-    @CompileStatic
     String getPath() { return path }
-    @CompileStatic
     String getVerb() { return verb }
-    @CompileStatic
     String getNoun() { return noun }
 
-    @CompileStatic
     String getAuthenticate() { return internalAuthenticate }
-    @CompileStatic
     String getServiceType() { return internalServiceType }
-    @CompileStatic
     boolean getTxIgnore() { return internalTxIgnore }
-    @CompileStatic
     boolean getTxForceNew() { return internalTxForceNew }
-    @CompileStatic
     boolean getTxUseCache() { return internalTxUseCache }
-    @CompileStatic
     Integer getTxTimeout() { return internalTransactionTimeout }
 
-    @CompileStatic
     static String getPathFromName(String serviceName) {
         String p = serviceName
         // do hash first since a noun following hash may have dots in it
@@ -249,7 +237,6 @@ class ServiceDefinition {
         if (!p.contains(".")) return null
         return p.substring(0, p.lastIndexOf("."))
     }
-    @CompileStatic
     static String getVerbFromName(String serviceName) {
         String v = serviceName
         // do hash first since a noun following hash may have dots in it
@@ -257,7 +244,6 @@ class ServiceDefinition {
         if (v.contains(".")) v = v.substring(v.lastIndexOf(".") + 1)
         return v
     }
-    @CompileStatic
     static String getNounFromName(String serviceName) {
         if (!serviceName.contains("#")) return null
         return serviceName.substring(serviceName.lastIndexOf("#") + 1)
@@ -265,7 +251,6 @@ class ServiceDefinition {
 
     static final Map<String, String> verbAuthzActionIdMap = [create:'AUTHZA_CREATE', update:'AUTHZA_UPDATE',
             store:'AUTHZA_UPDATE', delete:'AUTHZA_DELETE', view:'AUTHZA_VIEW', find:'AUTHZA_VIEW']
-    @CompileStatic
     static String getVerbAuthzActionId(String theVerb) {
         // default to require the "All" authz action, and for special verbs default to something more appropriate
         String authzAction = verbAuthzActionIdMap.get(theVerb)
@@ -273,15 +258,12 @@ class ServiceDefinition {
         return authzAction
     }
 
-    @CompileStatic
     String getLocation() {
         // TODO: see if the location is an alias from the conf -> service-facade
         return serviceNode.attribute('location')
     }
-    @CompileStatic
     String getMethod() { return serviceNode.attribute('method') }
 
-    @CompileStatic
     XmlAction getXmlAction() { return xmlAction }
 
     MNode getInParameter(String name) { return inParametersNode != null ? inParametersNode.children("parameter").find({ it.attribute("name") == name }) : null }
@@ -300,13 +282,11 @@ class ServiceDefinition {
         return outNames
     }
 
-    @CompileStatic
     void convertValidateCleanParameters(Map<String, Object> parameters, ExecutionContextImpl eci) {
         // even if validate is false still apply defaults, convert defined params, etc
         checkParameterMap("", parameters, parameters, inParametersNode, serviceNode.attribute('validate') != "false", eci)
     }
 
-    @CompileStatic
     protected void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map parameters,
                                      MNode parametersParentNode, boolean validate, ExecutionContextImpl eci) {
         Map<String, MNode> parameterNodeMap = new HashMap<String, MNode>()
@@ -323,7 +303,7 @@ class ServiceDefinition {
             if (!parameterNodeMap.containsKey(parameterName)) {
                 if (validate) {
                     parameters.remove(parameterName)
-                    if (logger.traceEnabled && parameterName != "ec")
+                    if (logger.isTraceEnabled() && parameterName != "ec")
                         logger.trace("Parameter [${namePrefix}${parameterName}] was passed to service [${getServiceName()}] but is not defined as an in parameter, removing from parameters.")
                 }
                 // even if we are not validating, ie letting extra parameters fall through in this case, we don't want to do the type convert or anything
@@ -332,7 +312,7 @@ class ServiceDefinition {
 
             MNode parameterNode = parameterNodeMap.get(parameterName)
             Object parameterValue = parameters.get(parameterName)
-            String type = (String) parameterNode.attribute('type') ?: "String"
+            String type = parameterNode.attribute('type') ?: "String"
 
             // check type
             Object converted = checkConvertType(parameterNode, namePrefix, parameterName, parameterValue, rootParameters, eci)
@@ -345,7 +325,7 @@ class ServiceDefinition {
                 if (validate) eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field was type [${parameterValue?.class?.name}], expecting type [${type}]", null)
                 continue
             }
-            if (converted == null && !parameterValue && parameterValue != null && !StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
+            if (converted == null && parameterValue != null && StupidJavaUtilities.isEmpty(parameterValue) && !StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
                 // we have an empty value of a different type, just set it to null
                 parameterValue = null
                 // put the final parameterValue back into the parameters Map
@@ -477,7 +457,6 @@ class ServiceDefinition {
         }
     }
 
-    @CompileStatic
     protected Object checkConvertType(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
                                       Map<String, Object> rootParameters, ExecutionContextImpl eci) {
         // set the default if applicable
@@ -584,7 +563,6 @@ class ServiceDefinition {
         return parameterValue
     }
 
-    @CompileStatic
     protected void validateParameterHtml(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
                                          ExecutionContextImpl eci) {
         // check for none/safe/any HTML
@@ -610,7 +588,6 @@ class ServiceDefinition {
         }
     }
 
-    @CompileStatic
     protected boolean validateParameter(MNode vpNode, String parameterName, Object pv, ExecutionContextImpl eci) {
         // run through validations under parameter node
 
@@ -631,7 +608,6 @@ class ServiceDefinition {
         return allPass
     }
 
-    @CompileStatic
     protected boolean validateParameterSingle(MNode valNode, String parameterName, Object pv, ExecutionContextImpl eci) {
         switch (valNode.name) {
         case "val-or":
@@ -976,7 +952,6 @@ class ServiceDefinition {
     }
     */
 
-    @CompileStatic
     Map<String, Object> getJsonSchemaMapIn() {
         // add a definition for service in parameters
         List<String> requiredParms = []
@@ -990,7 +965,6 @@ class ServiceDefinition {
         if (requiredParms) defMap.put("required", requiredParms)
         return defMap
     }
-    @CompileStatic
     Map<String, Object> getJsonSchemaMapOut() {
         List<String> requiredParms = []
         Map<String, Object> properties = [:]
@@ -1003,7 +977,6 @@ class ServiceDefinition {
         if (requiredParms) defMap.put("required", requiredParms)
         return defMap
     }
-    @CompileStatic
     protected Map<String, Object> getJsonSchemaPropMap(MNode parmNode) {
         String objectType = (String) parmNode?.attribute('type')
         String jsonType = RestApi.getJsonType(objectType)
@@ -1053,7 +1026,6 @@ class ServiceDefinition {
         }
     }
 
-    @CompileStatic
     Map<String, Object> getRamlMapIn() {
         Map<String, Object> properties = [:]
         Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
@@ -1063,7 +1035,6 @@ class ServiceDefinition {
         }
         return defMap
     }
-    @CompileStatic
     Map<String, Object> getRamlMapOut() {
         Map<String, Object> properties = [:]
         Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
@@ -1073,7 +1044,6 @@ class ServiceDefinition {
         }
         return defMap
     }
-    @CompileStatic
     protected static Map<String, Object> getRamlPropMap(MNode parmNode) {
         String objectType = parmNode?.attribute('type')
         String ramlType = RestApi.getRamlType(objectType)
