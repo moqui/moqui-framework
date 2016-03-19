@@ -40,7 +40,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="pagePath"/><!-- not required because for root page will be empty -->
-            <parameter name="createIfMissing" type="Boolean" default-value="false"/>
+            <parameter name="createIfMissing" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiPageId"/>
@@ -59,17 +59,16 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find-one>
             -->
 
-            <if condition="!wikiPage &amp;&amp; createIfMissing">
+            <!-- <log message="===== get#WikiPageId createIfMissing=${createIfMissing}, wikiSpaceId=${wikiSpaceId}, pagePath=${pagePath}, wikiPage: ${wikiPage}"/> -->
+            <if condition="!wikiPage &amp;&amp; createIfMissing"><then>
                 <!-- no WikiPage record, create one for this page -->
                 <service-call name="create#moqui.resource.wiki.WikiPage" out-map="context"
                         in-map="[wikiSpaceId:wikiSpaceId, pagePath:(pagePath ?: null), createdByUserId:ec.user.userId]"/>
                 <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" cache="false"/>
                 <set field="createdRecord" from="true"/>
-
-                <else>
-                    <set field="createdRecord" from="false"/>
-                </else>
-            </if>
+            </then><else>
+                <set field="createdRecord" from="false"/>
+            </else></if>
             <set field="wikiPageId" from="wikiPage?.wikiPageId"/>
         </actions>
     </service>
@@ -217,6 +216,8 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
             <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context + [createIfMissing:true]" out-map="context"/>
+
+            <if condition="wikiPage == null"><return error="true" message="Wiki Page [${wikiSpaceId}/${pagePath}] does not exist and could not be created"/></if>
 
             <!-- check restrictUpdate for space and page -->
             <if condition="wikiSpace.restrictUpdate == 'Y'">
