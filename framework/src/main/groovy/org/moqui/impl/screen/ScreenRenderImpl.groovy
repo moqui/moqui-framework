@@ -1049,9 +1049,9 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     String renderText(String location, String isTemplateStr) {
-        boolean isTemplate = (isTemplateStr != "false")
+        boolean isTemplate = !"false".equals(isTemplateStr)
 
-        if (!location || location == "null") {
+        if (location == null || location.length() == 0 || "null".equals(location)) {
             logger.warn("Not rendering text in screen [${getActiveScreenDef().location}], location was empty")
             return ""
         }

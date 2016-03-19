@@ -247,11 +247,23 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     String getLocationText(String location, boolean cache) {
+        ResourceReference textRr = getLocationReference(location)
+        if (textRr == null) {
+            logger.info("Cound not get resource reference for location [${location}], returning empty location text String")
+            return ""
+        }
         if (cache) {
             Element textElement = textLocationCache.getElement(location)
-            if (textElement != null && !textElement.isExpired()) return (String) textElement.getObjectValue()
+            if (textElement != null) {
+                long currentTime = textRr.getLastModified()
+                if (textElement.isExpired() || textElement.getLastUpdateTime() < currentTime) {
+                    textLocationCache.removeElement(textElement)
+                } else {
+                    return (String) textElement.getObjectValue()
+                }
+            }
         }
-        InputStream locStream = getLocationStream(location)
+        InputStream locStream = textRr.openStream()
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
         String text = StupidUtilities.getStreamText(locStream)
         if (cache) textLocationCache.put(location, text)
