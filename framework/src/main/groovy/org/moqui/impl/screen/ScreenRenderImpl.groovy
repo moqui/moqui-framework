@@ -327,22 +327,23 @@ class ScreenRenderImpl implements ScreenRender {
             long transitionStartTime = System.currentTimeMillis()
             long startTimeNanos = System.nanoTime()
 
+            TransactionFacade transactionFacade = sfi.getEcfi().getTransactionFacade()
             boolean beginTransaction = targetTransition.getBeginTransaction()
-            boolean beganTransaction = beginTransaction ? sfi.getEcfi().getTransactionFacade().begin(null) : false
+            boolean beganTransaction = beginTransaction ? transactionFacade.begin(null) : false
             ResponseItem ri = null
             try {
                 boolean runPreActions = targetTransition instanceof ScreenDefinition.ActionsTransitionItem
                 ri = recursiveRunTransition(screenUrlInfo.screenPathDefList.iterator(), runPreActions)
             } catch (Throwable t) {
-                sfi.ecfi.transactionFacade.rollback(beganTransaction, "Error running transition in [${screenUrlInstance.url}]", t)
+                transactionFacade.rollback(beganTransaction, "Error running transition in [${screenUrlInstance.url}]", t)
                 throw t
             } finally {
                 try {
-                    if (sfi.ecfi.transactionFacade.isTransactionInPlace()) {
+                    if (transactionFacade.isTransactionInPlace()) {
                         if (ec.getMessage().hasError()) {
-                            sfi.ecfi.transactionFacade.rollback(beganTransaction, ec.getMessage().getErrorsString(), null)
+                            transactionFacade.rollback(beganTransaction, ec.getMessage().getErrorsString(), null)
                         } else {
-                            sfi.ecfi.transactionFacade.commit(beganTransaction)
+                            transactionFacade.commit(beganTransaction)
                         }
                     }
                 } catch (Exception e) {
@@ -425,6 +426,7 @@ class ScreenRenderImpl implements ScreenRender {
                         fullUrl += ps.toString()
                     }
                     // NOTE: even if transition extension is json still send redirect when we just have a plain url
+                    logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to plain URL: ${fullUrl}")
                     response.sendRedirect(fullUrl)
                 } else {
                     // default is screen-path
@@ -478,7 +480,7 @@ class ScreenRenderImpl implements ScreenRender {
                         web.sendJsonResponse(responseMap)
                     } else {
                         String fullUrlString = fullUrl.getUrlWithParams()
-                        logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to ${fullUrlString}")
+                        logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
                     }
                 }
