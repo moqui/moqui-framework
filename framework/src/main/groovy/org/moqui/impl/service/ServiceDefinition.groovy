@@ -318,6 +318,8 @@ class ServiceDefinition {
             Object converted = checkConvertType(parameterNode, namePrefix, parameterName, parameterValue, rootParameters, eci)
             if (converted != null) {
                 parameterValue = converted
+                // put the final parameterValue back into the parameters Map
+                parameters.put(parameterName, parameterValue)
             } else if (!StupidJavaUtilities.isEmpty(parameterValue)) {
                 // no type conversion? error time...
                 if (validate) eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field was type [${parameterValue?.class?.name}], expecting type [${type}]", null)
@@ -326,14 +328,16 @@ class ServiceDefinition {
             if (converted == null && parameterValue != null && StupidJavaUtilities.isEmpty(parameterValue) && !StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
                 // we have an empty value of a different type, just set it to null
                 parameterValue = null
+                // put the final parameterValue back into the parameters Map
+                parameters.put(parameterName, parameterValue)
             }
 
             if (validate && parameterValue != null && parameterNode.hasChild("subtype")) checkSubtype(parameterName, parameterNode, parameterValue, eci)
-            if (validate && parameterValue != null)
+            if (validate && parameterValue != null) {
                 parameterValue = validateParameterHtml(parameterNode, namePrefix, parameterName, parameterValue, eci)
-
-            // put the final parameterValue back into the parameters Map
-            parameters.put(parameterName, parameterValue)
+                // put the final parameterValue back into the parameters Map
+                parameters.put(parameterName, parameterValue)
+            }
 
             // do this after the convert so defaults are in place
             // check if required and empty - use groovy non-empty rules for String only
@@ -461,20 +465,22 @@ class ServiceDefinition {
                                       Map<String, Object> rootParameters, ExecutionContextImpl eci) {
         // set the default if applicable
         boolean parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
-        String defaultStr = parameterNode.attribute('default')
-        if (parameterIsEmpty && defaultStr) {
-            eci.context.push(rootParameters)
-            parameterValue = eci.getResource().expression(defaultStr, "${this.location}_${parameterName}_default")
-            // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default [${parameterNode.'@default'}] and context: ${eci.context}")
-            eci.context.pop()
-        }
-        // set the default-value if applicable
-        String defaultValueStr = parameterNode.attribute('default-value')
-        if (parameterIsEmpty && defaultValueStr) {
-            eci.context.push(rootParameters)
-            parameterValue = eci.getResource().expand(defaultValueStr, "${this.location}_${parameterName}_default_value")
-            // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default-value [${parameterNode.'@default-value'}] and context: ${eci.context}")
-            eci.context.pop()
+        if (parameterIsEmpty) {
+            String defaultStr = parameterNode.attribute('default')
+            if (defaultStr != null && defaultStr.length() > 0) {
+                eci.context.push(rootParameters)
+                parameterValue = eci.getResource().expression(defaultStr, "${this.location}_${parameterName}_default")
+                // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default [${parameterNode.'@default'}] and context: ${eci.context}")
+                eci.context.pop()
+            }
+            // set the default-value if applicable
+            String defaultValueStr = parameterNode.attribute('default-value')
+            if (defaultValueStr != null && defaultValueStr.length() > 0) {
+                eci.context.push(rootParameters)
+                parameterValue = eci.getResource().expand(defaultValueStr, "${this.location}_${parameterName}_default_value")
+                // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default-value [${parameterNode.'@default-value'}] and context: ${eci.context}")
+                eci.context.pop()
+            }
         }
 
         // if null value, don't try to convert
