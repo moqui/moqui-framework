@@ -829,14 +829,15 @@ class ServiceDefinition {
             for (ValidationException ve in vel.errors()) eci.message.addValidationError(null, parameterName, getServiceName(), ve.message, null)
             */
             AntiSamy antiSamy = new AntiSamy()
-            CleanResults cr = antiSamy.scan(parameterValue, StupidWebUtilities.getAntiSamyPolicy())
+            CleanResults cr = antiSamy.scan(canValue, StupidWebUtilities.getAntiSamyPolicy())
             List<String> crErrors = cr.getErrorMessages()
             // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
             // use message instead of error, accept cleaned up HTML
             if (crErrors != null && crErrors.size() > 0) {
                 for (String crError in crErrors) eci.message.addMessage(crError)
                 logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}")
-                return cr.getCleanHTML()
+                // the cleaned HTML ends up with line-endings stripped, very ugly, so put new lines between all tags
+                return cr.getCleanHTML().replaceAll(">\\s*<", ">\n<")
             } else {
                 return parameterValue
             }
