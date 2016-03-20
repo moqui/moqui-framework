@@ -32,9 +32,7 @@ import org.moqui.impl.webapp.ScreenResourceNotFoundException
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.service.ServiceDefinition
-import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
-import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
