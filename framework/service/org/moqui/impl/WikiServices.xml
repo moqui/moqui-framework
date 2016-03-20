@@ -255,11 +255,11 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="pageName &amp;&amp; (origParentPath != parentPath || origPageName != pageName)">
                 <!-- move the page file -->
                 <set field="rootPageDirRef" from="rootPageRef.findMatchingDirectory()"/>
-                <set field="newPageLocation" value="${rootPageDirRef.location}/${parentPath}/${pageName}.${wikiType}"/>
+                <set field="newPageLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}.${wikiType}"/>
                 <script>pageReference.move(newPageLocation)</script>
                 <!-- move the page's corresponding directory -->
                 <set field="pageDirReference" from="pageReference.findMatchingDirectory()"/>
-                <set field="newPageDirLocation" value="${rootPageDirRef.location}/${parentPath}/${pageName}"/>
+                <set field="newPageDirLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}"/>
                 <script>pageDirReference.move(newPageDirLocation)</script>
 
                 <!-- save the old path in the WikiPageHistory (before the pagePath is set to the new path) -->
