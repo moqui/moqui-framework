@@ -814,9 +814,9 @@ class ServiceDefinition {
 
     protected String canonicalizeAndCheckHtml(String parameterName, String parameterValue, boolean allowSafe,
                                               ExecutionContextImpl eci) {
-        String value
+        String canValue
         try {
-            value = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true)
+            canValue = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true)
         } catch (IntrusionException e) {
             eci.message.addValidationError(null, parameterName, getServiceName(), "Found character escaping (mixed or double) that is not allowed or other format consistency error: " + e.toString(), null)
             return parameterValue
@@ -829,20 +829,24 @@ class ServiceDefinition {
             for (ValidationException ve in vel.errors()) eci.message.addValidationError(null, parameterName, getServiceName(), ve.message, null)
             */
             AntiSamy antiSamy = new AntiSamy()
-            CleanResults cr = antiSamy.scan(value, StupidWebUtilities.getAntiSamyPolicy())
+            CleanResults cr = antiSamy.scan(parameterValue, StupidWebUtilities.getAntiSamyPolicy())
             List<String> crErrors = cr.getErrorMessages()
             // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
             // use message instead of error, accept cleaned up HTML
-            if (crErrors != null) for (String crError in crErrors) eci.message.addMessage(crError)
-            value = cr.getCleanHTML()
+            if (crErrors != null && crErrors.size() > 0) {
+                for (String crError in crErrors) eci.message.addMessage(crError)
+                logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}")
+                return cr.getCleanHTML()
+            } else {
+                return parameterValue
+            }
         } else {
             // check for "<", ">"; this will protect against HTML/JavaScript injection
-            if (value.contains("<") || value.contains(">")) {
+            if (canValue.contains("<") || canValue.contains(">")) {
                 eci.message.addValidationError(null, parameterName, getServiceName(), "Less-than (<) and greater-than (>) symbols are not allowed.", null)
             }
+            return parameterValue
         }
-
-        return value
     }
 
     protected void checkSubtype(String parameterName, MNode typeParentNode, Object value, ExecutionContextImpl eci) {
