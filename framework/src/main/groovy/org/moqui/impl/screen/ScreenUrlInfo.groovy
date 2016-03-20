@@ -282,7 +282,7 @@ class ScreenUrlInfo {
             int listSize = fullPathNameList.size()
             for (int i = 0; i < listSize; i++) {
                 String pathName = fullPathNameList.get(i)
-                urlBuilder.append('/').append(pathName)
+                urlBuilder.append('/').append(urlCodec.encode(pathName))
             }
         }
         return urlBuilder.toString()
@@ -613,11 +613,11 @@ class ScreenUrlInfo {
         int indexOfQuestionMark = screenPath.indexOf("?")
         if (indexOfQuestionMark > 0) {
             String pathParmString = screenPath.substring(indexOfQuestionMark + 1)
-            if (inlineParameters != null && pathParmString) {
+            if (inlineParameters != null && pathParmString.length() > 0) {
                 List<String> nameValuePairs = pathParmString.replaceAll("&amp;", "&").split("&") as List
                 for (String nameValuePair in nameValuePairs) {
                     String[] nameValue = nameValuePair.substring(0).split("=")
-                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], nameValue[1])
+                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], urlCodec.decode(nameValue[1]))
                 }
             }
             screenPath = screenPath.substring(0, indexOfQuestionMark)
@@ -675,11 +675,11 @@ class ScreenUrlInfo {
             if (pathName.startsWith("~")) {
                 if (inlineParameters != null) {
                     String[] nameValue = pathName.substring(1).split("=")
-                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], nameValue[1])
+                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], urlCodec.decode(nameValue[1]))
                 }
                 continue
             }
-            cleanList.add(pathName)
+            cleanList.add(urlCodec.decode(pathName))
         }
         return cleanList
     }

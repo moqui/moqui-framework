@@ -837,7 +837,7 @@ class ServiceDefinition {
                 for (String crError in crErrors) eci.message.addMessage(crError)
                 logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}")
                 // the cleaned HTML ends up with line-endings stripped, very ugly, so put new lines between all tags
-                return cr.getCleanHTML().replaceAll(">\\s*<", ">\n<")
+                return cr.getCleanHTML().replaceAll(">\\s+<", ">\n<")
             } else {
                 return parameterValue
             }
