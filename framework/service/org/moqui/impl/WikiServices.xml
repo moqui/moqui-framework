@@ -212,7 +212,10 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="safe"/>
         </in-parameters>
-        <out-parameters><parameter name="pagePath"/></out-parameters>
+        <out-parameters>
+            <parameter name="pagePath"/>
+            <parameter name="encodedPagePath"/>
+        </out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
             <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context + [createIfMissing:true]" out-map="context"/>
@@ -249,8 +252,8 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="wikiPageHistoryMap" from="[wikiPageId:wikiPageId, userId:ec.user.userId, changeDateTime:ec.user.nowTimestamp]"/>
 
             <!-- move the page if applicable -->
-            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.indexOf('/')) : ''"/>
-            <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.indexOf('/')+1) : pagePath"/>
+            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : ''"/>
+            <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.lastIndexOf('/')+1) : pagePath"/>
             <!-- TODO: support change of wikiType too -->
             <if condition="pageName &amp;&amp; (origParentPath != parentPath || origPageName != pageName)">
                 <!-- move the page file -->
@@ -275,6 +278,17 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <service-call name="create#moqui.resource.wiki.WikiPageHistory" in-map="wikiPageHistoryMap"/>
+
+            <script>
+                List pathElementList = pagePath.split('/') as List
+                StringBuffer encodedPagePathSb = new StringBuffer()
+                def urlCodec = new org.apache.commons.codec.net.URLCodec()
+                for (String pathElement in pathElementList) {
+                    if (encodedPagePathSb.length() > 0) encodedPagePathSb.append("/")
+                    encodedPagePathSb.append(urlCodec.encode(pathElement))
+                }
+                encodedPagePath = encodedPagePathSb.toString()
+            </script>
         </actions>
     </service>
 
