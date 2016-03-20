@@ -178,6 +178,8 @@ class DbResourceReference extends BaseResourceReference {
         String parentResourceId = null
         if (pathList) {
             for (String filename in pathList) {
+                if (filename == null || filename.length() == 0) continue
+
                 EntityValue directoryValue = ecf.entity.find("moqui.resource.DbResource")
                         .condition("parentResourceId", parentResourceId).condition("filename", filename)
                         .useCache(true).list().getFirst()
