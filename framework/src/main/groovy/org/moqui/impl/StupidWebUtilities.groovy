@@ -25,16 +25,15 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.apache.http.util.EntityUtils
+import org.owasp.esapi.ESAPI
 import org.owasp.validator.html.Policy
 
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpSession
 import javax.servlet.ServletContext
 
-import org.owasp.esapi.reference.DefaultEncoder
 import org.owasp.esapi.Encoder
 import org.owasp.esapi.Validator
-import org.owasp.esapi.reference.DefaultValidator
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -45,8 +44,8 @@ import java.nio.charset.Charset
 class StupidWebUtilities {
     protected final static Logger logger = LoggerFactory.getLogger(StupidUtilities.class)
 
-    static final Encoder defaultWebEncoder = DefaultEncoder.getInstance()
-    static final Validator defaultWebValidator = DefaultValidator.getInstance()
+    static final Encoder defaultWebEncoder = ESAPI.encoder()
+    static final Validator defaultWebValidator = ESAPI.validator()
 
     private static Policy antiSamyPolicy = null
     public static Policy getAntiSamyPolicy() {
