@@ -64,6 +64,7 @@ New Features
 - Service parameters with allow-html=safe are now accepted even with
   filtered elements and attributes, non-error messages are generated and
   the clean HTML from AntiSamy is used
+- Now using PegDown for Markdown processing instead of Markdown4J
 - Multi Tenant
   - Entity find and CrUD operations for entities in the tenantcommon group
     are restricted to the DEFAULT instance, protects REST API and so on
