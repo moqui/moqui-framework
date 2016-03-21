@@ -206,9 +206,10 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="update" noun="WikiPage">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
-            <parameter name="pagePath" default-value="${parentPath ? parentPath+'/' : ''}${pageName?:''}"/>
+            <parameter name="pagePath"><description>Defaults to parentPath/pageName (both may be empty, resulting in empty pagePath)</description></parameter>
             <parameter name="parentPath"/>
-            <parameter name="pageName" required="true"/>
+            <parameter name="pageName" required="true">
+                <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description></parameter>
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="safe"/>
         </in-parameters>
@@ -217,6 +218,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="encodedPagePath"/>
         </out-parameters>
         <actions>
+            <if condition="pageName == wikiSpaceId"><set field="pageName" from="null"/></if>
+            <if condition="!pagePath"><set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
+
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
             <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context + [createIfMissing:true]" out-map="context"/>
 
