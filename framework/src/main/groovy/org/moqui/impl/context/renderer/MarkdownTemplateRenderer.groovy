@@ -13,12 +13,14 @@
  */
 package org.moqui.impl.context.renderer
 
-import org.markdown4j.Markdown4jProcessor
+// import org.markdown4j.Markdown4jProcessor
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.pegdown.Extensions
+import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -50,11 +52,16 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
             return
         }
 
-        Markdown4jProcessor markdown4jProcessor = new Markdown4jProcessor()
         //ScreenRenderImpl sri = (ScreenRenderImpl) ecfi.getExecutionContext().getContext().get("sri")
         // how to set base URL? if (sri != null) builder.setBase(sri.getBaseLinkUri())
 
+        /*
+        Markdown4jProcessor markdown4jProcessor = new Markdown4jProcessor()
         mdText = markdown4jProcessor.process(sourceText)
+        */
+
+        PegDownProcessor pdp = new PegDownProcessor(Extensions.ALL_WITH_OPTIONALS)
+        mdText = pdp.markdownToHtml(sourceText)
 
         if (mdText) {
             templateMarkdownLocationCache.put(location, mdText)

@@ -14,12 +14,14 @@
 package org.moqui.impl.context.renderer
 
 import freemarker.template.Template
-import org.markdown4j.Markdown4jProcessor
+// import org.markdown4j.Markdown4jProcessor
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.pegdown.Extensions
+import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -52,11 +54,15 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
 
         Template newTemplate
         try {
-            Markdown4jProcessor markdown4jProcessor = new Markdown4jProcessor()
             //ScreenRenderImpl sri = (ScreenRenderImpl) ecfi.getExecutionContext().getContext().get("sri")
             // how to set base URL? if (sri != null) builder.setBase(sri.getBaseLinkUri())
-
+            /*
+            Markdown4jProcessor markdown4jProcessor = new Markdown4jProcessor()
             String mdText = markdown4jProcessor.process(ecfi.resourceFacade.getLocationText(location, false))
+            */
+
+            PegDownProcessor pdp = new PegDownProcessor(Extensions.ALL_WITH_OPTIONALS)
+            String mdText = pdp.markdownToHtml(ecfi.resourceFacade.getLocationText(location, false))
 
             // logger.warn("======== .md.ftl post-markdown text: ${mdText}")
 
