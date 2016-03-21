@@ -314,7 +314,7 @@ abstract class BaseResourceReference implements ResourceReference {
         List<ResourceReference> childEntries = directoryRef.directoryEntries
         // look through all files first, ie do a breadth-first search
         for (ResourceReference childRef in childEntries) {
-            if (childRef.isFile() && (childRef.getFileName() == childFilename || childRef.getFileName().contains(childFilename + '.'))) {
+            if (childRef.isFile() && (childRef.getFileName() == childFilename || childRef.getFileName().startsWith(childFilename + '.'))) {
                 return childRef
             }
         }
