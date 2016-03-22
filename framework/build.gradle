@@ -197,12 +197,12 @@ dependencies {
     compile module('net.sf.barcode4j:barcode4j-fop-ext:2.1')
 
     // ElasticSearch Libraries, including Lucene
-    apiCompile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.1.1' // Apache 2.0
-    compile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.1.1' // Apache 2.0
+    apiCompile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.2.1' // Apache 2.0
+    compile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.2.1' // Apache 2.0
     // NOTE: jts explicit dependency because doesn't get picked up in elasticsearch but without has runtime error
     runtime group: 'com.vividsolutions', name: 'jts', version: '1.13' // LGPL (runtime only, needed by spatial4j)
     // NOTE: elasticsearch-groovy 2.0.0 seems to not work with ES 2.1.1
-    // compile group: 'org.elasticsearch', name: 'elasticsearch-groovy', version: '2.0.0' // Apache 2.0
+    // compile group: 'org.elasticsearch', name: 'elasticsearch-groovy', version: '2.1.2' // Apache 2.0
 
     // Rules Libraries: Drools/jBPM/etc
     apiCompile('org.kie:kie-api:6.3.0.Final') // Apache 2.0
