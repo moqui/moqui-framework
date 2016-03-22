@@ -128,8 +128,8 @@ dependencies {
 
     compile group: 'com.sun.mail', name: 'javax.mail', version: '1.5.5' // CDDL
     compile group: 'javax.jcr', name: 'jcr', version: '2.0' // Apache 2.0???
-    compile group: 'net.java.dev.jna', name: 'jna', version: '4.2.1' // Apache 2.0
-    compile group: 'net.java.dev.jna', name: 'jna-platform', version: '4.2.1' // Apache 2.0
+    compile group: 'net.java.dev.jna', name: 'jna', version: '4.2.2' // Apache 2.0
+    compile group: 'net.java.dev.jna', name: 'jna-platform', version: '4.2.2' // Apache 2.0
     compile group: 'jaxb', name: 'jsr173_api', version: '1.0' // ???
     compile group: 'org.liquibase', name: 'liquibase-core', version: '3.4.2' // Apache 2.0
 
