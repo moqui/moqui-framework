@@ -98,8 +98,8 @@ class ScreenDefinition {
             TransitionItem ti = new TransitionItem(transitionNode, this)
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
-        // actions.json transition, for all screens
-        transitionByName.put("actions.json", new ActionsTransitionItem(this))
+        // actions transition, for all screens
+        transitionByName.put("actions", new ActionsTransitionItem(this))
 
         // subscreens
         populateSubscreens()
@@ -734,7 +734,7 @@ class ScreenDefinition {
         ActionsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
             transitionNode = null
-            name = "actions.json"
+            name = "actions"
             method = "any"
             location = "${parentScreen.location}.transition_${StupidUtilities.cleanStringForJavaName(name)}"
             beginTransaction = true
@@ -748,7 +748,7 @@ class ScreenDefinition {
         ResponseItem run(ScreenRenderImpl sri) {
             ExecutionContextImpl ec = sri.getEc()
             WebFacade wf = ec.getWeb()
-            if (wf == null) throw new BaseException("Cannot run actions.json transition outside of a web request")
+            if (wf == null) throw new BaseException("Cannot run actions transition outside of a web request")
 
             // run actions (if there are any)
             XmlAction actions = parentScreen.rootSection.actions
@@ -810,7 +810,7 @@ class ScreenDefinition {
             for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
             return newMap
         } else {
-            logger.info("In screen actions.json skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
+            logger.info("In screen actions skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
             return null
         }
     }
