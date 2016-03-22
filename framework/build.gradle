@@ -121,10 +121,10 @@ dependencies {
 
     compile group: 'com.h2database', name: 'h2', version: '1.4.191' // MPL 2.0, EPL 1.0
 
-    compile group: 'org.apache.jackrabbit', name: 'jackrabbit-api', version: '2.11.3' // Apache 2.0
-    compile group: 'org.apache.jackrabbit', name: 'jackrabbit-jcr-rmi', version: '2.11.3' // Apache 2.0
+    compile group: 'org.apache.jackrabbit', name: 'jackrabbit-api', version: '2.12.1' // Apache 2.0
+    compile group: 'org.apache.jackrabbit', name: 'jackrabbit-jcr-rmi', version: '2.12.1' // Apache 2.0
     // Uncomment for WebDAV, along with code using Jcr2davRepositoryFactory in ResourceFacadeImpl
-    // compile group: 'org.apache.jackrabbit', name: 'jackrabbit-jcr2dav', version: '2.11.3' // Apache 2.0
+    // compile group: 'org.apache.jackrabbit', name: 'jackrabbit-jcr2dav', version: '2.12.1' // Apache 2.0
 
     compile group: 'com.sun.mail', name: 'javax.mail', version: '1.5.5' // CDDL
     compile group: 'javax.jcr', name: 'jcr', version: '2.0' // Apache 2.0???
