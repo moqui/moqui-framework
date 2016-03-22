@@ -67,7 +67,7 @@ dependencies {
     compile group: 'org.owasp.esapi', name: 'esapi-moqui', version: '2.1.0' // New BSD
 
     // Atomikos Transaction Manager
-    compile group: 'com.atomikos', name: 'transactions', version: '4.0.0' // Apache 2.0
+    compile group: 'com.atomikos', name: 'transactions', version: '4.0.1' // Apache 2.0
     compile group: 'com.atomikos', name: 'transactions-jdbc', version: '4.0.0' // Apache 2.0
     compile group: 'com.atomikos', name: 'transactions-jta', version: '4.0.0' // Apache 2.0
     // Bitronix is an alternative to Atomikos
