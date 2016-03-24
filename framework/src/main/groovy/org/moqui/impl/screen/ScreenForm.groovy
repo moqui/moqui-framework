@@ -335,7 +335,7 @@ class ScreenForm {
                             widgetNode.append("option", [key:(String) optionValue.keyValue, text:(String) optionValue.text])
                         } else {
                             MNode entityOptionsNode = widgetNode.append("entity-options", [text:((String) optionValue.text ?: "\${description}")])
-                            MNode entityFindNode = entityOptionsNode.append("entity-find", ["entity-name":(String) optionValue.entityName])
+                            MNode entityFindNode = entityOptionsNode.append("entity-find", ["entity-name":optionValue.getString("entityName")])
 
                             EntityList dbFormFieldEntOptsCondList = ecfi.getEntityFacade().find("moqui.screen.form.DbFormFieldEntOptsCond")
                                     .condition([formId:formId, fieldName:fieldName, sequenceNum:optionValue.sequenceNum])
