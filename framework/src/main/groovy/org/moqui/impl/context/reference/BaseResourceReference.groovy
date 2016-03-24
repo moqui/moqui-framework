@@ -116,6 +116,7 @@ abstract class BaseResourceReference implements ResourceReference {
 
     @Override
     ResourceReference getChild(String childName) {
+        if (childName == null || childName.length() == 0) return null
         ResourceReference directoryRef = findMatchingDirectory()
         StringBuilder fileLoc = new StringBuilder(directoryRef.getLocation())
         if (fileLoc.charAt(fileLoc.length()-1) == (char) '/') fileLoc.deleteCharAt(fileLoc.length()-1)
@@ -313,7 +314,7 @@ abstract class BaseResourceReference implements ResourceReference {
         List<ResourceReference> childEntries = directoryRef.directoryEntries
         // look through all files first, ie do a breadth-first search
         for (ResourceReference childRef in childEntries) {
-            if (childRef.isFile() && (childRef.getFileName() == childFilename || childRef.getFileName().contains(childFilename + '.'))) {
+            if (childRef.isFile() && (childRef.getFileName() == childFilename || childRef.getFileName().startsWith(childFilename + '.'))) {
                 return childRef
             }
         }

@@ -120,7 +120,14 @@ Slashdot allowed tags taken from "Reply" page:
 			<attribute name="align"/>
 		</tag>
 
-		<tag name="div" action="validate"/>		
+		<tag name="h1" action="validate"/>
+		<tag name="h2" action="validate"/>
+		<tag name="h3" action="validate"/>
+		<tag name="h4" action="validate"/>
+		<tag name="h5" action="validate"/>
+		<tag name="h6" action="validate"/>
+
+		<tag name="div" action="validate"/>
 		<tag name="span" action="validate"/>
 		<tag name="i" action="validate"/>
 		<tag name="b" action="validate"/>
@@ -139,7 +146,6 @@ Slashdot allowed tags taken from "Reply" page:
 		<!-- Anchor and anchor related tags -->
 		
 		<tag name="a" action="validate">
-
 			<attribute name="href" onInvalid="filterTag"/>
 			<attribute name="nohref">
 				<literal-list>

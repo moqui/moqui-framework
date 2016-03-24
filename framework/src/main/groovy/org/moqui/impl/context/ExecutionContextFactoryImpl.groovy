@@ -62,6 +62,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.jar.JarFile
 
 @CompileStatic
@@ -125,7 +126,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private final BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>()
     private static class WorkerThreadFactory implements ThreadFactory {
         private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
-        Thread newThread(Runnable r) { return new Thread(workerGroup, r) }
+        private final AtomicInteger threadNumber = new AtomicInteger(1)
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
     }
     final ThreadPoolExecutor workerPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
 

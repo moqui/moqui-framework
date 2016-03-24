@@ -17,6 +17,7 @@ import org.eclipse.mylyn.wikitext.confluence.core.ConfluenceLanguage
 import org.eclipse.mylyn.wikitext.core.parser.MarkupParser
 import org.eclipse.mylyn.wikitext.core.parser.builder.HtmlDocumentBuilder
 import org.moqui.context.Cache
+import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.screen.ScreenRenderImpl
 import org.slf4j.Logger
@@ -41,7 +42,8 @@ class FtlCwikiTemplateRenderer implements TemplateRenderer {
     }
 
     void render(String location, Writer writer) {
-        Template theTemplate = (Template) templateFtlLocationCache.get(location)
+        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
+        Template theTemplate = (Template) templateFtlLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
         if (!theTemplate) theTemplate = makeTemplate(location)
         if (!theTemplate) throw new IllegalArgumentException("Could not find template at ${location}")
         theTemplate.createProcessingEnvironment(ecfi.executionContext.context, writer).process()

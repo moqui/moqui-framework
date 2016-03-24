@@ -36,5 +36,5 @@
     <servlet-mapping><servlet-name>MoquiFopServlet</servlet-name><url-pattern>/fop/*</url-pattern></servlet-mapping>
     <servlet-mapping><servlet-name>H2Console</servlet-name><url-pattern>/h2/*</url-pattern></servlet-mapping>
 
-    <session-config><session-timeout>15</session-timeout></session-config>
+    <session-config><session-timeout>60</session-timeout></session-config>
 </web-app>

@@ -39,6 +39,16 @@ public class StupidJavaUtilities {
         if (objClass == Timestamp.class) return Long.toString(((Timestamp) obj).getTime());
         if (objClass == java.sql.Date.class) return Long.toString(((java.sql.Date) obj).getTime());
         if (objClass == Time.class) return Long.toString(((Time) obj).getTime());
+        if (obj instanceof Collection) {
+            Collection col = (Collection) obj;
+            StringBuilder sb = new StringBuilder();
+            for (Object entry : col) {
+                if (entry == null) continue;
+                if (sb.length() > 0) sb.append(",");
+                sb.append(entry);
+            }
+            return sb.toString();
+        }
 
         // no special case? do a simple toString()
         return obj.toString();

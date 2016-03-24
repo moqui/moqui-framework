@@ -24,6 +24,7 @@ import org.eclipse.mylyn.wikitext.twiki.core.TWikiLanguage
 import org.moqui.BaseException
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
+import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.screen.ScreenRenderImpl
@@ -43,7 +44,8 @@ class WikiTemplateRenderer implements TemplateRenderer {
     }
 
     void render(String location, Writer writer) {
-        String wikiText = templateWikiLocationCache.get(location)
+        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
+        String wikiText = templateWikiLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
         if (wikiText) {
             writer.write(wikiText)
             return

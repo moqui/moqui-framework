@@ -36,6 +36,8 @@ class MoquiContextListener implements ServletContextListener {
         return contextPath.length() > 1 ? contextPath.substring(1) : "ROOT"
     }
 
+    protected ExecutionContextFactoryImpl ecfi = null
+
     void contextInitialized(ServletContextEvent servletContextEvent) {
         try {
             ServletContext sc = servletContextEvent.servletContext
@@ -47,7 +49,7 @@ class MoquiContextListener implements ServletContextListener {
             String embeddedRuntimePath = webappRealPath + "/runtime"
             if (new File(embeddedRuntimePath).exists()) System.setProperty("moqui.runtime", embeddedRuntimePath)
 
-            ExecutionContextFactory ecfi = new ExecutionContextFactoryImpl()
+            ecfi = new ExecutionContextFactoryImpl()
 
             Logger logger = LoggerFactory.getLogger(MoquiContextListener.class)
             logger.info("Loading Moqui Webapp at [${webappId}], moqui webapp name [${moquiWebappName}], context name [${sc.getServletContextName()}], located at [${webappRealPath}]")
@@ -87,10 +89,8 @@ class MoquiContextListener implements ServletContextListener {
         String moquiWebappName = sc.getInitParameter("moqui-name")
 
         Logger logger = LoggerFactory.getLogger(MoquiContextListener.class)
-        logger.info("Destroying Moqui Execution Context Factory for webapp [${webappId}]")
-        if (sc.getAttribute("executionContextFactory")) {
-            ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) sc.getAttribute("executionContextFactory")
-
+        logger.info("Context Destroyed for Moqui webapp [${webappId}]")
+        if (ecfi != null) {
             // run before-shutdown actions
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
             if (wi.beforeShutdownActions) {
@@ -99,8 +99,10 @@ class MoquiContextListener implements ServletContextListener {
                 ec.destroy()
             }
 
-            sc.removeAttribute("executionContextFactory")
             ecfi.destroy()
+            ecfi = null
+        } else {
+            logger.warn("No ExecutionContextFactoryImpl referenced, not destroying")
         }
         logger.info("Destroyed Moqui Execution Context Factory for webapp [${webappId}]")
     }

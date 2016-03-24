@@ -36,7 +36,10 @@ public interface Cache {
     EvictionStrategy getEvictionStrategy();
     void setMaxElements(long maxSize, EvictionStrategy strategy);
 
+    /** Get element from cache. If expired removes from cache and returns null. */
     Object get(Serializable key);
+    /** Get if in cache and created time of cache element is greater than or equal to currentTime, otherwise removes from cache and returns null */
+    Object getIfCurrent(Serializable key, long currentTime);
     Object put(Serializable key, Object value);
     Object remove(Serializable key);
 

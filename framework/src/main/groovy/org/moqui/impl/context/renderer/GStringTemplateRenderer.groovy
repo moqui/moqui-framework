@@ -17,6 +17,7 @@ import groovy.text.GStringTemplateEngine
 import groovy.transform.CompileStatic
 import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
+import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 
@@ -48,8 +49,9 @@ class GStringTemplateRenderer implements TemplateRenderer {
     void destroy() { }
 
     groovy.text.Template getGStringTemplateByLocation(String location) {
+        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
         groovy.text.Template theTemplate =
-                (groovy.text.Template) templateGStringLocationCache.get(location)
+                (groovy.text.Template) templateGStringLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
         if (!theTemplate) theTemplate = makeGStringTemplate(location)
         if (!theTemplate) throw new IllegalArgumentException("Could not find template at [${location}]")
         return theTemplate

@@ -40,7 +40,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="pagePath"/><!-- not required because for root page will be empty -->
-            <parameter name="createIfMissing" type="Boolean" default-value="false"/>
+            <parameter name="createIfMissing" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiPageId"/>
@@ -59,17 +59,16 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find-one>
             -->
 
-            <if condition="!wikiPage &amp;&amp; createIfMissing">
+            <!-- <log message="===== get#WikiPageId createIfMissing=${createIfMissing}, wikiSpaceId=${wikiSpaceId}, pagePath=${pagePath}, wikiPage: ${wikiPage}"/> -->
+            <if condition="!wikiPage &amp;&amp; createIfMissing"><then>
                 <!-- no WikiPage record, create one for this page -->
                 <service-call name="create#moqui.resource.wiki.WikiPage" out-map="context"
                         in-map="[wikiSpaceId:wikiSpaceId, pagePath:(pagePath ?: null), createdByUserId:ec.user.userId]"/>
                 <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" cache="false"/>
                 <set field="createdRecord" from="true"/>
-
-                <else>
-                    <set field="createdRecord" from="false"/>
-                </else>
-            </if>
+            </then><else>
+                <set field="createdRecord" from="false"/>
+            </else></if>
             <set field="wikiPageId" from="wikiPage?.wikiPageId"/>
         </actions>
     </service>
@@ -207,16 +206,25 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="update" noun="WikiPage">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
-            <parameter name="pagePath" default-value="${parentPath ? parentPath+'/' : ''}${pageName?:''}"/>
+            <parameter name="pagePath"><description>Defaults to parentPath/pageName (both may be empty, resulting in empty pagePath)</description></parameter>
             <parameter name="parentPath"/>
-            <parameter name="pageName"/>
+            <parameter name="pageName" required="true">
+                <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description></parameter>
             <parameter name="wikiType" default-value="md"/>
-            <parameter name="pageText"/>
+            <parameter name="pageText" allow-html="safe"/>
         </in-parameters>
-        <out-parameters><parameter name="pagePath"/></out-parameters>
+        <out-parameters>
+            <parameter name="pagePath"/>
+            <parameter name="encodedPagePath"/>
+        </out-parameters>
         <actions>
+            <if condition="pageName == wikiSpaceId"><set field="pageName" from="null"/></if>
+            <if condition="!pagePath"><set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
+
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
             <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context + [createIfMissing:true]" out-map="context"/>
+
+            <if condition="wikiPage == null"><return error="true" message="Wiki Page [${wikiSpaceId}/${pagePath}] does not exist and could not be created"/></if>
 
             <!-- check restrictUpdate for space and page -->
             <if condition="wikiSpace.restrictUpdate == 'Y'">
@@ -248,17 +256,17 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="wikiPageHistoryMap" from="[wikiPageId:wikiPageId, userId:ec.user.userId, changeDateTime:ec.user.nowTimestamp]"/>
 
             <!-- move the page if applicable -->
-            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.indexOf('/')) : ''"/>
-            <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.indexOf('/')+1) : pagePath"/>
+            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : ''"/>
+            <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.lastIndexOf('/')+1) : pagePath"/>
             <!-- TODO: support change of wikiType too -->
             <if condition="pageName &amp;&amp; (origParentPath != parentPath || origPageName != pageName)">
                 <!-- move the page file -->
                 <set field="rootPageDirRef" from="rootPageRef.findMatchingDirectory()"/>
-                <set field="newPageLocation" value="${rootPageDirRef.location}/${parentPath}/${pageName}.${wikiType}"/>
+                <set field="newPageLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}.${wikiType}"/>
                 <script>pageReference.move(newPageLocation)</script>
                 <!-- move the page's corresponding directory -->
                 <set field="pageDirReference" from="pageReference.findMatchingDirectory()"/>
-                <set field="newPageDirLocation" value="${rootPageDirRef.location}/${parentPath}/${pageName}"/>
+                <set field="newPageDirLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}"/>
                 <script>pageDirReference.move(newPageDirLocation)</script>
 
                 <!-- save the old path in the WikiPageHistory (before the pagePath is set to the new path) -->
@@ -268,11 +276,23 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="pagePath" value="${parentPath ? parentPath+'/' : ''}${pageName?:''}"/>
                 
                 <!-- save the new pagePath on the WikiPage record -->
-                <set field="wikiPage.pagePath" from="pagePath"/>
-                <entity-update value-field="wikiPage"/>
+                <set field="wikiPageForUpdate" from="wikiPage.cloneValue()"/>
+                <set field="wikiPageForUpdate.pagePath" from="pagePath"/>
+                <entity-update value-field="wikiPageForUpdate"/>
             </if>
 
             <service-call name="create#moqui.resource.wiki.WikiPageHistory" in-map="wikiPageHistoryMap"/>
+
+            <script>
+                List pathElementList = pagePath.split('/') as List
+                StringBuffer encodedPagePathSb = new StringBuffer()
+                def urlCodec = new org.apache.commons.codec.net.URLCodec()
+                for (String pathElement in pathElementList) {
+                    if (encodedPagePathSb.length() > 0) encodedPagePathSb.append("/")
+                    encodedPagePathSb.append(urlCodec.encode(pathElement))
+                }
+                encodedPagePath = encodedPagePathSb.toString()
+            </script>
         </actions>
     </service>
 
