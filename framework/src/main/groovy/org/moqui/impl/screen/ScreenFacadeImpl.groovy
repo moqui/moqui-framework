@@ -114,6 +114,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
     }
 
     boolean isScreen(String location) {
+        if (location == null || location.length() == 0) return false
         if (!location.endsWith(".xml")) return false
         if (screenLocationCache.containsKey(location)) return true
 

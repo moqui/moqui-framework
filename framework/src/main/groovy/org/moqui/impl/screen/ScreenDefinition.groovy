@@ -480,7 +480,7 @@ class ScreenDefinition {
         String pathName = pathNameBldr.toString()
 
         ResourceReference contentRef = subContentRefByPath.get(pathName)
-        if (contentRef) return contentRef
+        if (contentRef != null) return contentRef
 
         ResourceReference lastScreenRef = sfi.ecfi.resourceFacade.getLocationReference(location)
         if (lastScreenRef.supportsAll()) {
@@ -490,7 +490,7 @@ class ScreenDefinition {
             logger.warn("Not looking for sub-content [${pathName}] under screen [${location}] because screen location does not support exists, isFile, etc")
         }
 
-        if (contentRef) subContentRefByPath.put(pathName, contentRef)
+        if (contentRef != null) subContentRefByPath.put(pathName, contentRef)
         return contentRef
     }
 
