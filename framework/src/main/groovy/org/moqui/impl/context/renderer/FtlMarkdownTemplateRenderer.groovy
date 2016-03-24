@@ -29,7 +29,6 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(FtlMarkdownTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-
     protected Cache templateFtlLocationCache
 
     FtlMarkdownTemplateRenderer() { }
@@ -61,7 +60,7 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
             String mdText = markdown4jProcessor.process(ecfi.resourceFacade.getLocationText(location, false))
             */
 
-            PegDownProcessor pdp = new PegDownProcessor(Extensions.ALL_WITH_OPTIONALS)
+            PegDownProcessor pdp = new PegDownProcessor(MarkdownTemplateRenderer.pegDownOptions)
             String mdText = pdp.markdownToHtml(ecfi.resourceFacade.getLocationText(location, false))
 
             // logger.warn("======== .md.ftl post-markdown text: ${mdText}")
