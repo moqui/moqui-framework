@@ -27,6 +27,9 @@ import org.slf4j.LoggerFactory
 class MarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(MarkdownTemplateRenderer.class)
 
+    // ALL_WITH_OPTIONALS includes SMARTS and QUOTES so XOR them to remove them
+    final static int pegDownOptions = Extensions.ALL_WITH_OPTIONALS ^ Extensions.SMARTS ^ Extensions.QUOTES
+
     protected ExecutionContextFactoryImpl ecfi
     protected Cache templateMarkdownLocationCache
 
@@ -60,7 +63,7 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
         mdText = markdown4jProcessor.process(sourceText)
         */
 
-        PegDownProcessor pdp = new PegDownProcessor(Extensions.ALL_WITH_OPTIONALS)
+        PegDownProcessor pdp = new PegDownProcessor(pegDownOptions)
         mdText = pdp.markdownToHtml(sourceText)
 
         if (mdText) {

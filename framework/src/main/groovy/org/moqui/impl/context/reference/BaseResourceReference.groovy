@@ -144,7 +144,7 @@ abstract class BaseResourceReference implements ResourceReference {
     @Override
     ResourceReference findChildFile(String relativePath) {
         // no path to child? that means this resource
-        if (!relativePath) return this
+        if (relativePath == null || relativePath.length() == 0) return this
 
         if (!supportsAll()) {
             ecf.getExecutionContext().message.addError("Not looking for child file at [${relativePath}] under space root page [${getLocation()}] because exists, isFile, etc are not supported")
