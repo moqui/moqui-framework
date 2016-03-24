@@ -373,7 +373,7 @@ class ScreenUrlInfo {
             String pathName = (String) fullPathNameList.get(i)
             ScreenDefinition.SubscreensItem nextSi = lastSd.getSubscreensItem(pathName)
 
-            if (nextSi == null) {
+            if (nextSi == null || !sfi.isScreen(nextSi.getLocation())) {
                 // handle case where last one may be a transition name, and not a subscreen name
                 if (lastSd.hasTransition(pathName)) {
                     // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
@@ -386,7 +386,7 @@ class ScreenUrlInfo {
 
                 // is this a file under the screen?
                 ResourceReference existingFileRef = lastSd.getSubContentRef(extraPathNameList)
-                if (existingFileRef && existingFileRef.supportsExists() && existingFileRef.exists) {
+                if (existingFileRef != null && existingFileRef.supportsExists() && existingFileRef.exists) {
                     // exclude screen files, don't want to treat them as resources and let them be downloaded
                     if (!sfi.isScreen(existingFileRef.getLocation())) {
                         fileResourceRef = existingFileRef
@@ -434,7 +434,7 @@ class ScreenUrlInfo {
                 }
             }
 
-            String nextLoc = nextSi.location
+            String nextLoc = nextSi.getLocation()
             ScreenDefinition nextSd = sfi.getScreenDefinition(nextLoc)
             if (nextSd == null) {
                 throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, pathName, nextLoc,
