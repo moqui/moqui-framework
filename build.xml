@@ -21,7 +21,7 @@ The actual build is done with Gradle.
 
 <project name="Moqui WAR Tools" default="run" basedir=".">
     <property environment="env"/>
-    <property name="version" value="1.6.2"/>
+    <property name="version" value="1.6.3"/>
     <property name="tomcat.home" value="../apache-tomcat-8.0.21"/>
 
     <property name="moqui.runtime" value="runtime"/>
