@@ -20,7 +20,7 @@ buildscript {
 
 import org.ajoberstar.grgit.*
 
-allprojects { version = '1.6.2' }
+allprojects { version = '1.6.3' }
 defaultTasks 'build'
 
 def tomcatHome = '../apache-tomcat-8.0.21'
