@@ -22,7 +22,7 @@
     <runtime name="moqui-runtime" group="moqui" version="1.6.2" branch="master" repository="github"/>
 
     <!-- Example Component -->
-    <component name="example" group="moqui" version="" branch="master" repository="github"/>
+    <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
 
     <!-- Mantle Components -->
     <component name="mantle-udm" group="moqui" version="1.0.1" branch="master" repository="github"/>
