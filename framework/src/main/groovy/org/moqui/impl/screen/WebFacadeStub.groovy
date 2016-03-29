@@ -123,7 +123,7 @@ class WebFacadeStub implements WebFacade {
     List<ValidationError> getSavedValidationErrors() { return null }
 
     @Override
-    List<Map> getScreenHistory() { return (List<Map>) sessionAttributes.get("moqui.screen.history") ?: [] }
+    List<Map> getScreenHistory() { return (List<Map>) sessionAttributes.get("moqui.screen.history") ?: new ArrayList<Map>() }
 
     @Override
     void sendJsonResponse(Object responseObj) {

@@ -126,7 +126,12 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
 
     void addChild(ArtifactExecutionInfoImpl aeii) { childList.add(aeii) }
-    List<ArtifactExecutionInfo> getChildList() { return childList }
+    @Override
+    List<ArtifactExecutionInfo> getChildList() {
+        List<ArtifactExecutionInfo> newChildList = new ArrayList<>()
+        newChildList.addAll(childList)
+        return newChildList
+    }
 
     void print(Writer writer, int level, boolean children) {
         for (int i = 0; i < (level * 2); i++) writer.append(' ')

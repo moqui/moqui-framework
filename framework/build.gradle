@@ -59,8 +59,8 @@ repositories {
 
 dependencies {
     // Groovy for api and compile
-    apiCompile group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.4.5' // Apache 2.0
-    compile group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.4.5' // Apache 2.0
+    apiCompile group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.4.6' // Apache 2.0
+    compile group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.4.6' // Apache 2.0
 
     compile group: 'org.owasp.antisamy', name: 'antisamy', version: '1.5.3' // New BSD
     // NOTE: this is a moqui-specific build to handle log4j2
@@ -199,6 +199,8 @@ dependencies {
     // ElasticSearch Libraries, including Lucene
     apiCompile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.2.1' // Apache 2.0
     compile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.2.1' // Apache 2.0
+    // NOTE: this is different from elasticsearch-groovy, it is a lang module required for use of groovy scripts in queries
+    compile module('org.elasticsearch.module:lang-groovy:2.2.1') // Apache 2.0
     // NOTE: jts explicit dependency because doesn't get picked up in elasticsearch but without has runtime error
     runtime group: 'com.vividsolutions', name: 'jts', version: '1.13' // LGPL (runtime only, needed by spatial4j)
     // NOTE: elasticsearch-groovy 2.0.0 seems to not work with ES 2.1.1

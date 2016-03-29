@@ -128,7 +128,11 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     }
 
     @Override
-    Deque<ArtifactExecutionInfo> getStack() { return this.artifactExecutionInfoStack }
+    Deque<ArtifactExecutionInfo> getStack() {
+        Deque<ArtifactExecutionInfo> newStackDeque = new LinkedList<>()
+        newStackDeque.addAll(this.artifactExecutionInfoStack)
+        return newStackDeque
+    }
     String getStackNameString() {
         StringBuilder sb = new StringBuilder()
         Iterator i = this.artifactExecutionInfoStack.iterator()
@@ -140,7 +144,11 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         return sb.toString()
     }
     @Override
-    List<ArtifactExecutionInfo> getHistory() { return this.artifactExecutionInfoHistory }
+    List<ArtifactExecutionInfo> getHistory() {
+        List<ArtifactExecutionInfo> newHistList = new ArrayList<>()
+        newHistList.addAll(this.artifactExecutionInfoHistory)
+        return newHistList
+    }
 
     String printHistory() {
         StringWriter sw = new StringWriter()
