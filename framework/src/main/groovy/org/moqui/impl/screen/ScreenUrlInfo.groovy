@@ -857,8 +857,8 @@ class ScreenUrlInfo {
             String name = nameObj.toString()
             if (name == null || name.length() == 0 || value == null) return this
             String parmValue = StupidJavaUtilities.toPlainString(value)
-            otherParameterMap.put(name as String, parmValue)
-            if (allParameterMap != null) allParameterMap.put(name as String, parmValue)
+            otherParameterMap.put(name, parmValue)
+            if (allParameterMap != null) allParameterMap.put(name, parmValue)
             return this
         }
         UrlInstance addParameters(Map manualParameters) {
@@ -871,6 +871,15 @@ class ScreenUrlInfo {
                 otherParameterMap.put(parmKey, parmValue)
                 if (allParameterMap != null) allParameterMap.put(parmKey, parmValue)
             }
+            return this
+        }
+        UrlInstance removeParameter(Object nameObj) {
+            String name = nameObj.toString()
+            if (name == null || name.length() == 0) return this
+            otherParameterMap.remove(name)
+            // make sure allParameterMap is populated first
+            if (allParameterMap == null) getParameterMap()
+            allParameterMap.remove(name)
             return this
         }
         Map getOtherParameterMap() { return otherParameterMap }
