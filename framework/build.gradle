@@ -197,10 +197,14 @@ dependencies {
     compile module('net.sf.barcode4j:barcode4j-fop-ext:2.1')
 
     // ElasticSearch Libraries, including Lucene
+    apiCompile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.1.2' // Apache 2.0
+    compile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.1.2' // Apache 2.0
+    /* NOTE: not using latest ElasticSearch because can't get lang-groovy module to load, so scripts in queries don't work! always get "script_lang not supported [groovy]" error
     apiCompile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.2.1' // Apache 2.0
     compile group: 'org.elasticsearch', name: 'elasticsearch', version: '2.2.1' // Apache 2.0
     // NOTE: this is different from elasticsearch-groovy, it is a lang module required for use of groovy scripts in queries
     compile module('org.elasticsearch.module:lang-groovy:2.2.1') // Apache 2.0
+    */
     // NOTE: jts explicit dependency because doesn't get picked up in elasticsearch but without has runtime error
     runtime group: 'com.vividsolutions', name: 'jts', version: '1.13' // LGPL (runtime only, needed by spatial4j)
     // NOTE: elasticsearch-groovy 2.0.0 seems to not work with ES 2.1.1
