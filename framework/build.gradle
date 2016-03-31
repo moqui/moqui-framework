@@ -128,6 +128,8 @@ dependencies {
 
     compile group: 'com.sun.mail', name: 'javax.mail', version: '1.5.5' // CDDL
     compile group: 'javax.jcr', name: 'jcr', version: '2.0' // Apache 2.0???
+    compile group: 'joda-time', name: 'joda-time', version: '2.9.2' // Apache 2.0
+    compile group: 'org.joda', name: 'joda-convert', version: '1.8.1' // Apache 2.0
     compile group: 'net.java.dev.jna', name: 'jna', version: '4.2.2' // Apache 2.0
     compile group: 'net.java.dev.jna', name: 'jna-platform', version: '4.2.2' // Apache 2.0
     compile group: 'jaxb', name: 'jsr173_api', version: '1.0' // ???
