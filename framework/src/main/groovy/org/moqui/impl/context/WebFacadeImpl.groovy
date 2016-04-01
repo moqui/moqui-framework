@@ -361,15 +361,17 @@ class WebFacadeImpl implements WebFacade {
 
         ContextStack cs = new ContextStack(false)
         if (savedParameters != null) cs.push(savedParameters)
-        if (multiPartParameters != null) cs.push(multiPartParameters)
+        if (multiPartParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(multiPartParameters))
         if (jsonParameters != null) cs.push(jsonParameters)
-        if (declaredPathParameters != null) cs.push(declaredPathParameters)
-        cs.push((Map<String, Object>) request.getParameterMap())
+        if (declaredPathParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(declaredPathParameters))
+        Map reqParmMap = request.getParameterMap()
+        if (reqParmMap != null && reqParmMap.size() > 0) cs.push(new StupidWebUtilities.CanonicalizeMap(reqParmMap))
         Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
-        if (pathInfoParameterMap != null) cs.push(pathInfoParameterMap)
+        if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0)
+            cs.push(new StupidWebUtilities.CanonicalizeMap(pathInfoParameterMap))
 
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
-        requestParameters = new StupidWebUtilities.CanonicalizeMap(cs)
+        requestParameters = cs
         return requestParameters
     }
     @Override
