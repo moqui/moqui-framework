@@ -771,6 +771,7 @@ abstract class EntityFindBase implements EntityFind {
 
             try {
                 EntityValue ev = oneInternal(ec)
+                if (ev == null) return null
                 return ev.getMasterValueMap(name)
             } finally {
                 // pop the ArtifactExecutionInfo
