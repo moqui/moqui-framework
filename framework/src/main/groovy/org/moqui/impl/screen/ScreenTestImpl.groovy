@@ -98,7 +98,7 @@ class ScreenTestImpl implements ScreenTest {
         webappName = wan
 
         // set a default root screen based on config for "localhost"
-        MNode webappNode = ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
+        MNode webappNode = ecfi.getWebappNode(webappName)
         for (MNode rootScreenNode in webappNode.children("root-screen")) {
             if (hostname.matches(rootScreenNode.attribute('host'))) {
                 String rsLoc = rootScreenNode.attribute('location')

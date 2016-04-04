@@ -471,54 +471,57 @@ class WebFacadeImpl implements WebFacade {
         if (cacheKey != null) request.setAttribute(cacheKey, urlValue)
         return urlValue
     }
+    static String makeWebappHost(String webappName, ExecutionContextImpl eci, WebFacade webFacade, boolean requireEncryption) {
+        MNode webappNode = eci.ecfi.getWebappNode(webappName)
+        // can't get these settings, hopefully a URL from the root will do
+        if (webappNode == null) return ""
+
+        StringBuilder urlBuilder = new StringBuilder()
+        HttpServletRequest request = webFacade.getRequest()
+        if (request.getScheme() == "https" || (requireEncryption && webappNode.attribute("https-enabled") != "false")) {
+            urlBuilder.append("https://")
+            if (webappNode.attribute("https-host")) {
+                urlBuilder.append(webappNode.attribute("https-host"))
+            } else {
+                if (webFacade != null) {
+                    urlBuilder.append(webFacade.getHostName(false))
+                } else {
+                    // uh-oh, no web context, default to localhost
+                    urlBuilder.append("localhost")
+                }
+            }
+            String httpsPort = webappNode.attribute("https-port")
+            // try the local port; this won't work when switching from http to https, conf required for that
+            if (!httpsPort && webFacade != null && request.isSecure())
+                httpsPort = request.getServerPort() as String
+            if (httpsPort && httpsPort != "443") urlBuilder.append(":").append(httpsPort)
+        } else {
+            urlBuilder.append("http://")
+            if (webappNode.attribute("http-host")) {
+                urlBuilder.append(webappNode.attribute("http-host"))
+            } else {
+                if (webFacade) {
+                    urlBuilder.append(webFacade.getHostName(false))
+                } else {
+                    // uh-oh, no web context, default to localhost
+                    urlBuilder.append("localhost")
+                    logger.trace("No webFacade in place, defaulting to localhost for hostName")
+                }
+            }
+            String httpPort = webappNode.attribute("http-port")
+            // try the server port; this won't work when switching from https to http, conf required for that
+            if (!httpPort && webFacade != null && !request.isSecure())
+                httpPort = request.getServerPort() as String
+            if (httpPort && httpPort != "80") urlBuilder.append(":").append(httpPort)
+        }
+        return urlBuilder.toString()
+    }
     static String makeWebappRootUrl(String webappName, String servletContextPath, ExecutionContextImpl eci, WebFacade webFacade,
                                     boolean requireEncryption, boolean needFullUrl) {
-        HttpServletRequest request = webFacade.getRequest()
-        MNode webappNode = eci.ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
         StringBuilder urlBuilder = new StringBuilder()
         // build base from conf
-        if (needFullUrl && webappNode) {
-            if (request.getScheme() == "https" || (requireEncryption && webappNode.attribute("https-enabled") != "false")) {
-                urlBuilder.append("https://")
-                if (webappNode.attribute("https-host")) {
-                    urlBuilder.append(webappNode.attribute("https-host"))
-                } else {
-                    if (webFacade != null) {
-                        urlBuilder.append(webFacade.getHostName(false))
-                    } else {
-                        // uh-oh, no web context, default to localhost
-                        urlBuilder.append("localhost")
-                    }
-                }
-                String httpsPort = webappNode.attribute("https-port")
-                // try the local port; this won't work when switching from http to https, conf required for that
-                if (!httpsPort && webFacade != null && request.isSecure())
-                    httpsPort = request.getServerPort() as String
-                if (httpsPort && httpsPort != "443") urlBuilder.append(":").append(httpsPort)
-            } else {
-                urlBuilder.append("http://")
-                if (webappNode.attribute("http-host")) {
-                    urlBuilder.append(webappNode.attribute("http-host"))
-                } else {
-                    if (webFacade) {
-                        urlBuilder.append(webFacade.getHostName(false))
-                    } else {
-                        // uh-oh, no web context, default to localhost
-                        urlBuilder.append("localhost")
-                        logger.trace("No webFacade in place, defaulting to localhost for hostName")
-                    }
-                }
-                String httpPort = webappNode.attribute("http-port")
-                // try the server port; this won't work when switching from https to http, conf required for that
-                if (!httpPort && webFacade != null && !request.isSecure())
-                    httpPort = request.getServerPort() as String
-                if (httpPort && httpPort != "80") urlBuilder.append(":").append(httpPort)
-            }
-            urlBuilder.append("/")
-        } else {
-            // can't get these settings, hopefully a URL from the root will do
-            urlBuilder.append("/")
-        }
+        if (needFullUrl) urlBuilder.append(makeWebappHost(webappName, eci, webFacade, requireEncryption))
+        urlBuilder.append("/")
 
         // add servletContext.contextPath
         if (!servletContextPath && webFacade)
@@ -998,7 +1001,7 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @CompileStatic
-    void handleEntityRestSwagger(List<String> extraPathNameList, String hostName, String basePath, boolean getMaster) {
+    void handleEntityRestSwagger(List<String> extraPathNameList, String basePath, boolean getMaster) {
         if (extraPathNameList.size() == 0) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No entity name specified in path (for all entities use 'all')")
             return
@@ -1023,15 +1026,17 @@ class WebFacadeImpl implements WebFacade {
         String filename = entityName ?: "Entities"
         if (masterName) filename = filename + "." + masterName
 
-
         response.addHeader("Access-Control-Allow-Origin", "*")
         response.addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
         response.addHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
 
+        String fullHost = makeWebappHost(this.webappMoquiName, eci, this, true)
+        String scheme = fullHost.substring(0, fullHost.indexOf("://"))
+        String hostName = fullHost.substring(fullHost.indexOf("://") + 3)
         Map definitionsMap = new TreeMap()
         Map<String, Object> swaggerMap = [swagger:'2.0',
             info:[title:("${filename} REST API"), version:'1.6.3'], host:hostName, basePath:basePath,
-            schemes:['http', 'https'], consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
+            schemes:[scheme], consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
                 api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key, also supports tenant_id header']],
             paths:[:], definitions:definitionsMap
@@ -1193,7 +1198,7 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @CompileStatic
-    void handleServiceRestSwagger(List<String> extraPathNameList, String hostName, String basePath) {
+    void handleServiceRestSwagger(List<String> extraPathNameList, String basePath) {
         if (extraPathNameList.size() == 0) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path")
             return
@@ -1214,7 +1219,10 @@ class WebFacadeImpl implements WebFacade {
         response.addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
         response.addHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
 
-        Map swaggerMap = eci.ecfi.serviceFacade.restApi.getSwaggerMap(rootPathList, hostName, basePath)
+        String fullHost = makeWebappHost(this.webappMoquiName, eci, this, true)
+        String scheme = fullHost.substring(0, fullHost.indexOf("://"))
+        String hostName = fullHost.substring(fullHost.indexOf("://") + 3)
+        Map swaggerMap = eci.ecfi.serviceFacade.restApi.getSwaggerMap(rootPathList, [scheme], hostName, basePath)
         if (outputType == "application/json") {
             JsonBuilder jb = new JsonBuilder()
             jb.call(swaggerMap)
