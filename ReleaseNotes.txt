@@ -17,7 +17,7 @@ Bug Fixes
 - Fixed issue with REST and other JSON request body parameters where single
   entry lists were unwrapped to just the entry by the canonicalization code
 - Fixed NPE in EntityFind.oneMaster() when the master value isn't found,
-  now returns null with no error; fixes moqui-framework issue #18
+  now returns null with no error; fixes moqui-runtime issue #18
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
