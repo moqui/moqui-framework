@@ -24,6 +24,7 @@ public class ContextStack implements Map<String, Object> {
     protected Map<String, Object> topMap = null;
     protected Map<String, Object> combinedMap = null;
     protected boolean includeContext = true;
+    private boolean toStringRecursion = false;
 
     public ContextStack() {
         // start with a single Map
@@ -398,6 +399,10 @@ public class ContextStack implements Map<String, Object> {
 
     @Override
     public String toString() {
+        if (toStringRecursion) {
+            return "<Instance of ContextStack, not printing to avoid infinite recursion>";
+        }
+        toStringRecursion = true;
         StringBuilder fullMapString = new StringBuilder();
         int curLevel = 0;
         for (Map<String, Object> curMap: stackList) {
@@ -406,12 +411,7 @@ public class ContextStack implements Map<String, Object> {
                 fullMapString.append("==>[");
                 fullMapString.append(curEntry.getKey());
                 fullMapString.append("]:");
-                if (curEntry.getValue() instanceof ContextStack) {
-                    // skip instances of ContextStack to avoid infinite recursion
-                    fullMapString.append("<Instance of ContextStack, not printing to avoid infinite recursion>");
-                } else {
-                    fullMapString.append(curEntry.getValue());
-                }
+                fullMapString.append(curEntry.getValue());
                 fullMapString.append("\n");
             }
             fullMapString.append("========== End stack level ").append(curLevel).append("\n");
@@ -423,16 +423,11 @@ public class ContextStack implements Map<String, Object> {
             fullMapString.append("==>[");
             fullMapString.append(curEntry.getKey());
             fullMapString.append("]:");
-            if (curEntry.getValue() instanceof ContextStack) {
-                // skip instances of ContextStack to avoid infinite recursion
-                fullMapString.append("<Instance of ContextStack, not printing to avoid infinite recursion>");
-            } else {
-                fullMapString.append(curEntry.getValue());
-            }
+            fullMapString.append(curEntry.getValue());
             fullMapString.append("\n");
         }
         fullMapString.append("========== End combined Map").append("\n");
-
+        toStringRecursion = false;
         return fullMapString.toString();
     }
 
