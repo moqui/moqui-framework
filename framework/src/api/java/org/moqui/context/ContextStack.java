@@ -19,11 +19,11 @@ public class ContextStack implements Map<String, Object> {
     protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ContextStack.class);
 
     // Using ArrayList for more efficient iterating, this alone eliminate about 40% of the run time in get()
-    protected ArrayList<ArrayList<MapWrapper>> contextStack = null;
-    protected ArrayList<MapWrapper> stackList = new ArrayList<>();
-    protected Map<String, Object> topMap = null;
-    protected Map<String, Object> combinedMap = null;
-    protected boolean includeContext = true;
+    private ArrayList<ArrayList<MapWrapper>> contextStack = null;
+    private ArrayList<MapWrapper> stackList = new ArrayList<>();
+    private Map<String, Object> topMap = null;
+    private Map<String, Object> combinedMap = null;
+    private boolean includeContext = true;
     private boolean toStringRecursion = false;
 
     public ContextStack() {
@@ -40,11 +40,11 @@ public class ContextStack implements Map<String, Object> {
 
     // Internal methods for managing combinedMap
 
-    protected void clearCombinedMap() {
+    private void clearCombinedMap() {
         combinedMap = new HashMap<>();
         if (includeContext) combinedMap.put("context", this);
     }
-    protected void rebuildCombinedMap() {
+    private void rebuildCombinedMap() {
         clearCombinedMap();
         // iterate through stackList from end to beginning
         Map<String, Object> parentCombined = null;
@@ -73,7 +73,7 @@ public class ContextStack implements Map<String, Object> {
         for (String key : keySet) resetCombinedEntry(key, stackListSize);
     }
     */
-    protected void resetCombinedEntry(String key, int stackListSize) {
+    private void resetCombinedEntry(String key, int stackListSize) {
         if ("context".equals(key)) return;
         boolean found = false;
         for (int i = 0; i < stackListSize; i++) {
@@ -331,7 +331,6 @@ public class ContextStack implements Map<String, Object> {
     }
 
     public void clear() {
-        Set<String> keySet = topMap.keySet();
         topMap.clear();
         if (stackList.size() > 1) {
             MapWrapper parentWrapper = stackList.get(1);
@@ -399,14 +398,13 @@ public class ContextStack implements Map<String, Object> {
 
     @Override
     public String toString() {
-        if (toStringRecursion) {
-            return "<Instance of ContextStack, not printing to avoid infinite recursion>";
-        }
+        if (toStringRecursion) return "<Instance of ContextStack, not printing to avoid infinite recursion>";
         toStringRecursion = true;
         StringBuilder fullMapString = new StringBuilder();
-        int curLevel = 0;
-        for (Map<String, Object> curMap: stackList) {
-            fullMapString.append("========== Start stack level ").append(curLevel).append("\n");
+
+        for (int i = 0; i < stackList.size(); i++) {
+            MapWrapper curMap = stackList.get(i);
+            fullMapString.append("========== Start stack level ").append(i).append("\n");
             for (Map.Entry curEntry: curMap.entrySet()) {
                 fullMapString.append("==>[");
                 fullMapString.append(curEntry.getKey());
@@ -414,8 +412,7 @@ public class ContextStack implements Map<String, Object> {
                 fullMapString.append(curEntry.getValue());
                 fullMapString.append("\n");
             }
-            fullMapString.append("========== End stack level ").append(curLevel).append("\n");
-            curLevel++;
+            fullMapString.append("========== End stack level ").append(i).append("\n");
         }
 
         fullMapString.append("========== Start combined Map").append("\n");
@@ -427,6 +424,7 @@ public class ContextStack implements Map<String, Object> {
             fullMapString.append("\n");
         }
         fullMapString.append("========== End combined Map").append("\n");
+
         toStringRecursion = false;
         return fullMapString.toString();
     }
@@ -442,19 +440,19 @@ public class ContextStack implements Map<String, Object> {
     }
 
     /** Wrap a Map with a reference to the ContextStack to maintain the combinedMap on changes */
-    public static class MapWrapper implements Map<String, Object> {
-        protected final ContextStack contextStack;
-        protected final Map<String, Object> internal;
-        protected final Map<String, Object> combined;
+    private static class MapWrapper implements Map<String, Object> {
+        private final ContextStack contextStack;
+        private final Map<String, Object> internal;
+        private final Map<String, Object> combined;
 
-        public MapWrapper(ContextStack contextStack, Map<String, Object> toWrap, Map<String, Object> newCombined) {
+        MapWrapper(ContextStack contextStack, Map<String, Object> toWrap, Map<String, Object> newCombined) {
             this.contextStack = contextStack;
             this.internal = toWrap != null ? toWrap : new HashMap<String, Object>();
             this.combined = newCombined;
         }
 
-        public Map<String, Object> getWrapped() { return internal; }
-        public Map<String, Object> getCombined() { return combined; }
+        Map<String, Object> getWrapped() { return internal; }
+        Map<String, Object> getCombined() { return combined; }
 
         public int size() { return internal.size(); }
         public boolean isEmpty() { return internal.isEmpty(); }
