@@ -97,7 +97,7 @@ class RestApi {
         return rootMap
     }
 
-    Map<String, Object> getSwaggerMap(List<String> rootPathList, String hostName, String basePath) {
+    Map<String, Object> getSwaggerMap(List<String> rootPathList, List<String> schemes, String hostName, String basePath) {
         // TODO: support generate for all roots with empty path
         if (!rootPathList) throw new ResourceNotFoundException("No resource path specified")
         String rootResourceName = rootPathList[0]
@@ -109,9 +109,9 @@ class RestApi {
         Map<String, Map> paths = [:]
         Map<String, Map> definitions = new TreeMap<String, Map>()
         Map<String, Object> swaggerMap = [swagger:'2.0',
-            info:[title:(resourceNode.displayName ?: "Service REST API (${fullBasePath})"), version:(resourceNode.version ?: '1.0'),
-                description:(resourceNode.description ?: '')],
-            host:hostName, basePath:fullBasePath.toString(), schemes:['http', 'https'],
+            info:[title:(resourceNode.displayName ?: "Service REST API (${fullBasePath})"),
+                  version:(resourceNode.version ?: '1.0'), description:(resourceNode.description ?: '')],
+            host:hostName, basePath:fullBasePath.toString(), schemes:schemes,
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
                 api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key, also supports tenant_id header']],
             consumes:['application/json', 'multipart/form-data'], produces:['application/json'],

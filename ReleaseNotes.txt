@@ -2,12 +2,34 @@
 Moqui Framework Release Notes
 
 ===========================================================================
-Release 1.6.2 - TBD
+Release 1.6.3 - TBD
+===========================================================================
+
+Moqui Framework 1.6.3 is a minor new feature and bug fix release.
+
+TODO
+
+New Features
+
+
+Bug Fixes
+
+- Fixed issue with REST and other JSON request body parameters where single
+  entry lists were unwrapped to just the entry by the canonicalization code
+- Fixed NPE in EntityFind.oneMaster() when the master value isn't found,
+  now returns null with no error; fixes moqui-runtime issue #18
+
+===========================================================================
+Release 1.6.2 - 26 Mar 2016
 ===========================================================================
 
 Moqui Framework 1.6.2 is a minor new feature and bug fix release.
 
-TODO
+This release is all about performance improvements, bug fixes, library
+updates and cleanups. There are a number of minor new features like better
+multi-tenant handling (and security), optionally loading data on start if
+the DB is empty, more flexible handling of runtime Moqui Conf XML location,
+database support and transaction management, and so on.
 
 Non Backward Compatible Changes
 
@@ -137,6 +159,7 @@ Bug Fixes
 - Fixed safe HTML service parameters (allow-html=safe), was issue loading
   antisamy-esapi.xml though ESAPI so now using AntiSamy directly
 - Fixed issues with DbResource reference move and other operations
+- Fixed issues with ResourceReference operations and wiki page updates
 
 
 ===========================================================================

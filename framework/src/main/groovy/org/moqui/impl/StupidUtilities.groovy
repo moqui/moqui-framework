@@ -16,6 +16,7 @@ package org.moqui.impl
 import groovy.transform.CompileStatic
 import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
+import org.joda.time.DurationFieldType
 
 import java.nio.charset.Charset
 import java.sql.Time
@@ -564,6 +565,19 @@ class StupidUtilities {
             case "TF_wk": return Calendar.WEEK_OF_YEAR
             case "TF_mon": return Calendar.MONTH
             case "TF_yr": return Calendar.YEAR
+            default: throw new IllegalArgumentException("No equivalent Calendar field found for UOM ID [${uomId}]"); break
+        }
+    }
+    static DurationFieldType getJodaFieldFromUomId(String uomId) {
+        switch (uomId) {
+            case "TF_ms": return DurationFieldType.millis()
+            case "TF_s": return DurationFieldType.seconds()
+            case "TF_min": return DurationFieldType.minutes()
+            case "TF_hr": return DurationFieldType.hours()
+            case "TF_day": return DurationFieldType.days()
+            case "TF_wk": return DurationFieldType.weeks()
+            case "TF_mon": return DurationFieldType.months()
+            case "TF_yr": return DurationFieldType.years()
             default: throw new IllegalArgumentException("No equivalent Calendar field found for UOM ID [${uomId}]"); break
         }
     }
