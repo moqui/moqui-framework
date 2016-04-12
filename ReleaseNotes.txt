@@ -11,6 +11,9 @@ TODO
 
 New Features
 
+- Added ADMIN_PASSWORD permission for administrative password change
+  (in UserServices.update#Password service)
+- Added UserServices.enable#UserAccount service to enable disabled account
 
 Bug Fixes
 
