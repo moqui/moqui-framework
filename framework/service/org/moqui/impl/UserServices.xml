@@ -78,19 +78,16 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
 
-            <!-- TODO get perm from ? -->
-            <set field="hasPwAdminPermission" from="false"/>
+            <set field="hasPwAdminPermission" from="ec.user.hasPermission('ADMIN_PASSWORD')"/>
 
             <if condition="userId"><then>
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
             </then><else-if condition="username">
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                    <field-map field-name="username"/>
-                </entity-find-one>
+                    <field-map field-name="username"/></entity-find-one>
             </else-if><else>
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                    <field-map field-name="userId" from="ec.user.userId"/>
-                </entity-find-one>
+                    <field-map field-name="userId" from="ec.user.userId"/></entity-find-one>
             </else></if>
             <if condition="!userAccount"><return error="true" message="Could not find user with name ${username} in tenant ${tenantId}"/></if>
             <set field="userId" from="userAccount.userId"/>
@@ -218,7 +215,15 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="reset" noun="Password" type="inline" authenticate="anonymous-all" allow-remote="true">
+    <service verb="enable" noun="UserAccount">
+        <description>Enable a disabled account (set disabled=N, disabledDateTime=null, successiveFailedLogins=0)</description>
+        <in-parameters><parameter name="userId" required="true"/></in-parameters>
+        <actions>
+            <service-call name="update#moqui.security.UserAccount"
+                    in-map="[userId:userId, disabled:'N', disabledDateTime:null, successiveFailedLogins:0]"/>
+        </actions>
+    </service>
+    <service verb="reset" noun="Password" authenticate="anonymous-all" allow-remote="true">
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
