@@ -21,6 +21,7 @@ Bug Fixes
   entry lists were unwrapped to just the entry by the canonicalization code
 - Fixed NPE in EntityFind.oneMaster() when the master value isn't found,
   now returns null with no error; fixes moqui-runtime issue #18
+- Fixed ElFinder rm (moqui-runtime GitHub issue #23), response for upload
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
