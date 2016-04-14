@@ -479,7 +479,7 @@ class ScreenRenderImpl implements ScreenRender {
 
                         web.sendJsonResponse(responseMap)
                     } else {
-                        String fullUrlString = fullUrl.getUrlWithParams()
+                        String fullUrlString = fullUrl.getMinimalPathUrlWithParams()
                         logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
                     }
@@ -766,7 +766,7 @@ class ScreenRenderImpl implements ScreenRender {
             // save the request as a save-last to use after login
             if (wfi != null && screenUrlInfo.fileResourceRef == null) {
                 StringBuilder screenPath = new StringBuilder()
-                for (String pn in screenUrlInfo.fullPathNameList) screenPath.append("/").append(pn)
+                for (String pn in originalScreenPathNameList) screenPath.append("/").append(pn)
                 wfi.saveScreenLastInfo(screenPath.toString(), null)
                 // save messages in session before redirecting so they can be displayed on the next screen
                 wfi.saveMessagesToSession()
