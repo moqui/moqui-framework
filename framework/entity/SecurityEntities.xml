@@ -321,7 +321,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="UGM"/>
         <alias-all entity-alias="UG"/>
     </view-entity>
-    <entity entity-name="UserGroupPermission" package-name="moqui.security" cache="true">
+    <entity entity-name="UserGroupPermission" package-name="moqui.security" cache="true" short-alias="userGroupPermissions">
         <field name="userGroupId" type="id" is-pk="true"/>
         <field name="userPermissionId" type="id-long" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
@@ -372,7 +372,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user">
             <description>No FK in order to allow externally authenticated users.</description></relationship>
     </entity>
-    <entity entity-name="UserPermission" package-name="moqui.security">
+    <entity entity-name="UserPermission" package-name="moqui.security" short-alias="userPermissions">
         <field name="userPermissionId" type="id-long" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
