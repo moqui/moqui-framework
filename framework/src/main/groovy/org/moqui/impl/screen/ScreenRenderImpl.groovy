@@ -35,7 +35,6 @@ import org.moqui.impl.context.ResourceFacadeImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
-import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.entity.EntityValueImpl
 import org.moqui.impl.screen.ScreenDefinition.ResponseItem
@@ -54,6 +53,7 @@ import javax.servlet.http.HttpServletResponse
 @CompileStatic
 class ScreenRenderImpl implements ScreenRender {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenRenderImpl.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
     protected final static URLCodec urlCodec = new URLCodec()
 
     protected final ScreenFacadeImpl sfi
@@ -377,21 +377,22 @@ class ScreenRenderImpl implements ScreenRender {
 
             String url = ri.url != null ? ri.url : ""
             String urlType = ri.urlType != null && ri.urlType.length() > 0 ? ri.urlType : "screen-path"
+            boolean isScreenLast = "screen-last".equals(ri.type)
 
-            // handle screen-last, etc
             if (wfi != null) {
-                if (ri.type == "screen-last" || ri.type == "screen-last-noparam") {
+                // handle screen-last, etc
+                if (isScreenLast || "screen-last-noparam".equals(ri.type)) {
                     String savedUrl =  wfi.getRemoveScreenLastPath()
                     urlType = "screen-path"
                     if (savedUrl != null && savedUrl.length() > 0) {
                         url = savedUrl
-                        wfi.removeScreenLastParameters(ri.type == "screen-last")
+                        wfi.removeScreenLastParameters(isScreenLast)
                     } else {
                         // try screen history when no last was saved
                         List<Map> historyList = wfi.getScreenHistory()
                         Map historyMap = historyList != null && historyList.size() > 0 ? historyList.first() : (Map) null
                         if (historyMap != null) {
-                            url = ri.type == "screen-last" ? historyMap.url : historyMap.urlNoParams
+                            url = isScreenLast ? historyMap.url : historyMap.urlNoParams
                             urlType = "plain"
                         } else {
                             // if no saved URL, just go to root/default; avoid getting stuck on Login screen, etc
@@ -399,10 +400,8 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
                 }
-            }
 
-            // save messages in session before redirecting so they can be displayed on the next screen
-            if (wfi != null) {
+                // save messages in session before redirecting so they can be displayed on the next screen
                 wfi.saveMessagesToSession()
                 if (ri.saveParameters) wfi.saveRequestParametersToSession()
                 if (ec.message.hasError()) wfi.saveErrorParametersToSession()
@@ -410,7 +409,7 @@ class ScreenRenderImpl implements ScreenRender {
 
             // either send a redirect for the response, if possible, or just render the response now
             if (this.response != null) {
-                if (urlType == "plain") {
+                if ("plain".equals(urlType)) {
                     StringBuilder ps = new StringBuilder()
                     Map<String, String> pm = (Map<String, String>) ri.expandParameters(screenUrlInfo.getExtraPathNameList(), ec)
                     if (pm != null && pm.size() > 0) {
@@ -437,7 +436,7 @@ class ScreenRenderImpl implements ScreenRender {
                     UrlInstance.copySpecialParameters(savedParameters, fullUrl.getOtherParameterMap())
                     // screen parameters
                     Map<String, ScreenDefinition.ParameterItem> parameterItemMap = fullUrl.sui.getTargetScreen()?.getParameterMap()
-                    if (ri.type == "screen-last" && savedParameters != null && savedParameters.size() > 0 &&
+                    if (isScreenLast && savedParameters != null && savedParameters.size() > 0 &&
                             parameterItemMap != null && parameterItemMap.size() > 0) {
                         for (String parmName in parameterItemMap.keySet()) {
                             if (savedParameters.get(parmName))
@@ -446,7 +445,7 @@ class ScreenRenderImpl implements ScreenRender {
                     }
                     // transition parameters
                     Map<String, ScreenDefinition.ParameterItem> transParameterItemMap = fullUrl.getTargetTransition()?.getParameterMap()
-                    if (ri.type == "screen-last" && savedParameters != null && savedParameters.size() > 0 &&
+                    if (isScreenLast && savedParameters != null && savedParameters.size() > 0 &&
                             transParameterItemMap != null && transParameterItemMap.size() > 0) {
                         for (String parmName in transParameterItemMap.keySet()) {
                             if (savedParameters.get(parmName))
@@ -497,18 +496,20 @@ class ScreenRenderImpl implements ScreenRender {
                 internalRender()
             }
         } else if (screenUrlInfo.fileResourceRef != null) {
+            ResourceReference fileResourceRef = screenUrlInfo.fileResourceRef
+
             long resourceStartTime = System.currentTimeMillis()
             long startTimeNanos = System.nanoTime()
 
-            TemplateRenderer tr = sfi.ecfi.resourceFacade.getTemplateRendererByLocation(screenUrlInfo.fileResourceRef.location)
+            TemplateRenderer tr = sfi.ecfi.resourceFacade.getTemplateRendererByLocation(fileResourceRef.location)
 
             // use the fileName to determine the content/mime type
-            String fileName = screenUrlInfo.fileResourceRef.fileName
+            String fileName = fileResourceRef.fileName
             // strip template extension(s) to avoid problems with trying to find content types based on them
             String fileContentType = sfi.ecfi.resourceFacade.getContentType(tr != null ? tr.stripTemplateExtension(fileName) : fileName)
 
             boolean isBinary = tr == null && sfi.ecfi.resourceFacade.isBinaryContentType(fileContentType)
-            // if (logger.traceEnabled) logger.trace("Content type for screen sub-content filename [${fileName}] is [${fileContentType}], default [${this.outputContentType}], is binary? ${isBinary}")
+            // if (isTraceEnabled) logger.trace("Content type for screen sub-content filename [${fileName}] is [${fileContentType}], default [${this.outputContentType}], is binary? ${isBinary}")
 
             if (isBinary) {
                 if (response != null) {
@@ -520,27 +521,23 @@ class ScreenRenderImpl implements ScreenRender {
 
                     InputStream is
                     try {
-                        is = screenUrlInfo.fileResourceRef.openStream()
+                        is = fileResourceRef.openStream()
                         OutputStream os = response.outputStream
                         int totalLen = StupidUtilities.copyStream(is, os)
 
                         if (screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit') != "false") {
-                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, screenUrlInfo.fileResourceRef.location,
+                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, fileResourceRef.location,
                                     (web != null ? web.requestParameters : null), resourceStartTime,
                                     (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
                         }
-                        if (logger.traceEnabled) logger.trace("Sent binary response of length ${totalLen} from file ${screenUrlInfo.fileResourceRef.location} for request to ${screenUrlInstance.url}")
-                        return
+                        if (isTraceEnabled) logger.trace("Sent binary response of length ${totalLen} from file ${fileResourceRef.location} for request to ${screenUrlInstance.url}")
                     } finally {
                         if (is != null) is.close()
                     }
                 } else {
                     throw new IllegalArgumentException("Tried to get binary content at [${screenUrlInfo.fileResourcePathList}] under screen [${screenUrlInfo.targetScreen.location}], but there is no HTTP response available")
                 }
-            }
-
-            // not binary, render as text
-            if (!"true".equals(screenUrlInfo.targetScreen.screenNode.attribute('include-child-content'))) {
+            } else if (!"true".equals(screenUrlInfo.targetScreen.screenNode.attribute('include-child-content'))) {
                 // not a binary object (hopefully), read it and write it to the writer
                 if (fileContentType != null && fileContentType.length() > 0) this.outputContentType = fileContentType
                 if (response != null) {
@@ -551,13 +548,13 @@ class ScreenRenderImpl implements ScreenRender {
                 if (tr != null) {
                     // if requires a render, don't cache and make it private
                     if (response != null) response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
-                    tr.render(screenUrlInfo.fileResourceRef.location, writer)
+                    tr.render(fileResourceRef.location, writer)
                 } else {
                     // static text, tell the browser to cache it
                     // TODO: make this configurable?
                     if (response != null) response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
                     // no renderer found, just grab the text (cached) and throw it to the writer
-                    String text = sfi.ecfi.resourceFacade.getLocationText(screenUrlInfo.fileResourceRef.location, true)
+                    String text = sfi.ecfi.resourceFacade.getLocationText(fileResourceRef.location, true)
                     if (text != null && text.length() > 0) {
                         // NOTE: String.length not correct for byte length
                         String charset = response?.getCharacterEncoding() ?: "UTF-8"
@@ -566,16 +563,16 @@ class ScreenRenderImpl implements ScreenRender {
                         // int length = text.getBytes(charset).length
                         // if (response != null) response.setContentLength(length)
 
-                        if (logger.isTraceEnabled()) logger.trace("Sending text response with ${charset} encoding from file ${screenUrlInfo.fileResourceRef.location} for request to ${screenUrlInstance.url}")
+                        if (isTraceEnabled) logger.trace("Sending text response with ${charset} encoding from file ${fileResourceRef.location} for request to ${screenUrlInstance.url}")
 
                         writer.write(text)
                         if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit'))) {
-                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, screenUrlInfo.fileResourceRef.location,
+                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, fileResourceRef.location,
                                     (web != null ? web.requestParameters : null), resourceStartTime,
                                     (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
                         }
                     } else {
-                        logger.warn("Not sending text response from file [${screenUrlInfo.fileResourceRef.location}] for request to [${screenUrlInstance.url}] because no text was found in the file.")
+                        logger.warn("Not sending text response from file [${fileResourceRef.location}] for request to [${screenUrlInstance.url}] because no text was found in the file.")
                     }
                 }
             } else {
@@ -755,7 +752,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (characterEncoding != null && characterEncoding.length() > 0) this.characterEncoding = characterEncoding
 
         // if screen requires auth and there is not active user redirect to login screen, save this request
-        // if (logger.traceEnabled) logger.trace("Checking screen [${currentSd.location}] for require-authentication, current user is [${ec.user.userId}]")
+        // if (isTraceEnabled) logger.trace("Checking screen [${currentSd.location}] for require-authentication, current user is [${ec.user.userId}]")
 
         WebFacadeImpl wfi = ec.getWebImpl()
         String requireAuthentication = currentSd.screenNode?.attribute('require-authentication')
@@ -939,7 +936,7 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
-    String safeCloseList(Object listObject) {
+    static String safeCloseList(Object listObject) {
         if (listObject instanceof EntityListIterator) ((EntityListIterator) listObject).close()
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
@@ -1231,7 +1228,9 @@ class ScreenRenderImpl implements ScreenRender {
         Map valueMap = (Map) ec.resource.expression(mapName, "")
         if (StupidJavaUtilities.isEmpty(value)) {
             MNode formNode = fieldNode.parent
-            if (valueMap != null && formNode.name == "form-single") {
+            boolean isFormSingle = "form-single".equals(formNode.name)
+            boolean isFormList = !isFormSingle && "form-list".equals(formNode.name)
+            if (valueMap != null && isFormSingle) {
                 try {
                     if (valueMap instanceof EntityValueBase) {
                         // if it is an EntityValueImpl, only get if the fieldName is a value
@@ -1242,17 +1241,21 @@ class ScreenRenderImpl implements ScreenRender {
                     }
                 } catch (EntityException e) {
                     // do nothing, not necessarily an entity field
-                    if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
+                    if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
-            } else if (formNode.name == "form-list" && formNode.attribute('list-entry')) {
-                // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
-                //     putting all Map entries in the context for each row)
-                Object entryObj = ec.getContext().getByString(formNode.attribute('list-entry'))
-                if (entryObj != null && !(entryObj instanceof Map)) {
-                    try {
-                        value = entryObj.getAt(fieldName)
-                    } catch (MissingPropertyException e) {
-                        // ignore exception, we know this may not be a real property of the object
+            } else if (isFormList) {
+                String listEntryAttr = formNode.attribute('list-entry')
+                if (listEntryAttr != null && listEntryAttr.length() > 0) {
+                    // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
+                    //     putting all Map entries in the context for each row)
+                    Object entryObj = ec.getContext().getByString(listEntryAttr)
+                    if (entryObj != null && !(entryObj instanceof Map)) {
+                        try {
+                            value = entryObj.getAt(fieldName)
+                        } catch (MissingPropertyException e) {
+                            // ignore exception, we know this may not be a real property of the object
+                            if (isTraceEnabled) logger.trace("Field ${fieldName} is not a property of list-entry ${listEntryAttr} in form ${formNode.attribute('name')}: ${e.toString()}")
+                        }
                     }
                 }
             }
@@ -1287,7 +1290,7 @@ class ScreenRenderImpl implements ScreenRender {
                     }
                 } catch (EntityException e) {
                     // do nothing, not necessarily an entity field
-                    if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
+                    if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
             }
             if (StupidJavaUtilities.isEmpty(fieldValue)) fieldValue = ec.getContext().getByString(fieldName)
