@@ -76,6 +76,15 @@ class MapCondition extends EntityConditionImplBase {
         // if we got here it means that it's an OR with no true, or an AND with no false
         return (joinOperator == AND)
     }
+    @Override
+    boolean mapMatchesAny(Map<String, Object> map) {
+        for (int i = 0; i < fieldsSize; i++) {
+            boolean conditionMatches = EntityConditionFactoryImpl.compareByOperator(map.get(names[i]),
+                    comparisonOperator, values[i])
+            if (conditionMatches) return true
+        }
+        return false
+    }
 
     @Override
     boolean populateMap(Map<String, Object> map) {

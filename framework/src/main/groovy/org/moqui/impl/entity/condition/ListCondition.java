@@ -21,6 +21,7 @@ import java.util.*;
 
 public class ListCondition extends EntityConditionImplBase {
     protected final ArrayList<EntityConditionImplBase> conditionList = new ArrayList<EntityConditionImplBase>();
+    protected int conditionListSize = 0;
     protected final EntityCondition.JoinOperator operator;
     protected Integer curHashCode = null;
     protected static final Class thisClass = ListCondition.class;
@@ -45,16 +46,19 @@ public class ListCondition extends EntityConditionImplBase {
                 }
             }
         }
+        conditionListSize = conditionList.size();
     }
 
     public void addCondition(EntityConditionImplBase condition) {
         if (condition != null) conditionList.add(condition);
         curHashCode = null;
+        conditionListSize = conditionList.size();
     }
     public void addConditions(ListCondition listCond) {
         ArrayList<EntityConditionImplBase> condList = listCond.getConditionList();
         int condListSize = condList.size();
         for (int i = 0; i < condListSize; i++) addCondition(condList.get(i));
+        conditionListSize = conditionList.size();
     }
 
     public EntityCondition.JoinOperator getOperator() { return operator; }
@@ -67,8 +71,7 @@ public class ListCondition extends EntityConditionImplBase {
         StringBuilder sql = eqb.getSqlTopLevel();
         String joinOpString = EntityConditionFactoryImpl.getJoinOperatorString(this.operator);
         sql.append('(');
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (i > 0) sql.append(' ').append(joinOpString).append(' ');
             condition.makeSqlWhere(eqb);
@@ -78,8 +81,7 @@ public class ListCondition extends EntityConditionImplBase {
 
     @Override
     public boolean mapMatches(Map<String, Object> map) {
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             boolean conditionMatches = condition.mapMatches(map);
             if (conditionMatches && this.operator == OR) return true;
@@ -88,12 +90,21 @@ public class ListCondition extends EntityConditionImplBase {
         // if we got here it means that it's an OR with no trues, or an AND with no falses
         return (this.operator == AND);
     }
+    @Override
+    public boolean mapMatchesAny(Map<String, Object> map) {
+        for (int i = 0; i < conditionListSize; i++) {
+            EntityConditionImplBase condition = conditionList.get(i);
+            boolean conditionMatches = condition.mapMatchesAny(map);
+            if (conditionMatches) return true;
+        }
+        // if we got here it means that it's an OR with no trues, or an AND with no falses
+        return false;
+    }
 
     @Override
     public boolean populateMap(Map<String, Object> map) {
         if (operator != AND) return false;
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (!condition.populateMap(map)) return false;
         }
@@ -101,8 +112,7 @@ public class ListCondition extends EntityConditionImplBase {
     }
 
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             condition.getAllAliases(entityAliasSet, fieldAliasSet);
         }
@@ -114,8 +124,7 @@ public class ListCondition extends EntityConditionImplBase {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (sb.length() > 0) sb.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
             sb.append('(').append(condition.toString()).append(')');

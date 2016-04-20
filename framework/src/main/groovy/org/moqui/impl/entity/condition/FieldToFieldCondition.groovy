@@ -62,6 +62,10 @@ class FieldToFieldCondition extends EntityConditionImplBase {
     boolean mapMatches(Map<String, Object> map) {
         return EntityConditionFactoryImpl.compareByOperator(map.get(field.getFieldName()), operator, map.get(toField.getFieldName()))
     }
+    @Override
+    boolean mapMatchesAny(Map<String, Object> map) {
+        return mapMatches(map)
+    }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }

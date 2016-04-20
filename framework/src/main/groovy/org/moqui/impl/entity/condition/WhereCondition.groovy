@@ -42,6 +42,13 @@ class WhereCondition extends EntityConditionImplBase {
         logger.warn("The mapMatches for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
         return false
     }
+    @Override
+    boolean mapMatchesAny(Map<String, Object> map) {
+        // NOTE: always return false unless we eventually implement some sort of SQL parsing, for caching/etc
+        // always consider not matching
+        logger.warn("The mapMatchesAny for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
+        return false
+    }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }

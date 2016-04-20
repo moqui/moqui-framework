@@ -286,6 +286,25 @@ class EntityCache {
                     String cachedViewEntityName = (String) cachedViewEntityNames.get(i)
                     // logger.info("Found ${cachedViewEntityName} as a cached view-entity for member ${fullEntityName}")
 
+                    EntityDefinition viewEd = efi.getEntityDefinition(cachedViewEntityName)
+
+                    // generally match against view-entity aliases for fields on member entity
+                    // handle cases where current record (evbMap) has some keys from view-entity but not all (like UserPermissionCheck)
+                    Map<String, Object> viewMatchMap = new HashMap<>()
+                    Map<String, ArrayList<MNode>> memberFieldAliases = viewEd.getMemberFieldAliases(fullEntityName)
+                    for (Map.Entry<String, ArrayList<MNode>> mfAliasEntry in memberFieldAliases.entrySet()) {
+                        String fieldName = mfAliasEntry.getKey()
+                        if (!evbMap.containsKey(fieldName)) continue
+                        Object fieldValue = evbMap.get(fieldName)
+                        ArrayList<MNode> aliasNodeList = mfAliasEntry.getValue()
+                        int aliasNodeListSize = aliasNodeList.size()
+                        for (int j = 0 ; j < aliasNodeListSize; j++) {
+                            MNode aliasNode = (MNode) aliasNodeList.get(j)
+                            viewMatchMap.put(aliasNode.attribute("name"), fieldValue)
+                        }
+                    }
+                    // logger.warn("========= viewMatchMap: ${viewMatchMap}")
+
                     String viewListKey = listKeyBase.concat(cachedViewEntityName)
                     CacheImpl entityListCache = cfi.getCacheImpl(viewListKey, efi.tenantId)
                     Ehcache elEhc = entityListCache.getInternalCache()
@@ -295,8 +314,10 @@ class EntityCache {
                     Iterator<EntityCondition> elEhcKeysIter = elEhcKeys.iterator()
                     while (elEhcKeysIter.hasNext()) {
                         EntityCondition ec = (EntityCondition) elEhcKeysIter.next()
-                        // any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
-                        if (ec.mapMatches(evbMap)) elEhc.remove(ec)
+                        // logger.warn("======= entity ${fullEntityName} view-entity ${cachedViewEntityName} matches? ${ec.mapMatchesAny(viewMatchMap)} ec: ${ec}")
+                        // FUTURE: any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
+                        // don't require a full match, if matches any part of condition clear it
+                        if (ec.mapMatchesAny(viewMatchMap)) elEhc.remove(ec)
                     }
                 }
             }

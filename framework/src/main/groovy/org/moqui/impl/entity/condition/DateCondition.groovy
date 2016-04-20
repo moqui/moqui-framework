@@ -45,7 +45,11 @@ class DateCondition extends EntityConditionImplBase {
 
     @Override
     boolean mapMatches(Map<String, Object> map) {
-        return this.makeCondition().mapMatches(map)
+        return makeCondition().mapMatches(map)
+    }
+    @Override
+    boolean mapMatchesAny(Map<String, Object> map) {
+        return makeCondition().mapMatchesAny(map)
     }
 
     @Override

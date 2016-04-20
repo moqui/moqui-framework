@@ -136,6 +136,8 @@ public class FieldValueCondition extends EntityConditionImplBase {
 
     @Override
     public boolean mapMatches(Map<String, Object> map) { return EntityConditionFactoryImpl.compareByOperator(map.get(field.fieldName), operator, value); }
+    @Override
+    public boolean mapMatchesAny(Map<String, Object> map) { return mapMatches(map); }
 
     @Override
     public boolean populateMap(Map<String, Object> map) {

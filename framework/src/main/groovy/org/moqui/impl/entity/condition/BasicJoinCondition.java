@@ -42,15 +42,15 @@ public class BasicJoinCondition extends EntityConditionImplBase {
     public void makeSqlWhere(EntityQueryBuilder eqb) {
         StringBuilder sql = eqb.getSqlTopLevel();
         sql.append('(');
-        this.lhs.makeSqlWhere(eqb);
+        lhs.makeSqlWhere(eqb);
         sql.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
-        this.rhs.makeSqlWhere(eqb);
+        rhs.makeSqlWhere(eqb);
         sql.append(')');
     }
 
     @Override
     public boolean mapMatches(Map<String, Object> map) {
-        boolean lhsMatches = this.lhs.mapMatches(map);
+        boolean lhsMatches = lhs.mapMatches(map);
 
         // handle cases where we don't need to evaluate rhs
         if (lhsMatches && operator == OR) return true;
@@ -59,7 +59,11 @@ public class BasicJoinCondition extends EntityConditionImplBase {
         // handle opposite cases since we know cases above aren't true (ie if OR then lhs=false, if AND then lhs=true
         // if rhs then result is true whether AND or OR
         // if !rhs then result is false whether AND or OR
-        return this.rhs.mapMatches(map);
+        return rhs.mapMatches(map);
+    }
+    @Override
+    public boolean mapMatchesAny(Map<String, Object> map) {
+        return lhs.mapMatchesAny(map) || rhs.mapMatchesAny(map);
     }
 
     @Override
