@@ -27,6 +27,8 @@ Bug Fixes
 - In entity cache auto clear for list of view-entity fixed mapping of
   member entity fields to view entity alias, and partial match when only
   some view entity fields are on a member entity
+- Cache clear fix for view-entity list cache fixes issue where adding a
+  permission required manual cache clear or restart for permission to apply
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
