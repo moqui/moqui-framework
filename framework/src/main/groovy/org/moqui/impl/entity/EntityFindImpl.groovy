@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class EntityFindImpl extends EntityFindBase {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFindImpl.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
     EntityFindImpl(EntityFacadeImpl efi, String entityName) {
         super(efi, entityName)
@@ -97,11 +98,9 @@ class EntityFindImpl extends EntityFindBase {
                     EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
                 }
             } else {
-                if (logger.isTraceEnabled()) logger.trace("Result set was empty for find on entity [${entityName}] with condition [${condSql}]")
+                if (isTraceEnabled) logger.trace("Result set was empty for find on entity [${entityName}] with condition [${condSql}]")
             }
-            if (rs.next()) {
-                if (logger.isTraceEnabled()) logger.trace("Found more than one result for condition [${condSql}] on entity [${entityDef.getFullEntityName()}]")
-            }
+            if (isTraceEnabled && rs.next()) logger.trace("Found more than one result for condition [${condSql}] on entity [${entityDef.getFullEntityName()}]")
         } catch (SQLException e) {
             throw new EntityException("Error finding value", e)
         } finally {

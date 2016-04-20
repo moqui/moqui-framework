@@ -386,12 +386,11 @@ class ScreenUrlInfo {
 
                 // is this a file under the screen?
                 ResourceReference existingFileRef = lastSd.getSubContentRef(extraPathNameList)
-                if (existingFileRef != null && existingFileRef.supportsExists() && existingFileRef.exists) {
+                if (existingFileRef != null && existingFileRef.getExists() && !existingFileRef.isDirectory() &&
+                        !sfi.isScreen(existingFileRef.getLocation())) {
                     // exclude screen files, don't want to treat them as resources and let them be downloaded
-                    if (!sfi.isScreen(existingFileRef.getLocation())) {
-                        fileResourceRef = existingFileRef
-                        break
-                    }
+                    fileResourceRef = existingFileRef
+                    break
                 }
 
                 int dotIndex = pathName.indexOf('.')
