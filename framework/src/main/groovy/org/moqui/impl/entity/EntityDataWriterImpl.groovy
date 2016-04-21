@@ -139,12 +139,13 @@ class EntityDataWriterImpl implements EntityDataWriter {
             pw.println("<entity-facade-xml>")
 
             EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
             EntityListIterator eli = ef.iterator()
 
             int curValuesWritten = 0
             try {
-                if (masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null) {
+                if (useMaster) {
                     curValuesWritten = eli.writeXmlTextMaster(pw, prefix, masterName)
                 } else {
                     curValuesWritten = eli.writeXmlText(pw, prefix, dependentLevels)
@@ -178,6 +179,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             pw.println("[")
 
             EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
             EntityListIterator eli = ef.iterator()
 
@@ -186,7 +188,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 EntityValue ev
                 while ((ev = eli.next()) != null) {
                     Map plainMap
-                    if (masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null) {
+                    if (useMaster) {
                         plainMap = ev.getMasterValueMap(masterName)
                     } else {
                         plainMap = ev.getPlainValueMap(dependentLevels)
@@ -259,6 +261,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         for (String en in entityNames) {
             EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
 
             /* leaving commented as might be useful for future con pool debugging:
@@ -272,7 +275,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
             EntityListIterator eli = ef.iterator()
             try {
-                if (masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null) {
+                if (useMaster) {
                     valuesWritten += eli.writeXmlTextMaster(writer, prefix, masterName)
                 } else {
                     valuesWritten += eli.writeXmlText(writer, prefix, dependentLevels)
@@ -295,13 +298,14 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         for (String en in entityNames) {
             EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
             EntityListIterator eli = ef.iterator()
             try {
                 EntityValue ev
                 while ((ev = eli.next()) != null) {
                     Map plainMap
-                    if (masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null) {
+                    if (useMaster) {
                         plainMap = ev.getMasterValueMap(masterName)
                     } else {
                         plainMap = ev.getPlainValueMap(dependentLevels)
