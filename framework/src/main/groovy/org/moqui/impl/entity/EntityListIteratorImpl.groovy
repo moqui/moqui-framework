@@ -325,16 +325,23 @@ class EntityListIteratorImpl implements EntityListIterator {
         int recordsWritten = 0
         try {
             // move back to before first if we need to
-            if (haveMadeValue && !rs.isBeforeFirst()) {
-                rs.beforeFirst()
-            }
+            if (haveMadeValue && !rs.isBeforeFirst()) rs.beforeFirst()
             EntityValue value
-            while ((value = this.next()) != null) {
+            while ((value = this.next()) != null)
                 recordsWritten += value.writeXmlText(writer, prefix, dependentLevels)
-            }
-        } catch (SQLException e) {
-            throw new EntityException("Error writing XML for all results", e)
-        }
+        } catch (SQLException e) { throw new EntityException("Error writing XML for all results", e) }
+        return recordsWritten
+    }
+    @Override
+    int writeXmlTextMaster(Writer writer, String prefix, String masterName) {
+        int recordsWritten = 0
+        try {
+            // move back to before first if we need to
+            if (haveMadeValue && !rs.isBeforeFirst()) rs.beforeFirst()
+            EntityValue value
+            while ((value = this.next()) != null)
+                recordsWritten += value.writeXmlTextMaster(writer, prefix, masterName)
+        } catch (SQLException e) { throw new EntityException("Error writing XML for all results", e) }
         return recordsWritten
     }
 

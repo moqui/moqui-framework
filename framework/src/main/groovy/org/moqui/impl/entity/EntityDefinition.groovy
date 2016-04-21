@@ -568,7 +568,7 @@ public class EntityDefinition {
     }
 
     MasterDefinition getMasterDefinition(String name) {
-        if (!name) name = "default"
+        if (name == null || name.length() == 0) name = "default"
         if (masterDefinitionMap == null) makeMasterDefinitionMap()
         return masterDefinitionMap.get(name)
     }

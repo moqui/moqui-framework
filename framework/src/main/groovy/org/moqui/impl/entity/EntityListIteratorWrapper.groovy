@@ -183,12 +183,17 @@ class EntityListIteratorWrapper implements EntityListIterator {
     @Override
     int writeXmlText(Writer writer, String prefix, int dependentLevels) {
         int recordsWritten = 0
-        // move back to before first if we need to
         if (haveMadeValue && internalIndex != -1) internalIndex = -1
         EntityValue value
-        while ((value = this.next()) != null) {
-            recordsWritten += value.writeXmlText(writer, prefix, dependentLevels)
-        }
+        while ((value = this.next()) != null) recordsWritten += value.writeXmlText(writer, prefix, dependentLevels)
+        return recordsWritten
+    }
+    @Override
+    int writeXmlTextMaster(Writer writer, String prefix, String masterName) {
+        int recordsWritten = 0
+        if (haveMadeValue && internalIndex != -1) internalIndex = -1
+        EntityValue value
+        while ((value = this.next()) != null) recordsWritten += value.writeXmlTextMaster(writer, prefix, masterName)
         return recordsWritten
     }
 

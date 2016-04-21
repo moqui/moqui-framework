@@ -18,8 +18,6 @@ import org.moqui.entity.EntityValue
 
 import java.sql.Timestamp
 
-import org.apache.commons.collections.set.ListOrderedSet
-
 import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityDataWriter
@@ -37,8 +35,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
     protected EntityDataWriter.FileType fileType = XML
     protected int txTimeout = 3600
-    protected ListOrderedSet entityNames = new ListOrderedSet()
+    protected LinkedHashSet<String> entityNames = new LinkedHashSet<>()
     protected int dependentLevels = 0
+    protected String masterName = null
     protected String prefix = null
     protected Map<String, Object> filterMap = [:]
     protected List<String> orderByList = []
@@ -54,6 +53,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
     EntityDataWriter entityNames(List<String> enList) { entityNames.addAll(enList);  return this }
     EntityDataWriter dependentRecords(boolean dr) { if (dr) { dependentLevels = 2 } else { dependentLevels = 0 }; return this }
     EntityDataWriter dependentLevels(int levels) { dependentLevels = levels; return this }
+    EntityDataWriter master(String mn) { masterName = mn; return this }
     EntityDataWriter prefix(String p) { prefix = p; return this }
     EntityDataWriter filterMap(Map<String, Object> fm) { filterMap.putAll(fm); return this }
     EntityDataWriter orderBy(List<String> obl) { orderByList.addAll(obl); return this }
@@ -142,7 +142,11 @@ class EntityDataWriterImpl implements EntityDataWriter {
             EntityListIterator eli = ef.iterator()
             int curValuesWritten = 0
             try {
-                curValuesWritten = eli.writeXmlText(pw, prefix, dependentLevels)
+                if (masterName != null && masterName.length() > 0) {
+                    curValuesWritten = eli.writeXmlTextMaster(pw, prefix, masterName)
+                } else {
+                    curValuesWritten = eli.writeXmlText(pw, prefix, dependentLevels)
+                }
             } finally {
                 eli.close()
             }
@@ -178,7 +182,12 @@ class EntityDataWriterImpl implements EntityDataWriter {
             try {
                 EntityValue ev
                 while ((ev = eli.next()) != null) {
-                    Map plainMap = ev.getPlainValueMap(dependentLevels)
+                    Map plainMap
+                    if (masterName != null && masterName.length() > 0) {
+                        plainMap = ev.getMasterValueMap(masterName)
+                    } else {
+                        plainMap = ev.getPlainValueMap(dependentLevels)
+                    }
                     JsonBuilder jb = new JsonBuilder()
                     jb.call(plainMap)
                     String jsonStr = jb.toPrettyString()
@@ -210,12 +219,16 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         TransactionFacade tf = efi.getEcfi().getTransactionFacade()
         boolean suspendedTransaction = false
+        int valuesWritten = 0
         try {
             if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = tf.begin(txTimeout)
             try {
-                if (fileType == JSON) return writerJson(writer)
-                return writerXml(writer)
+                if (fileType == JSON) {
+                    valuesWritten = writerJson(writer)
+                } else {
+                    valuesWritten = writerXml(writer)
+                }
             } catch (Throwable t) {
                 logger.warn("Error writing data: " + t.toString(), t)
                 tf.rollback(beganTransaction, "Error writing data", t)
@@ -232,6 +245,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 logger.error("Error resuming parent transaction after data write", t)
             }
         }
+
+        return valuesWritten
     }
     protected int writerXml(Writer writer) {
         int valuesWritten = 0
@@ -253,7 +268,11 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
             EntityListIterator eli = ef.iterator()
             try {
-                valuesWritten += eli.writeXmlText(writer, prefix, dependentLevels)
+                if (masterName != null && masterName.length() > 0) {
+                    valuesWritten += eli.writeXmlTextMaster(writer, prefix, masterName)
+                } else {
+                    valuesWritten += eli.writeXmlText(writer, prefix, dependentLevels)
+                }
             } finally {
                 eli.close()
             }
@@ -276,7 +295,12 @@ class EntityDataWriterImpl implements EntityDataWriter {
             try {
                 EntityValue ev
                 while ((ev = eli.next()) != null) {
-                    Map plainMap = ev.getPlainValueMap(dependentLevels)
+                    Map plainMap
+                    if (masterName != null && masterName.length() > 0) {
+                        plainMap = ev.getMasterValueMap(masterName)
+                    } else {
+                        plainMap = ev.getPlainValueMap(dependentLevels)
+                    }
                     JsonBuilder jb = new JsonBuilder()
                     jb.call(plainMap)
                     String jsonStr = jb.toPrettyString()

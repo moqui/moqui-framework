@@ -731,6 +731,13 @@ abstract class EntityValueBase implements EntityValue {
         return plainMapXmlWriter(pw, prefix, ed.getShortAlias() ?: ed.getFullEntityName(), plainMap, 1)
     }
 
+    @Override
+    int writeXmlTextMaster(Writer pw, String prefix, String masterName) {
+        Map<String, Object> plainMap = getMasterValueMap(masterName)
+        EntityDefinition ed = getEntityDefinition()
+        return plainMapXmlWriter(pw, prefix, ed.getShortAlias() ?: ed.getFullEntityName(), plainMap, 1)
+    }
+
     // indent 4 spaces
     protected static final String indentString = "    "
     protected static int plainMapXmlWriter(Writer pw, String prefix, String objectName, Map<String, Object> plainMap, int level) {
