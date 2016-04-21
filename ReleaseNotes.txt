@@ -14,6 +14,9 @@ New Features
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
+- EntityDataWriter now supports export with a entity master definition
+  name, applied only to entities exported that have a master def with the
+  given master name
 
 Bug Fixes
 
