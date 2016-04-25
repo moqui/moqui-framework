@@ -663,26 +663,25 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element ref="box-header"/>
                 <xs:element ref="box-toolbar" minOccurs="0"/>
-                <xs:element ref="box-body"/>
+                <xs:choice>
+                    <xs:sequence>
+                        <xs:element ref="box-body"/>
+                        <xs:element ref="box-body-nopad" minOccurs="0"/>
+                    </xs:sequence>
+                    <xs:element ref="box-body-nopad"/>
+                </xs:choice>
             </xs:sequence>
             <xs:attribute name="id" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="box-header">
-        <xs:complexType>
-            <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
-        </xs:complexType>
-    </xs:element>
+        <xs:complexType><xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
     <xs:element name="box-toolbar">
-        <xs:complexType>
-            <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
-        </xs:complexType>
-    </xs:element>
+        <xs:complexType><xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
     <xs:element name="box-body">
-        <xs:complexType>
-            <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
-        </xs:complexType>
-    </xs:element>
+        <xs:complexType><xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+    <xs:element name="box-body-nopad">
+        <xs:complexType><xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
 
     <xs:element name="container-row" substitutionGroup="AllWidgets">
         <xs:annotation><xs:documentation>A responsive 12-column grid row. For the concept and one possible
