@@ -1294,12 +1294,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Configuration File Merging Methods ==========
 
     protected void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
-        mergeSingleChild(baseNode, overrideNode, "tools")
+        baseNode.mergeSingleChild(overrideNode, "tools")
 
-        if (overrideNode.hasChild("cache-list")) {
-            mergeNodeWithChildKey(baseNode.first("cache-list"), overrideNode.first("cache-list"), "cache", "name")
-        }
-        
+        baseNode.mergeChildWithChildKey(overrideNode, "cache-list", "cache", "name", null)
+
         if (overrideNode.hasChild("server-stats")) {
             // the artifact-stats nodes have 2 keys: type, sub-type; can't use the normal method
             MNode ssNode = baseNode.first("server-stats")
@@ -1321,60 +1319,50 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
-        if (overrideNode.hasChild("webapp-list")) {
-            mergeNodeWithChildKey(baseNode.first("webapp-list"), overrideNode.first("webapp-list"), "webapp", "name")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "webapp-list", "webapp", "name",
+                { MNode childBaseNode, MNode childOverrideNode -> mergeWebappChildNodes(childBaseNode, childOverrideNode) })
 
-        if (overrideNode.hasChild("artifact-execution-facade")) {
-            mergeNodeWithChildKey(baseNode.first("artifact-execution-facade"),
-                    overrideNode.first("artifact-execution-facade"), "artifact-execution", "type")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "artifact-execution-facade", "artifact-execution", "type", null)
 
         if (overrideNode.hasChild("user-facade")) {
             MNode ufBaseNode = baseNode.first("user-facade")
             MNode ufOverrideNode = overrideNode.first("user-facade")
-            mergeSingleChild(ufBaseNode, ufOverrideNode, "password")
-            mergeSingleChild(ufBaseNode, ufOverrideNode, "login-key")
-            mergeSingleChild(ufBaseNode, ufOverrideNode, "login")
+            ufBaseNode.mergeSingleChild(ufOverrideNode, "password")
+            ufBaseNode.mergeSingleChild(ufOverrideNode, "login-key")
+            ufBaseNode.mergeSingleChild(ufOverrideNode, "login")
         }
 
         if (overrideNode.hasChild("transaction-facade")) {
             MNode tfBaseNode = baseNode.first("transaction-facade")
             MNode tfOverrideNode = overrideNode.first("transaction-facade")
             tfBaseNode.attributes.putAll(tfOverrideNode.attributes)
-            mergeSingleChild(tfBaseNode, tfOverrideNode, "server-jndi")
-            mergeSingleChild(tfBaseNode, tfOverrideNode, "transaction-jndi")
-            mergeSingleChild(tfBaseNode, tfOverrideNode, "transaction-internal")
+            tfBaseNode.mergeSingleChild(tfOverrideNode, "server-jndi")
+            tfBaseNode.mergeSingleChild(tfOverrideNode, "transaction-jndi")
+            tfBaseNode.mergeSingleChild(tfOverrideNode, "transaction-internal")
         }
 
         if (overrideNode.hasChild("resource-facade")) {
-            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
-                    "resource-reference", "scheme")
-            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
-                    "template-renderer", "extension")
-            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
-                    "script-runner", "extension")
+            baseNode.mergeChildWithChildKey(overrideNode, "resource-facade", "resource-reference", "scheme", null)
+            baseNode.mergeChildWithChildKey(overrideNode, "resource-facade", "template-renderer", "extension", null)
+            baseNode.mergeChildWithChildKey(overrideNode, "resource-facade", "script-runner", "extension", null)
         }
 
-        if (overrideNode.hasChild("screen-facade")) {
-            mergeNodeWithChildKey(baseNode.first("screen-facade"), overrideNode.first("screen-facade"),
-                    "screen-text-output", "type")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "screen-facade", "screen-text-output", "type", null)
 
         if (overrideNode.hasChild("service-facade")) {
             MNode sfBaseNode = baseNode.first("service-facade")
             MNode sfOverrideNode = overrideNode.first("service-facade")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-location", "name")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-type", "name")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-file", "location")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "startup-service", "name")
+            sfBaseNode.mergeNodeWithChildKey(sfOverrideNode, "service-location", "name", null)
+            sfBaseNode.mergeChildrenByKey(sfOverrideNode, "service-type", "name", null)
+            sfBaseNode.mergeChildrenByKey(sfOverrideNode, "service-file", "location", null)
+            sfBaseNode.mergeChildrenByKey(sfOverrideNode, "startup-service", "name", null)
 
             // handle thread-pool
             MNode tpOverrideNode = sfOverrideNode.first("thread-pool")
             if (tpOverrideNode) {
                 MNode tpBaseNode = sfBaseNode.first("thread-pool")
                 if (tpBaseNode) {
-                    mergeNodeWithChildKey(tpBaseNode, tpOverrideNode, "run-from-pool", "name")
+                    tpBaseNode.mergeNodeWithChildKey(tpOverrideNode, "run-from-pool", "name", null)
                 } else {
                     sfBaseNode.append(tpOverrideNode)
                 }
@@ -1389,21 +1377,33 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (overrideNode.hasChild("entity-facade")) {
             MNode efBaseNode = baseNode.first("entity-facade")
             MNode efOverrideNode = overrideNode.first("entity-facade")
-            mergeNodeWithChildKey(efBaseNode, efOverrideNode, "datasource", "group-name")
-            mergeSingleChild(efBaseNode, efOverrideNode, "server-jndi")
+            efBaseNode.mergeNodeWithChildKey(efOverrideNode, "datasource", "group-name", { MNode childBaseNode, MNode childOverrideNode ->
+                // handle the jndi-jdbc and inline-jdbc nodes: if either exist in override have it totally remove both from base, then copy over
+                if (childOverrideNode.hasChild("jndi-jdbc") || childOverrideNode.hasChild("inline-jdbc")) {
+                    childBaseNode.remove("jndi-jdbc")
+                    childBaseNode.remove("inline-jdbc")
+
+                    if (childOverrideNode.hasChild("inline-jdbc")) {
+                        childBaseNode.append(childOverrideNode.first("inline-jdbc"))
+                    } else if (childOverrideNode.hasChild("jndi-jdbc")) {
+                        childBaseNode.append(childOverrideNode.first("jndi-jdbc"))
+                    }
+                }
+            })
+            efBaseNode.mergeSingleChild(efOverrideNode, "server-jndi")
             // for load-entity and load-data just copy over override nodes
             for (MNode copyNode in efOverrideNode.children("load-entity")) efBaseNode.append(copyNode)
             for (MNode copyNode in efOverrideNode.children("load-data")) efBaseNode.append(copyNode)
         }
 
         if (overrideNode.hasChild("database-list")) {
-            mergeNodeWithChildKey(baseNode.first("database-list"), overrideNode.first("database-list"), "dictionary-type", "type")
-            mergeNodeWithChildKey(baseNode.first("database-list"), overrideNode.first("database-list"), "database", "name")
+            baseNode.mergeChildWithChildKey(overrideNode, "database-list", "dictionary-type", "type", null)
+            // handle database-list -> database, database -> database-type@type
+            baseNode.mergeChildWithChildKey(overrideNode, "database-list", "database", "name",
+                    { MNode childBaseNode, MNode childOverrideNode -> childBaseNode.mergeNodeWithChildKey(childOverrideNode, "database-type", "type", null) })
         }
 
-        if (overrideNode.hasChild("repository-list")) {
-            mergeNodeWithChildKey(baseNode.first("repository-list"), overrideNode.first("repository-list"), "repository", "name")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "repository-list", "repository", "name", null)
 
         if (overrideNode.hasChild("component-list")) {
             if (!baseNode.hasChild("component-list")) baseNode.append("component-list", null)
@@ -1414,58 +1414,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    protected static void mergeSingleChild(MNode baseNode, MNode overrideNode, String childNodeName) {
-        MNode childOverrideNode = overrideNode.first(childNodeName)
-        if (childOverrideNode) {
-            MNode childBaseNode = baseNode.first(childNodeName)
-            if (childBaseNode != null) {
-                childBaseNode.attributes.putAll(childOverrideNode.attributes)
-            } else {
-                baseNode.append(childOverrideNode)
-            }
-        }
-    }
-
-    protected void mergeNodeWithChildKey(MNode baseNode, MNode overrideNode, String childNodesName, String keyAttributeName) {
-        // override attributes for this node
-        baseNode.attributes.putAll(overrideNode.attributes)
-
-        for (MNode childOverrideNode in overrideNode.children(childNodesName)) {
-            String keyValue = childOverrideNode.attribute(keyAttributeName)
-            MNode childBaseNode = baseNode.first({ MNode it -> it.name == childNodesName && it.attribute(keyAttributeName) == keyValue })
-
-            if (childBaseNode) {
-                // merge the node attributes
-                childBaseNode.attributes.putAll(childOverrideNode.attributes)
-
-                // merge child nodes for specific nodes
-                if ("webapp" == childNodesName) {
-                    mergeWebappChildNodes(childBaseNode, childOverrideNode)
-                } else if ("database" == childNodesName) {
-                    // handle database -> database-type@type
-                    mergeNodeWithChildKey(childBaseNode, childOverrideNode, "database-type", "type")
-                } else if ("datasource" == childNodesName) {
-                    // handle the jndi-jdbc and inline-jdbc nodes: if either exist in override have it totally remove both from base, then copy over
-                    if (childOverrideNode.hasChild("jndi-jdbc") || childOverrideNode.hasChild("inline-jdbc")) {
-                        childBaseNode.remove("jndi-jdbc")
-                        childBaseNode.remove("inline-jdbc")
-
-                        if (childOverrideNode.hasChild("inline-jdbc")) {
-                            childBaseNode.append(childOverrideNode.first("inline-jdbc"))
-                        } else if (childOverrideNode.hasChild("jndi-jdbc")) {
-                            childBaseNode.append(childOverrideNode.first("jndi-jdbc"))
-                        }
-                    }
-                }
-            } else {
-                // no matching child base node, so add a new one
-                baseNode.append(childOverrideNode)
-            }
-        }
-    }
-
-    protected void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
-        mergeNodeWithChildKey(baseNode, overrideNode, "root-screen", "host")
+    protected static void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
+        baseNode.mergeNodeWithChildKey(overrideNode, "root-screen", "host", null)
         // handle webapp -> first-hit-in-visit[1], after-request[1], before-request[1], after-login[1], before-logout[1], root-screen[1]
         mergeWebappActions(baseNode, overrideNode, "first-hit-in-visit")
         mergeWebappActions(baseNode, overrideNode, "after-request")

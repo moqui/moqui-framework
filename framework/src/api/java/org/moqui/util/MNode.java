@@ -360,6 +360,101 @@ public class MNode {
         return removed;
     }
 
+    /** Merge a single child node with the given name from overrideNode if it has a child with that name.
+     *
+     * If this node has a child with the same name copies/overwrites attributes from the overrideNode's child and if
+     * overrideNode's child has children the children of this node's child will be replaced by them.
+     *
+     * Otherwise appends a copy of the override child as a child of the current node. */
+    public void mergeSingleChild(MNode overrideNode, String childNodeName) {
+        MNode childOverrideNode = overrideNode.first(childNodeName);
+        if (childOverrideNode != null) {
+            MNode childBaseNode = first(childNodeName);
+            if (childBaseNode != null) {
+                childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
+                if (childOverrideNode.childList.size() > 0) {
+                    childBaseNode.childList.clear();
+                    int cbnChildListSize = childBaseNode.childList.size();
+                    for (int i = 0; i < cbnChildListSize; i++) {
+                        MNode grandchild = childBaseNode.childList.get(i);
+                        childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
+                    }
+                }
+            } else {
+                childList.add(childOverrideNode.deepCopy(this));
+            }
+        }
+    }
+
+    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Closure grandchildMerger) {
+        MNode baseChildNode = first(childName);
+        MNode overrideChildNode = overrideNode.first(childName);
+        if (overrideChildNode == null) return;
+
+        if (baseChildNode != null) {
+            baseChildNode.mergeNodeWithChildKey(overrideChildNode, grandchildName, keyAttributeName, grandchildMerger);
+        } else {
+            childList.add(overrideChildNode.deepCopy(this));
+        }
+    }
+
+    /** Merge attributes and child nodes from overrideNode into this node, matching on childNodesName and optionally the value of the
+     * attribute in each named by keyAttributeName. Always copies/overwrites attributes from override child node, and
+     * merges their child nodes using childMerger or if null the default merge of removing all children under the child
+     * of this node and appending copies of the children of the override child node. */
+    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
+
+        // override attributes for this node
+        attributeMap.putAll(overrideNode.attributeMap);
+
+        mergeChildrenByKey(overrideNode, childNodesName, keyAttributeName, childMerger);
+    }
+    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
+
+        ArrayList<MNode> overrideChildren = overrideNode.children(childNodesName);
+        int overrideChildrenSize = overrideChildren.size();
+        for (int curOc = 0; curOc < overrideChildrenSize; curOc++) {
+            MNode childOverrideNode = overrideChildren.get(curOc);
+            boolean skipKeyValue = keyAttributeName == null || keyAttributeName.length() == 0;
+            String keyValue = skipKeyValue ? null : childOverrideNode.attribute(keyAttributeName);
+            // if we have a keyAttributeName but no keyValue for this child node, skip it
+            if ((keyValue == null || keyValue.length() == 0) && !skipKeyValue) continue;
+
+            MNode childBaseNode = null;
+            int childListSize = childList.size();
+            for (int i = 0; i < childListSize; i++) {
+                MNode curChild = childList.get(i);
+                if (curChild.getName().equals(childNodesName) && (skipKeyValue || keyValue.equals(curChild.attribute(keyAttributeName))))
+                    childBaseNode = curChild;
+            }
+
+            if (childBaseNode != null) {
+                // merge the node attributes
+                childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
+
+                if (childMerger != null) {
+                    childMerger.call(childBaseNode, childOverrideNode);
+                } else {
+                    // do the default child merge: remove current nodes children and replace with a copy of the override node's children
+                    childBaseNode.childList.clear();
+                    int cbnChildListSize = childBaseNode.childList.size();
+                    for (int i = 0; i < cbnChildListSize; i++) {
+                        MNode grandchild = childBaseNode.childList.get(i);
+                        childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
+                    }
+                }
+            } else {
+                // no matching child base node, so add a new one
+                append(childOverrideNode.deepCopy(this));
+            }
+        }
+    }
+
+
     /* ========== String Methods ========== */
 
     public String toString() {
