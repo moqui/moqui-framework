@@ -365,7 +365,8 @@ public class MNode {
      * If this node has a child with the same name copies/overwrites attributes from the overrideNode's child and if
      * overrideNode's child has children the children of this node's child will be replaced by them.
      *
-     * Otherwise appends a copy of the override child as a child of the current node. */
+     * Otherwise appends a copy of the override child as a child of the current node.
+     */
     public void mergeSingleChild(MNode overrideNode, String childNodeName) {
         MNode childOverrideNode = overrideNode.first(childNodeName);
         if (childOverrideNode != null) {
@@ -374,9 +375,10 @@ public class MNode {
                 childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
                 if (childOverrideNode.childList.size() > 0) {
                     childBaseNode.childList.clear();
-                    int cbnChildListSize = childBaseNode.childList.size();
-                    for (int i = 0; i < cbnChildListSize; i++) {
-                        MNode grandchild = childBaseNode.childList.get(i);
+                    ArrayList<MNode> conChildList = childOverrideNode.childList;
+                    int conChildListSize = conChildList.size();
+                    for (int i = 0; i < conChildListSize; i++) {
+                        MNode grandchild = conChildList.get(i);
                         childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
                     }
                 }
@@ -399,9 +401,12 @@ public class MNode {
     }
 
     /** Merge attributes and child nodes from overrideNode into this node, matching on childNodesName and optionally the value of the
-     * attribute in each named by keyAttributeName. Always copies/overwrites attributes from override child node, and
-     * merges their child nodes using childMerger or if null the default merge of removing all children under the child
-     * of this node and appending copies of the children of the override child node. */
+     * attribute in each named by keyAttributeName.
+     *
+     * Always copies/overwrites attributes from override child node, and merges their child nodes using childMerger or
+     * if null the default merge of removing all children under the child of this node and appending copies of the
+     * children of the override child node.
+     */
     public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
         if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
         if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
@@ -441,9 +446,10 @@ public class MNode {
                 } else {
                     // do the default child merge: remove current nodes children and replace with a copy of the override node's children
                     childBaseNode.childList.clear();
-                    int cbnChildListSize = childBaseNode.childList.size();
-                    for (int i = 0; i < cbnChildListSize; i++) {
-                        MNode grandchild = childBaseNode.childList.get(i);
+                    ArrayList<MNode> conChildList = childOverrideNode.childList;
+                    int conChildListSize = conChildList.size();
+                    for (int i = 0; i < conChildListSize; i++) {
+                        MNode grandchild = conChildList.get(i);
                         childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
                     }
                 }
