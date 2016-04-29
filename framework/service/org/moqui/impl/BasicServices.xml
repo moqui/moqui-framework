@@ -184,4 +184,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <return error="true" message="Could not convert from [${uomId}] to [${toUomId}], no UOM Conversion found."/></if>
         </actions>
     </service>
+
+    <service verb="echo" noun="Text">
+        <in-parameters><parameter name="textIn" default-value="ping"/></in-parameters>
+        <out-parameters><parameter name="textOut"/></out-parameters>
+        <actions><set field="textOut" from="textIn"/></actions>
+    </service>
 </services>
