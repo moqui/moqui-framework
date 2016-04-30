@@ -13,10 +13,18 @@
  */
 package org.moqui.impl.service;
 
-import org.moqui.impl.StupidJavaUtilities;
+import org.moqui.BaseException;
 import org.moqui.impl.StupidUtilities;
+import org.moqui.impl.StupidWebUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
+import org.owasp.esapi.ESAPI;
+import org.owasp.esapi.Encoder;
+import org.owasp.esapi.errors.IntrusionException;
+import org.owasp.validator.html.AntiSamy;
+import org.owasp.validator.html.CleanResults;
+import org.owasp.validator.html.PolicyException;
+import org.owasp.validator.html.ScanException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -184,5 +192,100 @@ public class ServiceJavaUtil {
         if (converted == null && !isEmptyString) converted = StupidUtilities.basicConvert(parameterValue, type);
 
         return converted;
+    }
+
+    public static Object validateParameterHtml(ParameterInfo parameterInfo, ServiceDefinition sd, String namePrefix,
+                                               String parameterName, Object parameterValue, ExecutionContextImpl eci) {
+        // check for none/safe/any HTML
+        boolean isString = parameterValue instanceof CharSequence;
+        if ((isString || parameterValue instanceof List) && ParameterAllowHtml.ANY != parameterInfo.allowHtml) {
+            boolean allowSafe = ParameterAllowHtml.SAFE == parameterInfo.allowHtml;
+
+            if (isString) {
+                return canonicalizeAndCheckHtml(sd, namePrefix, parameterName, parameterValue.toString(), allowSafe, eci);
+            } else {
+                List lst = (List) parameterValue;
+                ArrayList<Object> lstClone = new ArrayList<>(lst);
+                int lstSize = lstClone.size();
+                for (int i = 0; i < lstSize; i++) {
+                    Object obj = lstClone.get(i);
+                    if (obj instanceof CharSequence) {
+                        String htmlChecked = canonicalizeAndCheckHtml(sd, namePrefix, parameterName, obj.toString(), allowSafe, eci);
+                        lstClone.set(i, htmlChecked != null ? htmlChecked : obj);
+                    } else {
+                        lstClone.set(i, obj);
+                    }
+                }
+                return lstClone;
+            }
+        } else {
+            // return null so caller knows we changed nothing (incoming parameterValue checked for null before by caller)
+            return null;
+        }
+    }
+    private static String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterName,
+                                                   String parameterValue, boolean allowSafe, ExecutionContextImpl eci) {
+        int indexOfEscape = -1;
+        int indexOfLessThan = -1;
+        int valueLength = parameterValue.length();
+        char[] valueCharArray = parameterValue.toCharArray();
+        for (int i = 0; i < valueLength; i++) {
+            char curChar = valueCharArray[i];
+            if (curChar == '%' || curChar == '&') {
+                indexOfEscape = i;
+                if (indexOfLessThan >= 0) break;
+            } else if (curChar == '<') {
+                indexOfLessThan = i;
+                if (indexOfEscape >= 0) break;
+            }
+        }
+        if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
+
+        String canValue = parameterValue;
+        if (indexOfEscape >= 0) {
+            try {
+                canValue = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true);
+                indexOfLessThan = canValue.indexOf('<');
+            } catch (IntrusionException e) {
+                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), "Found character escaping (mixed or double) that is not allowed or other format consistency error: " + e.toString(), null);
+                return null;
+            }
+        }
+
+        if (allowSafe) {
+            /* Having trouble with ESAPI loading the antisamy-esapi.xml file, so using AntiSamy directly:
+            ValidationErrorList vel = new ValidationErrorList()
+            value = StupidWebUtilities.defaultWebValidator.getValidSafeHTML(parameterName, value, Integer.MAX_VALUE, true, vel)
+            for (ValidationException ve in vel.errors()) eci.message.addValidationError(null, parameterName, getServiceName(), ve.message, null)
+            */
+            AntiSamy antiSamy = new AntiSamy();
+            CleanResults cr;
+            try {
+                cr = antiSamy.scan(canValue, StupidWebUtilities.getAntiSamyPolicy());
+            } catch (ScanException e) {
+                throw new BaseException("Scan error checking field " + namePrefix + parameterName + " in service" + sd.getServiceName(), e);
+            } catch (PolicyException e) {
+                throw new BaseException("Policy error checking field " + namePrefix + parameterName + " in service" + sd.getServiceName(), e);
+            }
+            List<String> crErrors = cr.getErrorMessages();
+            // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
+            // use message instead of error, accept cleaned up HTML
+            if (crErrors != null && crErrors.size() > 0) {
+                for (String crError: crErrors) eci.getMessage().addMessage(crError);
+                logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}");
+                // the cleaned HTML ends up with line-endings stripped, very ugly, so put new lines between all tags
+                return cr.getCleanHTML().replaceAll(">\\s+<", ">\n<");
+            } else {
+                // nothing changed, return null
+                return null;
+            }
+        } else {
+            // check for "<"; this will protect against HTML/JavaScript injection
+            if (indexOfLessThan >= 0) {
+                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), "HTML not allowed (less-than (<), greater-than (>), etc symbols)", null);
+            }
+            // nothing changed, return null
+            return null;
+        }
     }
 }

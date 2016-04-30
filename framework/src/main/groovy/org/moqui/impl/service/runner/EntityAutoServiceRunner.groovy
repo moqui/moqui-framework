@@ -106,7 +106,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     }
 
     protected static boolean checkAllPkFields(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> tempResult,
-                                    EntityValue newEntityValue, Set<String> outParamNames) {
+                                    EntityValue newEntityValue, ArrayList<String> outParamNames) {
         ArrayList<String> pkFieldNames = ed.getPkFieldNames()
         ArrayList<EntityJavaUtil.FieldInfo> pkFieldInfos = new ArrayList<>(pkFieldNames.size())
 
@@ -139,7 +139,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                     pkValue = newEntityValue.get(singlePkField.name)
                 }
             }
-            if (outParamNames == null || outParamNames.contains(singlePkField.name))
+            if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains(singlePkField.name))
                 tempResult.put(singlePkField.name, pkValue)
         } else if (isDoublePk && !allPksIn) {
             /* **** secondary sequenced primary key **** */
@@ -149,7 +149,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             // if it has a default value don't sequence the PK
             if (!doublePkSecondary.defaultStr) {
                 newEntityValue.setSequencedIdSecondary()
-                if (outParamNames == null || outParamNames.contains(doublePkSecondary.name))
+                if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains(doublePkSecondary.name))
                     tempResult.put(doublePkSecondary.name, newEntityValue.get(doublePkSecondary.name))
             }
         } else if (allPksIn) {
@@ -170,13 +170,13 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     }
 
     static void createEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
-                                    Map<String, Object> result, Set<String> outParamNames) {
+                                    Map<String, Object> result, ArrayList<String> outParamNames) {
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
         createRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
     }
 
     static void createRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
-                                Map<String, Object> result, Set<String> outParamNames, Map<String, Object> parentPks) {
+                                Map<String, Object> result, ArrayList<String> outParamNames, Map<String, Object> parentPks) {
         EntityValue newEntityValue = efi.makeValue(ed.getFullEntityName())
 
         checkFromDate(ed, parameters, result, ecfi)
@@ -281,14 +281,14 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
     /* This should only be called if statusId is a field of the entity and lookedUpValue != null */
     protected static void checkStatus(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> result,
-                            Set<String> outParamNames, EntityValue lookedUpValue, EntityFacadeImpl efi) {
+                                      ArrayList<String> outParamNames, EntityValue lookedUpValue, EntityFacadeImpl efi) {
         if (!parameters.containsKey("statusId")) return
 
         // populate the oldStatusId out if there is a service parameter for it, and before we do the set non-pk fields
-        if (outParamNames == null || outParamNames.contains("oldStatusId")) {
+        if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("oldStatusId")) {
             result.put("oldStatusId", lookedUpValue.get("statusId"))
         }
-        if (outParamNames == null || outParamNames.contains("statusChanged")) {
+        if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("statusChanged")) {
             result.put("statusChanged", !(lookedUpValue.get("statusId") == parameters.get("statusId")))
             // logger.warn("========= oldStatusId=${result.oldStatusId}, statusChanged=${result.statusChanged}, lookedUpValue.statusId=${lookedUpValue.statusId}, parameters.statusId=${parameters.statusId}, lookedUpValue=${lookedUpValue}")
         }
@@ -313,7 +313,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     }
 
     static void updateEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
-                                    Map<String, Object> result, Set<String> outParamNames, EntityValue preLookedUpValue) {
+                                    Map<String, Object> result, ArrayList<String> outParamNames, EntityValue preLookedUpValue) {
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
         EntityFacadeImpl efi = ecfi.getEntityFacade()
 
@@ -351,13 +351,13 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
     /** Does a create if record does not exist, or update if it does. */
     static void storeEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
-                                   Map<String, Object> result, Set<String> outParamNames) {
+                                   Map<String, Object> result, ArrayList<String> outParamNames) {
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
         storeRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
     }
 
     static void storeRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
-                               Map<String, Object> result, Set<String> outParamNames, Map<String, Object> parentPks) {
+                               Map<String, Object> result, ArrayList<String> outParamNames, Map<String, Object> parentPks) {
         EntityValue newEntityValue = efi.makeValue(ed.getFullEntityName())
 
         // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to

@@ -174,7 +174,7 @@ class ScreenForm {
                 String singleServiceName = ti.getSingleServiceName()
                 ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(singleServiceName)
                 if (sd != null) {
-                    Set<String> inParamNames = sd.getInParameterNames()
+                    ArrayList<String> inParamNames = sd.getInParameterNames()
                     for (MNode fieldNode in newFormNode.children("field")) {
                         // if the field matches an in-parameter name and does not already have a validate-service, then set it
                         // do it even if it has a validate-service since it might be from another form, in general we want the current service:  && !fieldNode."@validate-service"

@@ -234,7 +234,7 @@ class RestApi {
             // add responses
             Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
                              "429":[description:"Too Many Requests (tarpit)"], "500":[description:"General Error"]]
-            if (sd.getOutParameterNames()) {
+            if (sd.getOutParameterNames().size() > 0) {
                 responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.getServiceName()}.Out".toString()]])
                 definitionsMap.put("${sd.getServiceName()}.Out".toString(), sd.getJsonSchemaMapOut())
             }
@@ -264,7 +264,7 @@ class RestApi {
                 typesMap.put("${sd.getServiceName()}.In".toString(), sd.getRamlMapIn())
             }
 
-            if (sd.getOutParameterNames()) {
+            if (sd.getOutParameterNames().size() > 0) {
                 ramlMap.put("responses", [200:[body:['application/json': [type:"${sd.getServiceName()}.Out".toString()]]]])
                 typesMap.put("${sd.getServiceName()}.Out".toString(), sd.getRamlMapOut())
             }

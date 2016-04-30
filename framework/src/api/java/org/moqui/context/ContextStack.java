@@ -28,15 +28,11 @@ public class ContextStack implements Map<String, Object> {
     private boolean toStringRecursion = false;
 
     public ContextStack() {
-        // start with a single Map
-        clearCombinedMap();
-        push();
+        freshContext();
     }
     public ContextStack(boolean includeContext) {
         this.includeContext = includeContext;
-        // start with a single Map
-        clearCombinedMap();
-        push();
+        freshContext();
     }
 
     // Internal methods for managing combinedMap
@@ -44,6 +40,13 @@ public class ContextStack implements Map<String, Object> {
     private void clearCombinedMap() {
         combinedMap = new HashMap<>();
         if (includeContext) combinedMap.put("context", this);
+    }
+    private void freshContext() {
+        stackList = new ArrayList<>();
+        combinedMap = new HashMap<>();
+        if (includeContext) combinedMap.put("context", this);
+        topMap = new HashMap<>();
+        stackList.add(0, new MapWrapper(this, topMap, combinedMap));
     }
     private void rebuildCombinedMap() {
         clearCombinedMap();
@@ -94,9 +97,7 @@ public class ContextStack implements Map<String, Object> {
         if (contextCombinedStack == null) contextCombinedStack = new LinkedList<>();
         contextStack.addFirst(stackList);
         contextCombinedStack.addFirst(combinedMap);
-        stackList = new ArrayList<>();
-        clearCombinedMap();
-        push();
+        freshContext();
         return this;
     }
 
@@ -147,13 +148,11 @@ public class ContextStack implements Map<String, Object> {
      * @return The first/top Map
      */
     public Map<String, Object> pop() {
-        if (topMap == null) {
-            throw new IllegalArgumentException("ContextStack is empty, cannot pop the context");
-            // return null;
-        }
+        int initialStackListSize = stackList.size();
+        if (initialStackListSize == 0) throw new IllegalArgumentException("ContextStack is empty, cannot pop the context");
 
         Map<String, Object> oldMap = stackList.remove(0);
-        if (stackList.size() > 0) {
+        if (initialStackListSize > 1) {
             MapWrapper topWrapper = stackList.get(0);
             topMap = topWrapper.getWrapped();
             combinedMap = topWrapper.getCombined();

@@ -19,19 +19,13 @@ import org.apache.commons.validator.routines.EmailValidator
 import org.apache.commons.validator.routines.UrlValidator
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.service.ServiceJavaUtil.ParameterInfo
-import org.moqui.impl.service.ServiceJavaUtil.ParameterAllowHtml
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
-import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.service.ServiceException
 import org.moqui.util.MNode
-import org.owasp.esapi.errors.IntrusionException
-import org.owasp.validator.html.AntiSamy
-import org.owasp.validator.html.CleanResults
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -46,8 +40,10 @@ class ServiceDefinition {
     protected MNode serviceNode
     protected MNode inParametersNode
     protected MNode outParametersNode
-    Map<String, ParameterInfo> inParameterInfoMap = new HashMap<>()
-    Map<String, ParameterInfo> outParameterInfoMap = new HashMap<>()
+    Map<String, ParameterInfo> inParameterInfoMap = new LinkedHashMap<>()
+    Map<String, ParameterInfo> outParameterInfoMap = new LinkedHashMap<>()
+    ArrayList<String> inParameterNameList = new ArrayList<>()
+    ArrayList<String> outParameterNameList = new ArrayList<>()
 
     protected String path = null
     protected String verb = null
@@ -61,6 +57,7 @@ class ServiceDefinition {
     protected boolean internalTxUseCache
     protected Integer internalTransactionTimeout
     protected boolean internalValidate
+    protected boolean internalHasSemaphore
 
     ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
         this.sfi = sfi
@@ -158,14 +155,22 @@ class ServiceDefinition {
         }
         // validate defaults to true
         internalValidate = serviceNode.attribute("validate") != "false"
+        String semaphore = serviceNode.attribute("semaphore")
+        internalHasSemaphore = semaphore != null && semaphore.length() > 0 && semaphore != "none"
 
         inParametersNode = serviceNode.first("in-parameters")
         outParametersNode = serviceNode.first("out-parameters")
 
-        if (inParametersNode != null) for (MNode parameter in inParametersNode.children("parameter"))
-            inParameterInfoMap.put(parameter.attribute('name'), new ParameterInfo(this, parameter))
-        if (outParametersNode != null) for (MNode parameter in outParametersNode.children("parameter"))
-            outParameterInfoMap.put(parameter.attribute('name'), new ParameterInfo(this, parameter))
+        if (inParametersNode != null) for (MNode parameter in inParametersNode.children("parameter")) {
+            String parameterName = parameter.attribute('name')
+            inParameterInfoMap.put(parameterName, new ParameterInfo(this, parameter))
+            inParameterNameList.add(parameterName)
+        }
+        if (outParametersNode != null) for (MNode parameter in outParametersNode.children("parameter")) {
+            String parameterName = parameter.attribute('name')
+            outParameterInfoMap.put(parameterName, new ParameterInfo(this, parameter))
+            outParameterNameList.add(parameterName)
+        }
     }
 
     void mergeAutoParameters(MNode parametersNode, MNode autoParameters) {
@@ -276,32 +281,22 @@ class ServiceDefinition {
     XmlAction getXmlAction() { return xmlAction }
 
     MNode getInParameter(String name) { return inParametersNode != null ? inParametersNode.children("parameter").find({ it.attribute("name") == name }) : null }
-    Set<String> getInParameterNames() {
-        Set<String> inNames = new LinkedHashSet()
-        if (inParametersNode == null) return inNames
-        for (MNode parameter in inParametersNode.children("parameter")) inNames.add(parameter.attribute("name"))
-        return inNames
-    }
+    ArrayList<String> getInParameterNames() { return inParameterNameList }
 
     MNode getOutParameter(String name) { return outParametersNode != null ? outParametersNode.children("parameter").find({ it.attribute("name" )== name }) : null }
-    Set<String> getOutParameterNames() {
-        Set<String> outNames = new LinkedHashSet()
-        if (outParametersNode == null) return outNames
-        for (MNode parameter in outParametersNode.children("parameter")) outNames.add(parameter.attribute("name"))
-        return outNames
-    }
+    ArrayList<String> getOutParameterNames() { return outParameterNameList }
 
     void convertValidateCleanParameters(Map<String, Object> parameters, ExecutionContextImpl eci) {
         // logger.warn("BEFORE ${serviceName} convertValidateCleanParameters: ${parameters.toString()}")
 
         // even if validate is false still apply defaults, convert defined params, etc
-        checkParameterMap("", parameters, parameters, inParameterInfoMap, internalValidate, eci)
+        checkParameterMap("", parameters, parameters, inParameterInfoMap, eci)
 
         // logger.warn("AFTER ${serviceName} convertValidateCleanParameters: ${parameters.toString()}")
     }
 
     protected void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map<String, Object> parameters,
-                                     Map<String, ParameterInfo> parameterInfoMap, boolean validate, ExecutionContextImpl eci) {
+                                     Map<String, ParameterInfo> parameterInfoMap, ExecutionContextImpl eci) {
         Set<String> defaultCheckSet = new HashSet<>(parameterInfoMap.keySet())
         // have to iterate over a copy of parameters.keySet() as we'll be modifying it
         ArrayList<String> parameterNameList = new ArrayList<>(parameters.keySet())
@@ -310,7 +305,7 @@ class ServiceDefinition {
             String parameterName = (String) parameterNameList.get(i)
             ParameterInfo parameterInfo = (ParameterInfo) parameterInfoMap.get(parameterName)
             if (parameterInfo == null) {
-                if (validate) {
+                if (internalValidate) {
                     parameters.remove(parameterName)
                     if (logger.isTraceEnabled() && parameterName != "ec")
                         logger.trace("Parameter [${namePrefix}${parameterName}] was passed to service [${getServiceName()}] but is not defined as an in parameter, removing from parameters.")
@@ -340,7 +335,7 @@ class ServiceDefinition {
                     }
                 }
                 // if required and still empty (nothing from default), complain
-                if (validate && parameterInfo.required && parameterIsEmpty)
+                if (internalValidate && parameterInfo.required && parameterIsEmpty)
                     eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
             }
 
@@ -354,8 +349,8 @@ class ServiceDefinition {
                     parameters.put(parameterName, parameterValue)
                 }
 
-                if (validate) {
-                    Object htmlValidated = validateParameterHtml(parameterInfo, namePrefix, parameterName, parameterValue, eci)
+                if (internalValidate) {
+                    Object htmlValidated = ServiceJavaUtil.validateParameterHtml(parameterInfo, this, namePrefix, parameterName, parameterValue, eci)
                     // put the final parameterValue back into the parameters Map
                     if (htmlValidated != null) {
                         parameterValue = htmlValidated
@@ -383,7 +378,7 @@ class ServiceDefinition {
                 if (parameterInfo.childParameterInfoMap.size() > 0) {
                     if (parameterValue instanceof Map) {
                         // any parameter sub-nodes?
-                        checkParameterMap(namePrefix + parameterName + ".", rootParameters, (Map) parameterValue, parameterInfo.childParameterInfoMap, validate, eci)
+                        checkParameterMap(namePrefix + parameterName + ".", rootParameters, (Map) parameterValue, parameterInfo.childParameterInfoMap, eci)
                     }
 
                     // this is old code not used and not maintained, but may be useful at some point (note that checkParameterNode also commented below):
@@ -416,35 +411,6 @@ class ServiceDefinition {
             return eci.getResource().expand(defaultValueStr, null, rootParameters, false)
         }
         return null
-    }
-
-    protected Object validateParameterHtml(ParameterInfo parameterInfo, String namePrefix, String parameterName, Object parameterValue,
-                                         ExecutionContextImpl eci) {
-        // check for none/safe/any HTML
-        boolean isString = parameterValue instanceof CharSequence
-        if ((isString || parameterValue instanceof List) && parameterInfo.allowHtml != ParameterAllowHtml.ANY) {
-            boolean allowSafe = (parameterInfo.allowHtml == ParameterAllowHtml.SAFE)
-
-            if (isString) {
-                return canonicalizeAndCheckHtml(parameterName, parameterValue.toString(), allowSafe, eci)
-            } else {
-                List lst = parameterValue as List
-                ArrayList lstClone = new ArrayList(lst)
-                int lstSize = lstClone.size()
-                for (int i = 0; i < lstSize; i++) {
-                    Object obj = lstClone.get(i)
-                    if (obj instanceof CharSequence) {
-                        lstClone.set(i, canonicalizeAndCheckHtml(parameterName, obj.toString(), allowSafe, eci))
-                    } else {
-                        lstClone.set(i, obj)
-                    }
-                }
-                return lstClone
-            }
-        } else {
-            // return null so caller knows we changed nothing (incoming parameterValue checked for null before by caller)
-            return null
-        }
     }
 
     protected boolean validateParameterSingle(MNode valNode, String parameterName, Object pv, ExecutionContextImpl eci) {
@@ -639,44 +605,6 @@ class ServiceDefinition {
         }
         // shouldn't get here, but just in case
         return true
-    }
-
-    protected String canonicalizeAndCheckHtml(String parameterName, String parameterValue, boolean allowSafe,
-                                              ExecutionContextImpl eci) {
-        String canValue
-        try {
-            canValue = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true)
-        } catch (IntrusionException e) {
-            eci.message.addValidationError(null, parameterName, getServiceName(), "Found character escaping (mixed or double) that is not allowed or other format consistency error: " + e.toString(), null)
-            return parameterValue
-        }
-
-        if (allowSafe) {
-            /* Having trouble with ESAPI loading the antisamy-esapi.xml file, so using AntiSamy directly:
-            ValidationErrorList vel = new ValidationErrorList()
-            value = StupidWebUtilities.defaultWebValidator.getValidSafeHTML(parameterName, value, Integer.MAX_VALUE, true, vel)
-            for (ValidationException ve in vel.errors()) eci.message.addValidationError(null, parameterName, getServiceName(), ve.message, null)
-            */
-            AntiSamy antiSamy = new AntiSamy()
-            CleanResults cr = antiSamy.scan(canValue, StupidWebUtilities.getAntiSamyPolicy())
-            List<String> crErrors = cr.getErrorMessages()
-            // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
-            // use message instead of error, accept cleaned up HTML
-            if (crErrors != null && crErrors.size() > 0) {
-                for (String crError in crErrors) eci.message.addMessage(crError)
-                logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}")
-                // the cleaned HTML ends up with line-endings stripped, very ugly, so put new lines between all tags
-                return cr.getCleanHTML().replaceAll(">\\s+<", ">\n<")
-            } else {
-                return parameterValue
-            }
-        } else {
-            // check for "<", ">"; this will protect against HTML/JavaScript injection
-            if (canValue.contains("<") || canValue.contains(">")) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Less-than (<) and greater-than (>) symbols are not allowed.", null)
-            }
-            return parameterValue
-        }
     }
 
     protected void checkSubtype(String parameterName, MNode typeParentNode, Object value, ExecutionContextImpl eci) {

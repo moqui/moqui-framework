@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class XmlAction {
     protected final static Logger logger = LoggerFactory.getLogger(XmlAction.class)
-    protected final static isDebugEnabled = logger.isDebugEnabled()
+    protected final static boolean isDebugEnabled = logger.isDebugEnabled()
 
     protected final ExecutionContextFactoryImpl ecfi
     protected final FtlNodeWrapper ftlNode

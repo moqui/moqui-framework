@@ -66,7 +66,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     ServiceCallSync name(String p, String v, String n) { path = p; verb = v; noun = n; return this }
 
     @Override
-    ServiceCallSync parameters(Map<String, ?> map) { if (map) { parameters.putAll(map) }; return this }
+    ServiceCallSync parameters(Map<String, ?> map) { if (map != null) { parameters.putAll(map) }; return this }
 
     @Override
     ServiceCallSync parameter(String name, Object value) { parameters.put(name, value); return this }
@@ -105,13 +105,14 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         boolean enableAuthz = disableAuthz ? !eci.getArtifactExecution().disableAuthz() : false
         try {
             if (multi) {
-                Collection<String> inParameterNames = null
+                ArrayList<String> inParameterNames = null
                 if (sd != null) {
                     inParameterNames = sd.getInParameterNames()
                 } else if (isEntityAutoPattern()) {
                     EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(noun)
                     if (ed != null) inParameterNames = ed.getAllFieldNames()
                 }
+                int inParameterNamesSize = inParameterNames.size()
                 // run all service calls in a single transaction for multi form submits, ie all succeed or fail together
                 boolean beganTransaction = eci.getTransaction().begin(null)
                 try {
@@ -119,14 +120,16 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                         if ((parameters.get("_useRowSubmit") == "true" || parameters.get("_useRowSubmit_" + i) == "true")
                                 && parameters.get("_rowSubmit_" + i) != "true") continue
                         Map<String, Object> currentParms = new HashMap()
-                        for (String ipn in inParameterNames) {
+                        for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
+                            String ipn = (String) inParameterNames.get(paramIndex)
                             String key = ipn + "_" + i
                             if (parameters.containsKey(key)) currentParms.put(ipn, parameters.get(key))
                         }
                         // if the map stayed empty we have no parms, so we're done
                         if (currentParms.size() == 0) break
                         // now that we have checked the per-row parameters, add in others available
-                        for (String ipn in inParameterNames) {
+                        for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
+                            String ipn = (String) inParameterNames.get(paramIndex)
                             if (!currentParms.get(ipn) && parameters.get(ipn)) currentParms.put(ipn, parameters.get(ipn))
                         }
                         // call the service, ignore the result...
@@ -302,7 +305,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             if (useTransactionCache || sd.getTxUseCache()) tf.initTransactionCache()
             try {
                 // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
-                checkAddSemaphore(sfi.ecfi, currentParameters)
+                if (sd.internalHasSemaphore) checkAddSemaphore(sfi.ecfi, currentParameters)
 
                 sfi.runSecaRules(getServiceNameNoHash(), currentParameters, null, "pre-service")
 
@@ -344,7 +347,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 }
             } finally {
                 // clear the semaphore
-                clearSemaphore(sfi.ecfi, currentParameters)
+                if (sd.internalHasSemaphore) clearSemaphore(sfi.ecfi, currentParameters)
 
                 try {
                     if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
@@ -391,8 +394,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     }
 
     protected void clearSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
-        String semaphore = sd.getServiceNode().attribute('semaphore')
-        if (!semaphore || semaphore == "none") return
+        if (!sd.internalHasSemaphore) return
 
         String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
         String parameterValue = semParameter ? currentParameters.get(semParameter) ?: '_NULL_' : null
@@ -415,9 +417,10 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     }
 
     protected void checkAddSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
+        if (!sd.internalHasSemaphore) return
+
         MNode serviceNode = sd.getServiceNode()
         String semaphore = serviceNode.attribute('semaphore')
-        if (semaphore == null || semaphore.length() == 0 || semaphore == "none") return
 
         String semParameter = serviceNode.attribute('semaphore-parameter')
         String parameterValue = semParameter ? (currentParameters.get(semParameter) ?: '_NULL_') : null

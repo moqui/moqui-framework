@@ -44,8 +44,6 @@ import org.quartz.TriggerKey
 import org.quartz.TriggerListener
 import org.quartz.impl.StdSchedulerFactory
 import javax.mail.internet.MimeMessage
-import org.moqui.context.ExecutionContext
-import org.moqui.BaseException
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -483,12 +481,14 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     void callRegisteredCallbacks(String serviceName, Map<String, Object> context, Map<String, Object> result) {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
-        if (callbackList) for (ServiceCallback scb in callbackList) scb.receiveEvent(context, result)
+        if (callbackList != null && callbackList.size() > 0)
+            for (ServiceCallback scb in callbackList) scb.receiveEvent(context, result)
     }
 
     void callRegisteredCallbacksThrowable(String serviceName, Map<String, Object> context, Throwable t) {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
-        if (callbackList) for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
+        if (callbackList != null && callbackList.size() > 0)
+            for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
     }
 
     @Override

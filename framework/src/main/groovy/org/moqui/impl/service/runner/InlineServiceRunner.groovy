@@ -14,12 +14,12 @@
 package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
+import org.moqui.context.ContextStack
+import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.ServiceRunner
-import org.moqui.context.ContextStack
-import org.moqui.impl.actions.XmlAction
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -58,7 +58,10 @@ public class InlineServiceRunner implements ServiceRunner {
             } else {
                 // if there are fields in ec.context that match out-parameters but that aren't in the result, set them
                 boolean autoResultUsed = autoResult.size() > 0
-                for (String outParameterName in sd.getOutParameterNames()) {
+                ArrayList<String> outParameterNames = sd.getOutParameterNames()
+                int outParameterNamesSize = outParameterNames.size()
+                for (int i = 0; i < outParameterNamesSize; i++) {
+                    String outParameterName = (String) outParameterNames.get(i)
                     Object outValue = cs.getByString(outParameterName)
                     if ((!autoResultUsed || !autoResult.containsKey(outParameterName)) && outValue != null)
                         autoResult.put(outParameterName, outValue)

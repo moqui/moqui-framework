@@ -793,7 +793,10 @@ class ScreenUrlInfo {
                 if (targetServiceName != null && targetServiceName.length() > 0) {
                     ServiceDefinition sd = ec.ecfi.getServiceFacade().getServiceDefinition(targetServiceName)
                     if (sd != null) {
-                        for (String pn in sd.getInParameterNames()) {
+                        ArrayList<String> inParameterNames = sd.getInParameterNames()
+                        int inParameterNamesSize = inParameterNames.size()
+                        for (int i = 0; i < inParameterNamesSize; i++) {
+                            String pn = (String) inParameterNames.get(i)
                             Object value = ec.getContext().getByString(pn)
                             if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
                                 value = ec.getWeb().getParameters().get(pn)

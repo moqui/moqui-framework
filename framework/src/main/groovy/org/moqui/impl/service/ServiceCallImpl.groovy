@@ -48,11 +48,13 @@ class ServiceCallImpl implements ServiceCall {
 
     @Override
     String getServiceName() {
-        if (serviceName == null) serviceName = (path ? path + "." : "") + verb + (noun ? "#" + noun : "")
+        if (serviceName == null) serviceName = (path != null && path.length() > 0 ? path + "." : "") + verb +
+                (noun != null && noun.length() > 0 ? "#" + noun : "")
         return serviceName
     }
     String getServiceNameNoHash() {
-        if (serviceNameNoHash == null) serviceNameNoHash = (path ? path + "." : "") + verb + (noun ?: "")
+        if (serviceNameNoHash == null) serviceNameNoHash = (path != null && path.length() > 0 ? path + "." : "") +
+                verb + (noun != null ? noun : "")
         return serviceNameNoHash
     }
 

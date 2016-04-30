@@ -69,8 +69,8 @@ class FtlTemplateRenderer implements TemplateRenderer {
     Template getFtlTemplateByLocation(String location) {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
         Template theTemplate = (Template) templateFtlLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
-        if (!theTemplate) theTemplate = makeTemplate(location)
-        if (!theTemplate) throw new IllegalArgumentException("Could not find template at [${location}]")
+        if (theTemplate == null) theTemplate = makeTemplate(location)
+        if (theTemplate == null) throw new IllegalArgumentException("Could not find template at [${location}]")
         return theTemplate
     }
     protected Template makeTemplate(String location) {
