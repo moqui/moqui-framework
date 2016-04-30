@@ -502,10 +502,19 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
-        if (inputString == null || inputString.length() == 0) return ""
+        if (inputString == null) return ""
+        int inputStringLength = inputString.length()
+        if (inputStringLength == 0) return ""
+
+        // localize string before expanding
+        if (localize && inputStringLength < 256) {
+            ExecutionContextImpl eci = ecfi.getEci()
+            inputString = eci.l10nFacade.localize(inputString)
+        }
+        // if no $ then it's a plain String, just return it
+        if (!inputString.contains('$')) return inputString
 
         ExecutionContextImpl eci = ecfi.getEci()
-
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         ContextStack cs = (ContextStack) null
         if (doPushPop) cs = eci.context
@@ -516,11 +525,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
             }
-
-            // localize string before expanding
-            if (localize && inputString.length() < 256) inputString = eci.l10nFacade.localize(inputString)
-            // if no $ then it's a plain String, just return it
-            if (!inputString.contains('$')) return inputString
 
             String expression = '"""' + inputString + '"""'
             try {

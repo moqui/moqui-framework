@@ -100,7 +100,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     Map<String, Object> call() {
         ServiceDefinition sd = getServiceDefinition()
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        ExecutionContextImpl eci = (ExecutionContextImpl) ecfi.getExecutionContext()
+        ExecutionContextImpl eci = ecfi.getEci()
 
         boolean enableAuthz = disableAuthz ? !eci.getArtifactExecution().disableAuthz() : false
         try {
@@ -150,20 +150,20 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                     }
                 }
             } else {
-                if (this.separateThread) {
+                if (separateThread) {
                     Thread serviceThread = null
                     Map<String, Object> resultMap = null
                     try {
                         serviceThread = Thread.start('ServiceSeparateThread', {
                             ecfi.useExecutionContextInThread(eci)
-                            resultMap = callSingle(this.parameters, sd, eci)
+                            resultMap = callSingle(parameters, sd, eci)
                         })
                     } finally {
                         if (serviceThread != null) serviceThread.join()
                     }
                     return resultMap
                 } else {
-                    return callSingle(this.parameters, sd, eci)
+                    return callSingle(parameters, sd, eci)
                 }
             }
         } finally {

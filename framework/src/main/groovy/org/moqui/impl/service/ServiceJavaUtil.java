@@ -14,6 +14,8 @@
 package org.moqui.impl.service;
 
 import org.moqui.BaseException;
+import org.moqui.impl.StupidClassLoader;
+import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.StupidWebUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
@@ -61,6 +63,7 @@ public class ServiceJavaUtil {
         public MNode parameterNode;
         public String name, type, format;
         public ParameterType parmType;
+        public Class parmClass;
 
         public String entityName, fieldName;
         public String defaultStr, defaultValue;
@@ -81,6 +84,7 @@ public class ServiceJavaUtil {
             type = parameterNode.attribute("type");
             if (type == null || type.length() == 0) type = "String";
             parmType = typeEnumByString.get(type);
+            parmClass = StupidClassLoader.commonJavaClassesMap.get(type);
 
             format = parameterNode.attribute("format");
             entityName = parameterNode.attribute("entity-name");
@@ -105,6 +109,11 @@ public class ServiceJavaUtil {
                 if ("description".equals(child.getName()) || "subtype".equals(child.getName()) || "parameter".equals(child.getName())) continue;
                 validationNodeList.add(child);
             }
+        }
+
+        boolean typeMatches(Object value) {
+            if (parmClass != null) return parmClass.isInstance(value);
+            return StupidJavaUtilities.isInstanceOf(value, type);
         }
     }
 

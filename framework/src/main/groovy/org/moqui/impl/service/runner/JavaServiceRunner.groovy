@@ -53,10 +53,8 @@ public class JavaServiceRunner implements ServiceRunner {
             cs.pushContext()
             // we have an empty context so add the ec
             cs.put("ec", ec)
-            // now add the parameters to this service call
-            cs.push(parameters)
-            // push again to get a new Map that will protect the parameters Map passed in
-            cs.push()
+            // now add the parameters to this service call; copy instead of pushing, faster with newer ContextStack
+            cs.putAll(parameters)
 
             Class c = (Class) classCache.get(sd.location)
             if (!c) {

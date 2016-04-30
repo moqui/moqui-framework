@@ -328,7 +328,7 @@ class ServiceDefinition {
                     parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
                 } else {
                     // if empty but not null and types don't match set to null instead of trying to convert
-                    if (parameterValue != null && !StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
+                    if (parameterValue != null && !parameterInfo.typeMatches(parameterValue)) {
                         parameterValue = null
                         // put the final parameterValue back into the parameters Map
                         parameters.put(parameterName, parameterValue)
@@ -340,7 +340,7 @@ class ServiceDefinition {
             }
 
             if (!parameterIsEmpty) {
-                boolean typeMatches = StupidJavaUtilities.isInstanceOf(parameterValue, type)
+                boolean typeMatches = parameterInfo.typeMatches(parameterValue)
                 if (!typeMatches) {
                     // convert type, at this point parameterValue is not empty and doesn't match parameter type
                     Object convertedValue = ServiceJavaUtil.convertType(parameterInfo, namePrefix, parameterName, parameterValue, eci)

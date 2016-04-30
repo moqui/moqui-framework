@@ -39,13 +39,12 @@ public class ScriptServiceRunner implements ServiceRunner {
             cs.pushContext()
             // we have an empty context so add the ec
             cs.put("ec", ec)
-            // now add the parameters to this service call
-            cs.push(parameters)
-            // push again to get a new Map that will protect the parameters Map passed in
-            cs.push()
+            // now add the parameters to this service call; copy instead of pushing, faster with newer ContextStack
+            cs.putAll(parameters)
+
             // add a convenience Map to explicitly put results in
             Map<String, Object> autoResult = new HashMap()
-            ec.context.put("result", autoResult)
+            cs.put("result", autoResult)
 
             Object result = ec.resource.script(sd.serviceNode.attribute("location"), sd.serviceNode.attribute("method"))
 
@@ -56,9 +55,10 @@ public class ScriptServiceRunner implements ServiceRunner {
                 boolean autoResultUsed = autoResult.size() > 0
                 ArrayList<String> outParameterNames = sd.getOutParameterNames()
                 int outParameterNamesSize = outParameterNames.size()
+                Map<String, Object> csMap = cs.getCombinedMap()
                 for (int i = 0; i < outParameterNamesSize; i++) {
                     String outParameterName = (String) outParameterNames.get(i)
-                    Object outValue = cs.getByString(outParameterName)
+                    Object outValue = csMap.get(outParameterName)
                     if ((!autoResultUsed || !autoResult.containsKey(outParameterName)) && outValue != null)
                         autoResult.put(outParameterName, outValue)
                 }

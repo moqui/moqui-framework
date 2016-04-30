@@ -246,6 +246,9 @@ public class ContextStack implements Map<String, Object> {
         */
     }
 
+    /** For faster access to multiple entries; do not write to this Map or use when any changes to ContextStack are possible */
+    public Map<String, Object> getCombinedMap() { return combinedMap; }
+
     public Object getByString(String key) {
         return combinedMap.get(key);
     }
@@ -322,14 +325,20 @@ public class ContextStack implements Map<String, Object> {
         return oldVal;
     }
 
-    public void putAll(Map<? extends String, ?> arg0) {
-        if (arg0 == null) return;
-        for (Map.Entry<? extends String, ?> entry : arg0.entrySet()) {
+    public void putAll(Map<? extends String, ?> theMap) {
+        if (theMap == null) return;
+        combinedMap.putAll(theMap);
+        if (includeContext) combinedMap.put("context", this);
+        topMap.putAll(theMap);
+
+        /* old approach, much slower:
+        for (Map.Entry<? extends String, ?> entry : theMap.entrySet()) {
             String key = entry.getKey();
             if ("context".equals(key)) continue;
             combinedMap.put(key, entry.getValue());
             topMap.put(key, entry.getValue());
         }
+        */
     }
 
     public void clear() {

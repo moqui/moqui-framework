@@ -792,14 +792,16 @@ class ScreenUrlInfo {
                 String targetServiceName = targetTransition.getSingleServiceName()
                 if (targetServiceName != null && targetServiceName.length() > 0) {
                     ServiceDefinition sd = ec.ecfi.getServiceFacade().getServiceDefinition(targetServiceName)
+                    Map<String, Object> csMap = ec.getContext().getCombinedMap()
+                    Map<String, Object> wfParameters = ec.getWeb()?.getParameters()
                     if (sd != null) {
                         ArrayList<String> inParameterNames = sd.getInParameterNames()
                         int inParameterNamesSize = inParameterNames.size()
                         for (int i = 0; i < inParameterNamesSize; i++) {
                             String pn = (String) inParameterNames.get(i)
-                            Object value = ec.getContext().getByString(pn)
-                            if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
-                                value = ec.getWeb().getParameters().get(pn)
+                            Object value = csMap.get(pn)
+                            if (StupidJavaUtilities.isEmpty(value) && wfParameters != null)
+                                value = wfParameters.get(pn)
                             String valueStr = StupidJavaUtilities.toPlainString(value)
                             if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pn, valueStr)
                         }
@@ -811,9 +813,9 @@ class ScreenUrlInfo {
                             EntityDefinition ed = ec.ecfi.getEntityFacade(ec.tenantId).getEntityDefinition(en)
                             if (ed != null) {
                                 for (String fn in ed.getPkFieldNames()) {
-                                    Object value = ec.getContext().getByString(fn)
-                                    if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
-                                        value = ec.getWeb().getParameters().get(fn)
+                                    Object value = csMap.get(fn)
+                                    if (StupidJavaUtilities.isEmpty(value) && wfParameters != null)
+                                        value = wfParameters.get(fn)
                                     String valueStr = StupidJavaUtilities.toPlainString(value)
                                     if (valueStr != null && valueStr.length() > 0) allParameterMap.put(fn, valueStr)
                                 }
