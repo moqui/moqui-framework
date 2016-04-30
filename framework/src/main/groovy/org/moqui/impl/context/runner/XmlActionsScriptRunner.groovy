@@ -21,7 +21,7 @@ import org.moqui.context.ScriptRunner
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.actions.XmlAction
 import org.moqui.context.ExecutionContext
-
+import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -43,7 +43,7 @@ class XmlActionsScriptRunner implements ScriptRunner {
 
     Object run(String location, String method, ExecutionContext ec) {
         XmlAction xa = getXmlActionByLocation(location)
-        return xa.run(ec)
+        return xa.run((ExecutionContextImpl) ec)
     }
 
     void destroy() { }

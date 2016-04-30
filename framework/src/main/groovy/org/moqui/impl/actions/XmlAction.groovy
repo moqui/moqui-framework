@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class XmlAction {
     protected final static Logger logger = LoggerFactory.getLogger(XmlAction.class)
+    protected final static isDebugEnabled = logger.isDebugEnabled()
 
     protected final ExecutionContextFactoryImpl ecfi
     protected final FtlNodeWrapper ftlNode
@@ -55,13 +56,12 @@ class XmlAction {
     }
 
     /** Run the XML actions in the current context of the ExecutionContext */
-    Object run(ExecutionContext ec) {
+    Object run(ExecutionContextImpl eci) {
         Class curClass = getGroovyClass()
         if (curClass == null) throw new IllegalStateException("No Groovy class in place for XML actions, look earlier in log for the error in init")
 
-        if (logger.isDebugEnabled()) logger.debug("Running groovy script: \n${writeGroovyWithLines()}\n")
+        if (isDebugEnabled) logger.debug("Running groovy script: \n${writeGroovyWithLines()}\n")
 
-        ExecutionContextImpl eci = (ExecutionContextImpl) ec
         Script script = InvokerHelper.createScript(curClass, eci.getContextBinding())
         try {
             Object result = script.run()
@@ -71,7 +71,7 @@ class XmlAction {
             throw t
         }
     }
-    boolean checkCondition(ExecutionContext ec) { return run(ec) as boolean }
+    boolean checkCondition(ExecutionContextImpl eci) { return run(eci) as boolean }
 
     String writeGroovyWithLines() {
         if (groovyString == null) makeGroovyClass()

@@ -19,6 +19,7 @@ import org.moqui.context.Cache
 import org.moqui.context.ResourceReference
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.RestClient
@@ -381,10 +382,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
         ArrayList<ServiceEcaRule> lst = (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
         if (lst != null && lst.size() > 0) {
-            ExecutionContext ec = ecfi.getExecutionContext()
+            ExecutionContextImpl eci = ecfi.getEci()
             for (int i = 0; i < lst.size(); i++) {
                 ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
-                ser.runIfMatches(serviceName, parameters, results, when, ec)
+                ser.runIfMatches(serviceName, parameters, results, when, eci)
             }
         }
     }
@@ -438,8 +439,8 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     @CompileStatic
     void runEmecaRules(MimeMessage message, String emailServerId) {
-        ExecutionContext ec = ecfi.executionContext
-        for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, ec)
+        ExecutionContextImpl eci = ecfi.getEci()
+        for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, eci)
     }
 
     @Override

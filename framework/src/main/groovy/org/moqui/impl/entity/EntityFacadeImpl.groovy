@@ -875,7 +875,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             for (int i = 0; i < lst.size(); i++) {
                 EntityEcaRule eer = (EntityEcaRule) lst.get(i)
-                eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getExecutionContext())
+                eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getEci())
             }
         }
 
