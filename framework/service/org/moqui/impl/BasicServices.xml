@@ -185,9 +185,24 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="echo" noun="Text">
-        <in-parameters><parameter name="textIn" default-value="ping"/></in-parameters>
-        <out-parameters><parameter name="textOut"/></out-parameters>
-        <actions><set field="textOut" from="textIn"/></actions>
+    <service verb="echo" noun="Data">
+        <in-parameters>
+            <parameter name="textIn1"/>
+            <parameter name="textIn2" default-value="ping"/>
+            <parameter name="numberIn" type="BigDecimal"/>
+            <parameter name="timestampIn" type="Timestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="textOut1"/>
+            <parameter name="textOut2"/>
+            <parameter name="numberOut" type="BigDecimal"/>
+            <parameter name="timestampOut" type="Timestamp"/>
+        </out-parameters>
+        <actions>
+            <set field="textOut1" from="textIn1"/>
+            <set field="textOut2" from="textIn2"/>
+            <set field="numberOut" from="numberIn"/>
+            <set field="timestampOut" from="timestampIn"/>
+        </actions>
     </service>
 </services>
