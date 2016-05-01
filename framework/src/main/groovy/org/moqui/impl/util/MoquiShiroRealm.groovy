@@ -214,7 +214,7 @@ class MoquiShiroRealm implements Realm {
     boolean isPermitted(PrincipalCollection principalCollection, String resourceAccess) {
         // String username = (String) principalCollection.primaryPrincipal
         // TODO: if we want to support other users than the current need to look them up here
-        return ArtifactExecutionFacadeImpl.isPermitted(resourceAccess, null, ecfi.eci)
+        return ArtifactExecutionFacadeImpl.isPermitted(resourceAccess, ecfi.eci)
     }
 
     boolean[] isPermitted(PrincipalCollection principalCollection, String... resourceAccesses) {

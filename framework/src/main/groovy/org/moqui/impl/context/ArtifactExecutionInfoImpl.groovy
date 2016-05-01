@@ -28,17 +28,17 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     protected final String actionEnumId
     protected String actionDetail = ""
     protected Map<String, Object> parameters = (Map) null
-    protected String authorizedUserId = (String) null
-    protected String authorizedAuthzTypeId = (String) null
-    protected String authorizedActionEnumId = (String) null
-    protected boolean authorizationInheritable = false
-    protected EntityValue aacv = (EntityValue) null
+    protected String internalAuthorizedUserId = (String) null
+    protected String internalAuthorizedAuthzTypeId = (String) null
+    protected String internalAuthorizedActionEnumId = (String) null
+    protected boolean internalAuthorizationInheritable = false
+    protected Map<String, Object> internalAacv = (Map<String, Object>) null
 
     //protected Exception createdLocation = null
     protected ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null
     protected long startTime
     protected long endTime = 0
-    protected List<ArtifactExecutionInfoImpl> childList = new ArrayList<ArtifactExecutionInfoImpl>()
+    protected ArrayList<ArtifactExecutionInfoImpl> childList = new ArrayList<ArtifactExecutionInfoImpl>()
     protected long childrenRunningTime = 0
 
     ArtifactExecutionInfoImpl(String name, String typeEnumId, String actionEnumId) {
@@ -62,37 +62,37 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     String getActionEnumId() { return this.actionEnumId }
 
     @Override
-    String getAuthorizedUserId() { return this.authorizedUserId }
-    void setAuthorizedUserId(String authorizedUserId) { this.authorizedUserId = authorizedUserId }
+    String getAuthorizedUserId() { return this.internalAuthorizedUserId }
+    void setAuthorizedUserId(String authorizedUserId) { this.internalAuthorizedUserId = authorizedUserId }
 
     @Override
-    String getAuthorizedAuthzTypeId() { return this.authorizedAuthzTypeId }
-    void setAuthorizedAuthzTypeId(String authorizedAuthzTypeId) { this.authorizedAuthzTypeId = authorizedAuthzTypeId }
+    String getAuthorizedAuthzTypeId() { return this.internalAuthorizedAuthzTypeId }
+    void setAuthorizedAuthzTypeId(String authorizedAuthzTypeId) { this.internalAuthorizedAuthzTypeId = authorizedAuthzTypeId }
 
     @Override
-    String getAuthorizedActionEnumId() { return this.authorizedActionEnumId }
-    void setAuthorizedActionEnumId(String authorizedActionEnumId) { this.authorizedActionEnumId = authorizedActionEnumId }
+    String getAuthorizedActionEnumId() { return this.internalAuthorizedActionEnumId }
+    void setAuthorizedActionEnumId(String authorizedActionEnumId) { this.internalAuthorizedActionEnumId = authorizedActionEnumId }
 
     @Override
-    boolean isAuthorizationInheritable() { return this.authorizationInheritable }
-    void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.authorizationInheritable = isAuthorizationInheritable}
+    boolean isAuthorizationInheritable() { return this.internalAuthorizationInheritable }
+    void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.internalAuthorizationInheritable = isAuthorizationInheritable}
 
-    EntityValue getAacv() { return aacv }
+    Map<String, Object> getAacv() { return internalAacv }
 
-    void copyAacvInfo(EntityValue aacv, String userId) {
-        this.aacv = aacv
-        this.authorizedUserId = userId
-        this.authorizedAuthzTypeId = (String) aacv.get('authzTypeEnumId')
-        this.authorizedActionEnumId = (String) aacv.get('authzActionEnumId')
-        this.authorizationInheritable = aacv.get('inheritAuthz') == "Y"
+    void copyAacvInfo(Map<String, Object> aacv, String userId) {
+        internalAacv = aacv
+        internalAuthorizedUserId = userId
+        internalAuthorizedAuthzTypeId = (String) aacv.get('authzTypeEnumId')
+        internalAuthorizedActionEnumId = (String) aacv.get('authzActionEnumId')
+        internalAuthorizationInheritable = "Y".equals(aacv.get('inheritAuthz'))
     }
 
     void copyAuthorizedInfo(ArtifactExecutionInfoImpl aeii) {
-        this.aacv = aeii.aacv
-        this.authorizedUserId = aeii.authorizedUserId
-        this.authorizedAuthzTypeId = aeii.authorizedAuthzTypeId
-        this.authorizedActionEnumId = aeii.authorizedActionEnumId
-        this.authorizationInheritable = aeii.authorizationInheritable
+        internalAacv = aeii.internalAacv
+        internalAuthorizedUserId = aeii.internalAuthorizedUserId
+        internalAuthorizedAuthzTypeId = aeii.internalAuthorizedAuthzTypeId
+        internalAuthorizedActionEnumId = aeii.internalAuthorizedActionEnumId
+        internalAuthorizationInheritable = aeii.internalAuthorizationInheritable
     }
 
     void setEndTime() { this.endTime = System.nanoTime() }
@@ -294,6 +294,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     @Override
     String toString() {
-        return "[name:'${name}',type:'${typeEnumId}',action:'${actionEnumId}',user:'${authorizedUserId}',authz:'${authorizedAuthzTypeId}',authAction:'${authorizedActionEnumId}',inheritable:${authorizationInheritable},runningTime:${getRunningTime()}]"
+        return "[name:'${name}',type:'${typeEnumId}',action:'${actionEnumId}',user:'${internalAuthorizedUserId}',authz:'${internalAuthorizedAuthzTypeId}',authAction:'${internalAuthorizedActionEnumId}',inheritable:${internalAuthorizationInheritable},runningTime:${getRunningTime()}]"
     }
 }

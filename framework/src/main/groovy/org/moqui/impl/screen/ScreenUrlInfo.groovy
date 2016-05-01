@@ -243,8 +243,7 @@ class ScreenUrlInfo {
 
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(aeii, lastAeii,
-                    isLast ? (!requireAuthentication || requireAuthentication == "true") : false,
-                    false, ec.getUser().getNowTimestamp())) {
+                    isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false)) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
