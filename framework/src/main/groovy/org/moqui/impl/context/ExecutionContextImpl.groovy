@@ -28,13 +28,11 @@ import org.moqui.service.ServiceFacade
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpServletRequest
 import org.apache.camel.CamelContext
 import org.moqui.entity.EntityValue
-
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
 
 @CompileStatic
 class ExecutionContextImpl implements ExecutionContext {
@@ -57,9 +55,9 @@ class ExecutionContextImpl implements ExecutionContext {
     protected Boolean skipStats = null
 
     // Caches from EC level facades that are per-tenant so managed here
-    protected CacheImpl l10nMessageCache
+    protected Cache<String, String> l10nMessageCache
     // NOTE: there is no code to clean out old entries in tarpitHitCache, using the cache idle expire time for that
-    protected CacheImpl tarpitHitCache
+    protected Cache<String, ArrayList> tarpitHitCache
 
 
     ExecutionContextImpl(ExecutionContextFactoryImpl ecfi) {
@@ -82,11 +80,11 @@ class ExecutionContextImpl implements ExecutionContext {
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
 
     void initCaches() {
-        tarpitHitCache = ecfi.getCacheFacade().getCacheImpl("artifact.tarpit.hits", activeTenantId)
-        l10nMessageCache = ecfi.getCacheFacade().getCacheImpl("l10n.message", activeTenantId)
+        tarpitHitCache = ecfi.getCacheFacade().getCache("artifact.tarpit.hits", activeTenantId)
+        l10nMessageCache = ecfi.getCacheFacade().getCache("l10n.message", activeTenantId)
     }
-    CacheImpl getTarpitHitCache() { return tarpitHitCache }
-    CacheImpl getL10nMessageCache() { return l10nMessageCache }
+    Cache<String, String> getL10nMessageCache() { return l10nMessageCache }
+    Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache }
 
     @Override
     ContextStack getContext() { return context }

@@ -15,7 +15,6 @@ package org.moqui.impl.context.runner
 
 import freemarker.template.Template
 import groovy.transform.CompileStatic
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ScriptRunner
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -25,19 +24,21 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
 @CompileStatic
 class XmlActionsScriptRunner implements ScriptRunner {
     protected final static Logger logger = LoggerFactory.getLogger(XmlActionsScriptRunner.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache scriptXmlActionLocationCache
+    protected Cache<String, XmlAction> scriptXmlActionLocationCache
     protected Template xmlActionsTemplate = null
 
     XmlActionsScriptRunner() { }
 
     ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.scriptXmlActionLocationCache = ecfi.getCacheFacade().getCache("resource.xml-actions.location")
+        this.scriptXmlActionLocationCache = ecfi.getCacheFacade().getCache("resource.xml-actions.location", String.class, XmlAction.class)
         return this
     }
 

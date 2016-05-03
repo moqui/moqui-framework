@@ -16,7 +16,6 @@ package org.moqui.impl.screen
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.net.URLCodec
 import org.moqui.BaseException
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
 import org.moqui.entity.EntityCondition
@@ -36,6 +35,8 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import javax.cache.Cache
 
 @CompileStatic
 class ScreenUrlInfo {
@@ -98,7 +99,7 @@ class ScreenUrlInfo {
 
     /** Stub mode for ScreenUrlInfo, represent a plain URL and not a screen URL */
     static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, String url) {
-        Cache screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(url)
         if (cached != null) return cached
 
@@ -109,7 +110,7 @@ class ScreenUrlInfo {
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
                                           ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
-        Cache screenUrlCache = sfi.screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromScreenDef, fpnl, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
         if (cached != null) return cached
@@ -127,7 +128,7 @@ class ScreenUrlInfo {
         if (fromSd == null) fromSd = sri.getActiveScreenDef()
         if (fromPathList == null) fromPathList = sri.getActiveScreenPath()
 
-        Cache screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
         if (cached != null) return cached

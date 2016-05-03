@@ -23,7 +23,6 @@ import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionFacade
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ArtifactTarpitException
-import org.moqui.context.Cache
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityCondition.ComparisonOperator
@@ -32,7 +31,6 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityFindBase
-import org.moqui.impl.entity.EntityValueBase
 import org.moqui.entity.EntityCondition
 
 import org.slf4j.Logger

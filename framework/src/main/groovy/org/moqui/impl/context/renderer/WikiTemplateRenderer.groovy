@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context.renderer
 
+import com.hazelcast.cache.ICache
 import org.eclipse.mylyn.wikitext.confluence.core.ConfluenceLanguage
 import org.eclipse.mylyn.wikitext.core.parser.MarkupParser
 import org.eclipse.mylyn.wikitext.core.parser.builder.HtmlDocumentBuilder
@@ -22,30 +23,38 @@ import org.eclipse.mylyn.wikitext.tracwiki.core.TracWikiLanguage
 import org.eclipse.mylyn.wikitext.twiki.core.TWikiLanguage
 
 import org.moqui.BaseException
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.screen.ScreenRenderImpl
 
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import javax.cache.expiry.Duration
+import javax.cache.expiry.ExpiryPolicy
+import javax.cache.expiry.ModifiedExpiryPolicy
+
 class WikiTemplateRenderer implements TemplateRenderer {
-    protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(WikiTemplateRenderer.class)
+    protected final static Logger logger = LoggerFactory.getLogger(WikiTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache templateWikiLocationCache
+    protected ICache<String, String> templateWikiLocationCache
 
     WikiTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateWikiLocationCache = ecfi.cacheFacade.getCache("resource.wiki.location")
+        this.templateWikiLocationCache = ecfi.cacheFacade.getCache("resource.wiki.location", String.class, String.class)
+                .unwrap(ICache.class)
         return this
     }
 
     void render(String location, Writer writer) {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        String wikiText = templateWikiLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
+        ExpiryPolicy expiryPolicy = rr != null ? new ModifiedExpiryPolicy(new Duration(0L, rr.getLastModified())) : null
+        String wikiText = (String) templateWikiLocationCache.get(location, expiryPolicy)
         if (wikiText) {
             writer.write(wikiText)
             return

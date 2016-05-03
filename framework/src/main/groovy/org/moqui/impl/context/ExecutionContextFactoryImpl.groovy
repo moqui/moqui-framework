@@ -56,6 +56,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue

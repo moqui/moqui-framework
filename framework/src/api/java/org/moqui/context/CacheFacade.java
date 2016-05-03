@@ -13,12 +13,17 @@
  */
 package org.moqui.context;
 
+import javax.cache.Cache;
+import javax.cache.CacheManager;
+
 /** A facade used for managing and accessing Cache instances. */
 public interface CacheFacade {
     void clearAllCaches();
-    void clearExpiredFromAllCaches();
     void clearCachesByPrefix(String prefix);
 
     /** Get the named Cache, creating one based on configuration and defaults if none exists. */
     Cache getCache(String cacheName);
+    <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType);
+
+    CacheManager getCacheManager();
 }

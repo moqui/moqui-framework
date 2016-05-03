@@ -14,15 +14,14 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import net.sf.ehcache.Element
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.context.CacheImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 
+import javax.cache.Cache
 import javax.transaction.Status
 import javax.transaction.Synchronization
 import javax.transaction.Transaction
@@ -39,12 +38,12 @@ class EntityDataFeed {
 
     protected final EntityFacadeImpl efi
 
-    protected final CacheImpl dataFeedEntityInfo
+    protected final Cache<String, ArrayList<DocumentEntityInfo>> dataFeedEntityInfo
     Set<String> entitiesWithDataFeed = null
 
     EntityDataFeed(EntityFacadeImpl efi) {
         this.efi = efi
-        dataFeedEntityInfo = efi.ecfi.getCacheFacade().getCacheImpl("entity.data.feed.info", efi.tenantId)
+        dataFeedEntityInfo = efi.ecfi.getCacheFacade().getCache("entity.data.feed.info", efi.tenantId)
     }
 
     EntityFacadeImpl getEfi() { return efi }
@@ -190,8 +189,8 @@ class EntityDataFeed {
         if (entitiesWithDataFeed == null) rebuildDataFeedEntityInfo()
         if (!entitiesWithDataFeed.contains(fullEntityName)) return emptyList
 
-        Element cacheElement = dataFeedEntityInfo.getElement(fullEntityName)
-        if (cacheElement != null) return (ArrayList<DocumentEntityInfo>) cacheElement.getObjectValue()
+        ArrayList<DocumentEntityInfo> cachedList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
+        if (cachedList != null) return cachedList
 
         // if this is an entity to skip, return now (do after primary lookup to avoid additional performance overhead in common case)
         if (dataFeedSkipEntities.contains(fullEntityName)) {
@@ -203,8 +202,8 @@ class EntityDataFeed {
         // MAYBE (often causes issues): only rebuild if the cache is empty, most entities won't have any entry in it and don't want a rebuild for each one
         rebuildDataFeedEntityInfo()
         // now we should have all document entityInfos for all entities
-        cacheElement = dataFeedEntityInfo.getElement(fullEntityName)
-        if (cacheElement != null) return (ArrayList<DocumentEntityInfo>) cacheElement.getObjectValue()
+        cachedList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(fullEntityName)
+        if (cachedList != null) return cachedList
 
         // remember that we don't have any info
         dataFeedEntityInfo.put(fullEntityName, emptyList)
@@ -241,9 +240,13 @@ class EntityDataFeed {
                 newEntityInfoList.add(entityInfoMapEntry.getValue())
             }
         }
-        Set<Serializable> cacheKeySet = dataFeedEntityInfo.keySet()
+
+        Iterator<Cache.Entry<String, ArrayList<DocumentEntityInfo>>> dfeiIterator = dataFeedEntityInfo.iterator()
         Set<String> entityNameSet = new HashSet<>()
-        for (Serializable entityName in cacheKeySet) entityNameSet.add(entityName.toString())
+        while (dfeiIterator.hasNext()) {
+            Cache.Entry<String, ArrayList<DocumentEntityInfo>> entry = (Cache.Entry<String, ArrayList<DocumentEntityInfo>>) dfeiIterator.next()
+            entityNameSet.add(entry.getKey())
+        }
         if (entitiesWithDataFeed == null) {
             logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
         } else {

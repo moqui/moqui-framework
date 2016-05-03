@@ -15,7 +15,6 @@ package org.moqui.impl.service
 
 import groovy.json.JsonBuilder
 import groovy.transform.CompileStatic
-import org.moqui.context.Cache
 import org.moqui.context.ResourceReference
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
@@ -43,6 +42,8 @@ import org.quartz.Trigger
 import org.quartz.TriggerKey
 import org.quartz.TriggerListener
 import org.quartz.impl.StdSchedulerFactory
+
+import javax.cache.Cache
 import javax.mail.internet.MimeMessage
 
 import org.slf4j.Logger
@@ -59,7 +60,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected final Cache serviceLocationCache
+    protected final Cache<String, ServiceDefinition> serviceLocationCache
 
     protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
@@ -74,7 +75,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     ServiceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        this.serviceLocationCache = ecfi.getCacheFacade().getCache("service.location")
+        this.serviceLocationCache = ecfi.getCacheFacade().getCache("service.location", String.class, ServiceDefinition.class)
 
         // load Service ECA rules
         loadSecaRulesAll()

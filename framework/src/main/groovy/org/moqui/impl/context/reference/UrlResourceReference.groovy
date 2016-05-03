@@ -26,10 +26,10 @@ import org.slf4j.LoggerFactory
 class UrlResourceReference extends BaseResourceReference {
     protected final static Logger logger = LoggerFactory.getLogger(UrlResourceReference.class)
 
-    URL locationUrl = null
-    Boolean exists = null
-    boolean isFileProtocol = false
-    File localFile = null
+    protected URL locationUrl = null
+    protected Boolean exists = null
+    protected boolean isFileProtocol = false
+    protected transient File localFile = null
 
     UrlResourceReference() { }
     

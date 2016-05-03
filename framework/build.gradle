@@ -109,7 +109,9 @@ dependencies {
 
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
 
-    compile group: 'net.sf.ehcache', name: 'ehcache', version: '2.10.1' // Apache 2.0
+    compile group: 'com.hazelcast', name: 'hazelcast', version: '3.6.2' // Apache 2.0
+    apiCompile group: 'javax.cache', name: 'cache-api', version: '1.0.0' // ?
+    compile group: 'javax.cache', name: 'cache-api', version: '1.0.0' // ?
     compile group: 'org.freemarker', name: 'freemarker', version: '2.3.24-incubating' // Apache 2.0
 
     compile group: 'org.apache.geronimo.specs', name: 'geronimo-j2ee-connector_1.5_spec', version: '2.0.0' // Apache 2.0

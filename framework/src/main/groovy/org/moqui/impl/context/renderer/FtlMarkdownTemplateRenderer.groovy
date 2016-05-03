@@ -13,35 +13,41 @@
  */
 package org.moqui.impl.context.renderer
 
+import com.hazelcast.cache.ICache
 import freemarker.template.Template
-// import org.markdown4j.Markdown4jProcessor
-import org.moqui.context.Cache
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.pegdown.Extensions
 import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.expiry.Duration
+import javax.cache.expiry.ExpiryPolicy
+import javax.cache.expiry.ModifiedExpiryPolicy
+
+@CompileStatic
 class FtlMarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(FtlMarkdownTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache templateFtlLocationCache
+    protected ICache<String, Template> templateFtlLocationCache
 
     FtlMarkdownTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location")
+        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class)
+                .unwrap(ICache.class)
         return this
     }
 
     void render(String location, Writer writer) {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        Template theTemplate = (Template) templateFtlLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
+        ExpiryPolicy expiryPolicy = rr != null ? new ModifiedExpiryPolicy(new Duration(0L, rr.getLastModified())) : null
+        Template theTemplate = (Template) templateFtlLocationCache.get(location, expiryPolicy)
         if (theTemplate == null) theTemplate = makeTemplate(location)
         if (theTemplate == null) throw new IllegalArgumentException("Could not find template at ${location}")
         theTemplate.createProcessingEnvironment(ecfi.executionContext.context, writer).process()

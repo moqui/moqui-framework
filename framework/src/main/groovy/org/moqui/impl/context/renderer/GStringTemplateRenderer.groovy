@@ -13,31 +13,40 @@
  */
 package org.moqui.impl.context.renderer
 
+import com.hazelcast.cache.ICache
 import groovy.text.GStringTemplateEngine
+import groovy.text.Template
 import groovy.transform.CompileStatic
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import javax.cache.expiry.Duration
+import javax.cache.expiry.ExpiryPolicy
+import javax.cache.expiry.ModifiedExpiryPolicy
+
 @CompileStatic
 class GStringTemplateRenderer implements TemplateRenderer {
-    protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(GStringTemplateRenderer.class)
+    protected final static Logger logger = LoggerFactory.getLogger(GStringTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache templateGStringLocationCache
+    protected ICache<String, Template> templateGStringLocationCache
 
     GStringTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateGStringLocationCache = ecfi.cacheFacade.getCache("resource.gstring.location")
+        this.templateGStringLocationCache = ecfi.cacheFacade.getCache("resource.gstring.location",
+                String.class, Template.class).unwrap(ICache.class)
         return this
     }
 
     void render(String location, Writer writer) {
-        groovy.text.Template theTemplate = getGStringTemplateByLocation(location)
+        Template theTemplate = getGStringTemplateByLocation(location)
         Writable writable = theTemplate.make(ecfi.executionContext.context)
         writable.writeTo(writer)
     }
@@ -48,20 +57,19 @@ class GStringTemplateRenderer implements TemplateRenderer {
 
     void destroy() { }
 
-    groovy.text.Template getGStringTemplateByLocation(String location) {
+    Template getGStringTemplateByLocation(String location) {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        groovy.text.Template theTemplate =
-                (groovy.text.Template) templateGStringLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
+        ExpiryPolicy expiryPolicy = rr != null ? new ModifiedExpiryPolicy(new Duration(0L, rr.getLastModified())) : null
+        Template theTemplate = (Template) templateGStringLocationCache.get(location, expiryPolicy)
         if (!theTemplate) theTemplate = makeGStringTemplate(location)
         if (!theTemplate) throw new IllegalArgumentException("Could not find template at [${location}]")
         return theTemplate
     }
-    protected groovy.text.Template makeGStringTemplate(String location) {
-        groovy.text.Template theTemplate =
-                (groovy.text.Template) templateGStringLocationCache.get(location)
+    protected Template makeGStringTemplate(String location) {
+        Template theTemplate = (Template) templateGStringLocationCache.get(location)
         if (theTemplate) return theTemplate
 
-        groovy.text.Template newTemplate = null
+        Template newTemplate = null
         Reader templateReader = null
         try {
             templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location))

@@ -60,17 +60,19 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="cache">
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="key-type" type="xs:string" default="String"/>
+            <xs:attribute name="value-type" type="xs:string" default="Object"/>
+
             <xs:attribute name="expire-time-idle" type="xs:nonNegativeInteger" use="optional">
                 <xs:annotation><xs:documentation>Idle expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="expire-time-live" type="xs:nonNegativeInteger" use="optional">
                 <xs:annotation><xs:documentation>Live expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="max-elements" type="xs:nonNegativeInteger" use="optional"/>
-            <xs:attribute name="eviction-strategy" use="optional">
+            <xs:attribute name="eviction-strategy" default="least-frequently-used">
                 <xs:simpleType>
                     <xs:restriction base="xs:token">
                         <xs:enumeration value="least-recently-used"/>
                         <xs:enumeration value="least-frequently-used"/>
-                        <xs:enumeration value="least-recently-added"/>
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
