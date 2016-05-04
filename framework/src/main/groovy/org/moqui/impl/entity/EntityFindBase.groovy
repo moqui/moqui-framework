@@ -662,7 +662,7 @@ abstract class EntityFindBase implements EntityFind {
         Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
                 efi.getEntityCache().getCacheOne(getEntityDef().getFullEntityName()) : (Cache<EntityCondition, EntityValueBase>) null
         EntityValueBase cacheHit = (EntityValueBase) null
-        if (doCache && txcValue == null) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
+        if (doCache && txcValue == null && whereCondition != null) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
 
         // we always want fieldsToSelect populated so that we know the order of the results coming back
         ArrayList<String> localFts = fieldsToSelect
@@ -699,7 +699,7 @@ abstract class EntityFindBase implements EntityFind {
             if (txcValue instanceof TransactionCache.DeletedEntityValue) {
                 // is deleted value, so leave newEntityValue as null
                 // put in cache as null since this was deleted
-                if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
+                if (doCache && whereCondition != null) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result
@@ -1105,7 +1105,7 @@ abstract class EntityFindBase implements EntityFind {
         boolean doCache = !this.havingEntityCondition && this.shouldCache()
         Cache<EntityCondition, Long> entityCountCache = doCache ? efi.getEntityCache().getCacheCount(getEntityDef().getFullEntityName()) : (Cache) null
         Long cacheCount = (Long) null
-        if (doCache) cacheCount = (Long) entityCountCache.get(whereCondition)
+        if (doCache && whereCondition != null) cacheCount = (Long) entityCountCache.get(whereCondition)
 
         long count
         if (cacheCount != null) {
