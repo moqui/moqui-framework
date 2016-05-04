@@ -34,10 +34,15 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class)
 
     protected final EntityFacadeImpl efi
+    protected final TrueCondition trueCondition
 
     EntityConditionFactoryImpl(EntityFacadeImpl efi) {
         this.efi = efi
+        trueCondition = new TrueCondition(this)
     }
+
+    @Override
+    EntityCondition getTrueCondition() { return trueCondition }
 
     @Override
     EntityCondition makeCondition(EntityCondition lhs, JoinOperator operator, EntityCondition rhs) {

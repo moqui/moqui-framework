@@ -14,6 +14,8 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.entity.condition.TrueCondition
+
 import javax.cache.Cache
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
@@ -98,10 +100,11 @@ class EntityCache {
 
     EntityListImpl getFromListCache(EntityDefinition ed, EntityCondition whereCondition, List<String> orderByList,
                                     Cache<EntityCondition, EntityListImpl> entityListCache) {
+        if (whereCondition == null) return null
         if (entityListCache == null) entityListCache = getCacheList(ed.getFullEntityName())
 
         EntityListImpl cacheHit = (EntityListImpl) entityListCache.get(whereCondition)
-        if (orderByList != null && orderByList.size() > 0) cacheHit.orderByFields(orderByList)
+        if (cacheHit != null && orderByList != null && orderByList.size() > 0) cacheHit.orderByFields(orderByList)
         return cacheHit
     }
     void putInListCache(EntityDefinition ed, EntityListImpl el, EntityCondition whereCondition,

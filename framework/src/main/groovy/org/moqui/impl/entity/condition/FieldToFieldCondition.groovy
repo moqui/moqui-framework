@@ -20,11 +20,11 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl
 
 @CompileStatic
 class FieldToFieldCondition extends EntityConditionImplBase {
-    protected volatile Class localClass = null
     protected final ConditionField field
     protected final EntityCondition.ComparisonOperator operator
     protected final ConditionField toField
     protected boolean ignoreCase = false
+    protected static final Class thisClass = FieldValueCondition.class
 
     FieldToFieldCondition(EntityConditionFactoryImpl ecFactoryImpl,
             ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
@@ -33,8 +33,6 @@ class FieldToFieldCondition extends EntityConditionImplBase {
         this.operator = operator ?: EQUALS
         this.toField = toField
     }
-
-    Class getLocalClass() { if (this.localClass == null) this.localClass = this.getClass(); return this.localClass }
 
     @Override
     void makeSqlWhere(EntityQueryBuilder eqb) {
@@ -99,7 +97,7 @@ class FieldToFieldCondition extends EntityConditionImplBase {
 
     @Override
     boolean equals(Object o) {
-        if (o == null || o.getClass() != this.getLocalClass()) return false
+        if (o == null || o.getClass() != thisClass) return false
         FieldToFieldCondition that = (FieldToFieldCondition) o
         if (!this.field.equalsConditionField(that.field)) return false
         // NOTE: for Java Enums the != is WAY faster than the .equals
