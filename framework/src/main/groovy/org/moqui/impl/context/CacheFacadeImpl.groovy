@@ -101,26 +101,34 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     @Override
-    Cache getCache(String cacheName) { return getCache(cacheName, null) }
+    Cache getCache(String cacheName) { return getCacheInternal(cacheName, null, false) }
     @Override
     <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType) {
-        return getCache(cacheName, null)
+        return getCacheInternal(cacheName, null, false)
     }
 
+    @Override
     Cache getCache(String cacheName, String tenantId) {
+        return getCacheInternal(cacheName, tenantId, false)
+    }
+    @Override
+    MCache getLocalCache(String cacheName) {
+        return getCacheInternal(cacheName, null, true).unwrap(MCache.class)
+    }
+
+    Cache getCacheInternal(String cacheName, String tenantId, boolean defaultLocal) {
         String fullName = getFullName(cacheName, tenantId)
         Cache theCache = localCacheMap.get(fullName)
         if (theCache == null) {
-            localCacheMap.putIfAbsent(fullName, initCache(cacheName, tenantId))
+            localCacheMap.putIfAbsent(fullName, initCache(cacheName, tenantId, defaultLocal))
             theCache = localCacheMap.get(fullName)
         }
         return theCache
     }
 
     @Override
-    CacheManager getCacheManager() { return hcCacheManager }
-
     boolean cacheExists(String cacheName) { return localCacheMap.containsKey(getFullName(cacheName, null)) }
+    @Override
     Set<String> getCacheNames() { return localCacheMap.keySet() }
 
     List<Map<String, Object>> getAllCachesInfo(String orderByField, String filterRegexp) {
@@ -173,7 +181,7 @@ public class CacheFacadeImpl implements CacheFacade {
         return cacheElement
     }
 
-    protected synchronized Cache initCache(String cacheName, String tenantId) {
+    protected synchronized Cache initCache(String cacheName, String tenantId, boolean defaultLocal) {
         if (cacheName.contains("__")) cacheName = cacheName.substring(cacheName.indexOf("__") + 2)
         String fullCacheName = getFullName(cacheName, tenantId)
         if (localCacheMap.containsKey(fullCacheName)) return localCacheMap.get(fullCacheName)
@@ -231,10 +239,14 @@ public class CacheFacadeImpl implements CacheFacade {
                 newCache = hcCacheManager.createCache(cacheName, cacheConfig)
             }
         } else {
-            CacheConfig cacheConfig = new CacheConfig()
-            cacheConfig.setName(fullCacheName)
-            // any defaults we want here? better to use underlying defaults and conf file settings only
-            newCache = hcCacheManager.createCache(cacheName, cacheConfig)
+            if (defaultLocal) {
+                newCache = new MCache(fullCacheName, null, null)
+            } else {
+                CacheConfig cacheConfig = new CacheConfig()
+                cacheConfig.setName(fullCacheName)
+                // any defaults we want here? better to use underlying defaults and conf file settings only
+                newCache = hcCacheManager.createCache(cacheName, cacheConfig)
+            }
         }
 
         // NOTE: put in localCacheMap done in caller (getCache)

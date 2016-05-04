@@ -13,17 +13,26 @@
  */
 package org.moqui.context;
 
+import org.moqui.jcache.MCache;
 import javax.cache.Cache;
-import javax.cache.CacheManager;
+import java.util.Set;
 
 /** A facade used for managing and accessing Cache instances. */
 public interface CacheFacade {
     void clearAllCaches();
     void clearCachesByPrefix(String prefix);
 
-    /** Get the named Cache, creating one based on configuration and defaults if none exists. */
+    /** Get the named Cache, creating one based on configuration and defaults if none exists.
+     * Defaults to distributed cache if no configuration found. */
     Cache getCache(String cacheName);
+    /** For caches that are not tenant shared (based on configuration in Moqui Conf XML file) the tenantId is prefixed
+     * to the full cache name followed by two undersctores (__). This is a convenience method to get a cache for a tenant. */
+    Cache getCache(String cacheName, String tenantId);
     <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType);
+    /** Get the named local Cache (MCache instance), creating one based on configuration and defaults if none exists.
+     * If the cache is configured without local=true this will return an error. */
+    MCache getLocalCache(String cacheName);
 
-    CacheManager getCacheManager();
+    Set<String> getCacheNames();
+    boolean cacheExists(String cacheName);
 }
