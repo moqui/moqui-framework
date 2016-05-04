@@ -18,12 +18,14 @@ import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.entity.EntityJavaUtil;
 
-public class ConditionField {
-    String entityAlias = (String) null;
+import java.io.Serializable;
+
+public class ConditionField implements Serializable {
+    String entityAlias = null;
     String fieldName;
-    EntityDefinition aliasEntityDef = (EntityDefinition) null;
-    String aliasEntityName = (String) null;
-    protected int curHashCode;
+    private String aliasEntityName = null;
+    private int curHashCode;
+    private transient EntityDefinition aliasEntityDefTransient = null;
 
     public ConditionField(String fieldName) {
         if (fieldName == null) throw new BaseException("Empty fieldName not allowed");
@@ -34,26 +36,31 @@ public class ConditionField {
         if (fieldName == null) throw new BaseException("Empty fieldName not allowed");
         this.entityAlias = entityAlias != null ? entityAlias.intern() : null;
         this.fieldName = fieldName.intern();
-        this.aliasEntityDef = aliasEntityDef;
+        aliasEntityDefTransient = aliasEntityDef;
         if (aliasEntityDef != null) {
             String entName = aliasEntityDef.getFullEntityName();
-            aliasEntityName = entName != null ? entName.intern() : null;
+            aliasEntityName = entName.intern();
         }
         curHashCode = createHashCode();
     }
 
     public String getEntityAlias() { return entityAlias; }
     public String getFieldName() { return fieldName; }
-    public EntityDefinition getAliasEntityDef() { return aliasEntityDef; }
     public String getAliasEntityName() { return aliasEntityName; }
+    private EntityDefinition getAliasEntityDef(EntityDefinition otherEd) {
+        if (aliasEntityDefTransient == null && aliasEntityName != null) {
+            aliasEntityDefTransient = otherEd.getEfi().getEntityDefinition(aliasEntityName);
+        }
+        return aliasEntityDefTransient;
+    }
 
     public String getColumnName(EntityDefinition ed) {
         StringBuilder colName = new StringBuilder();
         // NOTE: this could have issues with view-entities as member entities where they have functions/etc; we may
         // have to pass the prefix in to have it added inside functions/etc
         if (entityAlias != null) colName.append(entityAlias).append('.');
-        if (aliasEntityDef != null) {
-            colName.append(aliasEntityDef.getColumnName(fieldName, false));
+        if (aliasEntityName != null) {
+            colName.append(getAliasEntityDef(ed).getColumnName(fieldName, false));
         } else {
             colName.append(ed.getColumnName(fieldName, false));
         }
@@ -61,8 +68,8 @@ public class ConditionField {
     }
 
     public EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) {
-        if (aliasEntityDef != null) {
-            return aliasEntityDef.getFieldInfo(fieldName);
+        if (aliasEntityName != null) {
+            return getAliasEntityDef(ed).getFieldInfo(fieldName);
         } else {
             return ed.getFieldInfo(fieldName);
         }
@@ -73,9 +80,9 @@ public class ConditionField {
 
     @Override
     public int hashCode() { return curHashCode; }
-    protected int createHashCode() {
+    private int createHashCode() {
         return (entityAlias != null ? entityAlias.hashCode() : 0) + (fieldName != null ? fieldName.hashCode() : 0) +
-                (aliasEntityDef != null ? aliasEntityDef.hashCode() : 0);
+                (aliasEntityName != null ? aliasEntityName.hashCode() : 0);
     }
 
     @Override
@@ -87,7 +94,7 @@ public class ConditionField {
     public boolean equalsConditionField(ConditionField that) {
         if (that == null) return false;
         // both Strings are intern'ed so use != operator for object compare
-        if (fieldName != that.fieldName) return false;
+        if (!fieldName.equals(that.fieldName)) return false;
         if (!StupidJavaUtilities.internedStringsEqual(this.entityAlias, that.entityAlias)) return false;
         if (!StupidJavaUtilities.internedStringsEqual(this.aliasEntityName, that.aliasEntityName)) return false;
         return true;

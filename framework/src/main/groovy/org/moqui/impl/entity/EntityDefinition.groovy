@@ -230,10 +230,11 @@ public class EntityDefinition {
         }
     }
 
-    String getEntityName() { return this.internalEntityName }
-    String getFullEntityName() { return this.fullEntityName }
-    String getShortAlias() { return this.shortAlias }
-    MNode getEntityNode() { return this.internalEntityNode }
+    EntityFacadeImpl getEfi() { return efi }
+    String getEntityName() { return internalEntityName }
+    String getFullEntityName() { return fullEntityName }
+    String getShortAlias() { return shortAlias }
+    MNode getEntityNode() { return internalEntityNode }
 
     boolean isViewEntity() { return isView }
     boolean hasFunctionAlias() { return hasFunctionAliasVal }

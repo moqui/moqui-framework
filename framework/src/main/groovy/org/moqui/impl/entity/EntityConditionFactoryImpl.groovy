@@ -41,6 +41,8 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         trueCondition = new TrueCondition(this)
     }
 
+    EntityFacadeImpl getEfi() { return efi }
+
     @Override
     EntityCondition getTrueCondition() { return trueCondition }
 

@@ -128,6 +128,7 @@ class EntityFacadeImpl implements EntityFacade {
         emptyList.setFromCache()
     }
 
+    String getTenantId() { return tenantId; }
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
     EntityCache getEntityCache() { return entityCache }
     EntityDataFeed getEntityDataFeed() { return entityDataFeed }

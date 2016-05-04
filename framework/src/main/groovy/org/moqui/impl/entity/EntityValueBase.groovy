@@ -51,14 +51,14 @@ abstract class EntityValueBase implements EntityValue {
     protected final static Logger logger = LoggerFactory.getLogger(EntityValueBase.class)
 
     /** This is a reference to where the entity value came from.
-     * It is volatile so not stored when this is serialized, and will get a reference to the active EntityFacade after.
+     * It is transient so not stored when this is serialized, and will get a reference to the active EntityFacade after.
      */
-    protected volatile EntityFacadeImpl efiInternal
-    protected volatile TransactionCache txCacheInternal
-
+    protected transient EntityFacadeImpl efiTransient
+    protected transient TransactionCache txCacheInternal
+    protected String tenantId
 
     protected final String entityName
-    protected volatile EntityDefinition entityDefinition
+    protected transient EntityDefinition entityDefinitionTransient
 
     private final Map<String, Object> valueMap = new HashMap<>()
     /* Original DB Value Map: not used unless the value has been modified from its original state from the DB */
@@ -74,24 +74,24 @@ abstract class EntityValueBase implements EntityValue {
     protected boolean isFromDb = false
 
     EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
-        efiInternal = efip
+        efiTransient = efip
+        tenantId = efip.getTenantId()
         entityName = ed.getFullEntityName()
-        entityDefinition = ed
+        entityDefinitionTransient = ed
     }
 
     EntityFacadeImpl getEntityFacadeImpl() {
         // handle null after deserialize; this requires a static reference in Moqui.java or we'll get an error
-        if (efiInternal == null) efiInternal = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade()
-        return efiInternal
+        if (efiTransient == null) efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade(tenantId)
+        return efiTransient
     }
     TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
         if (txCacheInternal == null) txCacheInternal = ecfi.getTransactionFacade().getTransactionCache()
         return txCacheInternal
     }
-
     EntityDefinition getEntityDefinition() {
-        if (entityDefinition == null) entityDefinition = getEntityFacadeImpl().getEntityDefinition(entityName)
-        return entityDefinition
+        if (entityDefinitionTransient == null) entityDefinitionTransient = getEntityFacadeImpl().getEntityDefinition(entityName)
+        return entityDefinitionTransient
     }
 
     // NOTE: this is no longer protected so that external add-on code can set original values from a datasource
