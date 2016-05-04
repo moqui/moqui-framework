@@ -2,15 +2,28 @@
 Moqui Framework Release Notes
 
 ===========================================================================
-Release 1.6.3 - TBD
+Release 1.7.0 - TBD
 ===========================================================================
 
-Moqui Framework 1.6.3 is a minor new feature and bug fix release.
+Moqui Framework 1.7.0 is a new feature and bug fix release.
 
 TODO
 
+Non Backward Compatible Changes
+
+- Ehcache has been removed
+- The org.moqui.context.Cache interface is replaced by javax.cache.Cache
+
 New Features
 
+- Caching
+  - CacheFacade now supports separate local and distributed caches both
+    using the javax.cache interfaces
+  - Added new MCache class for faster local-only caches (implements the
+    javax.cache.Cache interface)
+  - For distributed caches now using Hazelcast, initially version 3.6.2
+  - Hazelcast now used for distributed entity cache and can be used for
+    web session replication and OrientDB clustering
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
