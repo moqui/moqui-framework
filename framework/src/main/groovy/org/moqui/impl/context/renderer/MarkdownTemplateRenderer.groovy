@@ -13,20 +13,15 @@
  */
 package org.moqui.impl.context.renderer
 
-import com.hazelcast.cache.ICache
-
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.jcache.MCache
 import org.pegdown.Extensions
 import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
-import javax.cache.expiry.Duration
-import javax.cache.expiry.ExpiryPolicy
-import javax.cache.expiry.ModifiedExpiryPolicy
 
 class MarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(MarkdownTemplateRenderer.class)
@@ -35,20 +30,20 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
     final static int pegDownOptions = Extensions.ALL_WITH_OPTIONALS ^ Extensions.SMARTS ^ Extensions.QUOTES
 
     protected ExecutionContextFactoryImpl ecfi
-    protected ICache<String, String> templateMarkdownLocationCache
+    protected MCache<String, String> templateMarkdownLocationCache
 
     MarkdownTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateMarkdownLocationCache = ecfi.cacheFacade.getCache("resource.markdown.location").unwrap(ICache.class)
+        this.templateMarkdownLocationCache = ecfi.cacheFacade.getCache("resource.markdown.location").unwrap(MCache.class)
         return this
     }
 
     void render(String location, Writer writer) {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        ExpiryPolicy expiryPolicy = rr != null ? new ModifiedExpiryPolicy(new Duration(0L, rr.getLastModified())) : null
-        String mdText = templateMarkdownLocationCache.get(location, expiryPolicy)
+        long lastModified = rr != null ? rr.getLastModified() : 0L
+        String mdText = templateMarkdownLocationCache.get(location, lastModified)
         if (mdText) {
             writer.write(mdText)
             return

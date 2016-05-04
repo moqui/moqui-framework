@@ -77,6 +77,10 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:simpleType>
             </xs:attribute>
             <xs:attribute name="tenants-share" type="boolean" default="false"/>
+            <xs:attribute name="local" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true use a local-only cache (org.moqui.jcache.MCache), otherwise use
+                    the distributed cache (Hazelcast). Local caches are store by references, distributed cache store by
+                    value so keys and values must be serializable.</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
 

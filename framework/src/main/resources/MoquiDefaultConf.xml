@@ -9,19 +9,19 @@
 
     <cache-list warm-on-start="true">
         <!-- Production mode by default - No expiration of conf and impl artifacts. -->
-        <cache name="entity.definition" value-type="org.moqui.impl.entity.EntityDefinition"/>
-        <cache name="entity.location" value-type="Map"/>
-        <cache name="entity.sequence.bank" value-type="long[]"/>
+        <cache name="entity.definition" value-type="org.moqui.impl.entity.EntityDefinition" local="true"/>
+        <cache name="entity.location" value-type="Map" local="true"/>
+        <cache name="entity.sequence.bank" value-type="long[]" local="true"/>
         <!-- this is info for each entity for real-time push DataFeeds; expires every 15 min to get DataFeed and DataDocument updates -->
-        <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList"/>
+        <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList" local="true"/>
 
-        <cache name="entity.record.one." max-elements="10000" eviction-strategy="least-frequently-used"
+        <cache name="entity.record.one." max-elements="50000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityValueBase"/>
-        <cache name="entity.record.one_ra." max-elements="20000" eviction-strategy="least-frequently-used"
+        <cache name="entity.record.one_ra." max-elements="100000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.one_view_ra." max-elements="20000" eviction-strategy="least-frequently-used"
+        <cache name="entity.record.one_view_ra." max-elements="100000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.one_bf." max-elements="20000" eviction-strategy="least-frequently-used" value-type="Set"/>
+        <cache name="entity.record.one_bf." max-elements="100000" eviction-strategy="least-frequently-used" value-type="Set"/>
 
         <cache name="entity.record.list." max-elements="10000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityListImpl"/>
@@ -32,40 +32,41 @@
         <cache name="entity.record.count." max-elements="10000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
 
-        <cache name="service.location" tenants-share="true" value-type="org.moqui.impl.service.ServiceDefinition"/>
+        <cache name="service.location" tenants-share="true" value-type="org.moqui.impl.service.ServiceDefinition" local="true"/>
 
-        <cache name="kie.component.releaseId"/>
+        <cache name="kie.component.releaseId" tenants-share="true" value-type="org.kie.api.builder.ReleaseId" local="true"/>
+        <cache name="kie.session.component" tenants-share="true" value-type="String" local="true"/>
 
         <!-- TODO: Potential issue for multi-tenant where DbForm*, SubscreenItem, etc comes from wrong tenant...
             would need to change ScreenFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI (would be slower) -->
-        <cache name="screen.location" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition"/>
-        <cache name="screen.location.perm" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition"/>
-        <cache name="screen.url" tenants-share="true" value-type="org.moqui.impl.screen.ScreenUrlInfo"/>
-        <cache name="screen.info" tenants-share="true" value-type="List"/>
-        <cache name="screen.info.ref.rev" tenants-share="true" value-type="Set"/>
-        <cache name="screen.template.mode" tenants-share="true" value-type="freemarker.template.Template"/>
-        <cache name="screen.template.location" tenants-share="true" value-type="freemarker.template.Template"/>
-        <cache name="widget.template.location" tenants-share="true" value-type="MNode"/>
-        <cache name="screen.find.path" tenants-share="true" value-type="ArrayList"/>
-        <cache name="screen.form.db.node" tenants-share="true" value-type="MNode"/>
+        <cache name="screen.location" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition" local="true"/>
+        <cache name="screen.location.perm" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition" local="true"/>
+        <cache name="screen.url" tenants-share="true" value-type="org.moqui.impl.screen.ScreenUrlInfo" local="true"/>
+        <cache name="screen.info" tenants-share="true" value-type="List" local="true"/>
+        <cache name="screen.info.ref.rev" tenants-share="true" value-type="Set" local="true"/>
+        <cache name="screen.template.mode" tenants-share="true" value-type="freemarker.template.Template" local="true"/>
+        <cache name="screen.template.location" tenants-share="true" value-type="freemarker.template.Template" local="true"/>
+        <cache name="widget.template.location" tenants-share="true" value-type="MNode" local="true"/>
+        <cache name="screen.find.path" tenants-share="true" value-type="ArrayList" local="true"/>
+        <cache name="screen.form.db.node" tenants-share="true" value-type="MNode" local="true"/>
 
         <!-- TODO: Potential issue for multi-tenant where DbResource, etc comes from wrong tenant...
             would need to change ResourceFacadeImpl to get cache per tenant too, maybe even init ResourceFacadeImpl under ECI instead of ECFI (would be slower) -->
-        <cache name="resource.xml-actions.location" tenants-share="true" value-type="org.moqui.impl.actions.XmlAction"/>
-        <cache name="resource.groovy.location" tenants-share="true" value-type="java.lang.Class"/>
-        <cache name="resource.javascript.location" tenants-share="true" value-type="java.lang.Class"/>
+        <cache name="resource.xml-actions.location" tenants-share="true" value-type="org.moqui.impl.actions.XmlAction" local="true"/>
+        <cache name="resource.groovy.location" tenants-share="true" value-type="java.lang.Class" local="true"/>
+        <cache name="resource.javascript.location" tenants-share="true" value-type="java.lang.Class" local="true"/>
 
-        <cache name="resource.ftl.location" tenants-share="true" value-type="freemarker.template.Template"/>
-        <cache name="resource.gstring.location" tenants-share="true" value-type="groovy.text.Template"/>
-        <cache name="resource.wiki.location" tenants-share="true" value-type="String"/>
-        <cache name="resource.markdown.location" tenants-share="true" value-type="String"/>
-        <cache name="resource.text.location" tenants-share="true" value-type="String"/>
-        <cache name="resource.reference.location" tenants-share="true" value-type="org.moqui.context.ResourceReference"/>
+        <cache name="resource.ftl.location" tenants-share="true" value-type="freemarker.template.Template" local="true"/>
+        <cache name="resource.gstring.location" tenants-share="true" value-type="groovy.text.Template" local="true"/>
+        <cache name="resource.wiki.location" tenants-share="true" value-type="String" local="true"/>
+        <cache name="resource.markdown.location" tenants-share="true" value-type="String" local="true"/>
+        <cache name="resource.text.location" tenants-share="true" value-type="String" local="true"/>
+        <cache name="resource.reference.location" tenants-share="true" value-type="org.moqui.context.ResourceReference" local="true"/>
 
-        <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String"/>
+        <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String" local="true"/>
 
         <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
-        <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList"/>
+        <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList" local="true"/>
     </cache-list>
     <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true">
         <artifact-stats type="screen" persist-bin="true" persist-hit="true"/>

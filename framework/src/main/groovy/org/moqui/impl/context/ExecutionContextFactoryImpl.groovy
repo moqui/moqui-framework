@@ -106,8 +106,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     Process jackrabbitProcess
 
     /* KIE fields */
-    protected final Cache kieComponentReleaseIdCache
-    protected final Cache kieSessionComponentCache
+    protected final Cache<String, ReleaseId> kieComponentReleaseIdCache
+    protected final Cache<String, String> kieSessionComponentCache
 
     // ======== Permanent Delegated Facades ========
     protected final CacheFacadeImpl cacheFacade
@@ -191,14 +191,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
-        logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
 
-        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
-        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component")
+        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
+        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
     }
@@ -235,13 +234,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
-        logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
 
-        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
+        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
+        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
     }
@@ -286,18 +285,19 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
         long entityStartTime = System.currentTimeMillis()
-        this.entityFacade.loadAllEntityLocations()
+        EntityFacadeImpl defaultEfi = getEntityFacade("DEFAULT")
+        defaultEfi.loadAllEntityLocations()
         List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
         // load/warm framework entities
-        this.entityFacade.loadFrameworkEntities()
+        defaultEfi.loadFrameworkEntities()
         logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
         // init ESAPI
         StupidWebUtilities.canonicalizeValue("test")
 
         // now that everything is started up, if configured check all entity tables
-        this.entityFacade.checkInitDatasourceTables()
+        defaultEfi.checkInitDatasourceTables()
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
-        this.entityFacade.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
+        defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
@@ -572,7 +572,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         efi = new EntityFacadeImpl(this, tenantId)
         this.entityFacadeByTenantMap.put(tenantId, efi)
-        logger.info("Moqui EntityFacadeImpl for Tenant [${tenantId}] Initialized")
+        logger.info("Moqui EntityFacadeImpl for Tenant ${tenantId} Initialized")
         return efi
     }
 

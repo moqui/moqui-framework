@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.context.renderer
 
-import com.hazelcast.cache.ICache
 import freemarker.core.Environment
 import freemarker.core.ParseException
 import freemarker.ext.beans.BeansWrapper
@@ -33,13 +32,9 @@ import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-
+import org.moqui.jcache.MCache
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
-import javax.cache.expiry.Duration
-import javax.cache.expiry.ExpiryPolicy
-import javax.cache.expiry.ModifiedExpiryPolicy
 
 @CompileStatic
 class FtlTemplateRenderer implements TemplateRenderer {
@@ -48,14 +43,14 @@ class FtlTemplateRenderer implements TemplateRenderer {
     protected ExecutionContextFactoryImpl ecfi
 
     protected Configuration defaultFtlConfiguration
-    protected ICache<String, Template> templateFtlLocationCache
+    protected MCache<String, Template> templateFtlLocationCache
 
     FtlTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
         this.defaultFtlConfiguration = makeFtlConfiguration(ecfi)
-        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class).unwrap(ICache.class)
+        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class).unwrap(MCache.class)
         return this
     }
 
@@ -76,8 +71,8 @@ class FtlTemplateRenderer implements TemplateRenderer {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
         // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
         //     updated time is older/less than rr.lastModified)
-        ExpiryPolicy expiryPolicy = rr != null ? new ModifiedExpiryPolicy(new Duration(0L, rr.getLastModified())) : null
-        Template theTemplate = (Template) templateFtlLocationCache.get(location, expiryPolicy)
+        long lastModified = rr != null ? rr.getLastModified() : 0L
+        Template theTemplate = (Template) templateFtlLocationCache.get(location, lastModified)
         if (theTemplate == null) theTemplate = makeTemplate(location)
         if (theTemplate == null) throw new IllegalArgumentException("Could not find template at [${location}]")
         return theTemplate

@@ -18,15 +18,16 @@ import com.hazelcast.cache.ICache
 import com.hazelcast.config.CacheConfig
 import com.hazelcast.config.EvictionConfig
 import com.hazelcast.config.EvictionPolicy
-import com.hazelcast.config.InMemoryFormat
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
+import org.moqui.jcache.MCache
 import org.moqui.util.MNode
 
 import javax.cache.Cache
 import javax.cache.CacheManager
 import javax.cache.Caching
 import javax.cache.configuration.Configuration
+import javax.cache.configuration.MutableConfiguration
 import javax.cache.expiry.AccessedExpiryPolicy
 import javax.cache.expiry.CreatedExpiryPolicy
 import javax.cache.expiry.Duration
@@ -50,20 +51,19 @@ public class CacheFacadeImpl implements CacheFacade {
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected final CachingProvider provider
-    protected final CacheManager cacheManager
+    protected final CachingProvider hcProvider
+    protected final CacheManager hcCacheManager
 
     protected final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
     protected final Map<String, Boolean> cacheTenantsShare = new HashMap<String, Boolean>()
 
     CacheFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        // FUTURE: make provider and conf file configurable in Moqui Conf XML file?
-        provider = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
-        cacheManager = provider.getCacheManager()
+        hcProvider = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
+        hcCacheManager = hcProvider.getCacheManager()
     }
 
-    void destroy() { cacheManager.close() }
+    void destroy() { hcCacheManager.close() }
 
     protected String getFullName(String cacheName, String tenantId) {
         if (cacheName == null) return null
@@ -118,7 +118,7 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     @Override
-    CacheManager getCacheManager() { return cacheManager }
+    CacheManager getCacheManager() { return hcCacheManager }
 
     boolean cacheExists(String cacheName) { return localCacheMap.containsKey(getFullName(cacheName, null)) }
     Set<String> getCacheNames() { return localCacheMap.keySet() }
@@ -127,23 +127,38 @@ public class CacheFacadeImpl implements CacheFacade {
         String tenantId = ecfi.getEci().getTenantId()
         String tenantPrefix = tenantId + "__"
         List<Map<String, Object>> ci = new LinkedList()
-        for (String cn in cacheManager.getCacheNames()) {
+        for (String cn in hcCacheManager.getCacheNames()) {
             if (tenantId != "DEFAULT" && !cn.startsWith(tenantPrefix)) continue
             if (filterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue
             Cache co = getCache(cn)
-            ICache ico = co.unwrap(ICache.class)
-            CacheStatistics cs = ico.getLocalCacheStatistics()
-            CacheConfig conf = co.getConfiguration(CacheConfig.class)
-            EvictionConfig evConf = conf.getEvictionConfig()
-            ExpiryPolicy expPol = conf.getExpiryPolicyFactory()?.create()
-            Long expireIdle = expPol.expiryForAccess?.durationAmount ?: 0
-            Long expireLive = expPol.expiryForCreation?.durationAmount ?: 0
-            ci.add([name:co.getName(), expireTimeIdle:expireIdle,
-                    expireTimeLive:expireLive, maxElements:evConf.getSize(),
-                    evictionStrategy:evConf.getEvictionPolicy().name(), size:ico.size(),
-                    getCount:cs.getCacheGets(), putCount:cs.getCachePuts(),
-                    hitCount:cs.getCacheHits(), missCountTotal:cs.getCacheMisses(),
-                    evictionCount:cs.getCacheEvictions(), removeCount:cs.getCacheRemovals()] as Map<String, Object>)
+            if (co instanceof ICache) {
+                ICache ico = co.unwrap(ICache.class)
+                CacheStatistics cs = ico.getLocalCacheStatistics()
+                CacheConfig conf = co.getConfiguration(CacheConfig.class)
+                EvictionConfig evConf = conf.getEvictionConfig()
+                ExpiryPolicy expPol = conf.getExpiryPolicyFactory()?.create()
+                Long expireIdle = expPol.expiryForAccess?.durationAmount ?: 0
+                Long expireLive = expPol.expiryForCreation?.durationAmount ?: 0
+                ci.add([name:co.getName(), expireTimeIdle:expireIdle,
+                        expireTimeLive:expireLive, maxElements:evConf.getSize(),
+                        evictionStrategy:evConf.getEvictionPolicy().name(), size:ico.size(),
+                        getCount:cs.getCacheGets(), putCount:cs.getCachePuts(),
+                        hitCount:cs.getCacheHits(), missCountTotal:cs.getCacheMisses(),
+                        evictionCount:cs.getCacheEvictions(), removeCount:cs.getCacheRemovals(),
+                        expireCount:0] as Map<String, Object>)
+            } else if (co instanceof MCache) {
+                MCache mc = co.unwrap(MCache.class)
+                MCache.MStats stats = mc.getMStats()
+                Long expireIdle = mc.getAccessDuration()?.durationAmount ?: 0
+                Long expireLive = mc.getCreationDuration()?.durationAmount ?: 0
+                ci.add([name:co.getName(), expireTimeIdle:expireIdle,
+                        expireTimeLive:expireLive, maxElements:0,
+                        evictionStrategy:"", size:mc.size(),
+                        getCount:stats.getCacheGets(), putCount:stats.getCachePuts(),
+                        hitCount:stats.getCacheHits(), missCountTotal:stats.getCacheMisses(),
+                        evictionCount:stats.getCacheEvictions(), removeCount:stats.getCacheRemovals(),
+                        expireCount:stats.getCacheExpires()] as Map<String, Object>)
+            }
         }
         if (orderByField) StupidUtilities.orderMapList(ci, [orderByField])
         return ci
@@ -163,10 +178,7 @@ public class CacheFacadeImpl implements CacheFacade {
         String fullCacheName = getFullName(cacheName, tenantId)
         if (localCacheMap.containsKey(fullCacheName)) return localCacheMap.get(fullCacheName)
 
-        // Configuration is a javax.cache interface, though actual config directly in Ehcache objects as some options
-        //     like resource pools cannot be configured through javax.cache interfaces
-        Configuration configuration
-
+        Cache newCache
         MNode cacheNode = getCacheNode(cacheName)
         if (cacheNode != null) {
             String keyTypeName = cacheNode.attribute("key-type") ?: "String"
@@ -174,43 +186,58 @@ public class CacheFacadeImpl implements CacheFacade {
             Class keyType = StupidJavaUtilities.getClass(keyTypeName)
             Class valueType = StupidJavaUtilities.getClass(valueTypeName)
 
-            CacheConfig cacheConfig = new CacheConfig()
-            cacheConfig.setTypes(keyType, valueType)
-            cacheConfig.setStoreByValue(false).setStatisticsEnabled(true).setManagementEnabled(false)
-            cacheConfig.setName(fullCacheName)
-            // cacheConfig.setAsyncBackupCount(0).setBackupCount(0).setInMemoryFormat(InMemoryFormat.OBJECT)
-            // cacheConfig.setReadThrough(false).setWriteThrough(false)
+            if (cacheNode.attribute("local") == "true") {
+                // use MCache
+                MutableConfiguration mutConf = new MutableConfiguration()
+                mutConf.setTypes(keyType, valueType)
+                mutConf.setStoreByValue(false).setStatisticsEnabled(true)
 
+                if (cacheNode.attribute("expire-time-idle") && cacheNode.attribute("expire-time-idle") != "0") {
+                    mutConf.setExpiryPolicyFactory(AccessedExpiryPolicy.factoryOf(
+                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-idle")))))
+                } else if (cacheNode.attribute("expire-time-live") && cacheNode.attribute("expire-time-live") != "0") {
+                    mutConf.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
+                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-live")))))
+                } else {
+                    mutConf.setExpiryPolicyFactory(EternalExpiryPolicy.factoryOf())
+                }
 
-
-
-            if (cacheNode.attribute("expire-time-idle") && cacheNode.attribute("expire-time-idle") != "0") {
-                cacheConfig.setExpiryPolicyFactory(AccessedExpiryPolicy.factoryOf(
-                        new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-idle")))))
-            } else if (cacheNode.attribute("expire-time-live") && cacheNode.attribute("expire-time-live") != "0") {
-                cacheConfig.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
-                        new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-live")))))
+                newCache = new MCache(fullCacheName, null, mutConf)
             } else {
-                cacheConfig.setExpiryPolicyFactory(EternalExpiryPolicy.factoryOf())
-            }
+                // use Hazelcast
+                CacheConfig cacheConfig = new CacheConfig()
+                cacheConfig.setTypes(keyType, valueType)
+                cacheConfig.setStoreByValue(true).setStatisticsEnabled(true).setManagementEnabled(false)
+                cacheConfig.setName(fullCacheName)
 
-            String maxElementsStr = cacheNode.attribute("max-elements")
-            if (maxElementsStr && maxElementsStr != "0") {
-                int maxElements = Integer.parseInt(cacheNode.attribute("max-elements"))
-                EvictionPolicy ep = cacheNode.attribute("eviction-strategy") == "least-recently-used" ? EvictionPolicy.LRU : EvictionPolicy.LFU
-                EvictionConfig evictionConfig = new EvictionConfig(maxElements, EvictionConfig.MaxSizePolicy.ENTRY_COUNT, ep)
-                cacheConfig.setEvictionConfig(evictionConfig)
-            }
+                if (cacheNode.attribute("expire-time-idle") && cacheNode.attribute("expire-time-idle") != "0") {
+                    cacheConfig.setExpiryPolicyFactory(AccessedExpiryPolicy.factoryOf(
+                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-idle")))))
+                } else if (cacheNode.attribute("expire-time-live") && cacheNode.attribute("expire-time-live") != "0") {
+                    cacheConfig.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
+                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-live")))))
+                } else {
+                    cacheConfig.setExpiryPolicyFactory(EternalExpiryPolicy.factoryOf())
+                }
 
-            configuration = cacheConfig
+                String maxElementsStr = cacheNode.attribute("max-elements")
+                if (maxElementsStr && maxElementsStr != "0") {
+                    int maxElements = Integer.parseInt(cacheNode.attribute("max-elements"))
+                    EvictionPolicy ep = cacheNode.attribute("eviction-strategy") == "least-recently-used" ? EvictionPolicy.LRU : EvictionPolicy.LFU
+                    EvictionConfig evictionConfig = new EvictionConfig(maxElements, EvictionConfig.MaxSizePolicy.ENTRY_COUNT, ep)
+                    cacheConfig.setEvictionConfig(evictionConfig)
+                }
+
+                newCache = hcCacheManager.createCache(cacheName, cacheConfig)
+            }
         } else {
             CacheConfig cacheConfig = new CacheConfig()
+            cacheConfig.setName(fullCacheName)
             // any defaults we want here? better to use underlying defaults and conf file settings only
-            configuration = cacheConfig
+            newCache = hcCacheManager.createCache(cacheName, cacheConfig)
         }
 
-        Cache newCache = cacheManager.createCache(cacheName, configuration)
-
+        // NOTE: put in localCacheMap done in caller (getCache)
         return newCache
     }
 }

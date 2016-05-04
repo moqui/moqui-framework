@@ -78,7 +78,6 @@ public class MCache<K, V> implements Cache<K, V> {
     @Override
     public V get(K key) {
         MEntry<K, V> entry = getEntryInternal(key, null, null, System.currentTimeMillis());
-        if ("ALL_ENTITIES".equals(key)) System.out.println("Get ALL_ENTITIES " + entry);
         if (entry == null) return null;
         return entry.value;
     }
@@ -115,14 +114,12 @@ public class MCache<K, V> implements Cache<K, V> {
         if (entry != null) {
             if (policy != null) {
                 if (entry.isExpired(currentTime, policy)) {
-                    if ("ALL_ENTITIES".equals(key)) System.out.println("Expired policy ALL_ENTITIES " + entry);
                     entryStore.remove(key);
                     entry = null;
                     if (statsEnabled) stats.countExpire();
                 }
             } else {
                 if (entry.isExpired(currentTime, accessDuration, creationDuration, updateDuration)) {
-                    if ("ALL_ENTITIES".equals(key)) System.out.println("Expired cache conf ALL_ENTITIES " + entry);
                     entryStore.remove(key);
                     entry = null;
                     if (statsEnabled) stats.countExpire();
@@ -130,7 +127,6 @@ public class MCache<K, V> implements Cache<K, V> {
             }
 
             if (expireBeforeTime != null && entry != null && entry.lastUpdatedTime < expireBeforeTime) {
-                if ("ALL_ENTITIES".equals(key)) System.out.println("Expired before time ALL_ENTITIES " + entry);
                 entryStore.remove(key);
                 entry = null;
                 if (statsEnabled) stats.countExpire();
@@ -181,7 +177,6 @@ public class MCache<K, V> implements Cache<K, V> {
     public void put(K key, V value) { getAndPut(key, value); }
     @Override
     public V getAndPut(K key, V value) {
-        // if ("ALL_ENTITIES".equals(key)) System.out.println("Put ALL_ENTITIES " + value);
         long currentTime = System.currentTimeMillis();
         // get entry, count hit/miss
         MEntry<K, V> entry = getEntryInternal(key, null, null, currentTime);

@@ -50,8 +50,10 @@ class EntityFacadeImpl implements EntityFacade {
 
     /** Cache with entity name as the key and an EntityDefinition as the value; clear this cache to reload entity def */
     final Cache<String, EntityDefinition> entityDefinitionCache
-    /** Cache with entity name as the key and List of file location Strings as the value, Map<String, List<String>> */
+    /** Cache with single entry so can be expired/cleared, contains Map with entity name as the key and List of file
+     * location Strings as the value */
     final Cache<String, Map<String, List<String>>> entityLocationSingleCache
+    static final String entityLocSingleEntryName = "ALL_ENTITIES"
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
     final Map<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
 
@@ -165,7 +167,6 @@ class EntityFacadeImpl implements EntityFacade {
             }
         }
 
-        loadAllEntityLocations()
         for (String entityName in getAllEntityNames()) {
             String groupName = getEntityGroupName(entityName)
             boolean checkAndAdd
@@ -444,7 +445,7 @@ class EntityFacadeImpl implements EntityFacade {
             // load all entity files based on ResourceReference
             long startTime = System.currentTimeMillis()
 
-            Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get("ALL_ENTITIES")
+            Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
             // when loading all entity locations we expect this to be null, if it isn't no need to load
             if (entityLocationCache != null) return entityLocationCache
             entityLocationCache = new HashMap<>()
@@ -453,8 +454,11 @@ class EntityFacadeImpl implements EntityFacade {
             for (ResourceReference entityRr in allEntityFileLocations) this.loadEntityFileLocations(entityRr, entityLocationCache)
             if (logger.isInfoEnabled()) logger.info("Found entities in ${allEntityFileLocations.size()} files in ${System.currentTimeMillis() - startTime}ms")
 
+            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
+            entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache)
+
             // look for view-entity definitions in the database (moqui.entity.view.DbViewEntity)
-            if (isEntityDefined("moqui.entity.view.DbViewEntity")) {
+            if (entityLocationCache.get("moqui.entity.view.DbViewEntity")) {
                 int numDbViewEntities = 0
                 for (EntityValue dbViewEntity in makeFind("moqui.entity.view.DbViewEntity").list()) {
                     if (dbViewEntity.packageName) {
@@ -480,9 +484,6 @@ class EntityFacadeImpl implements EntityFacade {
             } else {
                 logger.warn("Could not find view-entity definitions in database (moqui.entity.view.DbViewEntity), no location found for the moqui.entity.view.DbViewEntity entity.")
             }
-
-            // only put in the cache, for other code to use, once fully loaded
-            entityLocationSingleCache.put("ALL_ENTITIES", entityLocationCache)
 
             /* a little code to show all entities and their locations
             Set<String> enSet = new TreeSet(entityLocationCache.keySet())
@@ -510,36 +511,41 @@ class EntityFacadeImpl implements EntityFacade {
                 String packageName = entity.attribute("package-name")
                 String shortAlias = entity.attribute("short-alias")
 
-                if (!entityName) {
+                if (entityName == null || entityName.length() == 0) {
                     logger.warn("Skipping entity XML file [${entityRr.getLocation()}] element with no @entity-name: ${entity}")
                     continue
                 }
 
-                if (packageName) {
+                if (packageName != null && packageName.length() > 0) {
                     List<String> pkgList = (List<String>) entityLocationCache.get(packageName + "." + entityName)
                     if (pkgList == null) {
                         pkgList = new LinkedList<>()
+                        pkgList.add(entityRr.location)
                         entityLocationCache.put(packageName + "." + entityName, pkgList)
+                    } else if (!pkgList.contains(entityRr.location)) {
+                        pkgList.add(entityRr.location)
                     }
-                    if (!pkgList.contains(entityRr.location)) pkgList.add(entityRr.location)
                 }
 
-                if (shortAlias) {
+                if (shortAlias != null && shortAlias.length() > 0) {
                     List<String> aliasList = (List<String>) entityLocationCache.get(shortAlias)
                     if (aliasList == null) {
                         aliasList = new LinkedList<>()
+                        aliasList.add(entityRr.location)
                         entityLocationCache.put(shortAlias, aliasList)
+                    } else if (!aliasList.contains(entityRr.location)) {
+                        aliasList.add(entityRr.location)
                     }
-                    if (!aliasList.contains(entityRr.location)) aliasList.add(entityRr.location)
                 }
 
                 List<String> nameList = (List<String>) entityLocationCache.get(entityName)
                 if (nameList == null) {
                     nameList = new LinkedList<>()
-                    // put in cache under both plain entityName and fullEntityName
+                    nameList.add(entityRr.location)
                     entityLocationCache.put(entityName, nameList)
+                } else if (!nameList.contains(entityRr.location)) {
+                    nameList.add(entityRr.location)
                 }
-                if (!nameList.contains(entityRr.location)) nameList.add(entityRr.location)
 
                 numEntities++
             }
@@ -582,16 +588,16 @@ class EntityFacadeImpl implements EntityFacade {
         EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityName)
         if (ed != null) return ed
 
-        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get("ALL_ENTITIES")
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
-        List entityLocationList = (List) entityLocationCache.get(entityName)
+        List<String> entityLocationList = (List<String>) entityLocationCache.get(entityName)
         if (entityLocationList == null) {
             if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file locations known.")
             if (isTraceEnabled) logger.trace("Unknown entity name ${entityName} location", new BaseException("Unknown entity name location"))
 
-            this.loadAllEntityLocations()
-            entityLocationList = (List) entityLocationCache.get(entityName)
+            entityLocationCache = this.loadAllEntityLocations()
+            entityLocationList = (List<String>) entityLocationCache.get(entityName)
             // no locations found for this entity, entity probably doesn't exist
             if (entityLocationList == null || entityLocationList.size() == 0) {
                 entityLocationCache.put(entityName, new LinkedList<String>())
@@ -923,7 +929,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     Set<String> getAllEntityNames() {
-        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get("ALL_ENTITIES")
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
         TreeSet<String> allNames = new TreeSet()
@@ -985,7 +991,7 @@ class EntityFacadeImpl implements EntityFacade {
         // Special treatment for framework entities, quick Map lookup (also faster than Cache get)
         if (frameworkEntityDefinitions.containsKey(entityName)) return true
 
-        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get("ALL_ENTITIES")
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
         List<String> locList = entityLocationCache.get(entityName)

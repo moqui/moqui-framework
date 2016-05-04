@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.context.renderer
 
-import com.hazelcast.cache.ICache
 import groovy.transform.CompileStatic
 import org.eclipse.mylyn.wikitext.confluence.core.ConfluenceLanguage
 import org.eclipse.mylyn.wikitext.core.parser.MarkupParser
@@ -21,15 +20,12 @@ import org.eclipse.mylyn.wikitext.core.parser.builder.HtmlDocumentBuilder
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.screen.ScreenRenderImpl
+import org.moqui.jcache.MCache
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import freemarker.template.Template
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.context.ExecutionContextFactory
-
-import javax.cache.expiry.Duration
-import javax.cache.expiry.ExpiryPolicy
-import javax.cache.expiry.ModifiedExpiryPolicy
 
 @CompileStatic
 class FtlCwikiTemplateRenderer implements TemplateRenderer {
@@ -37,28 +33,28 @@ class FtlCwikiTemplateRenderer implements TemplateRenderer {
 
     protected ExecutionContextFactoryImpl ecfi
 
-    protected ICache<String, Template> templateFtlLocationCache
+    protected MCache<String, Template> templateFtlLocationCache
 
     FtlCwikiTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class).unwrap(ICache.class)
+        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class).unwrap(MCache.class)
         return this
     }
 
     void render(String location, Writer writer) {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        ExpiryPolicy expiryPolicy = rr != null ? new ModifiedExpiryPolicy(new Duration(0L, rr.getLastModified())) : null
-        Template theTemplate = (Template) templateFtlLocationCache.get(location, expiryPolicy)
-        if (!theTemplate) theTemplate = makeTemplate(location)
-        if (!theTemplate) throw new IllegalArgumentException("Could not find template at ${location}")
+        long lastModified = rr != null ? rr.getLastModified() : 0L
+        Template theTemplate = (Template) templateFtlLocationCache.get(location, lastModified)
+        if (theTemplate == null) theTemplate = makeTemplate(location)
+        if (theTemplate == null) throw new IllegalArgumentException("Could not find template at ${location}")
         theTemplate.createProcessingEnvironment(ecfi.executionContext.context, writer).process()
     }
 
     protected Template makeTemplate(String location) {
         Template theTemplate = (Template) templateFtlLocationCache.get(location)
-        if (theTemplate) return theTemplate
+        if (theTemplate != null) return theTemplate
 
         Template newTemplate
         try {
