@@ -362,10 +362,58 @@ public class MCache<K, V> implements Cache<K, V> {
 
     @Override
     public Iterator<Entry<K, V>> iterator() {
-        ArrayList<Entry<K, V>> entryList = getEntryList();
-        return entryList.iterator();
+        return new CacheIterator<>(this);
     }
 
+    public static class CacheIterator<K, V> implements Iterator<Entry<K, V>> {
+        final MCache<K, V> mCache;
+        final long initialTime;
+        final ArrayList<MEntry<K, V>> entryList;
+        final int maxIndex;
+        int curIndex = -1;
+        MEntry<K, V> curEntry = null;
+
+        CacheIterator(MCache<K, V> mCache) {
+            this.mCache = mCache;
+            entryList = new ArrayList<>(mCache.entryStore.values());
+            maxIndex = entryList.size() - 1;
+            initialTime = System.currentTimeMillis();
+        }
+
+        @Override
+        public boolean hasNext() { return curIndex < maxIndex; }
+
+        @Override
+        public Entry<K, V> next() {
+            curEntry = null;
+            while (curIndex < maxIndex) {
+                curIndex++;
+                curEntry = entryList.get(curIndex);
+                if (curEntry.isExpired) {
+                    curEntry = null;
+                } else if (curEntry.isExpired(initialTime, mCache.accessDuration, mCache.creationDuration, mCache.updateDuration)) {
+                    mCache.entryStore.remove(curEntry.getKey());
+                    if (mCache.statsEnabled) mCache.stats.countExpire();
+                    curEntry = null;
+                } else {
+                    if (mCache.statsEnabled) mCache.stats.countHit(0);
+                    break;
+                }
+            }
+            return curEntry;
+        }
+
+        @Override
+        public void remove() {
+            if (curEntry != null) {
+                mCache.entryStore.remove(curEntry.getKey());
+                if (mCache.statsEnabled) mCache.stats.countRemoval(0);
+                curEntry = null;
+            }
+        }
+    }
+
+    /** Gets all entries, checking for expiry and counts a get for each */
     public ArrayList<Entry<K, V>> getEntryList() {
         long currentTime = System.currentTimeMillis();
         ArrayList<K> keyList = new ArrayList<>(entryStore.keySet());
@@ -413,6 +461,7 @@ public class MCache<K, V> implements Cache<K, V> {
         private long lastUpdatedTime;
         private long lastAccessTime;
         private long accessCount = 0;
+        private boolean isExpired = false;
 
         MEntry(K key, V value) {
             this.key = key;
@@ -467,17 +516,15 @@ public class MCache<K, V> implements Cache<K, V> {
             return isExpired(System.currentTimeMillis(), accessDuration, creationDuration, updateDuration);
         }
         boolean isExpired(long accessTime, Duration accessDuration, Duration creationDuration, Duration updateDuration) {
+            if (isExpired) return true;
             if (accessDuration != null && !accessDuration.isEternal()) {
-                long adjustedTime = accessDuration.getAdjustedTime(lastAccessTime);
-                if (adjustedTime < accessTime) return true;
+                if (accessDuration.getAdjustedTime(lastAccessTime) < accessTime) { isExpired = true; return true; }
             }
             if (creationDuration != null && !creationDuration.isEternal()) {
-                long adjustedTime = creationDuration.getAdjustedTime(createdTime);
-                if (adjustedTime < accessTime) return true;
+                if (creationDuration.getAdjustedTime(createdTime) < accessTime) { isExpired = true; return true; }
             }
             if (updateDuration != null && !updateDuration.isEternal()) {
-                long adjustedTime = updateDuration.getAdjustedTime(lastUpdatedTime);
-                if (adjustedTime < accessTime) return true;
+                if (updateDuration.getAdjustedTime(lastUpdatedTime) < accessTime) { isExpired = true; return true; }
             }
             return false;
         }
