@@ -138,6 +138,12 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     @Override
+    void registerCache(Cache cache) {
+        String cacheName = cache.getName()
+        localCacheMap.putIfAbsent(cacheName, cache)
+    }
+
+    @Override
     boolean cacheExists(String cacheName) { return localCacheMap.containsKey(getFullName(cacheName, null)) }
     @Override
     Set<String> getCacheNames() { return localCacheMap.keySet() }

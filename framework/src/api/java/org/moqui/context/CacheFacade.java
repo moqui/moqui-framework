@@ -37,6 +37,10 @@ public interface CacheFacade {
      * If the cache is configured without type != 'distributed' this will return an error. */
     Cache getDistributedCache(String cacheName);
 
+    /** Register an externally created cache for future gets, inclusion in cache management tools, etc.
+     * If a cache with the same name exists the call will be ignored (ie like putIfAbsent). */
+    void registerCache(Cache cache);
+
     Set<String> getCacheNames();
     boolean cacheExists(String cacheName);
 }
