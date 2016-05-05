@@ -21,14 +21,12 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class TrueCondition extends EntityConditionImplBase {
+public class TrueCondition implements EntityConditionImplBase {
     protected final static Logger logger = LoggerFactory.getLogger(TrueCondition.class);
 
     protected static final Class thisClass = TrueCondition.class;
 
-    public TrueCondition(EntityConditionFactoryImpl ecFactoryImpl) {
-        super(ecFactoryImpl);
-    }
+    public TrueCondition() { }
 
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb) {

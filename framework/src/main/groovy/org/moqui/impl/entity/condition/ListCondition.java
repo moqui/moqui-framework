@@ -19,39 +19,41 @@ import org.moqui.entity.EntityCondition;
 
 import java.util.*;
 
-public class ListCondition extends EntityConditionImplBase {
-    protected final ArrayList<EntityConditionImplBase> conditionList = new ArrayList<EntityConditionImplBase>();
-    protected int conditionListSize = 0;
+public class ListCondition implements EntityConditionImplBase {
+    private final ArrayList<EntityConditionImplBase> conditionList = new ArrayList<>();
+    private int conditionListSize = 0;
     protected final EntityCondition.JoinOperator operator;
-    protected Integer curHashCode = null;
-    protected static final Class thisClass = ListCondition.class;
+    private int curHashCode;
+    private static final Class thisClass = ListCondition.class;
 
-    public ListCondition(EntityConditionFactoryImpl ecFactoryImpl,
-                  List<EntityConditionImplBase> conditionList, EntityCondition.JoinOperator operator) {
-        super(ecFactoryImpl);
+    public ListCondition(List<EntityConditionImplBase> conditionList, EntityCondition.JoinOperator operator) {
         this.operator = operator != null ? operator : AND;
-        if (conditionList != null && conditionList.size() > 0) {
-            if (conditionList instanceof RandomAccess) {
-                // avoid creating an iterator if possible
-                int listSize = conditionList.size();
-                for (int i = 0; i < listSize; i++) {
-                    EntityConditionImplBase cond = conditionList.get(i);
-                    if (cond != null) this.conditionList.add(cond);
-                }
-            } else {
-                Iterator<EntityConditionImplBase> conditionIter = conditionList.iterator();
-                while (conditionIter.hasNext()) {
-                    EntityConditionImplBase cond = conditionIter.next();
-                    if (cond != null) this.conditionList.add(cond);
+        if (conditionList != null) {
+            conditionListSize = conditionList.size();
+            if (conditionListSize > 0) {
+                if (conditionList instanceof RandomAccess) {
+                    // avoid creating an iterator if possible
+                    int listSize = conditionList.size();
+                    for (int i = 0; i < listSize; i++) {
+                        EntityConditionImplBase cond = conditionList.get(i);
+                        if (cond != null) this.conditionList.add(cond);
+                    }
+                } else {
+                    Iterator<EntityConditionImplBase> conditionIter = conditionList.iterator();
+                    while (conditionIter.hasNext()) {
+                        EntityConditionImplBase cond = conditionIter.next();
+                        if (cond != null) this.conditionList.add(cond);
+                    }
                 }
             }
         }
-        conditionListSize = conditionList.size();
+
+        curHashCode = createHashCode();
     }
 
     public void addCondition(EntityConditionImplBase condition) {
         if (condition != null) conditionList.add(condition);
-        curHashCode = null;
+        curHashCode = createHashCode();
         conditionListSize = conditionList.size();
     }
     public void addConditions(ListCondition listCond) {
@@ -133,12 +135,8 @@ public class ListCondition extends EntityConditionImplBase {
     }
 
     @Override
-    public int hashCode() {
-        if (curHashCode != null) return curHashCode;
-        curHashCode = createHashCode();
-        return curHashCode;
-    }
-    protected int createHashCode() {
+    public int hashCode() { return curHashCode; }
+    private int createHashCode() {
         return (conditionList != null ? conditionList.hashCode() : 0) + operator.hashCode();
     }
 

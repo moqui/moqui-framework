@@ -33,7 +33,6 @@ import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.FieldToFieldCondition
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
-import org.moqui.impl.StupidUtilities
 import org.moqui.util.MNode
 
 import org.slf4j.Logger
@@ -1706,22 +1705,20 @@ public class EntityDefinition {
                 } else {
                     toField = new ConditionField(econdition.attribute("to-field-name"))
                 }
-                cond = new FieldToFieldCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field,
-                        EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), toField)
+                cond = new FieldToFieldCondition(field, EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), toField)
             } else {
                 // NOTE: may need to convert value from String to object for field
                 String condValue = econdition.attribute("value") ?: null
                 // NOTE: only expand if contains "${", expanding normal strings does l10n and messes up key values; hopefully this won't result in a similar issue
                 if (condValue && condValue.contains("\${")) condValue = efi.getEcfi().getResourceFacade().expand(condValue, "") as String
                 Object condValueObj = condEd.convertFieldString(field.fieldName, condValue, eci);
-                cond = new FieldValueCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field,
-                        EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
+                cond = new FieldValueCondition(field, EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
             }
             if (cond && econdition.attribute("ignore-case") == "true") cond.ignoreCase()
 
             if (cond && econdition.attribute("or-null") == "true") {
                 cond = (EntityConditionImplBase) this.efi.conditionFactory.makeCondition(cond, JoinOperator.OR,
-                        new FieldValueCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field, EntityCondition.EQUALS, null))
+                        new FieldValueCondition(field, EntityCondition.EQUALS, null))
             }
 
             if (cond) condList.add(cond)

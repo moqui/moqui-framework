@@ -19,24 +19,22 @@ import org.moqui.impl.entity.EntityQueryBuilder
 import org.moqui.entity.EntityCondition
 
 @CompileStatic
-class MapCondition extends EntityConditionImplBase {
+class MapCondition implements EntityConditionImplBase {
     protected final Map<String, Object> fieldMap
     protected EntityCondition.ComparisonOperator comparisonOperator
     protected EntityCondition.JoinOperator joinOperator
-    protected Boolean ignoreCase = false
+    protected boolean ignoreCase = false
     protected ListCondition internalCond = null
-    protected Integer curHashCode = null
+    protected int curHashCode
     protected static final Class thisClass = MapCondition.class
 
     protected final int fieldsSize
     protected final String[] names
     protected final Object[] values
 
-    MapCondition(EntityConditionFactoryImpl ecFactoryImpl,
-            Map<String, Object> fieldMap, EntityCondition.ComparisonOperator comparisonOperator,
+    MapCondition(Map<String, Object> fieldMap, EntityCondition.ComparisonOperator comparisonOperator,
             EntityCondition.JoinOperator joinOperator) {
-        super(ecFactoryImpl)
-        this.fieldMap = fieldMap ? fieldMap : new HashMap<String, Object>()
+        this.fieldMap = fieldMap != null ? fieldMap : new HashMap<String, Object>()
         this.comparisonOperator = comparisonOperator ?: EQUALS
         this.joinOperator = joinOperator ?: AND
 
@@ -49,6 +47,7 @@ class MapCondition extends EntityConditionImplBase {
             values[fieldIndex] = entry.value
             fieldIndex++
         }
+        curHashCode = createHashCode()
     }
 
     Map<String, Object> getFieldMap() { return fieldMap }
@@ -98,7 +97,7 @@ class MapCondition extends EntityConditionImplBase {
     }
 
     @Override
-    EntityCondition ignoreCase() { this.ignoreCase = true; curHashCode = null; return this }
+    EntityCondition ignoreCase() { this.ignoreCase = true; curHashCode++; return this }
 
     @Override
     String toString() {
@@ -126,25 +125,20 @@ class MapCondition extends EntityConditionImplBase {
 
         ArrayList conditionList = new ArrayList()
         for (int i = 0; i < fieldsSize; i++) {
-            EntityConditionImplBase newCondition = (EntityConditionImplBase) this.ecFactoryImpl.makeCondition(names[i],
-                    this.comparisonOperator, values[i])
-            if (this.ignoreCase) newCondition.ignoreCase()
+            EntityConditionImplBase newCondition = new FieldValueCondition(new ConditionField(names[i]), comparisonOperator, values[i])
+            if (ignoreCase) newCondition.ignoreCase()
             conditionList.add(newCondition)
         }
 
-        internalCond = (ListCondition) this.ecFactoryImpl.makeCondition(conditionList, this.joinOperator)
+        internalCond = new ListCondition(conditionList, joinOperator)
         return internalCond
     }
 
     @Override
-    int hashCode() {
-        if (curHashCode != null) return curHashCode
-        curHashCode = createHashCode()
-        return curHashCode
-    }
+    int hashCode() { return curHashCode }
     protected int createHashCode() {
         return (fieldMap ? fieldMap.hashCode() : 0) + comparisonOperator.hashCode() + joinOperator.hashCode() +
-                ignoreCase.hashCode()
+                (ignoreCase ? 1 : 0)
     }
 
     @Override

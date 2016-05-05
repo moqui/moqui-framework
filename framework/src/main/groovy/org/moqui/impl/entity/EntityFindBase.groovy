@@ -166,7 +166,7 @@ abstract class EntityFindBase implements EntityFind {
                 ArrayList<EntityConditionImplBase> condList = new ArrayList()
                 condList.add(whereEntityCondition)
                 condList.add((EntityConditionImplBase) condition)
-                whereEntityCondition = new ListCondition(efi.conditionFactoryImpl, condList, EntityCondition.AND)
+                whereEntityCondition = new ListCondition(condList, EntityCondition.AND)
             }
         } else {
             whereEntityCondition = (EntityConditionImplBase) condition
@@ -191,7 +191,7 @@ abstract class EntityFindBase implements EntityFind {
                 ArrayList<EntityConditionImplBase> condList = new ArrayList()
                 condList.add(havingEntityCondition)
                 condList.add((EntityConditionImplBase) condition)
-                havingEntityCondition = new ListCondition(efi.conditionFactoryImpl, condList, EntityCondition.AND)
+                havingEntityCondition = new ListCondition(condList, EntityCondition.AND)
             }
         } else {
             havingEntityCondition = (EntityConditionImplBase) condition
@@ -212,7 +212,7 @@ abstract class EntityFindBase implements EntityFind {
                 if (simpleAndCondClass == FieldValueCondition.class) {
                     ArrayList<EntityConditionImplBase> oneCondList = new ArrayList()
                     oneCondList.add(simpleAndMapCond)
-                    listCondition = new ListCondition(efi.conditionFactoryImpl, oneCondList, EntityCondition.AND)
+                    listCondition = new ListCondition(oneCondList, EntityCondition.AND)
                 } else if (simpleAndCondClass == ListCondition.class) {
                     listCondition = (ListCondition) simpleAndMapCond
                 } else {

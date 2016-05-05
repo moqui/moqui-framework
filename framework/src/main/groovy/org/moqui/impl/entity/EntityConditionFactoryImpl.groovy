@@ -38,7 +38,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     EntityConditionFactoryImpl(EntityFacadeImpl efi) {
         this.efi = efi
-        trueCondition = new TrueCondition(this)
+        trueCondition = new TrueCondition()
     }
 
     EntityFacadeImpl getEfi() { return efi }
@@ -73,7 +73,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                     }
                 }
                 // no special handling, create a BasicJoinCondition
-                return new BasicJoinCondition(this, (EntityConditionImplBase) lhs, operator, (EntityConditionImplBase) rhs)
+                return new BasicJoinCondition((EntityConditionImplBase) lhs, operator, (EntityConditionImplBase) rhs)
             } else {
                 return lhs
             }
@@ -88,12 +88,12 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     @Override
     EntityCondition makeCondition(String fieldName, ComparisonOperator operator, Object value) {
-        return new FieldValueCondition(this, new ConditionField(fieldName), operator, value)
+        return new FieldValueCondition(new ConditionField(fieldName), operator, value)
     }
 
     @Override
     EntityCondition makeConditionToField(String fieldName, ComparisonOperator operator, String toFieldName) {
-        return new FieldToFieldCondition(this, new ConditionField(fieldName), operator, new ConditionField(toFieldName))
+        return new FieldToFieldCondition(new ConditionField(fieldName), operator, new ConditionField(toFieldName))
     }
 
     @Override
@@ -129,7 +129,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         if (newList.size() == 1) {
             return newList.get(0)
         } else {
-            return new ListCondition(this, newList, operator)
+            return new ListCondition(newList, operator)
         }
     }
 
@@ -164,7 +164,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         if (newList.size() == 1) {
             return newList.get(0)
         } else {
-            return new ListCondition(this, newList, listJoin)
+            return new ListCondition(newList, listJoin)
         }
     }
 
@@ -238,10 +238,10 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                         MNode aliasNode = (MNode) aliases.get(k)
                         // could be same as field name, but not if aliased with different name
                         String aliasName = aliasNode.attribute("name")
-                        condList.add(new FieldValueCondition(this, new ConditionField(aliasName), compOp, value))
+                        condList.add(new FieldValueCondition(new ConditionField(aliasName), compOp, value))
                     }
                 } else {
-                    condList.add(new FieldValueCondition(this, new ConditionField(fieldName), compOp, value))
+                    condList.add(new FieldValueCondition(new ConditionField(fieldName), compOp, value))
                 }
 
             }
@@ -252,7 +252,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         if (condList.size() == 1) {
             return (EntityConditionImplBase) condList.get(0)
         } else {
-            return new ListCondition(this, condList, joinOp)
+            return new ListCondition(condList, joinOp)
         }
     }
     @Override
@@ -262,19 +262,19 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
     @Override
     EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
-        return new DateCondition(this, fromFieldName, thruFieldName,
+        return new DateCondition(fromFieldName, thruFieldName,
                 compareStamp ?: efi.getEcfi().getExecutionContext().getUser().getNowTimestamp())
     }
     EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty) {
         if (ignoreIfEmpty && (Object) compareStamp == null) return null
-        return new DateCondition(this, fromFieldName, thruFieldName,
+        return new DateCondition(fromFieldName, thruFieldName,
                 compareStamp ?: efi.getEcfi().getExecutionContext().getUser().getNowTimestamp())
     }
 
     @Override
     EntityCondition makeConditionWhere(String sqlWhereClause) {
         if (!sqlWhereClause) return null
-        return new WhereCondition(this, sqlWhereClause)
+        return new WhereCondition(sqlWhereClause)
     }
 
     ComparisonOperator comparisonOperatorFromEnumId(String enumId) {

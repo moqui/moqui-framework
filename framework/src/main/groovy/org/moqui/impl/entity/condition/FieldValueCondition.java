@@ -24,19 +24,17 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class FieldValueCondition extends EntityConditionImplBase {
+public class FieldValueCondition implements EntityConditionImplBase {
     protected final static Logger logger = LoggerFactory.getLogger(FieldValueCondition.class);
 
     protected final ConditionField field;
     protected final EntityCondition.ComparisonOperator operator;
     protected Object value;
     protected boolean ignoreCase = false;
-    protected Integer curHashCode = (Integer) null;
-    protected static final Class thisClass = FieldValueCondition.class;
+    private int curHashCode;
+    private static final Class thisClass = FieldValueCondition.class;
 
-    public FieldValueCondition(EntityConditionFactoryImpl ecFactoryImpl,
-            ConditionField field, EntityCondition.ComparisonOperator operator, Object value) {
-        super(ecFactoryImpl);
+    public FieldValueCondition(ConditionField field, EntityCondition.ComparisonOperator operator, Object value) {
         this.field = field;
         this.value = value;
 
@@ -48,6 +46,8 @@ public class FieldValueCondition extends EntityConditionImplBase {
             else if (tempOp == NOT_EQUAL) tempOp = NOT_IN;
         }
         this.operator = tempOp;
+
+        curHashCode = createHashCode();
     }
 
     public EntityCondition.ComparisonOperator getOperator() { return operator; }
@@ -156,7 +156,7 @@ public class FieldValueCondition extends EntityConditionImplBase {
     }
 
     @Override
-    public EntityCondition ignoreCase() { this.ignoreCase = true; curHashCode = null; return this; }
+    public EntityCondition ignoreCase() { this.ignoreCase = true; curHashCode++; return this; }
 
     @Override
     public String toString() {
@@ -165,11 +165,8 @@ public class FieldValueCondition extends EntityConditionImplBase {
     }
 
     @Override
-    public int hashCode() {
-        if (curHashCode == null) curHashCode = createHashCode();
-        return curHashCode;
-    }
-    protected int createHashCode() {
+    public int hashCode() { return curHashCode; }
+    private int createHashCode() {
         return (field != null ? field.hashCode() : 0) + operator.hashCode() + (value != null ? value.hashCode() : 0) + (ignoreCase ? 1 : 0);
     }
 
@@ -178,13 +175,14 @@ public class FieldValueCondition extends EntityConditionImplBase {
         if (o == null || o.getClass() != thisClass) return false;
         FieldValueCondition that = (FieldValueCondition) o;
         if (!field.equalsConditionField(that.field)) return false;
-        if (value == null && that.value != null) return false;
         if (value != null) {
             if (that.value == null) {
                 return false;
             } else {
                 if (!value.equals(that.value)) return false;
             }
+        } else {
+            if (that.value != null) return false;
         }
         return operator == that.operator && ignoreCase == that.ignoreCase;
     }

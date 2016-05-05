@@ -21,25 +21,32 @@ import org.moqui.impl.entity.EntityJavaUtil;
 import java.io.Serializable;
 
 public class ConditionField implements Serializable {
-    String entityAlias = null;
     String fieldName;
+    String entityAlias = null;
     private String aliasEntityName = null;
     private int curHashCode;
     private transient EntityDefinition aliasEntityDefTransient = null;
+    private final boolean hasAlias;
 
     public ConditionField(String fieldName) {
         if (fieldName == null) throw new BaseException("Empty fieldName not allowed");
         this.fieldName = fieldName.intern();
         curHashCode = fieldName.hashCode();
+        hasAlias = false;
     }
     public ConditionField(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
         if (fieldName == null) throw new BaseException("Empty fieldName not allowed");
-        this.entityAlias = entityAlias != null ? entityAlias.intern() : null;
         this.fieldName = fieldName.intern();
-        aliasEntityDefTransient = aliasEntityDef;
-        if (aliasEntityDef != null) {
-            String entName = aliasEntityDef.getFullEntityName();
-            aliasEntityName = entName.intern();
+        if (entityAlias != null) {
+            this.entityAlias = entityAlias.intern();
+            aliasEntityDefTransient = aliasEntityDef;
+            if (aliasEntityDef != null) {
+                String entName = aliasEntityDef.getFullEntityName();
+                aliasEntityName = entName.intern();
+            }
+            hasAlias = true;
+        } else {
+            hasAlias = false;
         }
         curHashCode = createHashCode();
     }
@@ -94,9 +101,22 @@ public class ConditionField implements Serializable {
     public boolean equalsConditionField(ConditionField that) {
         if (that == null) return false;
         // both Strings are intern'ed so use != operator for object compare
-        if (!fieldName.equals(that.fieldName)) return false;
-        if (!StupidJavaUtilities.internedStringsEqual(this.entityAlias, that.entityAlias)) return false;
-        if (!StupidJavaUtilities.internedStringsEqual(this.aliasEntityName, that.aliasEntityName)) return false;
+        if (fieldName != that.fieldName) return false;
+        if (hasAlias) {
+            if (!that.hasAlias) return false;
+            // both have aliases, so compare; note that we now know entityAlias is not null in both
+            // both Strings are intern'ed so use != operator for object compare
+            if (entityAlias != that.entityAlias) return false;
+            if (aliasEntityName == null) {
+                if (that.aliasEntityName != null) return false;
+            } else {
+                if (that.aliasEntityName == null) return false;
+                // both Strings are intern'ed so use != operator for object compare
+                if (aliasEntityName != that.aliasEntityName) return false;
+            }
+        } else {
+            if (that.hasAlias) return false;
+        }
         return true;
     }
 }

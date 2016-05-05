@@ -20,15 +20,13 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl;
 import java.util.Map;
 import java.util.Set;
 
-public class BasicJoinCondition extends EntityConditionImplBase {
+public class BasicJoinCondition implements EntityConditionImplBase {
     protected EntityConditionImplBase lhs;
     protected EntityCondition.JoinOperator operator;
     protected EntityConditionImplBase rhs;
     protected static final Class thisClass = BasicJoinCondition.class;
 
-    public BasicJoinCondition(EntityConditionFactoryImpl ecFactoryImpl,
-            EntityConditionImplBase lhs, EntityCondition.JoinOperator operator, EntityConditionImplBase rhs) {
-        super(ecFactoryImpl);
+    public BasicJoinCondition(EntityConditionImplBase lhs, EntityCondition.JoinOperator operator, EntityConditionImplBase rhs) {
         this.lhs = lhs;
         this.operator = operator != null ? operator : AND;
         this.rhs = rhs;

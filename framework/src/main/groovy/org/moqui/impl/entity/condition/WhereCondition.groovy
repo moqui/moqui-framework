@@ -21,13 +21,12 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @CompileStatic
-class WhereCondition extends EntityConditionImplBase {
+class WhereCondition implements EntityConditionImplBase {
     protected final static Logger logger = LoggerFactory.getLogger(WhereCondition.class)
     protected String sqlWhereClause
 
-    WhereCondition(EntityConditionFactoryImpl ecFactoryImpl, String sqlWhereClause) {
-        super(ecFactoryImpl)
-        this.sqlWhereClause = sqlWhereClause ? sqlWhereClause : ""
+    WhereCondition(String sqlWhereClause) {
+        this.sqlWhereClause = sqlWhereClause != null ? sqlWhereClause : ""
     }
 
     @Override
@@ -62,13 +61,13 @@ class WhereCondition extends EntityConditionImplBase {
     String toString() { return this.sqlWhereClause }
 
     @Override
-    int hashCode() { return (sqlWhereClause ? sqlWhereClause.hashCode() : 0) }
+    int hashCode() { return (sqlWhereClause != null ? sqlWhereClause.hashCode() : 0) }
 
     @Override
     boolean equals(Object o) {
-        if (o == null || o.getClass() != this.getClass()) return false
+        if (o == null || o.getClass() != getClass()) return false
         WhereCondition that = (WhereCondition) o
-        if (!this.sqlWhereClause.equals(that.sqlWhereClause)) return false
+        if (!sqlWhereClause.equals(that.sqlWhereClause)) return false
         return true
     }
 }

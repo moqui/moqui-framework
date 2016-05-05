@@ -19,19 +19,19 @@ import org.moqui.impl.entity.EntityQueryBuilder
 import org.moqui.impl.entity.EntityConditionFactoryImpl
 
 @CompileStatic
-class FieldToFieldCondition extends EntityConditionImplBase {
+class FieldToFieldCondition implements EntityConditionImplBase {
     protected final ConditionField field
     protected final EntityCondition.ComparisonOperator operator
     protected final ConditionField toField
     protected boolean ignoreCase = false
     protected static final Class thisClass = FieldValueCondition.class
+    protected int curHashCode;
 
-    FieldToFieldCondition(EntityConditionFactoryImpl ecFactoryImpl,
-            ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
-        super(ecFactoryImpl)
+    FieldToFieldCondition(ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
         this.field = field
         this.operator = operator ?: EQUALS
         this.toField = toField
+        curHashCode = createHashCode()
     }
 
     @Override
@@ -83,7 +83,7 @@ class FieldToFieldCondition extends EntityConditionImplBase {
     }
 
     @Override
-    EntityCondition ignoreCase() { ignoreCase = true; return this }
+    EntityCondition ignoreCase() { ignoreCase = true; curHashCode++; return this }
 
     @Override
     String toString() {
@@ -91,7 +91,8 @@ class FieldToFieldCondition extends EntityConditionImplBase {
     }
 
     @Override
-    int hashCode() {
+    int hashCode() { return curHashCode }
+    private int createHashCode() {
         return (field ? field.hashCode() : 0) + operator.hashCode() + (toField ? toField.hashCode() : 0) + (ignoreCase ? 1 : 0)
     }
 
@@ -99,11 +100,11 @@ class FieldToFieldCondition extends EntityConditionImplBase {
     boolean equals(Object o) {
         if (o == null || o.getClass() != thisClass) return false
         FieldToFieldCondition that = (FieldToFieldCondition) o
-        if (!this.field.equalsConditionField(that.field)) return false
+        if (!field.equalsConditionField(that.field)) return false
         // NOTE: for Java Enums the != is WAY faster than the .equals
-        if (this.operator != that.operator) return false
-        if (!this.toField.equalsConditionField(that.toField)) return false
-        if (this.ignoreCase != that.ignoreCase) return false
+        if (operator != that.operator) return false
+        if (!toField.equalsConditionField(that.toField)) return false
+        if (ignoreCase != that.ignoreCase) return false
         return true
     }
 }
