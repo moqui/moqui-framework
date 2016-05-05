@@ -26,7 +26,6 @@ import org.moqui.util.MNode
 import javax.cache.Cache
 import javax.cache.CacheManager
 import javax.cache.Caching
-import javax.cache.configuration.Configuration
 import javax.cache.configuration.Factory
 import javax.cache.configuration.MutableConfiguration
 import javax.cache.expiry.AccessedExpiryPolicy
@@ -53,16 +52,22 @@ public class CacheFacadeImpl implements CacheFacade {
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected final CachingProvider hcProvider
-    protected final CacheManager hcCacheManager
+    protected CachingProvider hcProviderInternal = (CachingProvider) null
+    protected CacheManager hcCacheManagerInternal = (CacheManager) null
 
     protected final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
     protected final Map<String, Boolean> cacheTenantsShare = new HashMap<String, Boolean>()
 
     CacheFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        hcProvider = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
-        hcCacheManager = hcProvider.getCacheManager()
+    }
+
+    CacheManager getHcCacheManager() {
+        if (hcCacheManagerInternal == null) {
+            hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
+            hcCacheManagerInternal = hcProviderInternal.getCacheManager()
+        }
+        return hcCacheManagerInternal
     }
 
     void destroy() { hcCacheManager.close() }
@@ -222,6 +227,8 @@ public class CacheFacadeImpl implements CacheFacade {
                 newCache = new MCache(fullCacheName, null, mutConf)
             } else if ("distributed".equals(cacheType)) {
                 // use Hazelcast
+                CacheManager cacheManager = getHcCacheManager()
+
                 CacheConfig cacheConfig = new CacheConfig()
                 cacheConfig.setTypes(keyType, valueType)
                 cacheConfig.setStoreByValue(true).setStatisticsEnabled(true).setManagementEnabled(false)
@@ -236,7 +243,7 @@ public class CacheFacadeImpl implements CacheFacade {
                     cacheConfig.setEvictionConfig(evictionConfig)
                 }
 
-                newCache = hcCacheManager.createCache(fullCacheName, cacheConfig)
+                newCache = cacheManager.createCache(fullCacheName, cacheConfig)
             } else {
                 throw new IllegalArgumentException("Cache type ${cacheType} not supported")
             }
@@ -244,10 +251,11 @@ public class CacheFacadeImpl implements CacheFacade {
             if ("local".equals(defaultCacheType)) {
                 newCache = new MCache(fullCacheName, null, null)
             } else if ("distributed".equals(defaultCacheType)) {
+                CacheManager cacheManager = getHcCacheManager()
                 CacheConfig cacheConfig = new CacheConfig()
                 cacheConfig.setName(fullCacheName)
                 // any defaults we want here? better to use underlying defaults and conf file settings only
-                newCache = hcCacheManager.createCache(fullCacheName, cacheConfig)
+                newCache = cacheManager.createCache(fullCacheName, cacheConfig)
             } else {
                 throw new IllegalArgumentException("Default cache type ${defaultCacheType} not supported")
             }
