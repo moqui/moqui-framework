@@ -56,11 +56,13 @@
         <cache name="resource.groovy.location" tenants-share="true" value-type="java.lang.Class"/>
         <cache name="resource.javascript.location" tenants-share="true" value-type="java.lang.Class"/>
 
-        <cache name="resource.ftl.location" tenants-share="true" value-type="freemarker.template.Template"/>
-        <cache name="resource.gstring.location" tenants-share="true" value-type="groovy.text.Template"/>
-        <cache name="resource.wiki.location" tenants-share="true" value-type="String"/>
-        <cache name="resource.markdown.location" tenants-share="true" value-type="String"/>
-        <cache name="resource.text.location" tenants-share="true" value-type="String"/>
+        <!-- These caches must be local caches (use additional methods on MCache not in javax.cache.Cache) -->
+        <cache name="resource.ftl.location" tenants-share="true" value-type="freemarker.template.Template" type="local"/>
+        <cache name="resource.gstring.location" tenants-share="true" value-type="groovy.text.Template" type="local"/>
+        <cache name="resource.wiki.location" tenants-share="true" value-type="String" type="local"/>
+        <cache name="resource.markdown.location" tenants-share="true" value-type="String" type="local"/>
+        <cache name="resource.text.location" tenants-share="true" value-type="String" type="local"/>
+
         <cache name="resource.reference.location" tenants-share="true" value-type="org.moqui.context.ResourceReference"/>
 
         <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String"/>
