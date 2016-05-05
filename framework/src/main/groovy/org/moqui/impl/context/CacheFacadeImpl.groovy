@@ -34,6 +34,7 @@ import javax.cache.expiry.Duration
 import javax.cache.expiry.EternalExpiryPolicy
 import javax.cache.expiry.ExpiryPolicy
 import javax.cache.spi.CachingProvider
+import java.sql.Timestamp
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
@@ -135,7 +136,7 @@ public class CacheFacadeImpl implements CacheFacade {
         String tenantId = ecfi.getEci().getTenantId()
         String tenantPrefix = tenantId + "__"
         List<Map<String, Object>> ci = new LinkedList()
-        for (String cn in hcCacheManager.getCacheNames()) {
+        for (String cn in localCacheMap.keySet()) {
             if (tenantId != "DEFAULT" && !cn.startsWith(tenantPrefix)) continue
             if (filterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue
             Cache co = getCache(cn)
@@ -236,7 +237,7 @@ public class CacheFacadeImpl implements CacheFacade {
                     cacheConfig.setEvictionConfig(evictionConfig)
                 }
 
-                newCache = hcCacheManager.createCache(cacheName, cacheConfig)
+                newCache = hcCacheManager.createCache(fullCacheName, cacheConfig)
             }
         } else {
             if (defaultLocal) {
@@ -245,11 +246,32 @@ public class CacheFacadeImpl implements CacheFacade {
                 CacheConfig cacheConfig = new CacheConfig()
                 cacheConfig.setName(fullCacheName)
                 // any defaults we want here? better to use underlying defaults and conf file settings only
-                newCache = hcCacheManager.createCache(cacheName, cacheConfig)
+                newCache = hcCacheManager.createCache(fullCacheName, cacheConfig)
             }
         }
 
         // NOTE: put in localCacheMap done in caller (getCache)
         return newCache
+    }
+
+    List<Map> makeElementInfoList(String cacheName, String orderByField) {
+        Cache cache = getCache(cacheName)
+        if (cache instanceof MCache) {
+            MCache mCache = cache.unwrap(MCache.class)
+            List<Map> elementInfoList = new ArrayList<>();
+            for (Cache.Entry ce in mCache.getEntryList()) {
+                MCache.MEntry entry = ce.unwrap(MCache.MEntry.class)
+                Map<String, Object> im = new HashMap<String, Object>([key:entry.key as String,
+                        value:entry.value as String, hitCount:entry.getAccessCount(),
+                        creationTime:new Timestamp(entry.getCreatedTime())])
+                if (entry.getLastUpdatedTime()) im.lastUpdateTime = new Timestamp(entry.getLastUpdatedTime())
+                if (entry.getLastAccessTime()) im.lastAccessTime = new Timestamp(entry.getLastAccessTime())
+                elementInfoList.add(im)
+            }
+            if (orderByField) StupidUtilities.orderMapList(elementInfoList, [orderByField])
+            return elementInfoList
+        } else {
+            return new ArrayList<Map>()
+        }
     }
 }
