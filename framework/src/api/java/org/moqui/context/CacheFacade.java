@@ -23,15 +23,19 @@ public interface CacheFacade {
     void clearCachesByPrefix(String prefix);
 
     /** Get the named Cache, creating one based on configuration and defaults if none exists.
-     * Defaults to distributed cache if no configuration found. */
+     * Defaults to local cache if no configuration found. */
     Cache getCache(String cacheName);
+    /** A type-safe variation on getCache for configured caches. */
+    <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType);
     /** For caches that are not tenant shared (based on configuration in Moqui Conf XML file) the tenantId is prefixed
      * to the full cache name followed by two undersctores (__). This is a convenience method to get a cache for a tenant. */
     Cache getCache(String cacheName, String tenantId);
-    <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType);
-    /** Get the named local Cache (MCache instance), creating one based on configuration and defaults if none exists.
-     * If the cache is configured without local=true this will return an error. */
+    /** Get the named local Cache (MCache instance), creating one based on defaults if none exists.
+     * If the cache is configured with type != 'local' this will return an error. */
     MCache getLocalCache(String cacheName);
+    /** Get the named distributed Cache (Hazelcast), creating one based on configuration and defaults if none exists.
+     * If the cache is configured without type != 'distributed' this will return an error. */
+    Cache getDistributedCache(String cacheName);
 
     Set<String> getCacheNames();
     boolean cacheExists(String cacheName);

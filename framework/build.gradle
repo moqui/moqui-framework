@@ -292,8 +292,6 @@ test {
     classpath += files(sourceSets.api.output.classesDir)
     classpath += files(sourceSets.main.output.classesDir)
     classpath += files(projectDir.absolutePath)
-    //classpath += fileTree(dir: projectDir.absolutePath,
-    //        includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**', 'xsd/**'])
 
     beforeTest { descriptor ->
         logger.lifecycle("Running test: ${descriptor}")

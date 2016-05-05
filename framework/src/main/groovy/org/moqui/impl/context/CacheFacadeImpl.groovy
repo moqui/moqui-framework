@@ -27,6 +27,7 @@ import javax.cache.Cache
 import javax.cache.CacheManager
 import javax.cache.Caching
 import javax.cache.configuration.Configuration
+import javax.cache.configuration.Factory
 import javax.cache.configuration.MutableConfiguration
 import javax.cache.expiry.AccessedExpiryPolicy
 import javax.cache.expiry.CreatedExpiryPolicy
@@ -102,26 +103,30 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     @Override
-    Cache getCache(String cacheName) { return getCacheInternal(cacheName, null, false) }
+    Cache getCache(String cacheName) { return getCacheInternal(cacheName, null, "local") }
     @Override
     <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType) {
-        return getCacheInternal(cacheName, null, false)
+        return getCacheInternal(cacheName, null, "local")
     }
 
     @Override
     Cache getCache(String cacheName, String tenantId) {
-        return getCacheInternal(cacheName, tenantId, false)
+        return getCacheInternal(cacheName, tenantId, "local")
     }
     @Override
     MCache getLocalCache(String cacheName) {
-        return getCacheInternal(cacheName, null, true).unwrap(MCache.class)
+        return getCacheInternal(cacheName, null, "local").unwrap(MCache.class)
+    }
+    @Override
+    Cache getDistributedCache(String cacheName) {
+        return getCacheInternal(cacheName, null, "distributed").unwrap(ICache.class)
     }
 
-    Cache getCacheInternal(String cacheName, String tenantId, boolean defaultLocal) {
+    Cache getCacheInternal(String cacheName, String tenantId, String defaultCacheType) {
         String fullName = getFullName(cacheName, tenantId)
         Cache theCache = localCacheMap.get(fullName)
         if (theCache == null) {
-            localCacheMap.putIfAbsent(fullName, initCache(cacheName, tenantId, defaultLocal))
+            localCacheMap.putIfAbsent(fullName, initCache(cacheName, tenantId, defaultCacheType))
             theCache = localCacheMap.get(fullName)
         }
         return theCache
@@ -182,7 +187,7 @@ public class CacheFacadeImpl implements CacheFacade {
         return cacheElement
     }
 
-    protected synchronized Cache initCache(String cacheName, String tenantId, boolean defaultLocal) {
+    protected synchronized Cache initCache(String cacheName, String tenantId, String defaultCacheType) {
         if (cacheName.contains("__")) cacheName = cacheName.substring(cacheName.indexOf("__") + 2)
         String fullCacheName = getFullName(cacheName, tenantId)
         if (localCacheMap.containsKey(fullCacheName)) return localCacheMap.get(fullCacheName)
@@ -195,39 +200,33 @@ public class CacheFacadeImpl implements CacheFacade {
             Class keyType = StupidJavaUtilities.getClass(keyTypeName)
             Class valueType = StupidJavaUtilities.getClass(valueTypeName)
 
-            if (cacheNode.attribute("local") == "true") {
+            Factory<ExpiryPolicy> expiryPolicyFactory
+            if (cacheNode.attribute("expire-time-idle") && cacheNode.attribute("expire-time-idle") != "0") {
+                expiryPolicyFactory = AccessedExpiryPolicy.factoryOf(
+                        new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-idle"))))
+            } else if (cacheNode.attribute("expire-time-live") && cacheNode.attribute("expire-time-live") != "0") {
+                expiryPolicyFactory = CreatedExpiryPolicy.factoryOf(
+                        new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-live"))))
+            } else {
+                expiryPolicyFactory = EternalExpiryPolicy.factoryOf()
+            }
+
+            String cacheType = cacheNode.attribute("type") ?: "local"
+            if ("local".equals(cacheType)) {
                 // use MCache
                 MutableConfiguration mutConf = new MutableConfiguration()
                 mutConf.setTypes(keyType, valueType)
                 mutConf.setStoreByValue(false).setStatisticsEnabled(true)
-
-                if (cacheNode.attribute("expire-time-idle") && cacheNode.attribute("expire-time-idle") != "0") {
-                    mutConf.setExpiryPolicyFactory(AccessedExpiryPolicy.factoryOf(
-                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-idle")))))
-                } else if (cacheNode.attribute("expire-time-live") && cacheNode.attribute("expire-time-live") != "0") {
-                    mutConf.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
-                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-live")))))
-                } else {
-                    mutConf.setExpiryPolicyFactory(EternalExpiryPolicy.factoryOf())
-                }
+                mutConf.setExpiryPolicyFactory(expiryPolicyFactory)
 
                 newCache = new MCache(fullCacheName, null, mutConf)
-            } else {
+            } else if ("distributed".equals(cacheType)) {
                 // use Hazelcast
                 CacheConfig cacheConfig = new CacheConfig()
                 cacheConfig.setTypes(keyType, valueType)
                 cacheConfig.setStoreByValue(true).setStatisticsEnabled(true).setManagementEnabled(false)
                 cacheConfig.setName(fullCacheName)
-
-                if (cacheNode.attribute("expire-time-idle") && cacheNode.attribute("expire-time-idle") != "0") {
-                    cacheConfig.setExpiryPolicyFactory(AccessedExpiryPolicy.factoryOf(
-                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-idle")))))
-                } else if (cacheNode.attribute("expire-time-live") && cacheNode.attribute("expire-time-live") != "0") {
-                    cacheConfig.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
-                            new Duration(TimeUnit.SECONDS, Long.parseLong(cacheNode.attribute("expire-time-live")))))
-                } else {
-                    cacheConfig.setExpiryPolicyFactory(EternalExpiryPolicy.factoryOf())
-                }
+                cacheConfig.setExpiryPolicyFactory(expiryPolicyFactory)
 
                 String maxElementsStr = cacheNode.attribute("max-elements")
                 if (maxElementsStr && maxElementsStr != "0") {
@@ -238,15 +237,19 @@ public class CacheFacadeImpl implements CacheFacade {
                 }
 
                 newCache = hcCacheManager.createCache(fullCacheName, cacheConfig)
+            } else {
+                throw new IllegalArgumentException("Cache type ${cacheType} not supported")
             }
         } else {
-            if (defaultLocal) {
+            if ("local".equals(defaultCacheType)) {
                 newCache = new MCache(fullCacheName, null, null)
-            } else {
+            } else if ("distributed".equals(defaultCacheType)) {
                 CacheConfig cacheConfig = new CacheConfig()
                 cacheConfig.setName(fullCacheName)
                 // any defaults we want here? better to use underlying defaults and conf file settings only
                 newCache = hcCacheManager.createCache(fullCacheName, cacheConfig)
+            } else {
+                throw new IllegalArgumentException("Default cache type ${defaultCacheType} not supported")
             }
         }
 

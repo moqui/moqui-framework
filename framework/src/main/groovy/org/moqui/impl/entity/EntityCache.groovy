@@ -198,7 +198,6 @@ class EntityCache {
                 }
             }
 
-            // logger.warn("============= clearing list for entity ${fullEntityName}, for pkCondition [${pkCondition}] cacheExists=${cfi.cacheExists("entity.${efi.tenantId}.list.${fullEntityName}")}")
             // clear list cache, use reverse-associative Map (also a Cache)
             String listKey = listKeyBase.concat(fullEntityName)
             if (cfi.cacheExists(listKey)) {
@@ -210,8 +209,6 @@ class EntityCache {
                 // The RA cache doesn't work for updates in the scenario where a record exists but its fields don't
                 //     match a find condition when the cached list find is initially done, but is then updated so the
                 //     fields do match
-
-                // Ehcache returns a plain List, may or may not be faster to iterate with index
                 Iterator<Cache.Entry<EntityCondition, EntityListImpl>> elcIterator = entityListCache.iterator()
                 while (elcIterator.hasNext()) {
                     Cache.Entry<EntityCondition, EntityListImpl> entry = (Cache.Entry<EntityCondition, EntityListImpl>) elcIterator.next()
@@ -294,6 +291,8 @@ class EntityCache {
                     Iterator<Cache.Entry<EntityCondition, EntityListImpl>> elcIterator = entityListCache.iterator()
                     while (elcIterator.hasNext()) {
                         Cache.Entry<EntityCondition, EntityListImpl> entry = (Cache.Entry<EntityCondition, EntityListImpl>) elcIterator.next()
+                        // in javax.cache.Cache next() may return null for expired, etc entries
+                        if (entry == null) continue;
                         EntityCondition ec = (EntityCondition) entry.getKey()
                         // logger.warn("======= entity ${fullEntityName} view-entity ${cachedViewEntityName} matches? ${ec.mapMatchesAny(viewMatchMap)} ec: ${ec}")
                         // FUTURE: any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
