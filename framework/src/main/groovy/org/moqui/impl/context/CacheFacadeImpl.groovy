@@ -65,7 +65,8 @@ public class CacheFacadeImpl implements CacheFacade {
 
     CacheManager getHcCacheManager() {
         if (hcCacheManagerInternal == null) {
-            hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
+            hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.impl.HazelcastServerCachingProvider")
+            // hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
             hcCacheManagerInternal = hcProviderInternal.getCacheManager()
         }
         return hcCacheManagerInternal
