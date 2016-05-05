@@ -13,6 +13,10 @@
  */
 package org.moqui.impl.context
 
+import com.hazelcast.config.Config
+import com.hazelcast.config.XmlConfigBuilder
+import com.hazelcast.core.Hazelcast
+import com.hazelcast.core.HazelcastInstance
 import groovy.transform.CompileStatic
 import org.apache.camel.CamelContext
 import org.apache.camel.impl.DefaultCamelContext
@@ -98,15 +102,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected MoquiServiceComponent moquiServiceComponent
     protected Map<String, MoquiServiceConsumer> camelConsumerByUriMap = new HashMap<String, MoquiServiceConsumer>()
 
-    /* ElasticSearch fields */
-    org.elasticsearch.node.Node elasticSearchNode
-    Client elasticSearchClient
+    /** ElasticSearch Node */
+    protected org.elasticsearch.node.Node elasticSearchNode
+    /** ElasticSearch Client */
+    protected Client elasticSearchClient
 
-    /* Jackrabbit fields */
-    Process jackrabbitProcess
+    /** Jackrabbit Process */
+    protected Process jackrabbitProcess
 
-    /* KIE fields */
+    /** Hazelcast Instance */
+    protected HazelcastInstance hazelcastInstance
+
+    /** KIE ReleaseId Cache */
     protected final Cache<String, ReleaseId> kieComponentReleaseIdCache
+    /** KIE Component Cache */
     protected final Cache<String, String> kieSessionComponentCache
 
     // ======== Permanent Delegated Facades ========
@@ -265,6 +274,19 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         initComponents()
         // init ClassLoader early so that classpath:// resources and framework interface impls will work
         initClassLoader()
+
+        // initialize Hazelcast (pre-Facade so before CacheFacade, etc); using hazelcast.xml on the classpath for config
+        Config hzConfig
+        if (System.getProperty("hazelcast.config")) {
+            logger.info("Starting Hazelcast with hazelcast.config system property (${System.getProperty("hazelcast.config")})")
+            hzConfig = new Config("moqui")
+        } else {
+            logger.info("Starting Hazelcast with hazelcast.xml from classpath")
+            hzConfig = new XmlConfigBuilder(cachedClassLoader.getResourceAsStream("hazelcast.xml")).build()
+            hzConfig.setInstanceName("moqui")
+        }
+        hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(hzConfig)
+
         // setup the CamelContext, but don't init yet
         camelContext = new DefaultCamelContext()
     }
@@ -282,6 +304,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init KIE (build modules for all components)
         initKie()
 
+        // init ESAPI
+        StupidWebUtilities.canonicalizeValue("test")
+
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
         long entityStartTime = System.currentTimeMillis()
@@ -291,8 +316,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // load/warm framework entities
         defaultEfi.loadFrameworkEntities()
         logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
-        // init ESAPI
-        StupidWebUtilities.canonicalizeValue("test")
 
         // now that everything is started up, if configured check all entity tables
         defaultEfi.checkInitDatasourceTables()
@@ -347,7 +370,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // now setup the CachedClassLoader, this should init in the main thread so we can set it properly
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         cachedClassLoader = new StupidClassLoader(pcl)
-        Thread.currentThread().setContextClassLoader(cachedClassLoader)
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
@@ -361,6 +383,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
+        // set as context classloader
+        Thread.currentThread().setContextClassLoader(cachedClassLoader)
     }
 
     /** this is called by the ResourceFacadeImpl constructor right after the ResourceReference classes are loaded but before ScriptRunners and TemplateRenderers */
@@ -444,7 +468,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
 
-        // stop ElasticSearch
+        // stop ElasticSearch, before stopping other things so it doesn't use anything
         if (elasticSearchNode != null) try {
             elasticSearchNode.close()
             while (!elasticSearchNode.isClosed()) {
@@ -477,6 +501,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (this.transactionFacade != null) this.transactionFacade.destroy()
         if (this.cacheFacade != null) this.cacheFacade.destroy()
         logger.info("Facades destroyed")
+
+        // shutdown hazelcast
+        if (hazelcastInstance != null) hazelcastInstance.shutdown()
 
         activeContext.remove()
 
@@ -618,6 +645,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.info("ElasticSearch disabled, not starting")
         }
     }
+
+    @Override
+    HazelcastInstance getHazelcastInstance() { return hazelcastInstance }
 
     protected void initJackrabbit() {
         if (confXmlRoot.first("tools").attribute("run-jackrabbit") == "true") {

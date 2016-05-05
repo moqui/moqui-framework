@@ -14,11 +14,13 @@
 package org.moqui.impl.context
 
 import com.hazelcast.cache.CacheStatistics
+import com.hazelcast.cache.HazelcastCachingProvider
 import com.hazelcast.cache.ICache
 import com.hazelcast.config.CacheConfig
 import com.hazelcast.config.EvictionConfig
 import com.hazelcast.config.EvictionPolicy
 import com.hazelcast.config.InMemoryFormat
+import com.hazelcast.core.HazelcastInstance
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.jcache.MCache
@@ -53,7 +55,6 @@ public class CacheFacadeImpl implements CacheFacade {
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected CachingProvider hcProviderInternal = (CachingProvider) null
     protected CacheManager hcCacheManagerInternal = (CacheManager) null
 
     protected final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
@@ -65,9 +66,14 @@ public class CacheFacadeImpl implements CacheFacade {
 
     CacheManager getHcCacheManager() {
         if (hcCacheManagerInternal == null) {
-            hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.impl.HazelcastServerCachingProvider")
+            HazelcastInstance hci = ecfi.getHazelcastInstance()
+            Properties properties = new Properties()
+            properties.setProperty(HazelcastCachingProvider.HAZELCAST_INSTANCE_NAME, hci.getName())
+            // always use the server caching provider, the client one always goes over a network interface and is slow
+            CachingProvider hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.impl.HazelcastServerCachingProvider")
             // hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
-            hcCacheManagerInternal = hcProviderInternal.getCacheManager()
+            hcCacheManagerInternal = hcProviderInternal.getCacheManager(new URI("moqui-cache-manager"), null, properties)
+            logger.info("Initialized Hazelcast CacheManager for instance ${hci.getName()}")
         }
         return hcCacheManagerInternal
     }

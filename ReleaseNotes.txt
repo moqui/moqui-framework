@@ -25,6 +25,7 @@ New Features
   - For distributed caches now using Hazelcast, initially version 3.6.2
   - Hazelcast can be used for distributed entity cache and can be used for
     web session replication and OrientDB clustering
+- Added default Hazelcast web session replication config (see web.xml)
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
