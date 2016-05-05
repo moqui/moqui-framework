@@ -18,6 +18,7 @@ import com.hazelcast.cache.ICache
 import com.hazelcast.config.CacheConfig
 import com.hazelcast.config.EvictionConfig
 import com.hazelcast.config.EvictionPolicy
+import com.hazelcast.config.InMemoryFormat
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.jcache.MCache
@@ -240,6 +241,7 @@ public class CacheFacadeImpl implements CacheFacade {
                 cacheConfig.setStoreByValue(true).setStatisticsEnabled(true).setManagementEnabled(false)
                 cacheConfig.setName(fullCacheName)
                 cacheConfig.setExpiryPolicyFactory(expiryPolicyFactory)
+                cacheConfig.setInMemoryFormat(InMemoryFormat.OBJECT)
 
                 String maxElementsStr = cacheNode.attribute("max-elements")
                 if (maxElementsStr && maxElementsStr != "0") {
