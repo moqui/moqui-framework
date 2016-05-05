@@ -46,6 +46,7 @@ public class MCache<K, V> implements Cache<K, V> {
     private Duration accessDuration = null;
     private Duration creationDuration = null;
     private Duration updateDuration = null;
+    private final boolean hasExpiry;
     private boolean isClosed = false;
 
     /** Supports a few configurations but both manager and configuration can be null. */
@@ -70,6 +71,7 @@ public class MCache<K, V> implements Cache<K, V> {
             // valueClass = configuration.getValueType();
             // TODO: support any other configuration?
         }
+        hasExpiry = accessDuration != null || creationDuration != null || updateDuration != null;
     }
 
     @Override
@@ -102,10 +104,11 @@ public class MCache<K, V> implements Cache<K, V> {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
         MEntry<K, V> entry = entryStore.get(key);
         if (entry != null) {
-            if (statsEnabled) stats.countHit();
-            entry.countAccess(System.currentTimeMillis());
+            if (statsEnabled) { stats.gets++; stats.hits++; }
+            long accessTime = System.currentTimeMillis();
+            entry.accessCount++; if (accessTime > entry.lastAccessTime) entry.lastAccessTime = accessTime;
         } else {
-            if (statsEnabled) stats.countMiss();
+            if (statsEnabled) { stats.gets++; stats.misses++; }
         }
         return entry;
     }
@@ -120,7 +123,7 @@ public class MCache<K, V> implements Cache<K, V> {
                     entry = null;
                     if (statsEnabled) stats.countExpire();
                 }
-            } else {
+            } else if (hasExpiry) {
                 if (entry.isExpired(currentTime, accessDuration, creationDuration, updateDuration)) {
                     entryStore.remove(key);
                     entry = null;
@@ -135,13 +138,13 @@ public class MCache<K, V> implements Cache<K, V> {
             }
 
             if (entry != null) {
-                if (statsEnabled) stats.countHit();
-                entry.countAccess(currentTime);
+                if (statsEnabled) { stats.gets++; stats.hits++; }
+                entry.accessCount++; if (currentTime > entry.lastAccessTime) entry.lastAccessTime = currentTime;
             } else {
-                if (statsEnabled) stats.countMiss();
+                if (statsEnabled) { stats.gets++; stats.misses++; }
             }
         } else {
-            if (statsEnabled) stats.countMiss();
+            if (statsEnabled) { stats.gets++; stats.misses++; }
         }
 
         return entry;
@@ -149,7 +152,7 @@ public class MCache<K, V> implements Cache<K, V> {
     private MEntry<K, V> getCheckExpired(K key) {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
         MEntry<K, V> entry = entryStore.get(key);
-        if (entry != null && entry.isExpired(accessDuration, creationDuration, updateDuration)) {
+        if (hasExpiry && entry != null && entry.isExpired(accessDuration, creationDuration, updateDuration)) {
             entryStore.remove(key);
             entry = null;
             if (statsEnabled) stats.countExpire();
@@ -159,7 +162,7 @@ public class MCache<K, V> implements Cache<K, V> {
     private MEntry<K, V> getCheckExpired(K key, long currentTime) {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
         MEntry<K, V> entry = entryStore.get(key);
-        if (entry != null && entry.isExpired(currentTime, accessDuration, creationDuration, updateDuration)) {
+        if (hasExpiry && entry != null && entry.isExpired(currentTime, accessDuration, creationDuration, updateDuration)) {
             entryStore.remove(key);
             entry = null;
             if (statsEnabled) stats.countExpire();
@@ -184,21 +187,33 @@ public class MCache<K, V> implements Cache<K, V> {
     }
 
     @Override
-    public void put(K key, V value) { getAndPut(key, value); }
+    public void put(K key, V value) {
+        long currentTime = System.currentTimeMillis();
+        // get entry, count hit/miss
+        MEntry<K, V> entry = getCheckExpired(key, currentTime);
+        if (entry != null) {
+            entry.setValue(value, currentTime);
+            if (statsEnabled) stats.puts++;
+        } else {
+            entry = new MEntry<>(key, value, currentTime);
+            entryStore.put(key, entry);
+            if (statsEnabled) stats.puts++;
+        }
+    }
     @Override
     public V getAndPut(K key, V value) {
         long currentTime = System.currentTimeMillis();
         // get entry, count hit/miss
-        MEntry<K, V> entry = getEntryInternal(key, null, null, currentTime);
+        MEntry<K, V> entry = getCheckExpired(key, currentTime);
         if (entry != null) {
             V oldValue = entry.value;
             entry.setValue(value, currentTime);
-            if (statsEnabled) stats.countPut();
+            if (statsEnabled) stats.puts++;
             return oldValue;
         } else {
-            entry = new MEntry<>(key, value);
+            entry = new MEntry<>(key, value, currentTime);
             entryStore.put(key, entry);
-            if (statsEnabled) stats.countPut();
+            if (statsEnabled) stats.puts++;
             return null;
         }
     }
@@ -210,13 +225,14 @@ public class MCache<K, V> implements Cache<K, V> {
     }
     @Override
     public boolean putIfAbsent(K key, V value) {
-        MEntry<K, V> entry = getEntryInternal(key, null, null, System.currentTimeMillis());
+        long currentTime = System.currentTimeMillis();
+        MEntry<K, V> entry = getCheckExpired(key, currentTime);
         if (entry != null) {
             return false;
         } else {
-            entry = new MEntry<>(key, value);
+            entry = new MEntry<>(key, value, currentTime);
             entryStore.put(key, entry);
-            if (statsEnabled) stats.countPut();
+            if (statsEnabled) stats.puts++;
             return true;
         }
     }
@@ -272,7 +288,7 @@ public class MCache<K, V> implements Cache<K, V> {
             boolean replace = entry.valueEquals(oldValue);
             if (replace) {
                 entry.setValue(newValue, currentTime);
-                if (statsEnabled) stats.countPut();
+                if (statsEnabled) stats.puts++;
             }
             return replace;
         } else {
@@ -287,7 +303,7 @@ public class MCache<K, V> implements Cache<K, V> {
 
         if (entry != null) {
             entry.setValue(value, currentTime);
-            if (statsEnabled) stats.countPut();
+            if (statsEnabled) stats.puts++;
             return true;
         } else {
             return false;
@@ -302,7 +318,7 @@ public class MCache<K, V> implements Cache<K, V> {
         if (entry != null) {
             V oldValue = entry.value;
             entry.setValue(value, currentTime);
-            if (statsEnabled) stats.countPut();
+            if (statsEnabled) stats.puts++;
             return oldValue;
         } else {
             return null;
@@ -408,12 +424,12 @@ public class MCache<K, V> implements Cache<K, V> {
                 curEntry = entryList.get(curIndex);
                 if (curEntry.isExpired) {
                     curEntry = null;
-                } else if (curEntry.isExpired(initialTime, mCache.accessDuration, mCache.creationDuration, mCache.updateDuration)) {
+                } else if (mCache.hasExpiry && curEntry.isExpired(initialTime, mCache.accessDuration, mCache.creationDuration, mCache.updateDuration)) {
                     mCache.entryStore.remove(curEntry.getKey());
                     if (mCache.statsEnabled) mCache.stats.countExpire();
                     curEntry = null;
                 } else {
-                    if (mCache.statsEnabled) mCache.stats.countHit();
+                    if (mCache.statsEnabled)  { mCache.stats.gets++; mCache.stats.hits++; }
                     break;
                 }
             }
@@ -442,14 +458,15 @@ public class MCache<K, V> implements Cache<K, V> {
             MEntry<K, V> entry = getCheckExpired(key, currentTime);
             if (entry != null) {
                 entryList.add(entry);
-                entry.countAccess(currentTime);
-                if (statsEnabled) stats.countHit();
+                if (statsEnabled) { stats.gets++; stats.hits++; }
+                entry.accessCount++; if (currentTime > entry.lastAccessTime) entry.lastAccessTime = currentTime;
             }
         }
         return entryList;
     }
     public int clearExpired() {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
+        if (!hasExpiry) return 0;
         long currentTime = System.currentTimeMillis();
         ArrayList<K> keyList = new ArrayList<>(entryStore.keySet());
         int keyListSize = keyList.size();
@@ -474,18 +491,18 @@ public class MCache<K, V> implements Cache<K, V> {
     public Duration getUpdateDuration() { return updateDuration; }
 
     public static class MEntry<K, V> implements Cache.Entry<K, V> {
-        private K key;
-        private V value;
+        K key;
+        V value;
         private long createdTime;
         private long lastUpdatedTime;
-        private long lastAccessTime;
-        private long accessCount = 0;
+        long lastAccessTime;
+        long accessCount = 0;
         private boolean isExpired = false;
 
-        MEntry(K key, V value) {
+        MEntry(K key, V value, long createdTime) {
             this.key = key;
             this.value = value;
-            createdTime = System.currentTimeMillis();
+            this.createdTime = createdTime;
             lastUpdatedTime = createdTime;
             lastAccessTime = createdTime;
         }
@@ -519,10 +536,11 @@ public class MCache<K, V> implements Cache<K, V> {
         public long getLastAccessTime() { return lastAccessTime; }
         public long getAccessCount() { return accessCount; }
 
+        /* done directly on fields for performance reasons
         void countAccess(long accessTime) {
-            accessCount++;
-            if (accessTime > lastAccessTime) lastAccessTime = accessTime;
+            accessCount++; if (accessTime > lastAccessTime) lastAccessTime = accessTime;
         }
+        */
         public boolean isExpired(ExpiryPolicy policy) {
             return isExpired(System.currentTimeMillis(), policy.getExpiryForAccess(), policy.getExpiryForCreation(),
                     policy.getExpiryForUpdate());
@@ -559,9 +577,7 @@ public class MCache<K, V> implements Cache<K, V> {
         long evictions = 0;
         long expires = 0;
 
-        // long totalGetMicros = 0;
-        // long totalPutMicros = 0;
-        // long totalRemoveMicros = 0;
+        // long totalGetMicros = 0, totalPutMicros = 0, totalRemoveMicros = 0;
 
         @Override
         public void clear() {
@@ -571,6 +587,7 @@ public class MCache<K, V> implements Cache<K, V> {
             puts = 0;
             removals = 0;
             evictions = 0;
+            expires = 0;
         }
 
         @Override
@@ -600,20 +617,20 @@ public class MCache<K, V> implements Cache<K, V> {
 
         public long getCacheExpires() { return expires; }
 
+        /* have callers access fields directly for performance reasons:
         void countHit() {
-            gets++;
-            hits++;
+            gets++; hits++;
             // totalGetMicros += micros;
         }
         void countMiss() {
-            gets++;
-            misses++;
+            gets++; misses++;
             // totalGetMicros += micros;
         }
         void countPut() {
             puts++;
             // totalPutMicros += micros;
         }
+        */
         void countRemoval() {
             removals++;
             // totalRemoveMicros += micros;
