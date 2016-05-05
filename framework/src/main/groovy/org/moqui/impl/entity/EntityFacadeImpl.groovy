@@ -594,13 +594,17 @@ class EntityFacadeImpl implements EntityFacade {
 
         List<String> entityLocationList = (List<String>) entityLocationCache.get(entityName)
         if (entityLocationList == null) {
-            if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file locations known.")
+            if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file and DB locations")
             if (isTraceEnabled) logger.trace("Unknown entity name ${entityName} location", new BaseException("Unknown entity name location"))
 
+            // remove the single cache entry
+            entityLocationSingleCache.remove(entityLocSingleEntryName)
+            // reload all locations
             entityLocationCache = this.loadAllEntityLocations()
             entityLocationList = (List<String>) entityLocationCache.get(entityName)
             // no locations found for this entity, entity probably doesn't exist
             if (entityLocationList == null || entityLocationList.size() == 0) {
+                // TODO: while this is helpful, if another unknown non-existing entity is looked for this will be lost
                 entityLocationCache.put(entityName, new LinkedList<String>())
                 if (logger.isWarnEnabled()) logger.warn("No definition found for entity-name [${entityName}]")
                 throw new EntityNotFoundException("No definition found for entity-name [${entityName}]")
@@ -1416,8 +1420,8 @@ class EntityFacadeImpl implements EntityFacade {
     String sequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
         try {
             // is the seqName an entityName?
-            EntityDefinition ed = getEntityDefinition(seqName)
-            if (ed != null) {
+            if (isEntityDefined(seqName)) {
+                EntityDefinition ed = getEntityDefinition(seqName)
                 String groupName = ed.getEntityGroupName()
                 if (ed.sequencePrimaryUseUuid ||
                         getDatasourceNode(groupName)?.attribute('sequence-primary-use-uuid') == "true")
