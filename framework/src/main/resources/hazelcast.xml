@@ -24,6 +24,12 @@
         </join>
     </network>
 
+    <topic name="entity-cache-invalidate">
+        <global-ordering-enabled>false</global-ordering-enabled>
+        <statistics-enabled>true</statistics-enabled>
+        <!-- register listener at runtime so has ECFI reference: <message-listeners><message-listener>foo</message-listener></message-listeners> -->
+      </topic>
+
     <cache name="default">
         <key-type class-name="java.lang.Object"/>
         <value-type class-name="java.lang.Object"/>

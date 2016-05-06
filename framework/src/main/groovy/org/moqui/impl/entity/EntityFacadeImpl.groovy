@@ -299,7 +299,7 @@ class EntityFacadeImpl implements EntityFacade {
                     EntityDefinition ed = getEntityDefinition(entityName)
                     ed.getRelationshipInfoMap()
                     entityDbMeta.tableExists(ed)
-                } catch (Throwable t) { logger.warn("Error loading framework entity definitions: ${t.toString()}") }
+                } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}") }
             }
         }
         logger.info("Loaded ${entityCount} framework entity definitions in ${(System.nanoTime() - startTime)/1E9} seconds")

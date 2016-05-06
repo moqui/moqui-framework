@@ -73,6 +73,7 @@ class EntityCache {
         boolean isCreate
         EntityValueBase evb
 
+        EntityCacheInvalidate() { }
         EntityCacheInvalidate(String tenantId, EntityValueBase evb, boolean isCreate) {
             this.tenantId = tenantId
             this.isCreate = isCreate
@@ -107,6 +108,7 @@ class EntityCache {
                 logger.warn("Received EntityCacheInvalidate message with null tenantId, ignoring")
                 return
             }
+            // logger.info("====== EntityCacheListener message tenantId=${eci.tenantId} isCreate=${eci.isCreate}, evb: ${eci.evb}")
             ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi, eci.tenantId, null, {
                 EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
                 efi.getEntityCache().clearCacheForValueActual(eci.evb, eci.isCreate)
@@ -197,6 +199,7 @@ class EntityCache {
     }
     /** Does actual cache clear, called directly or distributed through topic */
     void clearCacheForValueActual(EntityValueBase evb, boolean isCreate) {
+        // logger.info("====== clearCacheForValueActual isCreate=${isCreate}, evb: ${evb}")
         try {
             EntityDefinition ed = evb.getEntityDefinition()
             // use getValueMap instead of getMap, faster and we don't want to cache localized values/etc
