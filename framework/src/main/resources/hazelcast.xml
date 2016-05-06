@@ -6,10 +6,17 @@
     <properties>
         <property name="hazelcast.logging.type">slf4j</property>
         <property name="hazelcast.jcache.provider.type">server</property>
+
+        <property name="hazelcast.event.queue.capacity">1000000</property>
+        <property name="hazelcast.event.queue.timeout.millis">500</property>
+        <property name="hazelcast.event.thread.count">5</property>
     </properties>
 
     <group><name>dev</name><password>dev-pass</password></group>
-    <management-center enabled="false">http://localhost:8080/mancenter</management-center>
+
+    <!-- For connecting to external management center application (commercial add-on, see https://hazelcast.com/products/management-center/) -->
+    <management-center enabled="false">http://localhost:8081/mancenter</management-center>
+
     <network>
         <port auto-increment="true" port-count="5">5701</port>
         <!-- Allowed port range when connecting to other nodes. 0 or * means use system provided port. -->
