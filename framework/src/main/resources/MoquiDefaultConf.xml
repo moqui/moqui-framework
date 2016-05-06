@@ -8,32 +8,37 @@
     <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false" empty-db-load="seed"/>
 
     <cache-list warm-on-start="true">
-        <!-- Production mode by default - No expiration of conf and impl artifacts. -->
+        <!-- Entity Database Record Caches (and cache clear assist data) -->
+        <!-- set type="distributed" to use the distributed cache -->
+        <cache name="entity.record.one." max-elements="50000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityValueBase"/>
+        <cache name="entity.record.list." max-elements="10000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityListImpl"/>
+        <cache name="entity.record.count." max-elements="10000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
+
+        <cache name="entity.record.one_ra." max-elements="100000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+        <cache name="entity.record.one_view_ra." max-elements="100000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+        <cache name="entity.record.one_bf." max-elements="100000" eviction-strategy="least-frequently-used"
+                value-type="Set"/>
+
+        <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+        <cache name="entity.record.list_view_ra." max-elements="20000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+
+        <!-- Framework configuration and artifact caches -->
+        <!-- NOTE: Production mode by default - No expiration of conf and impl artifacts. -->
+
         <cache name="entity.definition" value-type="org.moqui.impl.entity.EntityDefinition"/>
         <cache name="entity.location" value-type="Map"/>
         <cache name="entity.sequence.bank" value-type="long[]"/>
         <!-- this is info for each entity for real-time push DataFeeds; expires every 15 min to get DataFeed and DataDocument updates -->
         <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList"/>
 
-        <cache name="entity.record.one." max-elements="50000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityValueBase"/>
-        <cache name="entity.record.one_ra." max-elements="100000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.one_view_ra." max-elements="100000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.one_bf." max-elements="100000" eviction-strategy="least-frequently-used" value-type="Set"/>
-
-        <cache name="entity.record.list." max-elements="10000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityListImpl"/>
-        <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.list_view_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.count." max-elements="10000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
-
         <cache name="service.location" tenants-share="true" value-type="org.moqui.impl.service.ServiceDefinition"/>
-
         <cache name="kie.component.releaseId" tenants-share="true" value-type="org.kie.api.builder.ReleaseId"/>
         <cache name="kie.session.component" tenants-share="true" value-type="String"/>
 
