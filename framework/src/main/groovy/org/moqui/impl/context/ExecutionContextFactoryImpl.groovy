@@ -17,6 +17,7 @@ import com.hazelcast.config.Config
 import com.hazelcast.config.XmlConfigBuilder
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.ITopic
 import groovy.transform.CompileStatic
 import org.apache.camel.CamelContext
 import org.apache.camel.impl.DefaultCamelContext
@@ -47,6 +48,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
+import org.moqui.impl.entity.EntityCache
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
@@ -112,6 +114,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Hazelcast Instance */
     protected HazelcastInstance hazelcastInstance
+    /** Entity Cache Invalidate Hazelcase Topic */
+    ITopic<EntityCache.EntityCacheInvalidate> entityCacheInvalidateTopic
 
     /** KIE ReleaseId Cache */
     protected final Cache<String, ReleaseId> kieComponentReleaseIdCache
@@ -321,6 +325,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         defaultEfi.checkInitDatasourceTables()
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
         defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
+
+        // register EntityCacheListener
+        entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
+        EntityCache.EntityCacheListener eciListener = new EntityCache.EntityCacheListener(this)
+        entityCacheInvalidateTopic.addMessageListener(eciListener)
 
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
@@ -648,6 +657,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @Override
     HazelcastInstance getHazelcastInstance() { return hazelcastInstance }
+    ITopic<EntityCache.EntityCacheInvalidate> getEntityCacheInvalidateTopic() { return entityCacheInvalidateTopic }
 
     protected void initJackrabbit() {
         if (confXmlRoot.first("tools").attribute("run-jackrabbit") == "true") {

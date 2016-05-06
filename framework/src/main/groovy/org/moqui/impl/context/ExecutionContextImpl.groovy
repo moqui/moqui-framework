@@ -300,6 +300,12 @@ class ExecutionContextImpl implements ExecutionContext {
             threadUsername = eci.user.username
             this.closure = closure
         }
+        ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, String tenantId, String username, Closure closure) {
+            this.ecfi = ecfi
+            threadTenantId = tenantId
+            threadUsername = username
+            this.closure = closure
+        }
 
         @Override
         void run() {

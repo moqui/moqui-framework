@@ -230,7 +230,7 @@
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
     </service-facade>
 
-    <entity-facade default-group-name="transactional" distributed-cache-clear-enabled="false"
+    <entity-facade default-group-name="transactional" distributed-cache-invalidate="false"
                    entity-eca-enabled="true" sequenced-id-prefix=""
                    crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
         <!-- note: no crypt-pass attribute by default, must specify in your conf file! -->

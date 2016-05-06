@@ -13,8 +13,12 @@
  */
 package org.moqui.impl.entity
 
+import com.hazelcast.core.ITopic
+import com.hazelcast.core.Message
+import com.hazelcast.core.MessageListener
 import groovy.transform.CompileStatic
-import org.moqui.impl.entity.condition.TrueCondition
+import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 
 import javax.cache.Cache
 import org.moqui.entity.EntityCondition
@@ -43,6 +47,8 @@ class EntityCache {
 
     protected final Map<String, ArrayList<String>> cachedListViewEntitiesByMember = new HashMap<>()
 
+    protected final boolean distributedCacheInvalidate
+
     EntityCache(EntityFacadeImpl efi) {
         this.efi = efi
         this.cfi = efi.ecfi.getCacheFacade()
@@ -55,6 +61,58 @@ class EntityCache {
         listRaKeyBase = efi.tenantId + "__entity.record.list_ra."
         listViewRaKeyBase = efi.tenantId + "__entity.record.list_view_ra."
         countKeyBase = efi.tenantId + "__entity.record.count."
+
+        MNode entityFacadeNode = efi.getEntityFacadeNode()
+        distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true"
+        logger.info("Entity Cache initialized, distributed cache invalidate enabled: ${distributedCacheInvalidate}")
+    }
+
+
+    static class EntityCacheInvalidate implements Externalizable {
+        String tenantId
+        boolean isCreate
+        EntityValueBase evb
+
+        EntityCacheInvalidate(String tenantId, EntityValueBase evb, boolean isCreate) {
+            this.tenantId = tenantId
+            this.isCreate = isCreate
+            this.evb = evb
+        }
+
+        @Override
+        void writeExternal(ObjectOutput out) throws IOException {
+            out.writeObject(tenantId.toCharArray())
+            out.writeBoolean(isCreate)
+            out.writeObject(evb)
+        }
+
+        @Override
+        void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+            tenantId = new String((char[]) objectInput.readObject())
+            isCreate = objectInput.readBoolean()
+            evb = (EntityValueBase) objectInput.readObject()
+        }
+    }
+
+    public static class EntityCacheListener implements MessageListener<EntityCacheInvalidate> {
+        ExecutionContextFactoryImpl ecfi
+        EntityCacheListener(ExecutionContextFactoryImpl ecfi) {
+            this.ecfi = ecfi
+        }
+
+        @Override
+        void onMessage(Message<EntityCacheInvalidate> message) {
+            EntityCacheInvalidate eci = message.getMessageObject()
+            if (eci.tenantId == null) {
+                logger.warn("Received EntityCacheInvalidate message with null tenantId, ignoring")
+                return
+            }
+            ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi, eci.tenantId, null, {
+                EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
+                efi.getEntityCache().clearCacheForValueActual(eci.evb, eci.isCreate)
+            })
+            ecfi.workerPool.execute(runnable)
+        }
     }
 
     // EntityFacadeImpl getEfi() { return efi }
@@ -126,7 +184,19 @@ class EntityCache {
     }
     */
 
+    /** Called from EntityValueBase */
     void clearCacheForValue(EntityValueBase evb, boolean isCreate) {
+        if (evb == null) return
+        if (distributedCacheInvalidate) {
+            ITopic<EntityCacheInvalidate> entityCacheInvalidateTopic = efi.ecfi.getEntityCacheInvalidateTopic()
+            EntityCacheInvalidate eci = new EntityCacheInvalidate(efi.tenantId, evb, isCreate)
+            entityCacheInvalidateTopic.publish(eci)
+        } else {
+            clearCacheForValueActual(evb, isCreate)
+        }
+    }
+    /** Does actual cache clear, called directly or distributed through topic */
+    void clearCacheForValueActual(EntityValueBase evb, boolean isCreate) {
         try {
             EntityDefinition ed = evb.getEntityDefinition()
             // use getValueMap instead of getMap, faster and we don't want to cache localized values/etc
@@ -473,4 +543,6 @@ class EntityCache {
         @Override
         String toString() { return entityName + '(' + ec.toString() + ')' }
     }
+
+
 }
