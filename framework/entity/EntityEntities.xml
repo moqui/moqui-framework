@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.entity -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EntityAuditLog" package-name="moqui.entity" authorize-skip="create">
+    <entity entity-name="EntityAuditLog" package-name="moqui.entity" authorize-skip="create" cache="never">
         <field name="auditHistorySeqId" type="id" is-pk="true"/>
         <field name="changedEntityName" type="text-medium"/>
         <field name="changedFieldName" type="text-medium"/>
@@ -35,7 +35,7 @@ along with this software (see the LICENSE.md file). If not, see
             <index-field name="pkPrimaryValue"/></index>
     </entity>
 
-    <entity entity-name="SequenceValueItem" package-name="moqui.entity" authorize-skip="true">
+    <entity entity-name="SequenceValueItem" package-name="moqui.entity" authorize-skip="true" cache="never">
         <field name="seqName" type="text-medium" is-pk="true"/>
         <field name="seqNum" type="number-integer"/>
     </entity>
@@ -321,7 +321,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="ESA"/>
         <alias-all entity-alias="AGM"/>
     </view-entity>
-    <entity entity-name="EntitySyncHistory" package-name="moqui.entity.sync">
+    <entity entity-name="EntitySyncHistory" package-name="moqui.entity.sync" cache="never">
         <field name="entitySyncId" type="id" is-pk="true"/>
         <field name="startDate" type="date-time" is-pk="true"/>
         <field name="finishDate" type="date-time"/>
@@ -336,7 +336,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.entity.sync.EntitySync"/>
         <relationship type="one" title="EntitySync" related-entity-name="moqui.basic.StatusItem"/>
     </entity>
-    <entity entity-name="EntitySyncRemove" package-name="moqui.entity.sync">
+    <entity entity-name="EntitySyncRemove" package-name="moqui.entity.sync" cache="never">
         <field name="entitySyncRemoveId" type="id" is-pk="true"/>
         <field name="entityName" type="text-medium" is-pk="true"/>
         <field name="primaryKeyRemoved" type="text-long"/>

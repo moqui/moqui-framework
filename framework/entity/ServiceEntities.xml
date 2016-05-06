@@ -21,12 +21,12 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.semaphore -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ServiceSemaphore" package-name="moqui.service.semaphore">
+    <entity entity-name="ServiceSemaphore" package-name="moqui.service.semaphore" cache="never">
         <field name="serviceName" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
         <field name="lockTime" type="date-time"/>
     </entity>
-    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore">
+    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" cache="never">
         <field name="serviceName" type="text-medium" is-pk="true"/>
         <field name="parameterValue" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
@@ -37,7 +37,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.scheduler -->
     <!-- ========================================================= -->
 
-    <entity entity-name="SchedulerHistory" package-name="moqui.service.scheduler">
+    <entity entity-name="SchedulerHistory" package-name="moqui.service.scheduler" cache="never">
         <field name="schedulerHistoryId" type="id" is-pk="true"/>
         <field name="hostAddress" type="text-short"/>
         <field name="hostName" type="text-medium"/>
@@ -165,11 +165,11 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="calendarName" type="text-medium" is-pk="true"/>
         <field name="calendar" type="binary-very-long"/>
     </entity>
-    <entity entity-name="QrtzPausedTriggerGrps" package-name="moqui.service.quartz">
+    <entity entity-name="QrtzPausedTriggerGrps" package-name="moqui.service.quartz" cache="never">
         <field name="schedName" type="text-medium" is-pk="true"/>
         <field name="triggerGroup" type="text-medium" is-pk="true"/>
     </entity>
-    <entity entity-name="QrtzFiredTriggers" package-name="moqui.service.quartz">
+    <entity entity-name="QrtzFiredTriggers" package-name="moqui.service.quartz" cache="never">
         <field name="schedName" type="text-medium" is-pk="true"/>
         <field name="entryId" type="text-medium" is-pk="true"/>
         <field name="triggerName" type="text-medium"/>
@@ -184,13 +184,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="isNonconcurrent" type="text-indicator"/>
         <field name="requestsRecovery" type="text-indicator"/>
     </entity>
-    <entity entity-name="QrtzSchedulerState" package-name="moqui.service.quartz">
+    <entity entity-name="QrtzSchedulerState" package-name="moqui.service.quartz" cache="never">
         <field name="schedName" type="text-medium" is-pk="true"/>
         <field name="instanceName" type="text-medium" is-pk="true"/>
         <field name="lastCheckinTime" type="number-integer"/>
         <field name="checkinInterval" type="number-integer"/>
     </entity>
-    <entity entity-name="QrtzLocks" package-name="moqui.service.quartz">
+    <entity entity-name="QrtzLocks" package-name="moqui.service.quartz" cache="never">
         <field name="schedName" type="text-medium" is-pk="true"/>
         <field name="lockName" type="text-short" is-pk="true"/>
     </entity>
@@ -199,7 +199,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.message -->
     <!-- ========================================================= -->
 
-    <entity entity-name="SystemMessage" package-name="moqui.service.message" short-alias="systemMessages">
+    <entity entity-name="SystemMessage" package-name="moqui.service.message" short-alias="systemMessages" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="systemMessageTypeId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
@@ -378,7 +378,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="componentDelimiter" type="text-indicator"/>
         <field name="escapeCharacter" type="text-indicator"/>
     </entity>
-    <entity entity-name="SystemMessageError" package-name="moqui.service.message">
+    <entity entity-name="SystemMessageError" package-name="moqui.service.message" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="errorDate" type="date-time" is-pk="true"/>
         <field name="attemptedStatusId" type="id"/>

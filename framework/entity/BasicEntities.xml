@@ -333,7 +333,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.basic.email -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EmailMessage" package-name="moqui.basic.email" short-alias="emailMessages" cache="false">
+    <entity entity-name="EmailMessage" package-name="moqui.basic.email" short-alias="emailMessages" cache="never">
         <field name="emailMessageId" type="id" is-pk="true"/>
         <field name="rootEmailMessageId" type="id">
             <description>For threaded messages, this points to the message that started the thread.</description></field>
@@ -492,7 +492,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="location" type="text-medium"/>
     </entity>
-    <entity entity-name="PrintJob" package-name="moqui.basic.print" short-alias="printJobs">
+    <entity entity-name="PrintJob" package-name="moqui.basic.print" short-alias="printJobs" cache="never">
         <field name="printJobId" type="id" is-pk="true"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="createdDate" type="date-time"/>
