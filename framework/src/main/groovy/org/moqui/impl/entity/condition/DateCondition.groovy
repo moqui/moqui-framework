@@ -20,7 +20,7 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityQueryBuilder
 
 @CompileStatic
-class DateCondition implements EntityConditionImplBase {
+class DateCondition implements EntityConditionImplBase, Externalizable {
     protected String fromFieldName
     protected String thruFieldName
     protected Timestamp compareStamp
@@ -30,6 +30,7 @@ class DateCondition implements EntityConditionImplBase {
     DateCondition(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         this.fromFieldName = fromFieldName ?: "fromDate"
         this.thruFieldName = thruFieldName ?: "thruDate"
+        if (compareStamp == (Timestamp) null) compareStamp = new Timestamp(System.currentTimeMillis())
         this.compareStamp = compareStamp
         conditionInternal = makeConditionInternal()
         hashCodeInternal = createHashCode()
@@ -81,23 +82,31 @@ class DateCondition implements EntityConditionImplBase {
     @Override
     int hashCode() { return hashCodeInternal }
     private int createHashCode() {
-        return (compareStamp ? compareStamp.hashCode() : 0) + fromFieldName.hashCode() + thruFieldName.hashCode()
+        return compareStamp.hashCode() + fromFieldName.hashCode() + thruFieldName.hashCode()
     }
 
     @Override
     boolean equals(Object o) {
         if (o == null || o.getClass() != this.getClass()) return false
         DateCondition that = (DateCondition) o
-        if ((Object) this.compareStamp == null && (Object) that.compareStamp != null) return false
-        if ((Object) this.compareStamp != null) {
-            if ((Object) that.compareStamp == null) {
-                return false
-            } else {
-                if (!this.compareStamp.equals(that.compareStamp)) return false
-            }
-        }
+        if (!this.compareStamp.equals(that.compareStamp)) return false
         if (!fromFieldName.equals(that.fromFieldName)) return false
         if (!thruFieldName.equals(that.thruFieldName)) return false
         return true
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        out.writeUTF(fromFieldName);
+        out.writeUTF(thruFieldName);
+        out.writeLong(compareStamp.getTime());
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        fromFieldName = objectInput.readUTF();
+        thruFieldName = objectInput.readUTF();
+        compareStamp = new Timestamp(objectInput.readLong());
+        hashCodeInternal = createHashCode();
+        conditionInternal = makeConditionInternal();
     }
 }

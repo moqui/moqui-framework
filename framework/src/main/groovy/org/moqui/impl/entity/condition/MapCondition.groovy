@@ -20,24 +20,28 @@ import org.moqui.entity.EntityCondition
 
 @CompileStatic
 class MapCondition implements EntityConditionImplBase {
-    protected final Map<String, Object> fieldMap
+    protected Map<String, Object> fieldMap
     protected EntityCondition.ComparisonOperator comparisonOperator
     protected EntityCondition.JoinOperator joinOperator
     protected boolean ignoreCase = false
+
     protected ListCondition internalCond = null
     protected int curHashCode
     protected static final Class thisClass = MapCondition.class
 
-    protected final int fieldsSize
-    protected final String[] names
-    protected final Object[] values
+    protected int fieldsSize
+    protected String[] names
+    protected Object[] values
 
     MapCondition(Map<String, Object> fieldMap, EntityCondition.ComparisonOperator comparisonOperator,
             EntityCondition.JoinOperator joinOperator) {
         this.fieldMap = fieldMap != null ? fieldMap : new HashMap<String, Object>()
         this.comparisonOperator = comparisonOperator ?: EQUALS
         this.joinOperator = joinOperator ?: AND
+        derivedValues()
+    }
 
+    void derivedValues() {
         fieldsSize = fieldMap.size()
         names = new String[fieldsSize]
         values = new Object[fieldsSize]
@@ -150,5 +154,21 @@ class MapCondition implements EntityConditionImplBase {
         if (!joinOperator.equals(that.joinOperator)) return false
         if (ignoreCase != that.ignoreCase) return false
         return true
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        out.writeObject(fieldMap)
+        out.writeUTF(comparisonOperator.name())
+        out.writeUTF(joinOperator.name())
+        out.writeBoolean(ignoreCase)
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        fieldMap = (Map<String, Object>) objectInput.readObject()
+        comparisonOperator = EntityCondition.ComparisonOperator.valueOf(objectInput.readUTF())
+        joinOperator = EntityCondition.JoinOperator.valueOf(objectInput.readUTF())
+        ignoreCase = objectInput.readBoolean()
+        derivedValues()
     }
 }

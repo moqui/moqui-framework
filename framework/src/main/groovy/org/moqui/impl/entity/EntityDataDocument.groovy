@@ -27,6 +27,7 @@ import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.entity.condition.ConditionAlias
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.util.MNode
@@ -175,7 +176,7 @@ class EntityDataDocument {
         if ((Object) fromUpdateStamp != null || (Object) thruUpdatedStamp != null) {
             List<EntityCondition> dateRangeOrCondList = []
             for (MNode memberEntityNode in dynamicView.getMemberEntityNodes()) {
-                ConditionField ludCf = new ConditionField(memberEntityNode.attribute("entity-alias"),
+                ConditionField ludCf = new ConditionAlias(memberEntityNode.attribute("entity-alias"),
                         "lastUpdatedStamp", efi.getEntityDefinition(memberEntityNode.attribute("entity-name")))
                 List<EntityCondition> dateRangeFieldCondList = []
                 if ((Object) fromUpdateStamp != null) {

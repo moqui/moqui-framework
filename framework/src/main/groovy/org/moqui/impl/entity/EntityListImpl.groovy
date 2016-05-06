@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory
 class EntityListImpl implements EntityList {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class)
 
+    private static final long serialVersionUID = 6678435411L;
+
     protected transient EntityFacadeImpl efiTransient
     protected String tenantId
 

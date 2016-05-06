@@ -17,16 +17,19 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.entity.EntityCondition;
 
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.*;
 
 public class ListCondition implements EntityConditionImplBase {
-    private final ArrayList<EntityConditionImplBase> conditionList = new ArrayList<>();
+    private ArrayList<EntityConditionImplBase> conditionList = new ArrayList<>();
+    protected JoinOperator operator;
     private int conditionListSize = 0;
-    protected final EntityCondition.JoinOperator operator;
     private int curHashCode;
     private static final Class thisClass = ListCondition.class;
 
-    public ListCondition(List<EntityConditionImplBase> conditionList, EntityCondition.JoinOperator operator) {
+    public ListCondition(List<EntityConditionImplBase> conditionList, JoinOperator operator) {
         this.operator = operator != null ? operator : AND;
         if (conditionList != null) {
             conditionListSize = conditionList.size();
@@ -60,10 +63,11 @@ public class ListCondition implements EntityConditionImplBase {
         ArrayList<EntityConditionImplBase> condList = listCond.getConditionList();
         int condListSize = condList.size();
         for (int i = 0; i < condListSize; i++) addCondition(condList.get(i));
+        curHashCode = createHashCode();
         conditionListSize = conditionList.size();
     }
 
-    public EntityCondition.JoinOperator getOperator() { return operator; }
+    public JoinOperator getOperator() { return operator; }
     public ArrayList<EntityConditionImplBase> getConditionList() { return conditionList; }
 
     @Override
@@ -148,5 +152,18 @@ public class ListCondition implements EntityConditionImplBase {
         if (this.operator != that.operator) return false;
         if (!this.conditionList.equals(that.conditionList)) return false;
         return true;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        out.writeObject(conditionList);
+        out.writeUTF(operator.name());
+    }
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        conditionList = (ArrayList<EntityConditionImplBase>) in.readObject();
+        operator = JoinOperator.valueOf(in.readUTF());
+        curHashCode = createHashCode();
+        conditionListSize = conditionList != null ? conditionList.size() : 0;
     }
 }

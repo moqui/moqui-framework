@@ -58,7 +58,7 @@ class WhereCondition implements EntityConditionImplBase {
     EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }
 
     @Override
-    String toString() { return this.sqlWhereClause }
+    String toString() { return sqlWhereClause }
 
     @Override
     int hashCode() { return (sqlWhereClause != null ? sqlWhereClause.hashCode() : 0) }
@@ -69,5 +69,14 @@ class WhereCondition implements EntityConditionImplBase {
         WhereCondition that = (WhereCondition) o
         if (!sqlWhereClause.equals(that.sqlWhereClause)) return false
         return true
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        out.writeUTF(sqlWhereClause)
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        sqlWhereClause = objectInput.readUTF()
     }
 }

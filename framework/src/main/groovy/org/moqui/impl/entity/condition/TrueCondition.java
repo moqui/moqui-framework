@@ -19,6 +19,9 @@ import org.moqui.impl.entity.EntityQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.*;
 
 public class TrueCondition implements EntityConditionImplBase {
@@ -61,4 +64,9 @@ public class TrueCondition implements EntityConditionImplBase {
         if (o == null || o.getClass() != thisClass) return false;
         return true;
     }
+
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException { }
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException { }
 }

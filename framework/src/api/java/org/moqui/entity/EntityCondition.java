@@ -13,6 +13,7 @@
  */
 package org.moqui.entity;
 
+import java.io.Externalizable;
 import java.io.Serializable;
 import java.util.Map;
 
@@ -23,7 +24,7 @@ import java.util.Map;
  * This class is mostly empty because it is a placeholder for use in the EntityConditionFactory and most functionality
  * is internal only.
  */
-public interface EntityCondition extends Serializable {
+public interface EntityCondition extends Externalizable {
 
     ComparisonOperator EQUALS = ComparisonOperator.EQUALS;
     ComparisonOperator NOT_EQUAL = ComparisonOperator.NOT_EQUAL;

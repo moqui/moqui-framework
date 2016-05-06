@@ -50,6 +50,8 @@ import org.slf4j.LoggerFactory
 abstract class EntityValueBase implements EntityValue {
     protected final static Logger logger = LoggerFactory.getLogger(EntityValueBase.class)
 
+    private static final long serialVersionUID = 6678438211L;
+
     /** This is a reference to where the entity value came from.
      * It is transient so not stored when this is serialized, and will get a reference to the active EntityFacade after.
      */

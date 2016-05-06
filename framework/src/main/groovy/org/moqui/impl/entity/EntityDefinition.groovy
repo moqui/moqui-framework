@@ -16,6 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.entity.condition.ConditionAlias
 
 import java.sql.Timestamp
 
@@ -1689,7 +1690,7 @@ public class EntityDefinition {
                 MNode memberEntity = memberEntityAliasMap.get(econdition.attribute("entity-alias"))
                 if (!memberEntity) throw new EntityException("The entity-alias [${econdition.attribute("entity-alias")}] was not found in view-entity [${this.internalEntityName}]")
                 EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                field = new ConditionField(econdition.attribute("entity-alias"), econdition.attribute("field-name"), aliasEntityDef)
+                field = new ConditionAlias(econdition.attribute("entity-alias"), econdition.attribute("field-name"), aliasEntityDef)
                 condEd = aliasEntityDef;
             } else {
                 field = new ConditionField(econdition.attribute("field-name"))
@@ -1701,7 +1702,7 @@ public class EntityDefinition {
                     MNode memberEntity = memberEntityAliasMap.get(econdition.attribute("to-entity-alias"))
                     if (!memberEntity) throw new EntityException("The entity-alias [${econdition.attribute("to-entity-alias")}] was not found in view-entity [${this.internalEntityName}]")
                     EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                    toField = new ConditionField(econdition.attribute("to-entity-alias"), econdition.attribute("to-field-name"), aliasEntityDef)
+                    toField = new ConditionAlias(econdition.attribute("to-entity-alias"), econdition.attribute("to-field-name"), aliasEntityDef)
                 } else {
                     toField = new ConditionField(econdition.attribute("to-field-name"))
                 }

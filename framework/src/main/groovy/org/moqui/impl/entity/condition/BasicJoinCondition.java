@@ -17,22 +17,27 @@ import org.moqui.entity.EntityCondition;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
 
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.Map;
 import java.util.Set;
 
 public class BasicJoinCondition implements EntityConditionImplBase {
     protected EntityConditionImplBase lhs;
-    protected EntityCondition.JoinOperator operator;
+    protected JoinOperator operator;
     protected EntityConditionImplBase rhs;
+    private int curHashCode;
     protected static final Class thisClass = BasicJoinCondition.class;
 
-    public BasicJoinCondition(EntityConditionImplBase lhs, EntityCondition.JoinOperator operator, EntityConditionImplBase rhs) {
+    public BasicJoinCondition(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
         this.lhs = lhs;
         this.operator = operator != null ? operator : AND;
         this.rhs = rhs;
+        curHashCode = createHashCode();
     }
 
-    public EntityCondition.JoinOperator getOperator() { return operator; }
+    public JoinOperator getOperator() { return operator; }
     public EntityConditionImplBase getLhs() { return lhs; }
     public EntityConditionImplBase getRhs() { return rhs; }
 
@@ -76,7 +81,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     }
 
     @Override
-    public EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition."); }
+    public EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for BasicJoinCondition"); }
 
     @Override
     public String toString() {
@@ -85,7 +90,8 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode() { return curHashCode; }
+    private int createHashCode() {
         return (lhs != null ? lhs.hashCode() : 0) + operator.hashCode() + (rhs != null ? rhs.hashCode() : 0);
     }
 
@@ -98,5 +104,19 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         if (this.operator != that.operator) return false;
         if (!this.rhs.equals(that.rhs)) return false;
         return true;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        out.writeObject(lhs);
+        out.writeUTF(operator.name());
+        out.writeObject(rhs);
+    }
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        lhs = (EntityConditionImplBase) in.readObject();
+        operator = JoinOperator.valueOf(in.readUTF());
+        rhs = (EntityConditionImplBase) in.readObject();
+        curHashCode = createHashCode();
     }
 }

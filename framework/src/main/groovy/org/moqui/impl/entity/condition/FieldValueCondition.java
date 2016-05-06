@@ -22,24 +22,29 @@ import org.moqui.impl.entity.EntityQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.*;
 
-public class FieldValueCondition implements EntityConditionImplBase {
+public class FieldValueCondition implements EntityConditionImplBase, Externalizable {
     protected final static Logger logger = LoggerFactory.getLogger(FieldValueCondition.class);
+    private static final Class thisClass = FieldValueCondition.class;
 
-    protected final ConditionField field;
-    protected final EntityCondition.ComparisonOperator operator;
+    protected ConditionField field;
+    protected ComparisonOperator operator;
     protected Object value;
     protected boolean ignoreCase = false;
     private int curHashCode;
-    private static final Class thisClass = FieldValueCondition.class;
 
-    public FieldValueCondition(ConditionField field, EntityCondition.ComparisonOperator operator, Object value) {
+    public FieldValueCondition() { }
+    public FieldValueCondition(ConditionField field, ComparisonOperator operator, Object value) {
         this.field = field;
         this.value = value;
 
         // default to EQUALS
-        EntityCondition.ComparisonOperator tempOp = operator != null ? operator : EQUALS;
+        ComparisonOperator tempOp = operator != null ? operator : EQUALS;
         // if EQUALS and we have a Collection value the IN operator is implied, similar with NOT_EQUAL
         if (value instanceof Collection) {
             if (tempOp == EQUALS) tempOp = IN;
@@ -50,7 +55,7 @@ public class FieldValueCondition implements EntityConditionImplBase {
         curHashCode = createHashCode();
     }
 
-    public EntityCondition.ComparisonOperator getOperator() { return operator; }
+    public ComparisonOperator getOperator() { return operator; }
     public String getFieldName() { return field.fieldName; }
     public Object getValue() { return value; }
     public boolean getIgnoreCase() { return ignoreCase; }
@@ -141,15 +146,15 @@ public class FieldValueCondition implements EntityConditionImplBase {
 
     @Override
     public boolean populateMap(Map<String, Object> map) {
-        if (operator != EQUALS || ignoreCase || (field.entityAlias != null && field.entityAlias.length() > 0)) return false;
+        if (operator != EQUALS || ignoreCase || field instanceof ConditionAlias) return false;
         map.put(field.fieldName, value);
         return true;
     }
 
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
-        if (field.entityAlias != null && field.entityAlias.length() > 0) {
-            entityAliasSet.add(field.entityAlias);
+        if (field instanceof ConditionAlias) {
+            entityAliasSet.add(((ConditionAlias) field).entityAlias);
         } else {
             fieldAliasSet.add(field.fieldName);
         }
@@ -174,7 +179,7 @@ public class FieldValueCondition implements EntityConditionImplBase {
     public boolean equals(Object o) {
         if (o == null || o.getClass() != thisClass) return false;
         FieldValueCondition that = (FieldValueCondition) o;
-        if (!field.equalsConditionField(that.field)) return false;
+        if (!field.equals(that.field)) return false;
         if (value != null) {
             if (that.value == null) {
                 return false;
@@ -185,5 +190,22 @@ public class FieldValueCondition implements EntityConditionImplBase {
             if (that.value != null) return false;
         }
         return operator == that.operator && ignoreCase == that.ignoreCase;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        field.writeExternal(out);
+        out.writeUTF(operator.name());
+        out.writeObject(value);
+        out.writeBoolean(ignoreCase);
+    }
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        field = new ConditionField();
+        field.readExternal(in);
+        operator = ComparisonOperator.valueOf(in.readUTF());
+        value = in.readObject();
+        ignoreCase = in.readBoolean();
+        curHashCode = createHashCode();
     }
 }
