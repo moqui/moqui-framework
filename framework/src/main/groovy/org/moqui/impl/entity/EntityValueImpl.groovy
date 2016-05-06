@@ -29,8 +29,7 @@ import java.sql.ResultSet
 class EntityValueImpl extends EntityValueBase {
     protected final static Logger logger = LoggerFactory.getLogger(EntityValueImpl.class)
 
-    private static final long serialVersionUID = 6678438411L;
-
+    EntityValueImpl() { }
     EntityValueImpl(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip) }
 
     @Override

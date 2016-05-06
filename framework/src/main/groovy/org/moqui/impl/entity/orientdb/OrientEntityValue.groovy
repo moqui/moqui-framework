@@ -40,17 +40,18 @@ class OrientEntityValue extends EntityValueBase {
 
     private static final long serialVersionUID = 6678463811L;
 
-    OrientDatasourceFactory odf
+    OrientDatasourceFactory odfInternal
     ORID recordId = null
 
+    OrientEntityValue() {  }
     OrientEntityValue(EntityDefinition ed, EntityFacadeImpl efip, OrientDatasourceFactory odf) {
         super(ed, efip)
-        this.odf = odf
+        this.odfInternal = odf
     }
 
     OrientEntityValue(EntityDefinition ed, EntityFacadeImpl efip, OrientDatasourceFactory odf, ODocument document) {
         super(ed, efip)
-        this.odf = odf
+        this.odfInternal = odf
         this.recordId = document.getIdentity()
 
         ArrayList<String> fieldNameList = ed.getAllFieldNames()
@@ -84,6 +85,24 @@ class OrientEntityValue extends EntityValueBase {
 
             getValueMap().put(fieldName, fieldValue)
         }
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        super.writeExternal(out)
+        out.writeObject(recordId)
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        super.readExternal(objectInput)
+        recordId = (ORID) objectInput.readObject()
+    }
+
+    OrientDatasourceFactory getOdf() {
+        if (odfInternal == null) {
+            // TODO!
+        }
+        return odfInternal
     }
 
     @Override

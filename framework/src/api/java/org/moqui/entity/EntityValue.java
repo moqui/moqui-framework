@@ -17,7 +17,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import javax.sql.rowset.serial.SerialBlob;
-import java.io.Serializable;
+import java.io.Externalizable;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,7 +28,7 @@ import java.util.Map;
  * Entity Value Interface - Represents a single database record.
  *
  */
-public interface EntityValue extends Map<String, Object>, Serializable, Comparable<EntityValue>, Cloneable {
+public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable {
 
     String getEntityName();
 

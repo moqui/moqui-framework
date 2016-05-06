@@ -50,36 +50,46 @@ import org.slf4j.LoggerFactory
 abstract class EntityValueBase implements EntityValue {
     protected final static Logger logger = LoggerFactory.getLogger(EntityValueBase.class)
 
-    private static final long serialVersionUID = 6678438211L;
-
-    /** This is a reference to where the entity value came from.
-     * It is transient so not stored when this is serialized, and will get a reference to the active EntityFacade after.
-     */
-    protected transient EntityFacadeImpl efiTransient
-    protected transient TransactionCache txCacheInternal
     protected String tenantId
-
-    protected final String entityName
-    protected transient EntityDefinition entityDefinitionTransient
-
+    protected String entityName
     private final Map<String, Object> valueMap = new HashMap<>()
+
+    protected transient EntityFacadeImpl efiTransient = null
+    protected transient TransactionCache txCacheInternal = null
+    protected transient EntityDefinition entityDefinitionTransient = null
+
     /* Original DB Value Map: not used unless the value has been modified from its original state from the DB */
-    private Map<String, Object> dbValueMap = (Map<String, Object>) null
-    private Map<String, Object> internalPkMap = (Map<String, Object>) null
+    private transient Map<String, Object> dbValueMap = (Map<String, Object>) null
+    private transient Map<String, Object> internalPkMap = (Map<String, Object>) null
     /* Used to keep old field values such as before an update or other sync with DB; mostly useful for EECA rules */
-    private Map<String, Object> oldDbValueMap = (Map<String, Object>) null
+    private transient Map<String, Object> oldDbValueMap = (Map<String, Object>) null
 
-    private Map<String, Map<String, String>> localizedByLocaleByField = (Map<String, Map<String, String>>) null
+    private transient Map<String, Map<String, String>> localizedByLocaleByField = (Map<String, Map<String, String>>) null
 
-    protected boolean modified = false
-    protected boolean mutable = true
-    protected boolean isFromDb = false
+    protected transient boolean modified = false
+    protected transient boolean mutable = true
+    protected transient boolean isFromDb = false
 
+    EntityValueBase() { }
     EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip
         tenantId = efip.getTenantId()
         entityName = ed.getFullEntityName()
         entityDefinitionTransient = ed
+        // NOTE: not serializing modified, mutable, isFromDb... if it is a copy we don't care if it gets modified, etc
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        out.writeUTF(entityName)
+        out.writeUTF(tenantId)
+        out.writeObject(valueMap)
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        entityName = objectInput.readUTF()
+        tenantId = objectInput.readUTF()
+        valueMap.putAll((Map<String, Object>) objectInput.readObject())
     }
 
     EntityFacadeImpl getEntityFacadeImpl() {
@@ -763,12 +773,10 @@ abstract class EntityValueBase implements EntityValue {
             if (fieldValue instanceof Map || fieldValue instanceof List) {
                 subPlainMap.put(fieldName, fieldValue)
                 continue
-            }
-            if (fieldValue instanceof byte[]) {
+            } else if (fieldValue instanceof byte[]) {
                 cdataMap.put(fieldName, new String(Base64.encodeBase64((byte[]) fieldValue)))
                 continue
-            }
-            if (fieldValue instanceof SerialBlob) {
+            } else if (fieldValue instanceof SerialBlob) {
                 if (fieldValue.length() == 0) continue
                 byte[] objBytes = fieldValue.getBytes(1, (int) fieldValue.length())
                 cdataMap.put(fieldName, new String(Base64.encodeBase64(objBytes)))
