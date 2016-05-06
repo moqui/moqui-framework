@@ -189,7 +189,13 @@ class EntityCache {
     /** Called from EntityValueBase */
     void clearCacheForValue(EntityValueBase evb, boolean isCreate) {
         if (evb == null) return
+        EntityDefinition ed = evb.getEntityDefinition()
+        if ('never'.equals(ed.getUseCache())) return
+
         if (distributedCacheInvalidate) {
+            // TODO: this takes some time to run and is done a LOT, for nearly all entity CrUD ops
+            // TODO: maybe set more entities as never cache? or other ways to know we don't need to clear caches
+            // NOTE: can't avoid message when caches don't exist and not used in view-entity as it might be on another server
             ITopic<EntityCacheInvalidate> entityCacheInvalidateTopic = efi.ecfi.getEntityCacheInvalidateTopic()
             EntityCacheInvalidate eci = new EntityCacheInvalidate(efi.tenantId, evb, isCreate)
             entityCacheInvalidateTopic.publish(eci)
@@ -204,7 +210,7 @@ class EntityCache {
             EntityDefinition ed = evb.getEntityDefinition()
             // use getValueMap instead of getMap, faster and we don't want to cache localized values/etc
             Map evbMap = evb.getValueMap()
-            if ('never'.equals(ed.getUseCache())) return
+            // checked in clearCacheForValue(): if ('never'.equals(ed.getUseCache())) return
             String fullEntityName = ed.getFullEntityName()
 
             // init this as null, set below if needed (common case it isn't, will perform better
