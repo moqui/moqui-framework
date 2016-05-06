@@ -24,11 +24,13 @@ import java.util.concurrent.locks.Condition;
 public class ConditionField implements Externalizable {
     private static final Class thisClass = ConditionField.class;
     String fieldName;
+    private int curHashCode;
 
     public ConditionField() { }
     public ConditionField(String fieldName) {
         if (fieldName == null) throw new BaseException("Empty fieldName not allowed");
         this.fieldName = fieldName.intern();
+        curHashCode = this.fieldName.hashCode();
     }
 
     public String getFieldName() { return fieldName; }
@@ -45,7 +47,7 @@ public class ConditionField implements Externalizable {
     public String toString() { return fieldName; }
 
     @Override
-    public int hashCode() { return fieldName.hashCode(); }
+    public int hashCode() { return curHashCode; }
 
     @Override
     public boolean equals(Object o) {
@@ -63,5 +65,6 @@ public class ConditionField implements Externalizable {
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         fieldName = in.readUTF().intern();
+        curHashCode = fieldName.hashCode();
     }
 }
