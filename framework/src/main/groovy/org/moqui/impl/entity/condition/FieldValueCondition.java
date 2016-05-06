@@ -195,7 +195,8 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
         field.writeExternal(out);
-        out.writeUTF(operator.name());
+        // NOTE: found that the serializer in Hazelcast is REALLY slow with writeUTF(), uses String.chatAt() in a for loop, crazy
+        out.writeObject(operator.name().toCharArray());
         out.writeObject(value);
         out.writeBoolean(ignoreCase);
     }
@@ -203,7 +204,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         field = new ConditionField();
         field.readExternal(in);
-        operator = ComparisonOperator.valueOf(in.readUTF());
+        operator = ComparisonOperator.valueOf(new String((char[]) in.readObject()));
         value = in.readObject();
         ignoreCase = in.readBoolean();
         curHashCode = createHashCode();

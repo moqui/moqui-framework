@@ -56,13 +56,13 @@ class EntityListImpl implements EntityList {
 
     @Override
     void writeExternal(ObjectOutput out) throws IOException {
-        out.writeUTF(tenantId)
+        out.writeObject(tenantId.toCharArray())
         out.writeObject(valueList)
         // don't serialize fromCache, will default back to false which is fine for a copy
     }
     @Override
     void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-        tenantId = objectInput.readUTF()
+        tenantId = new String((char[]) objectInput.readObject())
         valueList = (ArrayList<EntityValue>) objectInput.readObject()
     }
 

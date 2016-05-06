@@ -59,12 +59,12 @@ public class ConditionField implements Externalizable {
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
-        out.writeUTF(fieldName);
+        out.writeObject(fieldName.toCharArray());
     }
 
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        fieldName = in.readUTF().intern();
+        fieldName = new String((char[]) in.readObject()).intern();
         curHashCode = fieldName.hashCode();
     }
 }

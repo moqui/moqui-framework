@@ -157,12 +157,12 @@ public class ListCondition implements EntityConditionImplBase {
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
         out.writeObject(conditionList);
-        out.writeUTF(operator.name());
+        out.writeObject(operator.name().toCharArray());
     }
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         conditionList = (ArrayList<EntityConditionImplBase>) in.readObject();
-        operator = JoinOperator.valueOf(in.readUTF());
+        operator = JoinOperator.valueOf(new String((char[]) in.readObject()));
         curHashCode = createHashCode();
         conditionListSize = conditionList != null ? conditionList.size() : 0;
     }

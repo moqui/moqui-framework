@@ -83,14 +83,15 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     void writeExternal(ObjectOutput out) throws IOException {
-        out.writeUTF(entityName)
-        out.writeUTF(tenantId)
+        // NOTE: found that the serializer in Hazelcast is REALLY slow with writeUTF(), uses String.chatAt() in a for loop, crazy
+        out.writeObject(entityName.toCharArray())
+        out.writeObject(tenantId.toCharArray())
         out.writeObject(valueMap)
     }
     @Override
     void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-        entityName = objectInput.readUTF()
-        tenantId = objectInput.readUTF()
+        entityName = new String((char[]) objectInput.readObject())
+        tenantId = new String((char[]) objectInput.readObject())
         valueMap.putAll((Map<String, Object>) objectInput.readObject())
     }
 
