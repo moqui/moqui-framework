@@ -238,6 +238,8 @@ public class CacheFacadeImpl implements CacheFacade {
                 mutConf.setStoreByValue(false).setStatisticsEnabled(true)
                 mutConf.setExpiryPolicyFactory(expiryPolicyFactory)
 
+                if (cacheNode.attribute("max-elements")) logger.debug("max-elements not support for local cache ${fullCacheName}")
+
                 newCache = new MCache(fullCacheName, null, mutConf)
             } else if ("distributed".equals(cacheType)) {
                 // use Hazelcast
