@@ -164,7 +164,7 @@ public class EntityDefinition {
                 String memberEntityName = memberEntity.attribute("entity-name")
                 memberEntityAliasMap.put(memberEntity.attribute("entity-alias"), memberEntity)
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntityName)
-                if (memberEd == null) throw new EntityException("No definition found for member entity ${memberEntityName} in view-entity ${fullEntityName}")
+                if (memberEd == null) throw new EntityException("No definition found for member entity alias ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
                 MNode memberEntityNode = memberEd.getEntityNode()
                 if (memberEntityNode.attribute("group-name")) internalEntityNode.attributes.put("group-name", memberEntityNode.attribute("group-name"))
             }

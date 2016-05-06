@@ -961,7 +961,8 @@ class EntityFacadeImpl implements EntityFacade {
         Set<String> allNames = getAllEntityNames()
         Set<String> masterNames = new TreeSet<>()
         for (String name in allNames) {
-            EntityDefinition ed = getEntityDefinition(name)
+            EntityDefinition ed
+            try { ed = getEntityDefinition(name) } catch (EntityException e) { continue }
             if (ed != null && !ed.isViewEntity() && ed.masterDefinitionMap) masterNames.add(name)
         }
         return masterNames

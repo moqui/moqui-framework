@@ -51,7 +51,8 @@ abstract class EntityValueBase implements EntityValue {
     protected final static Logger logger = LoggerFactory.getLogger(EntityValueBase.class)
 
     protected String tenantId
-    protected String entityName
+    // make this private so that Groovy funniness won't try to set it with something like value.entityName = "foo"
+    private String entityName
     private final Map<String, Object> valueMap = new HashMap<>()
 
     protected transient EntityFacadeImpl efiTransient = null
