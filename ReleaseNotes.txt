@@ -26,6 +26,9 @@ New Features
   - Hazelcast can be used for distributed entity cache and can be used for
     web session replication and OrientDB clustering
 - Added default Hazelcast web session replication config (see web.xml)
+- Implemented distributed entity cache invalidate using a Hazelcast Topic,
+  enabled in Moqui Conf XML file with the @distributed-cache-invalidate
+  attribute on the entity-facade element
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
