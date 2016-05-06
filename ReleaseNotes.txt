@@ -403,3 +403,13 @@ Long Term To Do List
   - with system.js need to transpile in the browser?
     - can transpile into JS file using typescript4j; or generate component.js
     - https://github.com/martypitt/typescript4j
+
+- Hazelcast-based improvements
+  - remote moqui to moqui service call over hazelcast (instead of JSON-RPC, etc)
+  - configuration for 'microservice' deployments, partitioning services to run on particular servers in a cluster and
+    not others (partition groups or other partition feature?)
+  - can use for reliable WAN service calls like needed for EntitySync?
+    - ie to a remote cluster
+    - different from commercial only WAN replication feature
+    - would be nice for reliable message queue
+  - can use for scheduled service execution in a cluster, perhaps something on top of, underneath, or instead of Quartz Scheduler?
