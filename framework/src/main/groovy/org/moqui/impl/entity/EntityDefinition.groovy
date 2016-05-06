@@ -78,7 +78,7 @@ public class EntityDefinition {
     protected final boolean optimisticLockVal
     protected Boolean needsAuditLogVal = null
     protected Boolean needsEncryptVal = null
-    protected final String useCache
+    protected String useCache
     protected String sequencePrimaryPrefix = ""
     protected long sequencePrimaryStagger = 1
     protected long sequenceBankSize = EntityFacadeImpl.defaultBankSize
@@ -108,7 +108,7 @@ public class EntityDefinition {
         shortAlias = internalEntityNode.attribute("short-alias") ?: null
 
         if (internalEntityNode.attribute("is-dynamic-view") == "true") {
-            // use the name of the first member-entity
+            // use the group of the first member-entity
             String memberEntityName = internalEntityNode.children("member-entity")
                     .find({ !it.attribute("join-from-alias") })?.attribute("entity-name")
             groupName = efi.getEntityGroupName(memberEntityName)
@@ -139,6 +139,7 @@ public class EntityDefinition {
 
         optimisticLockVal = "true".equals(internalEntityNode.attribute('optimistic-lock'))
 
+        // NOTE: see code in initFields that may set this to never if any member-entity is set to cache=never
         useCache = internalEntityNode.attribute('cache') ?: 'false'
 
         tableNameAttr = internalEntityNode.attribute("table-name")
@@ -167,6 +168,9 @@ public class EntityDefinition {
                 if (memberEd == null) throw new EntityException("No definition found for member entity alias ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
                 MNode memberEntityNode = memberEd.getEntityNode()
                 if (memberEntityNode.attribute("group-name")) internalEntityNode.attributes.put("group-name", memberEntityNode.attribute("group-name"))
+
+                // if is view entity and any member entities set to never cache set this to never cache
+                if ("never".equals(memberEntityNode.attribute("cache"))) this.useCache = "never"
             }
             // if this is a view-entity, expand the alias-all elements into alias elements here
             this.expandAliasAlls()

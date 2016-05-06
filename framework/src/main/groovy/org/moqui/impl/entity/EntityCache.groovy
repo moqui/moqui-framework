@@ -17,6 +17,7 @@ import com.hazelcast.core.ITopic
 import com.hazelcast.core.Message
 import com.hazelcast.core.MessageListener
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 
@@ -193,10 +194,11 @@ class EntityCache {
         EntityDefinition ed = evb.getEntityDefinition()
         if ('never'.equals(ed.getUseCache())) return
 
-        // TODO logger.info("==== clearCacheForValue ${evb.getEntityName()}")
+        // String entityName = evb.getEntityName()
+        // if (!entityName.startsWith("moqui.")) logger.info("========== ========== ========== clearCacheForValue ${entityName}")
         if (distributedCacheInvalidate) {
-            // TODO: this takes some time to run and is done a LOT, for nearly all entity CrUD ops
-            // TODO: maybe set more entities as never cache? or other ways to know we don't need to clear caches
+            // NOTE: this takes some time to run and is done a LOT, for nearly all entity CrUD ops
+            // NOTE: have set many entities as never cache
             // NOTE: can't avoid message when caches don't exist and not used in view-entity as it might be on another server
             ITopic<EntityCacheInvalidate> entityCacheInvalidateTopic = efi.ecfi.getEntityCacheInvalidateTopic()
             EntityCacheInvalidate eci = new EntityCacheInvalidate(efi.tenantId, evb, isCreate)
