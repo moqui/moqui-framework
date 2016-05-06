@@ -70,7 +70,9 @@ abstract class EntityValueBase implements EntityValue {
     protected transient boolean mutable = true
     protected transient boolean isFromDb = false
 
+    /** Default constructor for deserialization ONLY. */
     EntityValueBase() { }
+
     EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip
         tenantId = efip.getTenantId()

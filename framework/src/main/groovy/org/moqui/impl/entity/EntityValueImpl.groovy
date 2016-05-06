@@ -29,7 +29,9 @@ import java.sql.ResultSet
 class EntityValueImpl extends EntityValueBase {
     protected final static Logger logger = LoggerFactory.getLogger(EntityValueImpl.class)
 
+    /** Default constructor for deserialization ONLY. */
     EntityValueImpl() { }
+
     EntityValueImpl(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip) }
 
     @Override

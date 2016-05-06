@@ -15,6 +15,7 @@ package org.moqui.entity;
 
 import groovy.lang.Closure;
 
+import java.io.Externalizable;
 import java.io.Serializable;
 import java.io.Writer;
 import java.sql.Timestamp;
@@ -30,7 +31,7 @@ import java.util.RandomAccess;
  * The various methods here modify the internal list for efficiency and return a reference to this for convenience.
  * If you want a new EntityList with the modifications, use clone() or cloneList() then modify it.
  */
-public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cloneable, RandomAccess, Serializable {
+public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cloneable, RandomAccess, Externalizable {
 
     /** Get the first value in the list.
      *

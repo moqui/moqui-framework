@@ -38,12 +38,12 @@ import java.sql.Timestamp
 class OrientEntityValue extends EntityValueBase {
     protected final static Logger logger = LoggerFactory.getLogger(OrientEntityValue.class)
 
-    private static final long serialVersionUID = 6678463811L;
-
     OrientDatasourceFactory odfInternal
     ORID recordId = null
 
-    OrientEntityValue() {  }
+    /** Default constructor for deserialization ONLY. */
+    OrientEntityValue() { }
+
     OrientEntityValue(EntityDefinition ed, EntityFacadeImpl efip, OrientDatasourceFactory odf) {
         super(ed, efip)
         this.odfInternal = odf
