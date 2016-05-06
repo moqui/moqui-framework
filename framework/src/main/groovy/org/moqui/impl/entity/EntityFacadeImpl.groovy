@@ -299,7 +299,7 @@ class EntityFacadeImpl implements EntityFacade {
                     EntityDefinition ed = getEntityDefinition(entityName)
                     ed.getRelationshipInfoMap()
                     entityDbMeta.tableExists(ed)
-                } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}") }
+                } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}", t) }
             }
         }
         logger.info("Loaded ${entityCount} framework entity definitions in ${(System.nanoTime() - startTime)/1E9} seconds")
@@ -778,7 +778,9 @@ class EntityFacadeImpl implements EntityFacade {
         int relationshipsCreated = 0
         Set<String> entityNameSet = getAllEntityNames()
         for (String entityName in entityNameSet) {
-            EntityDefinition ed = getEntityDefinition(entityName)
+            EntityDefinition ed
+            // for auto reverse relationships just ignore EntityException on getEntityDefinition
+            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
             if (ed == null) continue
             List<String> pkSet = ed.getPkFieldNames()
@@ -837,7 +839,8 @@ class EntityFacadeImpl implements EntityFacade {
         // all EntityDefinition objects now have reverse relationships in place, remember that so this will only be
         //     called for new ones, not from cache
         for (String entityName in entityNameSet) {
-            EntityDefinition ed = getEntityDefinition(entityName)
+            EntityDefinition ed
+            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             if (ed == null) continue
             ed.hasReverseRelationships = true
         }
@@ -1532,7 +1535,10 @@ class EntityFacadeImpl implements EntityFacade {
     String getEntityGroupName(String entityName) {
         String entityGroupName = (String) entityGroupNameMap.get(entityName)
         if (entityGroupName != null) return entityGroupName
-        EntityDefinition ed = this.getEntityDefinition(entityName)
+        EntityDefinition ed
+        // for entity group name just ignore EntityException on getEntityDefinition
+        try { ed = getEntityDefinition(entityName) } catch (EntityException e) { return null }
+        // may happen if all entity names includes a DB view entity or other that doesn't really exist
         if (ed == null) return null
         entityGroupName = ed.getEntityGroupName()
         entityGroupNameMap.put(entityName, entityGroupName)

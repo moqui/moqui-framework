@@ -145,9 +145,15 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
     @CompileStatic
     @Override
     void checkAndAddTable(String entityName) {
+        EntityDefinition ed
+        // just ignore EntityException on getEntityDefinition
+        try { ed = efi.getEntityDefinition(entityName) } catch (EntityException e) { return }
+        // may happen if all entity names includes a DB view entity or other that doesn't really exist
+        if (ed == null) return
+
         ODatabaseDocumentTx createOddt = getDatabase()
         try {
-            checkCreateDocumentClass(createOddt, efi.getEntityDefinition(entityName))
+            checkCreateDocumentClass(createOddt, ed)
         } finally {
             createOddt.close()
         }

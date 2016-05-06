@@ -28,6 +28,8 @@ import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
 import java.util.*;
 
+// TODO: implement size limit with size check and eviction done in separate thread; running every 30 seconds?
+
 /** A simple implementation of the javax.cache.Cache interface. Basically a wrapper around a Map with stats and expiry. */
 public class MCache<K, V> implements Cache<K, V> {
 

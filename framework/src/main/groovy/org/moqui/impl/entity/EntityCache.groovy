@@ -193,6 +193,7 @@ class EntityCache {
         EntityDefinition ed = evb.getEntityDefinition()
         if ('never'.equals(ed.getUseCache())) return
 
+        // TODO logger.info("==== clearCacheForValue ${evb.getEntityName()}")
         if (distributedCacheInvalidate) {
             // TODO: this takes some time to run and is done a LOT, for nearly all entity CrUD ops
             // TODO: maybe set more entities as never cache? or other ways to know we don't need to clear caches
