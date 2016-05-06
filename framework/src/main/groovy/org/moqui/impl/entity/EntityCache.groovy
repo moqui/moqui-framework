@@ -78,6 +78,7 @@ class EntityCache {
         return cfi.getCache(countKeyBase.concat(entityName), efi.tenantId) }
 
     static class EmptyRecord extends EntityValueImpl {
+        EmptyRecord() { }
         EmptyRecord(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip) }
     }
     /*
