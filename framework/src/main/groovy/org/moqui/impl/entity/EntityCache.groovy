@@ -84,6 +84,7 @@ class EntityCache {
         void writeExternal(ObjectOutput out) throws IOException {
             out.writeObject(tenantId.toCharArray())
             out.writeBoolean(isCreate)
+            // NOTE: this would be faster but can't because don't know which impl of the abstract class was used: evb.writeExternal(out)
             out.writeObject(evb)
         }
 
