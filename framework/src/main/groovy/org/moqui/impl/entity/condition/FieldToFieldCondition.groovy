@@ -19,22 +19,20 @@ import org.moqui.impl.entity.EntityQueryBuilder
 import org.moqui.impl.entity.EntityConditionFactoryImpl
 
 @CompileStatic
-class FieldToFieldCondition extends EntityConditionImplBase {
-    protected volatile Class localClass = null
-    protected final ConditionField field
-    protected final EntityCondition.ComparisonOperator operator
-    protected final ConditionField toField
+class FieldToFieldCondition implements EntityConditionImplBase {
+    protected static final Class thisClass = FieldValueCondition.class
+    protected ConditionField field
+    protected EntityCondition.ComparisonOperator operator
+    protected ConditionField toField
     protected boolean ignoreCase = false
+    protected int curHashCode;
 
-    FieldToFieldCondition(EntityConditionFactoryImpl ecFactoryImpl,
-            ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
-        super(ecFactoryImpl)
+    FieldToFieldCondition(ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
         this.field = field
         this.operator = operator ?: EQUALS
         this.toField = toField
+        curHashCode = createHashCode()
     }
-
-    Class getLocalClass() { if (this.localClass == null) this.localClass = this.getClass(); return this.localClass }
 
     @Override
     void makeSqlWhere(EntityQueryBuilder eqb) {
@@ -62,26 +60,30 @@ class FieldToFieldCondition extends EntityConditionImplBase {
     boolean mapMatches(Map<String, Object> map) {
         return EntityConditionFactoryImpl.compareByOperator(map.get(field.getFieldName()), operator, map.get(toField.getFieldName()))
     }
+    @Override
+    boolean mapMatchesAny(Map<String, Object> map) {
+        return mapMatches(map)
+    }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }
 
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
-        if (field.entityAlias) {
-            entityAliasSet.add(field.entityAlias)
+        if (field instanceof ConditionAlias) {
+            entityAliasSet.add(((ConditionAlias) field).entityAlias)
         } else {
             fieldAliasSet.add(field.fieldName)
         }
-        if (toField.entityAlias) {
-            entityAliasSet.add(toField.entityAlias)
+        if (toField instanceof ConditionAlias) {
+            entityAliasSet.add(((ConditionAlias) toField).entityAlias)
         } else {
             fieldAliasSet.add(toField.fieldName)
         }
     }
 
     @Override
-    EntityCondition ignoreCase() { ignoreCase = true; return this }
+    EntityCondition ignoreCase() { ignoreCase = true; curHashCode++; return this }
 
     @Override
     String toString() {
@@ -89,19 +91,36 @@ class FieldToFieldCondition extends EntityConditionImplBase {
     }
 
     @Override
-    int hashCode() {
+    int hashCode() { return curHashCode }
+    private int createHashCode() {
         return (field ? field.hashCode() : 0) + operator.hashCode() + (toField ? toField.hashCode() : 0) + (ignoreCase ? 1 : 0)
     }
 
     @Override
     boolean equals(Object o) {
-        if (o == null || o.getClass() != this.getLocalClass()) return false
+        if (o == null || o.getClass() != thisClass) return false
         FieldToFieldCondition that = (FieldToFieldCondition) o
-        if (!this.field.equalsConditionField(that.field)) return false
+        if (!field.equals(that.field)) return false
         // NOTE: for Java Enums the != is WAY faster than the .equals
-        if (this.operator != that.operator) return false
-        if (!this.toField.equalsConditionField(that.toField)) return false
-        if (this.ignoreCase != that.ignoreCase) return false
+        if (operator != that.operator) return false
+        if (!toField.equals(that.toField)) return false
+        if (ignoreCase != that.ignoreCase) return false
         return true
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        field.writeExternal(out)
+        out.writeUTF(operator.name())
+        toField.writeExternal(out)
+        out.writeBoolean(ignoreCase)
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        field = new ConditionField()
+        field.readExternal(objectInput)
+        operator = EntityCondition.ComparisonOperator.valueOf(objectInput.readUTF())
+        toField = new ConditionField()
+        toField.readExternal(objectInput)
     }
 }

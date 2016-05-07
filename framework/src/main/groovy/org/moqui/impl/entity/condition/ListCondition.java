@@ -17,47 +17,57 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.entity.EntityCondition;
 
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.*;
 
-public class ListCondition extends EntityConditionImplBase {
-    protected final ArrayList<EntityConditionImplBase> conditionList = new ArrayList<EntityConditionImplBase>();
-    protected final EntityCondition.JoinOperator operator;
-    protected Integer curHashCode = null;
-    protected static final Class thisClass = ListCondition.class;
+public class ListCondition implements EntityConditionImplBase {
+    private ArrayList<EntityConditionImplBase> conditionList = new ArrayList<>();
+    protected JoinOperator operator;
+    private int conditionListSize = 0;
+    private int curHashCode;
+    private static final Class thisClass = ListCondition.class;
 
-    public ListCondition(EntityConditionFactoryImpl ecFactoryImpl,
-                  List<EntityConditionImplBase> conditionList, EntityCondition.JoinOperator operator) {
-        super(ecFactoryImpl);
+    public ListCondition(List<EntityConditionImplBase> conditionList, JoinOperator operator) {
         this.operator = operator != null ? operator : AND;
-        if (conditionList != null && conditionList.size() > 0) {
-            if (conditionList instanceof RandomAccess) {
-                // avoid creating an iterator if possible
-                int listSize = conditionList.size();
-                for (int i = 0; i < listSize; i++) {
-                    EntityConditionImplBase cond = conditionList.get(i);
-                    if (cond != null) this.conditionList.add(cond);
-                }
-            } else {
-                Iterator<EntityConditionImplBase> conditionIter = conditionList.iterator();
-                while (conditionIter.hasNext()) {
-                    EntityConditionImplBase cond = conditionIter.next();
-                    if (cond != null) this.conditionList.add(cond);
+        if (conditionList != null) {
+            conditionListSize = conditionList.size();
+            if (conditionListSize > 0) {
+                if (conditionList instanceof RandomAccess) {
+                    // avoid creating an iterator if possible
+                    int listSize = conditionList.size();
+                    for (int i = 0; i < listSize; i++) {
+                        EntityConditionImplBase cond = conditionList.get(i);
+                        if (cond != null) this.conditionList.add(cond);
+                    }
+                } else {
+                    Iterator<EntityConditionImplBase> conditionIter = conditionList.iterator();
+                    while (conditionIter.hasNext()) {
+                        EntityConditionImplBase cond = conditionIter.next();
+                        if (cond != null) this.conditionList.add(cond);
+                    }
                 }
             }
         }
+
+        curHashCode = createHashCode();
     }
 
     public void addCondition(EntityConditionImplBase condition) {
         if (condition != null) conditionList.add(condition);
-        curHashCode = null;
+        curHashCode = createHashCode();
+        conditionListSize = conditionList.size();
     }
     public void addConditions(ListCondition listCond) {
         ArrayList<EntityConditionImplBase> condList = listCond.getConditionList();
         int condListSize = condList.size();
         for (int i = 0; i < condListSize; i++) addCondition(condList.get(i));
+        curHashCode = createHashCode();
+        conditionListSize = conditionList.size();
     }
 
-    public EntityCondition.JoinOperator getOperator() { return operator; }
+    public JoinOperator getOperator() { return operator; }
     public ArrayList<EntityConditionImplBase> getConditionList() { return conditionList; }
 
     @Override
@@ -67,8 +77,7 @@ public class ListCondition extends EntityConditionImplBase {
         StringBuilder sql = eqb.getSqlTopLevel();
         String joinOpString = EntityConditionFactoryImpl.getJoinOperatorString(this.operator);
         sql.append('(');
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (i > 0) sql.append(' ').append(joinOpString).append(' ');
             condition.makeSqlWhere(eqb);
@@ -78,8 +87,7 @@ public class ListCondition extends EntityConditionImplBase {
 
     @Override
     public boolean mapMatches(Map<String, Object> map) {
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             boolean conditionMatches = condition.mapMatches(map);
             if (conditionMatches && this.operator == OR) return true;
@@ -88,12 +96,21 @@ public class ListCondition extends EntityConditionImplBase {
         // if we got here it means that it's an OR with no trues, or an AND with no falses
         return (this.operator == AND);
     }
+    @Override
+    public boolean mapMatchesAny(Map<String, Object> map) {
+        for (int i = 0; i < conditionListSize; i++) {
+            EntityConditionImplBase condition = conditionList.get(i);
+            boolean conditionMatches = condition.mapMatchesAny(map);
+            if (conditionMatches) return true;
+        }
+        // if we got here it means that it's an OR with no trues, or an AND with no falses
+        return false;
+    }
 
     @Override
     public boolean populateMap(Map<String, Object> map) {
         if (operator != AND) return false;
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (!condition.populateMap(map)) return false;
         }
@@ -101,8 +118,7 @@ public class ListCondition extends EntityConditionImplBase {
     }
 
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             condition.getAllAliases(entityAliasSet, fieldAliasSet);
         }
@@ -114,8 +130,7 @@ public class ListCondition extends EntityConditionImplBase {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        int clSize = conditionList.size();
-        for (int i = 0; i < clSize; i++) {
+        for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (sb.length() > 0) sb.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
             sb.append('(').append(condition.toString()).append(')');
@@ -124,12 +139,8 @@ public class ListCondition extends EntityConditionImplBase {
     }
 
     @Override
-    public int hashCode() {
-        if (curHashCode != null) return curHashCode;
-        curHashCode = createHashCode();
-        return curHashCode;
-    }
-    protected int createHashCode() {
+    public int hashCode() { return curHashCode; }
+    private int createHashCode() {
         return (conditionList != null ? conditionList.hashCode() : 0) + operator.hashCode();
     }
 
@@ -141,5 +152,18 @@ public class ListCondition extends EntityConditionImplBase {
         if (this.operator != that.operator) return false;
         if (!this.conditionList.equals(that.conditionList)) return false;
         return true;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        out.writeObject(conditionList);
+        out.writeObject(operator.name().toCharArray());
+    }
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        conditionList = (ArrayList<EntityConditionImplBase>) in.readObject();
+        operator = JoinOperator.valueOf(new String((char[]) in.readObject()));
+        curHashCode = createHashCode();
+        conditionListSize = conditionList != null ? conditionList.size() : 0;
     }
 }

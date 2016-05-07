@@ -13,6 +13,11 @@
  */
 package org.moqui.impl.context
 
+import com.hazelcast.config.Config
+import com.hazelcast.config.XmlConfigBuilder
+import com.hazelcast.core.Hazelcast
+import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.ITopic
 import groovy.transform.CompileStatic
 import org.apache.camel.CamelContext
 import org.apache.camel.impl.DefaultCamelContext
@@ -43,6 +48,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
+import org.moqui.impl.entity.EntityCache
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
@@ -56,6 +62,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
@@ -97,16 +104,23 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected MoquiServiceComponent moquiServiceComponent
     protected Map<String, MoquiServiceConsumer> camelConsumerByUriMap = new HashMap<String, MoquiServiceConsumer>()
 
-    /* ElasticSearch fields */
-    org.elasticsearch.node.Node elasticSearchNode
-    Client elasticSearchClient
+    /** ElasticSearch Node */
+    protected org.elasticsearch.node.Node elasticSearchNode
+    /** ElasticSearch Client */
+    protected Client elasticSearchClient
 
-    /* Jackrabbit fields */
-    Process jackrabbitProcess
+    /** Jackrabbit Process */
+    protected Process jackrabbitProcess
 
-    /* KIE fields */
-    protected final Cache kieComponentReleaseIdCache
-    protected final Cache kieSessionComponentCache
+    /** Hazelcast Instance */
+    protected HazelcastInstance hazelcastInstance
+    /** Entity Cache Invalidate Hazelcase Topic */
+    ITopic<EntityCache.EntityCacheInvalidate> entityCacheInvalidateTopic
+
+    /** KIE ReleaseId Cache */
+    protected final Cache<String, ReleaseId> kieComponentReleaseIdCache
+    /** KIE Component Cache */
+    protected final Cache<String, String> kieSessionComponentCache
 
     // ======== Permanent Delegated Facades ========
     protected final CacheFacadeImpl cacheFacade
@@ -190,14 +204,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
-        logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
 
-        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
-        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component")
+        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
+        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
     }
@@ -234,13 +247,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Moqui TransactionFacadeImpl Initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
-        logger.info("Moqui EntityFacadeImpl for DEFAULT Tenant Initialized")
         this.serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Moqui ServiceFacadeImpl Initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Moqui ScreenFacadeImpl Initialized")
 
-        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId")
+        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
+        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
     }
@@ -265,6 +278,19 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         initComponents()
         // init ClassLoader early so that classpath:// resources and framework interface impls will work
         initClassLoader()
+
+        // initialize Hazelcast (pre-Facade so before CacheFacade, etc); using hazelcast.xml on the classpath for config
+        Config hzConfig
+        if (System.getProperty("hazelcast.config")) {
+            logger.info("Starting Hazelcast with hazelcast.config system property (${System.getProperty("hazelcast.config")})")
+            hzConfig = new Config("moqui")
+        } else {
+            logger.info("Starting Hazelcast with hazelcast.xml from classpath")
+            hzConfig = new XmlConfigBuilder(cachedClassLoader.getResourceAsStream("hazelcast.xml")).build()
+            hzConfig.setInstanceName("moqui")
+        }
+        hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(hzConfig)
+
         // setup the CamelContext, but don't init yet
         camelContext = new DefaultCamelContext()
     }
@@ -282,21 +308,28 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init KIE (build modules for all components)
         initKie()
 
-        // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
-        // load entity defs
-        long entityStartTime = System.currentTimeMillis()
-        this.entityFacade.loadAllEntityLocations()
-        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
-        // load/warm framework entities
-        this.entityFacade.loadFrameworkEntities()
-        logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
         // init ESAPI
         StupidWebUtilities.canonicalizeValue("test")
 
+        // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
+        // load entity defs
+        long entityStartTime = System.currentTimeMillis()
+        EntityFacadeImpl defaultEfi = getEntityFacade("DEFAULT")
+        defaultEfi.loadAllEntityLocations()
+        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
+        // load/warm framework entities
+        defaultEfi.loadFrameworkEntities()
+        logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
+
         // now that everything is started up, if configured check all entity tables
-        this.entityFacade.checkInitDatasourceTables()
+        defaultEfi.checkInitDatasourceTables()
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
-        this.entityFacade.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
+        defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
+
+        // register EntityCacheListener
+        entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
+        EntityCache.EntityCacheListener eciListener = new EntityCache.EntityCacheListener(this)
+        entityCacheInvalidateTopic.addMessageListener(eciListener)
 
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
@@ -346,7 +379,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // now setup the CachedClassLoader, this should init in the main thread so we can set it properly
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         cachedClassLoader = new StupidClassLoader(pcl)
-        Thread.currentThread().setContextClassLoader(cachedClassLoader)
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
@@ -360,6 +392,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
+        // set as context classloader
+        Thread.currentThread().setContextClassLoader(cachedClassLoader)
     }
 
     /** this is called by the ResourceFacadeImpl constructor right after the ResourceReference classes are loaded but before ScriptRunners and TemplateRenderers */
@@ -443,7 +477,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
 
-        // stop ElasticSearch
+        // stop ElasticSearch, before stopping other things so it doesn't use anything
         if (elasticSearchNode != null) try {
             elasticSearchNode.close()
             while (!elasticSearchNode.isClosed()) {
@@ -476,6 +510,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (this.transactionFacade != null) this.transactionFacade.destroy()
         if (this.cacheFacade != null) this.cacheFacade.destroy()
         logger.info("Facades destroyed")
+
+        // shutdown hazelcast
+        if (hazelcastInstance != null) hazelcastInstance.shutdown()
 
         activeContext.remove()
 
@@ -571,7 +608,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         efi = new EntityFacadeImpl(this, tenantId)
         this.entityFacadeByTenantMap.put(tenantId, efi)
-        logger.info("Moqui EntityFacadeImpl for Tenant [${tenantId}] Initialized")
+        logger.info("Moqui EntityFacadeImpl for Tenant ${tenantId} Initialized")
         return efi
     }
 
@@ -617,6 +654,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.info("ElasticSearch disabled, not starting")
         }
     }
+
+    @Override
+    HazelcastInstance getHazelcastInstance() { return hazelcastInstance }
+    ITopic<EntityCache.EntityCacheInvalidate> getEntityCacheInvalidateTopic() { return entityCacheInvalidateTopic }
 
     protected void initJackrabbit() {
         if (confXmlRoot.first("tools").attribute("run-jackrabbit") == "true") {
@@ -1294,12 +1335,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Configuration File Merging Methods ==========
 
     protected void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
-        mergeSingleChild(baseNode, overrideNode, "tools")
+        baseNode.mergeSingleChild(overrideNode, "tools")
 
-        if (overrideNode.hasChild("cache-list")) {
-            mergeNodeWithChildKey(baseNode.first("cache-list"), overrideNode.first("cache-list"), "cache", "name")
-        }
-        
+        baseNode.mergeChildWithChildKey(overrideNode, "cache-list", "cache", "name", null)
+
         if (overrideNode.hasChild("server-stats")) {
             // the artifact-stats nodes have 2 keys: type, sub-type; can't use the normal method
             MNode ssNode = baseNode.first("server-stats")
@@ -1321,60 +1360,50 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
-        if (overrideNode.hasChild("webapp-list")) {
-            mergeNodeWithChildKey(baseNode.first("webapp-list"), overrideNode.first("webapp-list"), "webapp", "name")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "webapp-list", "webapp", "name",
+                { MNode childBaseNode, MNode childOverrideNode -> mergeWebappChildNodes(childBaseNode, childOverrideNode) })
 
-        if (overrideNode.hasChild("artifact-execution-facade")) {
-            mergeNodeWithChildKey(baseNode.first("artifact-execution-facade"),
-                    overrideNode.first("artifact-execution-facade"), "artifact-execution", "type")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "artifact-execution-facade", "artifact-execution", "type", null)
 
         if (overrideNode.hasChild("user-facade")) {
             MNode ufBaseNode = baseNode.first("user-facade")
             MNode ufOverrideNode = overrideNode.first("user-facade")
-            mergeSingleChild(ufBaseNode, ufOverrideNode, "password")
-            mergeSingleChild(ufBaseNode, ufOverrideNode, "login-key")
-            mergeSingleChild(ufBaseNode, ufOverrideNode, "login")
+            ufBaseNode.mergeSingleChild(ufOverrideNode, "password")
+            ufBaseNode.mergeSingleChild(ufOverrideNode, "login-key")
+            ufBaseNode.mergeSingleChild(ufOverrideNode, "login")
         }
 
         if (overrideNode.hasChild("transaction-facade")) {
             MNode tfBaseNode = baseNode.first("transaction-facade")
             MNode tfOverrideNode = overrideNode.first("transaction-facade")
             tfBaseNode.attributes.putAll(tfOverrideNode.attributes)
-            mergeSingleChild(tfBaseNode, tfOverrideNode, "server-jndi")
-            mergeSingleChild(tfBaseNode, tfOverrideNode, "transaction-jndi")
-            mergeSingleChild(tfBaseNode, tfOverrideNode, "transaction-internal")
+            tfBaseNode.mergeSingleChild(tfOverrideNode, "server-jndi")
+            tfBaseNode.mergeSingleChild(tfOverrideNode, "transaction-jndi")
+            tfBaseNode.mergeSingleChild(tfOverrideNode, "transaction-internal")
         }
 
         if (overrideNode.hasChild("resource-facade")) {
-            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
-                    "resource-reference", "scheme")
-            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
-                    "template-renderer", "extension")
-            mergeNodeWithChildKey(baseNode.first("resource-facade"), overrideNode.first("resource-facade"),
-                    "script-runner", "extension")
+            baseNode.mergeChildWithChildKey(overrideNode, "resource-facade", "resource-reference", "scheme", null)
+            baseNode.mergeChildWithChildKey(overrideNode, "resource-facade", "template-renderer", "extension", null)
+            baseNode.mergeChildWithChildKey(overrideNode, "resource-facade", "script-runner", "extension", null)
         }
 
-        if (overrideNode.hasChild("screen-facade")) {
-            mergeNodeWithChildKey(baseNode.first("screen-facade"), overrideNode.first("screen-facade"),
-                    "screen-text-output", "type")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "screen-facade", "screen-text-output", "type", null)
 
         if (overrideNode.hasChild("service-facade")) {
             MNode sfBaseNode = baseNode.first("service-facade")
             MNode sfOverrideNode = overrideNode.first("service-facade")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-location", "name")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-type", "name")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "service-file", "location")
-            mergeNodeWithChildKey(sfBaseNode, sfOverrideNode, "startup-service", "name")
+            sfBaseNode.mergeNodeWithChildKey(sfOverrideNode, "service-location", "name", null)
+            sfBaseNode.mergeChildrenByKey(sfOverrideNode, "service-type", "name", null)
+            sfBaseNode.mergeChildrenByKey(sfOverrideNode, "service-file", "location", null)
+            sfBaseNode.mergeChildrenByKey(sfOverrideNode, "startup-service", "name", null)
 
             // handle thread-pool
             MNode tpOverrideNode = sfOverrideNode.first("thread-pool")
             if (tpOverrideNode) {
                 MNode tpBaseNode = sfBaseNode.first("thread-pool")
                 if (tpBaseNode) {
-                    mergeNodeWithChildKey(tpBaseNode, tpOverrideNode, "run-from-pool", "name")
+                    tpBaseNode.mergeNodeWithChildKey(tpOverrideNode, "run-from-pool", "name", null)
                 } else {
                     sfBaseNode.append(tpOverrideNode)
                 }
@@ -1389,21 +1418,33 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (overrideNode.hasChild("entity-facade")) {
             MNode efBaseNode = baseNode.first("entity-facade")
             MNode efOverrideNode = overrideNode.first("entity-facade")
-            mergeNodeWithChildKey(efBaseNode, efOverrideNode, "datasource", "group-name")
-            mergeSingleChild(efBaseNode, efOverrideNode, "server-jndi")
+            efBaseNode.mergeNodeWithChildKey(efOverrideNode, "datasource", "group-name", { MNode childBaseNode, MNode childOverrideNode ->
+                // handle the jndi-jdbc and inline-jdbc nodes: if either exist in override have it totally remove both from base, then copy over
+                if (childOverrideNode.hasChild("jndi-jdbc") || childOverrideNode.hasChild("inline-jdbc")) {
+                    childBaseNode.remove("jndi-jdbc")
+                    childBaseNode.remove("inline-jdbc")
+
+                    if (childOverrideNode.hasChild("inline-jdbc")) {
+                        childBaseNode.append(childOverrideNode.first("inline-jdbc"))
+                    } else if (childOverrideNode.hasChild("jndi-jdbc")) {
+                        childBaseNode.append(childOverrideNode.first("jndi-jdbc"))
+                    }
+                }
+            })
+            efBaseNode.mergeSingleChild(efOverrideNode, "server-jndi")
             // for load-entity and load-data just copy over override nodes
             for (MNode copyNode in efOverrideNode.children("load-entity")) efBaseNode.append(copyNode)
             for (MNode copyNode in efOverrideNode.children("load-data")) efBaseNode.append(copyNode)
         }
 
         if (overrideNode.hasChild("database-list")) {
-            mergeNodeWithChildKey(baseNode.first("database-list"), overrideNode.first("database-list"), "dictionary-type", "type")
-            mergeNodeWithChildKey(baseNode.first("database-list"), overrideNode.first("database-list"), "database", "name")
+            baseNode.mergeChildWithChildKey(overrideNode, "database-list", "dictionary-type", "type", null)
+            // handle database-list -> database, database -> database-type@type
+            baseNode.mergeChildWithChildKey(overrideNode, "database-list", "database", "name",
+                    { MNode childBaseNode, MNode childOverrideNode -> childBaseNode.mergeNodeWithChildKey(childOverrideNode, "database-type", "type", null) })
         }
 
-        if (overrideNode.hasChild("repository-list")) {
-            mergeNodeWithChildKey(baseNode.first("repository-list"), overrideNode.first("repository-list"), "repository", "name")
-        }
+        baseNode.mergeChildWithChildKey(overrideNode, "repository-list", "repository", "name", null)
 
         if (overrideNode.hasChild("component-list")) {
             if (!baseNode.hasChild("component-list")) baseNode.append("component-list", null)
@@ -1414,58 +1455,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    protected static void mergeSingleChild(MNode baseNode, MNode overrideNode, String childNodeName) {
-        MNode childOverrideNode = overrideNode.first(childNodeName)
-        if (childOverrideNode) {
-            MNode childBaseNode = baseNode.first(childNodeName)
-            if (childBaseNode != null) {
-                childBaseNode.attributes.putAll(childOverrideNode.attributes)
-            } else {
-                baseNode.append(childOverrideNode)
-            }
-        }
-    }
-
-    protected void mergeNodeWithChildKey(MNode baseNode, MNode overrideNode, String childNodesName, String keyAttributeName) {
-        // override attributes for this node
-        baseNode.attributes.putAll(overrideNode.attributes)
-
-        for (MNode childOverrideNode in overrideNode.children(childNodesName)) {
-            String keyValue = childOverrideNode.attribute(keyAttributeName)
-            MNode childBaseNode = baseNode.first({ MNode it -> it.name == childNodesName && it.attribute(keyAttributeName) == keyValue })
-
-            if (childBaseNode) {
-                // merge the node attributes
-                childBaseNode.attributes.putAll(childOverrideNode.attributes)
-
-                // merge child nodes for specific nodes
-                if ("webapp" == childNodesName) {
-                    mergeWebappChildNodes(childBaseNode, childOverrideNode)
-                } else if ("database" == childNodesName) {
-                    // handle database -> database-type@type
-                    mergeNodeWithChildKey(childBaseNode, childOverrideNode, "database-type", "type")
-                } else if ("datasource" == childNodesName) {
-                    // handle the jndi-jdbc and inline-jdbc nodes: if either exist in override have it totally remove both from base, then copy over
-                    if (childOverrideNode.hasChild("jndi-jdbc") || childOverrideNode.hasChild("inline-jdbc")) {
-                        childBaseNode.remove("jndi-jdbc")
-                        childBaseNode.remove("inline-jdbc")
-
-                        if (childOverrideNode.hasChild("inline-jdbc")) {
-                            childBaseNode.append(childOverrideNode.first("inline-jdbc"))
-                        } else if (childOverrideNode.hasChild("jndi-jdbc")) {
-                            childBaseNode.append(childOverrideNode.first("jndi-jdbc"))
-                        }
-                    }
-                }
-            } else {
-                // no matching child base node, so add a new one
-                baseNode.append(childOverrideNode)
-            }
-        }
-    }
-
-    protected void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
-        mergeNodeWithChildKey(baseNode, overrideNode, "root-screen", "host")
+    protected static void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
+        baseNode.mergeNodeWithChildKey(overrideNode, "root-screen", "host", null)
         // handle webapp -> first-hit-in-visit[1], after-request[1], before-request[1], after-login[1], before-logout[1], root-screen[1]
         mergeWebappActions(baseNode, overrideNode, "first-hit-in-visit")
         mergeWebappActions(baseNode, overrideNode, "after-request")

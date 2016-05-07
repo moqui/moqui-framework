@@ -72,13 +72,17 @@ public class StupidJavaUtilities {
         return false;
     }
 
-    public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
+    public static Class getClass(String javaType) {
         Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
         if (theClass == null) {
             try {
-                theClass = StupidJavaUtilities.class.getClassLoader().loadClass(javaType);
+                theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);
             } catch (ClassNotFoundException e) { /* ignore */ }
         }
+        return theClass;
+    }
+    public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
+        Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
         if (theClass == null) {
             try {
                 theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);

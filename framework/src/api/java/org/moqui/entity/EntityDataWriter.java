@@ -57,6 +57,10 @@ public interface EntityDataWriter {
      * what is desired). */
     EntityDataWriter dependentLevels(int levels);
 
+    /** The name of a master definition, applied to all written entities that have a matching master definition otherwise
+     * just the single record is written, or dependent records if dependentREcords or dependentLevels options specified. */
+    EntityDataWriter master(String masterName);
+
     /** A Map of field name, value pairs to filter the results by. Each name/value only used on entities that have a
      * field matching the name.
      * @param filterMap Map with name/value pairs to filter by

@@ -14,12 +14,12 @@
 package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.StupidJavaUtilities
 
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.InvocationTargetException
 
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
@@ -30,13 +30,11 @@ import org.moqui.context.ContextStack
 @CompileStatic
 public class JavaServiceRunner implements ServiceRunner {
     protected ServiceFacadeImpl sfi
-    protected Cache classCache
 
     JavaServiceRunner() {}
 
     public ServiceRunner init(ServiceFacadeImpl sfi) {
         this.sfi = sfi
-        classCache = sfi.ecfi.getCacheFacade().getCache("service.java.class")
         return this
     }
 
@@ -53,15 +51,12 @@ public class JavaServiceRunner implements ServiceRunner {
             cs.pushContext()
             // we have an empty context so add the ec
             cs.put("ec", ec)
-            // now add the parameters to this service call
-            cs.push(parameters)
-            // push again to get a new Map that will protect the parameters Map passed in
-            cs.push()
+            // now add the parameters to this service call; copy instead of pushing, faster with newer ContextStack
+            cs.putAll(parameters)
 
-            Class c = (Class) classCache.get(sd.location)
+            Class c = (Class) StupidJavaUtilities.getClass(sd.location)
             if (!c) {
                 c = Thread.currentThread().getContextClassLoader().loadClass(sd.location)
-                classCache.put(sd.location, c)
             }
             Method m = c.getMethod(sd.serviceNode.attribute("method"), ExecutionContext.class)
             if (Modifier.isStatic(m.getModifiers())) {

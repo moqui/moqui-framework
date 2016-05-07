@@ -15,10 +15,10 @@ package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
-import org.moqui.context.ExecutionContext
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.context.ContextStack
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -117,7 +117,7 @@ class ScreenSection {
     @CompileStatic
     protected void renderSingle(ScreenRenderImpl sri) {
         if (logger.traceEnabled) logger.trace("Begin rendering screen section at [${location}]")
-        ExecutionContext ec = sri.getEc()
+        ExecutionContextImpl ec = sri.getEc()
         boolean conditionPassed = true
         boolean skipActions = sri.sfi.isRenderModeSkipActions(sri.renderMode)
         if (!skipActions) {

@@ -15,10 +15,10 @@ package org.moqui.impl.service
 
 import groovy.json.JsonBuilder
 import groovy.transform.CompileStatic
-import org.moqui.context.Cache
 import org.moqui.context.ResourceReference
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.RestClient
@@ -42,9 +42,9 @@ import org.quartz.Trigger
 import org.quartz.TriggerKey
 import org.quartz.TriggerListener
 import org.quartz.impl.StdSchedulerFactory
+
+import javax.cache.Cache
 import javax.mail.internet.MimeMessage
-import org.moqui.context.ExecutionContext
-import org.moqui.BaseException
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -60,7 +60,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected final Cache serviceLocationCache
+    protected final Cache<String, ServiceDefinition> serviceLocationCache
 
     protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
@@ -75,7 +75,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     ServiceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        this.serviceLocationCache = ecfi.getCacheFacade().getCache("service.location")
+        this.serviceLocationCache = ecfi.getCacheFacade().getCache("service.location", String.class, ServiceDefinition.class)
 
         // load Service ECA rules
         loadSecaRulesAll()
@@ -381,10 +381,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
         ArrayList<ServiceEcaRule> lst = (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
         if (lst != null && lst.size() > 0) {
-            ExecutionContext ec = ecfi.getExecutionContext()
+            ExecutionContextImpl eci = ecfi.getEci()
             for (int i = 0; i < lst.size(); i++) {
                 ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
-                ser.runIfMatches(serviceName, parameters, results, when, ec)
+                ser.runIfMatches(serviceName, parameters, results, when, eci)
             }
         }
     }
@@ -438,8 +438,8 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     @CompileStatic
     void runEmecaRules(MimeMessage message, String emailServerId) {
-        ExecutionContext ec = ecfi.executionContext
-        for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, ec)
+        ExecutionContextImpl eci = ecfi.getEci()
+        for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, eci)
     }
 
     @Override
@@ -482,12 +482,14 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     void callRegisteredCallbacks(String serviceName, Map<String, Object> context, Map<String, Object> result) {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
-        if (callbackList) for (ServiceCallback scb in callbackList) scb.receiveEvent(context, result)
+        if (callbackList != null && callbackList.size() > 0)
+            for (ServiceCallback scb in callbackList) scb.receiveEvent(context, result)
     }
 
     void callRegisteredCallbacksThrowable(String serviceName, Map<String, Object> context, Throwable t) {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
-        if (callbackList) for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
+        if (callbackList != null && callbackList.size() > 0)
+            for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
     }
 
     @Override

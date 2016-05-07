@@ -25,7 +25,7 @@ import java.util.jar.Manifest;
 
 public class StupidClassLoader extends ClassLoader {
     public static final Map<String, Class<?>> commonJavaClassesMap = createCommonJavaClassesMap();
-    protected static Map<String, Class<?>> createCommonJavaClassesMap() {
+    private static Map<String, Class<?>> createCommonJavaClassesMap() {
         Map<String, Class<?>> m = new HashMap<>();
         m.put("java.lang.String",java.lang.String.class); m.put("String", java.lang.String.class);
         m.put("java.lang.CharSequence",java.lang.CharSequence.class); m.put("CharSequence", java.lang.CharSequence.class);
@@ -49,25 +49,28 @@ public class StupidClassLoader extends ClassLoader {
         m.put("java.util.Date", java.util.Date.class);
         m.put("java.util.Collection", java.util.Collection.class); m.put("Collection", java.util.Collection.class);
         m.put("java.util.List", java.util.List.class); m.put("List", java.util.List.class);
+        m.put("java.util.ArrayList", java.util.ArrayList.class); m.put("ArrayList", java.util.ArrayList.class);
         m.put("java.util.Map", java.util.Map.class); m.put("Map", java.util.Map.class); m.put("java.util.HashMap", java.util.HashMap.class);
         m.put("java.util.Set", java.util.Set.class); m.put("Set", java.util.Set.class); m.put("java.util.HashSet", java.util.HashSet.class);
         m.put("groovy.util.Node", groovy.util.Node.class); m.put("Node", groovy.util.Node.class);
+        m.put("org.moqui.util.MNode", org.moqui.util.MNode.class); m.put("MNode", org.moqui.util.MNode.class);
         m.put(Boolean.TYPE.getName(), Boolean.TYPE); m.put(Short.TYPE.getName(), Short.TYPE);
         m.put(Integer.TYPE.getName(), Integer.TYPE); m.put(Long.TYPE.getName(), Long.TYPE);
         m.put(Float.TYPE.getName(), Float.TYPE); m.put(Double.TYPE.getName(), Double.TYPE);
         m.put(Byte.TYPE.getName(), Byte.TYPE); m.put(Character.TYPE.getName(), Character.TYPE);
         m.put("org.moqui.entity.EntityValue", org.moqui.entity.EntityValue.class); m.put("EntityValue", org.moqui.entity.EntityValue.class);
         m.put("org.moqui.entity.EntityList", org.moqui.entity.EntityList.class); m.put("EntityList", org.moqui.entity.EntityList.class);
+        m.put("long[]", long[].class); m.put("char[]", char[].class);
         return m;
     }
 
-    protected final ArrayList<JarFile> jarFileList = new ArrayList<>();
-    protected final ArrayList<File> classesDirectoryList = new ArrayList<>();
+    private final ArrayList<JarFile> jarFileList = new ArrayList<>();
+    private final ArrayList<File> classesDirectoryList = new ArrayList<>();
     // This Map contains either a Class or a ClassNotFoundException, cached for fast access because Groovy hits a LOT of
     //     weird invalid class names resulting in expensive new ClassNotFoundException instances
-    protected final Map<String, Object> classCache = new HashMap<>();
-    protected final Map<String, URL> resourceCache = new HashMap<>();
-    protected ProtectionDomain pd;
+    private final Map<String, Object> classCache = new HashMap<>();
+    private final Map<String, URL> resourceCache = new HashMap<>();
+    private ProtectionDomain pd;
 
     public StupidClassLoader(ClassLoader parent) {
         super(parent);

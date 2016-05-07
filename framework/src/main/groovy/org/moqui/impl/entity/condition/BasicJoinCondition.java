@@ -17,24 +17,27 @@ import org.moqui.entity.EntityCondition;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
 
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.Map;
 import java.util.Set;
 
-public class BasicJoinCondition extends EntityConditionImplBase {
+public class BasicJoinCondition implements EntityConditionImplBase {
     protected EntityConditionImplBase lhs;
-    protected EntityCondition.JoinOperator operator;
+    protected JoinOperator operator;
     protected EntityConditionImplBase rhs;
+    private int curHashCode;
     protected static final Class thisClass = BasicJoinCondition.class;
 
-    public BasicJoinCondition(EntityConditionFactoryImpl ecFactoryImpl,
-            EntityConditionImplBase lhs, EntityCondition.JoinOperator operator, EntityConditionImplBase rhs) {
-        super(ecFactoryImpl);
+    public BasicJoinCondition(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
         this.lhs = lhs;
         this.operator = operator != null ? operator : AND;
         this.rhs = rhs;
+        curHashCode = createHashCode();
     }
 
-    public EntityCondition.JoinOperator getOperator() { return operator; }
+    public JoinOperator getOperator() { return operator; }
     public EntityConditionImplBase getLhs() { return lhs; }
     public EntityConditionImplBase getRhs() { return rhs; }
 
@@ -42,15 +45,15 @@ public class BasicJoinCondition extends EntityConditionImplBase {
     public void makeSqlWhere(EntityQueryBuilder eqb) {
         StringBuilder sql = eqb.getSqlTopLevel();
         sql.append('(');
-        this.lhs.makeSqlWhere(eqb);
+        lhs.makeSqlWhere(eqb);
         sql.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
-        this.rhs.makeSqlWhere(eqb);
+        rhs.makeSqlWhere(eqb);
         sql.append(')');
     }
 
     @Override
     public boolean mapMatches(Map<String, Object> map) {
-        boolean lhsMatches = this.lhs.mapMatches(map);
+        boolean lhsMatches = lhs.mapMatches(map);
 
         // handle cases where we don't need to evaluate rhs
         if (lhsMatches && operator == OR) return true;
@@ -59,7 +62,11 @@ public class BasicJoinCondition extends EntityConditionImplBase {
         // handle opposite cases since we know cases above aren't true (ie if OR then lhs=false, if AND then lhs=true
         // if rhs then result is true whether AND or OR
         // if !rhs then result is false whether AND or OR
-        return this.rhs.mapMatches(map);
+        return rhs.mapMatches(map);
+    }
+    @Override
+    public boolean mapMatchesAny(Map<String, Object> map) {
+        return lhs.mapMatchesAny(map) || rhs.mapMatchesAny(map);
     }
 
     @Override
@@ -74,7 +81,7 @@ public class BasicJoinCondition extends EntityConditionImplBase {
     }
 
     @Override
-    public EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition."); }
+    public EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for BasicJoinCondition"); }
 
     @Override
     public String toString() {
@@ -83,7 +90,8 @@ public class BasicJoinCondition extends EntityConditionImplBase {
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode() { return curHashCode; }
+    private int createHashCode() {
         return (lhs != null ? lhs.hashCode() : 0) + operator.hashCode() + (rhs != null ? rhs.hashCode() : 0);
     }
 
@@ -96,5 +104,19 @@ public class BasicJoinCondition extends EntityConditionImplBase {
         if (this.operator != that.operator) return false;
         if (!this.rhs.equals(that.rhs)) return false;
         return true;
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        out.writeObject(lhs);
+        out.writeUTF(operator.name());
+        out.writeObject(rhs);
+    }
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        lhs = (EntityConditionImplBase) in.readObject();
+        operator = JoinOperator.valueOf(in.readUTF());
+        rhs = (EntityConditionImplBase) in.readObject();
+        curHashCode = createHashCode();
     }
 }

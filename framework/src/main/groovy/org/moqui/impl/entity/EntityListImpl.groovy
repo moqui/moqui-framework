@@ -14,6 +14,8 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.Moqui
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 
 import java.sql.Timestamp
 
@@ -30,23 +32,43 @@ import org.slf4j.LoggerFactory
 class EntityListImpl implements EntityList {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class)
 
-    // no longer used: public static final EntityList EMPTY = new EmptyEntityList()
-
-    protected EntityFacadeImpl efi
+    protected transient EntityFacadeImpl efiTransient
+    protected String tenantId
 
     protected ArrayList<EntityValue> valueList
     protected boolean fromCache = false
     protected Integer offset = null
     protected Integer limit = null
 
+    /** Default constructor for deserialization ONLY. */
+    EntityListImpl() { }
+
     EntityListImpl(EntityFacadeImpl efi) {
-        this.efi = efi
+        this.efiTransient = efi
+        tenantId = efi.getTenantId()
         valueList = new ArrayList<EntityValue>(30) // default size, at least enough for common pagination
     }
-
     EntityListImpl(EntityFacadeImpl efi, int initialCapacity) {
-        this.efi = efi
+        this.efiTransient = efi
+        tenantId = efi.getTenantId()
         valueList = new ArrayList<EntityValue>(initialCapacity)
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        out.writeObject(tenantId.toCharArray())
+        out.writeObject(valueList)
+        // don't serialize fromCache, will default back to false which is fine for a copy
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        tenantId = new String((char[]) objectInput.readObject())
+        valueList = (ArrayList<EntityValue>) objectInput.readObject()
+    }
+
+    EntityFacadeImpl getEfi() {
+        if (efiTransient == null) efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade(tenantId)
+        return efiTransient
     }
 
     @Override
@@ -430,6 +452,11 @@ class EntityListImpl implements EntityList {
         protected Integer limit = null
 
         EmptyEntityList() { }
+
+        @Override
+        void writeExternal(ObjectOutput out) throws IOException { }
+        @Override
+        void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException { }
 
         EntityValue getFirst() { return null }
         EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment) { return this }

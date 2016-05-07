@@ -12,22 +12,22 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-import spock.lang.*
 
-import org.moqui.context.ExecutionContext
 import org.moqui.Moqui
-import org.moqui.context.Cache
+import org.moqui.context.ExecutionContext
+import org.moqui.jcache.MCache
+import spock.lang.*
 
 class CacheFacadeTests extends Specification {
     @Shared
     ExecutionContext ec
     @Shared
-    Cache testCache
+    MCache testCache
 
     def setupSpec() {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
-        testCache = ec.cache.getCache("CacheFacadeTests")
+        testCache = ec.cache.getLocalCache("CacheFacadeTests")
     }
 
     def cleanupSpec() {
@@ -37,16 +37,17 @@ class CacheFacadeTests extends Specification {
     def "add cache element"() {
         when:
         testCache.put("key1", "value1")
-        int hitCountBefore = testCache.getHitCount()
+        int hitCountBefore = testCache.stats.getCacheHits()
 
         then:
         testCache.get("key1") == "value1"
-        testCache.getHitCount() == hitCountBefore + 1
+        testCache.stats.getCacheHits() == hitCountBefore + 1
 
         cleanup:
         testCache.clear()
     }
 
+    /* New caches doesn't support this (local/MCache doesn't support size limit, distributed/Hazelcast can't be changed on the fly like this:
     def "overflow cache size limit"() {
         when:
         testCache.setMaxElements(3, Cache.LEAST_RECENTLY_ADDED)
@@ -74,10 +75,11 @@ class CacheFacadeTests extends Specification {
         // go back to size limit defaults
         testCache.setMaxElements(10000, Cache.LEAST_RECENTLY_USED)
     }
+    */
 
     def "get cache concurrently"() {
         def getCache = {
-            ec.cache.getCache("CacheFacadeConcurrencyTests")
+            ec.cache.getLocalCache("CacheFacadeConcurrencyTests")
         }
         when:
         def caches = ConcurrentExecution.executeConcurrently(10, getCache)
@@ -86,7 +88,7 @@ class CacheFacadeTests extends Specification {
         caches.size == 10
         // all elements must be instances of the Cache class, no exceptions or nulls
         caches.every { item ->
-            item instanceof Cache
+            item instanceof MCache
         }
         // all elements must be references to the same object
         caches.every { item ->

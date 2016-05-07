@@ -18,7 +18,6 @@ import groovy.transform.CompileStatic
 import org.moqui.context.ResourceReference
 import org.moqui.screen.ScreenFacade
 import org.moqui.screen.ScreenRender
-import org.moqui.context.Cache
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
@@ -27,42 +26,44 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
 @CompileStatic
 public class ScreenFacadeImpl implements ScreenFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenFacadeImpl.class)
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected final Cache screenLocationCache
-    protected final Cache screenLocationPermCache
+    protected final Cache<String, ScreenDefinition> screenLocationCache
+    protected final Cache<String, ScreenDefinition> screenLocationPermCache
     // used by ScreenUrlInfo
-    final Cache screenUrlCache
-    protected final Cache screenInfoCache
-    protected final Cache screenInfoRefRevCache
-    protected final Cache screenTemplateModeCache
+    final Cache<String, ScreenUrlInfo> screenUrlCache
+    protected final Cache<String, List<ScreenInfo>> screenInfoCache
+    protected final Cache<String, Set<String>> screenInfoRefRevCache
+    protected final Cache<String, Template> screenTemplateModeCache
     protected final Map<String, String> mimeTypeByRenderMode = new HashMap<>()
     protected final Map<String, Boolean> alwaysStandaloneByRenderMode = new HashMap<>()
     protected final Map<String, Boolean> skipActionsByRenderMode = new HashMap<>()
-    protected final Cache screenTemplateLocationCache
-    protected final Cache widgetTemplateLocationCache
-    protected final Cache screenFindPathCache
-    protected final Cache dbFormNodeByIdCache
+    protected final Cache<String, Template> screenTemplateLocationCache
+    protected final Cache<String, MNode> widgetTemplateLocationCache
+    protected final Cache<String, ArrayList<String>> screenFindPathCache
+    protected final Cache<String, MNode> dbFormNodeByIdCache
 
     protected final Map<String, Map<String, String>> themeIconByTextByTheme = new HashMap<>()
     protected final Map<String, MNode> webappNodeByName = new HashMap<>()
 
     ScreenFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        screenLocationCache = ecfi.cacheFacade.getCache("screen.location")
-        screenLocationPermCache = ecfi.cacheFacade.getCache("screen.location.perm")
-        screenUrlCache = ecfi.cacheFacade.getCache("screen.url")
-        screenInfoCache = ecfi.cacheFacade.getCache("screen.info")
-        screenInfoRefRevCache = ecfi.cacheFacade.getCache("screen.info.ref.rev")
-        screenTemplateModeCache = ecfi.cacheFacade.getCache("screen.template.mode")
-        screenTemplateLocationCache = ecfi.cacheFacade.getCache("screen.template.location")
-        widgetTemplateLocationCache = ecfi.cacheFacade.getCache("widget.template.location")
-        screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path")
-        dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node")
+        screenLocationCache = ecfi.cacheFacade.getCache("screen.location", String.class, ScreenDefinition.class)
+        screenLocationPermCache = ecfi.cacheFacade.getCache("screen.location.perm", String.class, ScreenDefinition.class)
+        screenUrlCache = ecfi.cacheFacade.getCache("screen.url", String.class, ScreenUrlInfo.class)
+        screenInfoCache = ecfi.cacheFacade.getCache("screen.info", String.class, List.class)
+        screenInfoRefRevCache = ecfi.cacheFacade.getCache("screen.info.ref.rev", String.class, Set.class)
+        screenTemplateModeCache = ecfi.cacheFacade.getCache("screen.template.mode", String.class, Template.class)
+        screenTemplateLocationCache = ecfi.cacheFacade.getCache("screen.template.location", String.class, Template.class)
+        widgetTemplateLocationCache = ecfi.cacheFacade.getCache("widget.template.location", String.class, MNode.class)
+        screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path", String.class, ArrayList.class)
+        dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node", String.class, MNode.class)
 
         for (MNode webappNode in ecfi.confXmlRoot.first("webapp-list").children("webapp"))
             webappNodeByName.put(webappNode.attribute("name"), webappNode)
@@ -143,10 +144,10 @@ public class ScreenFacadeImpl implements ScreenFacade {
         ResourceReference screenRr = ecfi.getResourceFacade().getLocationReference(location)
 
         ScreenDefinition permSd = (ScreenDefinition) screenLocationPermCache.get(location)
-        if (permSd) {
+        if (permSd != null) {
             // check to see if file has been modified, if we know when it was last modified
-            if (permSd.sourceLastModified && screenRr.supportsLastModified() &&
-                    screenRr.getLastModified() == permSd.sourceLastModified) {
+            if (permSd.sourceLastModified != null && screenRr.supportsLastModified() &&
+                    permSd.sourceLastModified.equals(screenRr.getLastModified())) {
                 //logger.warn("========= screen expired but hasn't changed so reusing: ${location}")
 
                 // call this just in case a new screen was added, note this does slow things down just a bit, but only in dev (not in production)
@@ -345,7 +346,8 @@ public class ScreenFacadeImpl implements ScreenFacade {
                 SubscreensItem curSsi = ssEntry.getValue()
                 List<String> childPath = new ArrayList(screenPath)
                 childPath.add(curSsi.getName())
-                ScreenInfo existingSi = (ScreenInfo) screenInfoCache.get(screenPathToString(childPath))
+                List<ScreenInfo> curInfoList = (List<ScreenInfo>) screenInfoCache.get(screenPathToString(childPath))
+                ScreenInfo existingSi = curInfoList ? (ScreenInfo) curInfoList.get(0) : null
                 if (existingSi != null) {
                     subscreenInfoByName.put(ssEntry.getKey(), existingSi)
                 } else {
@@ -369,10 +371,13 @@ public class ScreenFacadeImpl implements ScreenFacade {
             }
 
             // now that subscreen is initialized save in list for location and path
-            List curInfoList = (List) screenInfoCache.get(sd.location)
-            if (curInfoList == null) { curInfoList = []; screenInfoCache.put(sd.location, curInfoList) }
+            List<ScreenInfo> curInfoList = (List<ScreenInfo>) screenInfoCache.get(sd.location)
+            if (curInfoList == null) {
+                curInfoList = new LinkedList<>()
+                screenInfoCache.put(sd.location, curInfoList)
+            }
             curInfoList.add(this)
-            screenInfoCache.put(screenPathToString(screenPath), this)
+            screenInfoCache.put(screenPathToString(screenPath), [this])
         }
 
         String getIndentedName() {

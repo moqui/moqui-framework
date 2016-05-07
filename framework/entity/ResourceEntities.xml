@@ -52,7 +52,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="wikiPageId"/></relationship>
         <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
     </entity>
-    <entity entity-name="WikiPageHistory" package-name="moqui.resource.wiki">
+    <entity entity-name="WikiPageHistory" package-name="moqui.resource.wiki" cache="never">
         <field name="wikiPageId" type="id" is-pk="true"/>
         <field name="historySeqId" type="id" is-pk="true"/>
         <field name="oldPagePath" type="text-medium"/>

@@ -14,6 +14,7 @@
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextImpl
 
 import javax.servlet.ServletContext
 import javax.servlet.ServletContextEvent
@@ -72,9 +73,9 @@ class MoquiContextListener implements ServletContextListener {
             // run after-startup actions
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
             if (wi.afterStartupActions) {
-                ExecutionContext ec = ecfi.getExecutionContext()
-                wi.afterStartupActions.run(ec)
-                ec.destroy()
+                ExecutionContextImpl eci = ecfi.getEci()
+                wi.afterStartupActions.run(eci)
+                eci.destroy()
             }
         } catch (Throwable t) {
             System.out.println("Error initializing webapp context: ${t.toString()}")
@@ -94,9 +95,9 @@ class MoquiContextListener implements ServletContextListener {
             // run before-shutdown actions
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
             if (wi.beforeShutdownActions) {
-                ExecutionContext ec = ecfi.getExecutionContext()
-                wi.beforeShutdownActions.run(ec)
-                ec.destroy()
+                ExecutionContextImpl eci = ecfi.getEci()
+                wi.beforeShutdownActions.run(eci)
+                eci.destroy()
             }
 
             ecfi.destroy()

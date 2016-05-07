@@ -13,6 +13,7 @@
  */
 package org.moqui.entity;
 
+import java.io.Externalizable;
 import java.io.Serializable;
 import java.util.Map;
 
@@ -23,7 +24,7 @@ import java.util.Map;
  * This class is mostly empty because it is a placeholder for use in the EntityConditionFactory and most functionality
  * is internal only.
  */
-public interface EntityCondition extends Serializable {
+public interface EntityCondition extends Externalizable {
 
     ComparisonOperator EQUALS = ComparisonOperator.EQUALS;
     ComparisonOperator NOT_EQUAL = ComparisonOperator.NOT_EQUAL;
@@ -51,6 +52,7 @@ public interface EntityCondition extends Serializable {
 
     /** Evaluate the condition in memory. */
     boolean mapMatches(Map<String, Object> map);
+    boolean mapMatchesAny(Map<String, Object> map);
     /** Create a map of name/value pairs representing the condition. Returns false if the condition can't be
      * represented as simple name/value pairs ANDed together. */
     boolean populateMap(Map<String, Object> map);

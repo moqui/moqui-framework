@@ -2,18 +2,41 @@
 Moqui Framework Release Notes
 
 ===========================================================================
-Release 1.6.3 - TBD
+Release 1.7.0 - TBD
 ===========================================================================
 
-Moqui Framework 1.6.3 is a minor new feature and bug fix release.
+Moqui Framework 1.7.0 is a new feature and bug fix release.
 
 TODO
 
+Non Backward Compatible Changes
+
+- Ehcache has been removed
+- The org.moqui.context.Cache interface is replaced by javax.cache.Cache
+- Configuration options for caches changed (moqui-conf.cache-list.cache)
+
 New Features
 
+- Caching
+  - CacheFacade now supports separate local and distributed caches both
+    using the javax.cache interfaces
+  - Added new MCache class for faster local-only caches (implements the
+    javax.cache.Cache interface)
+  - For distributed caches now using Hazelcast, initially version 3.6.2
+  - Hazelcast can be used for distributed entity cache and can be used for
+    web session replication and OrientDB clustering
+  - Set many entities to cache=never to avoid overhead of caching where
+    read/write ratio doesn't justify it or where cache could cause issues
+- Added default Hazelcast web session replication config (see web.xml)
+- Implemented distributed entity cache invalidate using a Hazelcast Topic,
+  enabled in Moqui Conf XML file with the @distributed-cache-invalidate
+  attribute on the entity-facade element
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
+- EntityDataWriter now supports export with a entity master definition
+  name, applied only to entities exported that have a master def with the
+  given master name
 
 Bug Fixes
 
@@ -22,6 +45,13 @@ Bug Fixes
 - Fixed NPE in EntityFind.oneMaster() when the master value isn't found,
   now returns null with no error; fixes moqui-runtime issue #18
 - Fixed ElFinder rm (moqui-runtime GitHub issue #23), response for upload
+- Screen sub-content directories treated as not found so directory entries
+  not listed (GitHub moqui-framework issue #47)
+- In entity cache auto clear for list of view-entity fixed mapping of
+  member entity fields to view entity alias, and partial match when only
+  some view entity fields are on a member entity
+- Cache clear fix for view-entity list cache fixes issue where adding a
+  permission required manual cache clear or restart for permission to apply
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
@@ -373,3 +403,13 @@ Long Term To Do List
   - with system.js need to transpile in the browser?
     - can transpile into JS file using typescript4j; or generate component.js
     - https://github.com/martypitt/typescript4j
+
+- Hazelcast-based improvements
+  - remote moqui to moqui service call over hazelcast (instead of JSON-RPC, etc)
+  - configuration for 'microservice' deployments, partitioning services to run on particular servers in a cluster and
+    not others (partition groups or other partition feature?)
+  - can use for reliable WAN service calls like needed for EntitySync?
+    - ie to a remote cluster
+    - different from commercial only WAN replication feature
+    - would be nice for reliable message queue
+  - can use for scheduled service execution in a cluster, perhaps something on top of, underneath, or instead of Quartz Scheduler?

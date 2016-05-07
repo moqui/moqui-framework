@@ -20,22 +20,25 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityQueryBuilder
 
 @CompileStatic
-class DateCondition extends EntityConditionImplBase {
+class DateCondition implements EntityConditionImplBase, Externalizable {
     protected String fromFieldName
     protected String thruFieldName
     protected Timestamp compareStamp
+    private EntityConditionImplBase conditionInternal
+    private int hashCodeInternal
 
-    DateCondition(EntityConditionFactoryImpl ecFactoryImpl,
-            String fromFieldName, String thruFieldName, Timestamp compareStamp) {
-        super(ecFactoryImpl)
+    DateCondition(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         this.fromFieldName = fromFieldName ?: "fromDate"
         this.thruFieldName = thruFieldName ?: "thruDate"
+        if (compareStamp == (Timestamp) null) compareStamp = new Timestamp(System.currentTimeMillis())
         this.compareStamp = compareStamp
+        conditionInternal = makeConditionInternal()
+        hashCodeInternal = createHashCode()
     }
 
     @Override
     void makeSqlWhere(EntityQueryBuilder eqb) {
-        this.makeCondition().makeSqlWhere(eqb)
+        conditionInternal.makeSqlWhere(eqb)
     }
 
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
@@ -45,55 +48,65 @@ class DateCondition extends EntityConditionImplBase {
 
     @Override
     boolean mapMatches(Map<String, Object> map) {
-        return this.makeCondition().mapMatches(map)
+        return conditionInternal.mapMatches(map)
+    }
+    @Override
+    boolean mapMatchesAny(Map<String, Object> map) {
+        return conditionInternal.mapMatchesAny(map)
     }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }
 
     @Override
-    EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }
+    EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for DateCondition.") }
 
     @Override
     String toString() {
-        return this.makeCondition().toString()
+        return conditionInternal.toString()
     }
 
-    protected EntityConditionImplBase makeCondition() {
-        return (EntityConditionImplBase) ecFactoryImpl.makeCondition(
-            ecFactoryImpl.makeCondition(
-                ecFactoryImpl.makeCondition(thruFieldName, EQUALS, null),
-                EntityCondition.JoinOperator.OR,
-                ecFactoryImpl.makeCondition(thruFieldName, GREATER_THAN, compareStamp)
-            ),
-            EntityCondition.JoinOperator.AND,
-            ecFactoryImpl.makeCondition(
-                ecFactoryImpl.makeCondition(fromFieldName, EQUALS, null),
-                EntityCondition.JoinOperator.OR,
-                ecFactoryImpl.makeCondition(fromFieldName, LESS_THAN_EQUAL_TO, compareStamp)
-            )
-        )
+    private EntityConditionImplBase makeConditionInternal() {
+        ConditionField fromFieldCf = new ConditionField(fromFieldName)
+        ConditionField thruFieldCf = new ConditionField(thruFieldName)
+        return new ListCondition([
+            new ListCondition([new FieldValueCondition(fromFieldCf, EQUALS, null),
+                               new FieldValueCondition(fromFieldCf, LESS_THAN_EQUAL_TO, compareStamp)] as List<EntityConditionImplBase>,
+                    EntityCondition.JoinOperator.OR),
+            new ListCondition([new FieldValueCondition(thruFieldCf, EQUALS, null),
+                               new FieldValueCondition(thruFieldCf, GREATER_THAN, compareStamp)] as List<EntityConditionImplBase>,
+                    EntityCondition.JoinOperator.OR)
+        ] as List<EntityConditionImplBase>, EntityCondition.JoinOperator.AND)
     }
 
     @Override
-    int hashCode() {
-        return (compareStamp ? compareStamp.hashCode() : 0) + fromFieldName.hashCode() + thruFieldName.hashCode()
+    int hashCode() { return hashCodeInternal }
+    private int createHashCode() {
+        return compareStamp.hashCode() + fromFieldName.hashCode() + thruFieldName.hashCode()
     }
 
     @Override
     boolean equals(Object o) {
         if (o == null || o.getClass() != this.getClass()) return false
         DateCondition that = (DateCondition) o
-        if ((Object) this.compareStamp == null && (Object) that.compareStamp != null) return false
-        if ((Object) this.compareStamp != null) {
-            if ((Object) that.compareStamp == null) {
-                return false
-            } else {
-                if (!this.compareStamp.equals(that.compareStamp)) return false
-            }
-        }
-        if (!this.fromFieldName.equals(that.fromFieldName)) return false
-        if (!this.thruFieldName.equals(that.thruFieldName)) return false
+        if (!this.compareStamp.equals(that.compareStamp)) return false
+        if (!fromFieldName.equals(that.fromFieldName)) return false
+        if (!thruFieldName.equals(that.thruFieldName)) return false
         return true
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        out.writeUTF(fromFieldName);
+        out.writeUTF(thruFieldName);
+        out.writeLong(compareStamp.getTime());
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        fromFieldName = objectInput.readUTF();
+        thruFieldName = objectInput.readUTF();
+        compareStamp = new Timestamp(objectInput.readLong());
+        hashCodeInternal = createHashCode();
+        conditionInternal = makeConditionInternal();
     }
 }

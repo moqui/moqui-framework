@@ -14,7 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import net.sf.ehcache.Element
 import org.apache.fop.apps.*
 import org.apache.fop.apps.io.ResourceResolverFactory
 import org.apache.jackrabbit.rmi.repository.URLRemoteRepository
@@ -35,6 +34,10 @@ import org.slf4j.LoggerFactory
 
 import javax.activation.DataSource
 import javax.activation.MimetypesFileTypeMap
+import javax.cache.Cache
+import javax.cache.expiry.Duration
+import javax.cache.expiry.ExpiryPolicy
+import javax.cache.expiry.ModifiedExpiryPolicy
 import javax.jcr.Repository
 import javax.jcr.Session
 import javax.jcr.SimpleCredentials
@@ -65,8 +68,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>()
     protected final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>()
 
-    protected final CacheImpl textLocationCache
-    protected final CacheImpl resourceReferenceByLocation
+    protected final Cache<String, String> textLocationCache
+    protected final Cache<String, ResourceReference> resourceReferenceByLocation
 
     protected final Map<String, Class> resourceReferenceClasses = new HashMap<>()
     protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>()
@@ -88,9 +91,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
         xmlActionsScriptRunner = new XmlActionsScriptRunner()
         xmlActionsScriptRunner.init(ecfi)
 
-        textLocationCache = ecfi.getCacheFacade().getCacheImpl("resource.text.location", null)
+        textLocationCache = ecfi.getCacheFacade().getCache("resource.text.location", String.class, String.class)
         // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
-        resourceReferenceByLocation = ecfi.getCacheFacade().getCacheImpl("resource.reference.location", null)
+        resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location", String.class, ResourceReference.class)
 
         // Setup resource reference classes
         for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
@@ -217,8 +220,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
     ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
-        Element rrElement = resourceReferenceByLocation.getElement(location)
-        if (rrElement != null && !rrElement.isExpired()) return (ResourceReference) rrElement.getObjectValue()
+        ResourceReference cachedRr = resourceReferenceByLocation.get(location)
+        if (cachedRr != null) return cachedRr
 
         String scheme = "file"
         // Q: how to get the scheme for windows? the Java URI class doesn't like spaces, the if we look for the first ":"
@@ -253,15 +256,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
             return ""
         }
         if (cache) {
-            Element textElement = textLocationCache.getElement(location)
-            if (textElement != null) {
-                long currentTime = textRr.getLastModified()
-                if (textElement.isExpired() || textElement.getLastUpdateTime() < currentTime) {
-                    textLocationCache.removeElement(textElement)
-                } else {
-                    return (String) textElement.getObjectValue()
-                }
-            }
+            ExpiryPolicy expiryPolicy = textRr != null ? new ModifiedExpiryPolicy(new Duration(0L, textRr.getLastModified())) : null
+            String cachedText = (String) textLocationCache.get(location)
+            if (cachedText != null) return cachedText
         }
         InputStream locStream = textRr.openStream()
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
@@ -502,10 +499,19 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
-        if (inputString == null || inputString.length() == 0) return ""
+        if (inputString == null) return ""
+        int inputStringLength = inputString.length()
+        if (inputStringLength == 0) return ""
+
+        // localize string before expanding
+        if (localize && inputStringLength < 256) {
+            ExecutionContextImpl eci = ecfi.getEci()
+            inputString = eci.l10nFacade.localize(inputString)
+        }
+        // if no $ then it's a plain String, just return it
+        if (!inputString.contains('$')) return inputString
 
         ExecutionContextImpl eci = ecfi.getEci()
-
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         ContextStack cs = (ContextStack) null
         if (doPushPop) cs = eci.context
@@ -516,11 +522,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
             }
-
-            // localize string before expanding
-            if (localize && inputString.length() < 256) inputString = eci.l10nFacade.localize(inputString)
-            // if no $ then it's a plain String, just return it
-            if (!inputString.contains('$')) return inputString
 
             String expression = '"""' + inputString + '"""'
             try {

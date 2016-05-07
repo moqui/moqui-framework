@@ -239,7 +239,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="userGroupId" entity-alias="DBFUG"/>
     </view-entity>
 
-    <entity entity-name="FormResponse" package-name="moqui.screen.form">
+    <entity entity-name="FormResponse" package-name="moqui.screen.form" cache="never">
         <field name="formResponseId" type="id" is-pk="true"/>
         <field name="formLocation" type="text-medium"/>
         <field name="formId" type="id"/>
@@ -248,7 +248,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.screen.form.DbForm"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="FormResponseAnswer" package-name="moqui.screen.form">
+    <entity entity-name="FormResponseAnswer" package-name="moqui.screen.form" cache="never">
         <field name="formResponseAnswerId" type="id" is-pk="true"/>
         <field name="formResponseId" type="id"/>
         <field name="formId" type="id"/>

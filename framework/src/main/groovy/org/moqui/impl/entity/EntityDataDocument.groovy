@@ -27,6 +27,7 @@ import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.entity.condition.ConditionAlias
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.util.MNode
@@ -175,20 +176,20 @@ class EntityDataDocument {
         if ((Object) fromUpdateStamp != null || (Object) thruUpdatedStamp != null) {
             List<EntityCondition> dateRangeOrCondList = []
             for (MNode memberEntityNode in dynamicView.getMemberEntityNodes()) {
-                ConditionField ludCf = new ConditionField(memberEntityNode.attribute("entity-alias"),
+                ConditionField ludCf = new ConditionAlias(memberEntityNode.attribute("entity-alias"),
                         "lastUpdatedStamp", efi.getEntityDefinition(memberEntityNode.attribute("entity-name")))
                 List<EntityCondition> dateRangeFieldCondList = []
                 if ((Object) fromUpdateStamp != null) {
                     dateRangeFieldCondList.add(efi.getConditionFactory().makeCondition(
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.EQUALS, null),
+                            new FieldValueCondition(ludCf, EntityCondition.EQUALS, null),
                             EntityCondition.OR,
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.GREATER_THAN_EQUAL_TO, fromUpdateStamp)))
+                            new FieldValueCondition(ludCf, EntityCondition.GREATER_THAN_EQUAL_TO, fromUpdateStamp)))
                 }
                 if ((Object) thruUpdatedStamp != null) {
                     dateRangeFieldCondList.add(efi.getConditionFactory().makeCondition(
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.EQUALS, null),
+                            new FieldValueCondition(ludCf, EntityCondition.EQUALS, null),
                             EntityCondition.OR,
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.LESS_THAN, thruUpdatedStamp)))
+                            new FieldValueCondition(ludCf, EntityCondition.LESS_THAN, thruUpdatedStamp)))
                 }
                 dateRangeOrCondList.add(efi.getConditionFactory().makeCondition(dateRangeFieldCondList, EntityCondition.AND))
             }

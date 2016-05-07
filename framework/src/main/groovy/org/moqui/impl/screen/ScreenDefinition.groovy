@@ -633,7 +633,7 @@ class ScreenDefinition {
         boolean getRequireSessionToken() { return requireSessionToken }
 
         @CompileStatic
-        boolean checkCondition(ExecutionContext ec) { return condition ? condition.checkCondition(ec) : true }
+        boolean checkCondition(ExecutionContextImpl ec) { return condition ? condition.checkCondition(ec) : true }
 
         @CompileStatic
         void setAllParameters(List<String> extraPathNameList, ExecutionContext ec) {
@@ -853,7 +853,7 @@ class ScreenDefinition {
         }
 
         @CompileStatic
-        boolean checkCondition(ExecutionContext ec) { return condition ? condition.checkCondition(ec) : true }
+        boolean checkCondition(ExecutionContextImpl ec) { return condition ? condition.checkCondition(ec) : true }
 
         @CompileStatic
         String getType() { return type }

@@ -157,9 +157,9 @@ along with this software (see the LICENSE.md file). If not, see
                 this is the dataDocumentId.</description></parameter>
             <parameter name="queryString" required="true"/>
             <parameter name="orderByFields" type="List"><parameter name="orderByField"/></parameter>
-            <parameter name="pageIndex" type="Integer" default-value="0"/>
-            <parameter name="pageSize" type="Integer" default-value="20"/>
-            <parameter name="flattenDocument" type="Boolean" default-value="true"/>
+            <parameter name="pageIndex" type="Integer" default="0"/>
+            <parameter name="pageSize" type="Integer" default="20"/>
+            <parameter name="flattenDocument" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="documentList" type="List">

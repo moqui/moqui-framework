@@ -64,7 +64,7 @@ public class L10nFacadeImpl implements L10nFacade {
         String localeString = locale.toString();
 
         String cacheKey = original.concat("::").concat(localeString);
-        String lmsg = (String) eci.getL10nMessageCache().get(cacheKey);
+        String lmsg = eci.getL10nMessageCache().get(cacheKey);
         if (lmsg != null) return lmsg;
 
         String defaultValue = original;

@@ -174,7 +174,7 @@ class ScreenForm {
                 String singleServiceName = ti.getSingleServiceName()
                 ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(singleServiceName)
                 if (sd != null) {
-                    Set<String> inParamNames = sd.getInParameterNames()
+                    ArrayList<String> inParamNames = sd.getInParameterNames()
                     for (MNode fieldNode in newFormNode.children("field")) {
                         // if the field matches an in-parameter name and does not already have a validate-service, then set it
                         // do it even if it has a validate-service since it might be from another form, in general we want the current service:  && !fieldNode."@validate-service"
@@ -962,19 +962,9 @@ class ScreenForm {
         if (baseFieldNode != null) {
             baseFieldNode.attributes.putAll(overrideFieldNode.attributes)
 
-            if (overrideFieldNode.hasChild("header-field")) {
-                baseFieldNode.remove("header-field")
-                baseFieldNode.append(overrideFieldNode.first("header-field"))
-            }
-            for (MNode overrideConditionalFieldNode in overrideFieldNode.children("conditional-field")) {
-                baseFieldNode.remove({ MNode it -> it.name == "conditional-field" &&
-                        it.attribute("condition") == overrideConditionalFieldNode.attribute("condition") })
-                baseFieldNode.append(overrideConditionalFieldNode)
-            }
-            if (overrideFieldNode.hasChild("default-field")) {
-                baseFieldNode.remove("default-field")
-                baseFieldNode.append(overrideFieldNode.first("default-field"))
-            }
+            baseFieldNode.mergeSingleChild(overrideFieldNode, "header-field")
+            baseFieldNode.mergeChildrenByKey(overrideFieldNode, "conditional-field", "condition", null)
+            baseFieldNode.mergeSingleChild(overrideFieldNode, "default-field")
         } else {
             baseFormNode.append(deepCopy ? overrideFieldNode.deepCopy(null) : overrideFieldNode)
             // this is a new field... if the form has a field-layout element add a reference under that too

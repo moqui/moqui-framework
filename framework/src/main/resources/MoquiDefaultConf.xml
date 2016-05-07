@@ -8,62 +8,72 @@
     <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false" empty-db-load="seed"/>
 
     <cache-list warm-on-start="true">
-        <!-- Production mode by default - No expiration of conf and impl artifacts. -->
-        <cache name="entity.definition" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
-        <cache name="entity.location" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
-        <cache name="entity.sequence.bank" expire-time-idle="0" expire-time-live="0" max-elements="2000"/>
+        <!-- Entity Database Record Caches (and cache clear assist data) -->
+        <!-- set type="distributed" to use the distributed cache -->
+        <cache name="entity.record.one." max-elements="50000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityValueBase"/>
+        <cache name="entity.record.list." max-elements="10000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityListImpl"/>
+        <cache name="entity.record.count." max-elements="10000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
+
+        <cache name="entity.record.one_ra." max-elements="100000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+        <cache name="entity.record.one_view_ra." max-elements="100000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+        <cache name="entity.record.one_bf." max-elements="100000" eviction-strategy="least-frequently-used"
+                value-type="Set"/>
+
+        <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+        <cache name="entity.record.list_view_ra." max-elements="20000" eviction-strategy="least-frequently-used"
+                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+
+        <!-- Framework configuration and artifact caches -->
+        <!-- NOTE: Production mode by default - No expiration of conf and impl artifacts. -->
+
+        <cache name="entity.definition" value-type="org.moqui.impl.entity.EntityDefinition"/>
+        <cache name="entity.location" value-type="Map"/>
+        <cache name="entity.sequence.bank" value-type="long[]"/>
         <!-- this is info for each entity for real-time push DataFeeds; expires every 15 min to get DataFeed and DataDocument updates -->
-        <cache name="entity.data.feed.info" expire-time-idle="0" expire-time-live="900" max-elements="2000"/>
+        <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList"/>
 
-        <cache name="entity.record.one." expire-time-idle="0" expire-time-live="0" max-elements="10000"
-               eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.one_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
-               eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list." expire-time-idle="0" expire-time-live="0" max-elements="10000"
-               eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
-               eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.list_view_ra." expire-time-idle="0" expire-time-live="0" max-elements="20000"
-               eviction-strategy="least-frequently-used"/>
-        <cache name="entity.record.count." expire-time-idle="0" expire-time-live="0" max-elements="10000"
-               eviction-strategy="least-frequently-used"/>
-
-        <cache name="service.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="service.java.class" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-
-        <cache name="kie.component.releaseId" expire-time-idle="0" expire-time-live="0" max-elements="10000"/>
+        <cache name="service.location" tenants-share="true" value-type="org.moqui.impl.service.ServiceDefinition"/>
+        <cache name="kie.component.releaseId" tenants-share="true" value-type="org.kie.api.builder.ReleaseId"/>
+        <cache name="kie.session.component" tenants-share="true" value-type="String"/>
 
         <!-- TODO: Potential issue for multi-tenant where DbForm*, SubscreenItem, etc comes from wrong tenant...
-            would need to change ScreenFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI -->
-        <cache name="screen.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="screen.location.perm" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="screen.url" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="screen.info" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="screen.info.ref.rev" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="screen.template.mode" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
-        <cache name="screen.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
-        <cache name="widget.template.location" expire-time-idle="0" expire-time-live="0" max-elements="100" tenants-share="true"/>
-        <cache name="screen.find.path" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="screen.form.db.node" expire-time-idle="0" expire-time-live="0" max-elements="1000" tenants-share="true"/>
+            would need to change ScreenFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI (would be slower) -->
+        <cache name="screen.location" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition"/>
+        <cache name="screen.location.perm" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition"/>
+        <cache name="screen.url" tenants-share="true" value-type="org.moqui.impl.screen.ScreenUrlInfo"/>
+        <cache name="screen.info" tenants-share="true" value-type="List"/>
+        <cache name="screen.info.ref.rev" tenants-share="true" value-type="Set"/>
+        <cache name="screen.template.mode" tenants-share="true" value-type="freemarker.template.Template"/>
+        <cache name="screen.template.location" tenants-share="true" value-type="freemarker.template.Template"/>
+        <cache name="widget.template.location" tenants-share="true" value-type="MNode"/>
+        <cache name="screen.find.path" tenants-share="true" value-type="ArrayList"/>
+        <cache name="screen.form.db.node" tenants-share="true" value-type="MNode"/>
 
         <!-- TODO: Potential issue for multi-tenant where DbResource, etc comes from wrong tenant...
-            would need to change ResourceFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI -->
-        <cache name="resource.xml-actions.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="resource.groovy.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="resource.groovy.expression" expire-time-idle="0" expire-time-live="0" max-elements="50000" tenants-share="true"/>
-        <cache name="resource.javascript.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+            would need to change ResourceFacadeImpl to get cache per tenant too, maybe even init ResourceFacadeImpl under ECI instead of ECFI (would be slower) -->
+        <cache name="resource.xml-actions.location" tenants-share="true" value-type="org.moqui.impl.actions.XmlAction"/>
+        <cache name="resource.groovy.location" tenants-share="true" value-type="java.lang.Class"/>
+        <cache name="resource.javascript.location" tenants-share="true" value-type="java.lang.Class"/>
 
-        <cache name="resource.ftl.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="resource.gstring.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="resource.wiki.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="resource.markdown.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="resource.text.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
-        <cache name="resource.reference.location" expire-time-idle="0" expire-time-live="0" max-elements="10000" tenants-share="true"/>
+        <!-- These caches must be local caches (use additional methods on MCache not in javax.cache.Cache) -->
+        <cache name="resource.ftl.location" tenants-share="true" value-type="freemarker.template.Template" type="local"/>
+        <cache name="resource.gstring.location" tenants-share="true" value-type="groovy.text.Template" type="local"/>
+        <cache name="resource.wiki.location" tenants-share="true" value-type="String" type="local"/>
+        <cache name="resource.markdown.location" tenants-share="true" value-type="String" type="local"/>
+        <cache name="resource.text.location" tenants-share="true" value-type="String" type="local"/>
 
-        <cache name="l10n.message" expire-time-idle="3600" expire-time-live="0" max-elements="50000"/>
+        <cache name="resource.reference.location" tenants-share="true" value-type="org.moqui.context.ResourceReference"/>
+
+        <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String"/>
 
         <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
-        <cache name="artifact.tarpit.hits" expire-time-idle="900" expire-time-live="0" max-elements="10000"/>
+        <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList"/>
     </cache-list>
     <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true">
         <artifact-stats type="screen" persist-bin="true" persist-hit="true"/>
@@ -100,9 +110,9 @@
     </artifact-execution-facade>
     <user-facade>
         <password encrypt-hash-type="SHA-256" min-length="6" min-digits="1" min-others="1"
-                  history-limit="5" change-weeks="26" email-require-change="true" email-expire-hours="48"/>
+                  history-limit="5" change-weeks="104" email-require-change="true" email-expire-hours="48"/>
         <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
-        <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="true"/>
+        <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
     </user-facade>
 
     <transaction-facade use-transaction-cache="true">
@@ -220,7 +230,7 @@
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
     </service-facade>
 
-    <entity-facade default-group-name="transactional" distributed-cache-clear-enabled="false"
+    <entity-facade default-group-name="transactional" distributed-cache-invalidate="false"
                    entity-eca-enabled="true" sequenced-id-prefix=""
                    crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
         <!-- note: no crypt-pass attribute by default, must specify in your conf file! -->

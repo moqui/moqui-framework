@@ -13,6 +13,7 @@
  */
 package org.moqui.context;
 
+import com.hazelcast.core.HazelcastInstance;
 import org.apache.camel.CamelContext;
 import org.elasticsearch.client.Client;
 import org.kie.api.runtime.KieContainer;
@@ -92,6 +93,9 @@ public interface ExecutionContextFactory {
 
     /** ElasticSearch Client is used for indexing and searching documents */
     Client getElasticSearchClient();
+
+    /** Hazelcast Instance, used for clustered data sharing and execution including web session replication and distributed cache */
+    HazelcastInstance getHazelcastInstance();
 
     /** Get a KIE Container for Drools, jBPM, OptaPlanner, etc from the KIE Module in the given component. */
     KieContainer getKieContainer(String componentName);

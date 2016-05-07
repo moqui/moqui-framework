@@ -18,7 +18,6 @@ import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.entity.*
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
-import org.moqui.impl.context.CacheImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.context.TransactionFacadeImpl
@@ -29,6 +28,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
 import java.sql.ResultSet
 import java.sql.Timestamp
 
@@ -166,7 +166,7 @@ abstract class EntityFindBase implements EntityFind {
                 ArrayList<EntityConditionImplBase> condList = new ArrayList()
                 condList.add(whereEntityCondition)
                 condList.add((EntityConditionImplBase) condition)
-                whereEntityCondition = new ListCondition(efi.conditionFactoryImpl, condList, EntityCondition.AND)
+                whereEntityCondition = new ListCondition(condList, EntityCondition.AND)
             }
         } else {
             whereEntityCondition = (EntityConditionImplBase) condition
@@ -191,7 +191,7 @@ abstract class EntityFindBase implements EntityFind {
                 ArrayList<EntityConditionImplBase> condList = new ArrayList()
                 condList.add(havingEntityCondition)
                 condList.add((EntityConditionImplBase) condition)
-                havingEntityCondition = new ListCondition(efi.conditionFactoryImpl, condList, EntityCondition.AND)
+                havingEntityCondition = new ListCondition(condList, EntityCondition.AND)
             }
         } else {
             havingEntityCondition = (EntityConditionImplBase) condition
@@ -212,7 +212,7 @@ abstract class EntityFindBase implements EntityFind {
                 if (simpleAndCondClass == FieldValueCondition.class) {
                     ArrayList<EntityConditionImplBase> oneCondList = new ArrayList()
                     oneCondList.add(simpleAndMapCond)
-                    listCondition = new ListCondition(efi.conditionFactoryImpl, oneCondList, EntityCondition.AND)
+                    listCondition = new ListCondition(oneCondList, EntityCondition.AND)
                 } else if (simpleAndCondClass == ListCondition.class) {
                     listCondition = (ListCondition) simpleAndMapCond
                 } else {
@@ -659,9 +659,10 @@ abstract class EntityFindBase implements EntityFind {
         // if (txcValue != null && ed.getEntityName() == "foo") logger.warn("========= TX cache one value: ${txcValue}")
 
         boolean doCache = shouldCache()
-        CacheImpl entityOneCache = doCache ? efi.getEntityCache().getCacheOne(getEntityDef().getFullEntityName()) : (CacheImpl) null
+        Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
+                efi.getEntityCache().getCacheOne(getEntityDef().getFullEntityName()) : (Cache<EntityCondition, EntityValueBase>) null
         EntityValueBase cacheHit = (EntityValueBase) null
-        if (doCache && txcValue == null) cacheHit = efi.getEntityCache().getFromOneCache(ed, whereCondition, entityOneCache)
+        if (doCache && txcValue == null && whereCondition != null) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
 
         // we always want fieldsToSelect populated so that we know the order of the results coming back
         ArrayList<String> localFts = fieldsToSelect
@@ -698,7 +699,7 @@ abstract class EntityFindBase implements EntityFind {
             if (txcValue instanceof TransactionCache.DeletedEntityValue) {
                 // is deleted value, so leave newEntityValue as null
                 // put in cache as null since this was deleted
-                if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
+                if (doCache && whereCondition != null) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result
@@ -836,7 +837,7 @@ abstract class EntityFindBase implements EntityFind {
 
         // NOTE: don't cache if there is a having condition, for now just support where
         boolean doEntityCache = shouldCache()
-        CacheImpl entityListCache = doEntityCache ? efi.getEntityCache().getCacheList(getEntityDef().getFullEntityName()) : (CacheImpl) null
+        Cache<EntityCondition, EntityListImpl> entityListCache = doEntityCache ? efi.getEntityCache().getCacheList(getEntityDef().getFullEntityName()) : (Cache) null
         EntityListImpl cacheList = (EntityListImpl) null
         if (doEntityCache) cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
 
@@ -1102,9 +1103,9 @@ abstract class EntityFindBase implements EntityFind {
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal()
         // NOTE: don't cache if there is a having condition, for now just support where
         boolean doCache = !this.havingEntityCondition && this.shouldCache()
-        CacheImpl entityCountCache = doCache ? efi.getEntityCache().getCacheCount(getEntityDef().getFullEntityName()) : (CacheImpl) null
+        Cache<EntityCondition, Long> entityCountCache = doCache ? efi.getEntityCache().getCacheCount(getEntityDef().getFullEntityName()) : (Cache) null
         Long cacheCount = (Long) null
-        if (doCache) cacheCount = efi.getEntityCache().getFromCountCache(ed, whereCondition, entityCountCache)
+        if (doCache && whereCondition != null) cacheCount = (Long) entityCountCache.get(whereCondition)
 
         long count
         if (cacheCount != null) {

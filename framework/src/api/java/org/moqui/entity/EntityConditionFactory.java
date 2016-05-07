@@ -25,6 +25,8 @@ import java.util.Map;
  */
 public interface EntityConditionFactory {
 
+    EntityCondition getTrueCondition();
+
     EntityCondition makeCondition(EntityCondition lhs, EntityCondition.JoinOperator operator, EntityCondition rhs);
 
     EntityCondition makeCondition(String fieldName, EntityCondition.ComparisonOperator operator, Object value);

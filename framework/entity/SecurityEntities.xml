@@ -116,7 +116,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="All" enumCode="ALL" enumId="AUTHZA_ALL" enumTypeId="AuthzAction"/>
         </seed-data>
     </entity>
-    <entity entity-name="ArtifactAuthzFailure" package-name="moqui.security" cache="false">
+    <entity entity-name="ArtifactAuthzFailure" package-name="moqui.security" cache="never">
         <field name="failureId" type="text-medium" is-pk="true"/>
         <field name="artifactName" type="text-medium"/>
         <field name="artifactTypeEnumId" type="id"/>
@@ -243,7 +243,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="AGM" name="artifactTypeEnumId"/>
         <alias entity-alias="AGM" name="nameIsPattern"/>
     </view-entity>
-    <entity entity-name="ArtifactTarpitLock" package-name="moqui.security" cache="false">
+    <entity entity-name="ArtifactTarpitLock" package-name="moqui.security" cache="never">
         <description>Deny access to the artifact for the user until releaseDateTime is reached.</description>
         <field name="artifactTarpitLockId" type="id" is-pk="true"/>
         <field name="userId" type="id"/>
@@ -343,7 +343,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="permissionThruDate" entity-alias="UGP" field="thruDate"/>
     </view-entity>
 
-    <entity entity-name="UserLoginKey" package-name="moqui.security">
+    <entity entity-name="UserLoginKey" package-name="moqui.security" cache="never">
         <description>A login key is an alternate way to authenticate a user, generally issued for temporary use sort of
             like a session.</description>
         <field name="loginKey" type="text-medium" is-pk="true"><description>NOTE: not an encrypted field because one way
@@ -414,7 +414,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== User Notification Message ========== -->
-    <entity entity-name="NotificationMessage" package-name="moqui.security.user">
+    <entity entity-name="NotificationMessage" package-name="moqui.security.user" cache="never">
         <field name="notificationMessageId" type="id" is-pk="true"/>
         <field name="topic" type="text-medium"/>
         <field name="userGroupId" type="id"/>
@@ -422,14 +422,14 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="messageJson" type="text-very-long"/>
         <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
     </entity>
-    <entity entity-name="NotificationMessageUser" package-name="moqui.security.user">
+    <entity entity-name="NotificationMessageUser" package-name="moqui.security.user" cache="never">
         <field name="notificationMessageId" type="id" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
         <field name="sentDate" type="date-time"/>
         <field name="receivedDate" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
     </entity>
-    <view-entity entity-name="NotificationMessageByUser" package-name="moqui.security.user">
+    <view-entity entity-name="NotificationMessageByUser" package-name="moqui.security.user" cache="never">
         <member-entity entity-alias="NMSG" entity-name="NotificationMessage"/>
         <member-entity entity-alias="NMU" entity-name="NotificationMessageUser" join-from-alias="NMSG">
             <key-map field-name="notificationMessageId"/></member-entity>

@@ -413,8 +413,9 @@ public class EntityJavaUtil {
             boolean foundNonSpace = false;
             boolean containsOpenParen = false;
             int obnLength = orderByName.length();
+            char[] obnCharArray = orderByName.toCharArray();
             for (int i = 0; i < obnLength; i++) {
-                char curChar = orderByName.charAt(i);
+                char curChar = obnCharArray[i];
                 if (curChar == spaceChar) {
                     if (foundNonSpace) {
                         containsSpace = true;

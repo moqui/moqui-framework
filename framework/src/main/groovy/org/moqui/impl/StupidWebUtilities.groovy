@@ -44,8 +44,8 @@ import java.nio.charset.Charset
 class StupidWebUtilities {
     protected final static Logger logger = LoggerFactory.getLogger(StupidUtilities.class)
 
-    static final Encoder defaultWebEncoder = ESAPI.encoder()
-    static final Validator defaultWebValidator = ESAPI.validator()
+    public static final Encoder defaultWebEncoder = ESAPI.encoder()
+    public static final Validator defaultWebValidator = ESAPI.validator()
 
     private static Policy antiSamyPolicy = null
     public static Policy getAntiSamyPolicy() {

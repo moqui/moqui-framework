@@ -13,12 +13,11 @@
  */
 package org.moqui.impl.context.renderer
 
-// import org.markdown4j.Markdown4jProcessor
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.jcache.MCache
 import org.pegdown.Extensions
 import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
@@ -31,19 +30,20 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
     final static int pegDownOptions = Extensions.ALL_WITH_OPTIONALS ^ Extensions.SMARTS ^ Extensions.QUOTES
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache templateMarkdownLocationCache
+    protected MCache<String, String> templateMarkdownLocationCache
 
     MarkdownTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateMarkdownLocationCache = ecfi.cacheFacade.getCache("resource.markdown.location")
+        this.templateMarkdownLocationCache = ecfi.cacheFacade.getCache("resource.markdown.location").unwrap(MCache.class)
         return this
     }
 
     void render(String location, Writer writer) {
         ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        String mdText = templateMarkdownLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
+        long lastModified = rr != null ? rr.getLastModified() : 0L
+        String mdText = templateMarkdownLocationCache.get(location, lastModified)
         if (mdText) {
             writer.write(mdText)
             return

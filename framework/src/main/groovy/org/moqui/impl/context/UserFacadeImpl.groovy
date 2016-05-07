@@ -584,27 +584,35 @@ class UserFacadeImpl implements UserFacade {
         return groupIdSet
     }
 
-    EntityList getArtifactTarpitCheckList() {
-        if (currentInfo.internalArtifactTarpitCheckList == null) {
+    ArrayList<Map<String, Object>> getArtifactTarpitCheckList(String artifactTypeEnumId) {
+        ArrayList<Map<String, Object>> checkList = (ArrayList<Map<String, Object>>) currentInfo.internalArtifactTarpitCheckListMap.get(artifactTypeEnumId)
+        if (checkList == null) {
             // get the list for each group separately to increase cache hits/efficiency
-            currentInfo.internalArtifactTarpitCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
+            checkList = new ArrayList<>()
             for (String userGroupId in getUserGroupIdSet()) {
-                currentInfo.internalArtifactTarpitCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
-                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list())
+                EntityList atcvList = eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
+                        .condition("userGroupId", userGroupId).condition("artifactTypeEnumId", artifactTypeEnumId)
+                        .useCache(true).disableAuthz().list()
+                int atcvListSize = atcvList.size()
+                for (int i = 0; i < atcvListSize; i++) checkList.add(((EntityValueBase) atcvList.get(i)).getValueMap())
             }
+            currentInfo.internalArtifactTarpitCheckListMap.put(artifactTypeEnumId, checkList)
         }
-        return currentInfo.internalArtifactTarpitCheckList
+        return checkList
     }
 
-    EntityList getArtifactAuthzCheckList() {
+    ArrayList<Map<String, Object>> getArtifactAuthzCheckList() {
         // NOTE: even if there is no user, still consider part of the ALL_USERS group and such: if (usernameStack.size() == 0) return EntityListImpl.EMPTY
         if (currentInfo.internalArtifactAuthzCheckList == null) {
             // get the list for each group separately to increase cache hits/efficiency
-            currentInfo.internalArtifactAuthzCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
+            ArrayList<Map<String, Object>> newList = new ArrayList<>()
             for (String userGroupId in getUserGroupIdSet()) {
-                currentInfo.internalArtifactAuthzCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactAuthzCheckView")
-                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list())
+                EntityList aacvList = eci.getEntity().find("moqui.security.ArtifactAuthzCheckView")
+                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list()
+                int aacvListSize = aacvList.size()
+                for (int i = 0; i < aacvListSize; i++) newList.add(((EntityValueBase) aacvList.get(i)).getValueMap())
             }
+            currentInfo.internalArtifactAuthzCheckList = newList
         }
         return currentInfo.internalArtifactAuthzCheckList
     }
@@ -699,8 +707,8 @@ class UserFacadeImpl implements UserFacade {
         protected String userId = (String) null
         Set<String> internalUserGroupIdSet = (Set<String>) null
         // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
-        EntityList internalArtifactTarpitCheckList = (EntityList) null
-        EntityList internalArtifactAuthzCheckList = (EntityList) null
+        Map<String, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap = new HashMap<>()
+        ArrayList<Map<String, Object>> internalArtifactAuthzCheckList = (ArrayList<Map<String, Object>>) null
 
         Locale localeCache = (Locale) null
         TimeZone tzCache = (TimeZone) null
@@ -757,8 +765,8 @@ class UserFacadeImpl implements UserFacade {
             }
 
             internalUserGroupIdSet = (Set<String>) null
-            internalArtifactTarpitCheckList = (EntityList) null
-            internalArtifactAuthzCheckList = (EntityList) null
+            internalArtifactTarpitCheckListMap.clear()
+            internalArtifactAuthzCheckList = (ArrayList<Map<String, Object>>) null
         }
 
         String getUsername() { return username }
