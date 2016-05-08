@@ -1,12 +1,11 @@
 ## Welcome to Moqui Framework
 
-[![Join the chat at https://gitter.im/moqui/moqui-framework](https://badges.gitter.im/moqui/moqui-framework.svg)](https://gitter.im/moqui/moqui-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 [![license](http://img.shields.io/badge/license-CC0%201.0%20Universal-blue.svg)](https://github.com/moqui/moqui-framework/blob/master/LICENSE.md)
 [![build](https://travis-ci.org/moqui/moqui-framework.svg)](https://travis-ci.org/moqui/moqui-framework)
 [![release](http://img.shields.io/github/release/moqui/moqui-framework.svg)](https://github.com/moqui/moqui-framework/releases)
 [![commits since release](http://img.shields.io/github/commits-since/moqui/moqui-framework/v1.6.2.svg)](https://github.com/moqui/moqui-framework/commits/master)
 [![downloads](http://img.shields.io/github/downloads/moqui/moqui-framework/total.svg)](https://github.com/moqui/moqui-framework/releases)
+[![Join the chat at https://gitter.im/moqui/moqui-framework](https://badges.gitter.im/moqui/moqui-framework.svg)](https://gitter.im/moqui/moqui-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 For details about running and deploying Moqui see:
 
