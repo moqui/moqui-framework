@@ -10,18 +10,18 @@
     <cache-list warm-on-start="true">
         <!-- Entity Database Record Caches (and cache clear assist data) -->
         <!-- set type="distributed" to use the distributed cache -->
-        <cache name="entity.record.one." max-elements="50000" eviction-strategy="least-frequently-used"
+        <cache name="entity.record.one." max-elements="20000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityValueBase"/>
         <cache name="entity.record.list." max-elements="10000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityListImpl"/>
         <cache name="entity.record.count." max-elements="10000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
 
-        <cache name="entity.record.one_ra." max-elements="100000" eviction-strategy="least-frequently-used"
+        <cache name="entity.record.one_ra." max-elements="40000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.one_view_ra." max-elements="100000" eviction-strategy="least-frequently-used"
+        <cache name="entity.record.one_view_ra." max-elements="40000" eviction-strategy="least-frequently-used"
                 key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
-        <cache name="entity.record.one_bf." max-elements="100000" eviction-strategy="least-frequently-used"
+        <cache name="entity.record.one_bf" max-elements="1000" eviction-strategy="least-frequently-used"
                 value-type="Set"/>
 
         <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used"

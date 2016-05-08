@@ -13,12 +13,15 @@
  */
 package org.moqui.jcache;
 
+import com.hazelcast.core.MessageListener;
+
 import javax.cache.Cache;
 import javax.cache.CacheException;
 import javax.cache.CacheManager;
 import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.CompleteConfiguration;
 import javax.cache.configuration.Configuration;
+import javax.cache.configuration.MutableConfiguration;
 import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CompletionListener;
@@ -27,6 +30,11 @@ import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
 import java.util.*;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 // TODO: implement size limit with size check and eviction done in separate thread; running every 30 seconds?
 
@@ -37,7 +45,7 @@ public class MCache<K, V> implements Cache<K, V> {
     private CacheManager manager;
     private CompleteConfiguration<K, V> configuration;
     // NOTE: could use ConcurrentHashMap here for atomic ops, but complicated by the MEntry for absent/present checks
-    private Map<K, MEntry<K, V>> entryStore = new HashMap<>();
+    private HashMap<K, MEntry<K, V>> entryStore = new HashMap<>();
     // currently for future reference, no runtime type checking
     // private Class<K> keyClass = null;
     // private Class<V> valueClass = null;
@@ -50,6 +58,30 @@ public class MCache<K, V> implements Cache<K, V> {
     private Duration updateDuration = null;
     private final boolean hasExpiry;
     private boolean isClosed = false;
+
+    private EvictRunnable evictRunnable = null;
+    private ScheduledFuture<?> evictFuture = null;
+
+    private static class WorkerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MCacheEvict");
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MCacheEvict-" + threadNumber.getAndIncrement()); }
+    }
+    private static ScheduledThreadPoolExecutor workerPool = new ScheduledThreadPoolExecutor(1, new WorkerThreadFactory());
+    static { workerPool.setRemoveOnCancelPolicy(true); }
+
+    public static class MCacheConfiguration<K, V> extends MutableConfiguration<K, V> {
+        public MCacheConfiguration() { super(); }
+        public MCacheConfiguration(CompleteConfiguration<K, V> conf) { super(conf); }
+        int maxEntries = 0;
+        long maxCheckSeconds = 30;
+        /** Set maximum number of entries in the cache, 0 means no limit (default). Limit is enforced in a scheduled worker, not on put operations. */
+        public MCacheConfiguration<K, V> setMaxEntries(int elements) { maxEntries = elements; return this; }
+        public int getMaxEntries() { return maxEntries; }
+        /** Set maximum number of entries in the cache, 0 means no limit (default). */
+        public MCacheConfiguration<K, V> setMaxCheckSeconds(long seconds) { maxCheckSeconds = seconds; return this; }
+        public long getMaxCheckSeconds() { return maxCheckSeconds; }
+    }
 
     /** Supports a few configurations but both manager and configuration can be null. */
     public MCache(String name, CacheManager manager, CompleteConfiguration<K, V> configuration) {
@@ -72,9 +104,38 @@ public class MCache<K, V> implements Cache<K, V> {
             // keyClass = configuration.getKeyType();
             // valueClass = configuration.getValueType();
             // TODO: support any other configuration?
+
+            if (configuration instanceof MCacheConfiguration) {
+                MCacheConfiguration<K, V> mCacheConf = (MCacheConfiguration<K, V>) configuration;
+
+                if (mCacheConf.maxEntries > 0) {
+                    evictRunnable = new EvictRunnable(this, mCacheConf.maxEntries);
+                    evictFuture = workerPool.scheduleWithFixedDelay(evictRunnable, 30, mCacheConf.maxCheckSeconds, TimeUnit.SECONDS);
+                }
+            }
         }
         hasExpiry = accessDuration != null || creationDuration != null || updateDuration != null;
     }
+
+    public synchronized void setMaxEntries(int elements) {
+        if (elements == 0) {
+            if (evictRunnable != null) {
+                evictRunnable = null;
+                evictFuture.cancel(false);
+                evictFuture = null;
+            }
+        } else {
+            if (evictRunnable != null) {
+                evictRunnable.maxEntries = elements;
+            } else {
+                evictRunnable = new EvictRunnable(this, elements);
+                long maxCheckSeconds = 30;
+                if (configuration instanceof MCacheConfiguration) maxCheckSeconds = ((MCacheConfiguration) configuration).maxCheckSeconds;
+                evictFuture = workerPool.scheduleWithFixedDelay(evictRunnable, 1, maxCheckSeconds, TimeUnit.SECONDS);
+            }
+        }
+    }
+    public int getMaxEntries() { return evictRunnable != null ? evictRunnable.maxEntries : 0; }
 
     @Override
     public String getName() { return name; }
@@ -640,9 +701,52 @@ public class MCache<K, V> implements Cache<K, V> {
         void countBulkRemoval(long entries) {
             removals += entries;
         }
-        // void countEviction() { evictions++; }
         void countExpire() {
             expires++;
         }
     }
+
+    private static class EvictRunnable<K, V> implements Runnable {
+        static AccessComparator comparator = new AccessComparator();
+        MCache cache;
+        int maxEntries;
+        EvictRunnable(MCache mc, int entries) { cache = mc; maxEntries = entries; }
+        @Override
+        public void run() {
+            if (maxEntries == 0) return;
+            int entriesToEvict = cache.entryStore.size() - maxEntries;
+            if (entriesToEvict <= 0) return;
+
+            long startTime = System.currentTimeMillis();
+
+            Collection<MEntry> entrySet = (Collection<MEntry>) cache.entryStore.values();
+            PriorityQueue<MEntry> priorityQueue = new PriorityQueue<>(entrySet.size(), comparator);
+            priorityQueue.addAll(entrySet);
+
+            int entriesEvicted = 0;
+            while (entriesToEvict > 0 && priorityQueue.size() > 0) {
+                MEntry curEntry = priorityQueue.poll();
+                // if an entry was expired after pulling the initial value set
+                if (curEntry.isExpired) continue;
+                cache.entryStore.remove(curEntry.getKey());
+                cache.stats.evictions++;
+                entriesEvicted++;
+                entriesToEvict--;
+            }
+            long timeElapsed = System.currentTimeMillis() - startTime;
+            System.out.println("Evicted " + entriesEvicted + " entries in " + timeElapsed + "ms from cache " + cache.name);
+        }
+    }
+    private static class AccessComparator implements Comparator<MEntry> {
+        @Override
+        public int compare(MEntry e1, MEntry e2) {
+            if (e1.accessCount == e2.accessCount) {
+                if (e1.lastAccessTime == e2.lastAccessTime) return 0;
+                else return e1.lastAccessTime > e2.lastAccessTime ? 1 : -1;
+            } else {
+                return e1.accessCount > e2.accessCount ? 1 : -1;
+            }
+        }
+    }
+
 }

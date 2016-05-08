@@ -39,11 +39,14 @@ New Features
 - Caching
   - CacheFacade now supports separate local and distributed caches both
     using the javax.cache interfaces
-  - Added new MCache class for faster local-only caches (implements the
-    javax.cache.Cache interface)
+  - Added new MCache class for faster local-only caches
+    - implements the javax.cache.Cache interface
+    - supports expire by create, access, update
+    - supports custom expire on get
+    - supports max entries, eviction done in separate thread
   - For distributed caches now using Hazelcast, initially version 3.6.2
   - Hazelcast can be used for distributed entity cache and can be used for
-    web session replication and OrientDB clustering
+    web session replication, distributed execution, and OrientDB clustering
   - Set many entities to cache=never to avoid overhead of caching where
     read/write ratio doesn't justify it or where cache could cause issues
 - Async Services

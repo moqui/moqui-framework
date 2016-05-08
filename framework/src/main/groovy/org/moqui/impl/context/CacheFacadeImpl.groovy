@@ -185,8 +185,8 @@ public class CacheFacadeImpl implements CacheFacade {
                 Long expireIdle = mc.getAccessDuration()?.durationAmount ?: 0
                 Long expireLive = mc.getCreationDuration()?.durationAmount ?: 0
                 ci.add([name:co.getName(), expireTimeIdle:expireIdle,
-                        expireTimeLive:expireLive, maxElements:0,
-                        evictionStrategy:"", size:mc.size(),
+                        expireTimeLive:expireLive, maxElements:mc.getMaxEntries(),
+                        evictionStrategy:"LRU", size:mc.size(),
                         getCount:stats.getCacheGets(), putCount:stats.getCachePuts(),
                         hitCount:stats.getCacheHits(), missCountTotal:stats.getCacheMisses(),
                         evictionCount:stats.getCacheEvictions(), removeCount:stats.getCacheRemovals(),
@@ -233,14 +233,18 @@ public class CacheFacadeImpl implements CacheFacade {
             String cacheType = cacheNode.attribute("type") ?: "local"
             if ("local".equals(cacheType)) {
                 // use MCache
-                MutableConfiguration mutConf = new MutableConfiguration()
-                mutConf.setTypes(keyType, valueType)
-                mutConf.setStoreByValue(false).setStatisticsEnabled(true)
-                mutConf.setExpiryPolicyFactory(expiryPolicyFactory)
+                MCache.MCacheConfiguration mConf = new MCache.MCacheConfiguration()
+                mConf.setTypes(keyType, valueType)
+                mConf.setStoreByValue(false).setStatisticsEnabled(true)
+                mConf.setExpiryPolicyFactory(expiryPolicyFactory)
 
-                if (cacheNode.attribute("max-elements")) logger.debug("max-elements not support for local cache ${fullCacheName}")
+                String maxElementsStr = cacheNode.attribute("max-elements")
+                if (maxElementsStr && maxElementsStr != "0") {
+                    int maxElements = Integer.parseInt(maxElementsStr)
+                    mConf.setMaxEntries(maxElements)
+                }
 
-                newCache = new MCache(fullCacheName, null, mutConf)
+                newCache = new MCache(fullCacheName, null, mConf)
             } else if ("distributed".equals(cacheType)) {
                 // use Hazelcast
                 CacheManager cacheManager = getHcCacheManager()
@@ -254,7 +258,7 @@ public class CacheFacadeImpl implements CacheFacade {
 
                 String maxElementsStr = cacheNode.attribute("max-elements")
                 if (maxElementsStr && maxElementsStr != "0") {
-                    int maxElements = Integer.parseInt(cacheNode.attribute("max-elements"))
+                    int maxElements = Integer.parseInt(maxElementsStr)
                     EvictionPolicy ep = cacheNode.attribute("eviction-strategy") == "least-recently-used" ? EvictionPolicy.LRU : EvictionPolicy.LFU
                     EvictionConfig evictionConfig = new EvictionConfig(maxElements, EvictionConfig.MaxSizePolicy.ENTRY_COUNT, ep)
                     cacheConfig.setEvictionConfig(evictionConfig)
