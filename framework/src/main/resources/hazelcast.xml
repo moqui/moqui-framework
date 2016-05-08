@@ -32,6 +32,7 @@
     </network>
 
     <topic name="entity-cache-invalidate">
+        <!-- NOTE: uses hazelcast.event, see queue.capacity, queue.timeout.millis, and thread.count properties -->
         <global-ordering-enabled>false</global-ordering-enabled>
         <statistics-enabled>true</statistics-enabled>
         <!-- register listener at runtime so has ECFI reference: <message-listeners><message-listener>foo</message-listener></message-listeners> -->
