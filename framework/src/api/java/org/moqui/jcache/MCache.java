@@ -13,8 +13,6 @@
  */
 package org.moqui.jcache;
 
-import com.hazelcast.core.MessageListener;
-
 import javax.cache.Cache;
 import javax.cache.CacheException;
 import javax.cache.CacheManager;
@@ -29,6 +27,7 @@ import javax.cache.management.CacheStatisticsMXBean;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
+
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -36,10 +35,14 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 // TODO: implement size limit with size check and eviction done in separate thread; running every 30 seconds?
 
 /** A simple implementation of the javax.cache.Cache interface. Basically a wrapper around a Map with stats and expiry. */
 public class MCache<K, V> implements Cache<K, V> {
+    private static final Logger logger = LoggerFactory.getLogger(MCache.class);
 
     private String name;
     private CacheManager manager;
@@ -734,7 +737,7 @@ public class MCache<K, V> implements Cache<K, V> {
                 entriesToEvict--;
             }
             long timeElapsed = System.currentTimeMillis() - startTime;
-            System.out.println("Evicted " + entriesEvicted + " entries in " + timeElapsed + "ms from cache " + cache.name);
+            logger.info("Evicted " + entriesEvicted + " entries in " + timeElapsed + "ms from cache " + cache.name);
         }
     }
     private static class AccessComparator implements Comparator<MEntry> {
