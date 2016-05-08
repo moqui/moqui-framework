@@ -2,10 +2,10 @@
 Moqui Framework Release Notes
 
 ===========================================================================
-Release 1.7.0 - TBD
+Release 2.0.0 - TBD
 ===========================================================================
 
-Moqui Framework 1.7.0 is a new feature and bug fix release.
+Moqui Framework 2.0.0 is a new feature and bug fix release.
 
 TODO
 
