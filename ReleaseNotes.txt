@@ -27,12 +27,15 @@ Non Backward Compatible Changes
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
+- Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)
     long ago and with other API changes now removing them
   - Removed getLocalizedMessage() and formatValue() from L10nFacade
   - Removed runScriptInCurrentContext(), evaluateCondition(),
     evaluateContextField(), and evaluateStringExpand() from ResourceFacade
+- When updating to this version recommend stopping all instances in a
+  cluster before starting any instance with the new version
 
 New Features
 

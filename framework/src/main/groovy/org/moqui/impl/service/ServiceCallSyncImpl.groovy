@@ -397,19 +397,14 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         if (!sd.internalHasSemaphore) return
 
         String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
-        String parameterValue = semParameter ? currentParameters.get(semParameter) ?: '_NULL_' : null
+        String parameterValue = semParameter ? currentParameters.get(semParameter) as String ?: '_NULL_' : '_NA_'
 
         ExecutionContextImpl eci = ecfi.getEci()
         ecfi.getTransactionFacade().runRequireNew(null, "Error in clear service semaphore", {
             boolean authzDisabled = eci.artifactExecution.disableAuthz()
             try {
-                if (semParameter) {
-                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                            .set('serviceName', getServiceName()).set('parameterValue', parameterValue).delete()
-                } else {
-                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceSemaphore")
-                            .set('serviceName', getServiceName()).delete()
-                }
+                ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                        .set('serviceName', getServiceName()).set('parameterValue', parameterValue).delete()
             } finally {
                 if (authzDisabled) eci.artifactExecution.enableAuthz()
             }
@@ -435,78 +430,41 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         ecfi.getTransactionFacade().runRequireNew(null, "Error in check/add service semaphore", {
             boolean authzDisabled = eci.artifactExecution.disableAuthz()
             try {
-                if (semParameter) {
-                    EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
-                            .condition("serviceName", getServiceName()).condition("parameterValue", parameterValue).useCache(false).one()
+                EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
+                        .condition("serviceName", getServiceName()).condition("parameterValue", parameterValue).useCache(false).one()
 
-                    if (serviceSemaphore) {
-                        Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime")
-                        if (currentTime > (lockTime.getTime() + ignoreMillis)) {
-                            ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                                    .set('serviceName', getServiceName()).set('parameterValue', parameterValue).delete()
-                            serviceSemaphore = null
-                        }
+                if (serviceSemaphore) {
+                    Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime")
+                    if (currentTime > (lockTime.getTime() + ignoreMillis)) {
+                        ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                                .set('serviceName', getServiceName()).set('parameterValue', parameterValue).delete()
+                        serviceSemaphore = null
                     }
-                    if (serviceSemaphore) {
-                        if (semaphore == "fail") {
-                            throw new ServiceException("An instance of service [${getServiceName()}] with parameter value [${parameterValue}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to fail on semaphore conflict.")
-                        } else {
-                            boolean semaphoreCleared = false
-                            while (System.currentTimeMillis() < (currentTime + timeoutTime)) {
-                                Thread.sleep(sleepTime)
-                                if (ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
-                                        .condition("serviceName", getServiceName()).condition("parameterValue", parameterValue)
-                                        .useCache(false).one() == null) {
-                                    semaphoreCleared = true
-                                    break
-                                }
-                            }
-                            if (!semaphoreCleared) {
-                                throw new ServiceException("An instance of service [${getServiceName()}] with parameter value [${parameterValue}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to wait on semaphore conflict, but the semaphore did not clear in ${timeoutTime/1000} seconds.")
-                            }
-                        }
-                    }
-
-                    // if we got to here the semaphore didn't exist or has cleared, so create one
-                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                            .set('serviceName', getServiceName()).set('parameterValue', parameterValue)
-                            .set('lockThread', lockThreadName).set('lockTime', new Timestamp(currentTime)).create()
-                } else {
-                    EntityValue serviceSemaphore = ecfi.entity.find("moqui.service.semaphore.ServiceSemaphore")
-                            .condition("serviceName", getServiceName()).useCache(false).one()
-
-                    if (serviceSemaphore) {
-                        Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime")
-                        if (currentTime > (lockTime.getTime() + ignoreMillis)) {
-                            ecfi.entity.makeValue("moqui.service.semaphore.ServiceSemaphore")
-                                    .set('serviceName', getServiceName()).delete()
-                            serviceSemaphore = null
-                        }
-                    }
-                    if (serviceSemaphore) {
-                        if (semaphore == "fail") {
-                            throw new ServiceException("An instance of service [${getServiceName()}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to fail on semaphore conflict.")
-                        } else {
-                            boolean semaphoreCleared = false
-                            while (System.currentTimeMillis() < (currentTime + timeoutTime)) {
-                                Thread.sleep(sleepTime)
-                                if (ecfi.entity.find("moqui.service.semaphore.ServiceSemaphore")
-                                        .condition("serviceName", getServiceName()).useCache(false).one() == null) {
-                                    semaphoreCleared = true
-                                    break
-                                }
-                            }
-                            if (!semaphoreCleared) {
-                                throw new ServiceException("An instance of service [${getServiceName()}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to wait on semaphore conflict, but the semaphore did not clear in ${timeoutTime/1000} seconds.")
-                            }
-                        }
-                    }
-
-                    // if we got to here the semaphore didn't exist or has cleared, so create one
-                    ecfi.entity.makeValue("moqui.service.semaphore.ServiceSemaphore")
-                            .set('serviceName', getServiceName()).set('lockThread', lockThreadName)
-                            .set('lockTime', new Timestamp(currentTime)).create()
                 }
+                if (serviceSemaphore) {
+                    if (semaphore == "fail") {
+                        throw new ServiceException("An instance of service [${getServiceName()}] with parameter value [${parameterValue}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to fail on semaphore conflict.")
+                    } else {
+                        boolean semaphoreCleared = false
+                        while (System.currentTimeMillis() < (currentTime + timeoutTime)) {
+                            Thread.sleep(sleepTime)
+                            if (ecfi.entity.find("moqui.service.semaphore.ServiceParameterSemaphore")
+                                    .condition("serviceName", getServiceName()).condition("parameterValue", parameterValue)
+                                    .useCache(false).one() == null) {
+                                semaphoreCleared = true
+                                break
+                            }
+                        }
+                        if (!semaphoreCleared) {
+                            throw new ServiceException("An instance of service [${getServiceName()}] with parameter value [${parameterValue}] is already running (thread [${serviceSemaphore.lockThread}], locked at ${serviceSemaphore.lockTime}) and it is setup to wait on semaphore conflict, but the semaphore did not clear in ${timeoutTime/1000} seconds.")
+                        }
+                    }
+                }
+
+                // if we got to here the semaphore didn't exist or has cleared, so create one
+                ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                        .set('serviceName', getServiceName()).set('parameterValue', parameterValue)
+                        .set('lockThread', lockThreadName).set('lockTime', new Timestamp(currentTime)).create()
             } finally {
                 if (authzDisabled) eci.artifactExecution.enableAuthz()
             }
