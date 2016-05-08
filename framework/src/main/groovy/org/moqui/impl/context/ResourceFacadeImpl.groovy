@@ -335,16 +335,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method) { return script(location, method) }
-
-    @Override
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method, Map additionalContext) {
-        return script(location, method, additionalContext)
-    }
-
-    @Override
     Object script(String location, String method) {
         ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
@@ -395,16 +385,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation) { return condition(expression, debugLocation) }
-
-    @Override
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation, Map additionalContext) {
-        return condition(expression, debugLocation, additionalContext)
-    }
-
-    @Override
     boolean condition(String expression, String debugLocation) {
         return conditionInternal(expression, debugLocation, ecfi.getEci())
     }
@@ -438,14 +418,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation) { return expression(expr, debugLocation) }
-    @Override
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation, Map additionalContext) {
-        return expression(expr, debugLocation, additionalContext)
-    }
-    @Override
     Object expression(String expression, String debugLocation) {
         return expressionInternal(expression, debugLocation, ecfi.getEci())
     }
@@ -478,15 +450,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-
-    @Override
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation) { expand(inputString, debugLocation) }
-    @Override
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation, Map additionalContext) {
-        return expand(inputString, debugLocation, additionalContext)
-    }
 
     @Override
     String expand(String inputString, String debugLocation) {

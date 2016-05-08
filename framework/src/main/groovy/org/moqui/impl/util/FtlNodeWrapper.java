@@ -51,7 +51,6 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
         this.parentNode = parentNode;
     }
 
-    public Node getGroovyNode() { throw new IllegalArgumentException("Deprecated"); }
     public MNode getMNode() { return mNode; }
 
     public Object getAdaptedObject(Class aClass) { return mNode; }

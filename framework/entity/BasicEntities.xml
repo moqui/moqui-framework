@@ -212,7 +212,6 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="parentTypeId" related-field-name="statusTypeId"/>
         </relationship>
     </entity>
-    <!-- Deprecated for a long time, now removed: StatusValidChange, StatusValidChangeToDetail -->
     <entity entity-name="StatusFlow" package-name="moqui.basic">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusTypeId" type="id"><description>Optional. If specified uses status items with this type.</description></field>

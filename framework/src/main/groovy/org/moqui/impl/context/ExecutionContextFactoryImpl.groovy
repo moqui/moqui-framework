@@ -17,6 +17,7 @@ import com.hazelcast.config.Config
 import com.hazelcast.config.XmlConfigBuilder
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.IExecutorService
 import com.hazelcast.core.ITopic
 import groovy.transform.CompileStatic
 import org.apache.camel.CamelContext
@@ -65,6 +66,7 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
@@ -116,6 +118,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected HazelcastInstance hazelcastInstance
     /** Entity Cache Invalidate Hazelcase Topic */
     ITopic<EntityCache.EntityCacheInvalidate> entityCacheInvalidateTopic
+    /** Hazelcast Distributed ExecutorService for async services, etc */
+    IExecutorService hazelcastExecutorService
 
     /** KIE ReleaseId Cache */
     protected final Cache<String, ReleaseId> kieComponentReleaseIdCache
@@ -143,7 +147,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         private final AtomicInteger threadNumber = new AtomicInteger(1)
         Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
     }
-    final ThreadPoolExecutor workerPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
+    final ExecutorService workerPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -330,6 +334,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
         EntityCache.EntityCacheListener eciListener = new EntityCache.EntityCacheListener(this)
         entityCacheInvalidateTopic.addMessageListener(eciListener)
+
+        // get Hazelcast ExecutorService
+        hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
 
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 

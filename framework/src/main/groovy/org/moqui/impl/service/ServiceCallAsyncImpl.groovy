@@ -14,31 +14,24 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.Moqui
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.service.ServiceCallAsync
-import org.moqui.service.ServiceResultReceiver
-import org.moqui.service.ServiceResultWaiter
+import org.moqui.service.ServiceException
 import org.moqui.impl.context.ExecutionContextImpl
-import org.quartz.impl.matchers.NameMatcher
-import org.quartz.TriggerBuilder
-import org.quartz.Trigger
-import org.quartz.JobDetail
-import org.quartz.JobDataMap
-import org.quartz.JobBuilder
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.Callable
+import java.util.concurrent.Future
 
 @CompileStatic
 class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceCallAsyncImpl.class)
 
-    protected boolean persist = false
-    /* not supported by Atomikos/etc right now, consider for later: protected int transactionIsolation = -1 */
-    protected ServiceResultReceiver resultReceiver = null
-    protected int maxRetry = 1
+    protected boolean distribute = false
 
     ServiceCallAsyncImpl(ServiceFacadeImpl sfi) {
         super(sfi)
@@ -60,27 +53,37 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     ServiceCallAsync parameter(String name, Object value) { parameters.put(name, value); return this }
 
     @Override
-    ServiceCallAsync persist(boolean p) { this.persist = p; return this }
-
-    /* not supported by Atomikos/etc right now, consider for later:
-    @Override
-    ServiceCallAsync transactionIsolation(int ti) { this.transactionIsolation = ti; return this }
-    */
-
-    @Override
-    ServiceCallAsync resultReceiver(ServiceResultReceiver rr) { this.resultReceiver = rr; return this }
-
-    @Override
-    ServiceCallAsync maxRetry(int mr) { this.maxRetry = mr; return this }
+    ServiceCallAsync distribute(boolean dist) { this.distribute = dist; return this }
 
     @Override
     void call() {
-        // TODO: how to handle persist on a per-job bases? seems like the volatile Job concept matched this, but that is deprecated in 2.0
-        // TODO: how to handle maxRetry
-        if (logger.traceEnabled) logger.trace("Setting up call to async service [${serviceName}] with parameters [${parameters}]")
-
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
         ExecutionContextImpl eci = ecfi.getEci()
+        validateCall(eci)
+
+        AsyncServiceRunnable runnable = new AsyncServiceRunnable(eci, serviceName, parameters)
+        if (distribute) {
+            ecfi.hazelcastExecutorService.execute(runnable)
+        } else {
+            ecfi.workerPool.execute(runnable)
+        }
+    }
+
+    @Override
+    Future<Map<String, Object>> callFuture() throws ServiceException {
+        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextImpl eci = ecfi.getEci()
+        validateCall(eci)
+
+        AsyncServiceCallable callable = new AsyncServiceCallable(eci, serviceName, parameters)
+        if (distribute) {
+            return ecfi.hazelcastExecutorService.submit(callable)
+        } else {
+            return ecfi.workerPool.submit(callable)
+        }
+    }
+
+    void validateCall(ExecutionContextImpl eci) {
         // Before scheduling the service check a few basic things so they show up sooner than later:
         ServiceDefinition sd = sfi.getServiceDefinition(getServiceName())
         if (sd == null && !isEntityAutoPattern()) throw new IllegalArgumentException("Could not find service with name [${getServiceName()}]")
@@ -99,86 +102,97 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         // always do an authz before scheduling the job
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE", ServiceDefinition.getVerbAuthzActionId(verb))
         eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
+        // pop immediately, just did the push to to an authz
+        eci.getArtifactExecution().pop(aei)
 
         parameters.authUsername = eci.getUser().getUsername()
         parameters.authTenantId = eci.getTenantId()
 
         // logger.warn("=========== async call ${serviceName}, parameters: ${parameters}")
-
-        if (persist) {
-            // NOTE: is this the best way to get a unique job name? (needed to register a listener below)
-            String uniqueJobName = UUID.randomUUID()
-            // NOTE: don't store durably, ie tell it to get rid of it after it is run
-            JobBuilder jobBuilder = JobBuilder.newJob(ServiceQuartzJob.class)
-                    .withIdentity(uniqueJobName, serviceName)
-                    .usingJobData(new JobDataMap(parameters))
-                    .requestRecovery().storeDurably(false)
-            JobDetail job = jobBuilder.build()
-
-            Trigger nowTrigger = TriggerBuilder.newTrigger()
-                    .withIdentity(uniqueJobName, "NowTrigger").startNow().withPriority(5)
-                    .forJob(job).build()
-
-            if (resultReceiver != null) {
-                ServiceRequesterListener sqjl = new ServiceRequesterListener(resultReceiver)
-                // NOTE: is this the best way to get this to run for ONLY this job?
-                sfi.scheduler.getListenerManager().addJobListener(sqjl, NameMatcher.nameEquals(uniqueJobName))
-            }
-
-            sfi.scheduler.scheduleJob(job, nowTrigger)
-        } else {
-            AsyncServiceRunnable runnable = new AsyncServiceRunnable(eci, serviceName, parameters, resultReceiver)
-            ecfi.workerPool.execute(runnable)
-        }
-
-        // we did an authz before scheduling, so pop it now
-        eci.getArtifactExecution().pop(aei)
     }
 
     @Override
-    ServiceResultWaiter callWaiter() {
-        ServiceResultWaiter resultWaiter = new ServiceResultWaiter(sfi.getEcfi().getEci())
-        this.resultReceiver(resultWaiter)
-        this.call()
-        return resultWaiter
+    Runnable getRunnable() {
+        return new AsyncServiceRunnable(sfi.getEcfi().getEci(), serviceName, parameters)
     }
 
-    static class AsyncServiceRunnable implements Runnable {
-        ExecutionContextFactoryImpl ecfi
+    @Override
+    Callable<Map<String, Object>> getCallable() {
+        return new AsyncServiceCallable(sfi.getEcfi().getEci(), serviceName, parameters)
+    }
+
+    static class AsyncServiceInfo implements Externalizable {
+        transient ExecutionContextFactoryImpl ecfi
         String threadTenantId
         String threadUsername
         String serviceName
         Map<String, Object> parameters
-        ServiceResultReceiver resultReceiver
 
-        AsyncServiceRunnable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters, ServiceResultReceiver resultReceiver) {
+        AsyncServiceInfo(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             ecfi = eci.ecfi
             threadTenantId = eci.tenantId
             threadUsername = eci.user.username
             this.serviceName = serviceName
             this.parameters = new HashMap<>(parameters)
-            this.resultReceiver = resultReceiver
         }
 
         @Override
-        void run() {
+        void writeExternal(ObjectOutput out) throws IOException {
+            out.writeUTF(threadTenantId) // never null
+            out.writeObject(threadUsername) // might be null
+            out.writeUTF(serviceName) // never null
+            out.writeObject(parameters)
+        }
+
+        @Override
+        void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+            threadTenantId = objectInput.readUTF()
+            threadUsername = (String) objectInput.readObject()
+            serviceName = objectInput.readUTF()
+            parameters = (Map<String, Object>) objectInput.readObject()
+        }
+
+        ExecutionContextFactoryImpl getEcfi() {
+            if (ecfi == null) ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+            return ecfi
+        }
+
+        Map<String, Object> runInternal() throws Exception {
             ExecutionContextImpl threadEci = (ExecutionContextImpl) null
             try {
-                threadEci = ecfi.getEci()
+                threadEci = getEcfi().getEci()
                 threadEci.changeTenant(threadTenantId)
                 if (threadUsername != null && threadUsername.length() > 0)
                     threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
 
                 // NOTE: authz is disabled because authz is checked before queueing
                 Map<String, Object> result = threadEci.service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
-
-                if (resultReceiver != null) resultReceiver.receiveResult(result)
+                return result
             } catch (Throwable t) {
                 logger.error("Error in async service", t)
-                if (resultReceiver != null) resultReceiver.receiveThrowable(t)
+                throw t
             } finally {
                 if (threadEci != null) threadEci.destroy()
             }
         }
+    }
+
+    static class AsyncServiceRunnable extends AsyncServiceInfo implements Runnable, Externalizable {
+
+        AsyncServiceRunnable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
+            super(eci, serviceName, parameters)
+        }
+
+        @Override
+        void run() { runInternal() }
+    }
+
+
+    static class AsyncServiceCallable extends AsyncServiceInfo implements Callable<Map<String, Object>>, Externalizable {
+        AsyncServiceCallable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
+            super(eci, serviceName, parameters)
+        }
+        @Override
+        Map<String, Object> call() throws Exception { return runInternal() }
     }
 }

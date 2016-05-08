@@ -904,22 +904,7 @@ class EntityFacadeImpl implements EntityFacade {
                 eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getEci())
             }
         }
-
-        // deprecated: if (entityName == "moqui.entity.ServiceTrigger" && operation == "create" && !before) runServiceTrigger(fieldValues)
     }
-
-    /* Deprecated:
-    void runServiceTrigger(Map fieldValues) {
-        ecfi.getServiceFacade().sync().name((String) fieldValues.serviceName)
-                .parameters((Map) ecfi.resourceFacade.expression((String) fieldValues.mapString, ""))
-                .call()
-        if (ecfi.getExecutionContext().getMessage().hasError())
-            logger.error("Error running ServiceTrigger service [${fieldValues.serviceName}]: ${ecfi.getExecutionContext().getMessage().getErrorsString()}")
-        makeValue("moqui.entity.ServiceTrigger").set("serviceTriggerId", fieldValues.serviceTriggerId)
-                .set("statusId", ecfi.getExecutionContext().getMessage().hasError() ? "SrtrRunError" : "SrtrRunSuccess")
-                .update()
-    }
-    */
 
     void destroy() {
         Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()

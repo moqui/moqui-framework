@@ -35,7 +35,12 @@
         <global-ordering-enabled>false</global-ordering-enabled>
         <statistics-enabled>true</statistics-enabled>
         <!-- register listener at runtime so has ECFI reference: <message-listeners><message-listener>foo</message-listener></message-listeners> -->
-      </topic>
+    </topic>
+    <executor-service name="service-executor">
+        <pool-size>4</pool-size>
+        <queue-capacity>10000</queue-capacity>
+        <statistics-enabled>true</statistics-enabled>
+    </executor-service>
 
     <cache name="default">
         <key-type class-name="java.lang.Object"/>

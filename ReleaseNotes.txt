@@ -2,18 +2,37 @@
 Moqui Framework Release Notes
 
 ===========================================================================
-Release 1.7.0 - TBD
+Release 2.0.0 - TBD
 ===========================================================================
 
-Moqui Framework 1.7.0 is a new feature and bug fix release.
+Moqui Framework 2.0.0 is a new feature and bug fix release.
 
 TODO
 
 Non Backward Compatible Changes
 
-- Ehcache has been removed
-- The org.moqui.context.Cache interface is replaced by javax.cache.Cache
-- Configuration options for caches changed (moqui-conf.cache-list.cache)
+- Caching
+  - Ehcache has been removed
+  - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
+  - Configuration options for caches changed (moqui-conf.cache-list.cache)
+- Async Services
+  - Now uses more standard java.util.concurrent interfaces
+  - Removed ServiceCallAsync.maxRetry() - was never supported
+  - Removed ServiceCallAsync.persist() - was never supported well, used to
+    simply call through Quartz Scheduler when set
+  - Removed persist option from XML Actions service-call.@async attribute
+  - Async services never called through Quartz Scheduler (only scheduled)
+  - ServiceCallAsync.callWaiter() replaced by callFuture()
+  - Removed ServiceCallAsync.resultReceiver()
+  - Removed ServiceResultReceiver interface - use callFuture() instead
+  - Removed ServiceResultWaiter class - use callFuture() instead
+  - See related new features below
+- Deprecated methods
+  - These methods were deprecated (usually by methods with shorter names)
+    long ago and with other API changes now removing them
+  - Removed getLocalizedMessage() and formatValue() from L10nFacade
+  - Removed runScriptInCurrentContext(), evaluateCondition(),
+    evaluateContextField(), and evaluateStringExpand() from ResourceFacade
 
 New Features
 
@@ -27,6 +46,15 @@ New Features
     web session replication and OrientDB clustering
   - Set many entities to cache=never to avoid overhead of caching where
     read/write ratio doesn't justify it or where cache could cause issues
+- Async Services
+  - ServiceCallAsync now using standard java.util.concurrent interfaces
+  - Use callFuture() to get a Future object instead of callWaiter()
+  - Can now get Runnable or Callable objects to run a service through a
+    ExecutorService of your choice
+  - Services can now be called local or distributed through Hazelcast
+    - Added ServiceCallAsync.distribute() method
+    - Added distribute option to XML Actions service-call.@async attribute
+  - Distributed services allow offloading service execution to worker nodes
 - Added default Hazelcast web session replication config (see web.xml)
 - Implemented distributed entity cache invalidate using a Hazelcast Topic,
   enabled in Moqui Conf XML file with the @distributed-cache-invalidate

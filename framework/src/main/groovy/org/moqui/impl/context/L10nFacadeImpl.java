@@ -48,8 +48,6 @@ public class L10nFacadeImpl implements L10nFacade {
     protected TimeZone getTimeZone() { return eci.getUser().getTimeZone(); }
 
     @Override
-    public String getLocalizedMessage(String original) { return localize(original); }
-    @Override
     public String localize(String original) { return localize(original, getLocale()); }
     @Override
     public String localize(String original, Locale locale) {
@@ -269,7 +267,7 @@ public class L10nFacadeImpl implements L10nFacade {
     public Calendar parseDateTime(String input, String format) {
         return calendarValidator.validate(input, format, getLocale(), getTimeZone());
     }
-    static String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+    public static String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
         return calendarValidator.format(input, format, locale, tz);
     }
 
@@ -281,8 +279,6 @@ public class L10nFacadeImpl implements L10nFacade {
         return bigDecimalValidator.format(input, format, locale);
     }
 
-    @Override
-    public String formatValue(Object value, String fmt) { return format(value, fmt); }
     @Override
     public String format(Object value, String format) {
         return this.format(value, format, getLocale(), getTimeZone());

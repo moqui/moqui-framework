@@ -198,8 +198,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- call setup#Tenant to load data, etc -->
             <script>
-                def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callWaiter()
-                if (waitForSetup) srw.waitForResult()
+                def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callFuture()
+                if (waitForSetup) srw.get()
             </script>
             <if condition="ec.message.hasError()">
                 <message error="true">Found errors setting up tenant. Data may not have loaded data or admin user may not have been created (see other messages).</message></if>
@@ -243,8 +243,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- call setup#Tenant to load data, etc -->
             <script>
-                def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callWaiter()
-                if (waitForSetup) srw.waitForResult()
+                def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callFuture()
+                if (waitForSetup) srw.get()
             </script>
             <if condition="ec.message.hasError()">
                 <message error="true">Found errors setting up tenant. Data may not have loaded data or admin user may not have been created (see other messages).</message></if>
@@ -304,8 +304,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- call setup#Tenant to load data, etc -->
             <script>
-                def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callWaiter()
-                if (waitForSetup) srw.waitForResult()
+                def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callFuture()
+                if (waitForSetup) srw.get()
             </script>
             <if condition="ec.message.hasError()">
                 <message error="true">Found errors setting up tenant. Data may not have loaded data or admin user may not have been created (see other messages).</message></if>
