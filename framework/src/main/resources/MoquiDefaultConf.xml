@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
 <moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-1.6.xsd">
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.0.xsd">
 
     <!-- Settings in this file can be overridden in a runtime conf file that has a any of the desired sub-elements. -->
 
