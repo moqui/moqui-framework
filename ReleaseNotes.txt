@@ -40,6 +40,8 @@ Non Backward Compatible Changes
 
 New Features
 
+- Various library updates, big cleanup of classes found in multiple jar
+  files (JarHell checks pass; nice in general, needed for ElasticSearch)
 - Caching
   - CacheFacade now supports separate local and distributed caches both
     using the javax.cache interfaces
