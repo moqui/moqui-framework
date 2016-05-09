@@ -161,8 +161,10 @@ class ScreenRenderImpl implements ScreenRender {
             webappName(request.session.servletContext.getInitParameter("moqui-name"))
         if (webappName != null && webappName.length() > 0 && (rootScreenLocation == null || rootScreenLocation.length() == 0))
             rootScreenFromHost(request.getServerName())
-        if (originalScreenPathNameList == null || originalScreenPathNameList.size() == 0)
-            screenPath(request.getPathInfo().split("/") as List)
+        if (originalScreenPathNameList == null || originalScreenPathNameList.size() == 0) {
+            String pathInfo = request.getPathInfo()
+            if (pathInfo != null) screenPath(pathInfo.split("/") as List)
+        }
         // now render
         internalRender()
     }
