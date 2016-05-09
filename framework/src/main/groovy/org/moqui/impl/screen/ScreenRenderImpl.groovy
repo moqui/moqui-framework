@@ -895,8 +895,10 @@ class ScreenRenderImpl implements ScreenRender {
             String overrideTemplateLocation = null
             // go through the screenPathDefList instead screenRenderDefList so that parent screen can override template
             //     even if it isn't rendered to decorate subscreen
-            for (ScreenDefinition sd in screenUrlInfo.screenPathDefList)
-                overrideTemplateLocation = sd.getMacroTemplateLocation(renderMode)
+            for (ScreenDefinition sd in screenUrlInfo.screenPathDefList) {
+                String curLocation = sd.getMacroTemplateLocation(renderMode)
+                if (curLocation != null && curLocation.length() > 0) overrideTemplateLocation = curLocation
+            }
 
             if (overrideTemplateLocation) {
                 return sfi.getTemplateByLocation(overrideTemplateLocation)
