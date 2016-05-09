@@ -63,12 +63,15 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Screen Themes -->
             <moqui.basic.EnumerationType description="Screen Theme Type" enumTypeId="ScreenThemeType"/>
             <moqui.basic.Enumeration description="Internal Applications" enumId="STT_INTERNAL" enumTypeId="ScreenThemeType" enumCode="DEFAULT"/>
-            <moqui.basic.Enumeration description="Public Web Site/etc" enumId="STT_PUBLIC" enumTypeId="ScreenThemeType"/>
+            <moqui.basic.Enumeration description="Public Web Site/etc" enumId="STT_PUBLIC" enumTypeId="ScreenThemeType" enumCode="PUBLIC"/>
+            <moqui.basic.Enumeration description="Error Screens" enumId="STT_ERROR" enumTypeId="ScreenThemeType" enumCode="ERROR"/>
 
             <!-- Default Theme -->
             <moqui.screen.ScreenTheme screenThemeId="DEFAULT" screenThemeTypeEnumId="STT_INTERNAL"
                                       description="Moqui Default Theme: simple, flat, default"/>
             <!-- NOTE: the default webroot component extends this theme, see the WebrootThemeData.xml file for more -->
+            <moqui.screen.ScreenTheme screenThemeId="ERROR" screenThemeTypeEnumId="STT_ERROR"
+                                      description="Minimal Error Theme"/>
         </seed-data>
     </entity>
     <entity entity-name="ScreenThemeResource" package-name="moqui.screen" authorize-skip="view" cache="true">

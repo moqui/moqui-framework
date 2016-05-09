@@ -111,17 +111,13 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="artifact-stats">
         <xs:complexType>
-            <xs:attribute name="type" use="required">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="screen"/>
-                        <xs:enumeration value="screen-content"/>
-                        <xs:enumeration value="transition"/>
-                        <xs:enumeration value="service"/>
-                        <xs:enumeration value="entity"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
+            <xs:attribute name="type" use="required"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="screen"/>
+                <xs:enumeration value="screen-content"/>
+                <xs:enumeration value="transition"/>
+                <xs:enumeration value="service"/>
+                <xs:enumeration value="entity"/>
+            </xs:restriction></xs:simpleType></xs:attribute>
             <xs:attribute name="sub-type" type="xs:string"/>
             <xs:attribute name="persist-hit" type="boolean" default="false"/>
             <xs:attribute name="persist-bin" type="boolean" default="false"/>
@@ -136,6 +132,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="root-screen"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="error-screen"/>
                 <xs:element minOccurs="0" ref="first-hit-in-visit"/>
                 <xs:element minOccurs="0" ref="before-request"/>
                 <xs:element minOccurs="0" ref="after-request"/>
@@ -159,13 +156,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
                 If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to all
                 screen/transition requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
-            <!-- Content URL prefixes to make it easy to move the serving load for static content to other machines -->
-            <!-- TODO use in code
-            <xs:attribute name="content-prefix-secure" type="xs:string"/> -->
-            <!-- TODO use in code
-            <xs:attribute name="content-prefix-standard" type="xs:string"/> -->
-            <!-- TODO use in code
-            <xs:attribute name="cookie-domain" type="xs:string"/> -->
+            <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
         </xs:complexType>
     </xs:element>
     <xs:element name="root-screen">
@@ -174,6 +165,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>A pattern to match the host name against (from ServletRequest.getServerName())</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="location" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>The location of the root screen XML file</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="error-screen">
+        <xs:complexType>
+            <xs:attribute name="error" use="required"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="unauthorized"><xs:annotation><xs:documentation>401 - authentication required</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="forbidden"><xs:annotation><xs:documentation>403 - authorization failed</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="not-found"><xs:annotation><xs:documentation>404 - screen/resource not found</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="too-many"><xs:annotation><xs:documentation>429 - tarpit limit reached</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="internal-error"><xs:annotation><xs:documentation>500 - general error</xs:documentation></xs:annotation></xs:enumeration>
+            </xs:restriction></xs:simpleType></xs:attribute>
+            <xs:attribute name="screen-path" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The path to the screen to render on error</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="first-hit-in-visit">

@@ -1464,6 +1464,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected static void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
         baseNode.mergeNodeWithChildKey(overrideNode, "root-screen", "host", null)
+        baseNode.mergeNodeWithChildKey(overrideNode, "error-screen", "error", null)
         // handle webapp -> first-hit-in-visit[1], after-request[1], before-request[1], after-login[1], before-logout[1], root-screen[1]
         mergeWebappActions(baseNode, overrideNode, "first-hit-in-visit")
         mergeWebappActions(baseNode, overrideNode, "after-request")
@@ -1501,6 +1502,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     static class WebappInfo {
         String webappName
+        MNode webappNode
         XmlAction firstHitInVisitActions = null
         XmlAction beforeRequestActions = null
         XmlAction afterRequestActions = null
@@ -1511,12 +1513,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
+            webappNode = ecfi.getWebappNode(webappName)
             init(ecfi)
         }
 
         void init(ExecutionContextFactoryImpl ecfi) {
             // prep actions
-            MNode webappNode = ecfi.getWebappNode(webappName)
             if (webappNode.hasChild("first-hit-in-visit"))
                 this.firstHitInVisitActions = new XmlAction(ecfi, webappNode.first("first-hit-in-visit").first("actions"),
                         "webapp_${webappName}.first_hit_in_visit.actions")
@@ -1541,6 +1543,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             if (webappNode.hasChild("before-shutdown"))
                 this.beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
+        }
+
+        MNode getErrorScreenNode(String error) {
+            return webappNode.first({ MNode it -> it.name == "error-screen" && it.attribute("error") == error })
         }
     }
 
