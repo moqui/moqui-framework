@@ -220,12 +220,12 @@ dependencies {
     // compile group: 'org.elasticsearch', name: 'elasticsearch-groovy', version: '2.1.2' // Apache 2.0
 
     // Rules Libraries: Drools/jBPM/etc
-    apiCompile('org.kie:kie-api:6.3.0.Final') // Apache 2.0
-    compile('org.kie:kie-api:6.3.0.Final') // Apache 2.0
-    compile('org.drools:drools-core:6.3.0.Final') // Apache 2.0
-    compile('org.drools:drools-compiler:6.3.0.Final') // Apache 2.0
-    compile('org.drools:drools-decisiontables:6.3.0.Final') // Apache 2.0
-    compile('org.drools:drools-jsr94:6.3.0.Final') // Apache 2.0
+    apiCompile('org.kie:kie-api:6.4.0.Final') // Apache 2.0
+    compile('org.kie:kie-api:6.4.0.Final') // Apache 2.0
+    compile('org.drools:drools-core:6.4.0.Final') // Apache 2.0
+    compile('org.drools:drools-compiler:6.4.0.Final') // Apache 2.0
+    compile('org.drools:drools-decisiontables:6.4.0.Final') // Apache 2.0
+    compile('org.drools:drools-jsr94:6.4.0.Final') // Apache 2.0
     compile group: 'jsr94', name: 'jsr94', version: '1.1' // ???
     // NOTE: janino in place for issues with ecj
     runtime group: 'org.codehaus.janino', name: 'janino', version: '2.7.8' // New BSD
