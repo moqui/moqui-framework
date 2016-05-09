@@ -67,33 +67,33 @@ dependencies {
     compile group: 'org.owasp.esapi', name: 'esapi-moqui', version: '2.1.0' // New BSD
 
     // Atomikos Transaction Manager
-    compile group: 'com.atomikos', name: 'transactions', version: '4.0.1' // Apache 2.0
-    compile group: 'com.atomikos', name: 'transactions-jdbc', version: '4.0.0' // Apache 2.0
-    compile group: 'com.atomikos', name: 'transactions-jta', version: '4.0.0' // Apache 2.0
+    compile group: 'com.atomikos', name: 'transactions', version: '4.0.2' // Apache 2.0
+    compile group: 'com.atomikos', name: 'transactions-jdbc', version: '4.0.2' // Apache 2.0
+    compile group: 'com.atomikos', name: 'transactions-jta', version: '4.0.2' // Apache 2.0
     // Bitronix is an alternative to Atomikos
     compile group: 'org.codehaus.btm', name: 'btm', version: '3.0.0-SNAPSHOT' // Apache 2.0
 
 
-    apiCompile group: 'org.apache.camel', name: 'camel-core', version: '2.16.2' // Apache 2.0
-    compile group: 'org.apache.camel', name: 'camel-core', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-csv', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-freemarker', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-groovy', version: '2.16.2' // Apache 2.0
+    apiCompile group: 'org.apache.camel', name: 'camel-core', version: '2.17.1' // Apache 2.0
+    compile group: 'org.apache.camel', name: 'camel-core', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-csv', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-freemarker', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-groovy', version: '2.17.1' // Apache 2.0
     /* Depends on org.apache.geronimo.specs:geronimo-servlet_3.0_spec:1.0, must be required so can't remove and
         conflicts with the Servlet 2.5 jar which Moqui currently uses, (Winstone relies on this too?)
-    runtime ('org.apache.camel:camel-http-common:2.16.2') { exclude group: 'org.apache.geronimo.specs' } // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-http4', version: '2.16.2' // Apache 2.0
+    runtime ('org.apache.camel:camel-http-common:2.17.1') { exclude group: 'org.apache.geronimo.specs' } // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-http4', version: '2.17.1' // Apache 2.0
     */
     // NOTE: camel-jms uses spring-jms and a bunch of other spring stuff, significant bloat
-    // runtime group: 'org.apache.camel', name: 'camel-jms', version: '2.16.2' // Apache 2.0
+    // runtime group: 'org.apache.camel', name: 'camel-jms', version: '2.17.1' // Apache 2.0
     /* Uncomment these as desired for use in Camel:
-    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-mail', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-mqtt', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-quartz2', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-shiro', version: '2.16.2' // Apache 2.0
-    runtime group: 'org.apache.camel', name: 'camel-xmlrpc', version: '2.16.2' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-lucene', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-mail', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-mqtt', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-quartz2', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-shiro', version: '2.17.1' // Apache 2.0
+    runtime group: 'org.apache.camel', name: 'camel-xmlrpc', version: '2.17.1' // Apache 2.0
     */
 
     compile group: 'org.apache.commons', name: 'commons-csv', version: '1.2' // Apache 2.0
@@ -101,9 +101,9 @@ dependencies {
     compile group: 'commons-codec', name: 'commons-codec', version: '1.10' // Apache 2.0
     compile group: 'commons-collections', name: 'commons-collections', version: '3.2.2' // Apache 2.0
     compile group: 'commons-fileupload', name: 'commons-fileupload', version: '1.3.1' // Apache 2.0
-    compile group: 'commons-io', name: 'commons-io', version: '2.4' // Apache 2.0
+    compile group: 'commons-io', name: 'commons-io', version: '2.5' // Apache 2.0
     compile group: 'commons-logging', name: 'commons-logging', version: '1.2' // Apache 2.0
-    compile group: 'commons-validator', name: 'commons-validator', version: '1.5.0' // Apache 2.0
+    compile group: 'commons-validator', name: 'commons-validator', version: '1.5.1' // Apache 2.0
     compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.2' // Apache 2.0
     compile group: 'org.apache.httpcomponents', name: 'httpcore', version: '4.4.4' // Apache 2.0
 
@@ -133,7 +133,7 @@ dependencies {
 
     compile group: 'com.sun.mail', name: 'javax.mail', version: '1.5.5' // CDDL
     compile group: 'javax.jcr', name: 'jcr', version: '2.0' // Apache 2.0???
-    compile group: 'joda-time', name: 'joda-time', version: '2.9.2' // Apache 2.0
+    compile group: 'joda-time', name: 'joda-time', version: '2.9.3' // Apache 2.0
     compile group: 'org.joda', name: 'joda-convert', version: '1.8.1' // Apache 2.0
     compile group: 'net.java.dev.jna', name: 'jna', version: '4.2.2' // Apache 2.0
     compile group: 'net.java.dev.jna', name: 'jna-platform', version: '4.2.2' // Apache 2.0
@@ -153,15 +153,15 @@ dependencies {
     compile name: 'org.eclipse.mylyn.wikitext.twiki.core_1.8.0.I20121130-0624', version: '' // EPL
 
     // OrientDB
-    compile group: 'com.orientechnologies', name: 'orientdb-client', version: '2.1.13' // Apache 2.0
-    compile group: 'com.orientechnologies', name: 'orientdb-core', version: '2.1.13' // Apache 2.0
-    compile group: 'com.orientechnologies', name: 'orientdb-enterprise', version: '2.1.13' // Apache 2.0
-    compile('com.orientechnologies:orientdb-graphdb:2.1.13') { // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-client', version: '2.1.16' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-core', version: '2.1.16' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-enterprise', version: '2.1.16' // Apache 2.0
+    compile('com.orientechnologies:orientdb-graphdb:2.1.16') { // Apache 2.0
         exclude group: 'com.tinkerpop.gremlin'
         exclude group: 'com.orientechnologies'
         exclude group: 'com.fasterxml.jackson.core'
     }
-    compile group: 'com.orientechnologies', name: 'orientdb-server', version: '2.1.13' // Apache 2.0
+    compile group: 'com.orientechnologies', name: 'orientdb-server', version: '2.1.16' // Apache 2.0
     compile('com.tinkerpop.gremlin:gremlin-java:2.6.0') // BSD
     compile('com.tinkerpop.gremlin:gremlin-groovy:2.6.0') {
         exclude group: 'org.codehaus.groovy'
@@ -172,12 +172,12 @@ dependencies {
     } // BSD
     // NOTE: explicit dependency to get latest version, older versions cause serious runtime errors
     compile group: 'org.javassist', name: 'javassist', version: '3.20.0-GA' // Apache 2.0
-    // runtime group: 'com.orientechnologies', name: 'orientdb-jdbc', version: '2.1.13' // Apache 2.0
+    // runtime group: 'com.orientechnologies', name: 'orientdb-jdbc', version: '2.1.16' // Apache 2.0
 
     // Quartz Scheduler (NOTE: depends on c3p0 (with a different group) and slf4j, but we include those elsewhere, so use module)
-    apiCompile module('org.quartz-scheduler:quartz:2.2.2') // Apache 2.0
-    compile module('org.quartz-scheduler:quartz:2.2.2') // Apache 2.0
-    compile group: 'org.quartz-scheduler', name: 'quartz-jobs', version: '2.2.2' // Apache 2.0
+    apiCompile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
+    compile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
+    compile group: 'org.quartz-scheduler', name: 'quartz-jobs', version: '2.2.3' // Apache 2.0
 
     compile group: 'org.yaml', name: 'snakeyaml', version: '1.17' // Apache 2.0
 
@@ -187,8 +187,8 @@ dependencies {
     compile group: 'org.apache.shiro', name: 'shiro-core', version: '1.2.4' // Apache 2.0
     compile group: 'org.apache.shiro', name: 'shiro-web', version: '1.2.4' // Apache 2.0
 
-    apiCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.19'
-    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.19'
+    apiCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
     runtime group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.5'
     runtime group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.5'
     runtime group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.5'
@@ -258,7 +258,7 @@ dependencies {
         exclude group: 'javax.servlet'
         // NOTE: winstone jndi is a dependency so included automatically
     }
-    execWarCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.19'
+    execWarCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
     execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.5'
     execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.5'
     execWarCompile group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.5'
