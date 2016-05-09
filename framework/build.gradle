@@ -100,14 +100,14 @@ dependencies {
 
     compile group: 'org.apache.commons', name: 'commons-csv', version: '1.2' // Apache 2.0
     compile group: 'org.apache.commons', name: 'commons-email', version: '1.4' // Apache 2.0
-    compile('commons-beanutils:commons-beanutils:1.8.0') // Apache 2.0
+    compile('commons-beanutils:commons-beanutils:1.9.2') // Apache 2.0
     compile('commons-codec:commons-codec:1.10') // Apache 2.0
     compile('commons-collections:commons-collections:3.2.2') // Apache 2.0
-    compile module('commons-configuration:commons-configuration:1.6') // Apache 2.0
-    compile('commons-digester:commons-digester:1.8.1') // Apache 2.0
+    compile module('commons-configuration:commons-configuration:1.10') // Apache 2.0
+    compile('commons-digester:commons-digester:2.1') // Apache 2.0
     compile('commons-fileupload:commons-fileupload:1.3.1') // Apache 2.0
     compile('commons-io:commons-io:2.5') // Apache 2.0
-    compile('commons-lang:commons-lang:2.4') // Apache 2.0
+    compile('commons-lang:commons-lang:2.6') // Apache 2.0
     compile('commons-logging:commons-logging:1.2') // Apache 2.0
     compile('commons-validator:commons-validator:1.5.1') // Apache 2.0
 
@@ -174,8 +174,8 @@ dependencies {
     compile('com.orientechnologies:orientdb-server:2.1.16') { exclude group: 'javax.mail' } // Apache 2.0
     // this is a mess: blueprints-core depends on all sorts of things and some required dependencies have conflicts
     compile module('com.tinkerpop.blueprints:blueprints-core:2.6.0')
-        compile('org.codehaus.jettison:jettison:1.3.3')
-        compile('com.fasterxml.jackson.core:jackson-databind:2.2.3')
+        compile('org.codehaus.jettison:jettison:1.3.7')
+        compile('com.fasterxml.jackson.core:jackson-databind:2.7.4')
         compile('com.carrotsearch:hppc:0.7.1')
     compile('com.tinkerpop.gremlin:gremlin-java:2.6.0') // BSD
     compile('com.tinkerpop.gremlin:gremlin-groovy:2.6.0') {
@@ -242,12 +242,12 @@ dependencies {
     // another big mess drools-compiler depends on a bunch of stuff, including xstream which depends on xmlpull which is
     //     included in xpp3:xpp3_min, ie redundant classes; so bunch of manual dependencies
     compile module('org.drools:drools-compiler:6.4.0.Final') // Apache 2.0
-        compile('org.antlr:antlr-runtime:3.5')
-        compile('org.eclipse.jdt.core.compiler:ecj:4.4.2')
+        compile('org.antlr:antlr-runtime:3.5.2')
+        compile('org.eclipse.jdt.core.compiler:ecj:4.5.1')
         compile('org.mvel:mvel2:2.2.8.Final')
-        compile module('com.thoughtworks.xstream:xstream:1.4.7')
+        compile module('com.thoughtworks.xstream:xstream:1.4.9')
             compile('xpp3:xpp3_min:1.1.4c') // leave out xmlpull here
-        compile('com.google.protobuf:protobuf-java:2.6.0')
+        compile('com.google.protobuf:protobuf-java:2.6.1')
     compile('org.drools:drools-decisiontables:6.4.0.Final') // Apache 2.0
     compile('org.drools:drools-jsr94:6.4.0.Final') // Apache 2.0
     compile group: 'jsr94', name: 'jsr94', version: '1.1' // ???
