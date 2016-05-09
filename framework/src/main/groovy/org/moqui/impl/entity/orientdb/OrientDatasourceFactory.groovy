@@ -100,7 +100,8 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
         oserver.activate()
 
         int maxSize = (inlineOtherNode.attribute("pool-maxsize") ?: "50") as int
-        databaseDocumentPool = new OPartitionedDatabasePool(uri, username, password, maxSize)
+        int maxPartitionSize = 64 // NOTE: this is the default value from the constructor without this parameter
+        databaseDocumentPool = new OPartitionedDatabasePool(uri, username, password, maxPartitionSize, maxSize)
         // databaseDocumentPool.setup((inlineOtherNode."@pool-minsize" ?: "5") as int, (inlineOtherNode."@pool-maxsize" ?: "50") as int)
 
         return this
