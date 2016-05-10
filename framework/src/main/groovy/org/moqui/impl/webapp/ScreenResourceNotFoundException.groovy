@@ -22,6 +22,7 @@ public class ScreenResourceNotFoundException extends RuntimeException {
     List<String> fullPathNameList;
     ScreenDefinition lastSd;
     String pathFromLastScreen;
+    String resourceLocation;
     public ScreenResourceNotFoundException(ScreenDefinition rootSd, List<String> fullPathNameList,
                                            ScreenDefinition lastSd, String pathFromLastScreen, String resourceLocation,
                                            Exception cause) {
@@ -33,5 +34,6 @@ public class ScreenResourceNotFoundException extends RuntimeException {
         this.fullPathNameList = fullPathNameList
         this.lastSd = lastSd
         this.pathFromLastScreen = pathFromLastScreen
+        this.resourceLocation = resourceLocation
     }
 }
