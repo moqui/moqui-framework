@@ -340,6 +340,8 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected void loadSecaRulesAll() {
         if (secaRulesByServiceName.size() > 0) secaRulesByServiceName.clear()
 
+        int numLoaded = 0
+        int numFiles = 0
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference serviceDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/service")
@@ -348,14 +350,16 @@ class ServiceFacadeImpl implements ServiceFacade {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".secas.xml")) continue
-                    loadSecaRulesFile(rr)
+                    numLoaded += loadSecaRulesFile(rr)
+                    numFiles++
                 }
             } else {
                 logger.warn("Can't load SECA rules from component at [${serviceDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Service ECA rules from ${numFiles} .secas.xml files")
     }
-    protected void loadSecaRulesFile(ResourceReference rr) {
+    protected int loadSecaRulesFile(ResourceReference rr) {
         MNode serviceRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode secaNode in serviceRoot.children("seca")) {
@@ -371,7 +375,8 @@ class ServiceFacadeImpl implements ServiceFacade {
             lst.add(ser)
             numLoaded++
         }
-        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
+        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
+        return numLoaded
     }
 
     @CompileStatic

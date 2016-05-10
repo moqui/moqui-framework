@@ -47,7 +47,7 @@ class MoquiServlet extends HttpServlet {
 
         ecfi = (ExecutionContextFactoryImpl) config.getServletContext().getAttribute("executionContextFactory")
         moquiWebappName = config.getServletContext().getInitParameter("moqui-name")
-        logger.info("Initialized ${config.getServletName()} for webapp ${moquiWebappName}")
+        logger.info("${config.getServletName()} initialized for webapp ${moquiWebappName}")
     }
 
     @Override
@@ -107,7 +107,7 @@ class MoquiServlet extends HttpServlet {
 
         if (logger.isInfoEnabled() || logger.isTraceEnabled()) {
             String contentType = response.getContentType()
-            String logMsg = "Finished request to ${pathInfo} of content type ${response.getContentType()} in ${(System.currentTimeMillis()-startTime)/1000} seconds in session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}"
+            String logMsg = "${pathInfo} in ${(System.currentTimeMillis()-startTime)}ms (${response.getContentType()}) session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}"
             if (logger.isInfoEnabled() && contentType && contentType.contains("text/html")) logger.info(logMsg)
             if (logger.isTraceEnabled()) logger.trace(logMsg)
         }

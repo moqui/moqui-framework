@@ -726,7 +726,7 @@ class WebFacadeImpl implements WebFacade {
                 OutputStream os = response.outputStream
                 try {
                     int totalLen = StupidUtilities.copyStream(is, os)
-                    logger.info("Streamed ${totalLen} bytes from contentLocation ${location}")
+                    logger.info("Streamed ${totalLen} bytes from location ${location}")
                 } finally {
                     os.close()
                 }

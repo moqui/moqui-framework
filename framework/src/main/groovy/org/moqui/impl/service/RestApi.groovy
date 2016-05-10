@@ -51,7 +51,7 @@ class RestApi {
                     MNode rootNode = MNode.parse(rr)
                     ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
                     rootResourceMap.put(rn.name, rn)
-                    logger.info("Loaded REST API from ${rr.getLocation()}; paths: ${rn.childPaths}, methods: ${rn.childMethods}")
+                    logger.info("Loaded REST API from ${rr.getFileName()} (${rn.childPaths} paths, ${rn.childMethods} methods)")
                     // logger.info(rn.toString())
                 }
             } else {

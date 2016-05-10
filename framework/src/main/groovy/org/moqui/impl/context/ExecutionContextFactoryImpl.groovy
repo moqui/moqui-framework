@@ -200,27 +200,27 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // this init order is important as some facades will use others
         this.cacheFacade = new CacheFacadeImpl(this)
-        logger.info("Moqui CacheFacadeImpl Initialized")
+        logger.info("Cache Facade initialized")
         this.loggerFacade = new LoggerFacadeImpl(this)
-        logger.info("Moqui LoggerFacadeImpl Initialized")
+        // logger.info("Logger Facade initialized")
         this.resourceFacade = new ResourceFacadeImpl(this)
-        logger.info("Moqui ResourceFacadeImpl Initialized")
+        logger.info("Resource Facade initialized")
 
         this.transactionFacade = new TransactionFacadeImpl(this)
-        logger.info("Moqui TransactionFacadeImpl Initialized")
+        logger.info("Transaction Facade initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
         this.serviceFacade = new ServiceFacadeImpl(this)
-        logger.info("Moqui ServiceFacadeImpl Initialized")
+        logger.info("Service Facade initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
-        logger.info("Moqui ScreenFacadeImpl Initialized")
+        logger.info("Screen Facade initialized")
 
         kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
         kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
 
-        logger.info("Initialized Execution Context Factory in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+        logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
 
     /** This constructor takes the runtime directory path and conf file path directly. */
@@ -247,27 +247,27 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // this init order is important as some facades will use others
         this.cacheFacade = new CacheFacadeImpl(this)
-        logger.info("Moqui CacheFacadeImpl Initialized")
+        logger.info("Cache Facade initialized")
         this.loggerFacade = new LoggerFacadeImpl(this)
-        logger.info("Moqui LoggerFacadeImpl Initialized")
+        // logger.info("LoggerFacadeImpl initialized")
         this.resourceFacade = new ResourceFacadeImpl(this)
-        logger.info("Moqui ResourceFacadeImpl Initialized")
+        logger.info("Resource Facade initialized")
 
         this.transactionFacade = new TransactionFacadeImpl(this)
-        logger.info("Moqui TransactionFacadeImpl Initialized")
+        logger.info("Transaction Facade initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
         this.serviceFacade = new ServiceFacadeImpl(this)
-        logger.info("Moqui ServiceFacadeImpl Initialized")
+        logger.info("Service Facade initialized")
         this.screenFacade = new ScreenFacadeImpl(this)
-        logger.info("Moqui ScreenFacadeImpl Initialized")
+        logger.info("Screen Facade initialized")
 
         kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
         kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
 
-        logger.info("Initialized Execution Context Factory in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+        logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
 
     @Override
@@ -321,17 +321,19 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         initKie()
 
         // init ESAPI
+        logger.info("Starting ESAPI")
         StupidWebUtilities.canonicalizeValue("test")
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
+        logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
         EntityFacadeImpl defaultEfi = getEntityFacade("DEFAULT")
         defaultEfi.loadAllEntityLocations()
         List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
         // load/warm framework entities
         defaultEfi.loadFrameworkEntities()
-        logger.info("Loaded entity definitions (${entityInfoList.size()} entities) in ${System.currentTimeMillis() - entityStartTime}ms")
+        logger.info("Loaded ${entityInfoList.size()} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
 
         // now that everything is started up, if configured check all entity tables
         defaultEfi.checkInitDatasourceTables()
@@ -339,11 +341,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
         // register EntityCacheListener
+        logger.info("Getting Entity Cache Invalidate Hazelcast Topic")
         entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
         EntityCache.EntityCacheListener eciListener = new EntityCache.EntityCacheListener(this)
         entityCacheInvalidateTopic.addMessageListener(eciListener)
 
         // get Hazelcast ExecutorService
+        logger.info("Getting Async Service Hazelcast ExecutorService")
         hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
 
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
@@ -714,6 +718,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "JANINO")
         if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "ECLIPSE")
 
+        logger.info("Starting KIE (Drools, jBPM, etc)")
         KieServices services = KieServices.Factory.get()
         for (String componentName in componentBaseLocations.keySet()) {
             try {

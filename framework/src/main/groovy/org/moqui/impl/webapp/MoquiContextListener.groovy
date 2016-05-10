@@ -55,7 +55,7 @@ class MoquiContextListener implements ServletContextListener {
 
             ecfi = new ExecutionContextFactoryImpl()
 
-            logger.info("Loading Moqui Webapp at [${webappId}], moqui webapp name [${moquiWebappName}], context name [${sc.getServletContextName()}], located at [${webappRealPath}]")
+            logger.info("Loading Webapp at ${webappId}, moqui name ${moquiWebappName}, context name ${sc.getServletContextName()}\nWebapp located at: ${webappRealPath}")
 
             // check for an empty DB
             if (ecfi.checkEmptyDb()) {
@@ -80,7 +80,7 @@ class MoquiContextListener implements ServletContextListener {
                 eci.destroy()
             }
 
-            logger.info("Initialized Moqui Framework in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+            logger.info("Moqui Framework initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
         } catch (Throwable t) {
             logger.error("Error initializing webapp context: ${t.toString()}", t)
             throw t
