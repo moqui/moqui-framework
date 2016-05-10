@@ -122,9 +122,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     IExecutorService hazelcastExecutorService
 
     /** KIE ReleaseId Cache */
-    protected final Cache<String, ReleaseId> kieComponentReleaseIdCache
+    protected Cache<String, ReleaseId> kieComponentReleaseIdCache
     /** KIE Component Cache */
-    protected final Cache<String, String> kieSessionComponentCache
+    protected Cache<String, String> kieSessionComponentCache
 
     // ======== Permanent Delegated Facades ========
     protected final CacheFacadeImpl cacheFacade
@@ -215,9 +215,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
-        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
-        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
-
         postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
@@ -262,9 +259,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
-        kieComponentReleaseIdCache = this.cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
-        kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
-
         postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
@@ -291,7 +285,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init ClassLoader early so that classpath:// resources and framework interface impls will work
         initClassLoader()
 
-        // initialize Hazelcast (pre-Facade so before CacheFacade, etc); using hazelcast.xml on the classpath for config
+        // init ESAPI - NOTE: this should be the first call to anything related to ESAPI or StupidWebUtilities so config is in place
+        logger.info("Starting ESAPI")
+        if (!System.getProperty("org.owasp.esapi.resources")) System.setProperty("org.owasp.esapi.resources", runtimePath + "/conf/esapi")
+        StupidWebUtilities.canonicalizeValue("test")
+
+        // setup the CamelContext, but don't init yet
+        camelContext = new DefaultCamelContext()
+    }
+
+    protected void postFacadeInit() {
+        // initialize Hazelcast using hazelcast.xml on the classpath for config unless there is a hazelcast.config system property
         Config hzConfig
         if (System.getProperty("hazelcast.config")) {
             logger.info("Starting Hazelcast with hazelcast.config system property (${System.getProperty("hazelcast.config")})")
@@ -303,11 +307,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(hzConfig)
 
-        // setup the CamelContext, but don't init yet
-        camelContext = new DefaultCamelContext()
-    }
-
-    protected void postFacadeInit() {
         // init ElasticSearch after facades, before Camel
         initElasticSearch()
 
@@ -319,10 +318,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // init KIE (build modules for all components)
         initKie()
-
-        // init ESAPI
-        logger.info("Starting ESAPI")
-        StupidWebUtilities.canonicalizeValue("test")
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
@@ -715,6 +710,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // =============== KIE Methods ===============
     protected void initKie() {
+        kieComponentReleaseIdCache = cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
+        kieSessionComponentCache = cacheFacade.getCache("kie.session.component", String.class, String.class)
+
         // if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "JANINO")
         if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "ECLIPSE")
 

@@ -67,6 +67,7 @@ public class CacheFacadeImpl implements CacheFacade {
     CacheManager getHcCacheManager() {
         if (hcCacheManagerInternal == null) {
             HazelcastInstance hci = ecfi.getHazelcastInstance()
+            if (hci == null) throw new IllegalStateException("ECFI Hazelcast Instance not yet initialized, can't initialize distributed cache")
             Properties properties = new Properties()
             properties.setProperty(HazelcastCachingProvider.HAZELCAST_INSTANCE_NAME, hci.getName())
             // always use the server caching provider, the client one always goes over a network interface and is slow
