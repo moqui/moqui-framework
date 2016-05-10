@@ -15,13 +15,18 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 
 import java.math.RoundingMode
 
 @CompileStatic
 class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
+
+    // NOTE: these need to be in a Map instead of the DB because Enumeration records may not yet be loaded
+    final static Map<String, String> artifactTypeDescriptionMap = [AT_XML_SCREEN:"Screen",
+            AT_XML_SCREEN_TRANS:"Transition", AT_SERVICE:"Service", AT_ENTITY:"Entity"]
+    final static Map<String, String> artifactActionDescriptionMap = [AUTHZA_VIEW:"View",
+            AUTHZA_CREATE:"Create", AUTHZA_UPDATE:"Update", AUTHZA_DELETE:"Delete", AUTHZA_ALL:"All"]
 
     protected final String name
     protected final String typeEnumId
@@ -32,6 +37,8 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     protected String internalAuthorizedAuthzTypeId = (String) null
     protected String internalAuthorizedActionEnumId = (String) null
     protected boolean internalAuthorizationInheritable = false
+    protected Boolean internalAuthzWasRequired = (Boolean) null
+    protected Boolean internalAuthzWasGranted = (Boolean) null
     protected Map<String, Object> internalAacv = (Map<String, Object>) null
 
     //protected Exception createdLocation = null
@@ -53,38 +60,46 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     ArtifactExecutionInfoImpl setParameters(Map<String, Object> parameters) { this.parameters = parameters; return this }
 
     @Override
-    String getName() { return this.name }
+    String getName() { return name }
 
     @Override
-    String getTypeEnumId() { return this.typeEnumId }
+    String getTypeEnumId() { return typeEnumId }
+    String getTypeDescription() { return artifactTypeDescriptionMap.get(typeEnumId) ?: typeEnumId }
 
     @Override
-    String getActionEnumId() { return this.actionEnumId }
+    String getActionEnumId() { return actionEnumId }
+    String getActionDescription() { return artifactActionDescriptionMap.get(actionEnumId) ?: actionEnumId }
 
     @Override
-    String getAuthorizedUserId() { return this.internalAuthorizedUserId }
+    String getAuthorizedUserId() { return internalAuthorizedUserId }
     void setAuthorizedUserId(String authorizedUserId) { this.internalAuthorizedUserId = authorizedUserId }
 
     @Override
-    String getAuthorizedAuthzTypeId() { return this.internalAuthorizedAuthzTypeId }
+    String getAuthorizedAuthzTypeId() { return internalAuthorizedAuthzTypeId }
     void setAuthorizedAuthzTypeId(String authorizedAuthzTypeId) { this.internalAuthorizedAuthzTypeId = authorizedAuthzTypeId }
 
     @Override
-    String getAuthorizedActionEnumId() { return this.internalAuthorizedActionEnumId }
+    String getAuthorizedActionEnumId() { return internalAuthorizedActionEnumId }
     void setAuthorizedActionEnumId(String authorizedActionEnumId) { this.internalAuthorizedActionEnumId = authorizedActionEnumId }
 
     @Override
-    boolean isAuthorizationInheritable() { return this.internalAuthorizationInheritable }
+    boolean isAuthorizationInheritable() { return internalAuthorizationInheritable }
     void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.internalAuthorizationInheritable = isAuthorizationInheritable}
+
+    Boolean getAuthorizationWasRequired() { return internalAuthzWasRequired }
+    void setAuthorizationWasRequired(boolean value) { internalAuthzWasRequired = value }
+    Boolean getAuthorizationWasGranted() { return internalAuthzWasGranted }
+    void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value }
 
     Map<String, Object> getAacv() { return internalAacv }
 
-    void copyAacvInfo(Map<String, Object> aacv, String userId) {
+    void copyAacvInfo(Map<String, Object> aacv, String userId, boolean wasGranted) {
         internalAacv = aacv
         internalAuthorizedUserId = userId
         internalAuthorizedAuthzTypeId = (String) aacv.get('authzTypeEnumId')
         internalAuthorizedActionEnumId = (String) aacv.get('authzActionEnumId')
         internalAuthorizationInheritable = "Y".equals(aacv.get('inheritAuthz'))
+        internalAuthzWasGranted = wasGranted
     }
 
     void copyAuthorizedInfo(ArtifactExecutionInfoImpl aeii) {
@@ -93,6 +108,8 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         internalAuthorizedAuthzTypeId = aeii.internalAuthorizedAuthzTypeId
         internalAuthorizedActionEnumId = aeii.internalAuthorizedActionEnumId
         internalAuthorizationInheritable = aeii.internalAuthorizationInheritable
+        // NOTE: don't copy internalAuthzWasRequired, always set in isPermitted()
+        internalAuthzWasGranted = aeii.internalAuthzWasGranted
     }
 
     void setEndTime() { this.endTime = System.nanoTime() }
@@ -139,8 +156,8 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         writer.append('[').append(StupidUtilities.paddedString(getRunningTimeMillis() as String, 5, false)).append(']')
         writer.append('[').append(StupidUtilities.paddedString(getThisRunningTimeMillis() as String, 3, false)).append(']')
         writer.append('[').append(childList ? StupidUtilities.paddedString(getChildrenRunningTimeMillis() as String, 3, false) : '   ').append('] ')
-        writer.append(StupidUtilities.paddedString(ArtifactExecutionFacadeImpl.artifactTypeDescriptionMap.get(typeEnumId), 10, true)).append(' ')
-        writer.append(StupidUtilities.paddedString(ArtifactExecutionFacadeImpl.artifactActionDescriptionMap.get(actionEnumId), 7, true)).append(' ')
+        writer.append(StupidUtilities.paddedString(getTypeDescription(), 10, true)).append(' ')
+        writer.append(StupidUtilities.paddedString(getActionDescription(), 7, true)).append(' ')
         writer.append(StupidUtilities.paddedString(actionDetail, 5, true)).append(' ')
         writer.append(name).append('\n')
 
@@ -192,8 +209,7 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         if (val == null) {
             timeByArtifact.put(key, [times:[curTime], time:curTime, timeMin:curTime, timeMax:curTime, timeAvg:curTime,
                     count:1, name:name, actionDetail:actionDetail,
-                    type:ArtifactExecutionFacadeImpl.artifactTypeDescriptionMap.get(typeEnumId),
-                    action:ArtifactExecutionFacadeImpl.artifactActionDescriptionMap.get(actionEnumId)])
+                    type:getTypeDescription(), action:getActionDescription()])
         } else {
             val = timeByArtifact[key]
             val.count = (BigDecimal) val.count + 1
@@ -242,8 +258,7 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         if (artifactMap == null) {
             artifactMap = [time:getRunningTimeMillis(), thisTime:getThisRunningTimeMillis(), childrenTime:getChildrenRunningTimeMillis(),
                     count:1, name:name, actionDetail:actionDetail, childInfoList:[], key:key,
-                    type:ArtifactExecutionFacadeImpl.artifactTypeDescriptionMap.get(typeEnumId),
-                    action:ArtifactExecutionFacadeImpl.artifactActionDescriptionMap.get(actionEnumId)]
+                    type:getTypeDescription(), action:getActionDescription()]
             flatMap.put(key, artifactMap)
             if (parentArtifactMap != null) {
                 ((List) parentArtifactMap.childInfoList).add(artifactMap)
@@ -294,6 +309,6 @@ class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     @Override
     String toString() {
-        return "[name:'${name}',type:'${typeEnumId}',action:'${actionEnumId}',user:'${internalAuthorizedUserId}',authz:'${internalAuthorizedAuthzTypeId}',authAction:'${internalAuthorizedActionEnumId}',inheritable:${internalAuthorizationInheritable},runningTime:${getRunningTime()}]"
+        return "[name:'${name}', type:'${typeEnumId}', action:'${actionEnumId}', required:${internalAuthzWasRequired}, granted:${internalAuthzWasGranted}, user:'${internalAuthorizedUserId}', authz:'${internalAuthorizedAuthzTypeId}', authAction:'${internalAuthorizedActionEnumId}', inheritable:${internalAuthorizationInheritable}, runningTime:${getRunningTime()}]".toString()
     }
 }

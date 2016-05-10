@@ -40,12 +40,6 @@ import org.slf4j.LoggerFactory
 public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
-    // NOTE: these need to be in a Map instead of the DB because Enumeration records may not yet be loaded
-    final static Map<String, String> artifactTypeDescriptionMap = [AT_XML_SCREEN:"Screen",
-            AT_XML_SCREEN_TRANS:"Transition", AT_SERVICE:"Service", AT_ENTITY:"Entity"]
-    final static Map<String, String> artifactActionDescriptionMap = [AUTHZA_VIEW:"View",
-            AUTHZA_CREATE:"Create", AUTHZA_UPDATE:"Update", AUTHZA_DELETE:"Delete", AUTHZA_ALL:"All"]
-
     protected ExecutionContextImpl eci
     protected Deque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
     protected List<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
@@ -90,12 +84,15 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         // if ("AT_XML_SCREEN" == aeii.typeEnumId) logger.warn("TOREMOVE artifact push ${username} - ${aeii}")
 
         if (!isPermitted(aeii, lastAeii, requiresAuthz, true)) {
+            Deque<ArtifactExecutionInfo> curStack = getStack()
             StringBuilder warning = new StringBuilder()
-            warning.append("User [${eci.user.userId}] is not authorized for ${artifactActionDescriptionMap.get(aeii.getActionEnumId())} on ${artifactTypeDescriptionMap.get(aeii.getTypeEnumId())?:aeii.getTypeEnumId()} [${aeii.getName()}], here is the current artifact stack:")
-            for (def warnAei in this.stack) warning.append("\n").append(warnAei)
+            warning.append("User ${eci.user.userId} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}\n")
+            warning.append("Current artifact info: ${aeii.toString()}\n")
+            warning.append("Current artifact stack:")
+            for (ArtifactExecutionInfo warnAei in curStack) warning.append("\n").append(warnAei.toString())
 
-            Exception e = new ArtifactAuthorizationException(warning.toString())
-            logger.warn("Artifact authorization failed", e)
+            ArtifactAuthorizationException e = new ArtifactAuthorizationException(warning.toString(), aeii, curStack)
+            // logger.warn("Artifact authorization failed: " + warning.toString())
             throw e
         }
 
@@ -219,7 +216,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     static boolean isPermitted(String resourceAccess, ExecutionContextImpl eci) {
         int firstColon = resourceAccess.indexOf(":")
         int secondColon = resourceAccess.indexOf(":", firstColon + 1)
-        if (firstColon == -1 || secondColon == -1) throw new ArtifactAuthorizationException("Resource access string does not have two colons (':'), must be formatted like: \"\${typeEnumId}:\${actionEnumId}:\${name}\"")
+        if (firstColon == -1 || secondColon == -1) throw new ArtifactAuthorizationException("Resource access string does not have two colons (':'), must be formatted like: \"\${typeEnumId}:\${actionEnumId}:\${name}\"", null, null)
 
         String typeEnumId = resourceAccess.substring(0, firstColon)
         String actionEnumId = resourceAccess.substring(firstColon + 1, secondColon)
@@ -232,6 +229,9 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii,
                         boolean requiresAuthz, boolean countTarpit) {
         String artifactTypeEnumId = aeii.getTypeEnumId()
+        // right off record whether authz is required
+        aeii.setAuthorizationWasRequired(requiresAuthz)
+
         // never do this for entities when disableAuthz, as we might use any below and would cause infinite recursion
         // for performance reasons if this is an entity and no authz required don't bother looking at tarpit, checking for deny/etc
         if ((!requiresAuthz || this.authzDisabled) && 'AT_ENTITY'.equals(artifactTypeEnumId)) {
@@ -308,7 +308,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         if (tarpitLockList) {
                             Timestamp releaseDateTime = tarpitLockList.first.getTimestamp('releaseDateTime')
                             int retryAfterSeconds = ((releaseDateTime.getTime() - System.currentTimeMillis())/1000).intValue()
-                            throw new ArtifactTarpitException("User [${userId}] has accessed ${artifactTypeDescriptionMap.get(artifactTypeEnumId)?:artifactTypeEnumId} [${aeii.getName()}] too many times and may not again until ${releaseDateTime} (retry after ${retryAfterSeconds} seconds)".toString(), retryAfterSeconds)
+                            throw new ArtifactTarpitException("User ${userId} has accessed ${aeii.getTypeDescription()} ${aeii.getName()} too many times and may not again until ${releaseDateTime} (retry after ${retryAfterSeconds} seconds)".toString(), retryAfterSeconds)
                         }
                     }
                     // record the tarpit lock
@@ -450,7 +450,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     // we find an always allow in the query
                     denyAacv = aacv
                 } else if ('AUTHZT_ALWAYS'.equals(authzTypeEnumId)) {
-                    aeii.copyAacvInfo(aacv, userId)
+                    aeii.copyAacvInfo(aacv, userId, true)
                     // if ("AT_XML_SCREEN" == aeii.typeEnumId)
                     //     logger.warn("TOREMOVE artifact isPermitted found always allow for user ${userId} - ${aeii}")
                     return true
@@ -461,7 +461,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         if ('AUTHZT_DENY'.equals(ancestorAeii.getAuthorizedAuthzTypeId())) ancestorDeny = true
 
                     if (!ancestorDeny) {
-                        aeii.copyAacvInfo(aacv, userId)
+                        aeii.copyAacvInfo(aacv, userId, true)
                         // if ("AT_XML_SCREEN" == aeii.typeEnumId && aeii.getName().contains("FOO"))
                         //     logger.warn("TOREMOVE artifact isPermitted allow with no deny for user ${userId} - ${aeii}")
                         return true
@@ -474,7 +474,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         if (denyAacv != null) {
             // record that this was an explicit deny (for push or exception in case something catches and handles it)
-            aeii.copyAacvInfo(denyAacv, userId)
+            aeii.copyAacvInfo(denyAacv, userId, false)
 
             if (!requiresAuthz || this.authzDisabled) {
                 // if no authz required, just return true even though it was a failure
@@ -523,7 +523,9 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             //     logger.warn("TOREMOVE artifact isPermitted doesn't require authz or authzDisabled for user ${userId} - ${aeii}")
             return true
         } else {
-            // if we got here no authz found, log it
+            // if we got here no authz found, so not granted (denied)
+            aeii.setAuthorizationWasGranted(false)
+
             if (logger.isDebugEnabled()) {
                 StringBuilder warning = new StringBuilder()
                 warning.append("User [${userId}] is not authorized for ${artifactTypeEnumId} [${aeii.getName()}] because of no allow record [type:${artifactTypeEnumId},action:${aeii.getActionEnumId()}]\nlastAeii=[${lastAeii}]\nHere is the artifact stack:")

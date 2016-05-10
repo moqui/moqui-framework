@@ -29,6 +29,8 @@ public interface ArtifactExecutionInfo {
     String getAuthorizedAuthzTypeId();
     String getAuthorizedActionEnumId();
     boolean isAuthorizationInheritable();
+    Boolean getAuthorizationWasRequired();
+    Boolean getAuthorizationWasGranted();
 
     long getRunningTime();
     BigDecimal getRunningTimeMillis();

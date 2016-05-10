@@ -598,7 +598,7 @@ class ScreenRenderImpl implements ScreenRender {
         boolean loggedInAnonymous = false
         try {
             if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
-                throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+                throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant ${ec.getTenantId()}")
 
             if (requireAuthentication == "anonymous-all") {
                 ec.artifactExecution.setAnonymousAuthorizedAll()
@@ -653,7 +653,7 @@ class ScreenRenderImpl implements ScreenRender {
                     ScreenDefinition permSd = screenUrlInfo.screenPathDefList.get(i)
 
                     if (permSd.getTenantsAllowed() && !permSd.getTenantsAllowed().contains(ec.getTenantId()))
-                        throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+                        throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available to tenant ${ec.getTenantId()}")
                     // check the subscreens item for this screen (valid in context)
                     if (i > 0) {
                         String curPathName = screenUrlInfo.fullPathNameList.get(i - 1) // one lower in path as it doesn't have root screen
@@ -856,7 +856,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         ScreenDefinition screenDef = screenUrlInfo.screenRenderDefList.get(screenPathIndex + 1)
         if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+            throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available to tenant ${ec.getTenantId()}")
         // check the subscreens item for this screen (valid in context)
         int i = screenPathIndex + screenUrlInfo.renderPathDifference
         if (i > 0) {
