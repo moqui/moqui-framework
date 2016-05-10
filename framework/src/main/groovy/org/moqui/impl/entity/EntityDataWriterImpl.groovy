@@ -75,7 +75,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
         // NOTE: don't have to do anything different here for different file types, writer() method will handle that
         int valuesWritten = this.writer(pw)
         pw.close()
-        efi.ecfi.executionContext.message.addMessage("Wrote ${valuesWritten} records to file ${filename}")
+        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
         return valuesWritten
     }
 
@@ -156,7 +156,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
             pw.println("</entity-facade-xml>")
             pw.close()
-            efi.ecfi.executionContext.message.addMessage("Wrote ${curValuesWritten} records to file ${filename}")
+            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten, filename:filename]))
 
             valuesWritten += curValuesWritten
         }
@@ -210,7 +210,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             pw.println("")
 
             pw.close()
-            efi.ecfi.executionContext.message.addMessage("Wrote ${curValuesWritten} records to file ${filename}")
+            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten,filename:filename]))
 
             valuesWritten += curValuesWritten
         }

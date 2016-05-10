@@ -64,7 +64,7 @@ class EntityDataDocument {
 
         pw.write("{}\n]\n")
         pw.close()
-        efi.ecfi.executionContext.message.addMessage("Wrote ${valuesWritten} documents to file ${filename}")
+        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
         return valuesWritten
     }
 
@@ -95,7 +95,7 @@ class EntityDataDocument {
 
             pw.write("{}\n]\n")
             pw.close()
-            efi.ecfi.executionContext.message.addMessage("Wrote ${valuesWritten} records to file ${filename}")
+            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
         }
 
         return valuesWritten
