@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- For documentation see:
+https://logging.apache.org/log4j/2.x/manual/configuration.html
+https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
+-->
 <Configuration status="ERROR" name="Moqui">
     <Appenders>
         <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/log/moqui.log"
                 filePattern="${sys:moqui.runtime}/log/moqui%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %40.40c %x%n %m%n"/>
+            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="10 MB"/>
@@ -12,7 +16,7 @@
         </RollingFile>
         <RollingFile name="ErrorFile" fileName="${sys:moqui.runtime}/log/error.log"
                 filePattern="${sys:moqui.runtime}/log/error%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %40.40c [%l] %x%n %m%n"/>
+            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c [%l] %x%n %m%n"/>
             <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/><!-- should get error and fatal -->
             <Policies>
                 <TimeBasedTriggeringPolicy/>
@@ -26,7 +30,7 @@
             <AppenderRef ref="ErrorFile"/>
         </Async>
         <Console name="STDOUT" target="SYSTEM_OUT">
-            <PatternLayout pattern="--- %d{HH:mm:ss.SSS} [%15.15t] %-5p %40.40c%n %m%n"/>
+            <PatternLayout pattern="%highlight{%d{HH:mm:ss.SSS} %5p %12.12t %38.38c{1.9.1.}} %m%n"/>
         </Console>
     </Appenders>
     <Loggers>
