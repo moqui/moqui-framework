@@ -155,6 +155,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
      * or by init methods in a servlet or context filter or OSGi component or Spring component or whatever.
      */
     ExecutionContextFactoryImpl() {
+        long initStartTime = System.currentTimeMillis()
+
         // get the MoquiInit.properties file
         Properties moquiInitProperties = new Properties()
         URL initProps = this.class.getClassLoader().getResource("MoquiInit.properties")
@@ -217,10 +219,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
+
+        logger.info("Initialized Execution Context Factory in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
 
     /** This constructor takes the runtime directory path and conf file path directly. */
     ExecutionContextFactoryImpl(String runtimePath, String confPath) {
+        long initStartTime = System.currentTimeMillis()
+
         // setup the runtimeFile
         File runtimeFile = new File(runtimePath)
         if (!runtimeFile.exists()) throw new IllegalArgumentException("The moqui.runtime path [${runtimePath}] was not found.")
@@ -260,6 +266,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         kieSessionComponentCache = this.cacheFacade.getCache("kie.session.component", String.class, String.class)
 
         postFacadeInit()
+
+        logger.info("Initialized Execution Context Factory in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
 
     @Override
@@ -339,8 +347,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
 
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
-
-        logger.info("Moqui ExecutionContextFactory Initialization Complete")
     }
 
     void warmCache() {
