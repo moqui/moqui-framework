@@ -143,11 +143,10 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>
-                    Matched against value of a context-param -> param-value element in the web.xml file where the
+                    Matched against value of a context-param.param-value element in the web.xml file where the
                     param-name is "moqui-name".
                 </xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="root-screen-location" type="xs:string"/>
             <xs:attribute name="https-enabled" default="true" type="boolean"/>
             <xs:attribute name="https-port" type="xs:string"/>
             <xs:attribute name="https-host" type="xs:string"/>
