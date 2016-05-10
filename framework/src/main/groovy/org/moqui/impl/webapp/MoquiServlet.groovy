@@ -122,8 +122,12 @@ class MoquiServlet extends HttpServlet {
 
     void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
                            String message, Throwable origThrowable) {
+        if (ecfi == null) {
+            response.sendError(errorCode, message)
+            return
+        }
         ExecutionContext ec = ecfi.getExecutionContext()
-        MNode errorScreenNode = ecfi.getWebappInfo(moquiWebappName).getErrorScreenNode(errorType)
+        MNode errorScreenNode = ecfi.getWebappInfo(moquiWebappName)?.getErrorScreenNode(errorType)
         if (errorScreenNode != null) {
             try {
                 ec.context.put("errorCode", errorCode)
