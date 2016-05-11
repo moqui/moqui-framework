@@ -147,7 +147,7 @@ abstract class BaseResourceReference implements ResourceReference {
         if (relativePath == null || relativePath.length() == 0) return this
 
         if (!supportsAll()) {
-            ecf.getExecutionContext().message.addError("Not looking for child file at [${relativePath}] under space root page [${getLocation()}] because exists, isFile, etc are not supported")
+            ecf.getExecutionContext().message.addError(ecf.getExecutionContext().resource.expand('Not looking for child file at [${relativePath}] under space root page [${location}] because exists, isFile, etc are not supported','',[relativePath:relativePath,location:getLocation()]))
             return null
         }
         // logger.warn("============= finding child resource of [${toString()}] path [${relativePath}]")
@@ -230,7 +230,7 @@ abstract class BaseResourceReference implements ResourceReference {
         if (!relativePath) return this
 
         if (!supportsAll()) {
-            ecf.getExecutionContext().message.addError("Not looking for child directory at [${relativePath}] under space root page [${getLocation()}] because exists, isFile, etc are not supported")
+            ecf.getExecutionContext().message.addError(ecf.getExecutionContext().resource.expand('Not looking for child directory at [${relativePath}] under space root page [${location}] because exists, isFile, etc are not supported','',[relativePath:relativePath,location:getLocation()]))
             return null
         }
 
