@@ -120,11 +120,18 @@ class ScreenRenderImpl implements ScreenRender {
 
     ScreenRender rootScreenFromHost(String host) {
         MNode webappNode = sfi.getWebappNode(webappName)
+        MNode wildcardHost = (MNode) null
         for (MNode rootScreenNode in webappNode.children("root-screen")) {
-            if (host.matches(rootScreenNode.attribute('host')))
-                return this.rootScreen(rootScreenNode.attribute('location'))
+            String hostAttr = rootScreenNode.attribute("host")
+            if (".*".equals(hostAttr)) {
+                // remember wildcard host, default to it if no other matches (just in case put earlier in the list than others)
+                wildcardHost = rootScreenNode
+            } else if (host.matches(hostAttr)) {
+                return rootScreen(rootScreenNode.attribute("location"))
+            }
         }
-        throw new BaseException("Could not find root screen for host [${host}]")
+        if (wildcardHost != null) return rootScreen(wildcardHost.attribute("location"))
+        throw new BaseException("Could not find root screen for host: ${host}")
     }
 
     @Override
