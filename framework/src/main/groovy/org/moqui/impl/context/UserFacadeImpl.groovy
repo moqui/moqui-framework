@@ -367,11 +367,11 @@ class UserFacadeImpl implements UserFacade {
     @Override
     boolean loginUser(String username, String password, String tenantId) {
         if (!username) {
-            eci.message.addError("No username specified")
+            eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
         if (!password) {
-            eci.message.addError("No password specified")
+            eci.message.addError(eci.l10n.localize("No password specified"))
             return false
         }
         if (!tenantId) tenantId = eci.tenantId
@@ -411,7 +411,7 @@ class UserFacadeImpl implements UserFacade {
     /** For internal framework use only, does a login without authc. */
     boolean internalLoginUser(String username, String tenantId) {
         if (!username) {
-            eci.message.addError("No username specified")
+            eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
         if (!tenantId) tenantId = eci.tenantId
@@ -463,7 +463,7 @@ class UserFacadeImpl implements UserFacade {
     @Override
     boolean loginUserKey(String loginKey, String tenantId) {
         if (!loginKey) {
-            eci.message.addError("No login key specified")
+            eci.message.addError(eci.l10n.localize("No login key specified"))
             return false
         }
         // if tenantId, change before lookup
@@ -476,14 +476,14 @@ class UserFacadeImpl implements UserFacade {
 
         // see if we found a record for the login key
         if (userLoginKey == null) {
-            eci.message.addError("Login key not valid")
+            eci.message.addError(eci.l10n.localize("Login key not valid"))
             return false
         }
 
         // check expire date
         Timestamp nowDate = getNowTimestamp()
         if (nowDate > userLoginKey.getTimestamp("thruDate")) {
-            eci.message.addError("Login key expired")
+            eci.message.addError(eci.l10n.localize("Login key expired"))
             return false
         }
 
