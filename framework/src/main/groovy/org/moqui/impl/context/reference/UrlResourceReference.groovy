@@ -32,7 +32,14 @@ class UrlResourceReference extends BaseResourceReference {
     protected transient File localFile = null
 
     UrlResourceReference() { }
-    
+
+    UrlResourceReference(File file, ExecutionContextFactory ecf) {
+        this.ecf = ecf
+        isFileProtocol = true
+        localFile = file
+        locationUrl = file.toURI().toURL()
+    }
+
     @Override
     ResourceReference init(String location, ExecutionContextFactory ecf) {
         this.ecf = ecf
@@ -56,6 +63,7 @@ class UrlResourceReference extends BaseResourceReference {
     }
 
     File getFile() {
+        if (!isFileProtocol) throw new IllegalArgumentException("File not supported for resource with protocol [${locationUrl.protocol}]")
         if (localFile != null) return localFile
         // NOTE: using toExternalForm().substring(5) instead of toURI because URI does not allow spaces in a filename
         localFile = new File(locationUrl.toExternalForm().substring(5))
@@ -118,6 +126,18 @@ class UrlResourceReference extends BaseResourceReference {
             throw new IllegalArgumentException("Children not supported for resource with protocol [${locationUrl.protocol}]")
         }
     }
+    @Override
+    ResourceReference getChild(String childName) {
+        if (childName == null || childName.length() == 0) return null
+        if (ecf.getResource() != null) {
+            return super.getChild(childName)
+        } else {
+            File thisFile = getFile()
+            File childFile = new File(thisFile, childName)
+            return new UrlResourceReference(childFile, ecf)
+        }
+    }
+
 
     @Override
     boolean supportsExists() { return isFileProtocol || exists != null }

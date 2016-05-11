@@ -74,8 +74,15 @@ New Features
 - EntityDataWriter now supports export with a entity master definition
   name, applied only to entities exported that have a master def with the
   given master name
-- Added support for error screens rendered depending on type of error,
-  configured in the webapp.error-screen element in the Moqui Conf XML file
+- Added support for error screens rendered depending on type of error
+  - configured in the webapp.error-screen element in Moqui Conf XML file
+  - if error screen render fails sends original error response
+  - this is custom content that avoids sending an error response
+- A component may now have a MoquiConf.xml file that overrides the default
+  configuration file (MoquiDefaultConf.xml from the classpath) but is
+  overridden by the runtime configuration file; the MoquiConf.xml file in
+  each component is merged into the main conf based on the component
+  dependency order (logged on startup)
 
 Bug Fixes
 

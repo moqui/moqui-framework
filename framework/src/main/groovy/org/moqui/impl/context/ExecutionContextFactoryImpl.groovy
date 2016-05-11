@@ -81,7 +81,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected boolean destroyed = false
     
     protected String runtimePath
-    protected final String confPath
+    protected final String runtimeConfPath
     protected final MNode confXmlRoot
     protected MNode serverStatsNode
 
@@ -163,16 +163,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
 
         // if there is a system property use that, otherwise from the properties file
-        this.runtimePath = System.getProperty("moqui.runtime")
-        if (!this.runtimePath) this.runtimePath = moquiInitProperties.getProperty("moqui.runtime")
-        if (!this.runtimePath) throw new IllegalArgumentException("No moqui.runtime property found in MoquiInit.properties or in a system property (with: -Dmoqui.runtime=... on the command line)")
+        runtimePath = System.getProperty("moqui.runtime")
+        if (!runtimePath) runtimePath = moquiInitProperties.getProperty("moqui.runtime")
+        if (!runtimePath) throw new IllegalArgumentException("No moqui.runtime property found in MoquiInit.properties or in a system property (with: -Dmoqui.runtime=... on the command line)")
+        if (runtimePath.endsWith("/")) runtimePath = runtimePath.substring(0, runtimePath.length()-1)
 
-        if (this.runtimePath.endsWith("/")) this.runtimePath = this.runtimePath.substring(0, this.runtimePath.length()-1)
-
-        // setup the runtimeFile
-        File runtimeFile = new File(this.runtimePath)
-        if (runtimeFile.exists()) { this.runtimePath = runtimeFile.getCanonicalPath() }
-        else { throw new IllegalArgumentException("The moqui.runtime path [${this.runtimePath}] was not found.") }
+        // check the runtime directory via File
+        File runtimeFile = new File(runtimePath)
+        if (runtimeFile.exists()) { runtimePath = runtimeFile.getCanonicalPath() }
+        else { throw new IllegalArgumentException("The moqui.runtime path [${runtimePath}] was not found.") }
 
         // get the moqui configuration file path
         String confPartialPath = System.getProperty("moqui.conf")
@@ -183,36 +182,42 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (confPartialPath.startsWith("/")) {
             confFullPath = confPartialPath
         } else {
-            confFullPath = this.runtimePath + "/" + confPartialPath
+            confFullPath = runtimePath + "/" + confPartialPath
         }
         // setup the confFile
         File confFile = new File(confFullPath)
         if (confFile.exists()) {
-            this.confPath = confFullPath
+            runtimeConfPath = confFullPath
         } else {
-            this.confPath = null
+            runtimeConfPath = null
             throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
         }
 
-        confXmlRoot = this.initConfig()
+        // initialize all configuration, get various conf files merged and load components
+        MNode runtimeConfXmlRoot = MNode.parse(confFile)
+        MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)
+        // init components before initConfig() so component configuration files can be incorporated
+        initComponents(baseConfigNode)
+        // init the configuration (merge from component and runtime conf files)
+        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
         preFacadeInit()
 
         // this init order is important as some facades will use others
-        this.cacheFacade = new CacheFacadeImpl(this)
+        cacheFacade = new CacheFacadeImpl(this)
         logger.info("Cache Facade initialized")
-        this.loggerFacade = new LoggerFacadeImpl(this)
+        loggerFacade = new LoggerFacadeImpl(this)
         // logger.info("Logger Facade initialized")
-        this.resourceFacade = new ResourceFacadeImpl(this)
+        resourceFacade = new ResourceFacadeImpl(this)
         logger.info("Resource Facade initialized")
 
-        this.transactionFacade = new TransactionFacadeImpl(this)
+        transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Transaction Facade initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
-        this.serviceFacade = new ServiceFacadeImpl(this)
+        serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
-        this.screenFacade = new ScreenFacadeImpl(this)
+        screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
         postFacadeInit()
@@ -221,42 +226,48 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** This constructor takes the runtime directory path and conf file path directly. */
-    ExecutionContextFactoryImpl(String runtimePath, String confPath) {
+    ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
         long initStartTime = System.currentTimeMillis()
 
         // setup the runtimeFile
-        File runtimeFile = new File(runtimePath)
-        if (!runtimeFile.exists()) throw new IllegalArgumentException("The moqui.runtime path [${runtimePath}] was not found.")
+        File runtimeFile = new File(runtimePathParm)
+        if (!runtimeFile.exists()) throw new IllegalArgumentException("The moqui.runtime path [${runtimePathParm}] was not found.")
 
         // setup the confFile
-        if (runtimePath.endsWith('/')) runtimePath = runtimePath.substring(0, runtimePath.length()-1)
-        if (confPath.startsWith('/')) confPath = confPath.substring(1)
-        String confFullPath = runtimePath + '/' + confPath
+        if (runtimePathParm.endsWith('/')) runtimePathParm = runtimePathParm.substring(0, runtimePathParm.length()-1)
+        if (confPathParm.startsWith('/')) confPathParm = confPathParm.substring(1)
+        String confFullPath = runtimePathParm + '/' + confPathParm
         File confFile = new File(confFullPath)
         if (!confFile.exists()) throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
 
-        this.runtimePath = runtimePath
-        this.confPath = confFullPath
+        runtimePath = runtimePathParm
+        runtimeConfPath = confFullPath
 
-        this.confXmlRoot = this.initConfig()
+        // initialize all configuration, get various conf files merged and load components
+        MNode runtimeConfXmlRoot = MNode.parse(confFile)
+        MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)
+        // init components before initConfig() so component configuration files can be incorporated
+        initComponents(baseConfigNode)
+        // init the configuration (merge from component and runtime conf files)
+        confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
         preFacadeInit()
 
         // this init order is important as some facades will use others
-        this.cacheFacade = new CacheFacadeImpl(this)
+        cacheFacade = new CacheFacadeImpl(this)
         logger.info("Cache Facade initialized")
-        this.loggerFacade = new LoggerFacadeImpl(this)
+        loggerFacade = new LoggerFacadeImpl(this)
         // logger.info("LoggerFacadeImpl initialized")
-        this.resourceFacade = new ResourceFacadeImpl(this)
+        resourceFacade = new ResourceFacadeImpl(this)
         logger.info("Resource Facade initialized")
 
-        this.transactionFacade = new TransactionFacadeImpl(this)
+        transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Transaction Facade initialized")
         // always init the EntityFacade for tenantId DEFAULT
         initEntityFacade("DEFAULT")
-        this.serviceFacade = new ServiceFacadeImpl(this)
+        serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
-        this.screenFacade = new ScreenFacadeImpl(this)
+        screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
         postFacadeInit()
@@ -269,21 +280,67 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.serviceFacade.postInit()
     }
 
-    protected void preFacadeInit() {
-        serverStatsNode = confXmlRoot.first('server-stats')
-        skipStatsCond = serverStatsNode.attribute("stats-skip-condition")
-        hitBinLengthMillis = (serverStatsNode.attribute("bin-length-seconds") as Integer)*1000 ?: 900000
+    protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
+        // always set the full moqui.runtime, moqui.conf system properties for use in various places
+        System.setProperty("moqui.runtime", runtimePath)
+        System.setProperty("moqui.conf", runtimeConfPath)
 
+        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - config file: ${this.runtimeConfPath}")
+
+        URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
+        if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
+        MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
+
+        // just merge the component configuration, needed before component init is done
+        mergeConfigComponentNodes(newConfigXmlRoot, runtimeConfXmlRoot)
+
+        return newConfigXmlRoot
+    }
+    protected void initComponents(MNode baseConfigNode) {
+        // init components referred to in component-list.component and component-dir elements in the conf file
+        for (MNode childNode in baseConfigNode.first("component-list").children) {
+            if ("component".equals(childNode.name)) {
+                addComponent(new ComponentInfo(null, childNode, this))
+            } else if ("component-dir".equals(childNode.name)) {
+                addComponentDir(childNode.attribute("location"))
+            }
+        }
+        checkSortDependentComponents()
+    }
+    protected MNode initConfig(MNode baseConfigNode, MNode runtimeConfXmlRoot) {
+        // merge any config files in components
+        for (ComponentInfo ci in componentInfoMap.values()) {
+            ResourceReference compXmlRr = ci.componentRr.getChild("MoquiConf.xml")
+            if (compXmlRr.getExists()) {
+                logger.info("Merging MoquiConf.xml file from component ${ci.name}")
+                MNode compXmlNode = MNode.parse(compXmlRr)
+                mergeConfigNodes(baseConfigNode, compXmlNode)
+            }
+        }
+
+        // merge the runtime conf file into the default one to override any settings (they both have the same root node, go from there)
+        logger.info("Merging runtime configuration at ${runtimeConfPath}")
+        mergeConfigNodes(baseConfigNode, runtimeConfXmlRoot)
+
+        // TODO: add some conf or runtime option to log the full config after merge?
+        // logger.info("Configuration after all merges:\n${baseConfigNode.toString()}")
+        return baseConfigNode
+    }
+
+    protected void preFacadeInit() {
         try {
             localhostAddress = InetAddress.getLocalHost()
         } catch (UnknownHostException e) {
             logger.warn("Could not get localhost address", new BaseException("Could not get localhost address", e))
         }
 
-        // must load components before ClassLoader since ClassLoader currently adds lib and classes directories at init time
-        initComponents()
         // init ClassLoader early so that classpath:// resources and framework interface impls will work
         initClassLoader()
+
+        // do these after initComponents as that may override configuration
+        serverStatsNode = confXmlRoot.first('server-stats')
+        skipStatsCond = serverStatsNode.attribute("stats-skip-condition")
+        hitBinLengthMillis = (serverStatsNode.attribute("bin-length-seconds") as Integer)*1000 ?: 900000
 
         // init ESAPI - NOTE: this should be the first call to anything related to ESAPI or StupidWebUtilities so config is in place
         if (!System.getProperty("org.owasp.esapi.resources")) System.setProperty("org.owasp.esapi.resources", runtimePath + "/conf/esapi")
@@ -354,41 +411,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.screenFacade.warmCache()
     }
 
-    /** Initialize all permanent framework objects, ie those not sensitive to webapp or user context. */
-    protected MNode initConfig() {
-        // always set the full moqui.runtime, moqui.conf system properties for use in various places
-        System.setProperty("moqui.runtime", this.runtimePath)
-        System.setProperty("moqui.conf", this.confPath)
-
-        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - config file: ${this.confPath}")
-
-        URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
-        if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
-        MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
-
-        if (this.confPath) {
-            MNode overrideConfXmlRoot = MNode.parse(new File(this.confPath))
-            // merge the active/override conf file into the default one to override any settings (they both have the same root node, go from there)
-            mergeConfigNodes(newConfigXmlRoot, overrideConfXmlRoot)
-        }
-
-        return newConfigXmlRoot
-    }
-
-    protected void initComponents() {
-        // init components referred to in component-list.component and component-dir elements in the conf file
-        for (MNode childNode in confXmlRoot.first("component-list").children) {
-            if (childNode.name == "component") {
-                addComponent(new ComponentInfo(null, childNode, this))
-            } else if (childNode.name == "component-dir") {
-                addComponentDir(childNode.attribute("location"))
-            }
-        }
-        checkSortDependentComponents()
-    }
-
+    /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
     protected void initClassLoader() {
-        // now setup the CachedClassLoader, this should init in the main thread so we can set it properly
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         cachedClassLoader = new StupidClassLoader(pcl)
         // add runtime/classes jar files to the class loader
@@ -404,33 +428,31 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
-        // set as context classloader
-        Thread.currentThread().setContextClassLoader(cachedClassLoader)
-    }
 
-    /** this is called by the ResourceFacadeImpl constructor right after the ResourceReference classes are loaded but before ScriptRunners and TemplateRenderers */
-    protected void initComponentLibAndClasses(ResourceFacadeImpl rfi) {
         // add <component>/classes and <component>/lib jar files to the class loader now that component locations loaded
-        for (Map.Entry componentEntry in componentBaseLocations) {
-            ResourceReference classesRr = rfi.getLocationReference((String) componentEntry.value + "/classes")
-            if (classesRr.supportsExists() && classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
+        for (ComponentInfo ci in componentInfoMap.values()) {
+            ResourceReference classesRr = ci.componentRr.getChild("classes")
+            if (classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
                 cachedClassLoader.addClassesDirectory(new File(classesRr.getUri()))
             }
 
-            ResourceReference libRr = rfi.getLocationReference((String) componentEntry.value + "/lib")
-            if (libRr.supportsExists() && libRr.exists && libRr.supportsDirectory() && libRr.isDirectory()) {
+            ResourceReference libRr = ci.componentRr.getChild("lib")
+            if (libRr.exists && libRr.supportsDirectory() && libRr.isDirectory()) {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
                             cachedClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
-                            logger.info("Added JAR from [${componentEntry.key}] component: ${jarRr.getLocation()}")
+                            logger.info("Added JAR from component ${ci.name}: ${jarRr.getLocation()}")
                         } catch (Exception e) {
-                            logger.warn("Could not load JAR from [${componentEntry.key}] component: ${jarRr.getLocation()}: ${e.toString()}")
+                            logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
                         }
                     }
                 }
             }
         }
+
+        // set as context classloader
+        Thread.currentThread().setContextClassLoader(cachedClassLoader)
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
@@ -970,6 +992,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         ExecutionContextFactoryImpl ecfi
         String name
         String location
+        ResourceReference componentRr
         Set<String> dependsOnNames = new LinkedHashSet<String>()
         ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
@@ -996,12 +1019,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             name = location.substring(lastSlashIndex+1)
 
             // make sure directory exists
-            ResourceReference compRr = ecfi.getResourceReference(location)
-            if (!compRr.getExists()) throw new IllegalArgumentException("Could not find component directory at: ${location}")
-            if (!compRr.isDirectory()) throw new IllegalArgumentException("Component location is not a directory: ${location}")
+            componentRr = ecfi.getResourceReference(location)
+            if (!componentRr.supportsExists()) throw new IllegalArgumentException("Could component location ${location} does not support exists, cannot use as a component location")
+            if (!componentRr.getExists()) throw new IllegalArgumentException("Could not find component directory at: ${location}")
+            if (!componentRr.isDirectory()) throw new IllegalArgumentException("Component location is not a directory: ${location}")
 
             // see if there is a component.xml file, if so use that as the componentNode instead of origNode
-            ResourceReference compXmlRr = ecfi.getResourceReference(location + "/component.xml")
+            ResourceReference compXmlRr = componentRr.getChild("component.xml")
             MNode componentNode
             if (compXmlRr.getExists()) {
                 componentNode = MNode.parse(compXmlRr)
@@ -1023,7 +1047,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             for (String dependsOnName in dependsOnNames) {
                 ComponentInfo depCompInfo = ecfi.componentInfoMap.get(dependsOnName)
                 if (depCompInfo == null)
-                    throw new IllegalArgumentException("Component [${name}] depends on component [${dependsOnName}] which is not initialized")
+                    throw new IllegalArgumentException("Component ${name} depends on component ${dependsOnName} which is not initialized")
                 List<String> childDepList = depCompInfo.getRecursiveDependencies()
                 for (String childDep in childDepList)
                     if (!dependsOnList.contains(childDep)) dependsOnList.add(childDep)
@@ -1350,7 +1374,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // ========== Configuration File Merging Methods ==========
 
-    protected void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
+    protected static void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
         baseNode.mergeSingleChild(overrideNode, "tools")
 
         baseNode.mergeChildWithChildKey(overrideNode, "cache-list", "cache", "name", null)
@@ -1462,12 +1486,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         baseNode.mergeChildWithChildKey(overrideNode, "repository-list", "repository", "name", null)
 
+        // NOTE: don't merge component-list node, done separately (for runtime config only, and before component config merges)
+    }
+
+    protected static void mergeConfigComponentNodes(MNode baseNode, MNode overrideNode) {
         if (overrideNode.hasChild("component-list")) {
             if (!baseNode.hasChild("component-list")) baseNode.append("component-list", null)
             MNode baseComponentNode = baseNode.first("component-list")
             for (MNode copyNode in overrideNode.first("component-list").children) baseComponentNode.append(copyNode)
-            // mergeNodeWithChildKey((Node) baseNode."component-list"[0], (Node) overrideNode."component-list"[0], "component-dir", "location")
-            // mergeNodeWithChildKey((Node) baseNode."component-list"[0], (Node) overrideNode."component-list"[0], "component", "name")
         }
     }
 

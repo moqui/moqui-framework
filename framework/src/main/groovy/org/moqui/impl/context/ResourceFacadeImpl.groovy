@@ -101,22 +101,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
                 resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
             } catch (ClassNotFoundException e) {
-                logger.info("Class [${rrNode.attribute("class")}] not found outside of components, will retry after. (${e.toString()})")
-            }
-        }
-        
-        // now that resource references are in place, init the lib and classes directories in the components
-        this.ecfi.initComponentLibAndClasses(this)
-
-        // Try failed resource reference classes again now that component classpath resources are in place
-        for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
-            if (resourceReferenceClasses.containsKey(rrNode.attribute("scheme"))) continue
-
-            try {
-                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
-                resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
-            } catch (ClassNotFoundException e) {
-                logger.warn("Class [${rrNode.attribute("class")}] for scheme [${rrNode.attribute("scheme")}] not found even with components, skipping. (${e.toString()})")
+                logger.info("Class [${rrNode.attribute("class")}] not found (${e.toString()})")
             }
         }
 
@@ -223,6 +208,16 @@ public class ResourceFacadeImpl implements ResourceFacade {
         ResourceReference cachedRr = resourceReferenceByLocation.get(location)
         if (cachedRr != null) return cachedRr
 
+        String scheme = getLocationScheme(location)
+        Class rrClass = resourceReferenceClasses.get(scheme)
+        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
+
+        ResourceReference rr = (ResourceReference) rrClass.newInstance()
+        rr.init(location, ecfi)
+        resourceReferenceByLocation.put(location, rr)
+        return rr
+    }
+    static String getLocationScheme(String location) {
         String scheme = "file"
         // Q: how to get the scheme for windows? the Java URI class doesn't like spaces, the if we look for the first ":"
         //    it may be a drive letter instead of a scheme/protocol
@@ -231,14 +226,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             String prefix = location.substring(0, location.indexOf(":"))
             if (!prefix.contains("/") && prefix.length() > 2) scheme = prefix
         }
-
-        Class rrClass = resourceReferenceClasses.get(scheme)
-        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
-
-        ResourceReference rr = (ResourceReference) rrClass.newInstance()
-        rr.init(location, ecfi)
-        resourceReferenceByLocation.put(location, rr)
-        return rr
+        return scheme
     }
 
     @Override
