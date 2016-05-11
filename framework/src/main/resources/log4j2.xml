@@ -4,6 +4,11 @@ https://logging.apache.org/log4j/2.x/manual/configuration.html
 https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
 -->
 <Configuration status="ERROR" name="Moqui">
+    <Properties>
+        <!-- the ${sys:moqui.runtime} expansion fails under Tomcat/etc as moqui.runtime isn't set before Log4J2
+            initializes (like with MoquiStart.java), so specify a default property here -->
+        <Property name="moqui.runtime">moqui_logs</Property>
+    </Properties>
     <Appenders>
         <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/log/moqui.log"
                 filePattern="${sys:moqui.runtime}/log/moqui%d{yyyy-MM-dd}-%i.log">
