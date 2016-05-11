@@ -88,7 +88,13 @@
         the web.xml file. This configuration will allow the framework to do various things for that webapp. -->
         <webapp name="webroot" http-port="" http-host="" https-port="" https-host=""
                 https-enabled="false" require-session-token="true">
-            <!-- root screen for OOTB runtime directory: <root-screen host=".*" location="component://webroot/screen/webroot.xml"/> -->
+            <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
+            <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
+            <error-screen error="unauthorized" screen-path="error/Unauthorized"/>
+            <error-screen error="forbidden" screen-path="error/Forbidden"/>
+            <error-screen error="not-found" screen-path="error/NotFound"/>
+            <error-screen error="too-many" screen-path="error/TooMany"/>
+            <error-screen error="internal-error" screen-path="error/InternalError"/>
             <!-- example only, no default actions right now:
             <first-hit-in-visit><actions><log level="info" message="========================== first-hit-in-visit actions"/></actions></first-hit-in-visit>
             <before-request><actions><log level="info" message="========================== before-request actions"/></actions></before-request>
