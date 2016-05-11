@@ -697,7 +697,7 @@ class ScreenDefinition {
 
 
                 if (!checkCondition(ec)) {
-                    sri.ec.message.addError("Condition failed for transition [${location}], not running actions or redirecting")
+                    sri.ec.message.addError(ec.resource.expand('Condition failed for transition [${location}], not running actions or redirecting','',[location:location]))
                     if (errorResponse) return errorResponse
                     return defaultResponse
                 }

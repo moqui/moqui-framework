@@ -52,7 +52,7 @@ class EntityDataDocument {
                              Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
         File outFile = new File(filename)
         if (!outFile.createNewFile()) {
-            efi.ecfi.executionContext.message.addError("File ${filename} already exists.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
             return 0
         }
 
@@ -73,7 +73,7 @@ class EntityDataDocument {
         File outDir = new File(dirname)
         if (!outDir.exists()) outDir.mkdir()
         if (!outDir.isDirectory()) {
-            efi.ecfi.executionContext.message.addError("Path ${dirname} is not a directory.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('Path ${dirname} is not a directory.','',[dirname:dirname]))
             return 0
         }
 
@@ -83,7 +83,7 @@ class EntityDataDocument {
             String filename = "${dirname}/${dataDocumentId}.json"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError("File ${filename} already exists, skipping document ${dataDocumentId}.")
+                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping document ${dataDocumentId}.','',[filename:filename,dataDocumentId:dataDocumentId]))
                 continue
             }
             outFile.createNewFile()

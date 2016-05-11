@@ -42,7 +42,7 @@ try {
     if (bodyParameters) context.putAll(bodyParameters)
 
     def emailTemplate = ec.entity.find("moqui.basic.email.EmailTemplate").condition("emailTemplateId", emailTemplateId).one()
-    if (!emailTemplate) ec.message.addError("No EmailTemplate record found for ID [${emailTemplateId}]")
+    if (!emailTemplate) ec.message.addError(ec.resource.expand('No EmailTemplate record found for ID [${emailTemplateId}]',''))
     if (ec.message.hasError()) return
 
     // combine ccAddresses and bccAddresses
@@ -84,11 +84,11 @@ try {
     def emailServer = emailTemplate."moqui.basic.email.EmailServer"
 
     // check a couple of required fields
-    if (!emailServer) ec.message.addError("No EmailServer record found for EmailTemplate [${emailTemplateId}]")
+    if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate [${emailTemplateId}]',''))
     if (emailServer && !emailServer.smtpHost)
-        ec.message.addError("SMTP Host is empty for EmailServer [${emailServer.emailServerId}]")
+        ec.message.addError(ec.resource.expand('SMTP Host is empty for EmailServer [${emailServer.emailServerId}]',''))
     if (emailTemplate && !emailTemplate.fromAddress)
-        ec.message.addError("From address is empty for EmailTemplate [${emailTemplateId}]")
+        ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate [${emailTemplateId}]',''))
     if (ec.message.hasError()) {
         logger.info("Error sending email: ${ec.message.getErrorsString()}\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         if (emailMessageId) logger.info("Email with error saved as Readyin EmailMessage [${emailMessageId}]")

@@ -695,7 +695,7 @@ class ScreenRenderImpl implements ScreenRender {
             if (!sfi.isRenderModeSkipActions(renderMode)) for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
                 for (ScreenDefinition.ParameterItem pi in sd.getParameterMap().values()) {
                     if (pi.required && ec.context.getByString(pi.name) == null) {
-                        ec.message.addError("Required parameter missing (${pi.name})")
+                        ec.message.addError(ec.resource.expand('Required parameter missing (${pi.name})','',[pi:pi]))
                         logger.warn("Tried to render screen [${sd.getLocation()}] without required parameter [${pi.name}], error message added and adding to stop list to not render")
                         stopRenderScreenLocations.add(sd.getLocation())
                     }

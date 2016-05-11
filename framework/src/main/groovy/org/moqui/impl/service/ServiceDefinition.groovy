@@ -615,7 +615,7 @@ class ServiceDefinition {
                     String subType = typeParentNode.first("subtype").attribute("type")
                     Object subValue = ((Collection) value).iterator().next()
                     if (!StupidJavaUtilities.isInstanceOf(subValue, subType)) {
-                        eci.message.addError("Parameter [${parameterName}] passed to service [${getServiceName()}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]")
+                        eci.message.addError(eci.resource.expand('Parameter [${parameterName}] passed to service [${serviceName}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]','',[parameterName:parameterName,serviceName:getServiceName(),subValue:subValue,subType:subType]))
                     } else {
                         // try the next level down
                         checkSubtype(parameterName, typeParentNode.first("subtype"), subValue, eci)
@@ -632,7 +632,7 @@ class ServiceDefinition {
                     Object subValue = mapVal.get(subName)
                     if (!subValue) continue
                     if (!StupidJavaUtilities.isInstanceOf(subValue, subType)) {
-                        eci.message.addError("Parameter [${parameterName}] passed to service [${getServiceName()}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]")
+                        eci.message.addError(eci.resource.expand('Parameter [${parameterName}] passed to service [${serviceName}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]','',[parameterName:parameterName,serviceName:getServiceName(),subValue:subValue,subType:subType]))
                     } else {
                         // try the next level down
                         checkSubtype(parameterName, stNode, subValue, eci)

@@ -133,7 +133,7 @@ along with this software (see the LICENSE.md file). If not, see
                 ExecutionContext ec = context.ec
                 ScreenDefinition screedDef = ec.getScreen().getScreenDefinition(screenLocation)
                 if (screedDef == null) {
-                    ec.message.addError("Screen not found at [${screenLocation}]")
+                    ec.message.addError(ec.resource.expand('Screen not found at [${screenLocation}]',''))
                     return
                 }
                 Map parmMap = [:]

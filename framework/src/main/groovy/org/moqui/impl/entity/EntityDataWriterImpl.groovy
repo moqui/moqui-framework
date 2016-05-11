@@ -64,7 +64,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
     int file(String filename) {
         File outFile = new File(filename)
         if (!outFile.createNewFile()) {
-            efi.ecfi.executionContext.message.addError("File ${filename} already exists.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
             return 0
         }
 
@@ -84,7 +84,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
         File outDir = new File(path)
         if (!outDir.exists()) outDir.mkdir()
         if (!outDir.isDirectory()) {
-            efi.ecfi.executionContext.message.addError("Path ${path} is not a directory.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('Path ${path} is not a directory.','',[path:path]))
             return 0
         }
 
@@ -129,7 +129,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             String filename = "${path}/${en}.xml"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError("File ${filename} already exists, skipping entity ${en}.")
+                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
                 continue
             }
             outFile.createNewFile()
@@ -170,7 +170,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             String filename = "${path}/${en}.json"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError("File ${filename} already exists, skipping entity ${en}.")
+                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
                 continue
             }
             outFile.createNewFile()
