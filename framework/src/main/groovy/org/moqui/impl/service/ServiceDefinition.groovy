@@ -336,7 +336,7 @@ class ServiceDefinition {
                 }
                 // if required and still empty (nothing from default), complain
                 if (internalValidate && parameterInfo.required && parameterIsEmpty)
-                    eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
+                    eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), eci.l10n.localize("Field cannot be empty"), null)
             }
 
             if (!parameterIsEmpty) {
@@ -365,7 +365,7 @@ class ServiceDefinition {
                             validateParameterSingle(valNode, parameterName, parameterValue, eci)
                         } catch (Throwable t) {
                             logger.error("Error in validation", t)
-                            eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}", null)
+                            eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}','',[parameterValue:parameterValue,valNode:valNode, t:t]), null)
                         }
                     }
 
@@ -430,14 +430,14 @@ class ServiceDefinition {
             return !allPass
         case "matches":
             if (!(pv instanceof CharSequence)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is not a string, cannot do matches validation.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is not a string, cannot do matches validation.','',[pv:pv]), null)
                 return false
             }
             String pvString = pv.toString()
             String regexp = (String) valNode.attribute('regexp')
             if (regexp && !pvString.matches(regexp)) {
                 // a message attribute should always be there, but just in case we'll have a default
-                eci.message.addValidationError(null, parameterName, getServiceName(), (String) (valNode.attribute('message') ?: "Value entered (${pv}) did not match expression: ${regexp}"), null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand((valNode.attribute('message') ?: 'Value entered (${pv}) did not match expression: ${regexp}'),'',[pv:pv,regexp:regexp]), null)
                 return false
             }
             return true
@@ -449,12 +449,12 @@ class ServiceDefinition {
                 BigDecimal min = new BigDecimal(minStr)
                 if (valNode.attribute('min-include-equals') == "false") {
                     if (bdVal <= min) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is less than or equal to ${min} must be greater than.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is less than or equal to ${min} must be greater than.','',[pv:pv,min:min]), null)
                         return false
                     }
                 } else {
                     if (bdVal < min) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is less than ${min} and must be greater than or equal to.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is less than ${min} and must be greater than or equal to.','',[pv:pv,min:min]), null)
                         return false
                     }
                 }
@@ -464,12 +464,12 @@ class ServiceDefinition {
                 BigDecimal max = new BigDecimal(maxStr)
                 if (valNode.attribute('max-include-equals') == "true") {
                     if (bdVal > max) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is greater than ${max} and must be less than or equal to.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is greater than ${max} and must be less than or equal to.','',[pv:pv,max:max]), null)
                         return false
                     }
                 } else {
                     if (bdVal >= max) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is greater than or equal to ${max} and must be less than.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is greater than or equal to ${max} and must be less than.','',[pv:pv,max:max]), null)
                         return false
                     }
                 }
@@ -480,7 +480,7 @@ class ServiceDefinition {
                 new BigInteger(pv as String)
             } catch (NumberFormatException e) {
                 if (logger.isTraceEnabled()) logger.trace("Adding error message for NumberFormatException for BigInteger parse: ${e.toString()}")
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value [${pv}] is not a whole (integer) number.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${pv}] is not a whole (integer) number.','',[pv:pv]), null)
                 return false
             }
             return true
@@ -489,7 +489,7 @@ class ServiceDefinition {
                 new BigDecimal(pv as String)
             } catch (NumberFormatException e) {
                 if (logger.isTraceEnabled()) logger.trace("Adding error message for NumberFormatException for BigDecimal parse: ${e.toString()}")
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value [${pv}] is not a decimal number.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${pv}] is not a decimal number.','',[pv:pv]), null)
                 return false
             }
             return true
@@ -499,7 +499,7 @@ class ServiceDefinition {
             if (minStr) {
                 int min = minStr as int
                 if (str.length() < min) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}), length ${str.length()}, is shorter than ${minStr} characters.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}), length ${str.length()}, is shorter than ${minStr} characters.','',[pv:pv,str:str,minStr:minStr]), null)
                     return false
                 }
             }
@@ -507,7 +507,7 @@ class ServiceDefinition {
             if (maxStr) {
                 int max = maxStr as int
                 if (str.length() > max) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}), length ${str.length()}, is longer than ${maxStr} characters.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}), length ${str.length()}, is longer than ${maxStr} characters.','',[pv:pv,str:str,maxStr:maxStr]), null)
                     return false
                 }
             }
@@ -515,14 +515,14 @@ class ServiceDefinition {
         case "text-email":
             String str = pv as String
             if (!emailValidator.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) is not a valid email address.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid email address.','',[str:str]), null)
                 return false
             }
             return true
         case "text-url":
             String str = pv as String
             if (!urlValidator.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) is not a valid URL.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid URL.','',[str:str]), null)
                 return false
             }
             return true
@@ -530,7 +530,7 @@ class ServiceDefinition {
             String str = pv as String
             for (char c in str.getChars()) {
                 if (!Character.isLetter(c)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) must have only letters.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) must have only letters.','',[str:str]), null)
                     return false
                 }
             }
@@ -539,7 +539,7 @@ class ServiceDefinition {
             String str = pv as String
             for (char c in str.getChars()) {
                 if (!Character.isDigit(c)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value [${str}] must have only digits.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${str}] must have only digits.','',[str:str]), null)
                     return false
                 }
             }
@@ -566,7 +566,7 @@ class ServiceDefinition {
                     compareCal = eci.l10n.parseDateTime(after, format)
                 }
                 if (cal && !cal.after(compareCal)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is before ${after}.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is before ${after}.','',[pv:pv,after:after]), null)
                     return false
                 }
             }
@@ -581,7 +581,7 @@ class ServiceDefinition {
                     compareCal = eci.l10n.parseDateTime(before, format)
                 }
                 if (cal && !cal.before(compareCal)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is after ${before}.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is after ${before}.','',[pv:pv]), null)
                     return false
                 }
             }
@@ -598,7 +598,7 @@ class ServiceDefinition {
             CreditCardValidator ccv = new CreditCardValidator(creditCardTypes)
             String str = pv as String
             if (!ccv.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) is not a valid credit card number.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid credit card number.','',[str:str]), null)
                 return false
             }
             return true

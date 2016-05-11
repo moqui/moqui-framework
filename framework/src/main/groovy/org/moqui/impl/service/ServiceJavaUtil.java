@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.text.MessageFormat;
 import java.util.*;
 
 public class ServiceJavaUtil {
@@ -143,7 +144,7 @@ public class ServiceJavaUtil {
                 case BIG_INTEGER:
                     BigDecimal bdVal = eci.getL10n().parseNumber(valueStr, format);
                     if (bdVal == null) {
-                        eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, "Value entered (" + valueStr + ") could not be converted to a " + type + (format != null ? " using format [" + format + "]" : ""), null);
+                        eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     } else {
                         switch (pi.parmType) {
                             case INTEGER: converted = bdVal.intValue(); break;
@@ -157,15 +158,15 @@ public class ServiceJavaUtil {
                     break;
                 case TIME:
                     converted = eci.getL10n().parseTime(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, "Value entered (" + valueStr + ") could not be converted to a " + type + (format != null ? " using format [" + format + "]" : ""), null);
+                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     break;
                 case DATE:
                     converted = eci.getL10n().parseDate(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, "Value entered (" + valueStr + ") could not be converted to a " + type + (format != null ? " using format [" + format + "]" : ""), null);
+                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     break;
                 case TIMESTAMP:
                     converted = eci.getL10n().parseTimestamp(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, "Value entered (" + valueStr + ") could not be converted to a " + type + (format != null ? " using format [" + format + "]" : ""), null);
+                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     break;
                 case LIST:
                     // strip off square braces
@@ -256,7 +257,7 @@ public class ServiceJavaUtil {
                 canValue = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true);
                 indexOfLessThan = canValue.indexOf('<');
             } catch (IntrusionException e) {
-                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), "Found character escaping (mixed or double) that is not allowed or other format consistency error: " + e.toString(), null);
+                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), eci.getL10n().localize("Found character escaping (mixed or double) that is not allowed or other format consistency error: ") + e.toString(), null);
                 return null;
             }
         }
@@ -272,9 +273,9 @@ public class ServiceJavaUtil {
             try {
                 cr = antiSamy.scan(canValue, StupidWebUtilities.getAntiSamyPolicy());
             } catch (ScanException e) {
-                throw new BaseException("Scan error checking field " + namePrefix + parameterName + " in service" + sd.getServiceName(), e);
+                throw new BaseException(MessageFormat.format(eci.getL10n().localize("Scan error checking field {0} in service {1}"), namePrefix + parameterName, sd.getServiceName()), e);
             } catch (PolicyException e) {
-                throw new BaseException("Policy error checking field " + namePrefix + parameterName + " in service" + sd.getServiceName(), e);
+                throw new BaseException(MessageFormat.format(eci.getL10n().localize("Policy error checking field {0} in service {1}"), namePrefix + parameterName, sd.getServiceName()), e);
             }
             List<String> crErrors = cr.getErrorMessages();
             // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
@@ -291,7 +292,7 @@ public class ServiceJavaUtil {
         } else {
             // check for "<"; this will protect against HTML/JavaScript injection
             if (indexOfLessThan >= 0) {
-                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), "HTML not allowed (less-than (<), greater-than (>), etc symbols)", null);
+                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
             }
             // nothing changed, return null
             return null;
