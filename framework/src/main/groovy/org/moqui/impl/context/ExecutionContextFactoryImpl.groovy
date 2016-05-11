@@ -495,6 +495,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     synchronized void destroy() {
         if (destroyed) return
+        destroyed = true
 
         // shutdown worker pool
         try {
@@ -510,6 +511,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
+
+        // shutdown Hazelcast
+        Hazelcast.shutdownAll()
+        // the above may be better than this: if (hazelcastInstance != null) hazelcastInstance.shutdown()
+        logger.info("Hazelcast shutdown")
 
         // stop ElasticSearch, before stopping other things so it doesn't use anything
         if (elasticSearchNode != null) try {
@@ -545,12 +551,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (this.cacheFacade != null) this.cacheFacade.destroy()
         logger.info("Facades destroyed")
 
-        // shutdown hazelcast
-        if (hazelcastInstance != null) hazelcastInstance.shutdown()
-
         activeContext.remove()
-
-        destroyed = true
     }
 
     @Override
