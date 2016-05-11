@@ -286,8 +286,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         initClassLoader()
 
         // init ESAPI - NOTE: this should be the first call to anything related to ESAPI or StupidWebUtilities so config is in place
-        logger.info("Starting ESAPI")
         if (!System.getProperty("org.owasp.esapi.resources")) System.setProperty("org.owasp.esapi.resources", runtimePath + "/conf/esapi")
+        logger.info("Starting ESAPI, resources at ${System.getProperty("org.owasp.esapi.resources")}")
         StupidWebUtilities.canonicalizeValue("test")
 
         // setup the CamelContext, but don't init yet
@@ -657,9 +657,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     protected void initElasticSearch() {
         // set the ElasticSearch home directory
-        System.setProperty("es.path.home", runtimePath + "/elasticsearch")
+        if (!System.getProperty("es.path.home")) System.setProperty("es.path.home", runtimePath + "/elasticsearch")
         if (confXmlRoot.first("tools").attribute("enable-elasticsearch") != "false") {
-            logger.info("Starting ElasticSearch")
+            logger.info("Starting ElasticSearch, home at ${System.getProperty("es.path.home")}")
             elasticSearchNode = NodeBuilder.nodeBuilder().node()
             elasticSearchClient = elasticSearchNode.client()
         } else {

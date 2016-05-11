@@ -108,8 +108,8 @@ class MoquiServlet extends HttpServlet {
         if (logger.isInfoEnabled() || logger.isTraceEnabled()) {
             String contentType = response.getContentType()
             String logMsg = "${pathInfo} in ${(System.currentTimeMillis()-startTime)}ms (${response.getContentType()}) session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}"
-            if (logger.isInfoEnabled() && contentType && contentType.contains("text/html")) logger.info(logMsg)
-            if (logger.isTraceEnabled()) logger.trace(logMsg)
+            if (logger.isInfoEnabled() && contentType != null && contentType.contains("text/html")) logger.info(logMsg)
+            else if (logger.isTraceEnabled()) logger.trace(logMsg)
         }
 
         /* this is here just for kicks, uncomment to log a list of all artifacts hit/used in the screen render
@@ -135,6 +135,7 @@ class MoquiServlet extends HttpServlet {
                 ec.context.put("errorMessage", message)
                 ec.context.put("errorThrowable", origThrowable)
                 String screenPathAttr = errorScreenNode.attribute("screen-path")
+                // don't do this, causes servlet container to return no content for error status codes: response.setStatus(errorCode)
                 ec.screen.makeRender().webappName(moquiWebappName).renderMode("html")
                         .rootScreenFromHost(request.getServerName()).screenPath(Arrays.asList(screenPathAttr.split("/")))
                         .render(request, response)
