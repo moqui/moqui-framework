@@ -165,7 +165,7 @@ public class MoquiStart extends ClassLoader {
         // now wait for break...
     }
 
-    protected static void initSystemProperties(MoquiStart cl, boolean useProperties) throws IOException {
+    private static void initSystemProperties(MoquiStart cl, boolean useProperties) throws IOException {
         Properties moquiInitProperties = new Properties();
         URL initProps = cl.getResource("MoquiInit.properties");
         if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
@@ -217,7 +217,7 @@ public class MoquiStart extends ClassLoader {
         if (confPath != null) System.setProperty("moqui.conf", confPath);
     }
 
-    protected static class MoquiShutdown extends Thread {
+    private static class MoquiShutdown extends Thread {
         final Method callMethod;
         final Object callObject;
         final List<JarFile> jarFileList;
@@ -248,18 +248,18 @@ public class MoquiStart extends ClassLoader {
         }
     }
 
-    protected JarFile outerFile = null;
-    protected final ArrayList<JarFile> jarFileList = new ArrayList<>();
-    protected final Map<String, Class<?>> classCache = new HashMap<>();
-    protected final Map<String, URL> resourceCache = new HashMap<>();
-    protected ProtectionDomain pd;
-    protected final boolean loadWebInf;
+    private JarFile outerFile = null;
+    private final ArrayList<JarFile> jarFileList = new ArrayList<>();
+    private final Map<String, Class<?>> classCache = new HashMap<>();
+    private final Map<String, URL> resourceCache = new HashMap<>();
+    private ProtectionDomain pd;
+    private final boolean loadWebInf;
 
-    public MoquiStart(boolean loadWebInf) {
+    private MoquiStart(boolean loadWebInf) {
         this(ClassLoader.getSystemClassLoader(), loadWebInf);
     }
 
-    public MoquiStart(ClassLoader parent, boolean loadWebInf) {
+    private MoquiStart(ClassLoader parent, boolean loadWebInf) {
         super(parent);
         this.loadWebInf = loadWebInf;
 
@@ -292,7 +292,7 @@ public class MoquiStart extends ClassLoader {
         }
     }
 
-    protected File createTempFile(JarEntry je) throws IOException {
+    private File createTempFile(JarEntry je) throws IOException {
         byte[] jeBytes = getJarEntryBytes(outerFile, je);
 
         String tempName = je.getName().replace('/', '_') + ".";
@@ -310,7 +310,7 @@ public class MoquiStart extends ClassLoader {
         return file;
     }
 
-    protected byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
+    private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
         DataInputStream dis = null;
         byte[] jeBytes = null;
         try {
@@ -418,7 +418,7 @@ public class MoquiStart extends ClassLoader {
         }
     }
 
-    protected Class<?> findJarClass(String className) throws IOException, ClassFormatError {
+    private Class<?> findJarClass(String className) throws IOException, ClassFormatError {
         if (classCache.containsKey(className)) return classCache.get(className);
 
         Class<?> c = null;
@@ -448,7 +448,7 @@ public class MoquiStart extends ClassLoader {
         return c;
     }
 
-    protected void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
+    private void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
         Manifest mf;
         try {
             mf = jarFile.getManifest();
@@ -471,7 +471,7 @@ public class MoquiStart extends ClassLoader {
         }
     }
 
-    protected URL getSealURL(Manifest mf) {
+    private URL getSealURL(Manifest mf) {
         String seal = mf.getMainAttributes().getValue(Attributes.Name.SEALED);
         if (seal == null) return null;
         try {
