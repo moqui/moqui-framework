@@ -358,6 +358,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="height" type="xs:string"/>
             <xs:attribute name="alt" type="xs:string"/>
             <xs:attribute name="style" type="xs:string"/>
+            <xs:attribute name="hover" type="boolean" default="false"/>
             <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>
                 A Map to get parameter names and values from in addition to the parameter sub-elements.
             </xs:documentation></xs:annotation></xs:attribute>
