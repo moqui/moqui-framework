@@ -29,16 +29,11 @@ import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.EntryProcessorResult;
 
 import java.util.*;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-// TODO: implement size limit with size check and eviction done in separate thread; running every 30 seconds?
 
 /** A simple implementation of the javax.cache.Cache interface. Basically a wrapper around a Map with stats and expiry. */
 public class MCache<K, V> implements Cache<K, V> {
@@ -47,8 +42,8 @@ public class MCache<K, V> implements Cache<K, V> {
     private String name;
     private CacheManager manager;
     private CompleteConfiguration<K, V> configuration;
-    // NOTE: could use ConcurrentHashMap here for atomic ops, but complicated by the MEntry for absent/present checks
-    private HashMap<K, MEntry<K, V>> entryStore = new HashMap<>();
+    // NOTE: use ConcurrentHashMap for write locks and such even if can't so easily use putIfAbsent/etc
+    private ConcurrentHashMap<K, MEntry<K, V>> entryStore = new ConcurrentHashMap<>();
     // currently for future reference, no runtime type checking
     // private Class<K> keyClass = null;
     // private Class<V> valueClass = null;
@@ -297,9 +292,13 @@ public class MCache<K, V> implements Cache<K, V> {
             return false;
         } else {
             entry = new MEntry<>(key, value, currentTime);
-            entryStore.put(key, entry);
-            if (statsEnabled) stats.puts++;
-            return true;
+            MEntry<K, V> existingValue = entryStore.putIfAbsent(key, entry);
+            if (existingValue == null) {
+                if (statsEnabled) stats.puts++;
+                return true;
+            } else {
+                return false;
+            }
         }
     }
 
@@ -320,11 +319,10 @@ public class MCache<K, V> implements Cache<K, V> {
 
         if (entry != null) {
             boolean remove = entry.valueEquals(oldValue);
-            if (oldValue != null) { if (oldValue.equals(entry.value)) remove = true; }
-            else if (entry.value == null) { remove = true; }
             if (remove) {
-                entryStore.remove(key);
-                if (statsEnabled) stats.countRemoval();
+                // remove with dummy MEntry instance for comparison to ensure still equals
+                remove = entryStore.remove(key, new MEntry<>(key, oldValue));
+                if (remove && statsEnabled) stats.countRemoval();
             }
             return remove;
         } else {
@@ -351,12 +349,9 @@ public class MCache<K, V> implements Cache<K, V> {
         MEntry<K, V> entry = getCheckExpired(key, currentTime);
 
         if (entry != null) {
-            boolean replace = entry.valueEquals(oldValue);
-            if (replace) {
-                entry.setValue(newValue, currentTime);
-                if (statsEnabled) stats.puts++;
-            }
-            return replace;
+            boolean replaced = entry.setValueIfEquals(oldValue, newValue, currentTime);
+            if (replaced) if (statsEnabled) stats.puts++;
+            return replaced;
         } else {
             return false;
         }
@@ -557,14 +552,21 @@ public class MCache<K, V> implements Cache<K, V> {
     public Duration getUpdateDuration() { return updateDuration; }
 
     public static class MEntry<K, V> implements Cache.Entry<K, V> {
-        K key;
+        private static final Class<MEntry> thisClass = MEntry.class;
+        final K key;
         V value;
-        private long createdTime;
-        private long lastUpdatedTime;
-        long lastAccessTime;
+        private long createdTime = 0;
+        private long lastUpdatedTime = 0;
+        long lastAccessTime = 0;
         long accessCount = 0;
         private boolean isExpired = false;
 
+        /** Use this only to create MEntry to compare with an existing entry */
+        MEntry(K key, V value) {
+            this.key = key;
+            this.value = value;
+        }
+        /** Always use this for MEntry that may be put in the cache */
         MEntry(K key, V value, long createdTime) {
             this.key = key;
             this.value = value;
@@ -591,9 +593,22 @@ public class MCache<K, V> implements Cache<K, V> {
             }
         }
         void setValue(V val, long updateTime) {
-            if (updateTime > lastUpdatedTime) {
-                value = val;
-                lastUpdatedTime = updateTime;
+            synchronized (key) {
+                if (updateTime > lastUpdatedTime) {
+                    value = val;
+                    lastUpdatedTime = updateTime;
+                }
+            }
+        }
+        boolean setValueIfEquals(V oldVal, V val, long updateTime) {
+            synchronized (key) {
+                if (updateTime > lastUpdatedTime && valueEquals(oldVal)) {
+                    value = val;
+                    lastUpdatedTime = updateTime;
+                    return true;
+                } else {
+                    return false;
+                }
             }
         }
 
@@ -630,6 +645,21 @@ public class MCache<K, V> implements Cache<K, V> {
                 if (updateDuration.getAdjustedTime(lastUpdatedTime) < accessTime) { isExpired = true; return true; }
             }
             return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return value.hashCode();
+        }
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == null || thisClass != obj.getClass()) return false;
+            MEntry that = (MEntry) obj;
+            if (value == null) {
+                return that.value == null;
+            } else {
+                return value.equals(that.value);
+            }
         }
     }
 
@@ -715,6 +745,7 @@ public class MCache<K, V> implements Cache<K, V> {
         int maxEntries;
         EvictRunnable(MCache mc, int entries) { cache = mc; maxEntries = entries; }
         @Override
+        @SuppressWarnings("unchecked")
         public void run() {
             if (maxEntries == 0) return;
             int entriesToEvict = cache.entryStore.size() - maxEntries;

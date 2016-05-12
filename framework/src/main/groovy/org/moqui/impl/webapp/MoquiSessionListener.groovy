@@ -26,14 +26,13 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 
 @CompileStatic
 class MoquiSessionListener implements HttpSessionListener {
+    protected final static Logger logger = LoggerFactory.getLogger(MoquiSessionListener.class)
     void sessionCreated(HttpSessionEvent event) {
         // NOTE: this method now does nothing because we only want to create the Visit on the first request, and in
         //     order to not create the Visit under certain conditions we need the HttpServletRequest object.
     }
 
     void sessionDestroyed(HttpSessionEvent event) {
-        Logger logger = LoggerFactory.getLogger(MoquiSessionListener.class)
-
         HttpSession session = event.getSession()
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) session.getServletContext().getAttribute("executionContextFactory")
         if (!ecfi) {

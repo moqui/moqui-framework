@@ -92,7 +92,6 @@ class MoquiContextListener implements ServletContextListener {
         String webappId = getId(sc)
         String moquiWebappName = sc.getInitParameter("moqui-name")
 
-        Logger logger = LoggerFactory.getLogger(MoquiContextListener.class)
         logger.info("Context Destroyed for Moqui webapp [${webappId}]")
         if (ecfi != null) {
             // run before-shutdown actions
