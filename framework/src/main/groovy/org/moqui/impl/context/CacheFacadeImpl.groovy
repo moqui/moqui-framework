@@ -79,7 +79,9 @@ public class CacheFacadeImpl implements CacheFacade {
         return hcCacheManagerInternal
     }
 
-    void destroy() { hcCacheManager.close() }
+    void destroy() {
+        // no need to do this, ECFI does Hazelcast shutdown: hcCacheManager.close()
+    }
 
     protected String getFullName(String cacheName, String tenantId) {
         if (cacheName == null) return null
