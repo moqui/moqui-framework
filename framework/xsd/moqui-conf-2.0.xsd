@@ -112,13 +112,14 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="artifact-stats">
         <xs:complexType>
             <xs:attribute name="type" use="required"><xs:simpleType><xs:restriction base="xs:token">
-                <xs:enumeration value="screen"/>
-                <xs:enumeration value="screen-content"/>
-                <xs:enumeration value="transition"/>
-                <xs:enumeration value="service"/>
-                <xs:enumeration value="entity"/>
+                <xs:enumeration value="AT_XML_SCREEN"/>
+                <xs:enumeration value="AT_XML_SCREEN_CONTENT"/>
+                <xs:enumeration value="AT_XML_SCREEN_TRANS"/>
+                <xs:enumeration value="AT_SERVICE"/>
+                <xs:enumeration value="AT_ENTITY"/>
             </xs:restriction></xs:simpleType></xs:attribute>
-            <xs:attribute name="sub-type" type="xs:string"/>
+            <!-- Removed, note that entity-auto and entity-implicit service calls never have hits persisted and that is
+                mainly what this was used for: <xs:attribute name="sub-type" type="xs:string"/> -->
             <xs:attribute name="persist-hit" type="boolean" default="false"/>
             <xs:attribute name="persist-bin" type="boolean" default="false"/>
         </xs:complexType>

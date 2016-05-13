@@ -26,43 +26,45 @@ import java.util.*;
 public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     // NOTE: these need to be in a Map instead of the DB because Enumeration records may not yet be loaded
-    final static Map<String, String> artifactTypeDescriptionMap = new HashMap<>();
-    final static Map<String, String> artifactActionDescriptionMap = new HashMap<>();
+    final static Map<ArtifactType, String> artifactTypeDescriptionMap = new EnumMap<>(ArtifactType.class);
+    final static Map<AuthzAction, String> artifactActionDescriptionMap = new EnumMap<>(AuthzAction.class);
     static {
-        artifactTypeDescriptionMap.put("AT_XML_SCREEN", "Screen"); artifactTypeDescriptionMap.put("AT_XML_SCREEN_TRANS", "Transition");
-        artifactTypeDescriptionMap.put("AT_SERVICE", "Service"); artifactTypeDescriptionMap.put("AT_ENTITY", "Entity");
+        artifactTypeDescriptionMap.put(AT_XML_SCREEN, "Screen"); artifactTypeDescriptionMap.put(AT_XML_SCREEN_TRANS, "Transition");
+        artifactTypeDescriptionMap.put(AT_XML_SCREEN_CONTENT, "Screen Content");
+        artifactTypeDescriptionMap.put(AT_SERVICE, "Service"); artifactTypeDescriptionMap.put(AT_ENTITY, "Entity");
+        artifactTypeDescriptionMap.put(AT_REST_PATH, "REST Path"); artifactTypeDescriptionMap.put(AT_OTHER, "Other");
 
-        artifactActionDescriptionMap.put("AUTHZA_VIEW", "View"); artifactActionDescriptionMap.put("AUTHZA_CREATE", "Create");
-        artifactActionDescriptionMap.put("AUTHZA_UPDATE", "Update"); artifactActionDescriptionMap.put("AUTHZA_DELETE", "Delete");
-        artifactActionDescriptionMap.put("AUTHZA_ALL", "All");
+        artifactActionDescriptionMap.put(AUTHZA_VIEW, "View"); artifactActionDescriptionMap.put(AUTHZA_CREATE, "Create");
+        artifactActionDescriptionMap.put(AUTHZA_UPDATE, "Update"); artifactActionDescriptionMap.put(AUTHZA_DELETE, "Delete");
+        artifactActionDescriptionMap.put(AUTHZA_ALL, "All");
     }
 
     public final String nameInternal;
-    public final String typeEnumId;
-    public final String internalActionEnumId;
+    public final ArtifactType internalTypeEnum;
+    public final AuthzAction internalActionEnum;
     protected String actionDetail = "";
     protected Map<String, Object> parameters = null;
     public String internalAuthorizedUserId = null;
-    public String internalAuthorizedAuthzTypeId = null;
-    public String internalAuthorizedActionEnumId = null;
+    public AuthzType internalAuthorizedAuthzType = null;
+    public AuthzAction internalAuthorizedActionEnum = null;
     public boolean internalAuthorizationInheritable = false;
-    Boolean internalAuthzWasRequired = null;
-    Boolean internalAuthzWasGranted = null;
+    private Boolean internalAuthzWasRequired = null;
+    private Boolean internalAuthzWasGranted = null;
     public Map<String, Object> internalAacv = null;
 
     //protected Exception createdLocation = null
     private ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null;
     protected long startTime;
     private long endTime = 0;
-    private ArrayList<ArtifactExecutionInfoImpl> childList = new ArrayList<>();
+    private ArrayList<ArtifactExecutionInfoImpl> childList = (ArrayList<ArtifactExecutionInfoImpl>) null;
     private long childrenRunningTime = 0;
 
-    public ArtifactExecutionInfoImpl(String name, String typeEnumId, String actionEnumId) {
+    public ArtifactExecutionInfoImpl(String name, ArtifactType typeEnum, AuthzAction actionEnum) {
         nameInternal = name;
-        this.typeEnumId = typeEnumId;
-        this.internalActionEnumId = actionEnumId != null && actionEnumId.length() > 0 ? actionEnumId : "AUTHZA_ALL";
+        internalTypeEnum = typeEnum;
+        internalActionEnum = actionEnum != null ? actionEnum : AUTHZA_ALL;
         //createdLocation = new Exception("Create AEII location for ${name}, type ${typeEnumId}, action ${actionEnumId}")
-        this.startTime = System.nanoTime();
+        startTime = System.nanoTime();
     }
 
     public ArtifactExecutionInfoImpl setActionDetail(String detail) { this.actionDetail = detail; return this; }
@@ -72,17 +74,19 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public String getName() { return nameInternal; }
 
     @Override
-    public String getTypeEnumId() { return typeEnumId; }
-    String getTypeDescription() {
-        String desc = artifactTypeDescriptionMap.get(typeEnumId);
-        return desc != null ? desc : typeEnumId;
+    public ArtifactType getTypeEnum() { return internalTypeEnum; }
+    @Override
+    public String getTypeDescription() {
+        String desc = artifactTypeDescriptionMap.get(internalTypeEnum);
+        return desc != null ? desc : internalTypeEnum.name();
     }
 
     @Override
-    public String getActionEnumId() { return internalActionEnumId; }
-    String getActionDescription() {
-        String desc = artifactActionDescriptionMap.get(internalActionEnumId);
-        return desc != null ? desc : internalActionEnumId;
+    public AuthzAction getActionEnum() { return internalActionEnum; }
+    @Override
+    public String getActionDescription() {
+        String desc = artifactActionDescriptionMap.get(internalActionEnum);
+        return desc != null ? desc : internalActionEnum.name();
     }
 
     @Override
@@ -90,12 +94,12 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     void setAuthorizedUserId(String authorizedUserId) { this.internalAuthorizedUserId = authorizedUserId; }
 
     @Override
-    public String getAuthorizedAuthzTypeId() { return internalAuthorizedAuthzTypeId; }
-    void setAuthorizedAuthzTypeId(String authorizedAuthzTypeId) { this.internalAuthorizedAuthzTypeId = authorizedAuthzTypeId; }
+    public AuthzType getAuthorizedAuthzType() { return internalAuthorizedAuthzType; }
+    void setAuthorizedAuthzType(AuthzType authorizedAuthzType) { this.internalAuthorizedAuthzType = authorizedAuthzType; }
 
     @Override
-    public String getAuthorizedActionEnumId() { return internalAuthorizedActionEnumId; }
-    void setAuthorizedActionEnumId(String authorizedActionEnumId) { this.internalAuthorizedActionEnumId = authorizedActionEnumId; }
+    public AuthzAction getAuthorizedActionEnum() { return internalAuthorizedActionEnum; }
+    void setAuthorizedActionEnum(AuthzAction authorizedActionEnum) { this.internalAuthorizedActionEnum = authorizedActionEnum; }
 
     @Override
     public boolean isAuthorizationInheritable() { return internalAuthorizationInheritable; }
@@ -103,18 +107,18 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     @Override
     public Boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
-    void setAuthorizationWasRequired(boolean value) { internalAuthzWasRequired = value; }
+    void setAuthorizationWasRequired(boolean value) { internalAuthzWasRequired = value ? Boolean.TRUE : Boolean.FALSE; }
     @Override
     public Boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
-    void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value; }
+    void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
 
     Map<String, Object> getAacv() { return internalAacv; }
 
     public void copyAacvInfo(Map<String, Object> aacv, String userId, boolean wasGranted) {
         internalAacv = aacv;
         internalAuthorizedUserId = userId;
-        internalAuthorizedAuthzTypeId = (String) aacv.get("authzTypeEnumId");
-        internalAuthorizedActionEnumId = (String) aacv.get("authzActionEnumId");
+        internalAuthorizedAuthzType = AuthzType.valueOf((String) aacv.get("authzTypeEnumId"));
+        internalAuthorizedActionEnum = AuthzAction.valueOf((String) aacv.get("authzActionEnumId"));
         internalAuthorizationInheritable = "Y".equals(aacv.get("inheritAuthz"));
         internalAuthzWasGranted = wasGranted;
     }
@@ -122,8 +126,8 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public void copyAuthorizedInfo(ArtifactExecutionInfoImpl aeii) {
         internalAacv = aeii.internalAacv;
         internalAuthorizedUserId = aeii.internalAuthorizedUserId;
-        internalAuthorizedAuthzTypeId = aeii.internalAuthorizedAuthzTypeId;
-        internalAuthorizedActionEnumId = aeii.internalAuthorizedActionEnumId;
+        internalAuthorizedAuthzType = aeii.internalAuthorizedAuthzType;
+        internalAuthorizedActionEnum = aeii.internalAuthorizedActionEnum;
         internalAuthorizationInheritable = aeii.internalAuthorizationInheritable;
         // NOTE: don't copy internalAuthzWasRequired, always set in isPermitted()
         internalAuthzWasGranted = aeii.internalAuthzWasGranted;
@@ -134,7 +138,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public long getRunningTime() { return endTime != 0 ? endTime - startTime : 0; }
     void calcChildTime(boolean recurse) {
         childrenRunningTime = 0;
-        for (ArtifactExecutionInfoImpl aeii: childList) {
+        if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) {
             childrenRunningTime += aeii.getRunningTime();
             if (recurse) aeii.calcChildTime(true);
         }
@@ -159,7 +163,10 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         new BigDecimal((getRunningTime() / parentAeii.getRunningTime()) * 100).setScale(2, BigDecimal.ROUND_HALF_UP) : BigDecimal.ZERO; }
 
 
-    void addChild(ArtifactExecutionInfoImpl aeii) { childList.add(aeii); }
+    void addChild(ArtifactExecutionInfoImpl aeii) {
+        if (childList == null) childList = new ArrayList<>();
+        childList.add(aeii);
+    }
     @Override
     public List<ArtifactExecutionInfo> getChildList() {
         List<ArtifactExecutionInfo> newChildList = new ArrayList<>();
@@ -179,11 +186,12 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
             writer.append(StupidUtilities.paddedString(actionDetail, 5, true)).append(" ");
             writer.append(nameInternal).append("\n");
 
-            if (children) for (ArtifactExecutionInfoImpl aeii: childList) aeii.print(writer, level + 1, true);
+            if (children && childList != null)
+                for (ArtifactExecutionInfoImpl aeii: childList) aeii.print(writer, level + 1, true);
         } catch (IOException e) { }
     }
 
-    String getKeyString() { return nameInternal + ":" + typeEnumId + ":" + internalActionEnumId + ":" + actionDetail; }
+    String getKeyString() { return nameInternal + ":" + internalTypeEnum.name() + ":" + internalActionEnum.name() + ":" + actionDetail; }
 
     static List<Map<String, Object>> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
         Map<String, Map<String, Object>> timeByArtifact = new LinkedHashMap<>();
@@ -255,7 +263,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 val.put("timeAvg", ((BigDecimal) val.get("time")).divide((BigDecimal) val.get("count"), 2, BigDecimal.ROUND_HALF_UP));
             }
         }
-        for (ArtifactExecutionInfoImpl aeii: childList) aeii.addToMapByTime(timeByArtifact, ownTime);
+        if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) aeii.addToMapByTime(timeByArtifact, ownTime);
     }
     static void printHotSpotList(Writer writer, List<Map> infoList) throws IOException {
         // "[${time}:${timeMin}:${timeAvg}:${timeMax}][${count}] ${type} ${action} ${actionDetail} ${name}"
@@ -308,7 +316,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
             }
         }
 
-        for (ArtifactExecutionInfoImpl aeii: childList) aeii.consolidateArtifactInfo(topLevelList, flatMap, artifactMap);
+        if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) aeii.consolidateArtifactInfo(topLevelList, flatMap, artifactMap);
     }
     static String printArtifactInfoList(List<Map> infoList) throws IOException {
         StringWriter sw = new StringWriter();
@@ -339,6 +347,6 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     @Override
     public String toString() {
-        return "[name:'" + nameInternal + "', type:'" + typeEnumId + "', action:'" + internalActionEnumId + "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted + ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzTypeId + "', authAction:'" + internalAuthorizedActionEnumId + "', inheritable:" + internalAuthorizationInheritable + ", runningTime:" + getRunningTime() + "]";
+        return "[name:'" + nameInternal + "', type:'" + internalTypeEnum + "', action:'" + internalActionEnum + "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted + ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzType + "', authAction:'" + internalAuthorizedActionEnum + "', inheritable:" + internalAuthorizationInheritable + ", runningTime:" + getRunningTime() + "]";
     }
 }

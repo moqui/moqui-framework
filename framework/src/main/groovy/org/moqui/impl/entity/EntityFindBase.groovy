@@ -15,6 +15,7 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactAuthorizationException
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
@@ -648,9 +649,9 @@ abstract class EntityFindBase implements EntityFind {
         if (this.dynamicView != null) return false
         if (this.havingEntityCondition != null) return false
         if (this.limit != null || this.offset != null) return false
-        if (this.useCache != null && this.useCache == Boolean.FALSE) return false
+        if (this.useCache != null && Boolean.FALSE.equals(this.useCache)) return false
         String entityCache = this.getEntityDef().getUseCache()
-        return ((this.useCache == Boolean.TRUE && entityCache != "never") || entityCache == "true")
+        return ((Boolean.TRUE.equals(this.useCache) && !"never".equals(entityCache)) || "true".equals(entityCache))
     }
 
     @Override
@@ -674,8 +675,8 @@ abstract class EntityFindBase implements EntityFind {
         try {
             EntityDefinition ed = getEntityDef()
 
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW")
-                    .setActionDetail("one")
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("one")
             // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
             aefi.pushInternal(aei, !ed.authorizeSkipView())
 
@@ -799,8 +800,8 @@ abstract class EntityFindBase implements EntityFind {
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), newEntityValue, "find-one", false)
         // count the artifact hit
         // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit("entity", "one", ed.getFullEntityName(), simpleAndMap, startTime,
-                (System.nanoTime() - startTimeNanos)/1E6, newEntityValue ? 1L : 0L)
+        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "one", ed.getFullEntityName(), simpleAndMap,
+                startTime, (System.nanoTime() - startTimeNanos)/1E6, newEntityValue ? 1L : 0L)
 
         return newEntityValue
     }
@@ -833,7 +834,8 @@ abstract class EntityFindBase implements EntityFind {
         try {
             EntityDefinition ed = getEntityDef()
 
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("one")
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("one")
             aefi.pushInternal(aei, !ed.authorizeSkipView())
 
             try {
@@ -857,7 +859,8 @@ abstract class EntityFindBase implements EntityFind {
         try {
             EntityDefinition ed = getEntityDef()
 
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("list")
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("list")
             aefi.pushInternal(aei, !ed.authorizeSkipView())
             try { return listInternal(ec) } finally { aefi.pop(aei) }
         } finally {
@@ -989,8 +992,8 @@ abstract class EntityFindBase implements EntityFind {
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-list", false)
         // count the artifact hit
         // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit("entity", "list", ed.getFullEntityName(), simpleAndMap, startTime,
-                (System.nanoTime() - startTimeNanos)/1E6, el != null ? (long) el.size() : 0L)
+        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "list", ed.getFullEntityName(), simpleAndMap,
+                startTime, (System.nanoTime() - startTimeNanos)/1E6, el != null ? (long) el.size() : 0L)
 
         return el
     }
@@ -1003,7 +1006,8 @@ abstract class EntityFindBase implements EntityFind {
         try {
             EntityDefinition ed = getEntityDef()
 
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("list")
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("list")
             aefi.pushInternal(aei, !ed.authorizeSkipView())
             try {
                 EntityList el = listInternal(ec)
@@ -1040,7 +1044,8 @@ abstract class EntityFindBase implements EntityFind {
         if (ed.isViewEntity() && (!entityNode.hasChild("member-entity") || !entityNode.hasChild("alias")))
             throw new EntityException("Cannot do find for view-entity with name [${entityName}] because it has no member entities or no aliased fields.")
 
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("iterator")
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("iterator")
         aefi.pushInternal(aei, !ed.authorizeSkipView())
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
@@ -1129,8 +1134,8 @@ abstract class EntityFindBase implements EntityFind {
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", false)
         // count the artifact hit
         // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit("entity", "iterator", ed.getFullEntityName(), simpleAndMap, startTime,
-                (System.nanoTime() - startTimeNanos)/1E6, null)
+        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "iterator", ed.getFullEntityName(), simpleAndMap,
+                startTime, (System.nanoTime() - startTimeNanos)/1E6, null)
         // pop the ArtifactExecutionInfo
         aefi.pop(aei)
 
@@ -1160,7 +1165,8 @@ abstract class EntityFindBase implements EntityFind {
         if ('tenantcommon'.equals(ed.entityGroupName) && !'DEFAULT'.equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW").setActionDetail("count")
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("count")
         aefi.pushInternal(aei, !ed.authorizeSkipView())
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
@@ -1231,8 +1237,8 @@ abstract class EntityFindBase implements EntityFind {
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", false)
         // count the artifact hit
         // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit("entity", "count", ed.getFullEntityName(), simpleAndMap, startTime,
-                (System.nanoTime() - startTimeNanos)/1E6, count)
+        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "count", ed.getFullEntityName(), simpleAndMap,
+                startTime, (System.nanoTime() - startTimeNanos)/1E6, count)
         // pop the ArtifactExecutionInfo
         aefi.pop(aei)
 

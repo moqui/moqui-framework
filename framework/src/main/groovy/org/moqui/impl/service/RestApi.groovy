@@ -15,6 +15,7 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
@@ -556,7 +557,7 @@ class RestApi {
 
             // push onto artifact stack, check authz
             String curPath = getFullPathName([])
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, "AT_REST_PATH", getActionFromMethod(ec))
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, ArtifactExecutionInfo.AT_REST_PATH, getActionFromMethod(ec))
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
             ec.getArtifactExecutionImpl().pushInternal(aei, !moreInPath)
 
@@ -610,9 +611,11 @@ class RestApi {
             }
             return curPath.toString()
         }
-        Map<String, String> actionByMethodMap = [get:'AUTHZA_VIEW', patch:'AUTHZA_UPDATE', put:'AUTHZA_UPDATE',
-                             post:'AUTHZA_CREATE', delete:'AUTHZA_DELETE', options:'AUTHZA_VIEW', head:'AUTHZA_VIEW']
-        String getActionFromMethod(ExecutionContext ec) {
+        static final Map<String, ArtifactExecutionInfo.AuthzAction> actionByMethodMap = [get:ArtifactExecutionInfo.AUTHZA_VIEW,
+                patch:ArtifactExecutionInfo.AUTHZA_UPDATE, put:ArtifactExecutionInfo.AUTHZA_UPDATE,
+                post:ArtifactExecutionInfo.AUTHZA_CREATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
+                options:ArtifactExecutionInfo.AUTHZA_VIEW, head:ArtifactExecutionInfo.AUTHZA_VIEW]
+        static ArtifactExecutionInfo.AuthzAction getActionFromMethod(ExecutionContext ec) {
             String method = ec.web.getRequest().getMethod().toLowerCase()
             return actionByMethodMap.get(method)
         }

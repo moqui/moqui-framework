@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
-<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.0.xsd">
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.0.xsd">
 
-    <!-- Settings in this file can be overridden in a runtime conf file that has a any of the desired sub-elements. -->
+    <!-- Settings in this file can be overridden in a component and/or runtime conf file that has a any of the desired sub-elements. -->
 
     <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false" empty-db-load="seed"/>
 
@@ -76,11 +75,12 @@
         <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList"/>
     </cache-list>
     <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true">
-        <artifact-stats type="screen" persist-bin="true" persist-hit="true"/>
-        <artifact-stats type="screen-content" persist-bin="true" persist-hit="true"/>
-        <artifact-stats type="transition" persist-bin="true" persist-hit="true"/>
-        <artifact-stats type="service" persist-bin="true" persist-hit="false"/>
-        <artifact-stats type="entity" persist-bin="false"/>
+        <!-- these are meant to be good production settings -->
+        <artifact-stats type="AT_XML_SCREEN" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_SERVICE" persist-bin="true" persist-hit="false"/>
+        <artifact-stats type="AT_ENTITY" persist-bin="false"/>
     </server-stats>
 
     <webapp-list>

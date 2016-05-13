@@ -21,13 +21,37 @@ import java.util.List;
  * Information about execution of an artifact as the system is running
  */
 public interface ArtifactExecutionInfo {
+    enum ArtifactType { AT_XML_SCREEN, AT_XML_SCREEN_TRANS, AT_XML_SCREEN_CONTENT, AT_SERVICE, AT_ENTITY, AT_REST_PATH, AT_OTHER }
+    enum AuthzAction { AUTHZA_VIEW, AUTHZA_CREATE, AUTHZA_UPDATE, AUTHZA_DELETE, AUTHZA_ALL }
+    enum AuthzType { AUTHZT_ALLOW, AUTHZT_DENY, AUTHZT_ALWAYS }
+
+    ArtifactType AT_XML_SCREEN = ArtifactType.AT_XML_SCREEN;
+    ArtifactType AT_XML_SCREEN_TRANS = ArtifactType.AT_XML_SCREEN_TRANS;
+    ArtifactType AT_XML_SCREEN_CONTENT = ArtifactType.AT_XML_SCREEN_CONTENT;
+    ArtifactType AT_SERVICE = ArtifactType.AT_SERVICE;
+    ArtifactType AT_ENTITY = ArtifactType.AT_ENTITY;
+    ArtifactType AT_REST_PATH = ArtifactType.AT_REST_PATH;
+    ArtifactType AT_OTHER = ArtifactType.AT_OTHER;
+
+    AuthzAction AUTHZA_VIEW = AuthzAction.AUTHZA_VIEW;
+    AuthzAction AUTHZA_CREATE = AuthzAction.AUTHZA_CREATE;
+    AuthzAction AUTHZA_UPDATE = AuthzAction.AUTHZA_UPDATE;
+    AuthzAction AUTHZA_DELETE = AuthzAction.AUTHZA_DELETE;
+    AuthzAction AUTHZA_ALL = AuthzAction.AUTHZA_ALL;
+
+    AuthzType AUTHZT_ALLOW = AuthzType.AUTHZT_ALLOW;
+    AuthzType AUTHZT_DENY = AuthzType.AUTHZT_DENY;
+    AuthzType AUTHZT_ALWAYS = AuthzType.AUTHZT_ALWAYS;
+
     String getName();
-    String getTypeEnumId();
-    String getActionEnumId();
+    ArtifactType getTypeEnum();
+    String getTypeDescription();
+    AuthzAction getActionEnum();
+    String getActionDescription();
 
     String getAuthorizedUserId();
-    String getAuthorizedAuthzTypeId();
-    String getAuthorizedActionEnumId();
+    AuthzType getAuthorizedAuthzType();
+    AuthzAction getAuthorizedActionEnum();
     boolean isAuthorizationInheritable();
     Boolean getAuthorizationWasRequired();
     Boolean getAuthorizationWasGranted();

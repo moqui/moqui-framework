@@ -233,8 +233,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         // NOTE: don't require authz if the service def doesn't authenticate
         // NOTE: if no sd then requiresAuthz is false, ie let the authz get handled at the entity level (but still put
         //     the service on the stack)
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE",
-                            ServiceDefinition.getVerbAuthzActionId(verb)).setParameters(currentParameters)
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), ArtifactExecutionInfo.AT_SERVICE,
+                            ServiceDefinition.getVerbAuthzActionEnum(verb)).setParameters(currentParameters)
         eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
 
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
@@ -254,8 +254,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
                     double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
                     if (logger.traceEnabled) logger.trace("Finished call to service [${getServiceName()}] in ${(runningTimeMillis)/1000} seconds")
-                    sfi.getEcfi().countArtifactHit("service", "entity-implicit", getServiceName(), currentParameters,
-                            callStartTime, runningTimeMillis, null)
+                    sfi.getEcfi().countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, "entity-implicit", getServiceName(),
+                            currentParameters, callStartTime, runningTimeMillis, null)
 
                     return result
                 } finally {
@@ -381,8 +381,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             if (loggedInAnonymous) ((UserFacadeImpl) eci.getUser()).logoutAnonymousOnly()
 
             double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
-            sfi.getEcfi().countArtifactHit("service", serviceType, getServiceName(), currentParameters, callStartTime,
-                    runningTimeMillis, null)
+            sfi.getEcfi().countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, serviceType, getServiceName(),
+                    currentParameters, callStartTime, runningTimeMillis, null)
 
             // all done so pop the artifact info
             eci.getArtifactExecution().pop(aei)

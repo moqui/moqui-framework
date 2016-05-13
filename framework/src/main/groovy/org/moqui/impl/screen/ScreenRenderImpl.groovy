@@ -206,7 +206,8 @@ class ScreenRenderImpl implements ScreenRender {
         ScreenDefinition sd = sdIterator.next()
         // for these authz is not required, as long as something authorizes on the way to the transition, or
         // the transition itself, it's fine
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
         ec.getArtifactExecutionImpl().pushInternal(aei, false)
 
         boolean loggedInAnonymous = false
@@ -361,7 +362,7 @@ class ScreenRenderImpl implements ScreenRender {
 
                 if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit'))) {
                     String riType = ri != null ? ri.type : null
-                    sfi.ecfi.countArtifactHit("transition", riType != null ? riType : "",
+                    sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, riType != null ? riType : "",
                             targetTransition.parentScreen.getLocation() + "#" + targetTransition.name,
                             (web != null ? web.requestParameters : null), transitionStartTime,
                             (System.nanoTime() - startTimeNanos)/1E6, null)
@@ -535,9 +536,9 @@ class ScreenRenderImpl implements ScreenRender {
                         int totalLen = StupidUtilities.copyStream(is, os)
 
                         if (screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit') != "false") {
-                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, fileResourceRef.location,
-                                    (web != null ? web.requestParameters : null), resourceStartTime,
-                                    (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
+                            sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
+                                    fileResourceRef.location, (web != null ? web.requestParameters : null),
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
                         }
                         if (isTraceEnabled) logger.trace("Sent binary response of length ${totalLen} from file ${fileResourceRef.location} for request to ${screenUrlInstance.url}")
                     } finally {
@@ -576,9 +577,9 @@ class ScreenRenderImpl implements ScreenRender {
 
                         writer.write(text)
                         if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit'))) {
-                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, fileResourceRef.location,
-                                    (web != null ? web.requestParameters : null), resourceStartTime,
-                                    (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
+                            sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
+                                    fileResourceRef.location, (web != null ? web.requestParameters : null),
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
                         }
                     } else {
                         logger.warn("Not sending text response from file [${fileResourceRef.location}] for request to [${screenUrlInstance.url}] because no text was found in the file.")
@@ -599,7 +600,8 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: don't require authz if the screen doesn't require auth
         MNode screenNode = sd.getScreenNode()
         String requireAuthentication = screenNode.attribute('require-authentication')
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
         ec.artifactExecutionImpl.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
@@ -674,7 +676,8 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
 
-                    ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+                    ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location,
+                            ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
                     ec.artifactExecutionImpl.pushInternal(aei, false)
                     aeiList.add(aei)
                 }
@@ -737,7 +740,8 @@ class ScreenRenderImpl implements ScreenRender {
             if (beganTransaction && sfi.ecfi.transactionFacade.isTransactionInPlace()) sfi.ecfi.transactionFacade.commit()
             // track the screen artifact hit
             if (screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit') != "false") {
-                sfi.ecfi.countArtifactHit("screen", this.outputContentType, screenUrlInfo.screenRenderDefList.last().getLocation(),
+                sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN, this.outputContentType,
+                        screenUrlInfo.screenRenderDefList.last().getLocation(),
                         (webFacade != null ? webFacade.requestParameters : null), screenStartTime,
                         (System.nanoTime() - startTimeNanos)/1E6, null)
             }

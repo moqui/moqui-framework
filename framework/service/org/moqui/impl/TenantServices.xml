@@ -107,7 +107,8 @@ along with this software (see the LICENSE.md file). If not, see
                 // auth anonymous user, turn off authz for data loading
                 ec.getUser().loginAnonymousIfNoUser()
                 ec.getArtifactExecution().disableAuthz()
-                ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl("loadData", "AT_OTHER", "AUTHZA_ALL")
+                ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl("loadData",
+                        ArtifactExecutionInfoImpl.AT_OTHER, ArtifactExecutionInfoImpl.AUTHZA_ALL)
                 ec.getArtifactExecution().push(aei, false)
                 ec.getArtifactExecution().setAnonymousAuthorizedAll()
 

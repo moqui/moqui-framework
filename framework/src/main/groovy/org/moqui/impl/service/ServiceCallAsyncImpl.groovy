@@ -15,6 +15,7 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.Moqui
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.service.ServiceCallAsync
@@ -100,7 +101,8 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         }
 
         // always do an authz before scheduling the job
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), "AT_SERVICE", ServiceDefinition.getVerbAuthzActionId(verb))
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(),
+                ArtifactExecutionInfo.AT_SERVICE, ServiceDefinition.getVerbAuthzActionEnum(verb))
         eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
         // pop immediately, just did the push to to an authz
         eci.getArtifactExecution().pop(aei)
