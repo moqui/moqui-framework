@@ -107,6 +107,14 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.screen.form -->
     <!-- ========================================================= -->
 
+    <entity entity-name="FormListUserField" package-name="moqui.screen.form">
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="formLocation" type="text-medium" is-pk="true"/>
+        <field name="fieldName" type="text-short" is-pk="true"/>
+        <field name="columnIndex" type="number-integer"><description>The column number to put the field in</description></field>
+        <field name="columnSequence" type="number-integer"><description>The sequence within the column</description></field>
+    </entity>
+
     <entity entity-name="DbForm" package-name="moqui.screen.form">
         <field name="formId" type="id" is-pk="true"/>
         <field name="purposeEnumId" type="id"/>
