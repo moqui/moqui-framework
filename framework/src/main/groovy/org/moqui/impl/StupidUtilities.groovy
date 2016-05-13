@@ -35,16 +35,6 @@ import org.slf4j.LoggerFactory
 class StupidUtilities {
     protected final static Logger logger = LoggerFactory.getLogger(StupidUtilities.class)
 
-    /** Use StupidJavaUtilities.isInstanceOf() */
-    @Deprecated
-    static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
-        Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType)
-        if (theClass == null) theClass = StupidUtilities.class.getClassLoader().loadClass(javaType)
-        if (theClass == null) theClass = System.getClassLoader().loadClass(javaType)
-        if (theClass == null) throw new IllegalArgumentException("Cannot find class for type: ${javaType}")
-        return theClass.isInstance(theObjectInQuestion)
-    }
-
     // NOTE: TypeCheckingMode.SKIP here because Groovy does weird things with asType with CompileStatic
     @TypeChecked(TypeCheckingMode.SKIP)
     static Object basicConvert(Object value, String javaType) {
@@ -177,7 +167,7 @@ class StupidUtilities {
         filterMapListByDate(theList, fromDateName, thruDateName, compareStamp)
     }
 
-    static void orderMapList(List<Map> theList, List<String> fieldNames) {
+    static void orderMapList(List<Map<String, Object>> theList, List<String> fieldNames) {
         if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list")
         // this seems unnecessary, but is because Groovy allows a GString even in a List<String>, but MapOrderByComparator in Java blows up
         ArrayList<String> fieldNameArray = new ArrayList<>()

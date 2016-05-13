@@ -101,22 +101,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
                 resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
             } catch (ClassNotFoundException e) {
-                logger.info("Class [${rrNode.attribute("class")}] not found outside of components, will retry after. (${e.toString()})")
-            }
-        }
-        
-        // now that resource references are in place, init the lib and classes directories in the components
-        this.ecfi.initComponentLibAndClasses(this)
-
-        // Try failed resource reference classes again now that component classpath resources are in place
-        for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
-            if (resourceReferenceClasses.containsKey(rrNode.attribute("scheme"))) continue
-
-            try {
-                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
-                resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
-            } catch (ClassNotFoundException e) {
-                logger.warn("Class [${rrNode.attribute("class")}] for scheme [${rrNode.attribute("scheme")}] not found even with components, skipping. (${e.toString()})")
+                logger.info("Class [${rrNode.attribute("class")}] not found (${e.toString()})")
             }
         }
 
@@ -223,6 +208,16 @@ public class ResourceFacadeImpl implements ResourceFacade {
         ResourceReference cachedRr = resourceReferenceByLocation.get(location)
         if (cachedRr != null) return cachedRr
 
+        String scheme = getLocationScheme(location)
+        Class rrClass = resourceReferenceClasses.get(scheme)
+        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
+
+        ResourceReference rr = (ResourceReference) rrClass.newInstance()
+        rr.init(location, ecfi)
+        resourceReferenceByLocation.put(location, rr)
+        return rr
+    }
+    static String getLocationScheme(String location) {
         String scheme = "file"
         // Q: how to get the scheme for windows? the Java URI class doesn't like spaces, the if we look for the first ":"
         //    it may be a drive letter instead of a scheme/protocol
@@ -231,14 +226,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             String prefix = location.substring(0, location.indexOf(":"))
             if (!prefix.contains("/") && prefix.length() > 2) scheme = prefix
         }
-
-        Class rrClass = resourceReferenceClasses.get(scheme)
-        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
-
-        ResourceReference rr = (ResourceReference) rrClass.newInstance()
-        rr.init(location, ecfi)
-        resourceReferenceByLocation.put(location, rr)
-        return rr
+        return scheme
     }
 
     @Override
@@ -335,16 +323,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method) { return script(location, method) }
-
-    @Override
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method, Map additionalContext) {
-        return script(location, method, additionalContext)
-    }
-
-    @Override
     Object script(String location, String method) {
         ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
@@ -395,16 +373,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation) { return condition(expression, debugLocation) }
-
-    @Override
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation, Map additionalContext) {
-        return condition(expression, debugLocation, additionalContext)
-    }
-
-    @Override
     boolean condition(String expression, String debugLocation) {
         return conditionInternal(expression, debugLocation, ecfi.getEci())
     }
@@ -438,14 +406,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation) { return expression(expr, debugLocation) }
-    @Override
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation, Map additionalContext) {
-        return expression(expr, debugLocation, additionalContext)
-    }
-    @Override
     Object expression(String expression, String debugLocation) {
         return expressionInternal(expression, debugLocation, ecfi.getEci())
     }
@@ -478,15 +438,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-
-    @Override
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation) { expand(inputString, debugLocation) }
-    @Override
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation, Map additionalContext) {
-        return expand(inputString, debugLocation, additionalContext)
-    }
 
     @Override
     String expand(String inputString, String debugLocation) {

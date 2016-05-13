@@ -16,6 +16,7 @@ package org.moqui.impl.screen
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.net.URLCodec
 import org.moqui.BaseException
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
 import org.moqui.entity.EntityCondition
@@ -227,7 +228,8 @@ class ScreenUrlInfo {
         int screenPathDefListSize = screenPathDefList.size()
         for (int i = 0; i < screenPathDefListSize; i++) {
             ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
-            ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(), "AT_XML_SCREEN", "AUTHZA_VIEW")
+            ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(),
+                    ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 

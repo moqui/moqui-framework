@@ -248,7 +248,8 @@ class EntityDataFeed {
             entityNameSet.add(entry.getKey())
         }
         if (entitiesWithDataFeed == null) {
-            logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
+            logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+            if (logger.isTraceEnabled()) logger.trace("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
         } else {
             logger.info("Rebuilt entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
         }

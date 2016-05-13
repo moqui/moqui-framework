@@ -63,12 +63,15 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Screen Themes -->
             <moqui.basic.EnumerationType description="Screen Theme Type" enumTypeId="ScreenThemeType"/>
             <moqui.basic.Enumeration description="Internal Applications" enumId="STT_INTERNAL" enumTypeId="ScreenThemeType" enumCode="DEFAULT"/>
-            <moqui.basic.Enumeration description="Public Web Site/etc" enumId="STT_PUBLIC" enumTypeId="ScreenThemeType"/>
+            <moqui.basic.Enumeration description="Public Web Site/etc" enumId="STT_PUBLIC" enumTypeId="ScreenThemeType" enumCode="PUBLIC"/>
+            <moqui.basic.Enumeration description="Error Screens" enumId="STT_ERROR" enumTypeId="ScreenThemeType" enumCode="ERROR"/>
 
             <!-- Default Theme -->
             <moqui.screen.ScreenTheme screenThemeId="DEFAULT" screenThemeTypeEnumId="STT_INTERNAL"
                                       description="Moqui Default Theme: simple, flat, default"/>
             <!-- NOTE: the default webroot component extends this theme, see the WebrootThemeData.xml file for more -->
+            <moqui.screen.ScreenTheme screenThemeId="ERROR" screenThemeTypeEnumId="STT_ERROR"
+                                      description="Minimal Error Theme"/>
         </seed-data>
     </entity>
     <entity entity-name="ScreenThemeResource" package-name="moqui.screen" authorize-skip="view" cache="true">
@@ -103,6 +106,14 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
     <!-- moqui.screen.form -->
     <!-- ========================================================= -->
+
+    <entity entity-name="FormListUserField" package-name="moqui.screen.form">
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="formLocation" type="text-medium" is-pk="true"/>
+        <field name="fieldName" type="text-short" is-pk="true"/>
+        <field name="columnIndex" type="number-integer"><description>The column number to put the field in</description></field>
+        <field name="columnSequence" type="number-integer"><description>The sequence within the column</description></field>
+    </entity>
 
     <entity entity-name="DbForm" package-name="moqui.screen.form">
         <field name="formId" type="id" is-pk="true"/>

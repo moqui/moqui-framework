@@ -120,11 +120,18 @@ class ScreenRenderImpl implements ScreenRender {
 
     ScreenRender rootScreenFromHost(String host) {
         MNode webappNode = sfi.getWebappNode(webappName)
+        MNode wildcardHost = (MNode) null
         for (MNode rootScreenNode in webappNode.children("root-screen")) {
-            if (host.matches(rootScreenNode.attribute('host')))
-                return this.rootScreen(rootScreenNode.attribute('location'))
+            String hostAttr = rootScreenNode.attribute("host")
+            if (".*".equals(hostAttr)) {
+                // remember wildcard host, default to it if no other matches (just in case put earlier in the list than others)
+                wildcardHost = rootScreenNode
+            } else if (host.matches(hostAttr)) {
+                return rootScreen(rootScreenNode.attribute("location"))
+            }
         }
-        throw new BaseException("Could not find root screen for host [${host}]")
+        if (wildcardHost != null) return rootScreen(wildcardHost.attribute("location"))
+        throw new BaseException("Could not find root screen for host: ${host}")
     }
 
     @Override
@@ -199,7 +206,8 @@ class ScreenRenderImpl implements ScreenRender {
         ScreenDefinition sd = sdIterator.next()
         // for these authz is not required, as long as something authorizes on the way to the transition, or
         // the transition itself, it's fine
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
         ec.getArtifactExecutionImpl().pushInternal(aei, false)
 
         boolean loggedInAnonymous = false
@@ -354,7 +362,7 @@ class ScreenRenderImpl implements ScreenRender {
 
                 if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit'))) {
                     String riType = ri != null ? ri.type : null
-                    sfi.ecfi.countArtifactHit("transition", riType != null ? riType : "",
+                    sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, riType != null ? riType : "",
                             targetTransition.parentScreen.getLocation() + "#" + targetTransition.name,
                             (web != null ? web.requestParameters : null), transitionStartTime,
                             (System.nanoTime() - startTimeNanos)/1E6, null)
@@ -373,7 +381,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if ("none".equals(ri.type)) {
-                logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds; type none response.")
+                logger.info("Transition ${getScreenUrlInfo().getFullPathNameList().join("/")} in ${System.currentTimeMillis() - transitionStartTime}ms, type none response")
                 return
             }
 
@@ -427,7 +435,7 @@ class ScreenRenderImpl implements ScreenRender {
                         fullUrl += ps.toString()
                     }
                     // NOTE: even if transition extension is json still send redirect when we just have a plain url
-                    logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to plain URL: ${fullUrl}")
+                    logger.info("Transition ${getScreenUrlInfo().getFullPathNameList().join("/")} in ${System.currentTimeMillis() - transitionStartTime}ms, redirecting to plain URL: ${fullUrl}")
                     response.sendRedirect(fullUrl)
                 } else {
                     // default is screen-path
@@ -481,7 +489,7 @@ class ScreenRenderImpl implements ScreenRender {
                         web.sendJsonResponse(responseMap)
                     } else {
                         String fullUrlString = fullUrl.getMinimalPathUrlWithParams()
-                        logger.info("Finished transition ${getScreenUrlInfo().getFullPathNameList()} in ${(System.currentTimeMillis() - transitionStartTime)/1000} seconds, redirecting to screen path URL: ${fullUrlString}")
+                        logger.info("Transition ${getScreenUrlInfo().getFullPathNameList().join("/")} in ${System.currentTimeMillis() - transitionStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
                     }
                 }
@@ -528,9 +536,9 @@ class ScreenRenderImpl implements ScreenRender {
                         int totalLen = StupidUtilities.copyStream(is, os)
 
                         if (screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit') != "false") {
-                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, fileResourceRef.location,
-                                    (web != null ? web.requestParameters : null), resourceStartTime,
-                                    (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
+                            sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
+                                    fileResourceRef.location, (web != null ? web.requestParameters : null),
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
                         }
                         if (isTraceEnabled) logger.trace("Sent binary response of length ${totalLen} from file ${fileResourceRef.location} for request to ${screenUrlInstance.url}")
                     } finally {
@@ -569,9 +577,9 @@ class ScreenRenderImpl implements ScreenRender {
 
                         writer.write(text)
                         if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit'))) {
-                            sfi.ecfi.countArtifactHit("screen-content", fileContentType, fileResourceRef.location,
-                                    (web != null ? web.requestParameters : null), resourceStartTime,
-                                    (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
+                            sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
+                                    fileResourceRef.location, (web != null ? web.requestParameters : null),
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
                         }
                     } else {
                         logger.warn("Not sending text response from file [${fileResourceRef.location}] for request to [${screenUrlInstance.url}] because no text was found in the file.")
@@ -592,13 +600,14 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: don't require authz if the screen doesn't require auth
         MNode screenNode = sd.getScreenNode()
         String requireAuthentication = screenNode.attribute('require-authentication')
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
         ec.artifactExecutionImpl.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
         try {
             if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
-                throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+                throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant ${ec.getTenantId()}")
 
             if (requireAuthentication == "anonymous-all") {
                 ec.artifactExecution.setAnonymousAuthorizedAll()
@@ -653,7 +662,7 @@ class ScreenRenderImpl implements ScreenRender {
                     ScreenDefinition permSd = screenUrlInfo.screenPathDefList.get(i)
 
                     if (permSd.getTenantsAllowed() && !permSd.getTenantsAllowed().contains(ec.getTenantId()))
-                        throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+                        throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available to tenant ${ec.getTenantId()}")
                     // check the subscreens item for this screen (valid in context)
                     if (i > 0) {
                         String curPathName = screenUrlInfo.fullPathNameList.get(i - 1) // one lower in path as it doesn't have root screen
@@ -667,7 +676,8 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
 
-                    ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+                    ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location,
+                            ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
                     ec.artifactExecutionImpl.pushInternal(aei, false)
                     aeiList.add(aei)
                 }
@@ -730,7 +740,8 @@ class ScreenRenderImpl implements ScreenRender {
             if (beganTransaction && sfi.ecfi.transactionFacade.isTransactionInPlace()) sfi.ecfi.transactionFacade.commit()
             // track the screen artifact hit
             if (screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit') != "false") {
-                sfi.ecfi.countArtifactHit("screen", this.outputContentType, screenUrlInfo.screenRenderDefList.last().getLocation(),
+                sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN, this.outputContentType,
+                        screenUrlInfo.screenRenderDefList.last().getLocation(),
                         (webFacade != null ? webFacade.requestParameters : null), screenStartTime,
                         (System.nanoTime() - startTimeNanos)/1E6, null)
             }
@@ -856,7 +867,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         ScreenDefinition screenDef = screenUrlInfo.screenRenderDefList.get(screenPathIndex + 1)
         if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available to tenant [${ec.getTenantId()}]")
+            throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available to tenant ${ec.getTenantId()}")
         // check the subscreens item for this screen (valid in context)
         int i = screenPathIndex + screenUrlInfo.renderPathDifference
         if (i > 0) {
@@ -895,8 +906,10 @@ class ScreenRenderImpl implements ScreenRender {
             String overrideTemplateLocation = null
             // go through the screenPathDefList instead screenRenderDefList so that parent screen can override template
             //     even if it isn't rendered to decorate subscreen
-            for (ScreenDefinition sd in screenUrlInfo.screenPathDefList)
-                overrideTemplateLocation = sd.getMacroTemplateLocation(renderMode)
+            for (ScreenDefinition sd in screenUrlInfo.screenPathDefList) {
+                String curLocation = sd.getMacroTemplateLocation(renderMode)
+                if (curLocation != null && curLocation.length() > 0) overrideTemplateLocation = curLocation
+            }
 
             if (overrideTemplateLocation) {
                 return sfi.getTemplateByLocation(overrideTemplateLocation)

@@ -431,7 +431,8 @@ class ScreenDefinition {
     void render(ScreenRenderImpl sri, boolean isTargetScreen) {
         // NOTE: don't require authz if the screen doesn't require auth
         String requireAuthentication = screenNode.attribute('require-authentication')
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location, "AT_XML_SCREEN", "AUTHZA_VIEW")
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location,
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
         sri.ec.artifactExecutionImpl.pushInternal(aei, isTargetScreen ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
@@ -676,7 +677,7 @@ class ScreenDefinition {
             //    in the services/etc if/when needed, or specific transitions can have authz settings
             String requireAuthentication = (String) parentScreen.screenNode.attribute('require-authentication')
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
-                                "AT_XML_SCREEN_TRANS", "AUTHZA_VIEW")
+                    ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW)
             ec.getArtifactExecutionImpl().pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
 
             boolean loggedInAnonymous = false

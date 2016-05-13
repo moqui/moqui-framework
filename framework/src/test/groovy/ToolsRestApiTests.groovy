@@ -67,7 +67,7 @@ class ToolsRestApiTests extends Specification {
 
         where:
         screenPath | containsText1 | containsText2
-        "s1/moqui/artifacts/hitSummary?artifactType=entity&artifactSubType=create&artifactName=moqui.basic&artifactName_op=contains" |
+        "s1/moqui/artifacts/hitSummary?artifactType=AT_ENTITY&artifactSubType=create&artifactName=moqui.basic&artifactName_op=contains" |
                 "moqui.basic.StatusType" | '"artifactSubType": "create"'
         "s1/moqui/basic/geos/USA" | "United States" | "Country"
         "s1/moqui/basic/geos/USA/regions" | "" | ""

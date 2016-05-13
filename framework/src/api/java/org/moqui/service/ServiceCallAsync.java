@@ -14,6 +14,8 @@
 package org.moqui.service;
 
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 
 public interface ServiceCallAsync extends ServiceCall {
     /** Name of the service to run. The combined service name, like: "${path}.${verb}${noun}". To explicitly separate
@@ -33,37 +35,35 @@ public interface ServiceCallAsync extends ServiceCall {
     ServiceCallAsync parameter(String name, Object value);
 
 
-    /** If true the service call will be persisted and then run. If false it will be run from memory only.
-     * Defaults to false.
-     * @return Reference to this for convenience.
-     */
-    ServiceCallAsync persist(boolean persist);
-
-    /* * Specify the transaction isolation desired for this service call.
-     * For possible values see JavaDoc for javax.sql.Connection.
-     * If not specified defaults to configured value for service, or container.
+    /** If true the service call will be run distributed and may run on a different member of the cluster. Parameter
+     * entries MUST be java.io.Serializable (or java.io.Externalizable).
+     *
+     * If false it will be run local only (default).
      *
      * @return Reference to this for convenience.
      */
-    /* not supported by Atomikos/etc right now, consider for later: ServiceCallAsync transactionIsolation(int transactionIsolation); */
+    ServiceCallAsync distribute(boolean dist);
 
-    /** Object implementing ServiceResultReceiver interface which will receive the result when service is complete.
-     * @return Reference to this for convenience.
+    /**
+     * Call the service asynchronously, ignoring the result.
+     * This effectively calls the service through a java.lang.Runnable implementation.
      */
-    ServiceCallAsync resultReceiver(ServiceResultReceiver resultReceiver);
-
-    /** Maximum number of times to retry running this service.
-     * @return Reference to this for convenience.
-     */
-    ServiceCallAsync maxRetry(int maxRetry);
-
-    /** Call the service asynchronously. */
     void call() throws ServiceException;
 
-    /** Call the service asynchronously, and get a result waiter object back so you can wait for the service to
-     * complete and get the result. This is useful for running a number of service simultaneously and then getting
+    /**
+     * Call the service asynchronously, and get a java.util.concurrent.Future object back so you can wait for the service to
+     * complete and get the result.
+     *
+     * This is useful for running a number of service simultaneously and then getting
      * all of the results back which will reduce the total running time from the sum of the time to run each service
      * to just the time the longest service takes to run.
+     *
+     * This effectively calls the service through a java.util.concurrent.Callable implementation.
      */
-    ServiceResultWaiter callWaiter() throws ServiceException;
+    Future<Map<String, Object>> callFuture() throws ServiceException;
+
+    /** Get a Runnable object to do this service call through an ExecutorService or other runner of your choice. */
+    Runnable getRunnable();
+    /** Get a Callable object to do this service call through an ExecutorService of your choice. */
+    Callable<Map<String, Object>> getCallable();
 }

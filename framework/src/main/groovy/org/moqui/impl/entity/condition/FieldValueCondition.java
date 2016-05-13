@@ -166,7 +166,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     @Override
     public String toString() {
         return field.toString() + " " + EntityConditionFactoryImpl.getComparisonOperatorString(this.operator) + " " +
-                (value != null ? value.toString(): "null");
+                (value != null ? value.toString() + " (" + value.getClass().getName() + ")" : "null");
     }
 
     @Override

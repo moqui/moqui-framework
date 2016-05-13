@@ -88,7 +88,8 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
                 }
                 try {
                     h2Server = Server.createTcpServer(args).start();
-                    logger.info("Started H2 remote server on port ${h2Server.getPort()} status [${h2Server.getStatus()}] from args ${args}")
+                    logger.info("Started H2 remote server on port ${h2Server.getPort()} status: ${h2Server.getStatus()}")
+                    logger.info("H2 args: ${args}")
                 } catch (Throwable t) {
                     logger.warn("Error starting H2 server (may already be running): ${t.toString()}")
                 }

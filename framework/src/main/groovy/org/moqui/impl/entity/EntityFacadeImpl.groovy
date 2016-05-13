@@ -154,35 +154,27 @@ class EntityFacadeImpl implements EntityFacade {
     MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }
     void checkInitDatasourceTables() {
         // if startup-add-missing=true check tables now
-        logger.info("Checking tables for all entities")
         long currentTime = System.currentTimeMillis()
 
-        Map<String, Boolean> startupAddMissingByGroup = [:]
+        Set<String> startupAddMissingGroups = new TreeSet<>()
         for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             String groupName = datasourceNode.attribute("group-name")
             if (datasourceNode.attribute("startup-add-missing") == "true") {
-                startupAddMissingByGroup.put(groupName, true)
-                // checkAllEntityTables(groupName)
-            } else {
-                startupAddMissingByGroup.put(groupName, false)
+                startupAddMissingGroups.add(groupName)
             }
         }
 
-        for (String entityName in getAllEntityNames()) {
-            String groupName = getEntityGroupName(entityName)
-            boolean checkAndAdd
-            if (startupAddMissingByGroup.get(groupName) != null) {
-                checkAndAdd = startupAddMissingByGroup.get(groupName)
-            } else {
-                checkAndAdd = startupAddMissingByGroup.get(defaultGroupName)
+        if (startupAddMissingGroups.size() > 0) {
+            logger.info("Checking tables for entities in groups ${startupAddMissingGroups}")
+            for (String entityName in getAllEntityNames()) {
+                String groupName = getEntityGroupName(entityName) ?: defaultGroupName
+                if (startupAddMissingGroups.contains(groupName)) {
+                    EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+                    edf.checkAndAddTable(entityName)
+                }
             }
-            if (checkAndAdd) {
-                EntityDatasourceFactory edf = getDatasourceFactory(groupName)
-                edf.checkAndAddTable(entityName)
-            }
+            logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
         }
-
-        logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
     }
 
     protected void initAllDatasources() {
@@ -289,7 +281,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     void loadFrameworkEntities() {
         // load framework entity definitions (moqui.*)
-        long startTime = System.nanoTime()
+        long startTime = System.currentTimeMillis()
         Set<String> entityNames = getAllEntityNames()
         int entityCount = 0
         for (String entityName in entityNames) {
@@ -302,63 +294,52 @@ class EntityFacadeImpl implements EntityFacade {
                 } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}", t) }
             }
         }
-        logger.info("Loaded ${entityCount} framework entity definitions in ${(System.nanoTime() - startTime)/1E9} seconds")
+        logger.info("Loaded ${entityCount} framework entity definitions in ${System.currentTimeMillis() - startTime}ms")
     }
 
+    final static Set<String> cachedCountEntities = new HashSet<>(["moqui.basic.EnumerationType"])
+    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.UserField", "moqui.entity.document.DataDocument",
+        "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
+        "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
+        "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
+
+        "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
+        "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
+        "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
+
+        "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
+        "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"
+    ])
+    final static Set<String> cachedOneEntities = new HashSet<>([ "moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
+            "moqui.entity.document.DataDocument", "moqui.entity.view.DbViewEntity", "moqui.screen.form.DbForm",
+            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme",
+            "moqui.server.Visit", "moqui.tenant.Tenant", "moqui.tenant.TenantHostDefault"
+    ])
     void warmCache()  {
         logger.info("Warming cache for all entity definitions")
-        long startTime = System.nanoTime()
+        long startTime = System.currentTimeMillis()
         Set<String> entityNames = getAllEntityNames()
         for (String entityName in entityNames) {
             try {
                 EntityDefinition ed = getEntityDefinition(entityName)
                 ed.getRelationshipInfoMap()
                 entityDbMeta.tableExists(ed)
+
+                if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
+                if (cachedListEntities.contains(entityName)) {
+                    ed.getCacheList(entityCache)
+                    ed.getCacheListRa(entityCache)
+                    ed.getCacheListViewRa(entityCache)
+                }
+                if (cachedOneEntities.contains(entityName)) {
+                    ed.getCacheOne(entityCache)
+                    ed.getCacheOneRa(entityCache)
+                    ed.getCacheOneViewRa(entityCache)
+                }
             } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}") }
         }
 
-        // init a few framework entity caches
-        entityCache.getCacheCount("moqui.basic.EnumerationType")
-
-        entityCache.getCacheList("moqui.entity.UserField")
-        entityCache.getCacheList("moqui.entity.document.DataDocument")
-        entityCache.getCacheList("moqui.entity.document.DataDocumentCondition")
-        entityCache.getCacheList("moqui.entity.document.DataDocumentField")
-        entityCache.getCacheList("moqui.entity.feed.DataFeedAndDocument")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntity")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntityAlias")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntityKeyMap")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntityMember")
-
-        entityCache.getCacheList("moqui.screen.ScreenThemeResource")
-        entityCache.getCacheList("moqui.screen.SubscreensItem")
-        entityCache.getCacheList("moqui.screen.form.DbFormField")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldAttribute")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldEntOpts")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldEntOptsCond")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldEntOptsOrder")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldOption")
-        entityCache.getCacheList("moqui.screen.form.DbFormLookup")
-
-        entityCache.getCacheList("moqui.security.ArtifactAuthzCheckView")
-        entityCache.getCacheList("moqui.security.ArtifactTarpitCheckView")
-        entityCache.getCacheList("moqui.security.ArtifactTarpitLock")
-        entityCache.getCacheList("moqui.security.UserGroupMember")
-        entityCache.getCacheList("moqui.security.UserGroupPreference")
-
-        entityCache.getCacheOne("moqui.basic.Enumeration")
-        entityCache.getCacheOne("moqui.basic.LocalizedMessage")
-        entityCache.getCacheOne("moqui.entity.document.DataDocument")
-        entityCache.getCacheOne("moqui.entity.view.DbViewEntity")
-        entityCache.getCacheOne("moqui.screen.form.DbForm")
-        entityCache.getCacheOne("moqui.security.UserAccount")
-        entityCache.getCacheOne("moqui.security.UserPreference")
-        entityCache.getCacheOne("moqui.security.UserScreenTheme")
-        entityCache.getCacheOne("moqui.server.Visit")
-        entityCache.getCacheOne("moqui.tenant.Tenant")
-        entityCache.getCacheOne("moqui.tenant.TenantHostDefault")
-
-        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${(System.nanoTime() - startTime)/1E9} seconds")
+        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms")
     }
 
     Set<String> getDatasourceGroupNames() {
@@ -481,7 +462,7 @@ class EntityFacadeImpl implements EntityFacade {
 
                     numDbViewEntities++
                 }
-                if (logger.infoEnabled) logger.info("Found [${numDbViewEntities}] view-entity definitions in database (moqui.entity.view.DbViewEntity)")
+                if (logger.infoEnabled) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)")
             } else {
                 logger.warn("Could not find view-entity definitions in database (moqui.entity.view.DbViewEntity), no location found for the moqui.entity.view.DbViewEntity entity.")
             }
@@ -857,6 +838,8 @@ class EntityFacadeImpl implements EntityFacade {
     void loadEecaRulesAll() {
         if (eecaRulesByEntityName.size() > 0) eecaRulesByEntityName.clear()
 
+        int numLoaded = 0
+        int numFiles = 0
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity")
@@ -865,14 +848,16 @@ class EntityFacadeImpl implements EntityFacade {
                 if (!entityDirRr.isDirectory()) continue
                 for (ResourceReference rr in entityDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".eecas.xml")) continue
-                    loadEecaRulesFile(rr)
+                    numLoaded += loadEecaRulesFile(rr)
+                    numFiles++
                 }
             } else {
                 logger.warn("Can't load EECA rules from component at [${entityDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files")
     }
-    void loadEecaRulesFile(ResourceReference rr) {
+    int loadEecaRulesFile(ResourceReference rr) {
         MNode eecasRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode secaNode in eecasRoot.children("eeca")) {
@@ -888,7 +873,8 @@ class EntityFacadeImpl implements EntityFacade {
             lst.add(ser)
             numLoaded++
         }
-        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
+        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
+        return numLoaded
     }
 
     boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
@@ -904,22 +890,7 @@ class EntityFacadeImpl implements EntityFacade {
                 eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getEci())
             }
         }
-
-        // deprecated: if (entityName == "moqui.entity.ServiceTrigger" && operation == "create" && !before) runServiceTrigger(fieldValues)
     }
-
-    /* Deprecated:
-    void runServiceTrigger(Map fieldValues) {
-        ecfi.getServiceFacade().sync().name((String) fieldValues.serviceName)
-                .parameters((Map) ecfi.resourceFacade.expression((String) fieldValues.mapString, ""))
-                .call()
-        if (ecfi.getExecutionContext().getMessage().hasError())
-            logger.error("Error running ServiceTrigger service [${fieldValues.serviceName}]: ${ecfi.getExecutionContext().getMessage().getErrorsString()}")
-        makeValue("moqui.entity.ServiceTrigger").set("serviceTriggerId", fieldValues.serviceTriggerId)
-                .set("statusId", ecfi.getExecutionContext().getMessage().hasError() ? "SrtrRunError" : "SrtrRunSuccess")
-                .update()
-    }
-    */
 
     void destroy() {
         Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()

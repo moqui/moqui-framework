@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.apache.commons.validator.routines.CreditCardValidator
 import org.apache.commons.validator.routines.EmailValidator
 import org.apache.commons.validator.routines.UrlValidator
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.service.ServiceJavaUtil.ParameterInfo
 import org.moqui.impl.util.FtlNodeWrapper
@@ -269,6 +270,16 @@ class ServiceDefinition {
         // default to require the "All" authz action, and for special verbs default to something more appropriate
         String authzAction = verbAuthzActionIdMap.get(theVerb)
         if (authzAction == null) authzAction = 'AUTHZA_ALL'
+        return authzAction
+    }
+    static final Map<String, ArtifactExecutionInfo.AuthzAction> verbAuthzActionEnumMap = [
+            create:ArtifactExecutionInfo.AUTHZA_CREATE, update:ArtifactExecutionInfo.AUTHZA_UPDATE,
+            store :ArtifactExecutionInfo.AUTHZA_UPDATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
+            view:ArtifactExecutionInfo.AUTHZA_VIEW, find:ArtifactExecutionInfo.AUTHZA_VIEW]
+    static ArtifactExecutionInfo.AuthzAction getVerbAuthzActionEnum(String theVerb) {
+        // default to require the "All" authz action, and for special verbs default to something more appropriate
+        ArtifactExecutionInfo.AuthzAction authzAction = verbAuthzActionEnumMap.get(theVerb)
+        if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL
         return authzAction
     }
 

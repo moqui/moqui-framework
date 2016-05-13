@@ -28,12 +28,10 @@ public interface ArtifactExecutionFacade {
     /** Push onto the artifact stack. This is generally called internally by the framework and does not need to be used
      * in application code. */
     void push(ArtifactExecutionInfo aei, boolean requiresAuthz);
+    ArtifactExecutionInfo push(String name, ArtifactExecutionInfo.ArtifactType typeEnum, ArtifactExecutionInfo.AuthzAction actionEnum, boolean requiresAuthz);
     /** Pop from the artifact stack and verify it is the same artifact name and type. This is generally called internally
      * by the framework and does not need to be used in application code. */
     ArtifactExecutionInfo pop(ArtifactExecutionInfo aei);
-    void push(String name, String typeEnumId, String actionEnumId, boolean requiresAuthz);
-    @Deprecated
-    ArtifactExecutionInfo pop();
 
     /** Gets a stack/deque/list of objects representing artifacts that have been executed to get to the current artifact.
      * The bottom artifact in the stack will generally be a screen or a service. If a service is run locally

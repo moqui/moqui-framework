@@ -14,6 +14,10 @@
         <filter-class>com.hazelcast.web.WebFilter</filter-class>
         <!-- Do you want to use an existing HazelcastInstance? Default is null. -->
         <init-param><param-name>instance-name</param-name><param-value>moqui</param-value></init-param>
+        <!-- Configuration xml location; * as servlet resource OR * as classpath resource OR * as URL
+            Default is one of hazelcast-default.xml or hazelcast.xml in classpath. -->
+        <!-- <init-param><param-name>config-location</param-name><param-value>/WEB-INF/hazelcast.xml</param-value></init-param> -->
+        <init-param><param-name>use-client</param-name><param-value>false</param-value></init-param>
         <!-- Name of the distributed map storing your web session objects -->
         <init-param><param-name>map-name</param-name><param-value>my-sessions</param-value></init-param>
         <!-- TTL value of the distributed map storing your web session objects. Any integer between 0 and Integer.MAX_VALUE. Default is 1800 which is 30 minutes. -->
@@ -35,7 +39,7 @@
         <!-- Are you debugging? Default is false. -->
         <init-param><param-name>debug</param-name><param-value>true</param-value></init-param>
         <!-- Do you want to shutdown HazelcastInstance during web application undeploy process? Default is true. -->
-        <init-param><param-name>shutdown-on-destroy</param-name><param-value>true</param-value></init-param>
+        <init-param><param-name>shutdown-on-destroy</param-name><param-value>false</param-value></init-param>
         <!-- Do you want to cache sessions locally in each instance? Default is false. -->
         <init-param><param-name>deferred-write</param-name><param-value>false</param-value></init-param>
     </filter>

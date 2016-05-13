@@ -54,6 +54,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="Artifact Types" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="Screen" enumId="AT_XML_SCREEN" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="Screen Transition" enumId="AT_XML_SCREEN_TRANS" enumTypeId="ArtifactType"/>
+            <moqui.basic.Enumeration description="Screen Content" enumId="AT_XML_SCREEN_CONTENT" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="Service" enumId="AT_SERVICE" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="Entity" enumId="AT_ENTITY" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="REST API Path" enumId="AT_REST_PATH" enumTypeId="ArtifactType"/>

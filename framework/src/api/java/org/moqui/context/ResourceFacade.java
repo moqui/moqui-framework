@@ -45,10 +45,6 @@ public interface ResourceFacade {
     void renderTemplateInCurrentContext(String location, Writer writer);
     void template(String location, Writer writer);
 
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method);
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method, Map additionalContext);
     /** Run a script at the given location (optionally with the given method, like in a groovy class) using the current
      * context for its variable space.
      *
@@ -57,10 +53,6 @@ public interface ResourceFacade {
     Object script(String location, String method);
     Object script(String location, String method, Map additionalContext);
 
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation);
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation, Map additionalContext);
     /** Evaluate a Groovy expression as a condition.
      *
      * @return boolean representing the result of evaluating the expression
@@ -68,10 +60,6 @@ public interface ResourceFacade {
     boolean condition(String expression, String debugLocation);
     boolean condition(String expression, String debugLocation, Map additionalContext);
 
-    @Deprecated
-    Object evaluateContextField(String expression, String debugLocation);
-    @Deprecated
-    Object evaluateContextField(String expression, String debugLocation, Map additionalContext);
     /** Evaluate a Groovy expression as a context field, or more generally as an expression that evaluates to an Object
      * reference. This can be used to get a value from an expression or to run any general expression or script.
      *
@@ -80,10 +68,6 @@ public interface ResourceFacade {
     Object expression(String expr, String debugLocation);
     Object expression(String expr, String debugLocation, Map additionalContext);
 
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation);
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation, Map additionalContext);
     /** Evaluate a Groovy expression as a GString to be expanded/interpolated into a simple String.
      *
      * NOTE: the inputString is always run through the L10nFacade.localize() method before evaluating the
