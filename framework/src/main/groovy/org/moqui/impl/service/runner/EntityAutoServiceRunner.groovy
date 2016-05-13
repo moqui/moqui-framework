@@ -15,6 +15,7 @@ package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException

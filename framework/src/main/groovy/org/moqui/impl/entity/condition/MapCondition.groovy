@@ -137,6 +137,13 @@ class MapCondition implements EntityConditionImplBase {
         internalCond = new ListCondition(conditionList, joinOperator)
         return internalCond
     }
+    void addToConditionList(List<EntityConditionImplBase> condList) {
+        for (int i = 0; i < fieldsSize; i++) {
+            EntityConditionImplBase newCondition = new FieldValueCondition(new ConditionField(names[i]), comparisonOperator, values[i])
+            if (ignoreCase) newCondition.ignoreCase()
+            condList.add(newCondition)
+        }
+    }
 
     @Override
     int hashCode() { return curHashCode }

@@ -109,7 +109,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.removeFirst()
             // removed this for performance reasons, generally just checking the name is adequate
             // || aei.typeEnumId != lastAeii.typeEnumId || aei.actionEnumId != lastAeii.actionEnumId
-            if (aei != null && (aei.name != lastAeii.name)) {
+            if (aei != null && !lastAeii.nameInternal.equals(aei.getName())) {
                 String popMessage = "Popped artifact (${aei.name}:${aei.typeEnumId}:${aei.actionEnumId}) did not match top of stack (${lastAeii.name}:${lastAeii.typeEnumId}:${lastAeii.actionEnumId}:${lastAeii.actionDetail})"
                 logger.warn(popMessage, new BaseException("Pop Error Location"))
                 //throw new IllegalArgumentException(popMessage)
@@ -229,12 +229,13 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii,
                         boolean requiresAuthz, boolean countTarpit) {
         String artifactTypeEnumId = aeii.getTypeEnumId()
+        boolean isEntity = 'AT_ENTITY'.equals(artifactTypeEnumId)
         // right off record whether authz is required
         aeii.setAuthorizationWasRequired(requiresAuthz)
 
         // never do this for entities when disableAuthz, as we might use any below and would cause infinite recursion
         // for performance reasons if this is an entity and no authz required don't bother looking at tarpit, checking for deny/etc
-        if ((!requiresAuthz || this.authzDisabled) && 'AT_ENTITY'.equals(artifactTypeEnumId)) {
+        if ((!requiresAuthz || this.authzDisabled) && isEntity) {
             if (lastAeii != null && lastAeii.authorizationInheritable) aeii.copyAuthorizedInfo(lastAeii)
             return true
         }
@@ -250,9 +251,9 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         if (userId == null) userId = ""
 
 
-        boolean alreadyDisabled = disableAuthz()
-        try {
-            if (countTarpit && !tarpitDisabled && ecfi.isTarpitEnabled(artifactTypeEnumId)) {
+        if (!isEntity && countTarpit && !tarpitDisabled && ecfi.isTarpitEnabled(artifactTypeEnumId)) {
+            boolean alreadyDisabled = disableAuthz()
+            try {
                 // record and check velocity limit (tarpit)
                 boolean recordHitTime = false
                 long lockForSeconds = 0
@@ -319,30 +320,32 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         eci.tarpitHitCache.remove(tarpitKey)
                     }
                 }
+            } finally {
+                if (!alreadyDisabled) enableAuthz()
             }
-        } finally {
-            if (!alreadyDisabled) enableAuthz()
         }
 
-        // tarpit enabled already checked, if authz not enabled return true immediately
-        if (!ecfi.isAuthzEnabled(artifactTypeEnumId)) {
-            return true
-        }
-
-        // if last was an always allow, then don't bother checking for deny/etc
-        if (lastAeii != null && lastAeii.isAuthorizationInheritable() && userId.equals(lastAeii.getAuthorizedUserId()) &&
-                'AUTHZT_ALWAYS'.equals(lastAeii.getAuthorizedAuthzTypeId()) &&
-                ('AUTHZA_ALL'.equals(lastAeii.getAuthorizedActionEnumId()) || aeii.getActionEnumId().equals(lastAeii.getAuthorizedActionEnumId()))) {
+        // if last was an always allow, then don't bother checking for deny/etc - this is the most common case
+        if (lastAeii != null && lastAeii.internalAuthorizationInheritable && userId.equals(lastAeii.internalAuthorizedUserId) &&
+                'AUTHZT_ALWAYS'.equals(lastAeii.internalAuthorizedAuthzTypeId) &&
+                ('AUTHZA_ALL'.equals(lastAeii.internalAuthorizedActionEnumId) || aeii.internalActionEnumId.equals(lastAeii.internalAuthorizedActionEnumId))) {
             aeii.copyAuthorizedInfo(lastAeii)
             // if ("AT_XML_SCREEN" == aeii.typeEnumId && aeii.getName().contains("FOO"))
             //     logger.warn("TOREMOVE artifact isPermitted already authorized for user ${userId} - ${aeii}")
             return true
         }
 
+        // tarpit enabled already checked, if authz not enabled return true immediately
+        // NOTE: do this after the check above as authz is normally enabled so this doesn't normally save is any time
+        if (!ecfi.isAuthzEnabled(artifactTypeEnumId)) {
+            if (lastAeii != null) aeii.copyAuthorizedInfo(lastAeii)
+            return true
+        }
+
         Map<String, Object> denyAacv = (Map<String, Object>) null
 
         // don't check authz for these queries, would cause infinite recursion
-        alreadyDisabled = disableAuthz()
+        boolean alreadyDisabled = disableAuthz()
         try {
             // don't make a big condition for the DB to filter the list, or EntityList.filterByCondition from bigger
             //     cached list, both are slower than manual iterate and check fields explicitly
@@ -353,7 +356,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 Map<String, Object> aacv = (Map<String, Object>) origAacvList.get(i)
                 String curAuthzActionEnumId = aacv.get('authzActionEnumId')
                 if (artifactTypeEnumId.equals(aacv.get('artifactTypeEnumId')) &&
-                        ('AUTHZA_ALL'.equals(curAuthzActionEnumId) || aeii.getActionEnumId().equals(curAuthzActionEnumId)) &&
+                        ('AUTHZA_ALL'.equals(curAuthzActionEnumId) || aeii.internalActionEnumId.equals(curAuthzActionEnumId)) &&
                         ('Y'.equals(aacv.get('nameIsPattern')) || aeii.getName().equals(aacv.get('artifactName')))) {
                     aacvList.add(aacv)
                 }
@@ -419,7 +422,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     }
 
                     // add condition for each main entity PK field in the parameters
-                    if ('AT_ENTITY'.equals(artifactTypeEnumId)) {
+                    if (isEntity) {
                         EntityDefinition mainEd = efi.getEntityDefinition(aeii.getName())
                         ArrayList<String> pkFieldNames = mainEd.getPkFieldNames()
                         for (int j = 0; j < pkFieldNames.size(); j++) {
@@ -507,7 +510,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             //       in place when no user is logged in, but when one is this is the only solution so far
             if (lastAeii != null && lastAeii.authorizationInheritable &&
                     ("_NA_".equals(lastAeii.authorizedUserId) || lastAeii.authorizedUserId == userId) &&
-                    ("AUTHZA_ALL".equals(lastAeii.authorizedActionEnumId) || aeii.getActionEnumId().equals(lastAeii.authorizedActionEnumId)) &&
+                    ("AUTHZA_ALL".equals(lastAeii.authorizedActionEnumId) || aeii.internalActionEnumId.equals(lastAeii.authorizedActionEnumId)) &&
                     !"AUTHZT_DENY".equals(lastAeii.getAuthorizedAuthzTypeId())) {
                 aeii.copyAuthorizedInfo(lastAeii)
                 // if ("AT_XML_SCREEN" == aeii.typeEnumId)
@@ -557,12 +560,11 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         if (authzDisabled) return false
 
         // NOTE: look for filters in all unique aacv in stack? shouldn't be needed, most recent auth is the valid one
-        ArtifactExecutionInfoImpl lastAeii = artifactExecutionInfoStack.peekFirst()
-        Map<String, Object> aacv = lastAeii.aacv
+        ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
+        Map<String, Object> aacv = lastAeii.internalAacv
         if (aacv == null) return false
 
-        EntityDefinition findEd = efb.getEntityDef()
-        String findEntityName = findEd.getFullEntityName()
+        String findEntityName = efb.getEntity()
         // skip all Moqui Framework entities;  note that this skips moqui.example too...
         if (findEntityName.startsWith("moqui.")) return false
 
@@ -574,6 +576,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         int authzFilterSize = artifactAuthzFilterList.size()
         if (authzFilterSize == 0) return false
 
+        EntityDefinition findEd = efb.getEntityDef()
         // for evaluating filter Maps add user context to ec.context
         eci.context.push(eci.user.context)
 

@@ -18,6 +18,7 @@ import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
 
+import javax.cache.Cache
 import java.sql.Timestamp
 
 import org.apache.commons.collections.set.ListOrderedSet
@@ -89,7 +90,6 @@ public class EntityDefinition {
     protected final boolean authorizeSkipTrueVal
     protected final boolean authorizeSkipCreateVal
     protected final boolean authorizeSkipViewVal
-
 
     protected List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
@@ -1741,16 +1741,53 @@ public class EntityDefinition {
         return entityCondition
     }
 
-    @Override
-    int hashCode() {
-        return this.internalEntityName.hashCode()
+    Cache<EntityCondition, EntityValueBase> internalCacheOne = null
+    Cache<EntityCondition, ArrayList<EntityCondition>> internalCacheOneRa = null
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheOneViewRa = null
+    Cache<EntityCondition, EntityListImpl> internalCacheList = null
+    Cache<EntityCondition, ArrayList<EntityCondition>> internalCacheListRa = null
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> internalCacheListViewRa = null
+    Cache<EntityCondition, Long> internalCacheCount = null
+
+    Cache<EntityCondition, EntityValueBase> getCacheOne(EntityCache ec) {
+        if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheOne
     }
+    Cache<EntityCondition, ArrayList<EntityCondition>> getCacheOneRa(EntityCache ec) {
+        if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheOneRa
+    }
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
+        if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return getCacheOneViewRa
+    }
+
+    Cache<EntityCondition, EntityListImpl> getCacheList(EntityCache ec) {
+        if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheList
+    }
+    Cache<EntityCondition, ArrayList<EntityCondition>> getCacheListRa(EntityCache ec) {
+        if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheListRa
+    }
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
+        if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheListViewRa
+    }
+
+    Cache<EntityCondition, Long> getCacheCount(EntityCache ec) {
+        if (internalCacheCount == null) internalCacheCount = ec.cfi.getCache(ec.countKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheCount
+    }
+
+    @Override
+    int hashCode() { return this.fullEntityName.hashCode() }
 
     @Override
     boolean equals(Object o) {
         if (o == null || o.getClass() != this.getClass()) return false
         EntityDefinition that = (EntityDefinition) o
-        if (!this.internalEntityName.equals(that.internalEntityName)) return false
+        if (!this.fullEntityName.equals(that.fullEntityName)) return false
         return true
     }
 

@@ -16,6 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.entity.*
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -65,6 +66,9 @@ abstract class EntityFindBase implements EntityFind {
 
     protected boolean disableAuthz = false
 
+    protected String singleCondField = (String) null
+    protected Object singleCondValue = null
+
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
@@ -85,8 +89,20 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind condition(String fieldName, Object value) {
-        if (this.simpleAndMap == null) this.simpleAndMap = new LinkedHashMap()
-        this.simpleAndMap.put(fieldName, value)
+        boolean noSam = (simpleAndMap == null)
+        boolean noScf = (singleCondField == null)
+        if (noSam && noScf) {
+            singleCondField = fieldName
+            singleCondValue = value
+        } else {
+            if (noSam) simpleAndMap = new LinkedHashMap()
+            if (!noScf) {
+                simpleAndMap.put(singleCondField, singleCondValue)
+                singleCondField = (String) null
+                singleCondValue = null
+            }
+            simpleAndMap.put(fieldName, value)
+        }
         return this
     }
 
@@ -99,7 +115,7 @@ abstract class EntityFindBase implements EntityFind {
     EntityFind condition(String fieldName, String operator, Object value) {
         EntityCondition.ComparisonOperator opObj = EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
         if (opObj == null) throw new IllegalArgumentException("Operator [${operator}] is not a valid field comparison operator")
-        return condition(efi.conditionFactory.makeCondition(fieldName, opObj, value))
+        return condition(fieldName, opObj, value)
     }
 
     @Override
@@ -109,10 +125,42 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind condition(Map<String, Object> fields) {
-        if (fields == null || fields.size() == 0) return this
-        if (this.simpleAndMap == null) this.simpleAndMap = new HashMap<String, Object>()
-        getEntityDef().setFields(fields, this.simpleAndMap, true, null, null)
+        if (fields == null) return this
+
+        if (fields instanceof EntityValueBase) fields = ((EntityValueBase) fields).getValueMap()
+        int fieldsSize = fields.size()
+        if (fieldsSize == 0) return this
+
+        boolean noSam = simpleAndMap == null
+        boolean noScf = singleCondField == null
+        if (fieldsSize == 1 && noSam && noScf) {
+            // just set the singleCondField
+            Map.Entry<String, Object> onlyEntry = fields.entrySet().iterator().next()
+            singleCondField = (String) onlyEntry.key
+            singleCondValue = onlyEntry.value
+        } else {
+            if (noSam) simpleAndMap = new LinkedHashMap<String, Object>()
+            if (!noScf) {
+                simpleAndMap.put(singleCondField, singleCondValue)
+                singleCondField = (String) null
+                singleCondValue = null
+            }
+            getEntityDef().setFields(fields, simpleAndMap, true, null, null)
+        }
         return this
+        /* maybe safer, not trying to do the single condition thing?
+        if (fields == null || fields.size() == 0) return this;
+        if (simpleAndMap == null) {
+            simpleAndMap = new LinkedHashMap<String, Object>()
+            if (singleCondField != null) {
+                simpleAndMap.put(singleCondField, singleCondValue)
+                singleCondField = (String) null
+                singleCondValue = null
+            }
+        }
+        getEntityDef().setFields(fields, simpleAndMap, true, null, null)
+        return this
+        */
     }
 
     @Override
@@ -202,67 +250,93 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityCondition getWhereEntityCondition() { return getWhereEntityConditionInternal() }
     EntityConditionImplBase getWhereEntityConditionInternal() {
-        if (this.simpleAndMap != null && this.simpleAndMap.size() > 0) {
-            EntityConditionImplBase simpleAndMapCond = this.efi.conditionFactoryImpl
-                    .makeCondition(this.simpleAndMap, EntityCondition.EQUALS, EntityCondition.AND, null, null, false)
+        boolean wecNull = (whereEntityCondition == null)
+        int samSize = simpleAndMap != null ? simpleAndMap.size() : 0
 
-            if (this.whereEntityCondition != null) {
-                ListCondition listCondition
-                Class simpleAndCondClass = simpleAndMapCond.getClass()
-                if (simpleAndCondClass == FieldValueCondition.class) {
-                    ArrayList<EntityConditionImplBase> oneCondList = new ArrayList()
-                    oneCondList.add(simpleAndMapCond)
-                    listCondition = new ListCondition(oneCondList, EntityCondition.AND)
-                } else if (simpleAndCondClass == ListCondition.class) {
-                    listCondition = (ListCondition) simpleAndMapCond
-                } else {
-                    // this should never happen, based on impl of makeCondition(Map) should always be FieldValue or List
-                    throw new EntityException("Condition for simpleAndMap is not a FieldValueCondition or ListCondition, is ${simpleAndCondClass.getName()}")
-                }
+        EntityConditionImplBase singleCond = (EntityConditionImplBase) null
+        if (singleCondField != null) {
+            if (samSize > 0) logger.warn("simpleAndMap size ${samSize} and singleCondField not null!")
+            singleCond = new FieldValueCondition(new ConditionField(singleCondField), EntityCondition.EQUALS, singleCondValue)
+        }
+        // special case, frequent operation: find by single key
+        if (singleCond != null && wecNull && samSize == 0) return singleCond
 
+        // see if we need to combine singleCond, simpleAndMap, and whereEntityCondition
+        ArrayList<EntityConditionImplBase> condList = new ArrayList<EntityConditionImplBase>()
+        if (singleCond != null) condList.add(singleCond)
+
+        if (samSize > 0) {
+            // create a ListCondition from the Map to allow for combination (simplification) with other conditions
+            for (Map.Entry<String, Object> samEntry in simpleAndMap.entrySet())
+                condList.add(new FieldValueCondition(new ConditionField((String) samEntry.key), EntityCondition.EQUALS, samEntry.value))
+        }
+        if (condList.size() > 0) {
+            if (!wecNull) {
                 Class whereEntCondClass = whereEntityCondition.getClass()
                 if (whereEntCondClass == ListCondition.class) {
                     ListCondition listCond = (ListCondition) this.whereEntityCondition
                     if (listCond.getOperator() == EntityCondition.AND) {
-                        listCondition.addConditions(listCond)
-                        return listCondition
+                        condList.addAll(listCond.getConditionList())
+                        return new ListCondition(condList, EntityCondition.AND)
                     } else {
-                        listCondition.addCondition(listCond)
-                        return listCondition
+                        condList.add(listCond)
+                        return new ListCondition(condList, EntityCondition.AND)
                     }
                 } else if (whereEntCondClass == MapCondition.class) {
                     MapCondition mapCond = (MapCondition) whereEntityCondition
                     if (mapCond.getJoinOperator() == EntityCondition.AND) {
-                        listCondition.addConditions(mapCond.makeCondition())
-                        return listCondition
+                        mapCond.addToConditionList(condList)
+                        return new ListCondition(condList, EntityCondition.AND)
                     } else {
-                        listCondition.addCondition(mapCond)
-                        return listCondition
+                        condList.add(mapCond)
+                        return new ListCondition(condList, EntityCondition.AND)
                     }
                 } else if (whereEntCondClass == FieldValueCondition.class || whereEntCondClass == DateCondition.class ||
                         whereEntCondClass == FieldToFieldCondition.class) {
-                    listCondition.addCondition(whereEntityCondition)
-                    return listCondition
+                    condList.add(whereEntityCondition)
+                    return new ListCondition(condList, EntityCondition.AND)
                 } else if (whereEntCondClass == BasicJoinCondition.class) {
                     BasicJoinCondition basicCond = (BasicJoinCondition) this.whereEntityCondition
                     if (basicCond.getOperator() == EntityCondition.AND) {
-                        listCondition.addCondition(basicCond.getLhs())
-                        listCondition.addCondition(basicCond.getRhs())
-                        return listCondition
+                        condList.add(basicCond.getLhs())
+                        condList.add(basicCond.getRhs())
+                        return new ListCondition(condList, EntityCondition.AND)
                     } else {
-                        listCondition.addCondition(basicCond)
-                        return listCondition
+                        condList.add(basicCond)
+                        return new ListCondition(condList, EntityCondition.AND)
                     }
                 } else {
-                    listCondition.addCondition(whereEntityCondition)
-                    return listCondition
+                    condList.add(whereEntityCondition)
+                    return new ListCondition(condList, EntityCondition.AND)
                 }
             } else {
-                return simpleAndMapCond
+                // no whereEntityCondition, just create a ListConditio for the simpleAndMap
+                return new ListCondition(condList, EntityCondition.AND)
             }
         } else {
             return whereEntityCondition
         }
+    }
+
+    /** Used by TransactionCache */
+    Map<String, Object> getSimpleMapPrimaryKeys() {
+        int samSize = simpleAndMap != null ? simpleAndMap.size() : 0
+        boolean scfNull = (singleCondField == null)
+        if (samSize > 0 && !scfNull) logger.warn("simpleAndMap size ${samSize} and singleCondField not null!")
+        Map<String, Object> pks = new HashMap<>()
+        ArrayList<String> pkFieldNames = getEntityDef().getPkFieldNames()
+        int pkFieldNamesSize = pkFieldNames.size()
+        for (int i = 0; i < pkFieldNamesSize; i++) {
+            // only include PK fields which has a non-empty value, leave others out of the Map
+            String fieldName = (String) pkFieldNames.get(i)
+            Object value = null
+            if (samSize > 0) value = simpleAndMap.get(fieldName)
+            if (value == null && !scfNull && singleCondField.equals(fieldName)) value = singleCondValue
+            // if any fields have no value we don't have a full PK so bye bye
+            if (StupidJavaUtilities.isEmpty(value)) return null
+            pks.put(fieldName, value)
+        }
+        return pks
     }
 
     @Override
@@ -570,18 +644,6 @@ abstract class EntityFindBase implements EntityFind {
         return entityDef
     }
 
-    Map<String, Object> getSimpleMapPrimaryKeys() {
-        Map<String, Object> pks = new HashMap()
-        for (String fieldName in getEntityDef().getPkFieldNames()) {
-            // only include PK fields which has a non-empty value, leave others out of the Map
-            Object value = simpleAndMap.get(fieldName)
-            // if any fields have no value we don't have a full PK so bye bye
-            if (!value) return null
-            if (value) pks.put(fieldName, value)
-        }
-        return pks
-    }
-
     public boolean shouldCache() {
         if (this.dynamicView != null) return false
         if (this.havingEntityCondition != null) return false
@@ -593,7 +655,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     String toString() {
-        return "Find: ${entityName} WHERE [${simpleAndMap}] [${whereEntityCondition}] HAVING [${havingEntityCondition}] " +
+        return "Find: ${entityName} WHERE [${singleCondField?:''}:${singleCondValue?:''}] [${simpleAndMap}] [${whereEntityCondition}] HAVING [${havingEntityCondition}] " +
                 "SELECT [${fieldsToSelect}] ORDER BY [${orderByFields}] CACHE [${useCache}] DISTINCT [${distinct}] " +
                 "OFFSET [${offset}] LIMIT [${limit}] FOR UPDATE [${forUpdate}]"
     }
@@ -613,7 +675,8 @@ abstract class EntityFindBase implements EntityFind {
             EntityDefinition ed = getEntityDef()
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), "AT_ENTITY", "AUTHZA_VIEW")
-                    .setActionDetail("one").setParameters(simpleAndMap)
+                    .setActionDetail("one")
+            // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
             aefi.pushInternal(aei, !ed.authorizeSkipView())
 
             try {
@@ -643,7 +706,9 @@ abstract class EntityFindBase implements EntityFind {
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-one", true)
 
         // if over-constrained (anything in addition to a full PK), just use the full PK
-        if (ed.containsPrimaryKey(simpleAndMap)) simpleAndMap = ed.getPrimaryKeys(simpleAndMap)
+        // NOTE: only do this if there is more than one field in the condition, ie optimize for common case of find by single PK field
+        if (simpleAndMap != null && simpleAndMap.size() > 1 && ed.containsPrimaryKey(simpleAndMap))
+            simpleAndMap = ed.getPrimaryKeys(simpleAndMap)
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         ec.artifactExecutionImpl.filterFindForUser(this)
@@ -660,7 +725,7 @@ abstract class EntityFindBase implements EntityFind {
 
         boolean doCache = shouldCache()
         Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
-                efi.getEntityCache().getCacheOne(getEntityDef().getFullEntityName()) : (Cache<EntityCondition, EntityValueBase>) null
+                ed.getCacheOne(efi.getEntityCache()) : (Cache<EntityCondition, EntityValueBase>) null
         EntityValueBase cacheHit = (EntityValueBase) null
         if (doCache && txcValue == null && whereCondition != null) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
 
@@ -733,6 +798,7 @@ abstract class EntityFindBase implements EntityFind {
         // final ECA trigger
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), newEntityValue, "find-one", false)
         // count the artifact hit
+        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
         efi.ecfi.countArtifactHit("entity", "one", ed.getFullEntityName(), simpleAndMap, startTime,
                 (System.nanoTime() - startTimeNanos)/1E6, newEntityValue ? 1L : 0L)
 
@@ -837,7 +903,8 @@ abstract class EntityFindBase implements EntityFind {
 
         // NOTE: don't cache if there is a having condition, for now just support where
         boolean doEntityCache = shouldCache()
-        Cache<EntityCondition, EntityListImpl> entityListCache = doEntityCache ? efi.getEntityCache().getCacheList(getEntityDef().getFullEntityName()) : (Cache) null
+        Cache<EntityCondition, EntityListImpl> entityListCache = doEntityCache ?
+                ed.getCacheList(efi.getEntityCache()) : (Cache<EntityCondition, EntityListImpl>) null
         EntityListImpl cacheList = (EntityListImpl) null
         if (doEntityCache) cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
 
@@ -921,6 +988,7 @@ abstract class EntityFindBase implements EntityFind {
         // run the final rules
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-list", false)
         // count the artifact hit
+        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
         efi.ecfi.countArtifactHit("entity", "list", ed.getFullEntityName(), simpleAndMap, startTime,
                 (System.nanoTime() - startTimeNanos)/1E6, el != null ? (long) el.size() : 0L)
 
@@ -1060,6 +1128,7 @@ abstract class EntityFindBase implements EntityFind {
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", false)
         // count the artifact hit
+        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
         efi.ecfi.countArtifactHit("entity", "iterator", ed.getFullEntityName(), simpleAndMap, startTime,
                 (System.nanoTime() - startTimeNanos)/1E6, null)
         // pop the ArtifactExecutionInfo
@@ -1103,7 +1172,8 @@ abstract class EntityFindBase implements EntityFind {
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal()
         // NOTE: don't cache if there is a having condition, for now just support where
         boolean doCache = !this.havingEntityCondition && this.shouldCache()
-        Cache<EntityCondition, Long> entityCountCache = doCache ? efi.getEntityCache().getCacheCount(getEntityDef().getFullEntityName()) : (Cache) null
+        Cache<EntityCondition, Long> entityCountCache = doCache ?
+                getEntityDef().getCacheCount(efi.getEntityCache()) : (Cache) null
         Long cacheCount = (Long) null
         if (doCache && whereCondition != null) cacheCount = (Long) entityCountCache.get(whereCondition)
 
@@ -1160,6 +1230,7 @@ abstract class EntityFindBase implements EntityFind {
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", false)
         // count the artifact hit
+        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
         efi.ecfi.countArtifactHit("entity", "count", ed.getFullEntityName(), simpleAndMap, startTime,
                 (System.nanoTime() - startTimeNanos)/1E6, count)
         // pop the ArtifactExecutionInfo

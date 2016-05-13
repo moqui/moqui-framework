@@ -1114,7 +1114,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return ph.booleanValue()
     }
     protected boolean artifactPersistBin(String artifactType, String artifactSubType) {
-        String cacheKey = artifactType + artifactSubType
+        String cacheKey = artifactType.concat(artifactSubType)
         Boolean pb = (Boolean) artifactPersistBinByType.get(cacheKey)
         if (pb == null) {
             MNode artifactStats = getArtifactStatsNode(artifactType, artifactSubType)
