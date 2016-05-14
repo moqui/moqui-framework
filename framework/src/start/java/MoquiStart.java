@@ -34,7 +34,8 @@ import java.util.jar.Manifest;
  */
 public class MoquiStart extends ClassLoader {
     // this default is for development and is here instead of having a buried properties file that might cause conflicts when trying to override
-    static final String defaultConf = "conf/MoquiDevConf.xml";
+    private static final String defaultConf = "conf/MoquiDevConf.xml";
+    private static final String tempDirName = "execwartmp";
 
     public static void main(String[] args) throws IOException {
         // now grab the first arg and see if it is a known command
@@ -67,17 +68,19 @@ public class MoquiStart extends ClassLoader {
             System.out.println("    -dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
             System.out.println("    -use-try-insert -------------- Try insert and update on error instead of checking for record first");
             System.out.println("    -tenantId=<tenantId> --------- ID for the Tenant to load the data into");
-            System.out.println("  If no -types or -location argument is used all known data files of all types will be loaded.");
-            System.out.println("[default] ---- Run embedded Winstone server.");
-            System.out.println("  See https://code.google.com/p/winstone/wiki/CmdLineOption for all argument details.");
-            System.out.println("  Selected argument details:");
-            System.out.println("    --httpPort               = set the http listening port. -1 to disable, Default is 8080");
-            System.out.println("    --httpListenAddress      = set the http listening address. Default is all interfaces");
-            System.out.println("    --httpsPort              = set the https listening port. -1 to disable, Default is disabled");
-            System.out.println("    --ajp13Port              = set the ajp13 listening port. -1 to disable, Default is 8009");
-            System.out.println("    --controlPort            = set the shutdown/control port. -1 to disable, Default disabled");
+            System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
+            System.out.println("[default] ---- Run embedded Jetty server.");
+            System.out.println("    --port=<port> ---------------- The http listening port. Default is 8080");
             System.out.println("");
             System.exit(0);
+        }
+
+        // if doing anything other than help make sure temp dir deleted
+        File tempDir = new File(tempDirName);
+        System.out.println("Using temporary directory: " + tempDir.getCanonicalPath());
+        if (tempDir.exists()) {
+            System.out.println("Found temporary directory " + tempDirName + ", deleting");
+            tempDir.delete();
         }
 
         // make a list of arguments, remove the first one (the command)
@@ -117,7 +120,11 @@ public class MoquiStart extends ClassLoader {
         // Get a start loader with loadWebInf=false since the container will load those we don't want to here (would be on classpath twice)
         MoquiStart moquiStartLoader = new MoquiStart(false);
         Thread.currentThread().setContextClassLoader(moquiStartLoader);
-        // NOTE: the MoquiShutdown hook is not set here because we want to get the winstone Launcher object first, so done below...
+        // NOTE: using shutdown hook to close files only:
+        Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader.jarFileList);
+        shutdownHook.setDaemon(true);
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
         initSystemProperties(moquiStartLoader, true);
 
         Map<String, String> argMap = new HashMap<>();
@@ -130,35 +137,58 @@ public class MoquiStart extends ClassLoader {
             }
         }
 
+
         try {
-            argMap.put("warfile", moquiStartLoader.outerFile.getName());
-            System.out.println("Running Winstone embedded server with args [" + argMap + "]");
+            int port = 8080;
+            String portStr = argMap.get("port");
+            if (portStr != null && portStr.length() > 0) port = Integer.parseInt(portStr);
+            System.out.println("Running embedded server on port " + port + " with args [" + argMap + "]");
 
-            /* for old Winstone 0.9.10:
-            Class<?> c = moquiStartLoader.loadClass("winstone.Launcher");
-            Method initLogger = c.getMethod("initLogger", new Class[] { Map.class });
-            Method shutdown = c.getMethod("shutdown");
-            // init the Winstone logger
-            initLogger.invoke(null, argMap);
-            // start Winstone with a new instance of the server
-            Constructor wlc = c.getConstructor(new Class[] { Map.class });
-            Object winstone = wlc.newInstance(argMap);
+            Class<?> serverClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Server");
+            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+
+            Constructor serverConstructor = serverClass.getConstructor(int.class);
+            // TODO: configurable
+            Object server = serverConstructor.newInstance(port);
+            Constructor webappConstructor = webappClass.getConstructor();
+            Object webapp = webappConstructor.newInstance();
+
+            webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
+            webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperWarUrl.toExternalForm() + "/WEB-INF/web.xml");
+            webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
+            webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperWarUrl.toExternalForm());
+            webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
+
+            Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
+            serverClass.getMethod("setHandler", handlerClass).invoke(server, webapp);
+            serverClass.getMethod("start").invoke(server);
+            serverClass.getMethod("join").invoke(server);
+
+            /* The classpath dependent code we are running:
+            Server server = new Server(8080);
+            WebAppContext webapp = new WebAppContext();
+            webapp.setContextPath("/");
+            webapp.setDescriptor(moquiStartLoader.wrapperWarUrl.toExternalForm() + "/WEB-INF/web.xml");
+            webapp.setServer(server);
+            webapp.setWar(moquiStartLoader.wrapperWarUrl.toExternalForm());
+
+            // (Optional) Set the directory the war will extract to.
+            // If not set, java.io.tmpdir will be used, which can cause problems
+            // if the temp directory gets cleaned periodically.
+            // Removed by the code elsewhere that deletes on close
+            webapp.setTempDirectory(new File(tempDirName + "/ROOT"));
+
+            server.setHandler(webapp);
+
+            // Start things up!
+            server.start();
+            // The use of server.join() the will make the current thread join and
+            // wait until the server is done executing.
+            // See http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#join()
+            server.join();
             */
-
-            Class<?> c = moquiStartLoader.loadClass("net.winstone.Server");
-            Method start = c.getMethod("start");
-            // Method shutdown = c.getMethod("shutdown");
-            // start Winstone with a new instance of the server
-            Constructor wlc = c.getConstructor(Map.class);
-            Object winstone = wlc.newInstance(argMap);
-            start.invoke(winstone);
-
-            // NOTE: winstone seems to have its own shutdown hook in the newer version, so using hook to close files only:
-            Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader.jarFileList);
-            shutdownHook.setDaemon(true);
-            Runtime.getRuntime().addShutdownHook(shutdownHook);
         } catch (Exception e) {
-            System.out.println("Error loading or running Winstone embedded server with args [" + argMap + "]: " + e.toString());
+            System.out.println("Error loading or running Jetty embedded server with args [" + argMap + "]: " + e.toString());
             e.printStackTrace();
         }
 
@@ -249,6 +279,7 @@ public class MoquiStart extends ClassLoader {
     }
 
     private JarFile outerFile = null;
+    private URL wrapperWarUrl = null;
     private final ArrayList<JarFile> jarFileList = new ArrayList<>();
     private final Map<String, Class<?>> classCache = new HashMap<>();
     private final Map<String, URL> resourceCache = new HashMap<>();
@@ -263,7 +294,6 @@ public class MoquiStart extends ClassLoader {
         super(parent);
         this.loadWebInf = loadWebInf;
 
-        URL wrapperWarUrl = null;
         try {
             // get outer file (the war file)
             pd = getClass().getProtectionDomain();
@@ -296,7 +326,7 @@ public class MoquiStart extends ClassLoader {
         byte[] jeBytes = getJarEntryBytes(outerFile, je);
 
         String tempName = je.getName().replace('/', '_') + ".";
-        File tempDir = new File("execwartmp");
+        File tempDir = new File(tempDirName);
         if (tempDir.mkdir()) tempDir.deleteOnExit();
         File file = File.createTempFile("moqui_temp", tempName, tempDir);
         file.deleteOnExit();

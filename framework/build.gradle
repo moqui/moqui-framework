@@ -41,8 +41,8 @@ dependencyUpdates.resolutionStrategy = {
   }
 }
 
-sourceCompatibility = '1.7'
-targetCompatibility = '1.7'
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
 archivesBaseName = 'moqui'
 
 sourceSets {
@@ -153,8 +153,8 @@ dependencies {
     compile 'org.apache.geronimo.specs:geronimo-jms_1.1_spec:1.1.1' // Apache 2.0
     apiCompile 'org.apache.geronimo.specs:geronimo-jta_1.1_spec:1.1.1' // Apache 2.0
     compile 'org.apache.geronimo.specs:geronimo-jta_1.1_spec:1.1.1' // Apache 2.0
-    apiCompile 'javax.servlet:servlet-api:2.5'
-    providedCompile 'javax.servlet:servlet-api:2.5'
+    apiCompile 'javax.servlet:javax.servlet-api:3.1.0'
+    providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
 
     // H2 Database
     compile 'com.h2database:h2:1.4.191' // MPL 2.0, EPL 1.0
@@ -242,11 +242,6 @@ dependencies {
     runtime 'org.apache.logging.log4j:log4j-api:2.5'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.5'
 
-    // Winstone
-    apiCompile module('org.intelligents-ia.winstone:winstone:1.7.0') // CDDL
-    // winstone is in providedCompile so that it won't be included in the war file WEB-INF/lib
-    providedCompile module('org.intelligents-ia.winstone:winstone:1.7.0') // CDDL
-
     // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
     compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
     compile module('org.apache.xmlrpc:xmlrpc-server:3.1.3') // Apache 2.0
@@ -293,14 +288,9 @@ dependencies {
     testCompile 'org.hamcrest:hamcrest-core:1.3' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
-    execWarCompile ('org.intelligents-ia.winstone:winstone:1.7.0') { // CDDL
-        exclude group: 'org.slf4j'
-        // NOTE: winstone jndi is a dependency so included automatically
-    }
-    execWarCompile 'org.slf4j:slf4j-api:1.7.21'
-    execWarCompile 'org.apache.logging.log4j:log4j-core:2.5'
-    execWarCompile 'org.apache.logging.log4j:log4j-api:2.5'
-    execWarCompile 'org.apache.logging.log4j:log4j-slf4j-impl:2.5'
+    // Jetty
+    execWarCompile 'org.eclipse.jetty:jetty-server:9.3.8.v20160314' // Apache 2.0
+    execWarCompile 'org.eclipse.jetty:jetty-webapp:9.3.8.v20160314' // Apache 2.0
 }
 
 task apiJavadoc(type: Javadoc) {
@@ -366,10 +356,10 @@ war {
     classpath = configurations.runtime - configurations.providedCompile
     classpath file(jar.archivePath)
 
-    // put start classes and winstone in the root of the war file for the executable war/jar mode of operation
+    // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
     from sourceSets.start.output
     from configurations.execWarCompile
-    from file(projectDir.absolutePath + '/src/main/resources/log4j2.xml')
+    // TODO some sort of config for Jetty? from file(projectDir.absolutePath + '/jetty/jetty.xml')
     // setup the manifest for the executable war/jar mode
     manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Framework',
             'Implementation-Version': version, 'Main-Class': 'MoquiStart' }

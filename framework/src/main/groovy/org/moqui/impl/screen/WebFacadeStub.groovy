@@ -24,17 +24,29 @@ import org.moqui.impl.service.RestApi
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.servlet.AsyncContext
+import javax.servlet.DispatcherType
+import javax.servlet.Filter
+import javax.servlet.FilterRegistration
 import javax.servlet.RequestDispatcher
 import javax.servlet.Servlet
 import javax.servlet.ServletContext
 import javax.servlet.ServletException
 import javax.servlet.ServletInputStream
 import javax.servlet.ServletOutputStream
+import javax.servlet.ServletRegistration
+import javax.servlet.ServletRequest
+import javax.servlet.ServletResponse
+import javax.servlet.SessionCookieConfig
+import javax.servlet.SessionTrackingMode
+import javax.servlet.descriptor.JspConfigDescriptor
 import javax.servlet.http.Cookie
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
 import javax.servlet.http.HttpSessionContext
+import javax.servlet.http.HttpUpgradeHandler
+import javax.servlet.http.Part
 import java.security.Principal
 
 /** A test stub for the WebFacade interface, used in ScreenTestImpl */
@@ -346,6 +358,38 @@ class WebFacadeStub implements WebFacade {
         String getLocalAddr() { return "TestLocalAddr" }
         @Override
         int getLocalPort() { return 8080 }
+
+        // ========== New methods for Servlet 3.1 ==========
+        @Override
+        String changeSessionId() { throw new UnsupportedOperationException() }
+        @Override
+        boolean authenticate(HttpServletResponse response) throws IOException, ServletException { throw new UnsupportedOperationException() }
+        @Override
+        void login(String username, String password) throws ServletException { throw new UnsupportedOperationException() }
+        @Override
+        void logout() throws ServletException { throw new UnsupportedOperationException() }
+        @Override
+        Collection<Part> getParts() throws IOException, ServletException { throw new UnsupportedOperationException() }
+        @Override
+        Part getPart(String name) throws IOException, ServletException { throw new UnsupportedOperationException() }
+        @Override
+        def <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass) throws IOException, ServletException { return null }
+        @Override
+        long getContentLengthLong() { return 0 }
+        @Override
+        ServletContext getServletContext() { return wfs.servletContext }
+        @Override
+        AsyncContext startAsync() throws IllegalStateException { throw new UnsupportedOperationException("startAsync not supported") }
+        @Override
+        AsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException { return null }
+        @Override
+        boolean isAsyncStarted() { return false }
+        @Override
+        boolean isAsyncSupported() { return false }
+        @Override
+        AsyncContext getAsyncContext() { throw new UnsupportedOperationException("getAsyncContext not supported") }
+        @Override
+        DispatcherType getDispatcherType() { throw new UnsupportedOperationException("getDispatcherType not supported") }
     }
 
     static class HttpSessionStub implements HttpSession {
@@ -436,6 +480,65 @@ class WebFacadeStub implements WebFacade {
         void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
         @Override
         String getServletContextName() { return "Moqui Root Webapp" }
+
+        // ========== New methods for Servlet 3.1 ==========
+        @Override
+        int getEffectiveMajorVersion() { return 3 }
+        @Override
+        int getEffectiveMinorVersion() { return 1 }
+        @Override
+        boolean setInitParameter(String name, String value) { return false }
+        @Override
+        ServletRegistration.Dynamic addServlet(String servletName, String className) { throw new UnsupportedOperationException() }
+        @Override
+        ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) { throw new UnsupportedOperationException() }
+        @Override
+        ServletRegistration.Dynamic addServlet(String servletName, Class<? extends Servlet> servletClass) {
+            throw new UnsupportedOperationException() }
+        @Override
+        def <T extends Servlet> T createServlet(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
+        @Override
+        ServletRegistration getServletRegistration(String servletName) { throw new UnsupportedOperationException() }
+        @Override
+        Map<String, ? extends ServletRegistration> getServletRegistrations() { throw new UnsupportedOperationException() }
+        @Override
+        FilterRegistration.Dynamic addFilter(String filterName, String className) { throw new UnsupportedOperationException() }
+        @Override
+        FilterRegistration.Dynamic addFilter(String filterName, Filter filter) { throw new UnsupportedOperationException() }
+        @Override
+        FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
+            throw new UnsupportedOperationException() }
+        @Override
+        def <T extends Filter> T createFilter(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
+        @Override
+        FilterRegistration getFilterRegistration(String filterName) { throw new UnsupportedOperationException() }
+        @Override
+        Map<String, ? extends FilterRegistration> getFilterRegistrations() { throw new UnsupportedOperationException() }
+        @Override
+        SessionCookieConfig getSessionCookieConfig() { throw new UnsupportedOperationException() }
+        @Override
+        void setSessionTrackingModes(Set<SessionTrackingMode> sessionTrackingModes) { throw new UnsupportedOperationException() }
+        @Override
+        Set<SessionTrackingMode> getDefaultSessionTrackingModes() { throw new UnsupportedOperationException() }
+        @Override
+        Set<SessionTrackingMode> getEffectiveSessionTrackingModes() { throw new UnsupportedOperationException() }
+        @Override
+        void addListener(String className) { throw new UnsupportedOperationException() }
+        @Override
+        def <T extends EventListener> void addListener(T t) { throw new UnsupportedOperationException() }
+        @Override
+        void addListener(Class<? extends EventListener> listenerClass) { throw new UnsupportedOperationException() }
+        @Override
+        def <T extends EventListener> T createListener(Class<T> clazz) throws ServletException {
+            throw new UnsupportedOperationException() }
+        @Override
+        JspConfigDescriptor getJspConfigDescriptor() { throw new UnsupportedOperationException() }
+        @Override
+        ClassLoader getClassLoader() { throw new UnsupportedOperationException() }
+        @Override
+        void declareRoles(String... roleNames) { throw new UnsupportedOperationException() }
+        @Override
+        String getVirtualServerName() { throw new UnsupportedOperationException() }
     }
 
     static class HttpServletResponseStub implements HttpServletResponse {
@@ -519,5 +622,15 @@ class WebFacadeStub implements WebFacade {
         void setLocale(Locale locale) { this.locale = locale }
         @Override
         Locale getLocale() { return locale }
+
+        // ========== New methods for Servlet 3.1 ==========
+        @Override
+        String getHeader(String name) { return headers.get(name) as String }
+        @Override
+        Collection<String> getHeaders(String name) { return [headers.get(name) as String] }
+        @Override
+        Collection<String> getHeaderNames() { return headers.keySet() }
+        @Override
+        void setContentLengthLong(long len) { }
     }
 }
