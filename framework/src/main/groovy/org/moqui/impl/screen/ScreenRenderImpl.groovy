@@ -39,8 +39,10 @@ import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.entity.EntityValueImpl
 import org.moqui.impl.screen.ScreenDefinition.ResponseItem
 import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
+import org.moqui.impl.screen.ScreenForm.FormInstance
 import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
 import org.moqui.impl.util.FtlNodeWrapper
+import org.moqui.impl.util.FtlNodeWrapper.FtlNodeListWrapper
 import org.moqui.screen.ScreenRender
 import org.moqui.util.MNode
 
@@ -92,7 +94,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     protected boolean dontDoRender = false
 
-    protected Map<String, FtlNodeWrapper> screenFormNodeCache = new HashMap<>()
+    protected Map<String, ScreenForm.FormInstance> screenFormCache = new HashMap<>()
     protected String curThemeId = (String) null
     protected Map<String, ArrayList<String>> curThemeValuesByType = new HashMap<>()
 
@@ -936,13 +938,9 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    String startFormListRow(String formName, Object listEntry, int index, boolean hasNext) {
-        ScreenDefinition sd = getActiveScreenDef()
-        ScreenForm form = sd.getForm(formName)
-        if (form == null) throw new IllegalArgumentException("No form with name [${formName}] in screen [${sd.location}]")
-        FtlNodeWrapper formNode = getFtlFormNode(formName)
+    String startFormListRow(FormInstance formInstance, Object listEntry, int index, boolean hasNext) {
         ec.context.push()
-        form.runFormListRowActions(this, listEntry, index, hasNext, formNode)
+        formInstance.runFormListRowActions(this, listEntry, index, hasNext)
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
@@ -956,77 +954,25 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
+
     FtlNodeWrapper getFtlFormNode(String formName) {
+        ScreenForm.FormInstance fi = getFormInstance(formName)
+        if (fi == null) return null
+        return fi.getFtlFormNode()
+    }
+    ScreenForm.FormInstance getFormInstance(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
         String nodeCacheKey = sd.getLocation() + "#" + formName
         // NOTE: this is cached in the context of the renderer for multiple accesses; because of form overrides may not
         // be valid outside the scope of a single screen render
-        FtlNodeWrapper formNode = screenFormNodeCache.get(nodeCacheKey)
+        ScreenForm.FormInstance formNode = screenFormCache.get(nodeCacheKey)
         if (formNode == null) {
             ScreenForm form = sd.getForm(formName)
             if (!form) throw new IllegalArgumentException("No form with name [${formName}] in screen [${sd.location}]")
-            formNode = form.getFtlFormNode()
-            screenFormNodeCache.put(nodeCacheKey, formNode)
+            formNode = form.getFormInstance()
+            screenFormCache.put(nodeCacheKey, formNode)
         }
         return formNode
-    }
-    List<FtlNodeWrapper> getFtlFormFieldLayoutNonReferencedFieldList(String formName) {
-        ScreenDefinition sd = getActiveScreenDef()
-        return sd.getForm(formName).getFieldLayoutNonReferencedFieldList()
-    }
-    List<FtlNodeWrapper> getFtlFormListColumnNonReferencedHiddenFieldList(String formName) {
-        ScreenDefinition sd = getActiveScreenDef()
-        return sd.getForm(formName).getColumnNonReferencedHiddenFieldList()
-    }
-
-
-    boolean isFormUpload(String formName) {
-        return getActiveScreenDef().getForm(formName).isUpload(getFtlFormNode(formName))
-    }
-    boolean isFormHeaderForm(String formName) {
-        return getActiveScreenDef().getForm(formName).isFormHeaderForm(getFtlFormNode(formName))
-    }
-
-    String getFormFieldValidationClasses(String formName, String fieldName) {
-        ScreenForm form = getActiveScreenDef().getForm(formName)
-        MNode validateNode = form.getFieldValidateNode(fieldName, getFtlFormNode(formName))
-        if (validateNode == null) return ""
-
-        Set<String> vcs = new HashSet()
-        if (validateNode.name == "parameter") {
-            MNode parameterNode = validateNode
-            if (parameterNode.attribute('required') == "true") vcs.add("required")
-            if (parameterNode.hasChild("number-integer")) vcs.add("number")
-            if (parameterNode.hasChild("number-decimal")) vcs.add("number")
-            if (parameterNode.hasChild("text-email")) vcs.add("email")
-            if (parameterNode.hasChild("text-url")) vcs.add("url")
-            if (parameterNode.hasChild("text-digits")) vcs.add("digits")
-            if (parameterNode.hasChild("credit-card")) vcs.add("creditcard")
-
-            String type = parameterNode.attribute('type')
-            if (type && (type.endsWith("BigDecimal") || type.endsWith("BigInteger") || type.endsWith("Long") ||
-                    type.endsWith("Integer") || type.endsWith("Double") || type.endsWith("Float") ||
-                    type.endsWith("Number"))) vcs.add("number")
-        } else if (validateNode.name == "field") {
-            MNode fieldNode = validateNode
-            String type = fieldNode.attribute('type')
-            if (type && (type.startsWith("number-") || type.startsWith("currency-"))) vcs.add("number")
-            // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
-        }
-
-        StringBuilder sb = new StringBuilder()
-        for (String vc in vcs) { if (sb) sb.append(" "); sb.append(vc); }
-        return sb.toString()
-    }
-
-    Map getFormFieldValidationRegexpInfo(String formName, String fieldName) {
-        ScreenForm form = getActiveScreenDef().getForm(formName)
-        MNode validateNode = form.getFieldValidateNode(fieldName, getFtlFormNode(formName))
-        if (validateNode?.hasChild("matches")) {
-            MNode matchesNode = validateNode.first("matches")
-            return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]
-        }
-        return null
     }
 
     String renderIncludeScreen(String location, String shareScopeStr) {

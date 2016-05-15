@@ -23,6 +23,7 @@ import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.screen.ScreenTest
 import org.moqui.util.MNode
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -174,6 +175,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         return sd
     }
 
+    /** NOTE: this is used in ScreenServices.xml for dynamic form stuff (FormResponse, etc) */
     MNode getFormNode(String location) {
         if (!location) return null
         if (location.contains("#")) {
@@ -184,7 +186,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
             } else {
                 ScreenDefinition esd = getScreenDefinition(screenLocation)
                 ScreenForm esf = esd ? esd.getForm(formName) : null
-                return esf?.formNode
+                return esf?.getOrCreateFormNode()
             }
         } else {
             throw new IllegalArgumentException("Must use full form location (with #) to get a form node, [${location}] has no hash (#).")

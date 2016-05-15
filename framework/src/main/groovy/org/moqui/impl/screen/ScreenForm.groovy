@@ -17,28 +17,21 @@ import groovy.transform.CompileStatic
 import org.apache.commons.collections.map.ListOrderedMap
 import org.moqui.BaseException
 import org.moqui.context.ContextStack
+import org.moqui.context.ExecutionContext
+import org.moqui.entity.*
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.*
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
-import org.moqui.impl.entity.EntityFindImpl
+import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.util.FtlNodeWrapper
-import org.moqui.context.ExecutionContext
-import org.moqui.entity.EntityListIterator
-import org.moqui.entity.EntityValue
-import org.moqui.impl.entity.EntityValueImpl
 import org.moqui.util.MNode
-import org.slf4j.LoggerFactory
+
 import org.slf4j.Logger
-import org.moqui.entity.EntityList
-import org.moqui.entity.EntityException
-import org.moqui.impl.screen.ScreenDefinition.TransitionItem
-import org.moqui.entity.EntityCondition
+import org.slf4j.LoggerFactory
+
 import java.sql.Timestamp
-import org.moqui.impl.entity.EntityListImpl
-import org.moqui.impl.entity.EntityValueBase
 
 @CompileStatic
 class ScreenForm {
@@ -51,18 +44,14 @@ class ScreenForm {
     protected ExecutionContextFactoryImpl ecfi
     protected ScreenDefinition sd
     protected MNode internalFormNode
-    protected FtlNodeWrapper internalFormNodeWrapper
+    protected FormInstance internalFormInstance
     protected String location
     protected String formName
     protected String fullFormName
-    protected Boolean isUploadForm = null
-    protected Boolean isFormHeaderFormVal = null
     protected boolean hasDbExtensions = false
     protected boolean isDynamic = false
 
     protected XmlAction rowActions = null
-
-    protected ArrayList<FtlNodeWrapper> nonReferencedFieldList = null
 
     ScreenForm(ExecutionContextFactoryImpl ecfi, ScreenDefinition sd, MNode baseFormNode, String location) {
         this.ecfi = ecfi
@@ -90,8 +79,8 @@ class ScreenForm {
             // setting parent to null so that this isn't found in addition to the literal form-* element
             internalFormNode = new MNode(baseFormNode.name, null)
             initForm(baseFormNode, internalFormNode)
+            internalFormInstance = new FormInstance()
         }
-        internalFormNodeWrapper = FtlNodeWrapper.wrapNode(internalFormNode)
     }
 
     void initForm(MNode baseFormNode, MNode newFormNode) {
@@ -106,13 +95,13 @@ class ScreenForm {
                 String formName = extendsForm.substring(extendsForm.indexOf("#")+1)
                 if (screenLocation == sd.getLocation()) {
                     ScreenForm esf = sd.getForm(formName)
-                    formNode = esf?.formNode
+                    formNode = esf?.getOrCreateFormNode()
                 } else if (screenLocation == "moqui.screen.form.DbForm" || screenLocation == "DbForm") {
                     formNode = getDbFormNode(formName, ecfi)
                 } else {
                     ScreenDefinition esd = ecfi.screenFacade.getScreenDefinition(screenLocation)
                     ScreenForm esf = esd ? esd.getForm(formName) : null
-                    formNode = esf?.formNode
+                    formNode = esf?.getOrCreateFormNode()
 
                     if (formNode != null) {
                         // see if the included section contains any SECTIONS, need to reference those here too!
@@ -125,7 +114,7 @@ class ScreenForm {
                 }
             } else {
                 ScreenForm esf = sd.getForm(extendsForm)
-                formNode = esf?.formNode
+                formNode = esf?.getOrCreateFormNode()
             }
             if (formNode == null) throw new IllegalArgumentException("Cound not find extends form [${extendsForm}] referred to in form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             mergeFormNodes(newFormNode, formNode, true, true)
@@ -222,38 +211,6 @@ class ScreenForm {
         if (newFormNode.hasChild("row-actions")) {
             rowActions = new XmlAction(ecfi, newFormNode.first("row-actions"), location + ".row_actions")
         }
-    }
-
-    ArrayList<FtlNodeWrapper> getFieldLayoutNonReferencedFieldList() {
-        if (nonReferencedFieldList != null) return nonReferencedFieldList
-        ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
-
-        if (getFormNode().hasChild("field-layout")) for (MNode fieldNode in getFormNode().children("field")) {
-            MNode fieldLayoutNode = getFormNode().first("field-layout")
-            if (!fieldLayoutNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldNode.attribute("name") }))
-                fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
-        }
-
-        nonReferencedFieldList = fieldList
-        return fieldList
-    }
-
-    ArrayList<FtlNodeWrapper> getColumnNonReferencedHiddenFieldList() {
-        if (nonReferencedFieldList != null) return nonReferencedFieldList
-        ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
-
-        if (getFormNode().hasChild("form-list-column")) for (MNode fieldNode in getFormNode().children("field")) {
-            if (!fieldNode.depthFirst({ MNode it -> it.name == "hidden" })) continue
-            List<MNode> formListColumnNodeList = getFormNode().children("form-list-column")
-            boolean foundReference = false
-            for (MNode formListColumnNode in formListColumnNodeList)
-                if (formListColumnNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldNode.attribute("name") }))
-                    foundReference = true
-            if (!foundReference) fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
-        }
-
-        nonReferencedFieldList = fieldList
-        return fieldList
     }
 
     List<MNode> getDbFormNodeList() {
@@ -375,7 +332,7 @@ class ScreenForm {
     }
 
     /** This is the main method for using an XML Form, the rendering is done based on the Node returned. */
-    MNode getFormNode() {
+    MNode getOrCreateFormNode() {
         // NOTE: this is cached in the ScreenRenderImpl as it may be called multiple times for a single form render
         List<MNode> dbFormNodeList = hasDbExtensions ? getDbFormNodeList() : null
         boolean displayOnly = isDisplayOnly()
@@ -391,7 +348,7 @@ class ScreenForm {
             MNode newFormNode = new MNode(internalFormNode.name, null)
             // deep copy true to avoid bleed over of new fields and such
             mergeFormNodes(newFormNode, internalFormNode, true, true)
-            // logger.warn("========== merging in dbFormNodeList: ${dbFormNodeList}", new BaseException("getFormNode call location"))
+            // logger.warn("========== merging in dbFormNodeList: ${dbFormNodeList}", new BaseException("getOrCreateFormNode call location"))
             for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
 
             if (displayOnly) {
@@ -412,7 +369,7 @@ class ScreenForm {
     }
 
     MNode getAutoCleanedNode() {
-        MNode outNode = getFormNode().deepCopy(null)
+        MNode outNode = getOrCreateFormNode().deepCopy(null)
         outNode.attributes.remove("dynamic")
         outNode.attributes.remove("multi")
         for (int i = 0; i < outNode.children.size(); ) {
@@ -453,82 +410,6 @@ class ScreenForm {
         // otherwise change it to a display Node
         fieldSubNode.replace(0, "display", null)
         // not as good, puts it after other child Nodes: fieldSubNode.remove(widgetNode); fieldSubNode.appendNode("display")
-    }
-
-    FtlNodeWrapper getFtlFormNode() {
-        if (isDynamic || hasDbExtensions || isDisplayOnly()) {
-            return FtlNodeWrapper.wrapNode(getFormNode())
-        } else {
-            return internalFormNodeWrapper
-        }
-    }
-
-    boolean isUpload(FtlNodeWrapper cachedFormNode) {
-        if (isUploadForm != null) return isUploadForm
-
-        // if there is a "file" element, then it's an upload form
-        boolean internalFileNode = internalFormNode.depthFirst({ MNode it -> it.name == "file" }).size() > 0
-        if (internalFileNode) {
-            isUploadForm = true
-            return true
-        } else {
-            if (isDynamic || hasDbExtensions) {
-                MNode testNode = cachedFormNode != null ? cachedFormNode.getMNode() : getFormNode()
-                return testNode.depthFirst({ MNode it -> it.name == "file" }).size() > 0
-            } else {
-                return false
-            }
-        }
-    }
-    boolean isFormHeaderForm(FtlNodeWrapper cachedFormNode) {
-        if (isFormHeaderFormVal != null) return isFormHeaderFormVal
-
-        // if there is a "header-field" element, then it needs a header form
-        boolean internalFormHeaderFormVal = false
-        for (MNode hfNode in internalFormNode.depthFirst({ MNode it -> it.name == "header-field" })) {
-            if (hfNode.children.size() > 0) {
-                internalFormHeaderFormVal = true
-                break
-            }
-        }
-        if (internalFormHeaderFormVal) {
-            isFormHeaderFormVal = true
-            return true
-        } else {
-            if (isDynamic || hasDbExtensions) {
-                boolean extFormHeaderFormVal = false
-                MNode testNode = cachedFormNode != null ? cachedFormNode.getMNode() : getFormNode()
-                for (MNode hfNode in testNode.depthFirst({ MNode it -> it.name == "header-field" })) {
-                    if (hfNode.children) {
-                        extFormHeaderFormVal = true
-                        break
-                    }
-                }
-                return extFormHeaderFormVal
-            } else {
-                return false
-            }
-        }
-    }
-
-    MNode getFieldValidateNode(String fieldName, FtlNodeWrapper cachedFormNode) {
-        MNode formNodeToUse = cachedFormNode != null ? cachedFormNode.getMNode() : getFormNode()
-        MNode fieldNode = formNodeToUse.first({ MNode it -> it.name == 'field' && it.attribute('name') == fieldName })
-        if (fieldNode == null) throw new IllegalArgumentException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
-        String validateService = fieldNode.attribute('validate-service')
-        String validateEntity = fieldNode.attribute('validate-entity')
-        if (validateService) {
-            ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(validateService)
-            if (sd == null) throw new IllegalArgumentException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
-            MNode parameterNode = sd.getInParameter((String) fieldNode.attribute('validate-parameter') ?: fieldName)
-            return parameterNode
-        } else if (validateEntity) {
-            EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(validateEntity)
-            if (ed == null) throw new IllegalArgumentException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
-            MNode efNode = ed.getFieldNode((String) fieldNode.attribute('validate-field') ?: fieldName)
-            return efNode
-        }
-        return null
     }
 
     void addAutoServiceField(ServiceDefinition sd, EntityDefinition nounEd, MNode parameterNode, String fieldType,
@@ -996,30 +877,6 @@ class ScreenForm {
         }
     }
 
-    void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext, FtlNodeWrapper ftlFormNode) {
-        // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
-        MNode localFormNode = ftlFormNode != null ? ftlFormNode.getMNode() : getFormNode()
-        String listEntryStr = localFormNode.attribute('list-entry')
-        if (listEntryStr) {
-            sri.ec.context.put(listEntryStr, listEntry)
-            sri.ec.context.put(listEntryStr + "_index", index)
-            sri.ec.context.put(listEntryStr + "_has_next", hasNext)
-        } else {
-            if (listEntry instanceof EntityValueBase) {
-                sri.ec.context.putAll(((EntityValueBase) listEntry).getValueMap())
-            } else if (listEntry instanceof Map) {
-                sri.ec.context.putAll((Map) listEntry)
-            } else {
-                sri.ec.context.put("listEntry", listEntry)
-            }
-            String listStr = localFormNode.attribute('list')
-            sri.ec.context.put(listStr + "_index", index)
-            sri.ec.context.put(listStr + "_has_next", hasNext)
-            sri.ec.context.put(listStr + "_entry", listEntry)
-        }
-        if (rowActions) rowActions.run(sri.ec)
-    }
-
     static ListOrderedMap getFieldOptions(MNode widgetNode, ExecutionContext ec) {
         MNode fieldNode = widgetNode.parent.parent
         ListOrderedMap options = new ListOrderedMap()
@@ -1115,6 +972,247 @@ class ScreenForm {
             }
         } finally {
             ec.context.pop()
+        }
+    }
+
+
+    // ========== FormInstance Class/etc ==========
+
+    FormInstance getFormInstance() {
+        if (isDynamic || hasDbExtensions || isDisplayOnly()) {
+            return new FormInstance()
+        } else {
+            if (internalFormInstance == null) internalFormInstance = new FormInstance()
+            return internalFormInstance
+        }
+    }
+
+    class FormInstance {
+        private MNode formNode
+        private FtlNodeWrapper ftlFormNode
+        private boolean isListForm
+
+        private ArrayList<MNode> allFieldNodes
+        private Map<String, MNode> fieldNodeMap = new LinkedHashMap<>()
+
+        private boolean isUploadForm = false
+        private boolean isFormHeaderFormVal = false
+        private ArrayList<FtlNodeWrapper> nonReferencedFieldList = (ArrayList<FtlNodeWrapper>) null
+        private ArrayList<FtlNodeWrapper> hiddenFieldList = (ArrayList<FtlNodeWrapper>) null
+        private ArrayList<ArrayList<FtlNodeWrapper>> formListColInfoList = (ArrayList<ArrayList<FtlNodeWrapper>>) null
+        private Set<String> fieldsInFormListColumns = (Set<String>) null
+
+        FormInstance() {
+            formNode = getOrCreateFormNode()
+            ftlFormNode = FtlNodeWrapper.wrapNode(formNode)
+            isListForm = formNode.getName() == "form-list"
+
+            // populate fieldNodeMap
+            allFieldNodes = formNode.children("field")
+            int afnSize = allFieldNodes.size()
+            for (int i = 0; i < afnSize; i++) {
+                MNode fieldNode = (MNode) allFieldNodes.get(i)
+                fieldNodeMap.put(fieldNode.attribute("name"), fieldNode)
+            }
+
+            isUploadForm = formNode.depthFirst({ MNode it -> it.name == "file" }).size() > 0
+            for (MNode hfNode in formNode.depthFirst({ MNode it -> it.name == "header-field" })) {
+                if (hfNode.children.size() > 0) {
+                    isFormHeaderFormVal = true
+                    break
+                }
+            }
+
+            if (isListForm) {
+                // also populates fieldsInFormListColumns
+                formListColInfoList = makeFormListColumnInfo()
+            }
+        }
+        // MNode getFormMNode() { return formNode }
+        FtlNodeWrapper getFtlFormNode() { return ftlFormNode }
+
+        boolean isUpload() { return isUploadForm }
+        boolean isHeaderForm() { return isFormHeaderFormVal }
+
+        MNode getFieldValidateNode(String fieldName) {
+            MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
+            if (fieldNode == null) throw new IllegalArgumentException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
+            String validateService = fieldNode.attribute('validate-service')
+            String validateEntity = fieldNode.attribute('validate-entity')
+            if (validateService) {
+                ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(validateService)
+                if (sd == null) throw new IllegalArgumentException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
+                MNode parameterNode = sd.getInParameter((String) fieldNode.attribute('validate-parameter') ?: fieldName)
+                return parameterNode
+            } else if (validateEntity) {
+                EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(validateEntity)
+                if (ed == null) throw new IllegalArgumentException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
+                MNode efNode = ed.getFieldNode((String) fieldNode.attribute('validate-field') ?: fieldName)
+                return efNode
+            }
+            return null
+        }
+
+        ArrayList<FtlNodeWrapper> getFieldLayoutNonReferencedFieldList() {
+            if (nonReferencedFieldList != null) return nonReferencedFieldList
+            ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
+
+            if (formNode.hasChild("field-layout")) for (MNode fieldNode in formNode.children("field")) {
+                MNode fieldLayoutNode = formNode.first("field-layout")
+                if (!fieldLayoutNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldNode.attribute("name") }))
+                    fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
+            }
+
+            nonReferencedFieldList = fieldList
+            return fieldList
+        }
+
+
+        boolean isListFieldHidden(MNode fieldNode) {
+            MNode defaultField = fieldNode.first("default-field")
+            if (defaultField == null) return false
+            return defaultField.hasChild("hidden")
+        }
+        ArrayList<FtlNodeWrapper> getListHiddenFieldList() {
+            if (hiddenFieldList != null) return hiddenFieldList
+            ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
+
+            ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+            int afnSize = allFieldNodes.size()
+            for (int i = 0; i < afnSize; i++) {
+                MNode fieldNode = (MNode) allFieldNodes.get(i)
+                if (isListFieldHidden(fieldNode)) colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+            }
+
+            hiddenFieldList = fieldList
+            return fieldList
+        }
+
+        boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
+
+        ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() { return formListColInfoList }
+        /** convert form-list-column elements into a list, if there are no form-list-column elements uses fields limiting
+         *    by logic about what actually gets rendered (so result can be used for display regardless of form def) */
+        private ArrayList<ArrayList<FtlNodeWrapper>> makeFormListColumnInfo() {
+            ArrayList<MNode> formListColumnList = formNode.children("form-list-column")
+            int flcListSize = formListColumnList != null ? formListColumnList.size() : 0
+
+            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
+
+            fieldsInFormListColumns = new HashSet()
+
+            if (flcListSize > 0) {
+                // populate fields under columns
+                for (int ci = 0; ci < flcListSize; ci++) {
+                    MNode flcNode = (MNode) formListColumnList.get(ci)
+                    ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+                    ArrayList<MNode> fieldRefNodes = flcNode.children("field-ref")
+                    int fieldRefSize = fieldRefNodes.size()
+                    for (int fi = 0; fi < fieldRefSize; fi++) {
+                        MNode frNode = (MNode) fieldRefNodes.get(fi)
+                        String fieldName = frNode.attribute("name")
+                        MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
+                        if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${location}")
+                        // skip hidden fields, they are handled separately
+                        if (isListFieldHidden(fieldNode)) continue
+
+                        fieldsInFormListColumns.add(fieldName)
+                        colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+                    }
+                    colInfoList.add(colFieldNodes)
+                }
+            } else {
+                // create a column for each displayed field
+                int afnSize = allFieldNodes.size()
+                for (int i = 0; i < afnSize; i++) {
+                    MNode fieldNode = (MNode) allFieldNodes.get(i)
+                    // skip hidden fields, they are handled separately
+                    if (isListFieldHidden(fieldNode)) continue
+
+                    ArrayList<FtlNodeWrapper> singleFieldColList = new ArrayList<>()
+                    singleFieldColList.add(FtlNodeWrapper.wrapNode(fieldNode))
+                    colInfoList.add(singleFieldColList)
+                }
+            }
+
+            return colInfoList
+        }
+        /** Call this after getFormListColumnInfo() so fieldsInFormListColumns will be populated */
+        ArrayList<FtlNodeWrapper> getFieldsNotReferencedInFormListColumn() {
+            if (fieldsInFormListColumns == null) getFormListColumnInfo()
+
+            ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+            int afnSize = allFieldNodes.size()
+            for (int i = 0; i < afnSize; i++) {
+                MNode fieldNode = (MNode) allFieldNodes.get(i)
+                if (!fieldsInFormListColumns.contains(fieldNode.attribute("name")))
+                    colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+            }
+
+            return colFieldNodes
+        }
+
+        String getFieldValidationClasses(String fieldName) {
+            MNode validateNode = getFieldValidateNode(fieldName)
+            if (validateNode == null) return ""
+
+            Set<String> vcs = new HashSet()
+            if (validateNode.name == "parameter") {
+                MNode parameterNode = validateNode
+                if (parameterNode.attribute('required') == "true") vcs.add("required")
+                if (parameterNode.hasChild("number-integer")) vcs.add("number")
+                if (parameterNode.hasChild("number-decimal")) vcs.add("number")
+                if (parameterNode.hasChild("text-email")) vcs.add("email")
+                if (parameterNode.hasChild("text-url")) vcs.add("url")
+                if (parameterNode.hasChild("text-digits")) vcs.add("digits")
+                if (parameterNode.hasChild("credit-card")) vcs.add("creditcard")
+
+                String type = parameterNode.attribute('type')
+                if (type && (type.endsWith("BigDecimal") || type.endsWith("BigInteger") || type.endsWith("Long") ||
+                        type.endsWith("Integer") || type.endsWith("Double") || type.endsWith("Float") ||
+                        type.endsWith("Number"))) vcs.add("number")
+            } else if (validateNode.name == "field") {
+                MNode fieldNode = validateNode
+                String type = fieldNode.attribute('type')
+                if (type && (type.startsWith("number-") || type.startsWith("currency-"))) vcs.add("number")
+                // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
+            }
+
+            StringBuilder sb = new StringBuilder()
+            for (String vc in vcs) { if (sb) sb.append(" "); sb.append(vc); }
+            return sb.toString()
+        }
+
+        Map getFieldValidationRegexpInfo(String fieldName) {
+            MNode validateNode = getFieldValidateNode(fieldName)
+            if (validateNode?.hasChild("matches")) {
+                MNode matchesNode = validateNode.first("matches")
+                return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]
+            }
+            return null
+        }
+
+        void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
+            // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
+            String listEntryStr = formNode.attribute('list-entry')
+            if (listEntryStr) {
+                sri.ec.context.put(listEntryStr, listEntry)
+                sri.ec.context.put(listEntryStr + "_index", index)
+                sri.ec.context.put(listEntryStr + "_has_next", hasNext)
+            } else {
+                if (listEntry instanceof EntityValueBase) {
+                    sri.ec.context.putAll(((EntityValueBase) listEntry).getValueMap())
+                } else if (listEntry instanceof Map) {
+                    sri.ec.context.putAll((Map) listEntry)
+                } else {
+                    sri.ec.context.put("listEntry", listEntry)
+                }
+                String listStr = formNode.attribute('list')
+                sri.ec.context.put(listStr + "_index", index)
+                sri.ec.context.put(listStr + "_has_next", hasNext)
+                sri.ec.context.put(listStr + "_entry", listEntry)
+            }
+            if (rowActions) rowActions.run(sri.ec)
         }
     }
 }
