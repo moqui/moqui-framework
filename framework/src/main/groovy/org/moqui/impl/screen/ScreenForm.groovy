@@ -1071,7 +1071,12 @@ class ScreenForm {
         boolean isListFieldHidden(MNode fieldNode) {
             MNode defaultField = fieldNode.first("default-field")
             if (defaultField == null) return false
-            return defaultField.hasChild("hidden")
+            String hideAttr = fieldNode.attribute("hide")
+            if (hideAttr != null && hideAttr.length() > 0) {
+                boolean hideResult = ecfi.getEci().resource.condition(hideAttr, "")
+                if (hideResult) return true
+            }
+            return defaultField.hasChild("hidden") || defaultField.hasChild("ignored")
         }
         ArrayList<FtlNodeWrapper> getListHiddenFieldList() {
             if (hiddenFieldList != null) return hiddenFieldList
@@ -1119,7 +1124,7 @@ class ScreenForm {
                         fieldsInFormListColumns.add(fieldName)
                         colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
                     }
-                    colInfoList.add(colFieldNodes)
+                    if (colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
                 }
             } else {
                 // create a column for each displayed field
@@ -1145,6 +1150,8 @@ class ScreenForm {
             int afnSize = allFieldNodes.size()
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
+                // skip hidden fields, they are handled separately
+                if (isListFieldHidden(fieldNode)) continue
                 if (!fieldsInFormListColumns.contains(fieldNode.attribute("name")))
                     colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
             }
