@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class FtlTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class)
+    protected final static Version FTL_VERSION = Configuration.VERSION_2_3_24
 
     protected ExecutionContextFactoryImpl ecfi
 
@@ -99,8 +100,8 @@ class FtlTemplateRenderer implements TemplateRenderer {
     public Configuration getFtlConfiguration() { return defaultFtlConfiguration }
 
     protected static Configuration makeFtlConfiguration(ExecutionContextFactoryImpl ecfi) {
-        Configuration newConfig = new MoquiConfiguration(Configuration.VERSION_2_3_23, ecfi)
-        BeansWrapper defaultWrapper = new BeansWrapperBuilder(Configuration.VERSION_2_3_23).build()
+        Configuration newConfig = new MoquiConfiguration(FTL_VERSION, ecfi)
+        BeansWrapper defaultWrapper = new BeansWrapperBuilder(FTL_VERSION).build()
         newConfig.setObjectWrapper(defaultWrapper)
         newConfig.setSharedVariable("Static", defaultWrapper.getStaticModels())
 
