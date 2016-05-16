@@ -271,13 +271,11 @@ class ScreenDefinition {
         return hasRequired
     }
 
-    @CompileStatic
     boolean hasTransition(String name) {
         for (TransitionItem curTi in transitionByName.values()) if (curTi.name == name) return true
         return false
     }
 
-    @CompileStatic
     TransitionItem getTransitionItem(String name, String method) {
         method = method ? method.toLowerCase() : ""
         TransitionItem ti = (TransitionItem) transitionByName.get(name + "#" + method)
@@ -296,10 +294,8 @@ class ScreenDefinition {
 
     Collection<TransitionItem> getAllTransitions() { return transitionByName.values() }
 
-    @CompileStatic
     SubscreensItem getSubscreensItem(String name) { return (SubscreensItem) subscreensByName.get(name) }
 
-    @CompileStatic
     ArrayList<String> findSubscreenPath(ArrayList<String> remainingPathNameList) {
         if (!remainingPathNameList) return null
         String curName = remainingPathNameList.get(0)
@@ -398,7 +394,6 @@ class ScreenDefinition {
         return locList
     }
 
-    @CompileStatic
     List<SubscreensItem> getSubscreensItemsSorted() {
         if (subscreensItemsSorted != null) return subscreensItemsSorted
         List<SubscreensItem> newList = new ArrayList(subscreensByName.size())
@@ -408,7 +403,6 @@ class ScreenDefinition {
         return subscreensItemsSorted = newList
     }
 
-    @CompileStatic
     List<SubscreensItem> getMenuSubscreensItems() {
         List<SubscreensItem> allItems = getSubscreensItemsSorted()
         List<SubscreensItem> filteredList = new ArrayList(allItems.size())
@@ -425,9 +419,7 @@ class ScreenDefinition {
         return filteredList
     }
 
-    @CompileStatic
     ScreenSection getRootSection() { return rootSection }
-    @CompileStatic
     void render(ScreenRenderImpl sri, boolean isTargetScreen) {
         // NOTE: don't require authz if the screen doesn't require auth
         String requireAuthentication = screenNode.attribute('require-authentication')
@@ -454,26 +446,22 @@ class ScreenDefinition {
         }
     }
 
-    @CompileStatic
     ScreenSection getSection(String sectionName) {
         ScreenSection ss = sectionByName.get(sectionName)
         if (ss == null) throw new IllegalArgumentException("Could not find form [${sectionName}] in screen: ${getLocation()}")
         return ss
     }
-    @CompileStatic
     ScreenForm getForm(String formName) {
         ScreenForm sf = formByName.get(formName)
         if (sf == null) throw new IllegalArgumentException("Could not find form [${formName}] in screen: ${getLocation()}")
         return sf
     }
-    @CompileStatic
     ScreenTree getTree(String treeName) {
         ScreenTree st = treeByName.get(treeName)
         if (st == null) throw new IllegalArgumentException("Could not find tree [${treeName}] in screen: ${getLocation()}")
         return st
     }
 
-    @CompileStatic
     ResourceReference getSubContentRef(List<String> pathNameList) {
         StringBuilder pathNameBldr = new StringBuilder()
         // add the path elements that remain
@@ -496,9 +484,9 @@ class ScreenDefinition {
     }
 
     @Override
-    @CompileStatic
     String toString() { return location }
 
+    @CompileStatic
     static class ParameterItem {
         protected String name
         protected Class fromFieldGroovy = null
@@ -520,9 +508,7 @@ class ScreenDefinition {
                         StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.value"))
             }
         }
-        @CompileStatic
         String getName() { return name }
-        @CompileStatic
         Object getValue(ExecutionContext ec) {
             Object value = null
             if (fromFieldGroovy != null) {
@@ -541,6 +527,7 @@ class ScreenDefinition {
         }
     }
 
+    @CompileStatic
     static class TransitionItem {
         protected ScreenDefinition parentScreen
         protected MNode transitionNode
@@ -614,29 +601,18 @@ class ScreenDefinition {
                 errorResponse = new ResponseItem(transitionNode.first("error-response"), this, parentScreen)
         }
 
-        @CompileStatic
         String getName() { return name }
-        @CompileStatic
         String getMethod() { return method }
-        @CompileStatic
         String getSingleServiceName() { return singleServiceName }
-        @CompileStatic
         List<String> getPathParameterList() { return pathParameterList }
-        @CompileStatic
         Map<String, ParameterItem> getParameterMap() { return parameterByName }
-        @CompileStatic
         boolean hasActionsOrSingleService() { return actions != null }
-        @CompileStatic
         boolean getBeginTransaction() { return beginTransaction }
-        @CompileStatic
         boolean isReadOnly() { return readOnly }
-        @CompileStatic
         boolean getRequireSessionToken() { return requireSessionToken }
 
-        @CompileStatic
         boolean checkCondition(ExecutionContextImpl ec) { return condition ? condition.checkCondition(ec) : true }
 
-        @CompileStatic
         void setAllParameters(List<String> extraPathNameList, ExecutionContext ec) {
             // get the path parameters
             if (extraPathNameList && getPathParameterList()) {
@@ -668,7 +644,6 @@ class ScreenDefinition {
             }
         }
 
-        @CompileStatic
         ResponseItem run(ScreenRenderImpl sri) {
             ExecutionContextImpl ec = sri.getEc()
 
@@ -731,6 +706,7 @@ class ScreenDefinition {
         }
     }
 
+    @CompileStatic
     static class ActionsTransitionItem extends TransitionItem {
         ActionsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
@@ -816,6 +792,7 @@ class ScreenDefinition {
         }
     }
 
+    @CompileStatic
     static class ResponseItem {
         protected TransitionItem transitionItem
         protected ScreenDefinition parentScreen
@@ -826,7 +803,6 @@ class ScreenDefinition {
         protected String url
         protected String urlType
         protected Class parameterMapNameGroovy = null
-        // deferred for future version: protected boolean saveLastScreen
         protected boolean saveCurrentScreen
         protected boolean saveParameters
 
@@ -853,22 +829,14 @@ class ScreenDefinition {
                 parameterMap.put(parameterNode.attribute("name"), new ParameterItem(parameterNode, location))
         }
 
-        @CompileStatic
         boolean checkCondition(ExecutionContextImpl ec) { return condition ? condition.checkCondition(ec) : true }
 
-        @CompileStatic
         String getType() { return type }
-        @CompileStatic
         String getUrl() { return parentScreen.sfi.ecfi.resourceFacade.expand(url, "") }
-        @CompileStatic
         String getUrlType() { return urlType }
-        // deferred for future version: boolean getSaveLastScreen() { return saveLastScreen }
-        @CompileStatic
         boolean getSaveCurrentScreen() { return saveCurrentScreen }
-        @CompileStatic
         boolean getSaveParameters() { return saveParameters }
 
-        @CompileStatic
         Map expandParameters(List<String> extraPathNameList, ExecutionContext ec) {
             transitionItem.setAllParameters(extraPathNameList, ec)
 
@@ -883,6 +851,7 @@ class ScreenDefinition {
         }
     }
 
+    @CompileStatic
     static class SubscreensItem {
         protected ScreenDefinition parentScreen
         protected String name
@@ -933,7 +902,6 @@ class ScreenDefinition {
             }
         }
 
-        @CompileStatic
         String getDefaultTitle() {
             ScreenDefinition sd = parentScreen.sfi.getScreenDefinition(location)
             if (sd != null) {
@@ -943,22 +911,15 @@ class ScreenDefinition {
             }
         }
 
-        @CompileStatic
         String getName() { return name }
-        @CompileStatic
         String getLocation() { return location }
-        @CompileStatic
         String getMenuTitle() { return menuTitle }
-        @CompileStatic
         Integer getMenuIndex() { return menuIndex }
-        @CompileStatic
         boolean getMenuInclude() { return menuInclude }
-        @CompileStatic
         boolean getDisable(ExecutionContext ec) {
             if (!disableWhenGroovy) return false
             return InvokerHelper.createScript(disableWhenGroovy, ec.contextBinding).run() as boolean
         }
-        @CompileStatic
         String getUserGroupId() { return userGroupId }
         boolean isValidInCurrentContext() {
             ExecutionContextImpl eci = parentScreen.sfi.getEcfi().getEci()
@@ -971,10 +932,10 @@ class ScreenDefinition {
         }
     }
 
+    @CompileStatic
     static class SubscreensItemComparator implements Comparator<SubscreensItem> {
         public SubscreensItemComparator() { }
         @Override
-        @CompileStatic
         public int compare(SubscreensItem ssi1, SubscreensItem ssi2) {
             // order by index, null index first
             if (ssi1.menuIndex == null && ssi2.menuIndex != null) return -1
