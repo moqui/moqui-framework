@@ -21,6 +21,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.*
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
@@ -1033,6 +1034,7 @@ class ScreenForm {
 
         boolean isUpload() { return isUploadForm }
         boolean isHeaderForm() { return isFormHeaderFormVal }
+        String getFormLocation() { return location }
 
         MNode getFieldValidateNode(String fieldName) {
             MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
@@ -1095,7 +1097,17 @@ class ScreenForm {
 
         boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
 
-        ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() { return formListColInfoList }
+        ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
+            ExecutionContextImpl eci = ecfi.getEci()
+            EntityList formListUserFieldList = ecfi.getEntityFacade(eci.tenantId).find("moqui.screen.form.FormListUserField")
+                    .condition("userId", eci.user.userId).condition("formLocation", location)
+                    .orderBy("columnIndex").orderBy("columnSequence").useCache(true).list()
+            if (formListUserFieldList.size() > 0) {
+                // don't remember the results of this, is per-user so good only once (FormInstance is NOT per user!)
+                return makeDbFormListColumnInfo(formListUserFieldList, eci)
+            }
+            return formListColInfoList
+        }
         /** convert form-list-column elements into a list, if there are no form-list-column elements uses fields limiting
          *    by logic about what actually gets rendered (so result can be used for display regardless of form def) */
         private ArrayList<ArrayList<FtlNodeWrapper>> makeFormListColumnInfo() {
@@ -1104,7 +1116,7 @@ class ScreenForm {
 
             ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
 
-            fieldsInFormListColumns = new HashSet()
+            Set<String> tempFieldsInFormListColumns = new HashSet()
 
             if (flcListSize > 0) {
                 // populate fields under columns
@@ -1121,7 +1133,7 @@ class ScreenForm {
                         // skip hidden fields, they are handled separately
                         if (isListFieldHidden(fieldNode)) continue
 
-                        fieldsInFormListColumns.add(fieldName)
+                        tempFieldsInFormListColumns.add(fieldName)
                         colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
                     }
                     if (colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
@@ -1140,11 +1152,44 @@ class ScreenForm {
                 }
             }
 
+            fieldsInFormListColumns = tempFieldsInFormListColumns
             return colInfoList
         }
+        private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(EntityList formListUserFieldList, ExecutionContextImpl eci) {
+            // NOTE: calling code checks to see if this is not empty
+            int flufListSize = formListUserFieldList.size()
+
+            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
+            Set<String> tempFieldsInFormListColumns = new HashSet()
+
+            // populate fields under columns
+            int curColIndex = -1;
+            ArrayList<FtlNodeWrapper> colFieldNodes = null
+            for (int ci = 0; ci < flufListSize; ci++) {
+                EntityValue flufValue = (EntityValue) formListUserFieldList.get(ci)
+                int columnIndex = flufValue.get("columnIndex") as int
+                if (columnIndex > curColIndex) {
+                    if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
+                    curColIndex = columnIndex
+                    colFieldNodes = new ArrayList<>()
+                }
+                String fieldName = (String) flufValue.get("fieldName")
+                MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
+                if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormListUserField record for user ${} form at ${location}")
+                // skip hidden fields, they are handled separately
+                if (isListFieldHidden(fieldNode)) continue
+
+                tempFieldsInFormListColumns.add(fieldName)
+                colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+            }
+
+            fieldsInFormListColumns = tempFieldsInFormListColumns
+            return colInfoList
+        }
+
         /** Call this after getFormListColumnInfo() so fieldsInFormListColumns will be populated */
         ArrayList<FtlNodeWrapper> getFieldsNotReferencedInFormListColumn() {
-            if (fieldsInFormListColumns == null) getFormListColumnInfo()
+            if (fieldsInFormListColumns == null) makeFormListColumnInfo()
 
             ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
             int afnSize = allFieldNodes.size()
