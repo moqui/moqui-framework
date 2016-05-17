@@ -14,7 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.elasticsearch.client.Client
 import org.kie.api.runtime.KieContainer
 import org.kie.api.runtime.KieSession
 import org.kie.api.runtime.StatelessKieSession
@@ -31,7 +30,6 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpServletRequest
-import org.apache.camel.CamelContext
 import org.moqui.entity.EntityValue
 
 @CompileStatic
@@ -185,8 +183,6 @@ class ExecutionContextImpl implements ExecutionContext {
         ecfi.registerNotificationMessageListener(nml)
     }
 
-    @Override
-    Client getElasticSearchClient() { ecfi.getElasticSearchClient() }
     @Override
     KieContainer getKieContainer(String componentName) { ecfi.getKieContainer(componentName) }
     @Override

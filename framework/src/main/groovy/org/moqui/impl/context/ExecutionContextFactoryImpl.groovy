@@ -20,15 +20,11 @@ import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.IExecutorService
 import com.hazelcast.core.ITopic
 import groovy.transform.CompileStatic
-import org.apache.camel.CamelContext
-import org.apache.camel.impl.DefaultCamelContext
 import org.apache.shiro.SecurityUtils
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
-import org.elasticsearch.client.Client
-import org.elasticsearch.node.NodeBuilder
 import org.kie.api.KieServices
 import org.kie.api.builder.KieBuilder
 import org.kie.api.builder.Message
@@ -54,8 +50,6 @@ import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
-import org.moqui.impl.service.camel.MoquiServiceComponent
-import org.moqui.impl.service.camel.MoquiServiceConsumer
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
@@ -102,11 +96,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
-
-    /** ElasticSearch Node */
-    protected org.elasticsearch.node.Node elasticSearchNode
-    /** ElasticSearch Client */
-    protected Client elasticSearchClient
 
     /** Jackrabbit Process */
     protected Process jackrabbitProcess
@@ -411,9 +400,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Getting Async Service Hazelcast ExecutorService")
         hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
 
-        // init ElasticSearch after facades, before Camel
-        initElasticSearch()
-
         // init Jackrabbit standalone instance
         initJackrabbit()
 
@@ -567,16 +553,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // the above may be better than this: if (hazelcastInstance != null) hazelcastInstance.shutdown()
         logger.info("Hazelcast shutdown")
 
-        // stop ElasticSearch, before stopping other things so it doesn't use anything
-        if (elasticSearchNode != null) try {
-            elasticSearchNode.close()
-            while (!elasticSearchNode.isClosed()) {
-                logger.info("ElasticSearch still closing")
-                this.wait(1000)
-            }
-            logger.info("ElasticSearch closed")
-        } catch (Throwable t) { logger.error("Error in ElasticSearch node close", t) }
-
         // Stop Jackrabbit process
         if (jackrabbitProcess != null) try {
             jackrabbitProcess.destroy()
@@ -693,22 +669,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     TransactionFacadeImpl getTransactionFacade() { return transactionFacade }
     L10nFacadeImpl getL10nFacade() { return getEci().getL10nFacade() }
     // TODO: find references, change to eci where more direct
-
-    // =============== ElasticSearch Methods ===============
-    @Override
-    Client getElasticSearchClient() { return elasticSearchClient }
-
-    protected void initElasticSearch() {
-        // set the ElasticSearch home directory
-        if (!System.getProperty("es.path.home")) System.setProperty("es.path.home", runtimePath + "/elasticsearch")
-        if (confXmlRoot.first("tools").attribute("enable-elasticsearch") != "false") {
-            logger.info("Starting ElasticSearch, home at ${System.getProperty("es.path.home")}")
-            elasticSearchNode = NodeBuilder.nodeBuilder().node()
-            elasticSearchClient = elasticSearchNode.client()
-        } else {
-            logger.info("ElasticSearch disabled, not starting")
-        }
-    }
 
     @Override
     HazelcastInstance getHazelcastInstance() { return hazelcastInstance }

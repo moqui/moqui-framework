@@ -16,8 +16,6 @@ package org.moqui.context;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.camel.CamelContext;
-import org.elasticsearch.client.Client;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.StatelessKieSession;
@@ -96,9 +94,6 @@ public interface ExecutionContext {
     NotificationMessage makeNotificationMessage();
     List<NotificationMessage> getNotificationMessages(String userId, String topic);
     void registerNotificationMessageListener(NotificationMessageListener nml);
-
-    /** ElasticSearch Client is used for indexing and searching documents */
-    Client getElasticSearchClient();
 
     /** Get a KIE Container for Drools, jBPM, OptaPlanner, etc from the KIE Module in the given component. */
     KieContainer getKieContainer(String componentName);

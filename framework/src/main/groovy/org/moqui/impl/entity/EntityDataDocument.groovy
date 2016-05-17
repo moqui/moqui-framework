@@ -413,7 +413,7 @@ class EntityDataDocument {
     void checkCreateIndex(String indexName) {
         String baseIndexName = indexName.contains("__") ? indexName.substring(indexName.indexOf("__") + 2) : indexName
 
-        Client client = efi.getEcfi().getElasticSearchClient()
+        Client client = efi.getEcfi().getToolInstance("ElasticSearch", Client.class)
         boolean hasIndex = client.admin().indices().exists(new IndicesExistsRequest(indexName)).actionGet().exists
         // logger.warn("========== Checking index ${indexName} (${baseIndexName}), hasIndex=${hasIndex}")
         if (hasIndex) return
@@ -435,7 +435,7 @@ class EntityDataDocument {
     void putIndexMappings(String indexName) {
         String baseIndexName = indexName.contains("__") ? indexName.substring(indexName.indexOf("__") + 2) : indexName
 
-        Client client = efi.getEcfi().getElasticSearchClient()
+        Client client = efi.getEcfi().getToolInstance("ElasticSearch", Client.class)
         boolean hasIndex = client.admin().indices().exists(new IndicesExistsRequest(indexName)).actionGet().isExists()
         if (!hasIndex) {
             client.admin().indices().prepareCreate(indexName).execute().actionGet()
