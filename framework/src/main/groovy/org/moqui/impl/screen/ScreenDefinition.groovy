@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.screen
 
+import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
@@ -68,8 +69,8 @@ class ScreenDefinition {
     ScreenDefinition(ScreenFacadeImpl sfi, MNode screenNode, String location) {
         this.sfi = sfi
         this.screenNode = screenNode
-        this.subscreensNode = screenNode.first("subscreens")
-        this.webSettingsNode = screenNode.first("web-settings")
+        subscreensNode = screenNode.first("subscreens")
+        webSettingsNode = screenNode.first("web-settings")
         this.location = location
 
         long startTime = System.currentTimeMillis()
@@ -99,7 +100,9 @@ class ScreenDefinition {
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
         // actions transition, for all screens
-        transitionByName.put("actions", new ActionsTransitionItem(this))
+        if (!transitionByName.containsKey("actions")) transitionByName.put("actions", new ActionsTransitionItem(this))
+        // formSelectColumns transition, for all screens
+        if (!transitionByName.containsKey("formSelectColumns")) transitionByName.put("formSelectColumns", new FormSelectColumnsTransitionItem(this))
 
         // subscreens
         populateSubscreens()
@@ -713,7 +716,7 @@ class ScreenDefinition {
             transitionNode = null
             name = "actions"
             method = "any"
-            location = "${parentScreen.location}.transition_${StupidUtilities.cleanStringForJavaName(name)}"
+            location = "${parentScreen.location}.transition_${name}"
             beginTransaction = true
             readOnly = true
             requireSessionToken = false
@@ -765,10 +768,10 @@ class ScreenDefinition {
             // intentionally skip, commonly left in context by entity-find XML action
             return null
         } else if (value instanceof EntityValue) {
-            EntityValue ev = (EntityValue) value
+            EntityValue ev = value as EntityValue
             return ev.getPlainValueMap(0)
         } else if (value instanceof EntityList) {
-            EntityList el = (EntityList) value
+            EntityList el = value as EntityList
             ArrayList<Map> newList = new ArrayList<>()
             int elSize = el.size()
             for (int i = 0; i < elSize; i++) {
@@ -777,12 +780,12 @@ class ScreenDefinition {
             }
             return newList
         } else if (value instanceof Collection) {
-            Collection valCol = (Collection) value
+            Collection valCol = value as Collection
             ArrayList newList = new ArrayList(valCol.size())
             for (Object entry in valCol) newList.add(unwrap(key, entry))
             return newList
         } else if (value instanceof Map) {
-            Map valMap = (Map) value
+            Map valMap = value as Map
             Map newMap = new HashMap(valMap.size())
             for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
             return newMap
@@ -791,6 +794,37 @@ class ScreenDefinition {
             return null
         }
     }
+
+    /** Special automatic transition to save results of Select Columns form for form-list with select-columns=true */
+    static class FormSelectColumnsTransitionItem extends TransitionItem {
+        FormSelectColumnsTransitionItem(ScreenDefinition parentScreen) {
+            super(parentScreen)
+            transitionNode = null
+            name = "formSelectColumns"
+            method = "any"
+            location = "${parentScreen.location}.transition_${name}"
+            beginTransaction = true
+            readOnly = true
+            requireSessionToken = false
+
+            defaultResponse = new ResponseItem(new MNode("default-response", [url:"."]), this, parentScreen)
+        }
+
+        ResponseItem run(ScreenRenderImpl sri) {
+            ExecutionContextImpl ec = sri.getEc()
+
+            String userId = ec.user.userId
+            String formLocation = ec.context.get("formLocation")
+            String columnsTreeStr = ec.context.get("columnsTree")
+            JsonSlurper slurper = new JsonSlurper()
+            List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
+
+            // TODO: implement the rest of this, actually save changes to DB
+
+            return defaultResponse
+        }
+    }
+
 
     @CompileStatic
     static class ResponseItem {
