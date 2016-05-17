@@ -42,6 +42,7 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected final ContextStack context = new ContextStack()
     protected final ContextBinding contextBinding = new ContextBinding(context)
+    protected final Map<String, Object> toolInstanceMap = new HashMap<>()
     protected String activeTenantId = "DEFAULT"
     protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
@@ -87,12 +88,24 @@ class ExecutionContextImpl implements ExecutionContext {
     Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache }
 
     @Override
-    ContextStack getContext() { return context }
+    ExecutionContextFactory getFactory() { return ecfi }
 
     @Override
+    ContextStack getContext() { return context }
+    @Override
     Map<String, Object> getContextRoot() { return context.getRootMap() }
-
+    @Override
     ContextBinding getContextBinding() { return contextBinding }
+
+    @Override
+    <V> V getToolInstance(String toolName, Class<V> instanceClass) {
+        V toolInstance = (V) toolInstanceMap.get(toolName)
+        if (toolInstance == null) {
+            toolInstance = ecfi.getToolInstance(toolName, instanceClass)
+            toolInstanceMap.put(toolName, toolInstance)
+        }
+        return toolInstance
+    }
 
     @Override
     String getTenantId() { return activeTenantId }
@@ -172,9 +185,6 @@ class ExecutionContextImpl implements ExecutionContext {
         ecfi.registerNotificationMessageListener(nml)
     }
 
-
-    @Override
-    CamelContext getCamelContext() { ecfi.getCamelContext() }
     @Override
     Client getElasticSearchClient() { ecfi.getElasticSearchClient() }
     @Override

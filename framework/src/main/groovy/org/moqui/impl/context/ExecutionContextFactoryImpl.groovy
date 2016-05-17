@@ -88,9 +88,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected StupidClassLoader cachedClassLoader
     protected InetAddress localhostAddress = null
 
-    protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<String, ComponentInfo>()
-    protected final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<ExecutionContextImpl>()
-    protected final Map<String, EntityFacadeImpl> entityFacadeByTenantMap = new HashMap<String, EntityFacadeImpl>()
+    protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>()
+    protected final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>()
+    protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>()
+
+    protected final Map<String, EntityFacadeImpl> entityFacadeByTenantMap = new HashMap<>()
     protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
 
@@ -100,11 +102,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
-
-    /** The central object of the Camel API: CamelContext */
-    protected CamelContext camelContext
-    protected MoquiServiceComponent moquiServiceComponent
-    protected Map<String, MoquiServiceConsumer> camelConsumerByUriMap = new HashMap<String, MoquiServiceConsumer>()
 
     /** ElasticSearch Node */
     protected org.elasticsearch.node.Node elasticSearchNode
@@ -349,34 +346,30 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Starting ESAPI, resources at ${System.getProperty("org.owasp.esapi.resources")}")
         StupidWebUtilities.canonicalizeValue("test")
 
-        // setup the CamelContext, but don't init yet
-        camelContext = new DefaultCamelContext()
+        // Load ToolFactory implementations from tools.tool-factory elements, run preFacadeInit() methods
+        ArrayList<Map<String, String>> toolFactoryAttrsList = new ArrayList<>()
+        for (MNode toolFactoryNode in confXmlRoot.first("tools").children("tool-factory")) {
+            if (toolFactoryNode.attribute("disabled") == "true") {
+                logger.info("Not loading disabled ToolFactory with class: ${toolFactoryNode.attribute("class")}")
+                continue
+            }
+            toolFactoryAttrsList.add(toolFactoryNode.getAttributes())
+        }
+        StupidUtilities.orderMapList(toolFactoryAttrsList as List<Map>, ["init-priority", "class"])
+        for (Map<String, String> toolFactoryAttrs in toolFactoryAttrsList) {
+            String tfClass = toolFactoryAttrs.get("class")
+            logger.info("Loading ToolFactory with class: ${tfClass}")
+            try {
+                ToolFactory tf = (ToolFactory) Thread.currentThread().getContextClassLoader().loadClass(tfClass).newInstance()
+                tf.preFacadeInit(this)
+                toolFactoryMap.put(tf.getName(), tf)
+            } catch (Throwable t) {
+                logger.error("Error loading ToolFactory with class ${tfClass}", t)
+            }
+        }
     }
 
     protected void postFacadeInit() {
-        // initialize Hazelcast using hazelcast.xml on the classpath for config unless there is a hazelcast.config system property
-        Config hzConfig
-        if (System.getProperty("hazelcast.config")) {
-            logger.info("Starting Hazelcast with hazelcast.config system property (${System.getProperty("hazelcast.config")})")
-            hzConfig = new Config("moqui")
-        } else {
-            logger.info("Starting Hazelcast with hazelcast.xml from classpath")
-            hzConfig = new XmlConfigBuilder(cachedClassLoader.getResourceAsStream("hazelcast.xml")).build()
-            hzConfig.setInstanceName("moqui")
-        }
-        hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(hzConfig)
-
-        // init ElasticSearch after facades, before Camel
-        initElasticSearch()
-
-        // everything else ready to go, init Camel
-        initCamel()
-
-        // init Jackrabbit standalone instance
-        initJackrabbit()
-
-        // init KIE (build modules for all components)
-        initKie()
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
@@ -394,6 +387,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
         defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
+        // ====== initialize tools ======
+
+        // initialize Hazelcast using hazelcast.xml on the classpath for config unless there is a hazelcast.config system property
+        Config hzConfig
+        if (System.getProperty("hazelcast.config")) {
+            logger.info("Starting Hazelcast with hazelcast.config system property (${System.getProperty("hazelcast.config")})")
+            hzConfig = new Config("moqui")
+        } else {
+            logger.info("Starting Hazelcast with hazelcast.xml from classpath")
+            hzConfig = new XmlConfigBuilder(cachedClassLoader.getResourceAsStream("hazelcast.xml")).build()
+            hzConfig.setInstanceName("moqui")
+        }
+        hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(hzConfig)
+
         // register EntityCacheListener
         logger.info("Getting Entity Cache Invalidate Hazelcast Topic")
         entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
@@ -404,6 +411,26 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Getting Async Service Hazelcast ExecutorService")
         hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
 
+        // init ElasticSearch after facades, before Camel
+        initElasticSearch()
+
+        // init Jackrabbit standalone instance
+        initJackrabbit()
+
+        // init KIE (build modules for all components)
+        initKie()
+
+        // Run init() in ToolFactory implementations from tools.tool-factory elements
+        for (ToolFactory tf in toolFactoryMap.values()) {
+            logger.info("Initializing ToolFactory: ${tf.getName()}")
+            try {
+                tf.init(this)
+            } catch (Throwable t) {
+                logger.error("Error initializing ToolFactory ${tf.getName()}", t)
+            }
+        }
+
+        // Warm cache on start if configured to do so
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
     }
 
@@ -495,9 +522,24 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
+    @Override
     synchronized void destroy() {
-        if (destroyed) return
+        if (destroyed) {
+            logger.warn("Not destroying ExecutionContextFactory, already destroyed (or destroying)")
+            return
+        }
         destroyed = true
+
+        // persist any remaining bins in artifactHitBinByType
+        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
+        List<ArtifactStatsInfo> asiList = new ArrayList<>(artifactStatsInfoByType.values())
+        artifactStatsInfoByType.clear()
+        for (ArtifactStatsInfo asi in asiList) {
+            if (asi.curHitBin == null) continue
+            EntityValue ahb = asi.curHitBin.makeAhbValue(this, currentTimestamp)
+            ahb.setSequencedIdPrimary().create()
+        }
+        logger.info("ArtifactHitBins stored")
 
         // shutdown worker pool
         try {
@@ -505,14 +547,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.info("Worker pool shut down")
         } catch (Throwable t) { logger.error("Error in workerPool shutdown", t) }
 
-        // stop Camel to prevent more calls coming in
-        if (camelContext != null) try {
-            camelContext.stop()
-            logger.info("Camel stopped")
-        } catch (Throwable t) { logger.error("Error in Camel stop", t) }
-
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
+
+        // Run destroy() in ToolFactory implementations from tools.tool-factory elements, in reverse order
+        ArrayList<ToolFactory> toolFactoryList = new ArrayList<>(toolFactoryMap.values())
+        Collections.reverse(toolFactoryList)
+        for (ToolFactory tf in toolFactoryList) {
+            logger.info("Destroying ToolFactory: ${tf.getName()}")
+            try {
+                tf.destroy()
+            } catch (Throwable t) {
+                logger.error("Error destroying ToolFactory ${tf.getName()}", t)
+            }
+        }
 
         // shutdown Hazelcast
         Hazelcast.shutdownAll()
@@ -534,17 +582,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             jackrabbitProcess.destroy()
             logger.info("Jackrabbit process destroyed")
         } catch (Throwable t) { logger.error("Error in JackRabbit process destroy", t) }
-
-        // persist any remaining bins in artifactHitBinByType
-        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
-        List<ArtifactStatsInfo> asiList = new ArrayList<>(artifactStatsInfoByType.values())
-        artifactStatsInfoByType.clear()
-        for (ArtifactStatsInfo asi in asiList) {
-            if (asi.curHitBin == null) continue
-            EntityValue ahb = asi.curHitBin.makeAhbValue(this, currentTimestamp)
-            ahb.setSequencedIdPrimary().create()
-        }
-        logger.info("ArtifactHitBins stored")
 
         // this destroy order is important as some use others so must be destroyed first
         if (this.serviceFacade != null) this.serviceFacade.destroy()
@@ -656,25 +693,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     TransactionFacadeImpl getTransactionFacade() { return transactionFacade }
     L10nFacadeImpl getL10nFacade() { return getEci().getL10nFacade() }
     // TODO: find references, change to eci where more direct
-
-    // =============== Apache Camel Methods ===============
-    @Override
-    CamelContext getCamelContext() { return camelContext }
-
-    MoquiServiceComponent getMoquiServiceComponent() { return moquiServiceComponent }
-    void registerCamelConsumer(String uri, MoquiServiceConsumer consumer) { camelConsumerByUriMap.put(uri, consumer) }
-    MoquiServiceConsumer getCamelConsumer(String uri) { return camelConsumerByUriMap.get(uri) }
-
-    protected void initCamel() {
-        if (confXmlRoot.first("tools").attribute("enable-camel") != "false") {
-            logger.info("Starting Camel")
-            moquiServiceComponent = new MoquiServiceComponent(this)
-            camelContext.addComponent("moquiservice", moquiServiceComponent)
-            camelContext.start()
-        } else {
-            logger.info("Camel disabled, not starting")
-        }
-    }
 
     // =============== ElasticSearch Methods ===============
     @Override
@@ -888,6 +906,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
+    <V> ToolFactory<V> getToolFactory(String toolName) {
+        ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
+        return toolFactory
+    }
+    @Override
+    <V> V getToolInstance(String toolName, Class<V> instanceClass) {
+        ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
+        if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
+        return toolFactory.getInstance()
+    }
+
+    @Deprecated
     void initComponent(String location) {
         ComponentInfo componentInfo = new ComponentInfo(location, this)
         // check dependencies
@@ -1061,8 +1091,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    @Override
-    void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
+    // void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
 
     @Override
     LinkedHashMap<String, String> getComponentBaseLocations() {
@@ -1404,7 +1433,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Configuration File Merging Methods ==========
 
     protected static void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
-        baseNode.mergeSingleChild(overrideNode, "tools")
+        baseNode.mergeChildWithChildKey(overrideNode, "tools", "tool-factory", "class", null)
 
         baseNode.mergeChildWithChildKey(overrideNode, "cache-list", "cache", "name", null)
 

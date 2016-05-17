@@ -13,14 +13,16 @@
  */
 package org.moqui.impl.service.runner
 
+import org.apache.camel.CamelContext
 import org.apache.camel.CamelExecutionException
+import org.apache.camel.Endpoint
 import org.apache.camel.ProducerTemplate
 
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.ServiceRunner
+import org.moqui.impl.service.camel.CamelToolFactory
 import org.moqui.service.ServiceException
-import org.apache.camel.Endpoint
 import org.moqui.impl.service.camel.MoquiServiceConsumer
 
 import org.slf4j.Logger
@@ -30,25 +32,34 @@ public class CamelServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(CamelServiceRunner.class)
 
     protected ServiceFacadeImpl sfi
+    protected CamelToolFactory camelToolFactory
     protected ProducerTemplate producerTemplate
 
     CamelServiceRunner() {}
 
     public ServiceRunner init(ServiceFacadeImpl sfi) {
         this.sfi = sfi
-        producerTemplate = sfi.ecfi.camelContext.createProducerTemplate()
+        camelToolFactory = (CamelToolFactory) sfi.ecfi.getToolFactory(CamelToolFactory.TOOL_NAME)
+        if (camelToolFactory != null) {
+            CamelContext camelContext = camelToolFactory.getInstance()
+            producerTemplate = camelContext.createProducerTemplate()
+        } else {
+            logger.warn("Camel not initialized, CamelServiceRunner disabled")
+            producerTemplate = null
+        }
         return this
     }
 
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
+        if (camelToolFactory == null) throw new IllegalStateException("CamelServiceRunner disabled, probably because Camel was not initialized")
         // location is mandatory, method is optional and only really used to call other Moqui services (goes in the ServiceName header)
         String endpointUri = sd.getLocation()
         if (!endpointUri) throw new ServiceException("Service [${sd.serviceName}] is missing the location attribute and it is required for running a Camel service.")
 
         Map<String, Object> headers = new HashMap<String, Object>()
 
-        Endpoint endpoint = sfi.ecfi.moquiServiceComponent.createEndpoint(endpointUri)
-        MoquiServiceConsumer consumer = sfi.ecfi.getCamelConsumer(endpoint.getEndpointUri())
+        Endpoint endpoint = camelToolFactory.moquiServiceComponent.createEndpoint(endpointUri)
+        MoquiServiceConsumer consumer = camelToolFactory.getCamelConsumer(endpoint.getEndpointUri())
         if (consumer != null) {
             try {
                 return consumer.process(sd, parameters)

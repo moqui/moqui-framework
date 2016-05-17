@@ -18,16 +18,14 @@ import org.apache.camel.Consumer
 import org.apache.camel.Processor
 import org.apache.camel.impl.DefaultEndpoint
 
-import org.moqui.impl.context.ExecutionContextFactoryImpl
-
 class MoquiServiceEndpoint extends DefaultEndpoint {
     protected String remaining
-    protected ExecutionContextFactoryImpl ecfi
+    protected CamelToolFactory camelToolFactory
 
     public MoquiServiceEndpoint(String uri, MoquiServiceComponent component, String remaining) {
         super(uri, component)
         this.remaining = remaining
-        this.ecfi = component.getEcfi()
+        camelToolFactory = component.getCamelToolFactory()
     }
 
     public Producer createProducer() throws Exception {
@@ -39,5 +37,5 @@ class MoquiServiceEndpoint extends DefaultEndpoint {
     }
 
     public boolean isSingleton() { return true }
-    public ExecutionContextFactoryImpl getEcfi() { return ecfi }
+    public CamelToolFactory getCamelToolFactory() { return camelToolFactory }
 }

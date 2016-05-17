@@ -35,12 +35,19 @@ import javax.servlet.http.HttpServletResponse;
  * thread only.
  */
 public interface ExecutionContext {
+    /** Get the ExecutionContextFactory this came from. */
+    ExecutionContextFactory getFactory();
+
     /** Returns a Map that represents the current local variable space (context) in whatever is being run. */
     ContextStack getContext();
     ContextBinding getContextBinding();
-
     /** Returns a Map that represents the global/root variable space (context), ie the bottom of the context stack. */
     Map<String, Object> getContextRoot();
+
+    /** Get an instance object from the named ToolFactory instance (loaded by configuration). Some tools return a
+     * singleton instance, others a new instance each time it is used and that instance is saved with this
+     * ExecutionContext to be reused. */
+    <V> V getToolInstance(String toolName, Class<V> instanceClass);
 
     /** Get current Tenant ID. A single application may be run in multiple virtual instances, one for each Tenant, and
      * each will have its own set of databases (except for the tenant database which is shared among all Tenants).
@@ -89,9 +96,6 @@ public interface ExecutionContext {
     NotificationMessage makeNotificationMessage();
     List<NotificationMessage> getNotificationMessages(String userId, String topic);
     void registerNotificationMessageListener(NotificationMessageListener nml);
-
-    /** Apache Camel is used for integration message routing. To interact directly with Camel get the context here. */
-    CamelContext getCamelContext();
 
     /** ElasticSearch Client is used for indexing and searching documents */
     Client getElasticSearchClient();

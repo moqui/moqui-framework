@@ -15,15 +15,14 @@ package org.moqui.impl.service.camel
 
 import org.apache.camel.impl.DefaultComponent
 import org.apache.camel.Endpoint
-import org.moqui.impl.context.ExecutionContextFactoryImpl
 
 class MoquiServiceComponent extends DefaultComponent {
 
-    protected ExecutionContextFactoryImpl ecfi
+    protected CamelToolFactory camelToolFactory
 
-    MoquiServiceComponent(ExecutionContextFactoryImpl ecfi) {
+    MoquiServiceComponent(CamelToolFactory ctf) {
         super()
-        this.ecfi = ecfi
+        camelToolFactory = ctf
     }
 
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
@@ -31,5 +30,5 @@ class MoquiServiceComponent extends DefaultComponent {
         return endpoint
     }
 
-    ExecutionContextFactoryImpl getEcfi() { return ecfi }
+    CamelToolFactory getCamelToolFactory() { return camelToolFactory }
 }

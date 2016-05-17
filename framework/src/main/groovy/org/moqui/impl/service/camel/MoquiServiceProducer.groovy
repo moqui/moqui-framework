@@ -16,13 +16,16 @@ package org.moqui.impl.service.camel
 import org.apache.camel.impl.DefaultProducer
 import org.apache.camel.Exchange
 
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
 /**
  * Camel Producer for the MoquiService endpoint. This processes messages send to an endpoint like:
  *
  * moquiservice:serviceName
  */
 class MoquiServiceProducer extends DefaultProducer {
-    protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MoquiServiceProducer.class)
+    protected final static Logger logger = LoggerFactory.getLogger(MoquiServiceProducer.class)
 
     protected final MoquiServiceEndpoint moquiServiceEndpoint
     protected final String remaining
@@ -44,7 +47,7 @@ class MoquiServiceProducer extends DefaultProducer {
         // logger.warn("TOREMOVE: remaining=[${remaining}], serviceName=${serviceName}, parameters: ${parameters}")
 
         logger.info("Calling service [${serviceName}] with parameters [${parameters}]")
-        Map<String, Object> result = moquiServiceEndpoint.getEcfi().getServiceFacade().sync().name(serviceName)
+        Map<String, Object> result = moquiServiceEndpoint.getCamelToolFactory().getEcf().getService().sync().name(serviceName)
                 .parameters(parameters).call()
         logger.info("Service [${serviceName}] result [${result}]")
 

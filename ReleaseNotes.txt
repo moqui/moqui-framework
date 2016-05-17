@@ -14,6 +14,12 @@ Non Backward Compatible Changes
 
 - Java JDK 8 now required for running executable WAR
 - No longer using Winstone embedded web server (now using Jetty)
+- ExecutionContext and ExecutionContextFactory
+  - Removed initComponent() and destroyComponent() methods; were never well
+    supported (runtime component init and destroy caused issues)
+  - Removed getCamelContext() from ExecutionContextFactory and
+    ExecutionContext, use getToolInstance("Camel", CamelContext.class)
+  - See new feature notes under Tool Factory
 - Caching
   - Ehcache has been removed
   - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
@@ -52,6 +58,16 @@ New Features
   - now internally using Servlet API 3.1.0
 - Various library updates, big cleanup of classes found in multiple jar
   files (JarHell checks pass; nice in general, needed for ElasticSearch)
+- Tool Factory
+  - Added org.moqui.context.ToolFactory interface used to initialize,
+    destroy, and get instances of tools
+  - Added tools.tool-factory element in Moqui Conf XML file; has default
+    tools in MoquiDefaultConf.xml and can be populated or modified in
+    component and/or runtime conf XML files
+  - Use new ExecutionContextFactory.getToolFactory(),
+    ExecutionContextFactory.getToolInstance(), and
+    ExecutionContext.getToolInstance() methods to interact with tools
+  - See non backward compatible change notes for ExecutionContextFactory
 - Caching
   - CacheFacade now supports separate local and distributed caches both
     using the javax.cache interfaces
