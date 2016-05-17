@@ -20,6 +20,8 @@ import org.moqui.context.ToolFactory
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+/** A ToolFactory for Apache Camel, an Enterprise Integration Patterns toolkit used for message processing and
+ * integrated with the ServiceFacade with an end point to use services to produce and consume Camel messages. */
 class CamelToolFactory implements ToolFactory<CamelContext> {
     protected final static Logger logger = LoggerFactory.getLogger(CamelToolFactory.class)
     final static TOOL_NAME = "Camel"
