@@ -291,6 +291,7 @@ dependencies {
     // Jetty
     execWarCompile 'org.eclipse.jetty:jetty-server:9.3.8.v20160314' // Apache 2.0
     execWarCompile 'org.eclipse.jetty:jetty-webapp:9.3.8.v20160314' // Apache 2.0
+    execWarCompile 'org.eclipse.jetty:jetty-jndi:9.3.8.v20160314' // Apache 2.0
 }
 
 task apiJavadoc(type: Javadoc) {
