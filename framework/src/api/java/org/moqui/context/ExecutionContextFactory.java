@@ -14,18 +14,14 @@
 package org.moqui.context;
 
 import com.hazelcast.core.HazelcastInstance;
-import org.apache.camel.CamelContext;
-import org.elasticsearch.client.Client;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.StatelessKieSession;
-import org.moqui.BaseException;
 import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
 
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Interface for the object that will be used to get an ExecutionContext object and manage framework life cycle.
@@ -77,8 +73,6 @@ public interface ExecutionContextFactory {
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
     ScreenFacade getScreen();
 
-    /** ElasticSearch Client is used for indexing and searching documents */
-    Client getElasticSearchClient();
     /** Hazelcast Instance, used for clustered data sharing and execution including web session replication and distributed cache */
     HazelcastInstance getHazelcastInstance();
 

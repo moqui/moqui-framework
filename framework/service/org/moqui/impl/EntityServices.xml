@@ -28,7 +28,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <script>
-
+                import org.elasticsearch.client.Client
                 import org.elasticsearch.action.get.GetResponse
                 import org.elasticsearch.action.index.IndexResponse
                 import org.slf4j.Logger
@@ -36,6 +36,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.context.ExecutionContext
 
                 ExecutionContext ec = context.ec
+                Client elasticSearchClient = ec.getToolInstance("ElasticSearch", Client.class)
                 Logger logger = LoggerFactory.getLogger("org.moqui.impl.EntityServices.indexDataDocuments")
 
                 // Make sure all indices exist
@@ -61,7 +62,7 @@ along with this software (see the LICENSE.md file). If not, see
                     if (getOriginalDocuments) {
                         // this may fail for a number of reasons, like index doesn't exist yet, so catch the exception
                         try {
-                            GetResponse gr = ec.elasticSearchClient.prepareGet(_index, _type, _id).execute().actionGet()
+                            GetResponse gr = elasticSearchClient.prepareGet(_index, _type, _id).execute().actionGet()
                             Map originalDocument = gr.getSourceAsMap()
                             if (originalDocument != null) {
                                 // As of ES 2.0 _index, _type, _id aren't included in the document
@@ -80,10 +81,10 @@ along with this software (see the LICENSE.md file). If not, see
                         }
                     }
                     // Groovy DSL version
-                    // IndexResponse response = ec.elasticSearchClient.index { index document._index; type document._type;
+                    // IndexResponse response = elasticSearchClient.index { index document._index; type document._type;
                     //     id document._id; source document; }.actionGet()
                     // Java API version
-                    IndexResponse response = ec.elasticSearchClient.prepareIndex(_index, _type, _id)
+                    IndexResponse response = elasticSearchClient.prepareIndex(_index, _type, _id)
                             .setIndex(_index).setType(_type).setId(_id).setTimestamp(_timestamp)
                             .setSource(document).execute().actionGet()
 
@@ -182,6 +183,7 @@ along with this software (see the LICENSE.md file). If not, see
             <script>
                 /* useful docs for query API: http://www.elasticsearch.org/guide/reference/api/search/uri-request/ */
 
+                import org.elasticsearch.client.Client
                 import org.elasticsearch.action.get.MultiGetItemResponse
                 import org.elasticsearch.action.get.MultiGetRequestBuilder
                 import org.elasticsearch.action.search.SearchRequestBuilder
@@ -192,6 +194,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.context.ExecutionContext
 
                 ExecutionContext ec = context.ec
+                Client elasticSearchClient = ec.getToolInstance("ElasticSearch", Client.class)
 
                 documentList = []
 
@@ -201,7 +204,7 @@ along with this software (see the LICENSE.md file). If not, see
                 ec.entity.getEntityDataDocument().checkCreateIndex(indexName)
 
                 // get the search hits
-                SearchRequestBuilder srb = ec.elasticSearchClient.prepareSearch().setIndices(indexName).setTypes(documentType)
+                SearchRequestBuilder srb = elasticSearchClient.prepareSearch().setIndices(indexName).setTypes(documentType)
                         .setQuery(QueryBuilders.queryStringQuery(queryString)).setFrom(fromOffset).setSize(sizeLimit)
                         .setFetchSource(true)
                 for (String orderByField in orderByFields) {
@@ -231,7 +234,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 /* the old approach, without .setFetchSource(true)
                 if (hits.getTotalHits() > 0) {
-                    MultiGetRequestBuilder mgrb = ec.elasticSearchClient.prepareMultiGet()
+                    MultiGetRequestBuilder mgrb = elasticSearchClient.prepareMultiGet()
                     for (SearchHit hit in hits) mgrb.add(hit.getIndex(), hit.getType(), hit.getId())
                     Iterator mgirIt = mgrb.execute().actionGet().iterator()
                     while(mgirIt.hasNext()) {
@@ -244,7 +247,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 // get the total search count
                 // TODO: replace deprecated (in 2.1.0) prepareCount(), release notes say: "Deprecate the count api in favour of search with size 0"
-                documentListCount = ec.elasticSearchClient.prepareCount(indexName).setTypes(documentType)
+                documentListCount = elasticSearchClient.prepareCount(indexName).setTypes(documentType)
                         .setQuery(QueryBuilders.queryStringQuery(queryString)).execute().actionGet().getCount()
                 // this doesn't work: documentListCount = srb.execute().actionGet().getCount()
 
@@ -284,11 +287,13 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <script>
+                import org.elasticsearch.client.Client
                 import org.elasticsearch.action.search.SearchRequestBuilder
                 import org.elasticsearch.action.search.SearchResponse
                 import org.moqui.context.ExecutionContext
 
                 ExecutionContext ec = context.ec
+                Client elasticSearchClient = ec.getToolInstance("ElasticSearch", Client.class)
 
                 if (!indexName.contains('__')) indexName = "${ec.tenantId}__${indexName}".toLowerCase()
 
@@ -296,7 +301,7 @@ along with this software (see the LICENSE.md file). If not, see
                 ec.entity.getEntityDataDocument().checkCreateIndex(indexName)
 
                 // get the search hits
-                SearchRequestBuilder srb = ec.elasticSearchClient.prepareSearch().setIndices((String) indexName)
+                SearchRequestBuilder srb = elasticSearchClient.prepareSearch().setIndices((String) indexName)
                         .setSearchType('count').setSize(maxResults)
                 if (documentTypeList) srb.setTypes((String[]) documentTypeList.toArray(new String[documentTypeList.size()]))
                 if (sourceJson) srb.setExtraSource((String) sourceJson)

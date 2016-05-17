@@ -19,6 +19,8 @@ Non Backward Compatible Changes
     supported (runtime component init and destroy caused issues)
   - Removed getCamelContext() from ExecutionContextFactory and
     ExecutionContext, use getToolInstance("Camel", CamelContext.class)
+  - Removed getElasticSearchClient() from ExecutionContextFactory and
+    ExecutionContext, use getToolInstance("ElasticSearch", Client.class)
   - See new feature notes under Tool Factory
 - Caching
   - Ehcache has been removed

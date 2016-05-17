@@ -95,7 +95,6 @@ dependencies {
     compile 'com.atomikos:transactions-jta:4.0.2' // Apache 2.0
 
     // Apache Camel
-    apiCompile 'org.apache.camel:camel-core:2.17.1' // Apache 2.0
     compile 'org.apache.camel:camel-core:2.17.1' // Apache 2.0
     runtime 'org.apache.camel:camel-csv:2.17.1' // Apache 2.0
     runtime 'org.apache.camel:camel-freemarker:2.17.1' // Apache 2.0
@@ -130,7 +129,6 @@ dependencies {
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
 
     // ElasticSearch Libraries, including Lucene
-    apiCompile 'org.elasticsearch:elasticsearch:2.3.2' // Apache 2.0
     compile 'org.elasticsearch:elasticsearch:2.3.2' // Apache 2.0
     // NOTE: the lang-groovy module must be in the runtime/elasticsearch/modules directory, not loaded from the classpath; update when updating elasticsearch version!
     // compile module('org.elasticsearch.module:lang-groovy:2.3.2') // Apache 2.0
