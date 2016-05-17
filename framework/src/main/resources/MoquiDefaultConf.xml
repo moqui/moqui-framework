@@ -4,7 +4,9 @@
 
     <!-- Settings in this file can be overridden in a component and/or runtime conf file that has a any of the desired sub-elements. -->
 
-    <tools enable-elasticsearch="true" enable-camel="true" run-jackrabbit="false" empty-db-load="seed"/>
+    <tools enable-elasticsearch="true" run-jackrabbit="false" empty-db-load="seed">
+        <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="11" disabled="false"/>
+    </tools>
 
     <cache-list warm-on-start="true">
         <!-- Entity Database Record Caches (and cache clear assist data) -->

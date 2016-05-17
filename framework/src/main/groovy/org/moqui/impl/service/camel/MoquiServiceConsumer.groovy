@@ -18,10 +18,12 @@ import org.apache.camel.Processor
 import org.moqui.impl.service.ServiceDefinition
 import org.apache.camel.Exchange
 import org.apache.camel.RuntimeCamelException
-import org.apache.camel.Message
+
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 class MoquiServiceConsumer extends DefaultConsumer {
-    protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MoquiServiceConsumer.class)
+    protected final static Logger logger = LoggerFactory.getLogger(MoquiServiceConsumer.class)
 
     protected final MoquiServiceEndpoint moquiServiceEndpoint
     protected final String remaining
@@ -32,7 +34,7 @@ class MoquiServiceConsumer extends DefaultConsumer {
         this.moquiServiceEndpoint = moquiServiceEndpoint
         this.remaining = remaining
 
-        moquiServiceEndpoint.getEcfi().registerCamelConsumer(moquiServiceEndpoint.getEndpointUri(), this)
+        moquiServiceEndpoint.getCamelToolFactory().registerCamelConsumer(moquiServiceEndpoint.getEndpointUri(), this)
     }
 
     Map<String, Object> process(ServiceDefinition sd, Map<String, Object> parameters) {
