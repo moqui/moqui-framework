@@ -815,11 +815,36 @@ class ScreenDefinition {
 
             String userId = ec.user.userId
             String formLocation = ec.context.get("formLocation")
-            String columnsTreeStr = ec.context.get("columnsTree")
+            String columnsTreeStr = ec.context.get("columnsTree") as String
+            // logger.info("columnsTreeStr: ${columnsTreeStr}")
+            // if columnsTree empty there were no changes
+            if (!columnsTreeStr) return defaultResponse
+
             JsonSlurper slurper = new JsonSlurper()
             List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
 
-            // TODO: implement the rest of this, actually save changes to DB
+            // clear out existing records
+            ec.entity.find("moqui.screen.form.FormListUserField").condition("userId", userId)
+                    .condition("formLocation", formLocation).deleteAll()
+
+            // save changes to DB
+            StupidUtilities.orderMapList(columnsTree, ['order'])
+            int columnIndex = 0
+            for (Map columnMap in columnsTree) {
+                if (columnMap.get("id") == "hidden") continue
+                List<Map> children = (List<Map>) columnMap.get("children")
+                StupidUtilities.orderMapList(children, ['order'])
+                int columnSequence = 0
+                for (Map fieldMap in children) {
+                    String fieldName = (String) fieldMap.get("id")
+                    // logger.info("Adding field ${fieldName} to column ${columnIndex} at sequence ${columnSequence}")
+                    ec.service.sync().name("create#moqui.screen.form.FormListUserField")
+                            .parameters([userId:userId, formLocation:formLocation, fieldName:fieldName,
+                                         columnIndex:columnIndex, columnSequence:columnSequence]).call()
+                    columnSequence++
+                }
+                columnIndex++
+            }
 
             return defaultResponse
         }
