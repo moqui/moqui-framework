@@ -359,8 +359,10 @@ class WebFacadeImpl implements WebFacade {
         Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
         if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0)
             cs.push(new StupidWebUtilities.CanonicalizeMap(pathInfoParameterMap))
-
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
+
+        // do one last push so writes don't modify whatever was at the top of the stack
+        cs.push()
         requestParameters = cs
         return requestParameters
     }
