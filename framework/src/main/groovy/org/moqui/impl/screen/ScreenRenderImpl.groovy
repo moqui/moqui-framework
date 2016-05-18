@@ -279,7 +279,8 @@ class ScreenRenderImpl implements ScreenRender {
 
         // check this here after the ScreenUrlInfo (with transition alias, etc) has already been handled
         String localRenderMode = web != null ? web.requestParameters.renderMode : null
-        if (localRenderMode != null && localRenderMode.length() > 0) renderMode = localRenderMode
+        if ((renderMode == null || renderMode.length() == 0) && localRenderMode != null && localRenderMode.length() > 0)
+            renderMode = localRenderMode
         // if no renderMode get from target screen extension in URL
         if ((renderMode == null || renderMode.length() == 0) && screenUrlInfo.targetScreenRenderMode != null)
             renderMode = screenUrlInfo.targetScreenRenderMode
