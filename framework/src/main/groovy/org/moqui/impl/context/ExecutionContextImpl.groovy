@@ -14,9 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.kie.api.runtime.KieContainer
-import org.kie.api.runtime.KieSession
-import org.kie.api.runtime.StatelessKieSession
 import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.entity.EntityFacade
@@ -96,10 +93,10 @@ class ExecutionContextImpl implements ExecutionContext {
     ContextBinding getContextBinding() { return contextBinding }
 
     @Override
-    <V> V getToolInstance(String toolName, Class<V> instanceClass) {
+    <V> V getTool(String toolName, Class<V> instanceClass) {
         V toolInstance = (V) toolInstanceMap.get(toolName)
         if (toolInstance == null) {
-            toolInstance = ecfi.getToolInstance(toolName, instanceClass)
+            toolInstance = ecfi.getTool(toolName, instanceClass)
             toolInstanceMap.put(toolName, toolInstance)
         }
         return toolInstance
@@ -182,22 +179,6 @@ class ExecutionContextImpl implements ExecutionContext {
     void registerNotificationMessageListener(NotificationMessageListener nml) {
         ecfi.registerNotificationMessageListener(nml)
     }
-
-    @Override
-    KieContainer getKieContainer(String componentName) { ecfi.getKieContainer(componentName) }
-    @Override
-    KieSession getKieSession(String ksessionName) {
-        KieSession session = ecfi.getKieSession(ksessionName)
-        session.setGlobal("ec", this)
-        return session
-    }
-    @Override
-    StatelessKieSession getStatelessKieSession(String ksessionName) {
-        StatelessKieSession session = ecfi.getStatelessKieSession(ksessionName)
-        session.setGlobal("ec", this)
-        return session
-    }
-
 
     @Override
     void initWebFacade(String webappMoquiName, HttpServletRequest request, HttpServletResponse response) {

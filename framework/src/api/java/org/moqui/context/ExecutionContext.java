@@ -16,9 +16,6 @@ package org.moqui.context;
 import java.util.List;
 import java.util.Map;
 
-import org.kie.api.runtime.KieContainer;
-import org.kie.api.runtime.KieSession;
-import org.kie.api.runtime.StatelessKieSession;
 import org.moqui.entity.EntityFacade;
 import org.moqui.entity.EntityValue;
 import org.moqui.screen.ScreenFacade;
@@ -44,8 +41,9 @@ public interface ExecutionContext {
 
     /** Get an instance object from the named ToolFactory instance (loaded by configuration). Some tools return a
      * singleton instance, others a new instance each time it is used and that instance is saved with this
-     * ExecutionContext to be reused. */
-    <V> V getToolInstance(String toolName, Class<V> instanceClass);
+     * ExecutionContext to be reused. The instanceClass may be null in scripts or other contexts where static typing
+     * is not needed */
+    <V> V getTool(String toolName, Class<V> instanceClass);
 
     /** Get current Tenant ID. A single application may be run in multiple virtual instances, one for each Tenant, and
      * each will have its own set of databases (except for the tenant database which is shared among all Tenants).
@@ -94,13 +92,6 @@ public interface ExecutionContext {
     NotificationMessage makeNotificationMessage();
     List<NotificationMessage> getNotificationMessages(String userId, String topic);
     void registerNotificationMessageListener(NotificationMessageListener nml);
-
-    /** Get a KIE Container for Drools, jBPM, OptaPlanner, etc from the KIE Module in the given component. */
-    KieContainer getKieContainer(String componentName);
-    /** Get a KIE Session by name from the last component KIE Module loaded with the given session name. */
-    KieSession getKieSession(String ksessionName);
-    /** Get a KIE Stateless Session by name from the last component KIE Module loaded with the given session name. */
-    StatelessKieSession getStatelessKieSession(String ksessionName);
 
     /** This should be called by a filter or servlet at the beginning of an HTTP request to initialize a web facade
      * for the current thread.

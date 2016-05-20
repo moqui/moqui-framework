@@ -25,14 +25,6 @@ import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
-import org.kie.api.KieServices
-import org.kie.api.builder.KieBuilder
-import org.kie.api.builder.Message
-import org.kie.api.builder.ReleaseId
-import org.kie.api.builder.Results
-import org.kie.api.runtime.KieContainer
-import org.kie.api.runtime.KieSession
-import org.kie.api.runtime.StatelessKieSession
 
 import org.moqui.BaseException
 import org.moqui.context.*
@@ -57,7 +49,6 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.cache.Cache
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ExecutorService
@@ -91,8 +82,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
 
     protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
-    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
-    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeAuthzEnabled =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeTarpitEnabled =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
@@ -103,11 +96,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     ITopic<EntityCache.EntityCacheInvalidate> entityCacheInvalidateTopic
     /** Hazelcast Distributed ExecutorService for async services, etc */
     IExecutorService hazelcastExecutorService
-
-    /** KIE ReleaseId Cache */
-    protected Cache<String, ReleaseId> kieComponentReleaseIdCache
-    /** KIE Component Cache */
-    protected Cache<String, String> kieSessionComponentCache
 
     // ======== Permanent Delegated Facades ========
     protected final CacheFacadeImpl cacheFacade
@@ -121,9 +109,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected String skipStatsCond
     protected Integer hitBinLengthMillis
     // protected Map<String, Boolean> artifactPersistHitByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
     // protected Map<String, Boolean> artifactPersistBinByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
 
     // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
     private final BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>()
@@ -397,9 +387,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Getting Async Service Hazelcast ExecutorService")
         hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
 
-        // init KIE (build modules for all components)
-        initKie()
-
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
             logger.info("Initializing ToolFactory: ${tf.getName()}")
@@ -662,128 +649,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     HazelcastInstance getHazelcastInstance() { return hazelcastInstance }
     ITopic<EntityCache.EntityCacheInvalidate> getEntityCacheInvalidateTopic() { return entityCacheInvalidateTopic }
 
-    // =============== KIE Methods ===============
-    protected void initKie() {
-        kieComponentReleaseIdCache = cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
-        kieSessionComponentCache = cacheFacade.getCache("kie.session.component", String.class, String.class)
-
-        // if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "JANINO")
-        if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "ECLIPSE")
-
-        logger.info("Starting KIE (Drools, jBPM, etc)")
-        KieServices services = KieServices.Factory.get()
-        for (String componentName in componentBaseLocations.keySet()) {
-            try {
-                buildKieModule(componentName, services)
-            } catch (Throwable t) {
-                logger.error("Error initializing KIE in component ${componentName}: ${t.toString()}", t)
-            }
-        }
-    }
-
-    @Override
-    KieContainer getKieContainer(String componentName) {
-        KieServices services = KieServices.Factory.get()
-
-        ReleaseId releaseId = (ReleaseId) kieComponentReleaseIdCache.get(componentName)
-        if (releaseId == null) releaseId = buildKieModule(componentName, services)
-
-        if (releaseId != null) return services.newKieContainer(releaseId)
-        return null
-    }
-
-    protected synchronized ReleaseId buildKieModule(String componentName, KieServices services) {
-        ReleaseId releaseId = (ReleaseId) kieComponentReleaseIdCache.get(componentName)
-        if (releaseId != null) return releaseId
-
-        ResourceReference kieRr = getResourceFacade().getLocationReference("component://${componentName}/kie")
-        if (!kieRr.getExists() || !kieRr.isDirectory()) {
-            if (logger.isTraceEnabled()) logger.trace("No kie directory in component ${componentName}, not building KIE module.")
-            return null
-        }
-
-        /*
-        if (componentName == "mantle-usl") {
-            SpreadsheetCompiler sc = new SpreadsheetCompiler()
-            String drl = sc.compile(getResourceFacade().getLocationStream("component://mantle-usl/kie/src/main/resources/mantle/shipment/orderrate/OrderShippingDt.xls"), InputType.XLS)
-            StringBuilder groovyWithLines = new StringBuilder()
-            int lineNo = 1
-            for (String line in drl.split("\n")) groovyWithLines.append(lineNo++).append(" : ").append(line).append("\n")
-            logger.error("XLS DC as DRL: [\n${groovyWithLines}\n]")
-        }
-        */
-
-        try {
-            File kieDir = new File(kieRr.getUrl().getPath())
-            KieBuilder builder = services.newKieBuilder(kieDir)
-
-            // build the KIE module
-            builder.buildAll()
-            Results results = builder.getResults()
-            if (results.hasMessages(Message.Level.ERROR)) {
-                throw new BaseException("Error building KIE module in component ${componentName}: ${results.toString()}")
-            } else if (results.hasMessages(Message.Level.WARNING)) {
-                logger.warn("Warning building KIE module in component ${componentName}: ${results.toString()}")
-            }
-
-            findComponentKieSessions(componentName)
-
-            // get the release ID and cache it
-            releaseId = builder.getKieModule().getReleaseId()
-            kieComponentReleaseIdCache.put(componentName, releaseId)
-
-            return releaseId
-        } catch (Throwable t) {
-            logger.error("Error initializing KIE at ${kieRr.getLocation()}", t)
-            return null
-        }
-    }
-
-    protected void findAllComponentKieSessions() {
-        for (String componentName in componentBaseLocations.keySet()) findComponentKieSessions(componentName)
-    }
-    protected void findComponentKieSessions(String componentName) {
-        ResourceReference kieRr = getResourceFacade().getLocationReference("component://${componentName}/kie")
-        if (!kieRr.getExists() || !kieRr.isDirectory()) return
-
-        // get all KieBase and KieSession names and create reverse-reference Map so we know which component's
-        //     module they are in, then add convenience methods to get any KieBase or KieSession by name
-        ResourceReference kmoduleRr = kieRr.findChildFile("src/main/resources/META-INF/kmodule.xml")
-        Node kmoduleNode = new XmlParser().parseText(kmoduleRr.getText())
-        for (Object kbObj in kmoduleNode.get("kbase")) {
-            Node kbaseNode = (Node) kbObj
-            for (Object ksObj in kbaseNode.get("ksession")) {
-                Node ksessionNode = (Node) ksObj
-                String ksessionName = (String) ksessionNode.attribute("name")
-                String existingComponentName = kieSessionComponentCache.get(ksessionName)
-                if (existingComponentName) logger.warn("Found KIE session [${ksessionName}] in component [${existingComponentName}], replacing with session in component [${componentName}]")
-                kieSessionComponentCache.put(ksessionName, componentName)
-            }
-        }
-
-    }
-
-    @Override
-    KieSession getKieSession(String ksessionName) {
-        String componentName = kieSessionComponentCache.get(ksessionName)
-        // try finding all component sessions
-        if (!componentName) findAllComponentKieSessions()
-        componentName = kieSessionComponentCache.get(ksessionName)
-        // still nothing? blow up
-        if (!componentName) throw new IllegalStateException("No component KIE module found for session [${ksessionName}]")
-        return getKieContainer(componentName).newKieSession(ksessionName)
-    }
-    @Override
-    StatelessKieSession getStatelessKieSession(String ksessionName) {
-        String componentName = kieSessionComponentCache.get(ksessionName)
-        // try finding all component sessions
-        if (!componentName) findAllComponentKieSessions()
-        componentName = kieSessionComponentCache.get(ksessionName)
-        // still nothing? blow up
-        if (!componentName) throw new IllegalStateException("No component KIE module found for session [${ksessionName}]")
-        return getKieContainer(componentName).newStatelessKieSession(ksessionName)
-    }
-
     // ========== Interface Implementations ==========
 
     @Override
@@ -822,7 +687,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return toolFactory
     }
     @Override
-    <V> V getToolInstance(String toolName, Class<V> instanceClass) {
+    <V> V getTool(String toolName, Class<V> instanceClass) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
         return toolFactory.getInstance()

@@ -251,7 +251,6 @@ dependencies {
     compile 'org.yaml:snakeyaml:1.17' // Apache 2.0
 
     // KIE Libraries: Drools/jBPM/etc
-    apiCompile('org.kie:kie-api:6.4.0.Final') // Apache 2.0
     compile('org.kie:kie-api:6.4.0.Final') // Apache 2.0
     compile('org.drools:drools-core:6.4.0.Final') // Apache 2.0
     // another big mess drools-compiler depends on a bunch of stuff, including xstream which depends on xmlpull which is

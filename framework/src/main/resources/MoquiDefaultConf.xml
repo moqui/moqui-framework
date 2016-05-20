@@ -7,6 +7,7 @@
     <tools empty-db-load="seed">
         <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="10" disabled="false"/>
         <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="11" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.KieToolFactory" init-priority="12" disabled="false"/>
 
         <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="20" disabled="true"/>
     </tools>

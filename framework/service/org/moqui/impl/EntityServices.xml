@@ -36,7 +36,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.context.ExecutionContext
 
                 ExecutionContext ec = context.ec
-                Client elasticSearchClient = ec.getToolInstance("ElasticSearch", Client.class)
+                Client elasticSearchClient = ec.getTool("ElasticSearch", Client.class)
                 Logger logger = LoggerFactory.getLogger("org.moqui.impl.EntityServices.indexDataDocuments")
 
                 // Make sure all indices exist
@@ -194,7 +194,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.context.ExecutionContext
 
                 ExecutionContext ec = context.ec
-                Client elasticSearchClient = ec.getToolInstance("ElasticSearch", Client.class)
+                Client elasticSearchClient = ec.getTool("ElasticSearch", Client.class)
 
                 documentList = []
 
@@ -293,7 +293,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.context.ExecutionContext
 
                 ExecutionContext ec = context.ec
-                Client elasticSearchClient = ec.getToolInstance("ElasticSearch", Client.class)
+                Client elasticSearchClient = ec.getTool("ElasticSearch", Client.class)
 
                 if (!indexName.contains('__')) indexName = "${ec.tenantId}__${indexName}".toLowerCase()
 
