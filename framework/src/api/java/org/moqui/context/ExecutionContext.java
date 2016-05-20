@@ -30,6 +30,7 @@ import javax.servlet.http.HttpServletResponse;
  * tool interfaces. One instance of this object will exist for each thread running code and will be applicable for that
  * thread only.
  */
+@SuppressWarnings("unused")
 public interface ExecutionContext {
     /** Get the ExecutionContextFactory this came from. */
     ExecutionContextFactory getFactory();

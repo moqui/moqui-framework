@@ -35,7 +35,7 @@ import javax.cache.Cache
 /** ElasticSearch Client is used for indexing and searching documents */
 class KieToolFactory implements ToolFactory<KieToolFactory> {
     protected final static Logger logger = LoggerFactory.getLogger(KieToolFactory.class)
-    final static TOOL_NAME = "KIE"
+    final static String TOOL_NAME = "KIE"
 
     protected ExecutionContextFactory ecf = null
 

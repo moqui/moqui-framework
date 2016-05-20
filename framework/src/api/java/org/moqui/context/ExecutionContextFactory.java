@@ -13,7 +13,6 @@
  */
 package org.moqui.context;
 
-import com.hazelcast.core.HazelcastInstance;
 import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
@@ -70,7 +69,4 @@ public interface ExecutionContextFactory {
 
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
     ScreenFacade getScreen();
-
-    /** Hazelcast Instance, used for clustered data sharing and execution including web session replication and distributed cache */
-    HazelcastInstance getHazelcastInstance();
 }

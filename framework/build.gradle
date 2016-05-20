@@ -162,7 +162,6 @@ dependencies {
     apiCompile 'javax.cache:cache-api:1.0.0' // ?
     compile 'javax.cache:cache-api:1.0.0' // ?
     // use hazelcast-all so various options are available, not that at least hazelcast-wm is needed for web listener
-    apiCompile 'com.hazelcast:hazelcast-all:3.6.2' // Apache 2.0
     compile 'com.hazelcast:hazelcast-all:3.6.2' // Apache 2.0
 
     // Apache HTTP Components

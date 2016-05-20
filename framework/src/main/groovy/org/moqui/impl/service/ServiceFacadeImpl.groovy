@@ -13,14 +13,18 @@
  */
 package org.moqui.impl.service
 
+import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.IExecutorService
 import groovy.json.JsonBuilder
 import groovy.transform.CompileStatic
 import org.moqui.context.ResourceReference
+import org.moqui.context.ToolFactory
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
+import org.moqui.impl.tools.HazelcastToolFactory
 import org.moqui.service.RestClient
 import org.moqui.service.ServiceFacade
 import org.moqui.service.ServiceCallback
@@ -68,14 +72,18 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
 
+    /** The Quartz Scheduler object */
     protected final Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler()
-    protected Map<String, Object> schedulerInfoMap
+    protected final Map<String, Object> schedulerInfoMap
+
+    /** Hazelcast Distributed ExecutorService for async services, etc */
+    protected final IExecutorService hazelcastExecutorService
 
     protected final ConcurrentMap<String, List<ServiceCallback>> callbackRegistry = new ConcurrentHashMap<>()
 
     ServiceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        this.serviceLocationCache = ecfi.getCacheFacade().getCache("service.location", String.class, ServiceDefinition.class)
+        serviceLocationCache = ecfi.getCacheFacade().getCache("service.location", String.class, ServiceDefinition.class)
 
         // load Service ECA rules
         loadSecaRulesAll()
@@ -89,6 +97,17 @@ class ServiceFacadeImpl implements ServiceFacade {
             ServiceRunner sr = (ServiceRunner) Thread.currentThread().getContextClassLoader()
                     .loadClass(serviceType.attribute("runner-class")).newInstance()
             serviceRunners.put(serviceType.attribute("name"), sr.init(this))
+        }
+
+        // get Hazelcast ExecutorService
+        logger.info("Getting Async Service Hazelcast ExecutorService")
+        ToolFactory<HazelcastInstance> hzToolFactory = ecfi.getToolFactory(HazelcastToolFactory.TOOL_NAME)
+        if (hzToolFactory == null) {
+            logger.warn("Could not find Hazelcast ToolFactory, distributed async service calls will be run local only")
+            hazelcastExecutorService = null
+        } else {
+            HazelcastInstance hazelcastInstance = hzToolFactory.getInstance()
+            hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
         }
 
         // prep data for scheduler history listeners

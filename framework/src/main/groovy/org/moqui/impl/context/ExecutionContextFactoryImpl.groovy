@@ -13,12 +13,6 @@
  */
 package org.moqui.impl.context
 
-import com.hazelcast.config.Config
-import com.hazelcast.config.XmlConfigBuilder
-import com.hazelcast.core.Hazelcast
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.IExecutorService
-import com.hazelcast.core.ITopic
 import groovy.transform.CompileStatic
 import org.apache.shiro.SecurityUtils
 import org.apache.shiro.authc.credential.CredentialsMatcher
@@ -37,7 +31,6 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
-import org.moqui.impl.entity.EntityCache
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
@@ -87,24 +80,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeTarpitEnabled =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
 
-    /** The SecurityManager for Apache Shiro */
-    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
-
-    /** Hazelcast Instance */
-    protected HazelcastInstance hazelcastInstance
-    /** Entity Cache Invalidate Hazelcase Topic */
-    ITopic<EntityCache.EntityCacheInvalidate> entityCacheInvalidateTopic
-    /** Hazelcast Distributed ExecutorService for async services, etc */
-    IExecutorService hazelcastExecutorService
-
-    // ======== Permanent Delegated Facades ========
-    protected final CacheFacadeImpl cacheFacade
-    protected final LoggerFacadeImpl loggerFacade
-    protected final ResourceFacadeImpl resourceFacade
-    protected final ScreenFacadeImpl screenFacade
-    protected final ServiceFacadeImpl serviceFacade
-    protected final TransactionFacadeImpl transactionFacade
-
     // Some direct-cached values for better performance
     protected String skipStatsCond
     protected Integer hitBinLengthMillis
@@ -114,6 +89,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // protected Map<String, Boolean> artifactPersistBinByTypeAndSub = new HashMap<>()
     protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+
+    /** The SecurityManager for Apache Shiro */
+    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
+
+    // ======== Permanent Delegated Facades ========
+    protected final CacheFacadeImpl cacheFacade
+    protected final LoggerFacadeImpl loggerFacade
+    protected final ResourceFacadeImpl resourceFacade
+    protected final ScreenFacadeImpl screenFacade
+    protected final ServiceFacadeImpl serviceFacade
+    protected final TransactionFacadeImpl transactionFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
     final ExecutorService workerPool
@@ -386,30 +372,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
         defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
-        // ====== initialize tools ======
-
-        // initialize Hazelcast using hazelcast.xml on the classpath for config unless there is a hazelcast.config system property
-        Config hzConfig
-        if (System.getProperty("hazelcast.config")) {
-            logger.info("Starting Hazelcast with hazelcast.config system property (${System.getProperty("hazelcast.config")})")
-            hzConfig = new Config("moqui")
-        } else {
-            logger.info("Starting Hazelcast with hazelcast.xml from classpath")
-            hzConfig = new XmlConfigBuilder(cachedClassLoader.getResourceAsStream("hazelcast.xml")).build()
-            hzConfig.setInstanceName("moqui")
-        }
-        hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(hzConfig)
-
-        // register EntityCacheListener
-        logger.info("Getting Entity Cache Invalidate Hazelcast Topic")
-        entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
-        EntityCache.EntityCacheListener eciListener = new EntityCache.EntityCacheListener(this)
-        entityCacheInvalidateTopic.addMessageListener(eciListener)
-
-        // get Hazelcast ExecutorService
-        logger.info("Getting Async Service Hazelcast ExecutorService")
-        hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
-
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
             logger.info("Initializing ToolFactory: ${tf.getName()}")
@@ -552,11 +514,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
-        // shutdown Hazelcast
-        Hazelcast.shutdownAll()
-        // the above may be better than this: if (hazelcastInstance != null) hazelcastInstance.shutdown()
-        logger.info("Hazelcast shutdown")
-
         // this destroy order is important as some use others so must be destroyed first
         if (this.serviceFacade != null) this.serviceFacade.destroy()
         if (this.entityFacade != null) this.entityFacade.destroy()
@@ -667,10 +624,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     TransactionFacadeImpl getTransactionFacade() { return transactionFacade }
     L10nFacadeImpl getL10nFacade() { return getEci().getL10nFacade() }
     // TODO: find references, change to eci where more direct
-
-    @Override
-    HazelcastInstance getHazelcastInstance() { return hazelcastInstance }
-    ITopic<EntityCache.EntityCacheInvalidate> getEntityCacheInvalidateTopic() { return entityCacheInvalidateTopic }
 
     // ========== Interface Implementations ==========
 
