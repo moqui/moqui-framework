@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory
 /** ElasticSearch Client is used for indexing and searching documents */
 class ElasticSearchToolFactory implements ToolFactory<Client> {
     protected final static Logger logger = LoggerFactory.getLogger(ElasticSearchToolFactory.class)
-    final static TOOL_NAME = "ElasticSearch"
+    final static String TOOL_NAME = "ElasticSearch"
 
     protected ExecutionContextFactory ecf = null
 

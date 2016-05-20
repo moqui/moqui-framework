@@ -18,9 +18,13 @@ Non Backward Compatible Changes
   - Removed initComponent() and destroyComponent() methods; were never well
     supported (runtime component init and destroy caused issues)
   - Removed getCamelContext() from ExecutionContextFactory and
-    ExecutionContext, use getToolInstance("Camel", CamelContext.class)
+    ExecutionContext, use getTool("Camel", CamelContext.class)
   - Removed getElasticSearchClient() from ExecutionContextFactory and
-    ExecutionContext, use getToolInstance("ElasticSearch", Client.class)
+    ExecutionContext, use getTool("ElasticSearch", Client.class)
+  - Removed getKieContainer, getKieSession, and getStatelessKieSession
+    methods from ExecutionContextFactory and ExecutionContext, use
+    getTool("KIE", KieToolFactory.class) and use the corresponding
+    methods there
   - See new feature notes under Tool Factory
 - Caching
   - Ehcache has been removed
@@ -67,8 +71,8 @@ New Features
     tools in MoquiDefaultConf.xml and can be populated or modified in
     component and/or runtime conf XML files
   - Use new ExecutionContextFactory.getToolFactory(),
-    ExecutionContextFactory.getToolInstance(), and
-    ExecutionContext.getToolInstance() methods to interact with tools
+    ExecutionContextFactory.getTool(), and
+    ExecutionContext.getTool() methods to interact with tools
   - See non backward compatible change notes for ExecutionContextFactory
 - Caching
   - CacheFacade now supports separate local and distributed caches both
@@ -111,6 +115,10 @@ New Features
   overridden by the runtime configuration file; the MoquiConf.xml file in
   each component is merged into the main conf based on the component
   dependency order (logged on startup)
+- Added ExecutionContext.runAsync method to run a closure in a worker
+  thread with an ExecutionContext like the current (tenant, user, etc)
+- Added configuration for worker thread pool parameters, used for local
+  async services, EC.runAsync, etc
 
 Bug Fixes
 

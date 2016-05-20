@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory
 /** ElasticSearch Client is used for indexing and searching documents */
 class JackrabbitRunToolFactory implements ToolFactory<Process> {
     protected final static Logger logger = LoggerFactory.getLogger(JackrabbitRunToolFactory.class)
-    final static TOOL_NAME = "JackrabbitRun"
+    final static String TOOL_NAME = "JackrabbitRun"
 
     protected ExecutionContextFactory ecf = null
 

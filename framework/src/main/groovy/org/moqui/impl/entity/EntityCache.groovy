@@ -13,12 +13,15 @@
  */
 package org.moqui.impl.entity
 
+import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.ITopic
 import com.hazelcast.core.Message
 import com.hazelcast.core.MessageListener
 import groovy.transform.CompileStatic
+import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.tools.HazelcastToolFactory
 
 import javax.cache.Cache
 import org.moqui.entity.EntityCondition
@@ -48,6 +51,8 @@ class EntityCache {
     protected final Map<String, ArrayList<String>> cachedListViewEntitiesByMember = new HashMap<>()
 
     protected final boolean distributedCacheInvalidate
+    /** Entity Cache Invalidate Hazelcase Topic */
+    private ITopic<EntityCacheInvalidate> entityCacheInvalidateTopic = null
 
     EntityCache(EntityFacadeImpl efi) {
         this.efi = efi
@@ -67,6 +72,19 @@ class EntityCache {
         MNode entityFacadeNode = efi.getEntityFacadeNode()
         distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true"
         logger.info("Entity Cache initialized, distributed cache invalidate enabled: ${distributedCacheInvalidate}")
+
+        if (distributedCacheInvalidate) {
+            ToolFactory<HazelcastInstance> hzToolFactory = efi.ecfi.getToolFactory(HazelcastToolFactory.TOOL_NAME)
+            if (hzToolFactory == null) {
+                logger.error("Entity distributed cache invalidate is enabled but could not find Hazelcast ToolFactory")
+            } else {
+                logger.info("Getting Entity Cache Invalidate Hazelcast Topic and registering MessageListener")
+                HazelcastInstance hazelcastInstance = hzToolFactory.getInstance()
+                entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
+                EntityCacheListener eciListener = new EntityCacheListener(efi.ecfi)
+                entityCacheInvalidateTopic.addMessageListener(eciListener)
+            }
+        }
     }
 
 
@@ -200,11 +218,10 @@ class EntityCache {
 
         // String entityName = evb.getEntityName()
         // if (!entityName.startsWith("moqui.")) logger.info("========== ========== ========== clearCacheForValue ${entityName}")
-        if (distributedCacheInvalidate) {
+        if (distributedCacheInvalidate && entityCacheInvalidateTopic != null) {
             // NOTE: this takes some time to run and is done a LOT, for nearly all entity CrUD ops
             // NOTE: have set many entities as never cache
             // NOTE: can't avoid message when caches don't exist and not used in view-entity as it might be on another server
-            ITopic<EntityCacheInvalidate> entityCacheInvalidateTopic = efi.ecfi.getEntityCacheInvalidateTopic()
             EntityCacheInvalidate eci = new EntityCacheInvalidate(efi.tenantId, evb, isCreate)
             entityCacheInvalidateTopic.publish(eci)
         } else {

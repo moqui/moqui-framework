@@ -13,26 +13,12 @@
  */
 package org.moqui.impl.context
 
-import com.hazelcast.config.Config
-import com.hazelcast.config.XmlConfigBuilder
-import com.hazelcast.core.Hazelcast
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.IExecutorService
-import com.hazelcast.core.ITopic
 import groovy.transform.CompileStatic
 import org.apache.shiro.SecurityUtils
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
-import org.kie.api.KieServices
-import org.kie.api.builder.KieBuilder
-import org.kie.api.builder.Message
-import org.kie.api.builder.ReleaseId
-import org.kie.api.builder.Results
-import org.kie.api.runtime.KieContainer
-import org.kie.api.runtime.KieSession
-import org.kie.api.runtime.StatelessKieSession
 
 import org.moqui.BaseException
 import org.moqui.context.*
@@ -45,7 +31,6 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
-import org.moqui.impl.entity.EntityCache
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
@@ -57,7 +42,6 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.cache.Cache
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ExecutorService
@@ -91,23 +75,23 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
 
     protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
-    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
-    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeAuthzEnabled =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactTypeTarpitEnabled =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+
+    // Some direct-cached values for better performance
+    protected String skipStatsCond
+    protected Integer hitBinLengthMillis
+    // protected Map<String, Boolean> artifactPersistHitByTypeAndSub = new HashMap<>()
+    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    // protected Map<String, Boolean> artifactPersistBinByTypeAndSub = new HashMap<>()
+    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
+            new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
-
-    /** Hazelcast Instance */
-    protected HazelcastInstance hazelcastInstance
-    /** Entity Cache Invalidate Hazelcase Topic */
-    ITopic<EntityCache.EntityCacheInvalidate> entityCacheInvalidateTopic
-    /** Hazelcast Distributed ExecutorService for async services, etc */
-    IExecutorService hazelcastExecutorService
-
-    /** KIE ReleaseId Cache */
-    protected Cache<String, ReleaseId> kieComponentReleaseIdCache
-    /** KIE Component Cache */
-    protected Cache<String, String> kieSessionComponentCache
 
     // ======== Permanent Delegated Facades ========
     protected final CacheFacadeImpl cacheFacade
@@ -117,22 +101,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final ServiceFacadeImpl serviceFacade
     protected final TransactionFacadeImpl transactionFacade
 
-    // Some direct-cached values for better performance
-    protected String skipStatsCond
-    protected Integer hitBinLengthMillis
-    // protected Map<String, Boolean> artifactPersistHitByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
-    // protected Map<String, Boolean> artifactPersistBinByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
-
-    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
-    private final BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>()
-    private static class WorkerThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
-        private final AtomicInteger threadNumber = new AtomicInteger(1)
-        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
-    }
-    final ExecutorService workerPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
+    /** The main worker pool for services, running async closures and runnables, etc */
+    final ExecutorService workerPool
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -186,6 +156,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        workerPool = makeWorkerPool()
         preFacadeInit()
 
         // this init order is important as some facades will use others
@@ -236,6 +207,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        workerPool = makeWorkerPool()
         preFacadeInit()
 
         // this init order is important as some facades will use others
@@ -312,7 +284,34 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return baseConfigNode
     }
 
-    protected void preFacadeInit() {
+    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
+    private static class WorkerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
+        private final AtomicInteger threadNumber = new AtomicInteger(1)
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
+    }
+    private ExecutorService makeWorkerPool() {
+        MNode toolsNode = confXmlRoot.first('tools')
+
+        int workerQueueSize = (toolsNode.attribute("worker-queue") ?: "65536") as int
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(workerQueueSize)
+
+        int coreSize = (toolsNode.attribute("worker-pool-core") ?: "4") as int
+        int maxSize = (toolsNode.attribute("worker-pool-max") ?: "16") as int
+        long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
+
+        logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
+        return new ThreadPoolExecutor(coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
+    }
+
+    private void preFacadeInit() {
+        // save the current configuration in a file for debugging/reference
+        File confSaveFile = new File(runtimePath + "/log/MoquiActualConf.xml")
+        if (confSaveFile.exists()) confSaveFile.delete()
+        FileWriter fw = new FileWriter(confSaveFile)
+        fw.write(confXmlRoot.toString())
+        fw.close()
+
         try {
             localhostAddress = InetAddress.getLocalHost()
         } catch (UnknownHostException e) {
@@ -355,7 +354,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    protected void postFacadeInit() {
+    private void postFacadeInit() {
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
@@ -372,33 +371,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         defaultEfi.checkInitDatasourceTables()
         // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
         defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
-
-        // ====== initialize tools ======
-
-        // initialize Hazelcast using hazelcast.xml on the classpath for config unless there is a hazelcast.config system property
-        Config hzConfig
-        if (System.getProperty("hazelcast.config")) {
-            logger.info("Starting Hazelcast with hazelcast.config system property (${System.getProperty("hazelcast.config")})")
-            hzConfig = new Config("moqui")
-        } else {
-            logger.info("Starting Hazelcast with hazelcast.xml from classpath")
-            hzConfig = new XmlConfigBuilder(cachedClassLoader.getResourceAsStream("hazelcast.xml")).build()
-            hzConfig.setInstanceName("moqui")
-        }
-        hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(hzConfig)
-
-        // register EntityCacheListener
-        logger.info("Getting Entity Cache Invalidate Hazelcast Topic")
-        entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
-        EntityCache.EntityCacheListener eciListener = new EntityCache.EntityCacheListener(this)
-        entityCacheInvalidateTopic.addMessageListener(eciListener)
-
-        // get Hazelcast ExecutorService
-        logger.info("Getting Async Service Hazelcast ExecutorService")
-        hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
-
-        // init KIE (build modules for all components)
-        initKie()
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
@@ -421,7 +393,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
-    protected void initClassLoader() {
+    private void initClassLoader() {
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         cachedClassLoader = new StupidClassLoader(pcl)
         // add runtime/classes jar files to the class loader
@@ -542,11 +514,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
-        // shutdown Hazelcast
-        Hazelcast.shutdownAll()
-        // the above may be better than this: if (hazelcastInstance != null) hazelcastInstance.shutdown()
-        logger.info("Hazelcast shutdown")
-
         // this destroy order is important as some use others so must be destroyed first
         if (this.serviceFacade != null) this.serviceFacade.destroy()
         if (this.entityFacade != null) this.entityFacade.destroy()
@@ -658,132 +625,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     L10nFacadeImpl getL10nFacade() { return getEci().getL10nFacade() }
     // TODO: find references, change to eci where more direct
 
-    @Override
-    HazelcastInstance getHazelcastInstance() { return hazelcastInstance }
-    ITopic<EntityCache.EntityCacheInvalidate> getEntityCacheInvalidateTopic() { return entityCacheInvalidateTopic }
-
-    // =============== KIE Methods ===============
-    protected void initKie() {
-        kieComponentReleaseIdCache = cacheFacade.getCache("kie.component.releaseId", String.class, ReleaseId.class)
-        kieSessionComponentCache = cacheFacade.getCache("kie.session.component", String.class, String.class)
-
-        // if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "JANINO")
-        if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "ECLIPSE")
-
-        logger.info("Starting KIE (Drools, jBPM, etc)")
-        KieServices services = KieServices.Factory.get()
-        for (String componentName in componentBaseLocations.keySet()) {
-            try {
-                buildKieModule(componentName, services)
-            } catch (Throwable t) {
-                logger.error("Error initializing KIE in component ${componentName}: ${t.toString()}", t)
-            }
-        }
-    }
-
-    @Override
-    KieContainer getKieContainer(String componentName) {
-        KieServices services = KieServices.Factory.get()
-
-        ReleaseId releaseId = (ReleaseId) kieComponentReleaseIdCache.get(componentName)
-        if (releaseId == null) releaseId = buildKieModule(componentName, services)
-
-        if (releaseId != null) return services.newKieContainer(releaseId)
-        return null
-    }
-
-    protected synchronized ReleaseId buildKieModule(String componentName, KieServices services) {
-        ReleaseId releaseId = (ReleaseId) kieComponentReleaseIdCache.get(componentName)
-        if (releaseId != null) return releaseId
-
-        ResourceReference kieRr = getResourceFacade().getLocationReference("component://${componentName}/kie")
-        if (!kieRr.getExists() || !kieRr.isDirectory()) {
-            if (logger.isTraceEnabled()) logger.trace("No kie directory in component ${componentName}, not building KIE module.")
-            return null
-        }
-
-        /*
-        if (componentName == "mantle-usl") {
-            SpreadsheetCompiler sc = new SpreadsheetCompiler()
-            String drl = sc.compile(getResourceFacade().getLocationStream("component://mantle-usl/kie/src/main/resources/mantle/shipment/orderrate/OrderShippingDt.xls"), InputType.XLS)
-            StringBuilder groovyWithLines = new StringBuilder()
-            int lineNo = 1
-            for (String line in drl.split("\n")) groovyWithLines.append(lineNo++).append(" : ").append(line).append("\n")
-            logger.error("XLS DC as DRL: [\n${groovyWithLines}\n]")
-        }
-        */
-
-        try {
-            File kieDir = new File(kieRr.getUrl().getPath())
-            KieBuilder builder = services.newKieBuilder(kieDir)
-
-            // build the KIE module
-            builder.buildAll()
-            Results results = builder.getResults()
-            if (results.hasMessages(Message.Level.ERROR)) {
-                throw new BaseException("Error building KIE module in component ${componentName}: ${results.toString()}")
-            } else if (results.hasMessages(Message.Level.WARNING)) {
-                logger.warn("Warning building KIE module in component ${componentName}: ${results.toString()}")
-            }
-
-            findComponentKieSessions(componentName)
-
-            // get the release ID and cache it
-            releaseId = builder.getKieModule().getReleaseId()
-            kieComponentReleaseIdCache.put(componentName, releaseId)
-
-            return releaseId
-        } catch (Throwable t) {
-            logger.error("Error initializing KIE at ${kieRr.getLocation()}", t)
-            return null
-        }
-    }
-
-    protected void findAllComponentKieSessions() {
-        for (String componentName in componentBaseLocations.keySet()) findComponentKieSessions(componentName)
-    }
-    protected void findComponentKieSessions(String componentName) {
-        ResourceReference kieRr = getResourceFacade().getLocationReference("component://${componentName}/kie")
-        if (!kieRr.getExists() || !kieRr.isDirectory()) return
-
-        // get all KieBase and KieSession names and create reverse-reference Map so we know which component's
-        //     module they are in, then add convenience methods to get any KieBase or KieSession by name
-        ResourceReference kmoduleRr = kieRr.findChildFile("src/main/resources/META-INF/kmodule.xml")
-        Node kmoduleNode = new XmlParser().parseText(kmoduleRr.getText())
-        for (Object kbObj in kmoduleNode.get("kbase")) {
-            Node kbaseNode = (Node) kbObj
-            for (Object ksObj in kbaseNode.get("ksession")) {
-                Node ksessionNode = (Node) ksObj
-                String ksessionName = (String) ksessionNode.attribute("name")
-                String existingComponentName = kieSessionComponentCache.get(ksessionName)
-                if (existingComponentName) logger.warn("Found KIE session [${ksessionName}] in component [${existingComponentName}], replacing with session in component [${componentName}]")
-                kieSessionComponentCache.put(ksessionName, componentName)
-            }
-        }
-
-    }
-
-    @Override
-    KieSession getKieSession(String ksessionName) {
-        String componentName = kieSessionComponentCache.get(ksessionName)
-        // try finding all component sessions
-        if (!componentName) findAllComponentKieSessions()
-        componentName = kieSessionComponentCache.get(ksessionName)
-        // still nothing? blow up
-        if (!componentName) throw new IllegalStateException("No component KIE module found for session [${ksessionName}]")
-        return getKieContainer(componentName).newKieSession(ksessionName)
-    }
-    @Override
-    StatelessKieSession getStatelessKieSession(String ksessionName) {
-        String componentName = kieSessionComponentCache.get(ksessionName)
-        // try finding all component sessions
-        if (!componentName) findAllComponentKieSessions()
-        componentName = kieSessionComponentCache.get(ksessionName)
-        // still nothing? blow up
-        if (!componentName) throw new IllegalStateException("No component KIE module found for session [${ksessionName}]")
-        return getKieContainer(componentName).newStatelessKieSession(ksessionName)
-    }
-
     // ========== Interface Implementations ==========
 
     @Override
@@ -822,7 +663,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return toolFactory
     }
     @Override
-    <V> V getToolInstance(String toolName, Class<V> instanceClass) {
+    <V> V getTool(String toolName, Class<V> instanceClass) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
         return toolFactory.getInstance()

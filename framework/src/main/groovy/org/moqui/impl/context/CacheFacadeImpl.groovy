@@ -22,7 +22,10 @@ import com.hazelcast.config.EvictionPolicy
 import com.hazelcast.config.InMemoryFormat
 import com.hazelcast.core.HazelcastInstance
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
+import org.moqui.context.ToolFactory
 import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.tools.HazelcastToolFactory
 import org.moqui.jcache.MCache
 import org.moqui.util.MNode
 
@@ -66,8 +69,11 @@ public class CacheFacadeImpl implements CacheFacade {
 
     CacheManager getHcCacheManager() {
         if (hcCacheManagerInternal == null) {
-            HazelcastInstance hci = ecfi.getHazelcastInstance()
-            if (hci == null) throw new IllegalStateException("ECFI Hazelcast Instance not yet initialized, can't initialize distributed cache")
+            ToolFactory<HazelcastInstance> hzToolFactory = ecfi.getToolFactory(HazelcastToolFactory.TOOL_NAME)
+            if (hzToolFactory == null) throw new BaseException("Tried to create distributed cache but could not find Hazelcast ToolFactory")
+
+            HazelcastInstance hci = hzToolFactory.getInstance()
+            if (hci == null) throw new BaseException("Hazelcast Instance not yet initialized, can't initialize distributed cache")
             Properties properties = new Properties()
             properties.setProperty(HazelcastCachingProvider.HAZELCAST_INSTANCE_NAME, hci.getName())
             // always use the server caching provider, the client one always goes over a network interface and is slow

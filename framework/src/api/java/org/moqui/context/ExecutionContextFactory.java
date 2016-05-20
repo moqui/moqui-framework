@@ -13,10 +13,6 @@
  */
 package org.moqui.context;
 
-import com.hazelcast.core.HazelcastInstance;
-import org.kie.api.runtime.KieContainer;
-import org.kie.api.runtime.KieSession;
-import org.kie.api.runtime.StatelessKieSession;
 import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
@@ -43,8 +39,9 @@ public interface ExecutionContextFactory {
 
     /** Get the named ToolFactory instance (loaded by configuration) */
     <V> ToolFactory<V> getToolFactory(String toolName);
-    /** Get an instance object from the named ToolFactory instance (loaded by configuration) */
-    <V> V getToolInstance(String toolName, Class<V> instanceClass);
+    /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
+     * null in scripts or other contexts where static typing is not needed */
+    <V> V getTool(String toolName, Class<V> instanceClass);
 
     /** Get a Map where each key is a component name and each value is the component's base location. */
     LinkedHashMap<String, String> getComponentBaseLocations();
@@ -72,14 +69,4 @@ public interface ExecutionContextFactory {
 
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
     ScreenFacade getScreen();
-
-    /** Hazelcast Instance, used for clustered data sharing and execution including web session replication and distributed cache */
-    HazelcastInstance getHazelcastInstance();
-
-    /** Get a KIE Container for Drools, jBPM, OptaPlanner, etc from the KIE Module in the given component. */
-    KieContainer getKieContainer(String componentName);
-    /** Get a KIE Session by name from the last component KIE Module loaded with the given session name. */
-    KieSession getKieSession(String ksessionName);
-    /** Get a KIE Stateless Session by name from the last component KIE Module loaded with the given session name. */
-    StatelessKieSession getStatelessKieSession(String ksessionName);
 }
