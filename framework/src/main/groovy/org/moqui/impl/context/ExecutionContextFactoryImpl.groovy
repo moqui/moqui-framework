@@ -319,6 +319,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     private void preFacadeInit() {
+        // save the current configuration in a file for debugging/reference
+        File confSaveFile = new File(runtimePath + "/log/MoquiActualConf.xml")
+        if (confSaveFile.exists()) confSaveFile.delete()
+        FileWriter fw = new FileWriter(confSaveFile)
+        fw.write(confXmlRoot.toString())
+        fw.close()
+
         try {
             localhostAddress = InetAddress.getLocalHost()
         } catch (UnknownHostException e) {
