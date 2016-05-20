@@ -280,23 +280,12 @@
         </datasource>
         <!-- The entity-facade.default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->
+        <!-- Other standard (OOTB) group names include: nontransactional and analytical -->
 
-        <!-- leave these commented to use the MoquiDEFAULT database for all entity groups:
-        <datasource group-name="analytical" database-conf-name="h2" schema-name="">
-            <inline-jdbc pool-minsize="2" pool-maxsize="10">
-                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiAnalyticalDEFAULT" user="sa" password=""/>
-            </inline-jdbc>
-        </datasource>
-        <datasource group-name="nosql" database-conf-name="h2" schema-name="">
-            <inline-jdbc pool-minsize="2" pool-maxsize="10">
-                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiNoSqlDEFAULT" user="sa" password=""/>
-            </inline-jdbc>
-        </datasource>
-        -->
-        <!-- Above the nosql group is in the transactional db by default. To use OrientDB use this instead: -->
-        <!-- NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX -->
+        <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
+            NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX -->
         <!--
-        <datasource group-name="nosql" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory"
+        <datasource group-name="nontransactional" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory"
                 startup-add-missing="true">
             <inline-other uri="plocal:${ORIENTDB_HOME}/databases/MoquiNoSql" username="admin" password="admin"/>
         </datasource>

@@ -35,7 +35,7 @@ import javax.sql.DataSource
 /**
  * To use this:
  * 1. add a datasource under the entity-facade element in the Moqui Conf file; for example:
- *      <datasource group-name="transactional_nosql" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory">
+ *      <datasource group-name="nontransactional" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory">
  *          <inline-other uri="plocal:${ORIENTDB_HOME}/databases/MoquiNoSql" username="admin" password="admin"/>
  *      </datasource>
  *
@@ -43,7 +43,7 @@ import javax.sql.DataSource
  *      orientdb-server-config.xml file
  *
  * 3. add the group-name attribute to entity elements as needed to point them to the new datasource; for example:
- *      group-name="transactional_nosql"
+ *      group-name="nontransactional"
  */
 @CompileStatic
 class OrientDatasourceFactory implements EntityDatasourceFactory {

@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.server -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ArtifactHit" package-name="moqui.server" group-name="nosql"
+    <entity entity-name="ArtifactHit" package-name="moqui.server" group-name="nontransactional"
             cache="never" sequence-bank-size="100" authorize-skip="create">
         <field name="hitId" type="id" is-pk="true"/>
         <field name="visitId" type="id"/>
