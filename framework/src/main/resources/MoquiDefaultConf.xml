@@ -258,25 +258,19 @@
         The configurations below will use the XADataSource directly to connect, which is required for proper
         transaction handling with multiple data sources.
 
-        For details about WHY to do it this way see:
-        http://www.atomikos.com/Documentation/NonXaDataSource#Caveats
-
-        For details about properties for different databases see:
-        http://www.atomikos.com/Documentation/ConfiguringTransactionsEssentials
-
         To use the non-XA variety just specify the normal JDBC parameters (like jdbc-uri, etc) and leave out the
         xa-properties element. If the xa-properties element is present the normal JDBC parameters will be ignored.
+
+        To use a DataSource from JNDI use something the jndi-jdbc element under the datasource element:
+            <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/>
         -->
 
+        <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
         <datasource group-name="transactional" database-conf-name="h2" schema-name=""
                 start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui.runtime}/db/h2">
-            <!-- with this setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
             <inline-jdbc pool-minsize="5" pool-maxsize="50">
                 <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT" user="sa" password="sa"/>
             </inline-jdbc>
-            <!-- <inline-jdbc jdbc-uri="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT"
-                         jdbc-username="sa" jdbc-password="sa" pool-minsize="5" pool-maxsize="50"/> -->
-            <!-- <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/> -->
         </datasource>
         <!-- The entity-facade.default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->
@@ -320,13 +314,13 @@
                     jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
         </datasource>
         -->
-        <!-- H2
+        <!-- H2 Database
         <datasource group-name="transactional" database-conf-name="h2" schema-name="">
             <inline-jdbc pool-minsize="5" pool-maxsize="50">
                 <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT" user="sa" password=""/>
             </inline-jdbc>
             <!- - <inline-jdbc jdbc-uri="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT"
-                         jdbc-username="sa" jdbc-password="" pool-minsize="5" pool-maxsize="50"/> - ->
+                         jdbc-username="sa" jdbc-password="sa" pool-minsize="5" pool-maxsize="50"/> - ->
         </datasource>
         -->
         <!-- MS SQL Server
