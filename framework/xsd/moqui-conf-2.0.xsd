@@ -45,6 +45,14 @@ along with this software (see the LICENSE.md file). If not, see
                 table for moqui.basic.Enumeration). Empty or 'none' means load nothing, use 'all' to load all found
                 data files regardless of type. This is for the DEFAULT tenant only.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="worker-queue" type="xs:integer"><xs:annotation><xs:documentation>
+                The maximum size of the worker queue.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="worker-pool-core" type="xs:integer"><xs:annotation><xs:documentation>
+                The core (minimum) size of the worker thread pool.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="worker-pool-max" type="xs:integer"><xs:annotation><xs:documentation>
+                The maximum size of the worker thread pool.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="worker-pool-alive" type="xs:integer"><xs:annotation><xs:documentation>
+                The amount of time, in seconds, to keep idle worker threads alive (beyond core pool size).</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="tool-factory">

@@ -4,7 +4,7 @@
 
     <!-- Settings in this file can be overridden in a component and/or runtime conf file that has a any of the desired sub-elements. -->
 
-    <tools empty-db-load="seed">
+    <tools empty-db-load="seed" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="10" disabled="false"/>
         <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="11" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.KieToolFactory" init-priority="12" disabled="false"/>

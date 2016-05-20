@@ -115,14 +115,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
 
-    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
-    private final BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>()
-    private static class WorkerThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
-        private final AtomicInteger threadNumber = new AtomicInteger(1)
-        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
-    }
-    final ExecutorService workerPool = new ThreadPoolExecutor(16, 16, 60, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
+    /** The main worker pool for services, running async closures and runnables, etc */
+    final ExecutorService workerPool
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -176,6 +170,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        workerPool = makeWorkerPool()
         preFacadeInit()
 
         // this init order is important as some facades will use others
@@ -226,6 +221,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        workerPool = makeWorkerPool()
         preFacadeInit()
 
         // this init order is important as some facades will use others
@@ -302,7 +298,27 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return baseConfigNode
     }
 
-    protected void preFacadeInit() {
+    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
+    private static class WorkerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
+        private final AtomicInteger threadNumber = new AtomicInteger(1)
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
+    }
+    private ExecutorService makeWorkerPool() {
+        MNode toolsNode = confXmlRoot.first('tools')
+
+        int workerQueueSize = (toolsNode.attribute("worker-queue") ?: "65536") as int
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(workerQueueSize)
+
+        int coreSize = (toolsNode.attribute("worker-pool-core") ?: "4") as int
+        int maxSize = (toolsNode.attribute("worker-pool-max") ?: "16") as int
+        long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
+
+        logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
+        return new ThreadPoolExecutor(coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
+    }
+
+    private void preFacadeInit() {
         try {
             localhostAddress = InetAddress.getLocalHost()
         } catch (UnknownHostException e) {
@@ -345,7 +361,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    protected void postFacadeInit() {
+    private void postFacadeInit() {
 
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
@@ -408,7 +424,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
-    protected void initClassLoader() {
+    private void initClassLoader() {
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         cachedClassLoader = new StupidClassLoader(pcl)
         // add runtime/classes jar files to the class loader
