@@ -311,8 +311,8 @@ class ExecutionContextImpl implements ExecutionContext {
         }
     }
 
-    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
-     * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+    @Override
+    void runAsync(Closure closure) { runInWorkerThread(closure) }
     void runInWorkerThread(Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure)
         ecfi.workerPool.execute(runnable)

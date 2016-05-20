@@ -16,6 +16,7 @@ package org.moqui.context;
 import java.util.List;
 import java.util.Map;
 
+import groovy.lang.Closure;
 import org.moqui.entity.EntityFacade;
 import org.moqui.entity.EntityValue;
 import org.moqui.screen.ScreenFacade;
@@ -104,6 +105,10 @@ public interface ExecutionContext {
     /** Change the tenant to the last tenantId on the stack. Returns false if the tenantId stack is empty.
      * @return True if tenant changed, false otherwise (tenantId stack is empty or tenantId matches the current tenantId) */
     boolean popTenant();
+
+    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
+     * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+    void runAsync(Closure closure);
 
     /** This should be called when the ExecutionContext won't be used any more. Implementations should make sure
      * any active transactions, database connections, etc are closed.
