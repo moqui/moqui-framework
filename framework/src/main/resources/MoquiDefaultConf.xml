@@ -4,9 +4,11 @@
 
     <!-- Settings in this file can be overridden in a component and/or runtime conf file that has a any of the desired sub-elements. -->
 
-    <tools run-jackrabbit="false" empty-db-load="seed">
+    <tools empty-db-load="seed">
         <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="10" disabled="false"/>
         <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="11" disabled="false"/>
+
+        <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="20" disabled="true"/>
     </tools>
 
     <cache-list warm-on-start="true">

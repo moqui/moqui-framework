@@ -40,7 +40,6 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="tools">
         <xs:complexType>
             <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="tool-factory"/></xs:sequence>
-            <xs:attribute name="run-jackrabbit" type="boolean" default="false"/>
             <xs:attribute name="empty-db-load" type="xs:string" default="seed"><xs:annotation><xs:documentation>
                 Comma-separated list of data file types to load if database is empty (if there are no records in the
                 table for moqui.basic.Enumeration). Empty or 'none' means load nothing, use 'all' to load all found

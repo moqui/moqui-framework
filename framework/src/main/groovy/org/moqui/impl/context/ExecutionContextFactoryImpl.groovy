@@ -97,9 +97,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
 
-    /** Jackrabbit Process */
-    protected Process jackrabbitProcess
-
     /** Hazelcast Instance */
     protected HazelcastInstance hazelcastInstance
     /** Entity Cache Invalidate Hazelcase Topic */
@@ -400,9 +397,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Getting Async Service Hazelcast ExecutorService")
         hazelcastExecutorService = hazelcastInstance.getExecutorService("service-executor")
 
-        // init Jackrabbit standalone instance
-        initJackrabbit()
-
         // init KIE (build modules for all components)
         initKie()
 
@@ -553,12 +547,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // the above may be better than this: if (hazelcastInstance != null) hazelcastInstance.shutdown()
         logger.info("Hazelcast shutdown")
 
-        // Stop Jackrabbit process
-        if (jackrabbitProcess != null) try {
-            jackrabbitProcess.destroy()
-            logger.info("Jackrabbit process destroyed")
-        } catch (Throwable t) { logger.error("Error in JackRabbit process destroy", t) }
-
         // this destroy order is important as some use others so must be destroyed first
         if (this.serviceFacade != null) this.serviceFacade.destroy()
         if (this.entityFacade != null) this.entityFacade.destroy()
@@ -673,43 +661,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override
     HazelcastInstance getHazelcastInstance() { return hazelcastInstance }
     ITopic<EntityCache.EntityCacheInvalidate> getEntityCacheInvalidateTopic() { return entityCacheInvalidateTopic }
-
-    protected void initJackrabbit() {
-        if (confXmlRoot.first("tools").attribute("run-jackrabbit") == "true") {
-            Properties jackrabbitProperties = new Properties()
-            URL jackrabbitProps = this.class.getClassLoader().getResource("jackrabbit_moqui.properties")
-            if (jackrabbitProps != null) {
-                InputStream is = jackrabbitProps.openStream(); jackrabbitProperties.load(is); is.close();
-            }
-
-            String jackrabbitWorkingDir = System.getProperty("moqui.jackrabbit_working_dir")
-            if (!jackrabbitWorkingDir) jackrabbitWorkingDir = jackrabbitProperties.getProperty("moqui.jackrabbit_working_dir")
-            if (!jackrabbitWorkingDir) jackrabbitWorkingDir = "jackrabbit"
-
-            String jackrabbitJar = System.getProperty("moqui.jackrabbit_jar")
-            if (!jackrabbitJar) jackrabbitJar = jackrabbitProperties.getProperty("moqui.jackrabbit_jar")
-            if (!jackrabbitJar) throw new IllegalArgumentException(
-                    "No moqui.jackrabbit_jar property found in jackrabbit_moqui.ini or in a system property (with: -Dmoqui.jackrabbit_jar=... on the command line)")
-            String jackrabbitJarFullPath = this.runtimePath + "/" + jackrabbitWorkingDir + "/" + jackrabbitJar
-
-            String jackrabbitConfFile = System.getProperty("moqui.jackrabbit_configuration_file")
-            if (!jackrabbitConfFile)
-                jackrabbitConfFile = jackrabbitProperties.getProperty("moqui.jackrabbit_configuration_file")
-            if (!jackrabbitConfFile) jackrabbitConfFile = "repository.xml"
-            String jackrabbitConfFileFullPath = this.runtimePath + "/" + jackrabbitWorkingDir + "/" + jackrabbitConfFile
-
-            String jackrabbitPort = System.getProperty("moqui.jackrabbit_port")
-            if (!jackrabbitPort)
-                jackrabbitPort = jackrabbitProperties.getProperty("moqui.jackrabbit_port")
-            if (!jackrabbitPort) jackrabbitPort = "8081"
-
-            logger.info("Starting Jackrabbit")
-
-            ProcessBuilder pb = new ProcessBuilder("java", "-jar", jackrabbitJarFullPath, "-p", jackrabbitPort, "-c", jackrabbitConfFileFullPath)
-            pb.directory(new File(this.runtimePath + "/" + jackrabbitWorkingDir))
-            jackrabbitProcess = pb.start();
-        }
-    }
 
     // =============== KIE Methods ===============
     protected void initKie() {

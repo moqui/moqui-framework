@@ -130,6 +130,31 @@ public class StupidClassLoader extends ClassLoader {
         return jeBytes;
     }
 
+    /**
+     * @see java.lang.ClassLoader#getResource(String)
+     */
+    @Override
+    public URL getResource(String name) {
+        URL url = findResource(name);
+        if (url == null && getParent() !=null) {
+            url = getParent().getResource(name);
+        }
+        return url;
+    }
+
+    /**
+     * @see java.lang.ClassLoader#getResources(String)
+     */
+    @Override
+    public Enumeration<URL> getResources(String name) throws IOException {
+        List<URL> tmp = new ArrayList<>();
+        tmp.addAll(Collections.list(findResources(name)));
+        if(getParent() != null) {
+            tmp.addAll(Collections.list(getParent().getResources(name)));
+        }
+        return Collections.enumeration(tmp);
+    }
+
     /** @see java.lang.ClassLoader#findResource(java.lang.String) */
     @Override
     protected URL findResource(String resourceName) {
