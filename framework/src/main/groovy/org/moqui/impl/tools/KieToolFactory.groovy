@@ -74,7 +74,10 @@ class KieToolFactory implements ToolFactory<KieToolFactory> {
     void preFacadeInit(ExecutionContextFactory ecf) { }
 
     @Override
-    KieToolFactory getInstance() { return this }
+    KieToolFactory getInstance() {
+        if (services == null) throw new IllegalStateException("KieToolFactory not initialized")
+        return this
+    }
 
     @Override
     void destroy() {
@@ -85,6 +88,8 @@ class KieToolFactory implements ToolFactory<KieToolFactory> {
 
     /** Get a KIE Container for Drools, jBPM, OptaPlanner, etc from the KIE Module in the given component. */
     KieContainer getKieContainer(String componentName) {
+        if (services == null) throw new IllegalStateException("KieToolFactory not initialized")
+
         ReleaseId releaseId = (ReleaseId) kieComponentReleaseIdCache.get(componentName)
         if (releaseId == null) releaseId = buildKieModule(componentName, services)
 
@@ -94,6 +99,8 @@ class KieToolFactory implements ToolFactory<KieToolFactory> {
 
     /** Get a KIE Session by name from the last component KIE Module loaded with the given session name. */
     KieSession getKieSession(String ksessionName) {
+        if (services == null) throw new IllegalStateException("KieToolFactory not initialized")
+
         String componentName = kieSessionComponentCache.get(ksessionName)
         // try finding all component sessions
         if (!componentName) findAllComponentKieSessions()
@@ -106,6 +113,8 @@ class KieToolFactory implements ToolFactory<KieToolFactory> {
     }
     /** Get a KIE Stateless Session by name from the last component KIE Module loaded with the given session name. */
     StatelessKieSession getStatelessKieSession(String ksessionName) {
+        if (services == null) throw new IllegalStateException("KieToolFactory not initialized")
+
         String componentName = kieSessionComponentCache.get(ksessionName)
         // try finding all component sessions
         if (!componentName) findAllComponentKieSessions()

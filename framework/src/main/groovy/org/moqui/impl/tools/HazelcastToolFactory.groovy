@@ -57,7 +57,10 @@ class HazelcastToolFactory implements ToolFactory<HazelcastInstance> {
     }
 
     @Override
-    HazelcastInstance getInstance() { return hazelcastInstance }
+    HazelcastInstance getInstance() {
+        if (hazelcastInstance == null) throw new IllegalStateException("HazelcastToolFactory not initialized")
+        return hazelcastInstance
+    }
 
     @Override
     void destroy() {

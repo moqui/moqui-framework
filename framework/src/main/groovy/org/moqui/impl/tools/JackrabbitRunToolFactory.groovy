@@ -26,7 +26,7 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     protected ExecutionContextFactory ecf = null
 
     /** Jackrabbit Process */
-    protected Process jackrabbitProcess
+    protected Process jackrabbitProcess = null
 
     /** Default empty constructor */
     JackrabbitRunToolFactory() { }
@@ -74,7 +74,10 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     void preFacadeInit(ExecutionContextFactory ecf) { }
 
     @Override
-    Process getInstance() { return jackrabbitProcess }
+    Process getInstance() {
+        if (jackrabbitProcess == null) throw new IllegalStateException("JackrabbitRunToolFactory not initialized")
+        return jackrabbitProcess
+    }
 
     @Override
     void destroy() {
