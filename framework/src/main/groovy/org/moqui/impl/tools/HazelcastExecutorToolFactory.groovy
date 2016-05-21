@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory
 
 import java.util.concurrent.ExecutorService
 
-/** ElasticSearch Client is used for indexing and searching documents */
+/** A factory for getting a ExecutorService (actually Hazelcast IExecutorService) */
 class HazelcastExecutorToolFactory implements ToolFactory<ExecutorService> {
     protected final static Logger logger = LoggerFactory.getLogger(HazelcastExecutorToolFactory.class)
     final static String TOOL_NAME = "HazelcastExecutor"

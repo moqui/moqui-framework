@@ -14,32 +14,25 @@
 package org.moqui.impl.context
 
 import com.hazelcast.cache.CacheStatistics
-import com.hazelcast.cache.HazelcastCachingProvider
 import com.hazelcast.cache.ICache
 import com.hazelcast.config.CacheConfig
 import com.hazelcast.config.EvictionConfig
 import com.hazelcast.config.EvictionPolicy
 import com.hazelcast.config.InMemoryFormat
-import com.hazelcast.core.HazelcastInstance
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
-import org.moqui.context.ToolFactory
 import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.tools.HazelcastToolFactory
+import org.moqui.impl.tools.HazelcastCacheToolFactory
 import org.moqui.jcache.MCache
 import org.moqui.util.MNode
 
 import javax.cache.Cache
 import javax.cache.CacheManager
-import javax.cache.Caching
 import javax.cache.configuration.Factory
-import javax.cache.configuration.MutableConfiguration
 import javax.cache.expiry.AccessedExpiryPolicy
 import javax.cache.expiry.CreatedExpiryPolicy
 import javax.cache.expiry.Duration
 import javax.cache.expiry.EternalExpiryPolicy
 import javax.cache.expiry.ExpiryPolicy
-import javax.cache.spi.CachingProvider
 import java.sql.Timestamp
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
@@ -69,18 +62,9 @@ public class CacheFacadeImpl implements CacheFacade {
 
     CacheManager getHcCacheManager() {
         if (hcCacheManagerInternal == null) {
-            ToolFactory<HazelcastInstance> hzToolFactory = ecfi.getToolFactory(HazelcastToolFactory.TOOL_NAME)
-            if (hzToolFactory == null) throw new BaseException("Tried to create distributed cache but could not find Hazelcast ToolFactory")
-
-            HazelcastInstance hci = hzToolFactory.getInstance()
-            if (hci == null) throw new BaseException("Hazelcast Instance not yet initialized, can't initialize distributed cache")
-            Properties properties = new Properties()
-            properties.setProperty(HazelcastCachingProvider.HAZELCAST_INSTANCE_NAME, hci.getName())
-            // always use the server caching provider, the client one always goes over a network interface and is slow
-            CachingProvider hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.impl.HazelcastServerCachingProvider")
-            // hcProviderInternal = Caching.getCachingProvider("com.hazelcast.cache.HazelcastCachingProvider")
-            hcCacheManagerInternal = hcProviderInternal.getCacheManager(new URI("moqui-cache-manager"), null, properties)
-            logger.info("Initialized Hazelcast CacheManager for instance ${hci.getName()}")
+            MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
+            String distCacheFactoryName = cacheListNode.attribute("distributed-factory") ?: HazelcastCacheToolFactory.TOOL_NAME
+            hcCacheManagerInternal = ecfi.getTool(distCacheFactoryName, CacheManager.class)
         }
         return hcCacheManagerInternal
     }

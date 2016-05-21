@@ -69,6 +69,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="cache"/></xs:sequence>
             <xs:attribute name="warm-on-start" type="boolean" default="true"/>
+            <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The name of the ToolFactory to use for the distributed CacheManager implementation.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="cache">
