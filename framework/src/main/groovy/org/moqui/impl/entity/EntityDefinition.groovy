@@ -161,17 +161,29 @@ public class EntityDefinition {
             memberEntityAliasMap = [:]
 
             // get group-name, etc from member-entity
+            Set<String> allGroupNames = new TreeSet<>()
             for (MNode memberEntity in internalEntityNode.children("member-entity")) {
                 String memberEntityName = memberEntity.attribute("entity-name")
                 memberEntityAliasMap.put(memberEntity.attribute("entity-alias"), memberEntity)
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntityName)
                 if (memberEd == null) throw new EntityException("No definition found for member entity alias ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
                 MNode memberEntityNode = memberEd.getEntityNode()
-                if (memberEntityNode.attribute("group-name")) internalEntityNode.attributes.put("group-name", memberEntityNode.attribute("group-name"))
+                String groupNameAttr = memberEntityNode.attribute("group-name")
+                if (groupNameAttr == null || groupNameAttr.length() == 0) {
+                    // use the default group-name
+                    groupNameAttr = efi.getDefaultGroupName()
+                }
+                // only set on view-entity for the first one
+                if (allGroupNames.size() == 0) internalEntityNode.attributes.put("group-name", groupNameAttr)
+                // remember all group names applicable to the view entity
+                allGroupNames.add(groupNameAttr)
 
                 // if is view entity and any member entities set to never cache set this to never cache
                 if ("never".equals(memberEntityNode.attribute("cache"))) this.useCache = "never"
             }
+            // warn if view-entity has members in more than one group (join will fail if deployed in different DBs)
+            if (allGroupNames.size() > 1) logger.warn("view-entity ${getFullEntityName()} has members in more than one group: ${allGroupNames}")
+
             // if this is a view-entity, expand the alias-all elements into alias elements here
             this.expandAliasAlls()
             // set @type, set is-pk on all alias Nodes if the related field is-pk
