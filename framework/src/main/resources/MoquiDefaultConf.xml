@@ -274,7 +274,17 @@
         </datasource>
         <!-- The entity-facade.default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->
-        <!-- Other standard (OOTB) group names include: nontransactional and analytical -->
+        <!--
+            Standard group names include:
+            - transactional: transactional business entities that need atomic operations, immediate consistency, etc;
+              typically never cached; includes things like work efforts, orders, shipments, inventory/assets, invoices,
+              accounting and financial transactions
+            - nontransactional: non-transactional business entities; eventual consistency is adequate; may be cached;
+              non-transactional does not mean transactions are not used, but that strict consistency is not important;
+              includes things like parties, facilities, products, history/tracking data
+            - configuration: framework and application configuration data; eventual consistency is okay; typically cached
+            - analytical: analytical entities with data typically derived from transactional data
+        -->
 
         <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
             NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX -->
