@@ -41,7 +41,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.server.Visit"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="ArtifactHitBin" package-name="moqui.server"
+    <entity entity-name="ArtifactHitBin" package-name="moqui.server" group-name="nontransactional"
             cache="never" sequence-bank-size="100" authorize-skip="create">
         <field name="hitBinId" type="id" is-pk="true"/>
         <field name="artifactType" type="text-medium"/>
@@ -75,7 +75,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="AHB" name="slowHitCount" function="sum"/>
     </view-entity>
 
-    <entity entity-name="Visit" package-name="moqui.server" sequence-bank-size="100" cache="never">
+    <entity entity-name="Visit" package-name="moqui.server" sequence-bank-size="100" group-name="nontransactional" cache="never">
         <field name="visitId" type="id" is-pk="true"/>
         <field name="visitorId" type="id"/>
         <field name="userId" type="id"/>
