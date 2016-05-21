@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.tools
 
+import groovy.transform.CompileStatic
 import org.kie.api.KieServices
 import org.kie.api.builder.KieBuilder
 import org.kie.api.builder.Message
@@ -33,6 +34,7 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 
 /** ElasticSearch Client is used for indexing and searching documents */
+@CompileStatic
 class KieToolFactory implements ToolFactory<KieToolFactory> {
     protected final static Logger logger = LoggerFactory.getLogger(KieToolFactory.class)
     final static String TOOL_NAME = "KIE"

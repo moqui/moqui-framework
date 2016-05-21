@@ -13,12 +13,14 @@
  */
 package org.moqui.impl.tools
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ToolFactory
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 /** ElasticSearch Client is used for indexing and searching documents */
+@CompileStatic
 class JackrabbitRunToolFactory implements ToolFactory<Process> {
     protected final static Logger logger = LoggerFactory.getLogger(JackrabbitRunToolFactory.class)
     final static String TOOL_NAME = "JackrabbitRun"

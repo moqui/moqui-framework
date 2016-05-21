@@ -15,6 +15,7 @@ package org.moqui.impl.tools
 
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.IExecutorService
+import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ToolFactory
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ExecutorService
 
 /** A factory for getting a ExecutorService (actually Hazelcast IExecutorService) */
+@CompileStatic
 class HazelcastExecutorToolFactory implements ToolFactory<ExecutorService> {
     protected final static Logger logger = LoggerFactory.getLogger(HazelcastExecutorToolFactory.class)
     final static String TOOL_NAME = "HazelcastExecutor"

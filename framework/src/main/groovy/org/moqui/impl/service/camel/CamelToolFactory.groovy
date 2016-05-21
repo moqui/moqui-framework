@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.service.camel
 
+import groovy.transform.CompileStatic
 import org.apache.camel.CamelContext
 import org.apache.camel.impl.DefaultCamelContext
 import org.moqui.context.ExecutionContextFactory
@@ -22,6 +23,7 @@ import org.slf4j.LoggerFactory
 
 /** A ToolFactory for Apache Camel, an Enterprise Integration Patterns toolkit used for message processing and
  * integrated with the ServiceFacade with an end point to use services to produce and consume Camel messages. */
+@CompileStatic
 class CamelToolFactory implements ToolFactory<CamelContext> {
     protected final static Logger logger = LoggerFactory.getLogger(CamelToolFactory.class)
     final static TOOL_NAME = "Camel"

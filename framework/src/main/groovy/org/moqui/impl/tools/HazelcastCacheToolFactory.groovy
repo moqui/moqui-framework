@@ -15,6 +15,7 @@ package org.moqui.impl.tools
 
 import com.hazelcast.cache.HazelcastCachingProvider
 import com.hazelcast.core.HazelcastInstance
+import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ToolFactory
@@ -26,6 +27,7 @@ import javax.cache.Caching
 import javax.cache.spi.CachingProvider
 
 /** A factory for getting a Hazelcast CacheManager */
+@CompileStatic
 class HazelcastCacheToolFactory implements ToolFactory<CacheManager> {
     protected final static Logger logger = LoggerFactory.getLogger(HazelcastCacheToolFactory.class)
     final static String TOOL_NAME = "HazelcastCache"

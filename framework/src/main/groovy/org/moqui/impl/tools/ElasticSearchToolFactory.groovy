@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.tools
 
+import groovy.transform.CompileStatic
 import org.elasticsearch.client.Client
 import org.elasticsearch.node.NodeBuilder
 import org.moqui.context.ExecutionContextFactory
@@ -21,6 +22,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 /** ElasticSearch Client is used for indexing and searching documents */
+@CompileStatic
 class ElasticSearchToolFactory implements ToolFactory<Client> {
     protected final static Logger logger = LoggerFactory.getLogger(ElasticSearchToolFactory.class)
     final static String TOOL_NAME = "ElasticSearch"
