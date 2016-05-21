@@ -426,6 +426,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- leaving this out for now, not easily supported by Quartz Scheduler: <xs:element minOccurs="0" ref="thread-pool"/> -->
                 <!-- TABLED: not to include in 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="jms-service"/> -->
             </xs:sequence>
+            <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The name of the ToolFactory to use for the distributed async service ExecutorService implementation.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-location">
@@ -437,11 +440,9 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="service-type">
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="runner-class" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>
-                    Fully qualified name of class that implements the org.moqui.impl.service.ServiceRunner interface.
-                </xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="runner-class" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                Fully qualified name of class that implements the org.moqui.impl.service.ServiceRunner interface.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-file">

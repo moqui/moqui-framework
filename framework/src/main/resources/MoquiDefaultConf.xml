@@ -2,15 +2,18 @@
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
 <moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.0.xsd">
 
-    <!-- Settings in this file can be overridden in a component and/or runtime conf file that has a any of the desired sub-elements. -->
+    <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
+        any of the desired sub-elements. -->
 
     <tools empty-db-load="seed" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.HazelcastToolFactory" init-priority="05" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="06" disabled="false"/>
-        <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="15" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.KieToolFactory" init-priority="16" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.HazelcastExecutorToolFactory" init-priority="06" disabled="false"/>
 
-        <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="20" disabled="true"/>
+        <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="15" disabled="false"/>
+        <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="20" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.KieToolFactory" init-priority="25" disabled="false"/>
+
+        <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
     </tools>
 
     <cache-list warm-on-start="true">
@@ -210,8 +213,8 @@
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
     </screen-facade>
 
-    <service-facade>
-        <!-- NOTE: service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
+    <service-facade distributed-factory="HazelcastExecutor">
+        <!-- NOTE: scheduled service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
 
         <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
