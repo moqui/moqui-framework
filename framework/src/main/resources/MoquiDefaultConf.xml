@@ -8,7 +8,8 @@
     <tools empty-db-load="seed" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.HazelcastToolFactory" init-priority="05" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.HazelcastCacheToolFactory" init-priority="06" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.HazelcastExecutorToolFactory" init-priority="07" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.HazelcastDciTopicToolFactory" init-priority="07" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.HazelcastExecutorToolFactory" init-priority="08" disabled="false"/>
 
         <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="15" disabled="false"/>
         <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="20" disabled="false"/>
@@ -247,9 +248,9 @@
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
     </service-facade>
 
-    <entity-facade default-group-name="transactional" distributed-cache-invalidate="false"
-                   entity-eca-enabled="true" sequenced-id-prefix=""
-                   crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
+    <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
+            distributed-cache-invalidate="false" dci-topic-factory="HazelcastDciTopic"
+            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
         <!-- note: no crypt-pass attribute by default, must specify in your conf file! -->
 
         <!-- if this is not present the default JNDI server will be used -->

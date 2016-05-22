@@ -476,7 +476,9 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="entity-eca-enabled" default="true" type="boolean"/>
             <xs:attribute name="distributed-cache-invalidate" default="false" type="boolean">
-                <xs:annotation><xs:documentation>Enable distributed cache invalidate by Hazelcast Topic</xs:documentation></xs:annotation></xs:attribute>
+                <xs:annotation><xs:documentation>Enable distributed cache invalidate by distributed Topic</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="dci-topic-factory" type="xs:string">
+                <xs:annotation><xs:documentation>Topic factory for distributed cache invalidate</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="sequenced-id-prefix" type="xs:string"/>
             <xs:attribute name="default-group-name" type="xs:string"/>
             <xs:attribute name="database-time-zone" type="xs:string"/>
