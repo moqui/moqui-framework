@@ -28,6 +28,7 @@ import java.util.Map;
  * Entity Value Interface - Represents a single database record.
  *
  */
+@SuppressWarnings("unused")
 public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable {
 
     String getEntityName();

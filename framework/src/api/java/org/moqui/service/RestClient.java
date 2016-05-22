@@ -19,6 +19,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("unused")
 public interface RestClient {
     String GET = "GET";
     String PATCH = "PATCH";

@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** A test harness for screen rendering. Does internal rendering without HTTP request/response */
+@SuppressWarnings("unused")
 public interface ScreenTest {
     /** Location of the root XML Screen file to render */
     ScreenTest rootScreen(String screenLocation);

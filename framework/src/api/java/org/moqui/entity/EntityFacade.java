@@ -21,6 +21,7 @@ import java.util.Map;
 import org.w3c.dom.Element;
 
 /** The main interface for general database operations in Moqui. */
+@SuppressWarnings("unused")
 public interface EntityFacade {
 
     /** Get a EntityDatasourceFactory implementation for a group. This is most useful for non-SQL databases to get

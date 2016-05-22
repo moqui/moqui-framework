@@ -15,6 +15,7 @@ package org.moqui.context;
 
 import java.util.*;
 
+@SuppressWarnings("unused")
 public class ContextStack implements Map<String, Object> {
     protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ContextStack.class);
 

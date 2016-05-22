@@ -14,7 +14,6 @@
 package org.moqui.entity;
 
 import java.io.Externalizable;
-import java.io.Serializable;
 import java.util.Map;
 
 /** Represents the conditions to be used to constrain a query.

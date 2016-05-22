@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 /** Web Facade for access to HTTP Servlet objects and information. */
+@SuppressWarnings("unused")
 public interface WebFacade {
     String getRequestUrl();
     Map<String, Object> getParameters();

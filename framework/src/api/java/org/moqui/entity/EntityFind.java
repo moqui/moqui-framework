@@ -26,6 +26,7 @@ import java.util.Map;
  *
  * Even after a query a find object can be modified and then used to perform another query.
  */
+@SuppressWarnings("unused")
 public interface EntityFind extends java.io.Serializable {
 
     /** The Name of the Entity to use, as defined in an entity XML file.

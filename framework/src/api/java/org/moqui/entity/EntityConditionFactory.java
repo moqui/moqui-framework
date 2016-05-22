@@ -23,6 +23,7 @@ import java.util.Map;
  * These can be used in various combinations using the different condition types.
  *
  */
+@SuppressWarnings("unused")
 public interface EntityConditionFactory {
 
     EntityCondition getTrueCondition();

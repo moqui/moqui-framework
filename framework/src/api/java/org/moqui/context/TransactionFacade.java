@@ -61,6 +61,7 @@ import javax.transaction.xa.XAResource;
  * }
  * </pre>
  */
+@SuppressWarnings("unused")
 public interface TransactionFacade {
 
     /** Run in current transaction if one is in place, begin and commit/rollback if none is. */

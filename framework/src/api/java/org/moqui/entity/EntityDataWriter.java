@@ -22,12 +22,13 @@ import java.util.Map;
  *
  * The document will have a root element like <code>&lt;entity-facade-xml&gt;</code>.
  */
+@SuppressWarnings("unused")
 public interface EntityDataWriter {
 
-    public static final FileType XML = FileType.XML;
-    public static final FileType JSON = FileType.JSON;
+    FileType XML = FileType.XML;
+    FileType JSON = FileType.JSON;
 
-    public enum FileType { XML, JSON }
+    enum FileType { XML, JSON }
 
     EntityDataWriter fileType(FileType ft);
 
