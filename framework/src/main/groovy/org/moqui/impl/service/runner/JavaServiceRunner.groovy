@@ -25,7 +25,7 @@ import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.service.ServiceException
 import org.moqui.impl.service.ServiceRunner
-import org.moqui.context.ContextStack
+import org.moqui.util.ContextStack
 
 @CompileStatic
 public class JavaServiceRunner implements ServiceRunner {

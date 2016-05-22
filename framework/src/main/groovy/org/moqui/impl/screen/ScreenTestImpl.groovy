@@ -14,7 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ContextStack
+import org.moqui.util.ContextStack
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.screen.ScreenRender

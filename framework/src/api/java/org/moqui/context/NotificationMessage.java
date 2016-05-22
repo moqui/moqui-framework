@@ -16,6 +16,7 @@ package org.moqui.context;
 import java.util.Map;
 import java.util.Set;
 
+@SuppressWarnings("unused")
 public interface NotificationMessage extends java.io.Serializable {
 
     NotificationMessage userId(String userId);

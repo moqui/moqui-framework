@@ -18,7 +18,7 @@ import org.moqui.util.MNode
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 import org.moqui.impl.util.FtlNodeWrapper
-import org.moqui.context.ContextStack
+import org.moqui.util.ContextStack
 
 @CompileStatic
 class ScreenWidgets {
