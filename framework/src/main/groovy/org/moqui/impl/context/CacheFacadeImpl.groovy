@@ -15,6 +15,7 @@ package org.moqui.impl.context
 
 import com.hazelcast.cache.CacheStatistics
 import com.hazelcast.cache.ICache
+import com.hazelcast.cache.impl.AbstractHazelcastCacheManager
 import com.hazelcast.config.CacheConfig
 import com.hazelcast.config.EvictionConfig
 import com.hazelcast.config.EvictionPolicy
@@ -27,7 +28,9 @@ import org.moqui.util.MNode
 
 import javax.cache.Cache
 import javax.cache.CacheManager
+import javax.cache.configuration.Configuration
 import javax.cache.configuration.Factory
+import javax.cache.configuration.MutableConfiguration
 import javax.cache.expiry.AccessedExpiryPolicy
 import javax.cache.expiry.CreatedExpiryPolicy
 import javax.cache.expiry.Duration
@@ -51,7 +54,7 @@ public class CacheFacadeImpl implements CacheFacade {
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected CacheManager hcCacheManagerInternal = (CacheManager) null
+    protected CacheManager distCacheManagerInternal = (CacheManager) null
 
     protected final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
     protected final Map<String, Boolean> cacheTenantsShare = new HashMap<String, Boolean>()
@@ -60,13 +63,13 @@ public class CacheFacadeImpl implements CacheFacade {
         this.ecfi = ecfi
     }
 
-    CacheManager getHcCacheManager() {
-        if (hcCacheManagerInternal == null) {
+    CacheManager getDistCacheManager() {
+        if (distCacheManagerInternal == null) {
             MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
             String distCacheFactoryName = cacheListNode.attribute("distributed-factory") ?: HazelcastCacheToolFactory.TOOL_NAME
-            hcCacheManagerInternal = ecfi.getTool(distCacheFactoryName, CacheManager.class)
+            distCacheManagerInternal = ecfi.getTool(distCacheFactoryName, CacheManager.class)
         }
-        return hcCacheManagerInternal
+        return distCacheManagerInternal
     }
 
     void destroy() {
@@ -184,6 +187,8 @@ public class CacheFacadeImpl implements CacheFacade {
                         hitCount:stats.getCacheHits(), missCountTotal:stats.getCacheMisses(),
                         evictionCount:stats.getCacheEvictions(), removeCount:stats.getCacheRemovals(),
                         expireCount:stats.getCacheExpires()] as Map<String, Object>)
+            } else {
+                logger.warn("Cannot get detailed info for cache ${cn} which is of type ${co.class.name}")
             }
         }
         if (orderByField) StupidUtilities.orderMapList(ci, [orderByField])
@@ -239,25 +244,40 @@ public class CacheFacadeImpl implements CacheFacade {
 
                 newCache = new MCache(fullCacheName, null, mConf)
             } else if ("distributed".equals(cacheType)) {
-                // use Hazelcast
-                CacheManager cacheManager = getHcCacheManager()
+                Configuration config
+                CacheManager cacheManager = getDistCacheManager()
 
-                CacheConfig cacheConfig = new CacheConfig()
-                cacheConfig.setTypes(keyType, valueType)
-                cacheConfig.setStoreByValue(true).setStatisticsEnabled(true).setManagementEnabled(false)
-                cacheConfig.setName(fullCacheName)
-                cacheConfig.setExpiryPolicyFactory(expiryPolicyFactory)
-                cacheConfig.setInMemoryFormat(InMemoryFormat.OBJECT)
+                if (cacheManager instanceof AbstractHazelcastCacheManager) {
+                    // use Hazelcast
+                    CacheConfig cacheConfig = new CacheConfig()
+                    cacheConfig.setTypes(keyType, valueType)
+                    cacheConfig.setStoreByValue(true).setStatisticsEnabled(true)
+                    cacheConfig.setExpiryPolicyFactory(expiryPolicyFactory)
 
-                String maxElementsStr = cacheNode.attribute("max-elements")
-                if (maxElementsStr && maxElementsStr != "0") {
-                    int maxElements = Integer.parseInt(maxElementsStr)
-                    EvictionPolicy ep = cacheNode.attribute("eviction-strategy") == "least-recently-used" ? EvictionPolicy.LRU : EvictionPolicy.LFU
-                    EvictionConfig evictionConfig = new EvictionConfig(maxElements, EvictionConfig.MaxSizePolicy.ENTRY_COUNT, ep)
-                    cacheConfig.setEvictionConfig(evictionConfig)
+                    // from here down the settings are specific to Hazelcast (not supported in javax.cache)
+                    cacheConfig.setName(fullCacheName)
+                    cacheConfig.setInMemoryFormat(InMemoryFormat.OBJECT)
+
+                    String maxElementsStr = cacheNode.attribute("max-elements")
+                    if (maxElementsStr && maxElementsStr != "0") {
+                        int maxElements = Integer.parseInt(maxElementsStr)
+                        EvictionPolicy ep = cacheNode.attribute("eviction-strategy") == "least-recently-used" ? EvictionPolicy.LRU : EvictionPolicy.LFU
+                        EvictionConfig evictionConfig = new EvictionConfig(maxElements, EvictionConfig.MaxSizePolicy.ENTRY_COUNT, ep)
+                        cacheConfig.setEvictionConfig(evictionConfig)
+                    }
+
+                    config = (Configuration) cacheConfig
+                } else {
+                    logger.info("Initializing cache ${cacheName} which has a CacheManager of type ${cacheManager.class.name} and extended configuration not supported, using simple MutableConfigutation")
+                    MutableConfiguration mutConfig = new MutableConfiguration()
+                    mutConfig.setTypes(keyType, valueType)
+                    mutConfig.setStoreByValue(false).setStatisticsEnabled(true)
+                    mutConfig.setExpiryPolicyFactory(expiryPolicyFactory)
+
+                    config = (Configuration) mutConfig
                 }
 
-                newCache = cacheManager.createCache(fullCacheName, cacheConfig)
+                newCache = cacheManager.createCache(fullCacheName, config)
             } else {
                 throw new IllegalArgumentException("Cache type ${cacheType} not supported")
             }
@@ -265,11 +285,11 @@ public class CacheFacadeImpl implements CacheFacade {
             if ("local".equals(defaultCacheType)) {
                 newCache = new MCache(fullCacheName, null, null)
             } else if ("distributed".equals(defaultCacheType)) {
-                CacheManager cacheManager = getHcCacheManager()
-                CacheConfig cacheConfig = new CacheConfig()
-                cacheConfig.setName(fullCacheName)
+                CacheManager cacheManager = getDistCacheManager()
+                MutableConfiguration mutConfig = new MutableConfiguration()
+                mutConfig.setStoreByValue(false).setStatisticsEnabled(true)
                 // any defaults we want here? better to use underlying defaults and conf file settings only
-                newCache = cacheManager.createCache(fullCacheName, cacheConfig)
+                newCache = cacheManager.createCache(fullCacheName, mutConfig)
             } else {
                 throw new IllegalArgumentException("Default cache type ${defaultCacheType} not supported")
             }
