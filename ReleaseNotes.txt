@@ -53,6 +53,7 @@ Non Backward Compatible Changes
   ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and
   caused performance overhead
+- The ContextStack class has moved to the org.moqui.util package
 - When updating to this version recommend stopping all instances in a
   cluster before starting any instance with the new version
 
@@ -119,6 +120,10 @@ New Features
   thread with an ExecutionContext like the current (tenant, user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
+- form-list now supports @header-dialog to put header-field widgets in a
+  dialog instead of in the header
+- form-list now supports @select-columns to allow users to select which
+  fields are displayed in which columns, or not displayed
 
 Bug Fixes
 
