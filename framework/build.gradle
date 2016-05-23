@@ -146,6 +146,7 @@ dependencies {
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
+    providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
     // Some specs from Geronimo, etc
     compile 'org.apache.geronimo.specs:geronimo-j2ee-connector_1.5_spec:2.0.0' // Apache 2.0

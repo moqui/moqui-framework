@@ -149,9 +149,7 @@ public class ListCondition implements EntityConditionImplBase {
         if (o == null || o.getClass() != thisClass) return false;
         ListCondition that = (ListCondition) o;
         // NOTE: for Java Enums the != is WAY faster than the .equals
-        if (this.operator != that.operator) return false;
-        if (!this.conditionList.equals(that.conditionList)) return false;
-        return true;
+        return this.operator == that.operator && this.conditionList.equals(that.conditionList);
     }
 
     @Override
@@ -160,6 +158,7 @@ public class ListCondition implements EntityConditionImplBase {
         out.writeObject(operator.name().toCharArray());
     }
     @Override
+    @SuppressWarnings("unchecked")
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         conditionList = (ArrayList<EntityConditionImplBase>) in.readObject();
         operator = JoinOperator.valueOf(new String((char[]) in.readObject()));

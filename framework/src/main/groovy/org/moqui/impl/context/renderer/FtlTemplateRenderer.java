@@ -42,6 +42,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
 
     public FtlTemplateRenderer() { }
 
+    @SuppressWarnings("unchecked")
     public TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf;
         defaultFtlConfiguration = makeFtlConfiguration(ecfi);

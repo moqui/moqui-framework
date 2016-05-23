@@ -108,22 +108,12 @@ public class StupidJavaUtilities {
         return new String(newChars, 0, lastPos);
     }
 
-    public static boolean internedStringsEqual(String s1, String s2) {
-        if (s1 == null) {
-            return (s2 == null);
-        } else {
-            // NOTE: the == is used here intentionally since the Strings passed in should be intern()'ed
-            return s2 != null && (s1 == s2);
-        }
-    }
-    public static boolean internedNonNullStringsEqual(String s1, String s2) { return (s1 == s2); }
-
     public static class MapOrderByComparator implements Comparator<Map> {
-        protected ArrayList<String> fieldNameList;
-        protected int fieldNameListSize;
+        ArrayList<String> fieldNameList;
+        int fieldNameListSize;
 
-        protected final static char minusChar = '-';
-        protected final static char plusChar = '+';
+        final static char minusChar = '-';
+        final static char plusChar = '+';
 
         public MapOrderByComparator(List<String> fieldNameList) {
             this.fieldNameList = fieldNameList instanceof ArrayList ? (ArrayList<String>) fieldNameList : new ArrayList<>(fieldNameList);
@@ -131,6 +121,7 @@ public class StupidJavaUtilities {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public int compare(Map map1, Map map2) {
             if (map1 == null) return -1;
             if (map2 == null) return 1;
@@ -163,8 +154,7 @@ public class StupidJavaUtilities {
 
         @Override
         public boolean equals(Object obj) {
-            if (!(obj instanceof MapOrderByComparator)) return false;
-            return fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList);
+            return obj instanceof MapOrderByComparator && fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList);
         }
 
         @Override
@@ -172,7 +162,7 @@ public class StupidJavaUtilities {
     }
 
     // Lookup table for CRC16 based on irreducible polynomial: 1 + x^2 + x^15 + x^16
-    public static final int[] crc16Table = {
+    private static final int[] crc16Table = {
             0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
             0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
             0xCC01, 0x0CC0, 0x0D80, 0xCD41, 0x0F00, 0xCFC1, 0xCE81, 0x0E40,
@@ -207,6 +197,7 @@ public class StupidJavaUtilities {
             0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040,
     };
 
+    @SuppressWarnings("unused")
     public static int calculateCrc16(String input) {
         byte[] bytes = input.getBytes();
         int crc = 0x0000;
