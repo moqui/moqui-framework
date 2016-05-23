@@ -1112,7 +1112,6 @@ class ScreenForm {
             int flcListSize = formListColumnList != null ? formListColumnList.size() : 0
 
             ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
-
             Set<String> tempFieldsInFormListColumns = new HashSet()
 
             if (flcListSize > 0) {
@@ -1144,6 +1143,7 @@ class ScreenForm {
                     if (isListFieldHidden(fieldNode)) continue
 
                     ArrayList<FtlNodeWrapper> singleFieldColList = new ArrayList<>()
+                    tempFieldsInFormListColumns.add(fieldNode.attribute("name"))
                     singleFieldColList.add(FtlNodeWrapper.wrapNode(fieldNode))
                     colInfoList.add(singleFieldColList)
                 }
