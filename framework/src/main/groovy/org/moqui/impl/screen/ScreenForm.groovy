@@ -1080,13 +1080,12 @@ class ScreenForm {
         }
         ArrayList<FtlNodeWrapper> getListHiddenFieldList() {
             if (hiddenFieldList != null) return hiddenFieldList
-            ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
 
-            ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+            ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
             int afnSize = allFieldNodes.size()
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
-                if (isListFieldHidden(fieldNode)) colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+                if (isListFieldHidden(fieldNode)) fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
             }
 
             hiddenFieldList = fieldList
