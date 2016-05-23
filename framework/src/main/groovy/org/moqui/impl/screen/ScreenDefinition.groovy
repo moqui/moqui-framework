@@ -814,19 +814,24 @@ class ScreenDefinition {
 
             String userId = ec.user.userId
             String formLocation = ec.context.get("formLocation")
-            String columnsTreeStr = ec.context.get("columnsTree") as String
-            // logger.info("columnsTreeStr: ${columnsTreeStr}")
-            // if columnsTree empty there were no changes
-            if (!columnsTreeStr) return defaultResponse
-
-            JsonSlurper slurper = new JsonSlurper()
-            List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
 
             // clear out existing records
             ec.entity.find("moqui.screen.form.FormListUserField").condition("userId", userId)
                     .condition("formLocation", formLocation).deleteAll()
 
+            if (ec.context.get("ResetColumns")) {
+                // to reset columns don't save new ones, just return after clearing out existing records
+                return defaultResponse
+            }
+
             // save changes to DB
+            String columnsTreeStr = ec.context.get("columnsTree") as String
+            // logger.info("columnsTreeStr: ${columnsTreeStr}")
+            // if columnsTree empty there were no changes
+            if (!columnsTreeStr) return defaultResponse
+            JsonSlurper slurper = new JsonSlurper()
+            List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
+
             StupidUtilities.orderMapList(columnsTree, ['order'])
             int columnIndex = 0
             for (Map columnMap in columnsTree) {
@@ -844,7 +849,6 @@ class ScreenDefinition {
                 }
                 columnIndex++
             }
-
             return defaultResponse
         }
     }
