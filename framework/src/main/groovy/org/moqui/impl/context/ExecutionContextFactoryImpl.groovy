@@ -486,11 +486,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
         List<ArtifactStatsInfo> asiList = new ArrayList<>(artifactStatsInfoByType.values())
         artifactStatsInfoByType.clear()
-        for (ArtifactStatsInfo asi in asiList) {
-            if (asi.curHitBin == null) continue
-            EntityValue ahb = asi.curHitBin.makeAhbValue(this, currentTimestamp)
-            ahb.setSequencedIdPrimary().create()
-        }
+        ArtifactExecutionFacadeImpl aefi = getEci().getArtifactExecutionImpl()
+        boolean enableAuthz = !aefi.disableAuthz()
+        try {
+            for (ArtifactStatsInfo asi in asiList) {
+                if (asi.curHitBin == null) continue
+                EntityValue ahb = asi.curHitBin.makeAhbValue(this, currentTimestamp)
+                ahb.setSequencedIdPrimary().create()
+            }
+        } finally { if (enableAuthz) aefi.enableAuthz() }
         logger.info("ArtifactHitBins stored")
 
         // shutdown worker pool
@@ -1160,7 +1164,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             // NOTE: async service scheduling is slow enough that it is faster to just create the record now
             // eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
             // have an authorize-skip=create on the entity so don't need to disable authz here
-            eci.runInWorkerThread({ ahp.setSequencedIdPrimary().create() })
+            eci.runInWorkerThread({
+                ArtifactExecutionFacadeImpl aefi = getEci().getArtifactExecutionImpl()
+                boolean enableAuthz = !aefi.disableAuthz()
+                try { ahp.setSequencedIdPrimary().create() }
+                finally { if (enableAuthz) aefi.enableAuthz() }
+            })
         }
     }
 
@@ -1179,7 +1188,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // otherwise, persist the old and create a new one
         EntityValue ahb = abi.makeAhbValue(this, new Timestamp(binStartTime + hitBinLengthMillis))
-        eci.runInWorkerThread({ ahb.setSequencedIdPrimary().create() })
+        eci.runInWorkerThread({
+            ArtifactExecutionFacadeImpl aefi = getEci().getArtifactExecutionImpl()
+            boolean enableAuthz = !aefi.disableAuthz()
+            try { ahb.setSequencedIdPrimary().create() }
+            finally { if (enableAuthz) aefi.enableAuthz() }
+        })
 
         statsInfo.curHitBin = new ArtifactBinInfo(artifactTypeEnum, artifactSubType, artifactName, startTime)
     }

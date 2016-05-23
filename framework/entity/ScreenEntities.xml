@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <!-- ========== Subscreen ========== -->
-    <entity entity-name="SubscreensItem" package-name="moqui.screen" authorize-skip="view" cache="true">
+    <entity entity-name="SubscreensItem" package-name="moqui.screen" group-name="configuration" cache="true">
         <field name="screenLocation" type="text-medium" is-pk="true"/>
         <field name="subscreenName" type="text-medium" is-pk="true"/>
         <field name="userGroupId" type="id" is-pk="true" default="'ALL_USERS'">
@@ -42,7 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
         </field>
         <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
     </entity>
-    <entity entity-name="SubscreensDefault" package-name="moqui.screen" cache="true">
+    <entity entity-name="SubscreensDefault" package-name="moqui.screen" group-name="configuration" cache="true">
         <field name="screenLocation" type="text-medium" is-pk="true"/>
         <field name="defaultSeqId" type="id" is-pk="true"/>
         <field name="condition" type="text-medium"/>
@@ -53,7 +53,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== Theme ========== -->
-    <entity entity-name="ScreenTheme" package-name="moqui.screen" authorize-skip="true" cache="true">
+    <entity entity-name="ScreenTheme" package-name="moqui.screen" group-name="configuration" cache="true">
         <field name="screenThemeId" type="id" is-pk="true"/>
         <field name="screenThemeTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
@@ -74,7 +74,7 @@ along with this software (see the LICENSE.md file). If not, see
                                       description="Minimal Error Theme"/>
         </seed-data>
     </entity>
-    <entity entity-name="ScreenThemeResource" package-name="moqui.screen" authorize-skip="view" cache="true">
+    <entity entity-name="ScreenThemeResource" package-name="moqui.screen" group-name="configuration" cache="true">
         <field name="screenThemeId" type="id" is-pk="true"/>
         <field name="sequenceNum" type="number-integer" is-pk="true"/>
         <field name="resourceTypeEnumId" type="id"/>
@@ -96,7 +96,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Theme Preview Screenshot" enumId="STRT_SCREENSHOT" enumTypeId="ScreenThemeResourceType"/>
         </seed-data>
     </entity>
-    <entity entity-name="ScreenThemeIcon" package-name="moqui.screen" cache="true">
+    <entity entity-name="ScreenThemeIcon" package-name="moqui.screen" group-name="configuration" cache="true">
         <field name="screenThemeId" type="id" is-pk="true"/>
         <field name="textPattern" type="text-medium" is-pk="true"/>
         <field name="iconClass" type="text-medium"/>
@@ -107,7 +107,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.screen.form -->
     <!-- ========================================================= -->
 
-    <entity entity-name="FormListUserField" package-name="moqui.screen.form">
+    <entity entity-name="FormListUserField" package-name="moqui.screen.form" group-name="configuration">
         <field name="userId" type="id" is-pk="true"/>
         <field name="formLocation" type="text-medium" is-pk="true"/>
         <field name="fieldName" type="text-short" is-pk="true"/>
@@ -115,7 +115,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="columnSequence" type="number-integer"><description>The sequence within the column</description></field>
     </entity>
 
-    <entity entity-name="DbForm" package-name="moqui.screen.form">
+    <entity entity-name="DbForm" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="purposeEnumId" type="id"/>
         <field name="isListForm" type="text-indicator"/>
@@ -137,7 +137,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Other" enumId="DbfpOther" enumTypeId="DbFormPurpose"/>
         </seed-data>
     </entity>
-    <entity entity-name="DbFormField" package-name="moqui.screen.form">
+    <entity entity-name="DbFormField" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="entryName" type="text-medium"/>
@@ -193,7 +193,7 @@ along with this software (see the LICENSE.md file). If not, see
             -->
         </seed-data>
     </entity>
-    <entity entity-name="DbFormFieldAttribute" package-name="moqui.screen.form">
+    <entity entity-name="DbFormFieldAttribute" package-name="moqui.screen.form" group-name="configuration">
         <description>Used to provide attribute values. For a reference of attributes available for each field type, see
             the corresponding element in the xml-form-?.xsd file.</description>
         <field name="formId" type="id" is-pk="true"/>
@@ -202,7 +202,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="value" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.screen.form.DbFormField"/>
     </entity>
-    <entity entity-name="DbFormFieldOption" package-name="moqui.screen.form">
+    <entity entity-name="DbFormFieldOption" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="sequenceNum" type="number-integer" is-pk="true"/>
@@ -210,7 +210,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="text" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.screen.form.DbFormField"/>
     </entity>
-    <entity entity-name="DbFormFieldEntOpts" package-name="moqui.screen.form">
+    <entity entity-name="DbFormFieldEntOpts" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="sequenceNum" type="number-integer" is-pk="true"/>
@@ -218,7 +218,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="text" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.screen.form.DbFormField"/>
     </entity>
-    <entity entity-name="DbFormFieldEntOptsCond" package-name="moqui.screen.form">
+    <entity entity-name="DbFormFieldEntOptsCond" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="sequenceNum" type="number-integer" is-pk="true"/>
@@ -226,7 +226,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="value" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.screen.form.DbFormFieldEntOpts"/>
     </entity>
-    <entity entity-name="DbFormFieldEntOptsOrder" package-name="moqui.screen.form">
+    <entity entity-name="DbFormFieldEntOptsOrder" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="sequenceNum" type="number-integer" is-pk="true"/>
@@ -234,7 +234,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="entityFieldName" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.screen.form.DbFormFieldEntOpts"/>
     </entity>
-    <entity entity-name="DbFormUserGroup" package-name="moqui.screen.form">
+    <entity entity-name="DbFormUserGroup" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="userGroupId" type="id" is-pk="true"><description>These settings are for a UserGroup. To apply to
             all users just use the ALL_USERS UserGroup.</description></field>
@@ -250,7 +250,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="userGroupId" entity-alias="DBFUG"/>
     </view-entity>
 
-    <entity entity-name="FormResponse" package-name="moqui.screen.form" cache="never">
+    <entity entity-name="FormResponse" package-name="moqui.screen.form" group-name="nontransactional" cache="never">
         <field name="formResponseId" type="id" is-pk="true"/>
         <field name="formLocation" type="text-medium"/>
         <field name="formId" type="id"/>
@@ -259,7 +259,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.screen.form.DbForm"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="FormResponseAnswer" package-name="moqui.screen.form" cache="never">
+    <entity entity-name="FormResponseAnswer" package-name="moqui.screen.form" group-name="nontransactional" cache="never">
         <field name="formResponseAnswerId" type="id" is-pk="true"/>
         <field name="formResponseId" type="id"/>
         <field name="formId" type="id"/>

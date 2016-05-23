@@ -225,7 +225,7 @@ class ScreenDefinition {
                 .condition([screenLocation:location] as Map<String, Object>)
         // NOTE: this filter should NOT be done here, causes subscreen items to be filtered by first user that renders the screen, not by current user!
         // subscreensItemFind.condition("userGroupId", EntityCondition.IN, sfi.ecfi.executionContext.user.userGroupIdSet)
-        EntityList subscreensItemList = subscreensItemFind.useCache(true).list()
+        EntityList subscreensItemList = subscreensItemFind.useCache(true).disableAuthz().list()
         for (EntityValue subscreensItem in subscreensItemList) {
             SubscreensItem si = new SubscreensItem(subscreensItem, this)
             subscreensByName.put(si.name, si)

@@ -20,6 +20,7 @@ import org.moqui.context.ResourceReference
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
+import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.util.MNode
@@ -1458,22 +1459,28 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", true, true, {
-                    EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
-                            .useCache(false).forUpdate(true).one()
-                    if (svi == null) {
-                        svi = makeValue("moqui.entity.SequenceValueItem")
-                        svi.set("seqName", seqName)
-                        // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
-                        bank[0] = 100000L
-                        bank[1] = bank[0] + bankSize
-                        svi.set("seqNum", bank[1])
-                        svi.create()
-                    } else {
-                        Long lastSeqNum = svi.getLong("seqNum")
-                        bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
-                        bank[1] = bank[0] + bankSize
-                        svi.set("seqNum", bank[1])
-                        svi.update()
+                    ArtifactExecutionFacadeImpl aefi = ecfi.getEci().getArtifactExecutionImpl()
+                    boolean enableAuthz = !aefi.disableAuthz()
+                    try {
+                        EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
+                                .useCache(false).forUpdate(true).one()
+                        if (svi == null) {
+                            svi = makeValue("moqui.entity.SequenceValueItem")
+                            svi.set("seqName", seqName)
+                            // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
+                            bank[0] = 100000L
+                            bank[1] = bank[0] + bankSize
+                            svi.set("seqNum", bank[1])
+                            svi.create()
+                        } else {
+                            Long lastSeqNum = svi.getLong("seqNum")
+                            bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
+                            bank[1] = bank[0] + bankSize
+                            svi.set("seqNum", bank[1])
+                            svi.update()
+                        }
+                    } finally {
+                        if (enableAuthz) aefi.enableAuthz()
                     }
                 })
             }
