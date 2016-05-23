@@ -56,7 +56,7 @@ import java.util.jar.JarFile
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
     
-    protected boolean destroyed = false
+    private boolean destroyed = false
     
     protected String runtimePath
     protected final String runtimeConfPath
@@ -669,6 +669,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return toolFactory.getInstance()
     }
 
+    /*
     @Deprecated
     void initComponent(String location) {
         ComponentInfo componentInfo = new ComponentInfo(location, this)
@@ -679,6 +680,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         addComponent(componentInfo)
     }
+    */
 
     protected void checkSortDependentComponents() {
         // we have an issue here where not all dependencies are declared, most are implied by component load order
