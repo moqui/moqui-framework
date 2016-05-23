@@ -26,6 +26,7 @@ import java.util.Set;
  * type attribute will be used to determine if the file should be loaded by whether or not it matches the values
  * specified for data types on the loader.
  */
+@SuppressWarnings("unused")
 public interface EntityDataLoader {
 
     /** Location of the data file to load. Can be called multiple times to load multiple files.

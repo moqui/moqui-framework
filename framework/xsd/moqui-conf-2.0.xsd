@@ -69,6 +69,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="cache"/></xs:sequence>
             <xs:attribute name="warm-on-start" type="boolean" default="true"/>
+            <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The name of the ToolFactory to use for the distributed CacheManager implementation.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="cache">
@@ -426,6 +429,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- leaving this out for now, not easily supported by Quartz Scheduler: <xs:element minOccurs="0" ref="thread-pool"/> -->
                 <!-- TABLED: not to include in 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="jms-service"/> -->
             </xs:sequence>
+            <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The name of the ToolFactory to use for the distributed async service ExecutorService implementation.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-location">
@@ -437,11 +443,9 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="service-type">
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="runner-class" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>
-                    Fully qualified name of class that implements the org.moqui.impl.service.ServiceRunner interface.
-                </xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="runner-class" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                Fully qualified name of class that implements the org.moqui.impl.service.ServiceRunner interface.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-file">
@@ -472,7 +476,9 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="entity-eca-enabled" default="true" type="boolean"/>
             <xs:attribute name="distributed-cache-invalidate" default="false" type="boolean">
-                <xs:annotation><xs:documentation>Enable distributed cache invalidate by Hazelcast Topic</xs:documentation></xs:annotation></xs:attribute>
+                <xs:annotation><xs:documentation>Enable distributed cache invalidate by distributed Topic</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="dci-topic-factory" type="xs:string">
+                <xs:annotation><xs:documentation>Topic factory for distributed cache invalidate</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="sequenced-id-prefix" type="xs:string"/>
             <xs:attribute name="default-group-name" type="xs:string"/>
             <xs:attribute name="database-time-zone" type="xs:string"/>

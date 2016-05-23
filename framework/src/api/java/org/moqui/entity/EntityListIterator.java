@@ -21,6 +21,7 @@ import java.util.ListIterator;
 /**
  * Entity Cursor List Iterator for Handling Cursored Database Results
  */
+@SuppressWarnings("unused")
 public interface EntityListIterator extends ListIterator<EntityValue>, Iterable<EntityValue> {
 
     /** Entity Facade calls this method to tell the ELI additional information for dealing with TX cache, etc */

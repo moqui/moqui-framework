@@ -18,12 +18,11 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.context.ContextStack
+import org.moqui.util.ContextStack
 import org.moqui.context.ExecutionContext
 import org.moqui.context.WebFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.context.ResourceReference
 import org.moqui.impl.context.ArtifactExecutionInfoImpl

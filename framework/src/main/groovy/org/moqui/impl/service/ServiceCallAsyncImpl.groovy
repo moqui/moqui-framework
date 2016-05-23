@@ -63,8 +63,8 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         validateCall(eci)
 
         AsyncServiceRunnable runnable = new AsyncServiceRunnable(eci, serviceName, parameters)
-        if (distribute && sfi.hazelcastExecutorService != null) {
-            sfi.hazelcastExecutorService.execute(runnable)
+        if (distribute && sfi.distributedExecutorService != null) {
+            sfi.distributedExecutorService.execute(runnable)
         } else {
             ecfi.workerPool.execute(runnable)
         }
@@ -77,8 +77,8 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         validateCall(eci)
 
         AsyncServiceCallable callable = new AsyncServiceCallable(eci, serviceName, parameters)
-        if (distribute && sfi.hazelcastExecutorService) {
-            return sfi.hazelcastExecutorService.submit(callable)
+        if (distribute && sfi.distributedExecutorService) {
+            return sfi.distributedExecutorService.submit(callable)
         } else {
             return ecfi.workerPool.submit(callable)
         }

@@ -22,6 +22,7 @@ import java.util.Map;
  * A special method exists on the EntityFind to accept a EntityDynamicView instead of an entityName.
  * The methods here return a reference to itself (this) for convenience.
  */
+@SuppressWarnings("unused")
 public interface EntityDynamicView {
     /** This optionally sets a name for the dynamic view entity. If not used will default to "DynamicView" */
     EntityDynamicView setEntityName(String entityName);

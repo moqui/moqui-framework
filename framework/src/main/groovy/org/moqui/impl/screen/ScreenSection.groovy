@@ -17,7 +17,7 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.context.ContextStack
+import org.moqui.util.ContextStack
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger

@@ -30,6 +30,7 @@ import java.util.*;
  * not need to be used and the ExecutionContextFactory instance should be referenced and used from somewhere else.
  */
 
+@SuppressWarnings("unused")
 public class Moqui {
     protected final static Logger logger = LoggerFactory.getLogger(Moqui.class);
 

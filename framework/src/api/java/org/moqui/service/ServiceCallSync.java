@@ -15,6 +15,7 @@ package org.moqui.service;
 
 import java.util.Map;
 
+@SuppressWarnings("unused")
 public interface ServiceCallSync extends ServiceCall {
     /** Name of the service to run. The combined service name, like: "${path}.${verb}${noun}". To explicitly separate
      * the verb and noun put a hash (#) between them, like: "${path}.${verb}#${noun}" (this is useful for calling the

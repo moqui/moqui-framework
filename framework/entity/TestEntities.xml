@@ -32,7 +32,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
     </entity>
-    <entity entity-name="TestNoSqlEntity" package-name="moqui.test" sequence-bank-size="100" group-name="nosql" cache="never">
+    <entity entity-name="TestNoSqlEntity" package-name="moqui.test" sequence-bank-size="100" group-name="nontransactional" cache="never">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
         <field name="testLong" type="text-long"/>

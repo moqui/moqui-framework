@@ -13,12 +13,14 @@
  */
 package org.moqui.impl.tools
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ToolFactory
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 /** ElasticSearch Client is used for indexing and searching documents */
+@CompileStatic
 class JackrabbitRunToolFactory implements ToolFactory<Process> {
     protected final static Logger logger = LoggerFactory.getLogger(JackrabbitRunToolFactory.class)
     final static String TOOL_NAME = "JackrabbitRun"
@@ -26,7 +28,7 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     protected ExecutionContextFactory ecf = null
 
     /** Jackrabbit Process */
-    protected Process jackrabbitProcess
+    protected Process jackrabbitProcess = null
 
     /** Default empty constructor */
     JackrabbitRunToolFactory() { }
@@ -74,7 +76,10 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     void preFacadeInit(ExecutionContextFactory ecf) { }
 
     @Override
-    Process getInstance() { return jackrabbitProcess }
+    Process getInstance() {
+        if (jackrabbitProcess == null) throw new IllegalStateException("JackrabbitRunToolFactory not initialized")
+        return jackrabbitProcess
+    }
 
     @Override
     void destroy() {

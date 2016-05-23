@@ -13,15 +13,7 @@
  */
 package org.moqui.impl.entity
 
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.ITopic
-import com.hazelcast.core.Message
-import com.hazelcast.core.MessageListener
 import groovy.transform.CompileStatic
-import org.moqui.context.ToolFactory
-import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.tools.HazelcastToolFactory
 
 import javax.cache.Cache
 import org.moqui.entity.EntityCondition
@@ -29,6 +21,7 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.CacheFacadeImpl
 import org.moqui.util.MNode
+import org.moqui.util.SimpleTopic
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -51,8 +44,8 @@ class EntityCache {
     protected final Map<String, ArrayList<String>> cachedListViewEntitiesByMember = new HashMap<>()
 
     protected final boolean distributedCacheInvalidate
-    /** Entity Cache Invalidate Hazelcase Topic */
-    private ITopic<EntityCacheInvalidate> entityCacheInvalidateTopic = null
+    /** Entity Cache Invalidate Hazelcast Topic */
+    private SimpleTopic<EntityCacheInvalidate> entityCacheInvalidateTopic = null
 
     EntityCache(EntityFacadeImpl efi) {
         this.efi = efi
@@ -74,15 +67,11 @@ class EntityCache {
         logger.info("Entity Cache initialized, distributed cache invalidate enabled: ${distributedCacheInvalidate}")
 
         if (distributedCacheInvalidate) {
-            ToolFactory<HazelcastInstance> hzToolFactory = efi.ecfi.getToolFactory(HazelcastToolFactory.TOOL_NAME)
-            if (hzToolFactory == null) {
-                logger.error("Entity distributed cache invalidate is enabled but could not find Hazelcast ToolFactory")
-            } else {
-                logger.info("Getting Entity Cache Invalidate Hazelcast Topic and registering MessageListener")
-                HazelcastInstance hazelcastInstance = hzToolFactory.getInstance()
-                entityCacheInvalidateTopic = hazelcastInstance.getTopic("entity-cache-invalidate")
-                EntityCacheListener eciListener = new EntityCacheListener(efi.ecfi)
-                entityCacheInvalidateTopic.addMessageListener(eciListener)
+            try {
+                String dciTopicFactory = entityFacadeNode.attribute("dci-topic-factory") ?: "HazelcastDciTopic"
+                entityCacheInvalidateTopic = efi.ecfi.getTool(dciTopicFactory, SimpleTopic.class)
+            } catch (Exception e) {
+                logger.error("Entity distributed cache invalidate is enabled but could not initialize", e)
             }
         }
     }
@@ -113,28 +102,6 @@ class EntityCache {
             tenantId = new String((char[]) objectInput.readObject())
             isCreate = objectInput.readBoolean()
             evb = (EntityValueBase) objectInput.readObject()
-        }
-    }
-
-    public static class EntityCacheListener implements MessageListener<EntityCacheInvalidate> {
-        ExecutionContextFactoryImpl ecfi
-        EntityCacheListener(ExecutionContextFactoryImpl ecfi) {
-            this.ecfi = ecfi
-        }
-
-        @Override
-        void onMessage(Message<EntityCacheInvalidate> message) {
-            EntityCacheInvalidate eci = message.getMessageObject()
-            if (eci.tenantId == null) {
-                logger.warn("Received EntityCacheInvalidate message with null tenantId, ignoring")
-                return
-            }
-            // logger.info("====== EntityCacheListener message tenantId=${eci.tenantId} isCreate=${eci.isCreate}, evb: ${eci.evb}")
-            ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi, eci.tenantId, null, {
-                EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
-                efi.getEntityCache().clearCacheForValueActual(eci.evb, eci.isCreate)
-            })
-            ecfi.workerPool.execute(runnable)
         }
     }
 

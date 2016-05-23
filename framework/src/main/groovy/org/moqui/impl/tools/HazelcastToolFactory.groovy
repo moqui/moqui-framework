@@ -17,12 +17,14 @@ import com.hazelcast.config.Config
 import com.hazelcast.config.XmlConfigBuilder
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ToolFactory
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 /** ElasticSearch Client is used for indexing and searching documents */
+@CompileStatic
 class HazelcastToolFactory implements ToolFactory<HazelcastInstance> {
     protected final static Logger logger = LoggerFactory.getLogger(HazelcastToolFactory.class)
     final static String TOOL_NAME = "Hazelcast"
@@ -57,7 +59,10 @@ class HazelcastToolFactory implements ToolFactory<HazelcastInstance> {
     }
 
     @Override
-    HazelcastInstance getInstance() { return hazelcastInstance }
+    HazelcastInstance getInstance() {
+        if (hazelcastInstance == null) throw new IllegalStateException("HazelcastToolFactory not initialized")
+        return hazelcastInstance
+    }
 
     @Override
     void destroy() {

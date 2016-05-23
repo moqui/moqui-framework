@@ -14,7 +14,7 @@
 package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ContextStack
+import org.moqui.util.ContextStack
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.ServiceDefinition

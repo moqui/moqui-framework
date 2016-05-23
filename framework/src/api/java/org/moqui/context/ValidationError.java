@@ -26,6 +26,7 @@ import java.util.Map;
  * This is not generally thrown all the way up to the user and is instead added to a list of validation errors as
  * things are running, and then all of them can be shown in context of the fields with the errors.
  */
+@SuppressWarnings("unused")
 public class ValidationError extends BaseException {
     protected final String form;
     protected final String field;

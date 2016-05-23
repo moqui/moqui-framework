@@ -11,10 +11,11 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.context;
+package org.moqui.util;
 
 import java.util.*;
 
+@SuppressWarnings("unused")
 public class ContextStack implements Map<String, Object> {
     protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ContextStack.class);
 

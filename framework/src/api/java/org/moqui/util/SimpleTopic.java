@@ -1,5 +1,5 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
  * 
  * To the extent possible under law, the author(s) have dedicated all
@@ -11,12 +11,9 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.service;
+package org.moqui.util;
 
-import java.util.Map;
-
-public interface ServiceCallback {
-    boolean isEnabled();
-    void receiveEvent(Map<String, Object> context, Map<String, Object> result);
-    void receiveEvent(Map<String, Object> context, Throwable t);
+/** A simple topic publish interface. Listeners (subscribers) should be handled directly on the topic implementation. */
+public interface SimpleTopic<E> {
+    void publish(E message);
 }

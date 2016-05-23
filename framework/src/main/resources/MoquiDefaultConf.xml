@@ -2,18 +2,23 @@
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
 <moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.0.xsd">
 
-    <!-- Settings in this file can be overridden in a component and/or runtime conf file that has a any of the desired sub-elements. -->
+    <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
+        any of the desired sub-elements. -->
 
     <tools empty-db-load="seed" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.HazelcastToolFactory" init-priority="05" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="06" disabled="false"/>
-        <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="15" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.KieToolFactory" init-priority="16" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.HazelcastCacheToolFactory" init-priority="06" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.HazelcastDciTopicToolFactory" init-priority="07" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.HazelcastExecutorToolFactory" init-priority="08" disabled="false"/>
 
-        <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="20" disabled="true"/>
+        <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="15" disabled="false"/>
+        <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="20" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.KieToolFactory" init-priority="25" disabled="false"/>
+
+        <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
     </tools>
 
-    <cache-list warm-on-start="true">
+    <cache-list warm-on-start="true" distributed-factory="HazelcastCache">
         <!-- Entity Database Record Caches (and cache clear assist data) -->
         <!-- set type="distributed" to use the distributed cache -->
         <cache name="entity.record.one." max-elements="20000" eviction-strategy="least-frequently-used"
@@ -210,8 +215,8 @@
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
     </screen-facade>
 
-    <service-facade>
-        <!-- NOTE: service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
+    <service-facade distributed-factory="HazelcastExecutor">
+        <!-- NOTE: scheduled service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
 
         <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
@@ -243,9 +248,9 @@
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
     </service-facade>
 
-    <entity-facade default-group-name="transactional" distributed-cache-invalidate="false"
-                   entity-eca-enabled="true" sequenced-id-prefix=""
-                   crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
+    <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
+            distributed-cache-invalidate="false" dci-topic-factory="HazelcastDciTopic"
+            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
         <!-- note: no crypt-pass attribute by default, must specify in your conf file! -->
 
         <!-- if this is not present the default JNDI server will be used -->
@@ -258,45 +263,38 @@
         The configurations below will use the XADataSource directly to connect, which is required for proper
         transaction handling with multiple data sources.
 
-        For details about WHY to do it this way see:
-        http://www.atomikos.com/Documentation/NonXaDataSource#Caveats
-
-        For details about properties for different databases see:
-        http://www.atomikos.com/Documentation/ConfiguringTransactionsEssentials
-
         To use the non-XA variety just specify the normal JDBC parameters (like jdbc-uri, etc) and leave out the
         xa-properties element. If the xa-properties element is present the normal JDBC parameters will be ignored.
+
+        To use a DataSource from JNDI use something the jndi-jdbc element under the datasource element:
+            <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/>
         -->
 
+        <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
         <datasource group-name="transactional" database-conf-name="h2" schema-name=""
                 start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui.runtime}/db/h2">
-            <!-- with this setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
             <inline-jdbc pool-minsize="5" pool-maxsize="50">
                 <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT" user="sa" password="sa"/>
             </inline-jdbc>
-            <!-- <inline-jdbc jdbc-uri="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT"
-                         jdbc-username="sa" jdbc-password="sa" pool-minsize="5" pool-maxsize="50"/> -->
-            <!-- <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/> -->
         </datasource>
         <!-- The entity-facade.default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->
-
-        <!-- leave these commented to use the MoquiDEFAULT database for all entity groups:
-        <datasource group-name="analytical" database-conf-name="h2" schema-name="">
-            <inline-jdbc pool-minsize="2" pool-maxsize="10">
-                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiAnalyticalDEFAULT" user="sa" password=""/>
-            </inline-jdbc>
-        </datasource>
-        <datasource group-name="nosql" database-conf-name="h2" schema-name="">
-            <inline-jdbc pool-minsize="2" pool-maxsize="10">
-                <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiNoSqlDEFAULT" user="sa" password=""/>
-            </inline-jdbc>
-        </datasource>
-        -->
-        <!-- Above the nosql group is in the transactional db by default. To use OrientDB use this instead: -->
-        <!-- NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX -->
         <!--
-        <datasource group-name="nosql" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory"
+            Standard group names include:
+            - transactional: transactional business entities that need atomic operations, immediate consistency, etc;
+              typically never cached; includes things like work efforts, orders, shipments, inventory/assets, invoices,
+              accounting and financial transactions
+            - nontransactional: non-transactional business entities; eventual consistency is adequate; may be cached;
+              non-transactional does not mean transactions are not used, but that strict consistency is not important;
+              includes things like parties, facilities, products, history/tracking data
+            - configuration: framework and application configuration data; eventual consistency is okay; typically cached
+            - analytical: analytical entities with data typically derived from transactional data
+        -->
+
+        <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
+            NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX -->
+        <!--
+        <datasource group-name="nontransactional" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory"
                 startup-add-missing="true">
             <inline-other uri="plocal:${ORIENTDB_HOME}/databases/MoquiNoSql" username="admin" password="admin"/>
         </datasource>
@@ -331,13 +329,13 @@
                     jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
         </datasource>
         -->
-        <!-- H2
+        <!-- H2 Database
         <datasource group-name="transactional" database-conf-name="h2" schema-name="">
             <inline-jdbc pool-minsize="5" pool-maxsize="50">
                 <xa-properties url="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT" user="sa" password=""/>
             </inline-jdbc>
             <!- - <inline-jdbc jdbc-uri="jdbc:h2:${moqui.runtime}/db/h2/MoquiDEFAULT"
-                         jdbc-username="sa" jdbc-password="" pool-minsize="5" pool-maxsize="50"/> - ->
+                         jdbc-username="sa" jdbc-password="sa" pool-minsize="5" pool-maxsize="50"/> - ->
         </datasource>
         -->
         <!-- MS SQL Server
