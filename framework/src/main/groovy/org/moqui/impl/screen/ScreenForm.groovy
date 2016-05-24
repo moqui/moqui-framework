@@ -1102,7 +1102,18 @@ class ScreenForm {
         String getUserActiveFormConfigId(ExecutionContext ec) {
             EntityValue fcu = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUser")
                     .condition("userId", ec.user.userId).condition("formLocation", location).useCache(true).one()
-            return fcu != null ? fcu.formConfigId : null
+            if (fcu != null) return fcu.get("formConfigId")
+
+            // Maybe not do this at all and let it be a future thing where the user selects an active one from options available through groups
+            EntityList fcugvList = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUserGroupView")
+                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
+                    .condition("formLocation", location).useCache(true).list()
+            if (fcugvList.size() > 0) {
+                // FUTURE: somehow make a better choice than just the first? see note above too...
+                return fcugvList.get(0).get("formConfigId")
+            }
+
+            return null
         }
 
         ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
