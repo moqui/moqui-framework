@@ -815,13 +815,57 @@ class ScreenDefinition {
             String userId = ec.user.userId
             String formLocation = ec.context.get("formLocation")
 
-            // clear out existing records
-            ec.entity.find("moqui.screen.form.FormListUserField").condition("userId", userId)
-                    .condition("formLocation", formLocation).deleteAll()
+            // see if there is an existing FormConfig record
+            String formConfigId = ec.context.get("formConfigId")
+            if (!formConfigId) {
+                EntityValue fcu = ec.entity.find("moqui.screen.form.FormConfigUser")
+                        .condition("userId", userId).condition("formLocation", formLocation).useCache(false).one()
+                formConfigId = fcu != null ? fcu.formConfigId : null
+            }
+            String userCurrentFormConfigId = formConfigId
 
+            // if FormConfig associated with this user but no other users or groups delete its FormConfigField
+            //     records and remember its ID for create FormConfigField
+            if (formConfigId) {
+                long userCount = ec.entity.find("moqui.screen.form.FormConfigUser")
+                        .condition("formConfigId", formConfigId).useCache(false).count()
+                if (userCount > 1) {
+                    formConfigId = null
+                } else {
+                    long groupCount = ec.entity.find("moqui.screen.form.FormConfigUserGroup")
+                            .condition("formConfigId", formConfigId).useCache(false).count()
+                    if (groupCount > 0) formConfigId = null
+                }
+            }
+
+            // clear out existing records
+            if (formConfigId) {
+                ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", formConfigId).deleteAll()
+            }
+
+            // are we resetting columns?
             if (ec.context.get("ResetColumns")) {
+                if (formConfigId) {
+                    // no other users on this form, and now being reset, so delete FormConfig
+                    ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", formConfigId).deleteAll()
+                    ec.entity.find("moqui.screen.form.FormConfig").condition("formConfigId", formConfigId).deleteAll()
+                } else if (userCurrentFormConfigId) {
+                    // there is a FormConfig but other users are using it, so just remove this user
+                    ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", userCurrentFormConfigId)
+                            .condition("userId", userId).deleteAll()
+                }
                 // to reset columns don't save new ones, just return after clearing out existing records
                 return defaultResponse
+            }
+
+            // if there is no FormConfig or found record is associated with other users or groups
+            //     create a new FormConfig record to use
+            if (!formConfigId) {
+                Map createResult = ec.service.sync().name("create#moqui.screen.form.FormConfig")
+                        .parameters([userId:userId, formLocation:formLocation, description:"For user ${userId}"]).call()
+                formConfigId = createResult.formConfigId
+                ec.service.sync().name("create#moqui.screen.form.FormConfigUser")
+                        .parameters([formConfigId:formConfigId, userId:userId, formLocation:formLocation]).call()
             }
 
             // save changes to DB
@@ -842,9 +886,9 @@ class ScreenDefinition {
                 for (Map fieldMap in children) {
                     String fieldName = (String) fieldMap.get("id")
                     // logger.info("Adding field ${fieldName} to column ${columnIndex} at sequence ${columnSequence}")
-                    ec.service.sync().name("create#moqui.screen.form.FormListUserField")
-                            .parameters([userId:userId, formLocation:formLocation, fieldName:fieldName,
-                                         columnIndex:columnIndex, columnSequence:columnSequence]).call()
+                    ec.service.sync().name("create#moqui.screen.form.FormConfigField")
+                            .parameters([formConfigId:formConfigId, fieldName:fieldName,
+                                         positionIndex:columnIndex, positionSequence:columnSequence]).call()
                     columnSequence++
                 }
                 columnIndex++

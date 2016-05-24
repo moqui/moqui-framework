@@ -1094,14 +1094,18 @@ class ScreenForm {
 
         boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
 
+        String getUserActiveFormConfigId(ExecutionContext ec) {
+            EntityValue fcu = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUser")
+                    .condition("userId", ec.user.userId).condition("formLocation", location).useCache(true).one()
+            return fcu != null ? fcu.formConfigId : null
+        }
+
         ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
             ExecutionContextImpl eci = ecfi.getEci()
-            EntityList formListUserFieldList = ecfi.getEntityFacade(eci.tenantId).find("moqui.screen.form.FormListUserField")
-                    .condition("userId", eci.user.userId).condition("formLocation", location)
-                    .orderBy("columnIndex").orderBy("columnSequence").useCache(true).list()
-            if (formListUserFieldList.size() > 0) {
+            String formConfigId = getUserActiveFormConfigId(eci)
+            if (formConfigId) {
                 // don't remember the results of this, is per-user so good only once (FormInstance is NOT per user!)
-                return makeDbFormListColumnInfo(formListUserFieldList, eci)
+                return makeDbFormListColumnInfo(formConfigId, eci)
             }
             return formListColInfoList
         }
@@ -1152,9 +1156,12 @@ class ScreenForm {
             fieldsInFormListColumns = tempFieldsInFormListColumns
             return colInfoList
         }
-        private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(EntityList formListUserFieldList, ExecutionContextImpl eci) {
+        private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
+            EntityList formConfigFieldList = ecfi.getEntityFacade(eci.tenantId).find("moqui.screen.form.FormConfigField")
+                    .condition("formConfigId", formConfigId).orderBy("positionIndex").orderBy("positionSequence").useCache(true).list()
+
             // NOTE: calling code checks to see if this is not empty
-            int flufListSize = formListUserFieldList.size()
+            int fcfListSize = formConfigFieldList.size()
 
             ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
             Set<String> tempFieldsInFormListColumns = new HashSet()
@@ -1162,17 +1169,17 @@ class ScreenForm {
             // populate fields under columns
             int curColIndex = -1;
             ArrayList<FtlNodeWrapper> colFieldNodes = null
-            for (int ci = 0; ci < flufListSize; ci++) {
-                EntityValue flufValue = (EntityValue) formListUserFieldList.get(ci)
-                int columnIndex = flufValue.get("columnIndex") as int
+            for (int ci = 0; ci < fcfListSize; ci++) {
+                EntityValue fcfValue = (EntityValue) formConfigFieldList.get(ci)
+                int columnIndex = fcfValue.get("positionIndex") as int
                 if (columnIndex > curColIndex) {
                     if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
                     curColIndex = columnIndex
                     colFieldNodes = new ArrayList<>()
                 }
-                String fieldName = (String) flufValue.get("fieldName")
+                String fieldName = (String) fcfValue.get("fieldName")
                 MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-                if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormListUserField record for user ${} form at ${location}")
+                if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${location}")
                 // skip hidden fields, they are handled separately
                 if (isListFieldHidden(fieldNode)) continue
 
