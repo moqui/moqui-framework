@@ -8,7 +8,8 @@ Release 2.0.0 - TBD
 Moqui Framework 2.0.0 is a major new feature and bug fix release, with
 various non backward compatible API and other changes.
 
-TODO
+This version is not yet released. The notes below are for the changes
+currently in place in the source repository.
 
 Non Backward Compatible Changes
 
@@ -513,27 +514,43 @@ Long Term To Do List
     - see http://docs.hazelcast.org/docs/latest/manual/html-single/index.html#queueing-with-persistent-datastore
     - use DB?
 
-============
-To help with the general issue of overly complex list forms with stacked fields in columns:
+- Improved Distributed Datasource Support
+  - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
+  - Review warnings about view-entities that have members in multiple groups (which may be in different databases)
+  - Test with transactional in H2 and nontransactional, configuration, analytical in OrientDB
+  - Known changes needed
+    - Check distributed foreign keys in create, update, delete (make sure records exist or don't exist in other databases)
+    - Add augment-member to view-entity that can be in a separate database
+      - Make it easier to define view-entity so that caller can treat it mostly as a normal join-based view
+      - Augment query results with optionally cached values from records in a separate database
+      - For conditions on fields from augment-member do a pre-query to get set of PKs, use them in an IN condition on
+        the main query (only support simple AND scenario, error otherwise); sort of like a sub-select
+      - How to handle order by fields on augment-member? Might require separate query and some sort of fancy sorting...
+  - Possibly useful
+    - Consider meta-data management features such as versioning and more complete history for nontransactional and
+      configuration, preferably using some sort of more efficient underlying features in the datasource
+      (like Jackrabbit/Oak; any support for this in OrientDB? ElasticSearch keeps version number for concurrency, but no history)
+    - Write EntityFacade interface for ElasticSearch to use like OrientDB?
+    - Support persistence through EntityFacade as nested documents, ie specify that detail/etc entities be included in parent/master document
+    - SimpleFind interface as an alternative to EntityFind for datasources that don't support joins, etc (like OrientDB)
+      and maybe add support for the internal record ID that can be used for faster graph traversal, etc
 
-- add form-list option to select with columns to display, a setting saved per user
-- use form-list.form-list-column elements for default value, i.e. if no saved values for screen location, form name, and userId
-- in data structure support specifying which column a field should go in, and in which order in that column (by index/sequence fields)
-- in first pass just use check boxes to show/hide columns, in future expand widget to allow dragging fields under
-  columns for multiples and order changing
+- More ToolFactory use
+  - Extract the code about jackrabbit from ResourceFacadeImpl as JackrabbitToolFactory which can get javax.jcr.RepositoryFactory
+  - Extract the code running and stopping h2 server from EntityDatasourceFactoryImpl as H2DatabaseRunToolFactory
 
-- add option to put header-field fields in popup window instead of header, and in that popup include all fields
-  regardless of whether set to display or not
+- Saved form-list Finds
+  - Add option to form-list to allow saved searches along with fields to order by.
+  - As part of this add some sort of way to order by more than one field, with ascending or descending for each.
+  - When enabled show form to save current filters and order by fields in a new saved search, or to update an existing
+    saved search. Also allow deleting an existing saved search.
+  - When saved searches exist for a form show them in a drop-down and when selected reload page with its options.
+  - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
-- put buttons for popup in row along with pagination widgets
-- add indicator (asterisk or something) when filters are in place
-- in dialog, or in another row in the header, show all current filters with an X by each to remove that filter
-  (current page link with all parameters except the one in question removed; also remove pageIndex parameter)
-
-============
-- Use Jetty instead of Winstone for embedded web server
-- Build WebSocket interface for Moqui NotificationMessage interfaces, use javax.websocket as much as possible
-  (run initially on Jetty but be able to support other WebSocket libraries)
-- Send updates by NotificationMessage to browser for messages, calendar events, tasks (MyAccount stuff)
-- Prototype for background process notifications, to be used for various things but start with Payroll run
-  (have page return immediately, send notification when done)
+- WebSocket attempt 2
+  - Also see WebSocket notes above under User Notification
+  - Build WebSocket interface for Moqui NotificationMessage interfaces, use javax.websocket as much as possible
+    (run initially on Jetty but be able to support other WebSocket libraries)
+  - Send updates by NotificationMessage to browser for messages, calendar events, tasks (MyAccount stuff)
+  - Prototype for background process notifications, to be used for various things but start with Payroll run
+    (have page return immediately, send notification when done)
