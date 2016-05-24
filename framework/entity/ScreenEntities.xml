@@ -107,13 +107,86 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.screen.form -->
     <!-- ========================================================= -->
 
-    <entity entity-name="FormListUserField" package-name="moqui.screen.form" group-name="configuration">
-        <field name="userId" type="id" is-pk="true"/>
-        <field name="formLocation" type="text-medium" is-pk="true"/>
-        <field name="fieldName" type="text-short" is-pk="true"/>
-        <field name="columnIndex" type="number-integer"><description>The column number to put the field in</description></field>
-        <field name="columnSequence" type="number-integer"><description>The sequence within the column</description></field>
+    <entity entity-name="FormConfig" package-name="moqui.screen.form" group-name="configuration">
+        <field name="formConfigId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="formLocation" type="text-medium"/>
     </entity>
+    <entity entity-name="FormConfigField" package-name="moqui.screen.form" group-name="configuration">
+        <field name="formConfigId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-short" is-pk="true"/>
+        <field name="positionIndex" type="number-integer">
+            <description>The position (row for form-single, column for form-list) number to put the field in</description></field>
+        <field name="positionSequence" type="number-integer"><description>The sequence within the row or column</description></field>
+        <!-- FUTURE: <field name="fieldDisabled" type="text-indicator"><description>For displaying the field but not allowing edit</description></field> -->
+        <relationship type="one" related-entity-name="moqui.screen.form.FormConfig"/>
+    </entity>
+    <entity entity-name="FormConfigUser" package-name="moqui.screen.form" group-name="configuration">
+        <description>Structured to have a single FormConfig per form and user.</description>
+        <field name="formLocation" type="text-medium" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="formConfigId" type="id"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.FormConfig"/>
+    </entity>
+    <entity entity-name="FormConfigUserGroup" package-name="moqui.screen.form" group-name="configuration">
+        <field name="formConfigId" type="id" is-pk="true"/>
+        <field name="userGroupId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.FormConfig"/>
+        <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
+    </entity>
+    <view-entity entity-name="FormConfigUserGroupView" package-name="moqui.screen.form">
+        <member-entity entity-alias="FCNF" entity-name="moqui.screen.form.FormConfig"/>
+        <member-entity entity-alias="FCUG" entity-name="moqui.screen.form.FormConfigUserGroup" join-from-alias="FCNF">
+            <key-map field-name="formConfigId"/></member-entity>
+        <alias-all entity-alias="FCNF"/><alias-all entity-alias="FCUG"/>
+    </view-entity>
+
+    <entity entity-name="FormListFind" package-name="moqui.screen.form" group-name="configuration">
+        <field name="formListFindId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="formLocation" type="text-medium"/>
+        <field name="orderByField" type="text-medium"/>
+        <!-- may be useful for certain search backed forms: <field name="searchString" type="text-medium"/> -->
+    </entity>
+    <entity entity-name="FormListFindField" package-name="moqui.screen.form" group-name="configuration">
+        <description>Has fields for the various options in search-form-inputs/searchFormInputs()/searchFormMap()</description>
+        <field name="formListFindId" type="id" is-pk="true"/>
+        <field name="fieldName" type="text-short" is-pk="true"/>
+        <field name="fieldValue" type="text-short"/>
+        <field name="fieldOperator" type="text-short"/>
+        <field name="fieldNot" type="text-indicator"/>
+        <field name="fieldIgnoreCase" type="text-indicator"/>
+        <field name="fieldFrom" type="text-short"/>
+        <field name="fieldThru" type="text-short"/>
+        <field name="fieldPeriod" type="text-short"/>
+        <field name="fieldPerOffset" type="number-integer"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.FormListFind"/>
+    </entity>
+    <entity entity-name="FormListFindUser" package-name="moqui.screen.form" group-name="configuration">
+        <field name="formListFindId" type="id" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.FormListFind"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <view-entity entity-name="FormListFindUserView" package-name="moqui.screen.form">
+        <member-entity entity-alias="FLF" entity-name="moqui.screen.form.FormListFind"/>
+        <member-entity entity-alias="FLFU" entity-name="moqui.screen.form.FormListFindUser" join-from-alias="FLF">
+            <key-map field-name="formListFindId"/></member-entity>
+        <alias-all entity-alias="FLF"/><alias-all entity-alias="FLFU"/>
+    </view-entity>
+    <entity entity-name="FormListFindUserGroup" package-name="moqui.screen.form" group-name="configuration">
+        <field name="formListFindId" type="id" is-pk="true"/>
+        <field name="userGroupId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="moqui.screen.form.FormListFind"/>
+        <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
+    </entity>
+    <view-entity entity-name="FormListFindUserGroupView" package-name="moqui.screen.form">
+        <member-entity entity-alias="FLF" entity-name="moqui.screen.form.FormListFind"/>
+        <member-entity entity-alias="FLFUG" entity-name="moqui.screen.form.FormListFindUserGroup" join-from-alias="FLF">
+            <key-map field-name="formListFindId"/></member-entity>
+        <alias-all entity-alias="FLF"/><alias-all entity-alias="FLFUG"/>
+    </view-entity>
 
     <entity entity-name="DbForm" package-name="moqui.screen.form" group-name="configuration">
         <field name="formId" type="id" is-pk="true"/>
