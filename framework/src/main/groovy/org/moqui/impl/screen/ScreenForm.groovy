@@ -838,13 +838,18 @@ class ScreenForm {
     }
 
     protected static void mergeFieldNode(MNode baseFormNode, MNode overrideFieldNode, boolean deepCopy) {
-        MNode baseFieldNode = baseFormNode.first({ MNode it -> it.name == "field" && it.attribute("name") == overrideFieldNode.attribute("name") })
-        if (baseFieldNode != null) {
+        int baseFieldIndex = baseFormNode.firstIndex({ MNode it -> "field".equals(it.name) && it.attribute("name") == overrideFieldNode.attribute("name") })
+        if (baseFieldIndex >= 0) {
+            MNode baseFieldNode = baseFormNode.child(baseFieldIndex)
             baseFieldNode.attributes.putAll(overrideFieldNode.attributes)
 
             baseFieldNode.mergeSingleChild(overrideFieldNode, "header-field")
             baseFieldNode.mergeChildrenByKey(overrideFieldNode, "conditional-field", "condition", null)
             baseFieldNode.mergeSingleChild(overrideFieldNode, "default-field")
+
+            // put at the end of the list
+            baseFormNode.remove(baseFieldIndex)
+            baseFormNode.append(baseFieldNode)
         } else {
             baseFormNode.append(deepCopy ? overrideFieldNode.deepCopy(null) : overrideFieldNode)
             // this is a new field... if the form has a field-layout element add a reference under that too
