@@ -538,6 +538,8 @@ Long Term To Do List
 - More ToolFactory use
   - Extract the code about jackrabbit from ResourceFacadeImpl as JackrabbitToolFactory which can get javax.jcr.RepositoryFactory
   - Extract the code running and stopping h2 server from EntityDatasourceFactoryImpl as H2DatabaseRunToolFactory
+  - Add configurable factory for local cache like distributed cache
+  - Cache ToolFactory for JCS: https://commons.apache.org/proper/commons-jcs/
 
 - Saved form-list Finds
   - Add option to form-list to allow saved searches along with fields to order by.

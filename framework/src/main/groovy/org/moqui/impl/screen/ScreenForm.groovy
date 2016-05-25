@@ -1074,14 +1074,17 @@ class ScreenForm {
 
 
         boolean isListFieldHidden(MNode fieldNode) {
-            MNode defaultField = fieldNode.first("default-field")
-            if (defaultField == null) return false
             String hideAttr = fieldNode.attribute("hide")
             if (hideAttr != null && hideAttr.length() > 0) {
                 boolean hideResult = ecfi.getEci().resource.condition(hideAttr, "")
                 if (hideResult) return true
             }
-            return defaultField.hasChild("hidden") || defaultField.hasChild("ignored")
+            // if default-field or any conditional-field don't have hidden or ignored elements then it's not hidden
+            MNode defaultField = fieldNode.first("default-field")
+            if (defaultField != null && !defaultField.hasChild("hidden") && !defaultField.hasChild("ignored")) return false
+            List<MNode> condFieldList = fieldNode.children("conditional-field")
+            for (MNode condField in condFieldList) if (!condField.hasChild("hidden") && !condField.hasChild("ignored")) return false
+            return true
         }
         ArrayList<FtlNodeWrapper> getListHiddenFieldList() {
             if (hiddenFieldList != null) return hiddenFieldList

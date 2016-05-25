@@ -835,6 +835,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" ref="image"/>
             </xs:sequence>
+            <xs:attribute name="text" type="xs:string"><xs:annotation><xs:documentation>
+                Optional text for submit button. If not specified the field title is used.
+            </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="confirmation" type="xs:string"><xs:annotation><xs:documentation>
                 If there is a message here it will show in a confirmation box when the button is clicked on.
             </xs:documentation></xs:annotation></xs:attribute>
