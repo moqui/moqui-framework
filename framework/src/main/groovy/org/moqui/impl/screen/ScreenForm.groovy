@@ -1269,6 +1269,29 @@ class ScreenForm {
             return null
         }
 
+        String getOrderByActualJsString(String originalOrderBy) {
+            if (originalOrderBy == null || originalOrderBy.length() == 0) return "";
+            // strip square braces if there are any
+            if (originalOrderBy.startsWith("[")) originalOrderBy = originalOrderBy.substring(1, originalOrderBy.length() - 1)
+            originalOrderBy = originalOrderBy.replace(" ", "")
+            List<String> orderByList = Arrays.asList(originalOrderBy.split(","))
+            StringBuilder sb = new StringBuilder()
+            for (String obf in orderByList) {
+                if (sb.length() > 0) sb.append(",")
+                EntityJavaUtil.FieldOrderOptions foo = EntityJavaUtil.makeFieldOrderOptions(obf)
+                MNode curFieldNode = fieldNodeMap.get(foo.getFieldName())
+                if (curFieldNode == null) continue
+                MNode headerFieldNode = curFieldNode.first("header-field")
+                if (headerFieldNode == null) continue
+                String showOrderBy = headerFieldNode.attribute("show-order-by")
+                sb.append("'").append(foo.descending ? "-" : "+")
+                if ("case-insensitive".equals(showOrderBy)) sb.append("^")
+                sb.append(foo.getFieldName()).append("'")
+            }
+            if (sb.length() == 0) return ""
+            return "[" + sb.toString() + "]"
+        }
+
         void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
             // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
             String listEntryStr = formNode.attribute('list-entry')
