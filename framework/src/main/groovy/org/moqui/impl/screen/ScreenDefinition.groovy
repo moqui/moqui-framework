@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.screen
 
-import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
@@ -98,10 +97,10 @@ class ScreenDefinition {
             TransitionItem ti = new TransitionItem(transitionNode, this)
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
-        // actions transition, for all screens
+
         if (!transitionByName.containsKey("actions")) transitionByName.put("actions", new ActionsTransitionItem(this))
-        // formSelectColumns transition, for all screens
         if (!transitionByName.containsKey("formSelectColumns")) transitionByName.put("formSelectColumns", new FormSelectColumnsTransitionItem(this))
+        if (!transitionByName.containsKey("formSaveFind")) transitionByName.put("formSaveFind", new FormSavedFindsTransitionItem(this))
 
         // subscreens
         populateSubscreens()
@@ -129,21 +128,21 @@ class ScreenDefinition {
                     new HashSet<String>(['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree']))
             // get all of the other sections by name
             for (MNode sectionNode in descMap.get('section'))
-                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
+                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.section\$${sectionNode.attribute("name")}"))
             for (MNode sectionNode in descMap.get('section-iterate'))
-                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.${sectionNode.name.replace('-','_')}_${sectionNode.attribute("name").replace('-','_')}"))
+                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.section_iterate\$${sectionNode.attribute("name")}"))
             for (MNode sectionNode in descMap.get('section-include'))
                 pullSectionInclude(sectionNode)
 
             // get all forms by name
             for (MNode formNode in descMap.get('form-single'))
-                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.${formNode.name.replace('-','_')}_${formNode.attribute("name").replace('-','_')}"))
+                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.form_single\$${formNode.attribute("name")}"))
             for (MNode formNode in descMap.get('form-list'))
-                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.${formNode.name.replace('-','_')}_${formNode.attribute("name").replace('-','_')}"))
+                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.form_list\$${formNode.attribute("name")}"))
 
             // get all trees by name
             for (MNode treeNode in descMap.get('tree')) {
-                treeByName.put(treeNode.attribute("name"), new ScreenTree(sfi.ecfi, this, treeNode, "${location}.${treeNode.name.replace('-','_')}_${treeNode.attribute("name").replace('-','_')}"))
+                treeByName.put(treeNode.attribute("name"), new ScreenTree(sfi.ecfi, this, treeNode, "${location}.tree\$${treeNode.attribute("name")}"))
             }
         }
 
@@ -561,7 +560,7 @@ class ScreenDefinition {
             this.transitionNode = transitionNode
             name = transitionNode.attribute("name")
             method = transitionNode.attribute("method") ?: "any"
-            location = "${parentScreen.location}.transition_${StupidUtilities.cleanStringForJavaName(name)}"
+            location = "${parentScreen.location}.transition\$${StupidUtilities.cleanStringForJavaName(name)}"
             beginTransaction = transitionNode.attribute("begin-transaction") != "false"
             readOnly = transitionNode.attribute("read-only") == "true"
             requireSessionToken = transitionNode.attribute("require-session-token") != "false"
@@ -712,14 +711,8 @@ class ScreenDefinition {
     static class ActionsTransitionItem extends TransitionItem {
         ActionsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
-            transitionNode = null
-            name = "actions"
-            method = "any"
-            location = "${parentScreen.location}.transition_${name}"
-            beginTransaction = true
-            readOnly = true
-            requireSessionToken = false
-
+            name = "actions"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
+            transitionNode = null; beginTransaction = true; readOnly = true; requireSessionToken = false;
             defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
 
@@ -748,19 +741,27 @@ class ScreenDefinition {
     static class FormSelectColumnsTransitionItem extends TransitionItem {
         FormSelectColumnsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
-            transitionNode = null
-            name = "formSelectColumns"
-            method = "any"
-            location = "${parentScreen.location}.transition_${name}"
-            beginTransaction = true
-            readOnly = true
-            requireSessionToken = false
-
+            name = "formSelectColumns"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
+            transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false;
             defaultResponse = new ResponseItem(new MNode("default-response", [url:"."]), this, parentScreen)
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
             ScreenForm.saveFormConfig(sri.getEc())
+            return defaultResponse
+        }
+    }
+    /** Special automatic transition to manage Saved Finds for form-list with saved-finds=true */
+    static class FormSavedFindsTransitionItem extends TransitionItem {
+        FormSavedFindsTransitionItem(ScreenDefinition parentScreen) {
+            super(parentScreen)
+            name = "formSaveFind"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
+            transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false;
+            defaultResponse = new ResponseItem(new MNode("default-response", [url:"."]), this, parentScreen)
+        }
+
+        ResponseItem run(ScreenRenderImpl sri) {
+            ScreenForm.processFormSavedFind(sri.getEc())
             return defaultResponse
         }
     }

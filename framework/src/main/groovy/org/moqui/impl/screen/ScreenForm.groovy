@@ -1075,7 +1075,11 @@ class ScreenForm {
             return fieldList
         }
 
-
+        boolean isHeaderSubmitField(MNode fieldNode) {
+            MNode headerField = fieldNode.first("header-field")
+            if (headerField == null) return false
+            return headerField.hasChild("submit")
+        }
         boolean isListFieldHidden(MNode fieldNode) {
             String hideAttr = fieldNode.attribute("hide")
             if (hideAttr != null && hideAttr.length() > 0) {
@@ -1322,14 +1326,21 @@ class ScreenForm {
             ContextStack cs = ec.context
             List<EntityValue> valueList = new ArrayList<>()
             for (MNode fieldNode in allFieldNodes) {
+                // skip submit
+                if (isHeaderSubmitField(fieldNode)) continue
+
                 String fn = fieldNode.attribute("name")
 
                 if (cs.containsKey(fn) || cs.containsKey(fn + "_op")) {
                     // this will handle text-line, text-find, etc
                     Object value = cs.get(fn)
+                    if (value != null && StupidJavaUtilities.isEmpty(value)) value = null
                     String op = cs.get(fn + "_op") ?: "equals"
                     boolean not = (cs.get(fn + "_not") == "Y" || cs.get(fn + "_not") == "true")
                     boolean ic = (cs.get(fn + "_ic") == "Y" || cs.get(fn + "_ic") == "true")
+
+                    // for all operators other than empty skip this if there is no value
+                    if (value == null && op != "empty") continue
 
                     EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
                     ev.formListFindId = formListFindId
@@ -1371,6 +1382,107 @@ class ScreenForm {
         }
     }
 
+    static void processFormSavedFind(ExecutionContextImpl ec) {
+        String userId = ec.user.userId
+        ContextStack cs = ec.context
+
+        String formListFindId = (String) cs.formListFindId
+        EntityValue flf = formListFindId ? ec.entity.find("moqui.screen.form.FormListFind")
+                .condition("formListFindId", formListFindId).useCache(false).one() : null
+
+        boolean isDelete = cs.containsKey("DeleteFind")
+
+        if (isDelete) {
+            if (flf == null) { ec.message.addError("Saved find with ID ${formListFindId} not found, not deleting"); return; }
+
+            // delete FormListFindUser record; if there are no other FormListFindUser records or FormListFindUserGroup
+            //     records, delete the FormListFind
+            EntityValue flfu = ec.entity.find("moqui.screen.form.FormListFindUser").condition("userId", userId)
+                    .condition("formListFindId", formListFindId).useCache(false).one()
+            // NOTE: if no FormListFindUser nothing to delete... consider removing form from all groups the user is in?
+            if (flfu == null) return
+            flfu.delete()
+
+            long userCount = ec.entity.find("moqui.screen.form.FormListFindUser")
+                    .condition("formListFindId", formListFindId).useCache(false).count()
+            if (userCount == 0L) {
+                long groupCount = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
+                        .condition("formListFindId", formListFindId).useCache(false).count()
+                if (groupCount == 0L) {
+                    ec.entity.find("moqui.screen.form.FormListFindField")
+                            .condition("formListFindId", formListFindId).deleteAll()
+                    ec.entity.find("moqui.screen.form.FormListFind")
+                            .condition("formListFindId", formListFindId).deleteAll()
+                }
+            }
+            return
+        }
+
+        String formLocation = cs.formLocation
+        if (!formLocation) { ec.message.addError("No form location specified, cannot process saved find"); return; }
+        int lastDotIndex = formLocation.lastIndexOf(".")
+        if (lastDotIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return; }
+        String screenLocation = formLocation.substring(0, lastDotIndex)
+        int lastDollarIndex = formLocation.lastIndexOf("\$")
+        if (lastDollarIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return; }
+        String formName = formLocation.substring(lastDollarIndex + 1)
+
+        ScreenDefinition screenDef = ec.ecfi.screenFacade.getScreenDefinition(screenLocation)
+        if (screenDef == null) { ec.message.addError("Screen not found at ${screenLocation}, cannot process saved find"); return; }
+        ScreenForm screenForm = screenDef.getForm(formName)
+        if (screenForm == null) { ec.message.addError("Form ${formName} not found in screen at ${screenLocation}, cannot process saved find"); return; }
+        FormInstance formInstance = screenForm.getFormInstance()
+
+        // see if there is an existing FormConfig record
+        if (flf != null) {
+            // make sure the FormListFind.formLocation matches the current formLocation
+            if (formLocation != flf.formLocation) {
+                ec.message.addError("Specified form location did not match form on Saved Find ${formListFindId}, not updating")
+                return
+            }
+
+            // make sure the user or group the user is in is associated with the FormListFind
+            EntityValue flfu = ec.entity.find("moqui.screen.form.FormListFindUser").condition("userId", userId)
+                    .condition("formListFindId", formListFindId).useCache(false).one()
+            if (flfu == null) {
+                long groupCount = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
+                        .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
+                        .condition("formListFindId", formListFindId).useCache(false).count()
+                if (groupCount == 0L) {
+                    ec.message.addError("You are not associated with Saved Find ${formListFindId}, cannot update")
+                    return
+                }
+            }
+
+            if (cs.description) flf.description = cs.description
+            if (cs.orderByField) flf.orderByField = cs.orderByField
+            if (flf.isModified()) flf.update()
+
+            // remove all FormListFindField records and create new ones
+            ec.entity.find("moqui.screen.form.FormListFindField")
+                    .condition("formListFindId", formListFindId).deleteAll()
+
+            ArrayList<EntityValue> flffList = formInstance.makeFormListFindFields(formListFindId, ec)
+            for (EntityValue flff in flffList) flff.create()
+        } else {
+            flf = ec.entity.makeValue("moqui.screen.form.FormListFind")
+            flf.formLocation = formLocation
+            flf.description = cs.description ?: "${ec.user.username} - ${ec.l10n.format(ec.user.nowTimestamp, "yyyy-MM-dd HH:mm")}"
+            if (cs.orderByField) flf.orderByField = cs.orderByField
+            flf.setSequencedIdPrimary()
+            flf.create()
+
+            formListFindId = (String) flf.formListFindId
+
+            EntityValue flfu = ec.entity.makeValue("moqui.screen.form.FormListFindUser")
+            flfu.formListFindId = formListFindId
+            flfu.userId = userId
+            flfu.create()
+
+            ArrayList<EntityValue> flffList = formInstance.makeFormListFindFields(formListFindId, ec)
+            for (EntityValue flff in flffList) flff.create()
+        }
+    }
     static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
         EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
                 .condition("formListFindId", formListFindId).useCache(true).list()
@@ -1400,10 +1512,12 @@ class ScreenForm {
 
     static void saveFormConfig(ExecutionContextImpl ec) {
         String userId = ec.user.userId
-        String formLocation = ec.context.get("formLocation")
+        ContextStack cs = ec.context
+        String formLocation = cs.get("formLocation")
+        if (!formLocation) { ec.message.addError("No form location specified, cannot save form configuration"); return; }
 
         // see if there is an existing FormConfig record
-        String formConfigId = ec.context.get("formConfigId")
+        String formConfigId = cs.get("formConfigId")
         if (!formConfigId) {
             EntityValue fcu = ec.entity.find("moqui.screen.form.FormConfigUser")
                     .condition("userId", userId).condition("formLocation", formLocation).useCache(false).one()
@@ -1431,7 +1545,7 @@ class ScreenForm {
         }
 
         // are we resetting columns?
-        if (ec.context.get("ResetColumns")) {
+        if (cs.get("ResetColumns")) {
             if (formConfigId) {
                 // no other users on this form, and now being reset, so delete FormConfig
                 ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", formConfigId).deleteAll()
@@ -1456,7 +1570,7 @@ class ScreenForm {
         }
 
         // save changes to DB
-        String columnsTreeStr = ec.context.get("columnsTree") as String
+        String columnsTreeStr = cs.get("columnsTree") as String
         // logger.info("columnsTreeStr: ${columnsTreeStr}")
         // if columnsTree empty there were no changes
         if (!columnsTreeStr) return
