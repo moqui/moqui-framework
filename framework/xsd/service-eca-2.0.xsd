@@ -43,7 +43,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="condition"/>
                 <xs:element ref="actions"/>
             </xs:sequence>
-            <xs:attribute name="service" type="xs:string" use="required">
+            <xs:attribute name="service" type="name-full" use="required">
                 <xs:annotation><xs:documentation>
                     The combined service name, like: "${path}.${verb}${noun}". To explicitly separate the verb and noun
                     put a hash (#) between them, like: "${path}.${verb}#${noun}".

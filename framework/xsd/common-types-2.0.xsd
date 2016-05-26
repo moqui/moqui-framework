@@ -16,6 +16,22 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- Reusable artifacts (abstract elements, groups, attributeGroups -->
     <xs:element name="description" type="xs:string"/>
 
+    <!-- Plain name, simple letters and digits for greatest compatibility with various tools -->
+    <xs:simpleType name="name-plain"><xs:restriction base="xs:string">
+        <xs:pattern value="[a-zA-Z][a-zA-Z0-9]*"/></xs:restriction></xs:simpleType>
+    <!-- Plain name starting with upper case letter, for entities, service nouns, screens, forms, etc -->
+    <xs:simpleType name="name-upper"><xs:restriction base="xs:string">
+        <xs:pattern value="[A-Z][a-zA-Z0-9]*"/></xs:restriction></xs:simpleType>
+    <!-- Plain name starting with lower case letter, for entity fields, parameters, service verbs -->
+    <xs:simpleType name="name-lower"><xs:restriction base="xs:string">
+        <xs:pattern value="[a-z][a-zA-Z0-9]*"/></xs:restriction></xs:simpleType>
+    <!-- Patterned name for fully qualified entity, service, etc names -->
+    <xs:simpleType name="name-package"><xs:restriction base="xs:string">
+        <xs:pattern value="[a-zA-Z][\.a-zA-Z0-9]*"/></xs:restriction></xs:simpleType>
+    <!-- Patterned name for fully qualified entity, service, etc names -->
+    <xs:simpleType name="name-full"><xs:restriction base="xs:string">
+        <xs:pattern value="[a-zA-Z][\.#a-zA-Z0-9]*"/></xs:restriction></xs:simpleType>
+
     <xs:simpleType name="boolean">
         <xs:restriction base="xs:token">
             <xs:enumeration value="true"/>

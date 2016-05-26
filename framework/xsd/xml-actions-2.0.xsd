@@ -69,7 +69,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="field-map"/>
             </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>
                     The combined service name, like: "${path}.${verb}${noun}". To explicitly separate the verb and noun
                     put a hash (#) between them, like: "${path}.${verb}#${noun}".
@@ -93,8 +93,8 @@ along with this software (see the LICENSE.md file). If not, see
                     name. If false replaces existing Map in the context.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="async" default="false">
-                <xs:annotation><xs:documentation>If true runs the service asynchronously. Use persist to run async
-                    through a database record.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>If true runs the service asynchronously. Use distribute to run async
+                    on any node in a cluster.</xs:documentation></xs:annotation>
                 <xs:simpleType>
                     <xs:restriction base="xs:token">
                         <xs:enumeration value="true"/>
@@ -159,20 +159,20 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="service-invoke">
         <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>
                     The combined service name, like: "${path}.${verb}${noun}". To explicitly separate the verb and noun
                     put a hash (#) between them, like: "${path}.${verb}#${noun}".
                 </xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="async" default="false">
-                <xs:annotation><xs:documentation>If true runs the service asynchronously. Use persist to run async
-                    through a database record.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>If true runs the service asynchronously. Use distribute to run async
+                    on any node in a cluster.</xs:documentation></xs:annotation>
                 <xs:simpleType>
                     <xs:restriction base="xs:token">
                         <xs:enumeration value="true"/>
                         <xs:enumeration value="false"/>
-                        <xs:enumeration value="persist"/>
+                        <xs:enumeration value="distribute"/>
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
@@ -309,7 +309,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="field-map"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-field"/>
             </xs:sequence>
-            <xs:attribute name="entity-name" type="xs:string" use="required">
+            <xs:attribute name="entity-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>Name of the entity to find an instance of.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="value-field" type="xs:string" use="required">
@@ -363,7 +363,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:element ref="use-iterator"/>
                 </xs:choice>
             </xs:sequence>
-            <xs:attribute name="entity-name" type="xs:string" use="required">
+            <xs:attribute name="entity-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>Name of entity to find instances of.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="list" type="xs:string" use="optional">
@@ -475,7 +475,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:annotation><xs:documentation>Adds a econdition to the query to compare the field-name field to a context
             field, a String value, or another field on the entity.</xs:documentation></xs:annotation>
         <xs:complexType>
-            <xs:attribute name="field-name" type="xs:string" use="required">
+            <xs:attribute name="field-name" type="name-lower" use="required">
                 <xs:annotation><xs:documentation>The field on the entity to constrain on. If from, value and
                     to-field-name are all empty this is also used as the name of the context field to compare to.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -502,7 +502,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="value" type="xs:string">
                 <xs:annotation><xs:documentation>Comparison value, use ${} syntax to expand variables.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="to-field-name" type="xs:string">
+            <xs:attribute name="to-field-name" type="name-lower">
                 <xs:annotation><xs:documentation>Compare the field-name field to another field on the entity.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="ignore-case" type="boolean" default="false">
@@ -537,7 +537,7 @@ along with this software (see the LICENSE.md file). If not, see
             fields will be selected.</xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:attribute name="field-name" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>Name of a field to select.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>Name of a field to select. May be more than one field, comma-separated.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
@@ -545,7 +545,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:annotation><xs:documentation>Defines a field to order the results by.</xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:attribute name="field-name" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>Name of field to order list by.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>Name of field to order list by. May be more than one field, comma-separated.
+                    Each field name may be prefixed with +/- for ascending/descending, optionally follow by a carat (^)
+                    for case insensitive order.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
@@ -614,7 +616,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="having-econditions"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="select-field"/>
             </xs:sequence>
-            <xs:attribute name="entity-name" type="xs:string" use="required">
+            <xs:attribute name="entity-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>Name of entity to search in.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="count-field" type="xs:string" use="required">
@@ -636,7 +638,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="value-field" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>Name of the existing entity value in the context.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="relationship-name" type="xs:string" use="required">
+            <xs:attribute name="relationship-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>Name of the relationship to use, consists of the relationship title
                     and the related entity name, like: ${title}${related-entity-name}.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -663,7 +665,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="value-field" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>Name of the existing entity value in the context.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="relationship-name" type="xs:string" use="required">
+            <xs:attribute name="relationship-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>Name of the relationship to use, consists of the relationship title
                     and the related entity name,like: ${title}${related-entity-name}.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -698,7 +700,7 @@ along with this software (see the LICENSE.md file). If not, see
             object will be placed in the method environment using the specified value-field.
         </xs:documentation></xs:annotation>
         <xs:complexType>
-            <xs:attribute name="entity-name" type="xs:string" use="required">
+            <xs:attribute name="entity-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>The name of the entity to construct an instance of.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="map" type="xs:string">
@@ -757,7 +759,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Field that contains an EntityValue object to delete related records
                     from.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="relationship-name" type="xs:string" use="required">
+            <xs:attribute name="relationship-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>Name of a relationship to use to delete related records.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
@@ -773,7 +775,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:element ref="econdition-object"/>
                 </xs:choice>
             </xs:sequence>
-            <xs:attribute name="entity-name" type="xs:string" use="required">
+            <xs:attribute name="entity-name" type="name-full" use="required">
                 <xs:annotation><xs:documentation>The name of the entity to remove instances of.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>

@@ -249,7 +249,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:documentation></xs:annotation>
                 </xs:element>
             </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-package" use="required">
                 <xs:annotation><xs:documentation>
                     Transition names should be camel-cased and start with an lower-case letter (whereas screen filenames
                     and subscreens-item names start with a upper-case letter).
@@ -285,7 +285,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="path-parameter">
         <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="name" type="name-lower" use="required"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="conditional-response">
@@ -410,7 +410,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <xs:element name="transition-include">
         <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="name" type="name-lower" use="required"/>
             <xs:attribute name="location" type="xs:string" use="required"/>
             <xs:attribute name="method" type="xs:string"/>
         </xs:complexType>
@@ -480,7 +480,7 @@ along with this software (see the LICENSE.md file). If not, see
             highlighted.
         </xs:documentation></xs:annotation>
         <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
                     The name of the subscreens item for use in the screen path. The screen path element following the
                     one for the parent screen of the item will match on this name.
@@ -559,7 +559,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="section" substitutionGroup="AllWidgets">
         <xs:complexType>
             <xs:group ref="section-elements"/>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-upper" use="required">
                 <xs:annotation><xs:documentation>A name for the section, used for reference within the screen.
                     Must be specified and must be unique within the screen.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -572,7 +572,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="section-iterate" substitutionGroup="AllWidgets">
         <xs:complexType>
             <xs:group ref="section-elements"/>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-upper" use="required">
                 <xs:annotation><xs:documentation>
                     A name for the section, used for external reference within the screen.
                 </xs:documentation></xs:annotation>
@@ -621,7 +621,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <xs:element name="section-include" substitutionGroup="AllWidgets">
         <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-upper" use="required">
                 <xs:annotation><xs:documentation>
                     A name for the section, used for reference within the screen.
                     Must be specified and must be unique within the screen.
