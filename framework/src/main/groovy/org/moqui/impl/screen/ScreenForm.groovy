@@ -13,11 +13,14 @@
  */
 package org.moqui.impl.screen
 
+import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.apache.commons.collections.map.ListOrderedMap
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
+import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -1313,6 +1316,170 @@ class ScreenForm {
                 sri.ec.context.put(listStr + "_entry", listEntry)
             }
             if (rowActions) rowActions.run(sri.ec)
+        }
+
+        ArrayList<EntityValue> makeFormListFindFields(String formListFindId, ExecutionContext ec) {
+            ContextStack cs = ec.context
+            List<EntityValue> valueList = new ArrayList<>()
+            for (MNode fieldNode in allFieldNodes) {
+                String fn = fieldNode.attribute("name")
+
+                if (cs.containsKey(fn) || cs.containsKey(fn + "_op")) {
+                    // this will handle text-line, text-find, etc
+                    Object value = cs.get(fn)
+                    String op = cs.get(fn + "_op") ?: "equals"
+                    boolean not = (cs.get(fn + "_not") == "Y" || cs.get(fn + "_not") == "true")
+                    boolean ic = (cs.get(fn + "_ic") == "Y" || cs.get(fn + "_ic") == "true")
+
+                    EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
+                    ev.formListFindId = formListFindId
+                    ev.fieldName = fn
+                    ev.fieldValue = value
+                    ev.fieldOperator = op
+                    ev.fieldNot = not ? "Y" : "N"
+                    ev.fieldIgnoreCase = ic ? "Y" : "N"
+                    valueList.add(ev)
+                } else if (cs.get(fn + "_period")) {
+                    EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
+                    ev.formListFindId = formListFindId
+                    ev.fieldName = fn
+                    ev.fieldPeriod = cs.get(fn + "_period")
+                    ev.fieldPerOffset = (cs.get(fn + "_poffset") ?: "0") as Long
+                    valueList.add(ev)
+                } else {
+                    // these will handle range-find and date-find
+                    String fromValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_from"))
+                    String thruValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_thru"))
+                    if (fromValue || thruValue) {
+                        EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
+                        ev.formListFindId = formListFindId
+                        ev.fieldName = fn
+                        ev.fieldFrom = fromValue
+                        ev.fieldThru = thruValue
+                        valueList.add(ev)
+                    }
+                }
+            }
+            /* always look for an orderByField parameter too
+            String orderByString = cs?.get("orderByField") ?: defaultOrderBy
+            if (orderByString != null && orderByString.length() > 0) {
+                ec.context.put("orderByField", orderByString)
+                this.orderBy(orderByString)
+            }
+            */
+            return valueList
+        }
+    }
+
+    static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
+        EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
+                .condition("formListFindId", formListFindId).useCache(true).list()
+        Map<String, String> parmMap = new LinkedHashMap<>()
+        int flffSize = flffList.size()
+        for (int i = 0; i < flffSize; i++) {
+            EntityValue flff = (EntityValue) flffList.get(i)
+            String fn = flff.fieldName
+            if (flff.fieldValue) {
+                parmMap.put(fn, (String) flff.fieldValue)
+                String op = (String) flff.fieldOperator
+                if (op && !"equals".equals(op)) parmMap.put(fn + "_op", op)
+                String not = (String) flff.fieldNot
+                if ("Y".equals(not)) parmMap.put(fn + "_not", "Y")
+                String ic = (String) flff.fieldIgnoreCase
+                if ("Y".equals(ic)) parmMap.put(fn + "_ic", "Y")
+            } else if (flff.fieldPeriod) {
+                parmMap.put(fn + "_period", (String) flff.fieldPeriod)
+                parmMap.put(fn + "_poffset", flff.fieldPerOffset as String)
+            } else if (flff.fieldFrom || flff.fieldThru) {
+                if (flff.fieldFrom) parmMap.put(fn + "_from", (String) flff.fieldFrom)
+                if (flff.fieldThru) parmMap.put(fn + "_thru", (String) flff.fieldThru)
+            }
+        }
+        return parmMap
+    }
+
+    static void saveFormConfig(ExecutionContextImpl ec) {
+        String userId = ec.user.userId
+        String formLocation = ec.context.get("formLocation")
+
+        // see if there is an existing FormConfig record
+        String formConfigId = ec.context.get("formConfigId")
+        if (!formConfigId) {
+            EntityValue fcu = ec.entity.find("moqui.screen.form.FormConfigUser")
+                    .condition("userId", userId).condition("formLocation", formLocation).useCache(false).one()
+            formConfigId = fcu != null ? fcu.formConfigId : null
+        }
+        String userCurrentFormConfigId = formConfigId
+
+        // if FormConfig associated with this user but no other users or groups delete its FormConfigField
+        //     records and remember its ID for create FormConfigField
+        if (formConfigId) {
+            long userCount = ec.entity.find("moqui.screen.form.FormConfigUser")
+                    .condition("formConfigId", formConfigId).useCache(false).count()
+            if (userCount > 1) {
+                formConfigId = null
+            } else {
+                long groupCount = ec.entity.find("moqui.screen.form.FormConfigUserGroup")
+                        .condition("formConfigId", formConfigId).useCache(false).count()
+                if (groupCount > 0) formConfigId = null
+            }
+        }
+
+        // clear out existing records
+        if (formConfigId) {
+            ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", formConfigId).deleteAll()
+        }
+
+        // are we resetting columns?
+        if (ec.context.get("ResetColumns")) {
+            if (formConfigId) {
+                // no other users on this form, and now being reset, so delete FormConfig
+                ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", formConfigId).deleteAll()
+                ec.entity.find("moqui.screen.form.FormConfig").condition("formConfigId", formConfigId).deleteAll()
+            } else if (userCurrentFormConfigId) {
+                // there is a FormConfig but other users are using it, so just remove this user
+                ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", userCurrentFormConfigId)
+                        .condition("userId", userId).deleteAll()
+            }
+            // to reset columns don't save new ones, just return after clearing out existing records
+            return
+        }
+
+        // if there is no FormConfig or found record is associated with other users or groups
+        //     create a new FormConfig record to use
+        if (!formConfigId) {
+            Map createResult = ec.service.sync().name("create#moqui.screen.form.FormConfig")
+                    .parameters([userId:userId, formLocation:formLocation, description:"For user ${userId}"]).call()
+            formConfigId = createResult.formConfigId
+            ec.service.sync().name("create#moqui.screen.form.FormConfigUser")
+                    .parameters([formConfigId:formConfigId, userId:userId, formLocation:formLocation]).call()
+        }
+
+        // save changes to DB
+        String columnsTreeStr = ec.context.get("columnsTree") as String
+        // logger.info("columnsTreeStr: ${columnsTreeStr}")
+        // if columnsTree empty there were no changes
+        if (!columnsTreeStr) return
+
+        JsonSlurper slurper = new JsonSlurper()
+        List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
+
+        StupidUtilities.orderMapList(columnsTree, ['order'])
+        int columnIndex = 0
+        for (Map columnMap in columnsTree) {
+            if (columnMap.get("id") == "hidden") continue
+            List<Map> children = (List<Map>) columnMap.get("children")
+            StupidUtilities.orderMapList(children, ['order'])
+            int columnSequence = 0
+            for (Map fieldMap in children) {
+                String fieldName = (String) fieldMap.get("id")
+                // logger.info("Adding field ${fieldName} to column ${columnIndex} at sequence ${columnSequence}")
+                ec.service.sync().name("create#moqui.screen.form.FormConfigField")
+                        .parameters([formConfigId:formConfigId, fieldName:fieldName,
+                                     positionIndex:columnIndex, positionSequence:columnSequence]).call()
+                columnSequence++
+            }
+            columnIndex++
         }
     }
 }

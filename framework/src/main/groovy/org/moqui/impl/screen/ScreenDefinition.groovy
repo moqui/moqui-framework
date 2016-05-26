@@ -18,16 +18,16 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.util.ContextStack
 import org.moqui.context.ExecutionContext
+import org.moqui.context.ResourceReference
 import org.moqui.context.WebFacade
+import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.actions.XmlAction
-import org.moqui.context.ResourceReference
-import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
-import org.moqui.entity.EntityFind
+import org.moqui.impl.actions.XmlAction
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory
 
 @CompileStatic
 class ScreenDefinition {
-    protected final static Logger logger = LoggerFactory.getLogger(ScreenDefinition.class)
+    private final static Logger logger = LoggerFactory.getLogger(ScreenDefinition.class)
 
     protected final ScreenFacadeImpl sfi
     protected final MNode screenNode
@@ -735,62 +735,12 @@ class ScreenDefinition {
                 ec.context.put("sri", sri)
                 actions.run(ec)
                 // use entire ec.context to get values from always-actions and pre-actions
-                wf.sendJsonResponse(unwrapMap(ec.context))
+                wf.sendJsonResponse(StupidJavaUtilities.unwrapMap(ec.context))
             } else {
                 wf.sendJsonResponse(new HashMap())
             }
 
             return defaultResponse
-        }
-    }
-
-    // the Groovy JsonBuilder doesn't handle various Moqui objects very well, ends up trying to access all
-    // properties and results in infinite recursion, so need to unwrap and exclude some
-    static Map<String, Object> unwrapMap(Map<String, Object> sourceMap) {
-        Map<String, Object> targetMap = new HashMap<>()
-        for (Map.Entry<String, Object> entry in sourceMap) {
-            String key = entry.getKey()
-            Object value = entry.getValue()
-            if (value == null) continue
-            // logger.warn("======== actionsResult - ${entry.key} (${entry.value?.getClass()?.getName()}): ${entry.value}")
-            Object unwrapped = unwrap(key, value)
-            if (unwrapped != null) targetMap.put(key, unwrapped)
-        }
-        return targetMap
-    }
-    static Object unwrap(String key, Object value) {
-        if (value == null) return null
-        if (value instanceof CharSequence || value instanceof Number || value instanceof Date) {
-            return value
-        } else if (value instanceof EntityFind || value instanceof ExecutionContextImpl ||
-                value instanceof ScreenRenderImpl || value instanceof ContextStack) {
-            // intentionally skip, commonly left in context by entity-find XML action
-            return null
-        } else if (value instanceof EntityValue) {
-            EntityValue ev = value as EntityValue
-            return ev.getPlainValueMap(0)
-        } else if (value instanceof EntityList) {
-            EntityList el = value as EntityList
-            ArrayList<Map> newList = new ArrayList<>()
-            int elSize = el.size()
-            for (int i = 0; i < elSize; i++) {
-                EntityValue ev = (EntityValue) el.get(i)
-                newList.add(ev.getPlainValueMap(0))
-            }
-            return newList
-        } else if (value instanceof Collection) {
-            Collection valCol = value as Collection
-            ArrayList newList = new ArrayList(valCol.size())
-            for (Object entry in valCol) newList.add(unwrap(key, entry))
-            return newList
-        } else if (value instanceof Map) {
-            Map valMap = value as Map
-            Map newMap = new HashMap(valMap.size())
-            for (Map.Entry entry in valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()))
-            return newMap
-        } else {
-            logger.info("In screen actions skipping value from actions block that is not supported; key=${key}, type=${value.class.name}, value=${value}")
-            return null
         }
     }
 
@@ -810,89 +760,7 @@ class ScreenDefinition {
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
-            ExecutionContextImpl ec = sri.getEc()
-
-            String userId = ec.user.userId
-            String formLocation = ec.context.get("formLocation")
-
-            // see if there is an existing FormConfig record
-            String formConfigId = ec.context.get("formConfigId")
-            if (!formConfigId) {
-                EntityValue fcu = ec.entity.find("moqui.screen.form.FormConfigUser")
-                        .condition("userId", userId).condition("formLocation", formLocation).useCache(false).one()
-                formConfigId = fcu != null ? fcu.formConfigId : null
-            }
-            String userCurrentFormConfigId = formConfigId
-
-            // if FormConfig associated with this user but no other users or groups delete its FormConfigField
-            //     records and remember its ID for create FormConfigField
-            if (formConfigId) {
-                long userCount = ec.entity.find("moqui.screen.form.FormConfigUser")
-                        .condition("formConfigId", formConfigId).useCache(false).count()
-                if (userCount > 1) {
-                    formConfigId = null
-                } else {
-                    long groupCount = ec.entity.find("moqui.screen.form.FormConfigUserGroup")
-                            .condition("formConfigId", formConfigId).useCache(false).count()
-                    if (groupCount > 0) formConfigId = null
-                }
-            }
-
-            // clear out existing records
-            if (formConfigId) {
-                ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", formConfigId).deleteAll()
-            }
-
-            // are we resetting columns?
-            if (ec.context.get("ResetColumns")) {
-                if (formConfigId) {
-                    // no other users on this form, and now being reset, so delete FormConfig
-                    ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", formConfigId).deleteAll()
-                    ec.entity.find("moqui.screen.form.FormConfig").condition("formConfigId", formConfigId).deleteAll()
-                } else if (userCurrentFormConfigId) {
-                    // there is a FormConfig but other users are using it, so just remove this user
-                    ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", userCurrentFormConfigId)
-                            .condition("userId", userId).deleteAll()
-                }
-                // to reset columns don't save new ones, just return after clearing out existing records
-                return defaultResponse
-            }
-
-            // if there is no FormConfig or found record is associated with other users or groups
-            //     create a new FormConfig record to use
-            if (!formConfigId) {
-                Map createResult = ec.service.sync().name("create#moqui.screen.form.FormConfig")
-                        .parameters([userId:userId, formLocation:formLocation, description:"For user ${userId}"]).call()
-                formConfigId = createResult.formConfigId
-                ec.service.sync().name("create#moqui.screen.form.FormConfigUser")
-                        .parameters([formConfigId:formConfigId, userId:userId, formLocation:formLocation]).call()
-            }
-
-            // save changes to DB
-            String columnsTreeStr = ec.context.get("columnsTree") as String
-            // logger.info("columnsTreeStr: ${columnsTreeStr}")
-            // if columnsTree empty there were no changes
-            if (!columnsTreeStr) return defaultResponse
-            JsonSlurper slurper = new JsonSlurper()
-            List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
-
-            StupidUtilities.orderMapList(columnsTree, ['order'])
-            int columnIndex = 0
-            for (Map columnMap in columnsTree) {
-                if (columnMap.get("id") == "hidden") continue
-                List<Map> children = (List<Map>) columnMap.get("children")
-                StupidUtilities.orderMapList(children, ['order'])
-                int columnSequence = 0
-                for (Map fieldMap in children) {
-                    String fieldName = (String) fieldMap.get("id")
-                    // logger.info("Adding field ${fieldName} to column ${columnIndex} at sequence ${columnSequence}")
-                    ec.service.sync().name("create#moqui.screen.form.FormConfigField")
-                            .parameters([formConfigId:formConfigId, fieldName:fieldName,
-                                         positionIndex:columnIndex, positionSequence:columnSequence]).call()
-                    columnSequence++
-                }
-                columnIndex++
-            }
+            ScreenForm.saveFormConfig(sri.getEc())
             return defaultResponse
         }
     }
@@ -1023,7 +891,7 @@ class ScreenDefinition {
         Integer getMenuIndex() { return menuIndex }
         boolean getMenuInclude() { return menuInclude }
         boolean getDisable(ExecutionContext ec) {
-            if (!disableWhenGroovy) return false
+            if (disableWhenGroovy == null) return false
             return InvokerHelper.createScript(disableWhenGroovy, ec.contextBinding).run() as boolean
         }
         String getUserGroupId() { return userGroupId }

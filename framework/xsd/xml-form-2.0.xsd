@@ -183,7 +183,10 @@ along with this software (see the LICENSE.md file). If not, see
                     Includes all fields with header widgets, not just those displayed.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="select-columns" type="boolean" default="false">
-                <xs:annotation><xs:documentation>Allow per-user selection of which columns to display.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>Enable per-user selection of which columns to display.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="saved-finds" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Enable saved finds (query parameters, order by).</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="dynamic" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal

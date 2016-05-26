@@ -42,7 +42,6 @@ import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenForm.FormInstance
 import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
 import org.moqui.impl.util.FtlNodeWrapper
-import org.moqui.impl.util.FtlNodeWrapper.FtlNodeListWrapper
 import org.moqui.screen.ScreenRender
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
@@ -95,7 +94,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     protected boolean dontDoRender = false
 
-    protected Map<String, ScreenForm.FormInstance> screenFormCache = new HashMap<>()
+    protected Map<String, FormInstance> screenFormCache = new HashMap<>()
     protected String curThemeId = (String) null
     protected Map<String, ArrayList<String>> curThemeValuesByType = new HashMap<>()
 
@@ -484,7 +483,7 @@ class ScreenRenderImpl implements ScreenRender {
                         Map parms = new HashMap()
                         if (web.requestParameters != null) parms.putAll(web.requestParameters)
                         if (web.requestAttributes != null) parms.putAll(web.requestAttributes)
-                        responseMap.put("currentParameters", ScreenDefinition.unwrapMap(parms))
+                        responseMap.put("currentParameters", StupidJavaUtilities.unwrapMap(parms))
 
                         // add screen path, parameters from fullUrl
                         responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
@@ -958,16 +957,16 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     FtlNodeWrapper getFtlFormNode(String formName) {
-        ScreenForm.FormInstance fi = getFormInstance(formName)
+        FormInstance fi = getFormInstance(formName)
         if (fi == null) return null
         return fi.getFtlFormNode()
     }
-    ScreenForm.FormInstance getFormInstance(String formName) {
+    FormInstance getFormInstance(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
         String nodeCacheKey = sd.getLocation() + "#" + formName
         // NOTE: this is cached in the context of the renderer for multiple accesses; because of form overrides may not
         // be valid outside the scope of a single screen render
-        ScreenForm.FormInstance formNode = screenFormCache.get(nodeCacheKey)
+        FormInstance formNode = screenFormCache.get(nodeCacheKey)
         if (formNode == null) {
             ScreenForm form = sd.getForm(formName)
             if (!form) throw new IllegalArgumentException("No form with name [${formName}] in screen [${sd.location}]")
