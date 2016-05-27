@@ -1386,8 +1386,12 @@ class ScreenForm {
                     .condition("userId", ec.user.userId).useCache(true).list()
             EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
                     .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet).useCache(false).list()
+            Set<String> userOnlyFlfIdSet = new HashSet<>()
             Set<String> formListFindIdSet = new HashSet<>()
-            for (EntityValue ev in flfuList) formListFindIdSet.add((String) ev.formListFindId)
+            for (EntityValue ev in flfuList) {
+                userOnlyFlfIdSet.add((String) ev.formListFindId)
+                formListFindIdSet.add((String) ev.formListFindId)
+            }
             for (EntityValue ev in flfugList) formListFindIdSet.add((String) ev.formListFindId)
 
 
@@ -1397,9 +1401,10 @@ class ScreenForm {
                 EntityValue formListFind = ec.entity.find("moqui.screen.form.FormListFind")
                         .condition("formListFindId", formListFindId).useCache(true).one()
                 Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
+                flfParameters.put("formListFindId", formListFindId)
                 if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)
                 Map<String, Object> flfInfo = [description:formListFind.description, formListFind:formListFind,
-                        findParameters:flfParameters]
+                        findParameters:flfParameters, isByUserId:userOnlyFlfIdSet.contains(formListFindId) ? "true" : "false"]
                 flfInfoList.add(flfInfo)
             }
 
@@ -1437,6 +1442,13 @@ class ScreenForm {
                 }
             }
             return parmMap
+        }
+
+        EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
+            if (ec.web == null) return null
+            String formListFindId = ec.web.requestParameters.get("formListFindId")
+            if (!formListFindId) return null
+            return ec.entity.find("moqui.screen.form.FormListFind").condition("formListFindId", formListFindId).useCache(true).one()
         }
     }
 
