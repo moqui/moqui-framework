@@ -1396,8 +1396,10 @@ class ScreenForm {
             for (String formListFindId in formListFindIdSet) {
                 EntityValue formListFind = ec.entity.find("moqui.screen.form.FormListFind")
                         .condition("formListFindId", formListFindId).useCache(true).one()
+                Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
+                if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)
                 Map<String, Object> flfInfo = [description:formListFind.description, formListFind:formListFind,
-                        findParameters:makeFormListFindParameters(formListFindId, ec)]
+                        findParameters:flfParameters]
                 flfInfoList.add(flfInfo)
             }
 
