@@ -204,6 +204,7 @@ public class ServiceJavaUtil {
         return converted;
     }
 
+    @SuppressWarnings("unchecked")
     public static Object validateParameterHtml(ParameterInfo parameterInfo, ServiceDefinition sd, String namePrefix,
                                                String parameterName, Object parameterValue, ExecutionContextImpl eci) {
         // check for none/safe/any HTML

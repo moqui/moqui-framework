@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.entity -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EntityAuditLog" package-name="moqui.entity" authorize-skip="create" cache="never">
+    <entity entity-name="EntityAuditLog" package-name="moqui.entity" group-name="transactional" authorize-skip="create" cache="never">
         <field name="auditHistorySeqId" type="id" is-pk="true"/>
         <field name="changedEntityName" type="text-medium"/>
         <field name="changedFieldName" type="text-medium"/>
@@ -35,7 +35,7 @@ along with this software (see the LICENSE.md file). If not, see
             <index-field name="pkPrimaryValue"/></index>
     </entity>
 
-    <entity entity-name="SequenceValueItem" package-name="moqui.entity" authorize-skip="true" cache="never">
+    <entity entity-name="SequenceValueItem" package-name="moqui.entity" group-name="transactional" cache="never">
         <field name="seqName" type="text-medium" is-pk="true"/>
         <field name="seqNum" type="number-integer"/>
     </entity>

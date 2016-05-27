@@ -286,7 +286,7 @@
               accounting and financial transactions
             - nontransactional: non-transactional business entities; eventual consistency is adequate; may be cached;
               non-transactional does not mean transactions are not used, but that strict consistency is not important;
-              includes things like parties, facilities, products, history/tracking data
+              includes things like parties, facilities, products, history/tracking data (master data, meta-data)
             - configuration: framework and application configuration data; eventual consistency is okay; typically cached
             - analytical: analytical entities with data typically derived from transactional data
         -->

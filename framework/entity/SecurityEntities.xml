@@ -403,7 +403,7 @@ along with this software (see the LICENSE.md file). If not, see
             <description>No FK because any key can be used whether or not there is an Enumeration record for it.</description>
             <key-map field-name="preferenceKey"/></relationship>
     </entity>
-    <entity entity-name="UserScreenTheme" package-name="moqui.security" group-name="configuration" authorize-skip="view" cache="true">
+    <entity entity-name="UserScreenTheme" package-name="moqui.security" group-name="configuration" cache="true">
         <field name="userId" type="id" is-pk="true"/>
         <field name="screenThemeTypeEnumId" type="id" is-pk="true"/>
         <field name="screenThemeId" type="id"/>

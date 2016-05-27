@@ -182,7 +182,7 @@ public class EntityDefinition {
                 if ("never".equals(memberEntityNode.attribute("cache"))) this.useCache = "never"
             }
             // warn if view-entity has members in more than one group (join will fail if deployed in different DBs)
-            if (allGroupNames.size() > 1) logger.warn("view-entity ${getFullEntityName()} has members in more than one group: ${allGroupNames}")
+            // TODO enable this again to check view-entities for groups: if (allGroupNames.size() > 1) logger.warn("view-entity ${getFullEntityName()} has members in more than one group: ${allGroupNames}")
 
             // if this is a view-entity, expand the alias-all elements into alias elements here
             this.expandAliasAlls()

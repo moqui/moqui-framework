@@ -34,14 +34,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="out-parameters"/>
                 <xs:element minOccurs="0" ref="actions"/>
             </xs:sequence>
-            <xs:attribute name="verb" type="xs:string" use="required">
+            <xs:attribute name="verb" type="name-lower" use="required">
                 <xs:annotation><xs:documentation>
                     This can be any verb, and will often be one of: create, update, store, delete, or find. The full name of
                     the service will be: "${path}.${verb}#${noun}". The verb is required and the noun is optional so if
                     there is no noun the service name will be just the verb.
                 </xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="noun" type="xs:string" use="optional">
+            <xs:attribute name="noun" type="name-upper" use="optional">
                 <xs:annotation><xs:documentation>
                     For entity-auto services this should be a valid entity name. In many other cases an entity name is
                     the best way to describe what is being acted on, but this can really be anything.
@@ -194,7 +194,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="exclude"/>
             </xs:sequence>
-            <xs:attribute name="entity-name" type="xs:string"/>
+            <xs:attribute name="entity-name" type="name-full"/>
             <xs:attribute name="include" default="all">
                 <xs:simpleType>
                     <xs:restriction base="xs:token">
@@ -209,7 +209,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="exclude">
         <xs:complexType>
-            <xs:attribute name="field-name" type="xs:string" use="required"/>
+            <xs:attribute name="field-name" type="name-lower" use="required"/>
         </xs:complexType>
     </xs:element>
 
@@ -230,7 +230,7 @@ along with this software (see the LICENSE.md file). If not, see
                         inside the element.</xs:documentation></xs:annotation>
                 </xs:element>
             </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-lower" use="required">
                 <xs:annotation><xs:documentation>The name of the parameter, matches against the key of an entry in the
                     parameters Map passed into or returned from the service.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -259,11 +259,11 @@ along with this software (see the LICENSE.md file). If not, see
                     passed in (only used if required=false). If both this and default are specified default will be
                     evaluated first and this will only be used if default evaluates to an empty value.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="entity-name" type="xs:string">
+            <xs:attribute name="entity-name" type="name-full">
                 <xs:annotation><xs:documentation>Optional name of an entity with a field that this parameter is
                     associated with.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="field-name" type="xs:string">
+            <xs:attribute name="field-name" type="name-lower">
                 <xs:annotation><xs:documentation>Optional field name within the named entity that this parameter is
                     associated with. Most useful for form fields defined automatically from the service parameter.
                     This is automatically populated when parameters are defined automatically with the auto-parameters

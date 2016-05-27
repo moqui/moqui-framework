@@ -21,7 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <!-- ========== DataSource ========== -->
-    <entity entity-name="DataSource" package-name="moqui.basic" cache="true">
+    <entity entity-name="DataSource" package-name="moqui.basic" group-name="nontransactional" cache="true">
         <field name="dataSourceId" type="id" is-pk="true"/>
         <field name="dataSourceTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
@@ -38,7 +38,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== Enumeration ========== -->
-    <entity entity-name="Enumeration" package-name="moqui.basic" short-alias="enums" cache="true">
+    <entity entity-name="Enumeration" package-name="moqui.basic" group-name="configuration" short-alias="enums" cache="true">
         <field name="enumId" type="id" is-pk="true"/>
         <field name="enumTypeId" type="id"/>
         <field name="parentEnumId" type="id"/>
@@ -57,13 +57,13 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
-    <entity entity-name="EnumerationType" package-name="moqui.basic" short-alias="enumerationTypes" cache="true">
+    <entity entity-name="EnumerationType" package-name="moqui.basic" group-name="configuration" short-alias="enumerationTypes" cache="true">
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
 
     <!-- ========== Geo ========== -->
-    <entity entity-name="Geo" package-name="moqui.basic" short-alias="geos" cache="true">
+    <entity entity-name="Geo" package-name="moqui.basic" group-name="configuration" short-alias="geos" cache="true">
         <field name="geoId" type="id" is-pk="true"/>
         <field name="geoTypeEnumId" type="id"/>
         <field name="geoName" type="text-medium"/>
@@ -115,7 +115,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="GEO"/>
         <alias-all entity-alias="GTE" prefix="type"/>
     </view-entity>
-    <entity entity-name="GeoAssoc" package-name="moqui.basic" cache="true">
+    <entity entity-name="GeoAssoc" package-name="moqui.basic" group-name="configuration" cache="true">
         <field name="geoId" type="id" is-pk="true"/>
         <field name="toGeoId" type="id" is-pk="true"/>
         <field name="geoAssocTypeEnumId" type="id"/>
@@ -145,7 +145,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="GEOA"/>
         <alias-all entity-alias="GEOFR"><exclude field="geoId"/></alias-all>
     </view-entity>
-    <entity entity-name="GeoPoint" package-name="moqui.basic" short-alias="geoPoints">
+    <entity entity-name="GeoPoint" package-name="moqui.basic" group-name="configuration" short-alias="geoPoints">
         <field name="geoPointId" type="id" is-pk="true"/>
         <field name="geoPointTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
@@ -164,12 +164,12 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== Localized ========== -->
-    <entity entity-name="LocalizedMessage" package-name="moqui.basic" cache="true" authorize-skip="view">
+    <entity entity-name="LocalizedMessage" package-name="moqui.basic" group-name="configuration" authorize-skip="view" cache="true">
         <field name="original" type="text-medium" is-pk="true"/>
         <field name="locale" type="text-short" is-pk="true"/>
         <field name="localized" type="text-long"/>
     </entity>
-    <entity entity-name="LocalizedEntityField" package-name="moqui.basic" cache="true" authorize-skip="view">
+    <entity entity-name="LocalizedEntityField" package-name="moqui.basic" group-name="configuration" authorize-skip="view" cache="true">
         <field name="entityName" type="text-medium" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="pkValue" type="text-medium" is-pk="true"/>
@@ -178,7 +178,8 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== Status ========== -->
-    <entity entity-name="StatusItem" package-name="moqui.basic" short-alias="statuses" cache="true">
+    <!-- StatusItem and related entities are in transactional group as many entities with a status are transactional; may change to configuration -->
+    <entity entity-name="StatusItem" package-name="moqui.basic" group-name="transactional" short-alias="statuses" cache="true">
         <field name="statusId" type="id" is-pk="true"/>
         <field name="statusTypeId" type="id"/>
         <field name="statusCode" type="text-medium"/>
@@ -202,7 +203,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="toTransitions"><detail relationship="flow"/><detail relationship="status"/></detail>
         </master>
     </entity>
-    <entity entity-name="StatusType" package-name="moqui.basic" short-alias="statusTypes">
+    <entity entity-name="StatusType" package-name="moqui.basic" group-name="transactional" short-alias="statusTypes">
         <field name="statusTypeId" type="id" is-pk="true"/>
         <field name="parentTypeId" type="id"/>
         <field name="description" type="text-medium"/>
@@ -212,7 +213,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="parentTypeId" related-field-name="statusTypeId"/>
         </relationship>
     </entity>
-    <entity entity-name="StatusFlow" package-name="moqui.basic">
+    <entity entity-name="StatusFlow" package-name="moqui.basic" group-name="transactional">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusTypeId" type="id"><description>Optional. If specified uses status items with this type.</description></field>
         <field name="description" type="text-medium"/>
@@ -221,14 +222,14 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlow statusFlowId="Default" description="Default status flow across entire system."/>
         </seed-data>
     </entity>
-    <entity entity-name="StatusFlowItem" package-name="moqui.basic">
+    <entity entity-name="StatusFlowItem" package-name="moqui.basic" group-name="transactional">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
         <field name="isInitial" type="text-indicator"><description>If true can be an initial status in this flow.</description></field>
         <relationship type="one" related-entity-name="moqui.basic.StatusFlow" short-alias="flow"/>
         <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
     </entity>
-    <entity entity-name="StatusFlowTransition" package-name="moqui.basic" cache="true">
+    <entity entity-name="StatusFlowTransition" package-name="moqui.basic" group-name="transactional" cache="true">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
         <field name="toStatusId" type="id" is-pk="true"/>
@@ -250,7 +251,7 @@ along with this software (see the LICENSE.md file). If not, see
     </view-entity>
 
     <!-- ========== Uom ========== -->
-    <entity entity-name="Uom" package-name="moqui.basic" short-alias="uoms" cache="true">
+    <entity entity-name="Uom" package-name="moqui.basic" group-name="configuration" short-alias="uoms" cache="true">
         <field name="uomId" type="id" is-pk="true"/>
         <field name="uomTypeEnumId" type="id"/>
         <field name="abbreviation" type="text-short"/>
@@ -297,7 +298,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="UOM" name="abbreviation"/>
         <alias entity-alias="UTE" name="typeDescription" field="description"/>
     </view-entity>
-    <entity entity-name="UomConversion" package-name="moqui.basic" cache="true">
+    <entity entity-name="UomConversion" package-name="moqui.basic" group-name="configuration" cache="true">
         <field name="uomConversionId" type="id" is-pk="true"/>
         <field name="uomId" type="id"/>
         <field name="toUomId" type="id"/>
@@ -332,7 +333,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.basic.email -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EmailMessage" package-name="moqui.basic.email" short-alias="emailMessages" cache="never">
+    <entity entity-name="EmailMessage" package-name="moqui.basic.email" group-name="nontransactional" short-alias="emailMessages" cache="never">
         <field name="emailMessageId" type="id" is-pk="true"/>
         <field name="rootEmailMessageId" type="id">
             <description>For threaded messages, this points to the message that started the thread.</description></field>
@@ -414,7 +415,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="template"/><detail relationship="server"/>
         </master>
     </entity>
-    <entity entity-name="EmailServer" package-name="moqui.basic.email" cache="true">
+    <entity entity-name="EmailServer" package-name="moqui.basic.email" group-name="configuration" cache="true">
         <field name="emailServerId" type="id" is-pk="true"/>
         <field name="smtpHost" type="text-medium"/>
         <field name="smtpPort" type="text-short"/>
@@ -444,7 +445,7 @@ along with this software (see the LICENSE.md file). If not, see
             -->
         </seed-data>
     </entity>
-    <entity entity-name="EmailTemplate" package-name="moqui.basic.email" short-alias="emailTemplates" cache="true">
+    <entity entity-name="EmailTemplate" package-name="moqui.basic.email" group-name="configuration" short-alias="emailTemplates" cache="true">
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="emailServerId" type="id"/>
@@ -464,7 +465,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="emailTemplateId"/></relationship>
         <master><detail relationship="server"/><detail relationship="attachments"/></master>
     </entity>
-    <entity entity-name="EmailTemplateAttachment" package-name="moqui.basic.email" cache="true">
+    <entity entity-name="EmailTemplateAttachment" package-name="moqui.basic.email" group-name="configuration" cache="true">
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="fileName" type="text-medium" is-pk="true"/>
         <field name="attachmentLocation" type="text-medium"/>
@@ -483,7 +484,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.basic.print -->
     <!-- ========================================================= -->
     
-    <entity entity-name="NetworkPrinter" package-name="moqui.basic.print">
+    <entity entity-name="NetworkPrinter" package-name="moqui.basic.print" group-name="configuration">
         <field name="networkPrinterId" type="id" is-pk="true"/>
         <field name="serverHost" type="text-medium"/>
         <field name="serverPort" type="number-integer"><description>Defaults to 631</description></field>
@@ -491,7 +492,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="location" type="text-medium"/>
     </entity>
-    <entity entity-name="PrintJob" package-name="moqui.basic.print" short-alias="printJobs" cache="never">
+    <entity entity-name="PrintJob" package-name="moqui.basic.print" group-name="nontransactional" short-alias="printJobs" cache="never">
         <field name="printJobId" type="id" is-pk="true"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="createdDate" type="date-time"/>

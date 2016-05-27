@@ -106,7 +106,7 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
      */
     EntityList orderByFields(List<String> fieldNames);
 
-    int indexMatching(Map valueMap);
+    int indexMatching(Map<String, Object> valueMap);
     void move(int fromIndex, int toIndex);
 
     /** Adds the value to this list if the value isn't already in it. Returns reference to this list. */

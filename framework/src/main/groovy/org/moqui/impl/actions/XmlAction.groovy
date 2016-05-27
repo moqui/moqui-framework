@@ -18,7 +18,6 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 
 import org.moqui.BaseException
-import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.util.FtlNodeWrapper
@@ -36,8 +35,8 @@ class XmlAction {
     protected final FtlNodeWrapper ftlNode
     protected final String location
     /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
-    protected Class groovyClassInternal = null
-    protected String groovyString = null
+    private Class groovyClassInternal = null
+    private String groovyString = null
 
     XmlAction(ExecutionContextFactoryImpl ecfi, MNode xmlNode, String location) {
         this.ecfi = ecfi

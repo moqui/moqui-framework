@@ -82,13 +82,13 @@ class MoquiServlet extends HttpServlet {
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             // See ScreenRenderImpl.checkWebappSettings for authc and SC_UNAUTHORIZED handling
-            logger.warn((String) "Web Access Forbidden (no authz): " + e.message)
+            logger.warn("Web Access Forbidden (no authz): " + e.message)
             sendErrorResponse(request, response, HttpServletResponse.SC_FORBIDDEN, "forbidden", e.message, e)
         } catch (ScreenResourceNotFoundException e) {
-            logger.warn((String) "Web Resource Not Found: " + e.message)
+            logger.warn("Web Resource Not Found: " + e.message)
             sendErrorResponse(request, response, HttpServletResponse.SC_NOT_FOUND, "not-found", e.message, e)
         } catch (ArtifactTarpitException e) {
-            logger.warn((String) "Web Too Many Requests (tarpit): " + e.message)
+            logger.warn("Web Too Many Requests (tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
             sendErrorResponse(request, response, 429, "too-many", e.message, e)
@@ -98,6 +98,7 @@ class MoquiServlet extends HttpServlet {
                 logger.error(errorsString, t)
                 sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error", errorsString, t)
             } else {
+                logger.error("Internal error processing request: " + t.message, t)
                 sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error", t.message, t)
             }
         } finally {

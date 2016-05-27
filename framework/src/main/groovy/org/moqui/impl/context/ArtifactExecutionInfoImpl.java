@@ -193,6 +193,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     String getKeyString() { return nameInternal + ":" + internalTypeEnum.name() + ":" + internalActionEnum.name() + ":" + actionDetail; }
 
+    @SuppressWarnings("unchecked")
     static List<Map<String, Object>> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
         Map<String, Map<String, Object>> timeByArtifact = new LinkedHashMap<>();
         for (ArtifactExecutionInfoImpl aeii: aeiiList) aeii.addToMapByTime(timeByArtifact, ownTime);
@@ -231,6 +232,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         StupidUtilities.orderMapList(hotSpotList, obList);
         return hotSpotList;
     }
+    @SuppressWarnings("unchecked")
     void addToMapByTime(Map<String, Map<String, Object>> timeByArtifact, boolean ownTime) {
         String key = getKeyString();
         Map<String, Object> val = timeByArtifact.get(key);
@@ -287,6 +289,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         for (ArtifactExecutionInfoImpl aeii: aeiiList) aeii.consolidateArtifactInfo(topLevelList, flatMap, null);
         return topLevelList;
     }
+    @SuppressWarnings("unchecked")
     void consolidateArtifactInfo(List<Map> topLevelList, Map<String, Map<String, Object>> flatMap, Map parentArtifactMap) {
         String key = getKeyString();
         Map<String, Object> artifactMap = flatMap.get(key);
@@ -323,6 +326,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         printArtifactInfoList(sw, infoList, 0);
         return sw.toString();
     }
+    @SuppressWarnings("unchecked")
     static void printArtifactInfoList(Writer writer, List<Map> infoList, int level) throws IOException {
         // "[${time}:${thisTime}:${childrenTime}][${count}] ${type} ${action} ${actionDetail} ${name}"
         for (Map info: infoList) {

@@ -159,7 +159,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="after-startup"/>
                 <xs:element minOccurs="0" ref="before-shutdown"/>
             </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
                     Matched against value of a context-param.param-value element in the web.xml file where the
                     param-name is "moqui-name".
@@ -480,7 +480,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="dci-topic-factory" type="xs:string">
                 <xs:annotation><xs:documentation>Topic factory for distributed cache invalidate</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="sequenced-id-prefix" type="xs:string"/>
-            <xs:attribute name="default-group-name" type="xs:string"/>
+            <xs:attribute name="default-group-name" type="name-plain"/>
             <xs:attribute name="database-time-zone" type="xs:string"/>
             <xs:attribute name="database-locale" type="xs:string"/>
             <xs:attribute name="crypt-pass" type="xs:string"/>
@@ -499,8 +499,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:element minOccurs="0" maxOccurs="1" ref="inline-other"/>
                 </xs:choice>
             </xs:sequence>
-            <xs:attribute name="group-name" type="xs:string" use="required"/>
-            <xs:attribute name="database-conf-name" type="xs:string">
+            <xs:attribute name="group-name" type="name-plain" use="required"/>
+            <xs:attribute name="database-conf-name" type="name-plain">
                 <xs:annotation><xs:documentation>This is only required for JDBC/SQL datasources.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="schema-name" type="xs:string"/>
@@ -596,7 +596,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="database-type"/>
             </xs:sequence>
 
-            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="name" type="name-plain" use="required"/>
 
             <!-- TODO use in code -->
             <xs:attribute name="use-schemas" default="true" type="boolean"/>
@@ -743,7 +743,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element ref="depends-on" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="optional"/>
+            <xs:attribute name="name" type="name-plain" use="optional"/>
             <xs:attribute name="location" type="xs:string" use="optional"><xs:annotation><xs:documentation>
                 Required when under component-list (in Moqui Conf XML file or a components.xml file), optional
                 when component element is in a component.xml file within a component.
@@ -753,7 +753,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="depends-on">
         <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="name" type="name-plain" use="required"/>
             <xs:attribute name="version" type="xs:string" use="optional"/>
         </xs:complexType>
     </xs:element>

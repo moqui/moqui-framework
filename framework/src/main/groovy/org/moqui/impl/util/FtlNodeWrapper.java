@@ -14,10 +14,12 @@
 package org.moqui.impl.util;
 
 import freemarker.ext.beans.BeansWrapper;
+import freemarker.ext.beans.BeansWrapperBuilder;
 import freemarker.template.*;
 
 import groovy.util.Node;
 import org.moqui.BaseException;
+import org.moqui.impl.context.renderer.FtlTemplateRenderer;
 import org.moqui.util.MNode;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
@@ -29,7 +31,7 @@ import java.util.Map;
 public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel, TemplateHashModel,
         AdapterTemplateModel, TemplateScalarModel {
     protected final static Logger logger = LoggerFactory.getLogger(FtlNodeWrapper.class);
-    protected final static BeansWrapper wrapper = BeansWrapper.getDefaultInstance();
+    protected final static BeansWrapper wrapper = new BeansWrapperBuilder(FtlTemplateRenderer.FTL_VERSION).build();
 
     /** Factory method for null-sensitive Node wrapping. */
     // public static FtlNodeWrapper wrapNode(Node groovyNode) { return groovyNode != null ? new FtlNodeWrapper(new MNode(groovyNode)) : null }

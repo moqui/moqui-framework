@@ -109,7 +109,7 @@ class StupidUtilities {
             default: break; // do nothing for Object or by default
         }
 
-        boolean result = (field == toField)
+        boolean result
         switch (operator) {
             case "less": result = (makeComparable(field) < makeComparable(toField)); break;
             case "greater": result = (makeComparable(field) > makeComparable(toField)); break;
@@ -123,8 +123,7 @@ class StupidUtilities {
             case "not-matches": result = !(field as String).matches(toField as String); break;
             case "not-equals": result = (field != toField); break;
             case "equals":
-            default: result = (field == toField)
-            break;
+            default: result = (field == toField); break;
         }
 
         if (logger.traceEnabled) logger.trace("Compare result [${result}] for field [${field}] operator [${operator}] value [${value}] toField [${toField}] type [${type}]")
@@ -364,8 +363,8 @@ class StupidUtilities {
         if (nodeObj instanceof Node) {
             theNode = (Node) nodeObj
         } else if (nodeObj instanceof NodeList) {
-            NodeList nl = (NodeList) nodeObj
-            if (nl.size() > 0) theNode = nl.get(0)
+            NodeList nl = nodeObj as NodeList
+            if (nl.size() > 0) theNode = (Node) nl.get(0)
         }
         if (theNode == null) return ""
         List<String> textList = theNode.localText()

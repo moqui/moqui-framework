@@ -377,8 +377,9 @@ class UserFacadeImpl implements UserFacade {
         if (!tenantId) tenantId = eci.tenantId
         if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
-            this.visitId = null
-            if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
+            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
+            // this.visitId = null
+            // if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
         }
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
@@ -417,8 +418,9 @@ class UserFacadeImpl implements UserFacade {
         if (!tenantId) tenantId = eci.tenantId
         if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
-            this.visitId = null
-            if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
+            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
+            // this.visitId = null
+            // if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
         }
 
         // since this doesn't go through the Shiro realm and do validations, do them now
@@ -456,7 +458,8 @@ class UserFacadeImpl implements UserFacade {
 
         if (eci.web != null) {
             eci.web.session.removeAttribute("moqui.tenantId")
-            eci.web.session.removeAttribute("moqui.visitId")
+            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
+            // eci.web.session.removeAttribute("moqui.visitId")
         }
     }
 

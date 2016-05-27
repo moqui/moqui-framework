@@ -18,7 +18,6 @@ import org.moqui.BaseException;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
-import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
@@ -144,6 +143,7 @@ public class EntityJavaUtil {
         return outValue;
     }
 
+    @SuppressWarnings("ThrowFromFinallyBlock")
     public static Object getResultSetValue(ResultSet rs, int index, FieldInfo fi, EntityFacade efi) throws EntityException {
         if (fi.typeValue == -1) throw new EntityException("No typeValue found for " + fi.entityName + "." + fi.name);
 
@@ -388,6 +388,8 @@ public class EntityJavaUtil {
         }
     }
 
+    @SuppressWarnings("unused")
+    public static FieldOrderOptions makeFieldOrderOptions(String orderByName) { return new FieldOrderOptions(orderByName); }
     public static class FieldOrderOptions {
         final static char spaceChar = ' ';
         final static char minusChar = '-';
