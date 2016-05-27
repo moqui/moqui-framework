@@ -1380,6 +1380,62 @@ class ScreenForm {
             */
             return valueList
         }
+
+        List<Map<String, Object>> getUserFormListFinds(ExecutionContext ec) {
+            EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUser")
+                    .condition("userId", ec.user.userId).useCache(true).list()
+            EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
+                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet).useCache(false).list()
+            Set<String> formListFindIdSet = new HashSet<>()
+            for (EntityValue ev in flfuList) formListFindIdSet.add((String) ev.formListFindId)
+            for (EntityValue ev in flfugList) formListFindIdSet.add((String) ev.formListFindId)
+
+
+            // get info for each formListFindId
+            List<Map<String, Object>> flfInfoList = new LinkedList<>()
+            for (String formListFindId in formListFindIdSet) {
+                EntityValue formListFind = ec.entity.find("moqui.screen.form.FormListFind")
+                        .condition("formListFindId", formListFindId).useCache(true).one()
+                Map<String, Object> flfInfo = [description:formListFind.description, formListFind:formListFind,
+                        findParameters:makeFormListFindParameters(formListFindId, ec)]
+                flfInfoList.add(flfInfo)
+            }
+
+            // sort by description
+            StupidUtilities.orderMapList(flfInfoList, ["description"])
+
+            return flfInfoList
+        }
+
+        Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
+            EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
+                    .condition("formListFindId", formListFindId).useCache(true).list()
+
+            Map<String, String> parmMap = new LinkedHashMap<>()
+            parmMap.put("formListFindId", formListFindId)
+
+            int flffSize = flffList.size()
+            for (int i = 0; i < flffSize; i++) {
+                EntityValue flff = (EntityValue) flffList.get(i)
+                String fn = flff.fieldName
+                if (flff.fieldValue) {
+                    parmMap.put(fn, (String) flff.fieldValue)
+                    String op = (String) flff.fieldOperator
+                    if (op && !"equals".equals(op)) parmMap.put(fn + "_op", op)
+                    String not = (String) flff.fieldNot
+                    if ("Y".equals(not)) parmMap.put(fn + "_not", "Y")
+                    String ic = (String) flff.fieldIgnoreCase
+                    if ("Y".equals(ic)) parmMap.put(fn + "_ic", "Y")
+                } else if (flff.fieldPeriod) {
+                    parmMap.put(fn + "_period", (String) flff.fieldPeriod)
+                    parmMap.put(fn + "_poffset", flff.fieldPerOffset as String)
+                } else if (flff.fieldFrom || flff.fieldThru) {
+                    if (flff.fieldFrom) parmMap.put(fn + "_from", (String) flff.fieldFrom)
+                    if (flff.fieldThru) parmMap.put(fn + "_thru", (String) flff.fieldThru)
+                }
+            }
+            return parmMap
+        }
     }
 
     static void processFormSavedFind(ExecutionContextImpl ec) {
@@ -1482,32 +1538,6 @@ class ScreenForm {
             ArrayList<EntityValue> flffList = formInstance.makeFormListFindFields(formListFindId, ec)
             for (EntityValue flff in flffList) flff.create()
         }
-    }
-    static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
-        EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
-                .condition("formListFindId", formListFindId).useCache(true).list()
-        Map<String, String> parmMap = new LinkedHashMap<>()
-        int flffSize = flffList.size()
-        for (int i = 0; i < flffSize; i++) {
-            EntityValue flff = (EntityValue) flffList.get(i)
-            String fn = flff.fieldName
-            if (flff.fieldValue) {
-                parmMap.put(fn, (String) flff.fieldValue)
-                String op = (String) flff.fieldOperator
-                if (op && !"equals".equals(op)) parmMap.put(fn + "_op", op)
-                String not = (String) flff.fieldNot
-                if ("Y".equals(not)) parmMap.put(fn + "_not", "Y")
-                String ic = (String) flff.fieldIgnoreCase
-                if ("Y".equals(ic)) parmMap.put(fn + "_ic", "Y")
-            } else if (flff.fieldPeriod) {
-                parmMap.put(fn + "_period", (String) flff.fieldPeriod)
-                parmMap.put(fn + "_poffset", flff.fieldPerOffset as String)
-            } else if (flff.fieldFrom || flff.fieldThru) {
-                if (flff.fieldFrom) parmMap.put(fn + "_from", (String) flff.fieldFrom)
-                if (flff.fieldThru) parmMap.put(fn + "_thru", (String) flff.fieldThru)
-            }
-        }
-        return parmMap
     }
 
     static void saveFormConfig(ExecutionContextImpl ec) {
