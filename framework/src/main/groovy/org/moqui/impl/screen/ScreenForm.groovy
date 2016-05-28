@@ -1397,16 +1397,8 @@ class ScreenForm {
 
             // get info for each formListFindId
             List<Map<String, Object>> flfInfoList = new LinkedList<>()
-            for (String formListFindId in formListFindIdSet) {
-                EntityValue formListFind = ec.entity.find("moqui.screen.form.FormListFind")
-                        .condition("formListFindId", formListFindId).useCache(true).one()
-                Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
-                flfParameters.put("formListFindId", formListFindId)
-                if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)
-                Map<String, Object> flfInfo = [description:formListFind.description, formListFind:formListFind,
-                        findParameters:flfParameters, isByUserId:userOnlyFlfIdSet.contains(formListFindId) ? "true" : "false"]
-                flfInfoList.add(flfInfo)
-            }
+            for (String formListFindId in formListFindIdSet)
+                flfInfoList.add(getFormListFindInfo(formListFindId, ec, userOnlyFlfIdSet))
 
             // sort by description
             StupidUtilities.orderMapList(flfInfoList, ["description"])
@@ -1414,35 +1406,6 @@ class ScreenForm {
             return flfInfoList
         }
 
-        Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
-            EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
-                    .condition("formListFindId", formListFindId).useCache(true).list()
-
-            Map<String, String> parmMap = new LinkedHashMap<>()
-            parmMap.put("formListFindId", formListFindId)
-
-            int flffSize = flffList.size()
-            for (int i = 0; i < flffSize; i++) {
-                EntityValue flff = (EntityValue) flffList.get(i)
-                String fn = flff.fieldName
-                if (flff.fieldValue) {
-                    parmMap.put(fn, (String) flff.fieldValue)
-                    String op = (String) flff.fieldOperator
-                    if (op && !"equals".equals(op)) parmMap.put(fn + "_op", op)
-                    String not = (String) flff.fieldNot
-                    if ("Y".equals(not)) parmMap.put(fn + "_not", "Y")
-                    String ic = (String) flff.fieldIgnoreCase
-                    if ("Y".equals(ic)) parmMap.put(fn + "_ic", "Y")
-                } else if (flff.fieldPeriod) {
-                    parmMap.put(fn + "_period", (String) flff.fieldPeriod)
-                    parmMap.put(fn + "_poffset", flff.fieldPerOffset as String)
-                } else if (flff.fieldFrom || flff.fieldThru) {
-                    if (flff.fieldFrom) parmMap.put(fn + "_from", (String) flff.fieldFrom)
-                    if (flff.fieldThru) parmMap.put(fn + "_thru", (String) flff.fieldThru)
-                }
-            }
-            return parmMap
-        }
 
         EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
             if (ec.web == null) return null
@@ -1452,7 +1415,47 @@ class ScreenForm {
         }
     }
 
-    static void processFormSavedFind(ExecutionContextImpl ec) {
+    static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
+        EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
+                .condition("formListFindId", formListFindId).useCache(true).list()
+
+        Map<String, String> parmMap = new LinkedHashMap<>()
+        parmMap.put("formListFindId", formListFindId)
+
+        int flffSize = flffList.size()
+        for (int i = 0; i < flffSize; i++) {
+            EntityValue flff = (EntityValue) flffList.get(i)
+            String fn = flff.fieldName
+            if (flff.fieldValue) {
+                parmMap.put(fn, (String) flff.fieldValue)
+                String op = (String) flff.fieldOperator
+                if (op && !"equals".equals(op)) parmMap.put(fn + "_op", op)
+                String not = (String) flff.fieldNot
+                if ("Y".equals(not)) parmMap.put(fn + "_not", "Y")
+                String ic = (String) flff.fieldIgnoreCase
+                if ("Y".equals(ic)) parmMap.put(fn + "_ic", "Y")
+            } else if (flff.fieldPeriod) {
+                parmMap.put(fn + "_period", (String) flff.fieldPeriod)
+                parmMap.put(fn + "_poffset", flff.fieldPerOffset as String)
+            } else if (flff.fieldFrom || flff.fieldThru) {
+                if (flff.fieldFrom) parmMap.put(fn + "_from", (String) flff.fieldFrom)
+                if (flff.fieldThru) parmMap.put(fn + "_thru", (String) flff.fieldThru)
+            }
+        }
+        return parmMap
+    }
+
+    static Map<String, Object> getFormListFindInfo(String formListFindId, ExecutionContext ec, Set<String> userOnlyFlfIdSet) {
+        EntityValue formListFind = ec.entity.find("moqui.screen.form.FormListFind")
+                .condition("formListFindId", formListFindId).useCache(true).one()
+        Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
+        flfParameters.put("formListFindId", formListFindId)
+        if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)
+        return [description:formListFind.description, formListFind:formListFind, findParameters:flfParameters,
+                isByUserId:userOnlyFlfIdSet?.contains(formListFindId) ? "true" : "false"]
+    }
+
+    static String processFormSavedFind(ExecutionContextImpl ec) {
         String userId = ec.user.userId
         ContextStack cs = ec.context
 
@@ -1463,14 +1466,14 @@ class ScreenForm {
         boolean isDelete = cs.containsKey("DeleteFind")
 
         if (isDelete) {
-            if (flf == null) { ec.message.addError("Saved find with ID ${formListFindId} not found, not deleting"); return; }
+            if (flf == null) { ec.message.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null; }
 
             // delete FormListFindUser record; if there are no other FormListFindUser records or FormListFindUserGroup
             //     records, delete the FormListFind
             EntityValue flfu = ec.entity.find("moqui.screen.form.FormListFindUser").condition("userId", userId)
                     .condition("formListFindId", formListFindId).useCache(false).one()
             // NOTE: if no FormListFindUser nothing to delete... consider removing form from all groups the user is in?
-            if (flfu == null) return
+            if (flfu == null) return null
             flfu.delete()
 
             long userCount = ec.entity.find("moqui.screen.form.FormListFindUser")
@@ -1485,22 +1488,22 @@ class ScreenForm {
                             .condition("formListFindId", formListFindId).deleteAll()
                 }
             }
-            return
+            return null
         }
 
         String formLocation = cs.formLocation
-        if (!formLocation) { ec.message.addError("No form location specified, cannot process saved find"); return; }
+        if (!formLocation) { ec.message.addError("No form location specified, cannot process saved find"); return null; }
         int lastDotIndex = formLocation.lastIndexOf(".")
-        if (lastDotIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return; }
+        if (lastDotIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return null; }
         String screenLocation = formLocation.substring(0, lastDotIndex)
-        int lastDollarIndex = formLocation.lastIndexOf("\$")
-        if (lastDollarIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return; }
+        int lastDollarIndex = formLocation.lastIndexOf('$')
+        if (lastDollarIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return null; }
         String formName = formLocation.substring(lastDollarIndex + 1)
 
         ScreenDefinition screenDef = ec.ecfi.screenFacade.getScreenDefinition(screenLocation)
-        if (screenDef == null) { ec.message.addError("Screen not found at ${screenLocation}, cannot process saved find"); return; }
+        if (screenDef == null) { ec.message.addError("Screen not found at ${screenLocation}, cannot process saved find"); return null; }
         ScreenForm screenForm = screenDef.getForm(formName)
-        if (screenForm == null) { ec.message.addError("Form ${formName} not found in screen at ${screenLocation}, cannot process saved find"); return; }
+        if (screenForm == null) { ec.message.addError("Form ${formName} not found in screen at ${screenLocation}, cannot process saved find"); return null; }
         FormInstance formInstance = screenForm.getFormInstance()
 
         // see if there is an existing FormConfig record
@@ -1508,7 +1511,7 @@ class ScreenForm {
             // make sure the FormListFind.formLocation matches the current formLocation
             if (formLocation != flf.formLocation) {
                 ec.message.addError("Specified form location did not match form on Saved Find ${formListFindId}, not updating")
-                return
+                return null
             }
 
             // make sure the user or group the user is in is associated with the FormListFind
@@ -1520,7 +1523,7 @@ class ScreenForm {
                         .condition("formListFindId", formListFindId).useCache(false).count()
                 if (groupCount == 0L) {
                     ec.message.addError("You are not associated with Saved Find ${formListFindId}, cannot update")
-                    return
+                    return formListFindId
                 }
             }
 
@@ -1552,6 +1555,8 @@ class ScreenForm {
             ArrayList<EntityValue> flffList = formInstance.makeFormListFindFields(formListFindId, ec)
             for (EntityValue flff in flffList) flff.create()
         }
+
+        return formListFindId
     }
 
     static void saveFormConfig(ExecutionContextImpl ec) {

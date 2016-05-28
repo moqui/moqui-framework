@@ -753,16 +753,34 @@ class ScreenDefinition {
     }
     /** Special automatic transition to manage Saved Finds for form-list with saved-finds=true */
     static class FormSavedFindsTransitionItem extends TransitionItem {
+        protected ResponseItem noneResponse = null
+
         FormSavedFindsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
             name = "formSaveFind"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
             transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false;
             defaultResponse = new ResponseItem(new MNode("default-response", [url:"."]), this, parentScreen)
+            noneResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
-            ScreenForm.processFormSavedFind(sri.getEc())
-            return defaultResponse
+            String formListFindId = ScreenForm.processFormSavedFind(sri.getEc())
+
+            if (formListFindId == null || sri.response == null) return defaultResponse
+
+            ScreenUrlInfo curUrlInfo = sri.getScreenUrlInfo()
+            ArrayList<String> curFpnl = new ArrayList<>(curUrlInfo.fullPathNameList)
+            // remove last path element, is transition name and we just want the screen this is from
+            curFpnl.remove(curFpnl.size() - 1)
+
+            ScreenUrlInfo fwdUrlInfo = ScreenUrlInfo.getScreenUrlInfo(sri, null, curFpnl, null, null)
+            ScreenUrlInfo.UrlInstance fwdInstance = fwdUrlInfo.getInstance(sri, null)
+
+            Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.getEc(), null)
+            fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
+
+            sri.response.sendRedirect(fwdInstance.getUrlWithParams())
+            return noneResponse
         }
     }
 
