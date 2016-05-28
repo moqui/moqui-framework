@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 import javax.cache.CacheManager;
 
 /** A factory for getting a MCacheManager */
-class MCacheToolFactory implements ToolFactory<CacheManager> {
+public class MCacheToolFactory implements ToolFactory<CacheManager> {
     protected final static Logger logger = LoggerFactory.getLogger(MCacheToolFactory.class);
     public final static String TOOL_NAME = "MCache";
 
