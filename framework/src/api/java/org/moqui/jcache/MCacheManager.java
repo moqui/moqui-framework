@@ -90,8 +90,13 @@ public class MCacheManager implements CacheManager {
     @Override
     public void destroyCache(String cacheName) {
         if (isClosed) throw new IllegalStateException("MCacheManager is closed");
-        // TODO
-
+        MCache cache = cacheMap.get(cacheName);
+        if (cache != null) {
+            cacheMap.remove(cacheName);
+            cache.close();
+        } else {
+            throw new IllegalStateException("Cache with name " + cacheName + " does not exist, cannot be destroyed");
+        }
     }
 
     @Override
