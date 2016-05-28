@@ -1385,7 +1385,7 @@ class ScreenForm {
             EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUser")
                     .condition("userId", ec.user.userId).useCache(true).list()
             EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
-                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet).useCache(false).list()
+                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet).useCache(true).list()
             Set<String> userOnlyFlfIdSet = new HashSet<>()
             Set<String> formListFindIdSet = new HashSet<>()
             for (EntityValue ev in flfuList) {
