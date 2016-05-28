@@ -19,7 +19,6 @@ import javax.cache.CacheManager;
 import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.CompleteConfiguration;
 import javax.cache.configuration.Configuration;
-import javax.cache.configuration.MutableConfiguration;
 import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CompletionListener;
@@ -36,12 +35,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** A simple implementation of the javax.cache.Cache interface. Basically a wrapper around a Map with stats and expiry. */
+@SuppressWarnings("unused")
 public class MCache<K, V> implements Cache<K, V> {
     private static final Logger logger = LoggerFactory.getLogger(MCache.class);
 
     private String name;
     private CacheManager manager;
-    private CompleteConfiguration<K, V> configuration;
+    private Configuration<K, V> configuration;
     // NOTE: use ConcurrentHashMap for write locks and such even if can't so easily use putIfAbsent/etc
     private ConcurrentHashMap<K, MEntry<K, V>> entryStore = new ConcurrentHashMap<>();
     // currently for future reference, no runtime type checking
@@ -68,35 +68,26 @@ public class MCache<K, V> implements Cache<K, V> {
     private static ScheduledThreadPoolExecutor workerPool = new ScheduledThreadPoolExecutor(1, new WorkerThreadFactory());
     static { workerPool.setRemoveOnCancelPolicy(true); }
 
-    public static class MCacheConfiguration<K, V> extends MutableConfiguration<K, V> {
-        public MCacheConfiguration() { super(); }
-        public MCacheConfiguration(CompleteConfiguration<K, V> conf) { super(conf); }
-        int maxEntries = 0;
-        long maxCheckSeconds = 30;
-        /** Set maximum number of entries in the cache, 0 means no limit (default). Limit is enforced in a scheduled worker, not on put operations. */
-        public MCacheConfiguration<K, V> setMaxEntries(int elements) { maxEntries = elements; return this; }
-        public int getMaxEntries() { return maxEntries; }
-        /** Set maximum number of entries in the cache, 0 means no limit (default). */
-        public MCacheConfiguration<K, V> setMaxCheckSeconds(long seconds) { maxCheckSeconds = seconds; return this; }
-        public long getMaxCheckSeconds() { return maxCheckSeconds; }
-    }
-
     /** Supports a few configurations but both manager and configuration can be null. */
-    public MCache(String name, CacheManager manager, CompleteConfiguration<K, V> configuration) {
+    public MCache(String name, CacheManager manager, Configuration<K, V> configuration) {
         this.name = name;
         this.manager = manager;
         this.configuration = configuration;
         if (configuration != null) {
-            statsEnabled = configuration.isStatisticsEnabled();
+            if (configuration instanceof CompleteConfiguration) {
+                CompleteConfiguration<K, V> compConf = (CompleteConfiguration<K, V>) configuration;
 
-            if (configuration.getExpiryPolicyFactory() != null) {
-                ExpiryPolicy ep = configuration.getExpiryPolicyFactory().create();
-                accessDuration = ep.getExpiryForAccess();
-                if (accessDuration != null && accessDuration.isEternal()) accessDuration = null;
-                creationDuration = ep.getExpiryForCreation();
-                if (creationDuration != null && creationDuration.isEternal()) creationDuration = null;
-                updateDuration = ep.getExpiryForUpdate();
-                if (updateDuration != null && updateDuration.isEternal()) updateDuration = null;
+                statsEnabled = compConf.isStatisticsEnabled();
+
+                if (compConf.getExpiryPolicyFactory() != null) {
+                    ExpiryPolicy ep = compConf.getExpiryPolicyFactory().create();
+                    accessDuration = ep.getExpiryForAccess();
+                    if (accessDuration != null && accessDuration.isEternal()) accessDuration = null;
+                    creationDuration = ep.getExpiryForCreation();
+                    if (creationDuration != null && creationDuration.isEternal()) creationDuration = null;
+                    updateDuration = ep.getExpiryForUpdate();
+                    if (updateDuration != null && updateDuration.isEternal()) updateDuration = null;
+                }
             }
 
             // keyClass = configuration.getKeyType();
@@ -459,7 +450,7 @@ public class MCache<K, V> implements Cache<K, V> {
         return new CacheIterator<>(this);
     }
 
-    public static class CacheIterator<K, V> implements Iterator<Entry<K, V>> {
+    private static class CacheIterator<K, V> implements Iterator<Entry<K, V>> {
         final MCache<K, V> mCache;
         final long initialTime;
         final ArrayList<MEntry<K, V>> entryList;
@@ -550,194 +541,6 @@ public class MCache<K, V> implements Cache<K, V> {
     public Duration getAccessDuration() { return accessDuration; }
     public Duration getCreationDuration() { return creationDuration; }
     public Duration getUpdateDuration() { return updateDuration; }
-
-    public static class MEntry<K, V> implements Cache.Entry<K, V> {
-        private static final Class<MEntry> thisClass = MEntry.class;
-        final K key;
-        V value;
-        private long createdTime = 0;
-        private long lastUpdatedTime = 0;
-        long lastAccessTime = 0;
-        long accessCount = 0;
-        private boolean isExpired = false;
-
-        /** Use this only to create MEntry to compare with an existing entry */
-        MEntry(K key, V value) {
-            this.key = key;
-            this.value = value;
-        }
-        /** Always use this for MEntry that may be put in the cache */
-        MEntry(K key, V value, long createdTime) {
-            this.key = key;
-            this.value = value;
-            this.createdTime = createdTime;
-            lastUpdatedTime = createdTime;
-            lastAccessTime = createdTime;
-        }
-
-        @Override
-        public K getKey() { return key; }
-        @Override
-        public V getValue() { return value; }
-        @Override
-        public <T> T unwrap(Class<T> clazz) {
-            if (clazz.isAssignableFrom(this.getClass())) return clazz.cast(this);
-            throw new IllegalArgumentException("Class " + clazz.getName() + " not compatible with MCache.MEntry");
-        }
-
-        boolean valueEquals(V otherValue) {
-            if (otherValue == null) {
-                return value == null;
-            } else {
-                return otherValue.equals(value);
-            }
-        }
-        void setValue(V val, long updateTime) {
-            synchronized (key) {
-                if (updateTime > lastUpdatedTime) {
-                    value = val;
-                    lastUpdatedTime = updateTime;
-                }
-            }
-        }
-        boolean setValueIfEquals(V oldVal, V val, long updateTime) {
-            synchronized (key) {
-                if (updateTime > lastUpdatedTime && valueEquals(oldVal)) {
-                    value = val;
-                    lastUpdatedTime = updateTime;
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        }
-
-        public long getCreatedTime() { return createdTime; }
-        public long getLastUpdatedTime() { return lastUpdatedTime; }
-        public long getLastAccessTime() { return lastAccessTime; }
-        public long getAccessCount() { return accessCount; }
-
-        /* done directly on fields for performance reasons
-        void countAccess(long accessTime) {
-            accessCount++; if (accessTime > lastAccessTime) lastAccessTime = accessTime;
-        }
-        */
-        public boolean isExpired(ExpiryPolicy policy) {
-            return isExpired(System.currentTimeMillis(), policy.getExpiryForAccess(), policy.getExpiryForCreation(),
-                    policy.getExpiryForUpdate());
-        }
-        boolean isExpired(long accessTime, ExpiryPolicy policy) {
-            return isExpired(accessTime, policy.getExpiryForAccess(), policy.getExpiryForCreation(),
-                    policy.getExpiryForUpdate());
-        }
-        public boolean isExpired(Duration accessDuration, Duration creationDuration, Duration updateDuration) {
-            return isExpired(System.currentTimeMillis(), accessDuration, creationDuration, updateDuration);
-        }
-        boolean isExpired(long accessTime, Duration accessDuration, Duration creationDuration, Duration updateDuration) {
-            if (isExpired) return true;
-            if (accessDuration != null && !accessDuration.isEternal()) {
-                if (accessDuration.getAdjustedTime(lastAccessTime) < accessTime) { isExpired = true; return true; }
-            }
-            if (creationDuration != null && !creationDuration.isEternal()) {
-                if (creationDuration.getAdjustedTime(createdTime) < accessTime) { isExpired = true; return true; }
-            }
-            if (updateDuration != null && !updateDuration.isEternal()) {
-                if (updateDuration.getAdjustedTime(lastUpdatedTime) < accessTime) { isExpired = true; return true; }
-            }
-            return false;
-        }
-
-        @Override
-        public int hashCode() {
-            return value.hashCode();
-        }
-        @Override
-        public boolean equals(Object obj) {
-            if (obj == null || thisClass != obj.getClass()) return false;
-            MEntry that = (MEntry) obj;
-            if (value == null) {
-                return that.value == null;
-            } else {
-                return value.equals(that.value);
-            }
-        }
-    }
-
-    public static class MStats implements CacheStatisticsMXBean {
-        long hits = 0;
-        long misses = 0;
-        long gets = 0;
-
-        long puts = 0;
-        long removals = 0;
-        long evictions = 0;
-        long expires = 0;
-
-        // long totalGetMicros = 0, totalPutMicros = 0, totalRemoveMicros = 0;
-
-        @Override
-        public void clear() {
-            hits = 0;
-            misses = 0;
-            gets = 0;
-            puts = 0;
-            removals = 0;
-            evictions = 0;
-            expires = 0;
-        }
-
-        @Override
-        public long getCacheHits() { return hits; }
-        @Override
-        public float getCacheHitPercentage() { return (hits / gets) * 100; }
-        @Override
-        public long getCacheMisses() { return misses; }
-        @Override
-        public float getCacheMissPercentage() { return (misses / gets) * 100; }
-        @Override
-        public long getCacheGets() { return gets; }
-
-        @Override
-        public long getCachePuts() { return puts; }
-        @Override
-        public long getCacheRemovals() { return removals; }
-        @Override
-        public long getCacheEvictions() { return evictions; }
-
-        @Override
-        public float getAverageGetTime() { return 0; } // totalGetMicros / gets
-        @Override
-        public float getAveragePutTime() { return 0; } // totalPutMicros / puts
-        @Override
-        public float getAverageRemoveTime() { return 0; } // totalRemoveMicros / removals
-
-        public long getCacheExpires() { return expires; }
-
-        /* have callers access fields directly for performance reasons:
-        void countHit() {
-            gets++; hits++;
-            // totalGetMicros += micros;
-        }
-        void countMiss() {
-            gets++; misses++;
-            // totalGetMicros += micros;
-        }
-        void countPut() {
-            puts++;
-            // totalPutMicros += micros;
-        }
-        */
-        void countRemoval() {
-            removals++;
-            // totalRemoveMicros += micros;
-        }
-        void countBulkRemoval(long entries) {
-            removals += entries;
-        }
-        void countExpire() {
-            expires++;
-        }
-    }
 
     private static class EvictRunnable<K, V> implements Runnable {
         static AccessComparator comparator = new AccessComparator();

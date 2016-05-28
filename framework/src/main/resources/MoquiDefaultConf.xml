@@ -6,6 +6,8 @@
         any of the desired sub-elements. -->
 
     <tools empty-db-load="seed" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
+        <tool-factory class="org.moqui.jcache.MCacheToolFactory" init-priority="03" disabled="false"/>
+
         <tool-factory class="org.moqui.impl.tools.HazelcastToolFactory" init-priority="05" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.HazelcastCacheToolFactory" init-priority="06" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.HazelcastDciTopicToolFactory" init-priority="07" disabled="false"/>
@@ -18,7 +20,7 @@
         <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
     </tools>
 
-    <cache-list warm-on-start="true" distributed-factory="HazelcastCache">
+    <cache-list warm-on-start="true" local-factory="MCache" distributed-factory="HazelcastCache">
         <!-- Entity Database Record Caches (and cache clear assist data) -->
         <!-- set type="distributed" to use the distributed cache -->
         <cache name="entity.record.one." max-elements="20000" eviction-strategy="least-frequently-used"
