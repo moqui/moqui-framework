@@ -127,6 +127,7 @@ dependencies {
     compile 'commons-lang:commons-lang:2.6' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
+    compile 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0
 
     // ElasticSearch Libraries, including Lucene
     compile 'org.elasticsearch:elasticsearch:2.3.2' // Apache 2.0
