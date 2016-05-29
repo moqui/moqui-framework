@@ -24,26 +24,34 @@ import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
 @CompileStatic
 class FtlMarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(FtlMarkdownTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected MCache<String, Template> templateFtlLocationCache
+    protected Cache<String, Template> templateFtlLocationCache
 
     FtlMarkdownTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
         this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class)
-                .unwrap(MCache.class)
         return this
     }
 
     void render(String location, Writer writer) {
-        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        long lastModified = rr != null ? rr.getLastModified() : 0L
-        Template theTemplate = (Template) templateFtlLocationCache.get(location, lastModified)
+        Template theTemplate;
+        if (templateFtlLocationCache instanceof MCache) {
+            MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
+            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            long lastModified = rr != null ? rr.getLastModified() : 0L;
+            theTemplate = mCache.get(location, lastModified);
+        } else {
+            // TODO: doesn't support on the fly reloading without cache expire/clear!
+            theTemplate = templateFtlLocationCache.get(location);
+        }
         if (theTemplate == null) theTemplate = makeTemplate(location)
         if (theTemplate == null) throw new IllegalArgumentException("Could not find template at ${location}")
         theTemplate.createProcessingEnvironment(ecfi.executionContext.context, writer).process()

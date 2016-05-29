@@ -31,25 +31,34 @@ import org.moqui.jcache.MCache
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
 class WikiTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(WikiTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected MCache<String, String> templateWikiLocationCache
+    protected Cache<String, String> templateWikiLocationCache
 
     WikiTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
         this.templateWikiLocationCache = ecfi.cacheFacade.getCache("resource.wiki.location", String.class, String.class)
-                .unwrap(MCache.class)
         return this
     }
 
     void render(String location, Writer writer) {
-        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        long lastModified = rr != null ? rr.getLastModified() : 0L
-        String wikiText = (String) templateWikiLocationCache.get(location, lastModified)
+        String wikiText;
+        if (templateWikiLocationCache instanceof MCache) {
+            MCache<String, String> mCache = (MCache) templateWikiLocationCache;
+            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            long lastModified = rr != null ? rr.getLastModified() : 0L;
+            wikiText = mCache.get(location, lastModified);
+        } else {
+            // TODO: doesn't support on the fly reloading without cache expire/clear!
+            wikiText = templateWikiLocationCache.get(location);
+        }
+
         if (wikiText) {
             writer.write(wikiText)
             return

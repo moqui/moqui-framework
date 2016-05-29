@@ -23,6 +23,8 @@ import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
 class MarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(MarkdownTemplateRenderer.class)
 
@@ -30,20 +32,28 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
     final static int pegDownOptions = Extensions.ALL_WITH_OPTIONALS ^ Extensions.SMARTS ^ Extensions.QUOTES
 
     protected ExecutionContextFactoryImpl ecfi
-    protected MCache<String, String> templateMarkdownLocationCache
+    protected Cache<String, String> templateMarkdownLocationCache
 
     MarkdownTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateMarkdownLocationCache = ecfi.cacheFacade.getCache("resource.markdown.location").unwrap(MCache.class)
+        this.templateMarkdownLocationCache = ecfi.cacheFacade.getCache("resource.markdown.location")
         return this
     }
 
     void render(String location, Writer writer) {
-        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        long lastModified = rr != null ? rr.getLastModified() : 0L
-        String mdText = templateMarkdownLocationCache.get(location, lastModified)
+        String mdText;
+        if (templateMarkdownLocationCache instanceof MCache) {
+            MCache<String, String> mCache = (MCache) templateMarkdownLocationCache;
+            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            long lastModified = rr != null ? rr.getLastModified() : 0L;
+            mdText = mCache.get(location, lastModified);
+        } else {
+            // TODO: doesn't support on the fly reloading without cache expire/clear!
+            mdText = templateMarkdownLocationCache.get(location);
+        }
+
         if (mdText) {
             writer.write(mdText)
             return
