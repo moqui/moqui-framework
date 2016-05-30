@@ -1,0 +1,13 @@
+# Apache Commons JCS Configuration
+# See: https://commons.apache.org/proper/commons-jcs/BasicJCSConfiguration.html
+
+# DEFAULT CACHE REGION
+jcs.default=
+jcs.default.cacheattributes=org.apache.commons.jcs.engine.CompositeCacheAttributes
+jcs.default.cacheattributes.MaxObjects=10000
+jcs.default.cacheattributes.MemoryCacheName=org.apache.commons.jcs.engine.memory.lru.LRUMemoryCache
+jcs.default.elementattributes=org.apache.commons.jcs.engine.ElementAttributes
+jcs.default.elementattributes.IsEternal=true
+jcs.default.elementattributes.IsSpool=false
+jcs.default.elementattributes.IsRemote=false
+jcs.default.elementattributes.IsLateral=false
