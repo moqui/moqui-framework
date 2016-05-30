@@ -23,7 +23,9 @@ import javax.cache.CacheManager
 import javax.cache.Caching
 import javax.cache.spi.CachingProvider
 
-/** A factory for getting a JCS CacheManager */
+/** A factory for getting a JCS CacheManager; this has no compile time dependency on Commons JCS, just add the jar files
+ * Current artifact: org.apache.commons:commons-jcs-jcache:2.0-beta-1
+ */
 @CompileStatic
 class JCSCacheToolFactory implements ToolFactory<CacheManager> {
     protected final static Logger logger = LoggerFactory.getLogger(JCSCacheToolFactory.class)
