@@ -44,9 +44,11 @@ class JCSCacheToolFactory implements ToolFactory<CacheManager> {
     void preFacadeInit(ExecutionContextFactory ecf) {
         this.ecf = ecf
         // always use the server caching provider, the client one always goes over a network interface and is slow
-        CachingProvider providerInternal = Caching.getCachingProvider("org.apache.commons.jcs.jcache.JCSCachingProvider")
         ClassLoader cl = Thread.currentThread().getContextClassLoader()
-        cacheManager = providerInternal.getCacheManager(cl.getResource("jcache.ccf").toURI(), cl)
+        CachingProvider providerInternal = Caching.getCachingProvider("org.apache.commons.jcs.jcache.JCSCachingProvider", cl)
+        URL cmUrl = cl.getResource("cache.ccf")
+        logger.info("JCS config URI: ${cmUrl}")
+        cacheManager = providerInternal.getCacheManager(cmUrl.toURI(), cl)
         logger.info("Initialized JCS CacheManager")
     }
 

@@ -7,12 +7,14 @@
 
     <tools empty-db-load="seed" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.jcache.MCacheToolFactory" init-priority="03" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="04" disabled="true"/>
 
+        <!-- Hazelcast distributed tool set for caching, topics, executors, etc -->
         <tool-factory class="org.moqui.impl.tools.HazelcastToolFactory" init-priority="05" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.HazelcastCacheToolFactory" init-priority="06" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.HazelcastDciTopicToolFactory" init-priority="07" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.HazelcastExecutorToolFactory" init-priority="08" disabled="false"/>
+        <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
+        <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/>
 
         <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="15" disabled="false"/>
         <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="20" disabled="false"/>

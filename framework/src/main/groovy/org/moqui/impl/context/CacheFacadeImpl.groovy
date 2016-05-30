@@ -21,6 +21,7 @@ import com.hazelcast.config.EvictionConfig
 import com.hazelcast.config.EvictionPolicy
 import com.hazelcast.config.InMemoryFormat
 import groovy.transform.CompileStatic
+import org.apache.commons.jcs.jcache.JCSCachingManager
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.tools.HazelcastCacheToolFactory
 import org.moqui.jcache.MCache
@@ -298,16 +299,20 @@ public class CacheFacadeImpl implements CacheFacade {
             newCache = cacheManager.createCache(fullCacheName, config)
         } else {
             CacheManager cacheManager
+            boolean storeByValue
             if ("local".equals(defaultCacheType)) {
                 cacheManager = localCacheManagerInternal
+                storeByValue = false
             } else if ("distributed".equals(defaultCacheType)) {
                 cacheManager = getDistCacheManager()
+                storeByValue = true
             } else {
                 throw new IllegalArgumentException("Default cache type ${defaultCacheType} not supported")
             }
 
+            logger.info("Creating default ${defaultCacheType} cache ${cacheName}, storeByValue=${storeByValue}")
             MutableConfiguration mutConfig = new MutableConfiguration()
-            mutConfig.setStoreByValue(defaultCacheType == "locale").setStatisticsEnabled(true)
+            mutConfig.setStoreByValue(storeByValue).setStatisticsEnabled(true)
             // any defaults we want here? better to use underlying defaults and conf file settings only
             newCache = cacheManager.createCache(fullCacheName, mutConfig)
         }
