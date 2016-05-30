@@ -38,7 +38,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
     protected static final Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class);
     protected ExecutionContextFactoryImpl ecfi;
     private Configuration defaultFtlConfiguration;
-    private MCache<String, Template> templateFtlLocationCache;
+    private Cache<String, Template> templateFtlLocationCache;
 
     public FtlTemplateRenderer() { }
 
@@ -46,8 +46,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
     public TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf;
         defaultFtlConfiguration = makeFtlConfiguration(ecfi);
-        Cache<String, Template> tflCache = ecfi.getCacheFacade().getCache("resource.ftl.location", String.class, Template.class);
-        templateFtlLocationCache = (MCache<String, Template>) tflCache.unwrap(MCache.class);
+        templateFtlLocationCache = ecfi.getCacheFacade().getCache("resource.ftl.location", String.class, Template.class);
         return this;
     }
 
@@ -65,12 +64,20 @@ public class FtlTemplateRenderer implements TemplateRenderer {
     public void destroy() {
     }
 
+    @SuppressWarnings("unchecked")
     public Template getFtlTemplateByLocation(final String location) {
-        ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
-        // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
-        //     updated time is older/less than rr.lastModified)
-        long lastModified = rr != null ? rr.getLastModified() : 0L;
-        Template theTemplate = templateFtlLocationCache.get(location, lastModified);
+        Template theTemplate;
+        if (templateFtlLocationCache instanceof MCache) {
+            MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
+            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
+            //     updated time is older/less than rr.lastModified)
+            long lastModified = rr != null ? rr.getLastModified() : 0L;
+            theTemplate = mCache.get(location, lastModified);
+        } else {
+            // TODO: doesn't support on the fly reloading without cache expire/clear!
+            theTemplate = templateFtlLocationCache.get(location);
+        }
         if (theTemplate == null) theTemplate = makeTemplate(location);
         if (theTemplate == null) throw new IllegalArgumentException("Could not find template at [" + location + "]");
         return theTemplate;
@@ -126,7 +133,8 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         }
 
         @Override
-        public Template getTemplate(final String name, Locale locale, Object customLookupCondition, String encoding, boolean parseAsFTL, boolean ignoreMissing) throws TemplateNotFoundException, MalformedTemplateNameException, ParseException, IOException {
+        public Template getTemplate(final String name, Locale locale, Object customLookupCondition, String encoding,
+                                    boolean parseAsFTL, boolean ignoreMissing) throws IOException {
             //return super.getTemplate(name, locale, encoding, parse)
             // NOTE: doing this because template loading behavior with cache/etc not desired and was having issues
             Template theTemplate;

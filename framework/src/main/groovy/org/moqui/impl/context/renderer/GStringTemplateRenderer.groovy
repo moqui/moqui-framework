@@ -24,19 +24,20 @@ import org.moqui.jcache.MCache
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
 @CompileStatic
 class GStringTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(GStringTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected MCache<String, Template> templateGStringLocationCache
+    protected Cache<String, Template> templateGStringLocationCache
 
     GStringTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateGStringLocationCache = ecfi.cacheFacade.getCache("resource.gstring.location",
-                String.class, Template.class).unwrap(MCache.class)
+        this.templateGStringLocationCache = ecfi.cacheFacade.getCache("resource.gstring.location", String.class, Template.class)
         return this
     }
 
@@ -53,9 +54,16 @@ class GStringTemplateRenderer implements TemplateRenderer {
     void destroy() { }
 
     Template getGStringTemplateByLocation(String location) {
-        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        long lastModified = rr != null ? rr.getLastModified() : 0L
-        Template theTemplate = (Template) templateGStringLocationCache.get(location, lastModified)
+        Template theTemplate;
+        if (templateGStringLocationCache instanceof MCache) {
+            MCache<String, Template> mCache = (MCache) templateGStringLocationCache;
+            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            long lastModified = rr != null ? rr.getLastModified() : 0L;
+            theTemplate = mCache.get(location, lastModified);
+        } else {
+            // TODO: doesn't support on the fly reloading without cache expire/clear!
+            theTemplate = templateGStringLocationCache.get(location);
+        }
         if (!theTemplate) theTemplate = makeGStringTemplate(location)
         if (!theTemplate) throw new IllegalArgumentException("Could not find template at [${location}]")
         return theTemplate

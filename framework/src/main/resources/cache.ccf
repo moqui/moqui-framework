@@ -1,0 +1,19 @@
+# Apache Commons JCS Configuration
+# See: https://commons.apache.org/proper/commons-jcs/BasicJCSConfiguration.html
+
+# DEFAULT CACHE REGION
+jcs.default=
+jcs.default.cacheattributes=org.apache.commons.jcs.engine.CompositeCacheAttributes
+jcs.default.cacheattributes.UseDisk=true
+jcs.default.cacheattributes.UseLateral=true
+jcs.default.cacheattributes.UseRemote=true
+jcs.default.cacheattributes.MemoryCacheName=org.apache.commons.jcs.engine.memory.lru.LRUMemoryCache
+jcs.default.cacheattributes.UseMemoryShrinker=false
+jcs.default.cacheattributes.MaxMemoryIdleTime=3600
+jcs.default.cacheattributes.ShrinkerInterval=60
+jcs.default.elementattributes=org.apache.commons.jcs.engine.ElementAttributes
+jcs.default.elementattributes.IsEternal=false
+jcs.default.elementattributes.MaxLife=700
+jcs.default.elementattributes.IsSpool=true
+jcs.default.elementattributes.IsRemote=true
+jcs.default.elementattributes.IsLateral=true

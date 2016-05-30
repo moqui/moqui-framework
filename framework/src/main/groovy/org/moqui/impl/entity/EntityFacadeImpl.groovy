@@ -158,18 +158,22 @@ class EntityFacadeImpl implements EntityFacade {
         long currentTime = System.currentTimeMillis()
 
         Set<String> startupAddMissingGroups = new TreeSet<>()
+        Set<String> allConfiguredGroups = new TreeSet<>()
         for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             String groupName = datasourceNode.attribute("group-name")
             if (datasourceNode.attribute("startup-add-missing") == "true") {
                 startupAddMissingGroups.add(groupName)
             }
+            allConfiguredGroups.add(groupName)
         }
 
+        boolean defaultStartAddMissing = startupAddMissingGroups.contains(getEntityFacadeNode().attribute("default-group-name"))
         if (startupAddMissingGroups.size() > 0) {
             logger.info("Checking tables for entities in groups ${startupAddMissingGroups}")
             for (String entityName in getAllEntityNames()) {
                 String groupName = getEntityGroupName(entityName) ?: defaultGroupName
-                if (startupAddMissingGroups.contains(groupName)) {
+                if (startupAddMissingGroups.contains(groupName) ||
+                        (allConfiguredGroups.contains(groupName) == false && defaultStartAddMissing)) {
                     EntityDatasourceFactory edf = getDatasourceFactory(groupName)
                     edf.checkAndAddTable(entityName)
                 }

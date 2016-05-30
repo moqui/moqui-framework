@@ -15,11 +15,12 @@ package org.moqui.context;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URL;
 import java.util.List;
 
-public interface ResourceReference {
+public interface ResourceReference extends Serializable {
     ResourceReference init(String location, ExecutionContextFactory ecf);
 
     String getLocation();
