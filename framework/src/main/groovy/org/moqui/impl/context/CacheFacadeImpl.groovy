@@ -21,7 +21,6 @@ import com.hazelcast.config.EvictionConfig
 import com.hazelcast.config.EvictionPolicy
 import com.hazelcast.config.InMemoryFormat
 import groovy.transform.CompileStatic
-import org.apache.commons.jcs.jcache.JCSCachingManager
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.tools.HazelcastCacheToolFactory
 import org.moqui.jcache.MCache
@@ -139,7 +138,7 @@ public class CacheFacadeImpl implements CacheFacade {
     }
     @Override
     Cache getDistributedCache(String cacheName) {
-        return getCacheInternal(cacheName, null, "distributed").unwrap(ICache.class)
+        return getCacheInternal(cacheName, null, "distributed")
     }
 
     Cache getCacheInternal(String cacheName, String tenantId, String defaultCacheType) {
@@ -290,7 +289,7 @@ public class CacheFacadeImpl implements CacheFacade {
                 logger.info("Initializing cache ${cacheName} which has a CacheManager of type ${cacheManager.class.name} and extended configuration not supported, using simple MutableConfigutation")
                 MutableConfiguration mutConfig = new MutableConfiguration()
                 mutConfig.setTypes(keyType, valueType)
-                mutConfig.setStoreByValue(false).setStatisticsEnabled(true)
+                mutConfig.setStoreByValue("distributed".equals(cacheType)).setStatisticsEnabled(true)
                 mutConfig.setExpiryPolicyFactory(expiryPolicyFactory)
 
                 config = (Configuration) mutConfig
