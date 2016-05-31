@@ -16,7 +16,6 @@ package org.moqui.impl.context.runner
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ScriptRunner
@@ -25,18 +24,20 @@ import org.moqui.impl.StupidUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
 @CompileStatic
 class GroovyScriptRunner implements ScriptRunner {
     protected final static Logger logger = LoggerFactory.getLogger(GroovyScriptRunner.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache scriptGroovyLocationCache
+    protected Cache<String, Class> scriptGroovyLocationCache
 
     GroovyScriptRunner() { }
 
     ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.scriptGroovyLocationCache = ecfi.getCacheFacade().getCache("resource.groovy.location")
+        this.scriptGroovyLocationCache = ecfi.getCacheFacade().getCache("resource.groovy.location", String.class, Class.class)
         return this
     }
 

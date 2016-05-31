@@ -252,9 +252,15 @@ class ElFinderConnector {
             ResourceReference newRef  = curDir.makeFile(name)
             responseMap.added = [getResourceInfo(newRef)]
         } else if (cmd == "rm") {
-            List<String> targets = otherParameters.targets
+            Object targetsObj = otherParameters.targets
+            if (!targetsObj) targetsObj = otherParameters.'targets[]'
+            List<String> targets = targetsObj instanceof List ? targetsObj : [targetsObj as String]
             List<String> removed = []
-            for (String curTarget in targets) removed.addAll(delete(getLocation(curTarget)))
+            for (String curTarget in targets) {
+                String rmLocation = getLocation(curTarget)
+                logger.info("ElFinder rm ${rmLocation}")
+                removed.addAll(delete(rmLocation))
+            }
             responseMap.removed = removed
         } else if (cmd == "rename") {
             String name = otherParameters.name
@@ -272,12 +278,15 @@ class ElFinderConnector {
         } else if (cmd == "upload") {
             if (!target) { responseMap.clear(); responseMap.error = "errOpen"; return }
             String location = getLocation(target)
+            // logger.info("ElFinder upload to ${location}, _fileUploadList: ${otherParameters._fileUploadList}")
             List<Map> added = []
             for (FileItem item in otherParameters._fileUploadList) {
+                logger.info("ElFinder upload ${item.getName()} to ${location}")
                 ResourceReference newRef = ec.resource.getLocationReference("${location}/${item.getName()}")
                 newRef.putStream(item.getInputStream())
                 added.add(getResourceInfo(newRef))
             }
+            responseMap.added = added
         } else if (cmd == "get") {
             String location = getLocation(target)
             ResourceReference curRef = ec.resource.getLocationReference(location)

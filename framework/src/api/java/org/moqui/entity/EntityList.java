@@ -15,6 +15,7 @@ package org.moqui.entity;
 
 import groovy.lang.Closure;
 
+import java.io.Externalizable;
 import java.io.Writer;
 import java.sql.Timestamp;
 import java.util.Iterator;
@@ -29,7 +30,8 @@ import java.util.RandomAccess;
  * The various methods here modify the internal list for efficiency and return a reference to this for convenience.
  * If you want a new EntityList with the modifications, use clone() or cloneList() then modify it.
  */
-public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cloneable, RandomAccess {
+@SuppressWarnings("unused")
+public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cloneable, RandomAccess, Externalizable {
 
     /** Get the first value in the list.
      *
@@ -104,7 +106,7 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
      */
     EntityList orderByFields(List<String> fieldNames);
 
-    int indexMatching(Map valueMap);
+    int indexMatching(Map<String, Object> valueMap);
     void move(int fromIndex, int toIndex);
 
     /** Adds the value to this list if the value isn't already in it. Returns reference to this list. */

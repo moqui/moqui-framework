@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.6.xsd">
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.0.xsd">
 
     <!-- ========================================================= -->
     <!-- moqui.test -->
@@ -32,7 +32,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
     </entity>
-    <entity entity-name="TestNoSqlEntity" package-name="moqui.test" sequence-bank-size="100" group-name="nosql">
+    <entity entity-name="TestNoSqlEntity" package-name="moqui.test" sequence-bank-size="100" group-name="nontransactional" cache="never">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
         <field name="testLong" type="text-long"/>

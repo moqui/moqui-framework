@@ -14,7 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import net.sf.ehcache.Element
 import org.apache.fop.apps.*
 import org.apache.fop.apps.io.ResourceResolverFactory
 import org.apache.jackrabbit.rmi.repository.URLRemoteRepository
@@ -29,12 +28,18 @@ import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
 import org.moqui.impl.entity.EntityValueBase
+import org.moqui.util.ContextBinding
+import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.activation.DataSource
 import javax.activation.MimetypesFileTypeMap
+import javax.cache.Cache
+import javax.cache.expiry.Duration
+import javax.cache.expiry.ExpiryPolicy
+import javax.cache.expiry.ModifiedExpiryPolicy
 import javax.jcr.Repository
 import javax.jcr.Session
 import javax.jcr.SimpleCredentials
@@ -65,8 +70,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>()
     protected final Map<String, Class> scriptGroovyExpressionCache = new HashMap<>()
 
-    protected final CacheImpl textLocationCache
-    protected final CacheImpl resourceReferenceByLocation
+    protected final Cache<String, String> textLocationCache
+    protected final Cache<String, ResourceReference> resourceReferenceByLocation
 
     protected final Map<String, Class> resourceReferenceClasses = new HashMap<>()
     protected final Map<String, TemplateRenderer> templateRenderers = new HashMap<>()
@@ -88,9 +93,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
         xmlActionsScriptRunner = new XmlActionsScriptRunner()
         xmlActionsScriptRunner.init(ecfi)
 
-        textLocationCache = ecfi.getCacheFacade().getCacheImpl("resource.text.location", null)
+        textLocationCache = ecfi.getCacheFacade().getCache("resource.text.location", String.class, String.class)
         // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
-        resourceReferenceByLocation = ecfi.getCacheFacade().getCacheImpl("resource.reference.location", null)
+        resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location", String.class, ResourceReference.class)
 
         // Setup resource reference classes
         for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
@@ -98,22 +103,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
                 resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
             } catch (ClassNotFoundException e) {
-                logger.info("Class [${rrNode.attribute("class")}] not found outside of components, will retry after. (${e.toString()})")
-            }
-        }
-        
-        // now that resource references are in place, init the lib and classes directories in the components
-        this.ecfi.initComponentLibAndClasses(this)
-
-        // Try failed resource reference classes again now that component classpath resources are in place
-        for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
-            if (resourceReferenceClasses.containsKey(rrNode.attribute("scheme"))) continue
-
-            try {
-                Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
-                resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
-            } catch (ClassNotFoundException e) {
-                logger.warn("Class [${rrNode.attribute("class")}] for scheme [${rrNode.attribute("scheme")}] not found even with components, skipping. (${e.toString()})")
+                logger.info("Class [${rrNode.attribute("class")}] not found (${e.toString()})")
             }
         }
 
@@ -217,9 +207,19 @@ public class ResourceFacadeImpl implements ResourceFacade {
     ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
-        Element rrElement = resourceReferenceByLocation.getElement(location)
-        if (rrElement != null && !rrElement.isExpired()) return (ResourceReference) rrElement.getObjectValue()
+        ResourceReference cachedRr = resourceReferenceByLocation.get(location)
+        if (cachedRr != null) return cachedRr
 
+        String scheme = getLocationScheme(location)
+        Class rrClass = resourceReferenceClasses.get(scheme)
+        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
+
+        ResourceReference rr = (ResourceReference) rrClass.newInstance()
+        rr.init(location, ecfi)
+        resourceReferenceByLocation.put(location, rr)
+        return rr
+    }
+    static String getLocationScheme(String location) {
         String scheme = "file"
         // Q: how to get the scheme for windows? the Java URI class doesn't like spaces, the if we look for the first ":"
         //    it may be a drive letter instead of a scheme/protocol
@@ -228,14 +228,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             String prefix = location.substring(0, location.indexOf(":"))
             if (!prefix.contains("/") && prefix.length() > 2) scheme = prefix
         }
-
-        Class rrClass = resourceReferenceClasses.get(scheme)
-        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
-
-        ResourceReference rr = (ResourceReference) rrClass.newInstance()
-        rr.init(location, ecfi)
-        resourceReferenceByLocation.put(location, rr)
-        return rr
+        return scheme
     }
 
     @Override
@@ -253,15 +246,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
             return ""
         }
         if (cache) {
-            Element textElement = textLocationCache.getElement(location)
-            if (textElement != null) {
-                long currentTime = textRr.getLastModified()
-                if (textElement.isExpired() || textElement.getLastUpdateTime() < currentTime) {
-                    textLocationCache.removeElement(textElement)
-                } else {
-                    return (String) textElement.getObjectValue()
-                }
-            }
+            ExpiryPolicy expiryPolicy = textRr != null ? new ModifiedExpiryPolicy(new Duration(0L, textRr.getLastModified())) : null
+            String cachedText = (String) textLocationCache.get(location)
+            if (cachedText != null) return cachedText
         }
         InputStream locStream = textRr.openStream()
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
@@ -338,16 +325,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method) { return script(location, method) }
-
-    @Override
-    @Deprecated
-    Object runScriptInCurrentContext(String location, String method, Map additionalContext) {
-        return script(location, method, additionalContext)
-    }
-
-    @Override
     Object script(String location, String method) {
         ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
@@ -398,16 +375,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation) { return condition(expression, debugLocation) }
-
-    @Override
-    @Deprecated
-    boolean evaluateCondition(String expression, String debugLocation, Map additionalContext) {
-        return condition(expression, debugLocation, additionalContext)
-    }
-
-    @Override
     boolean condition(String expression, String debugLocation) {
         return conditionInternal(expression, debugLocation, ecfi.getEci())
     }
@@ -440,14 +407,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation) { return expression(expr, debugLocation) }
-    @Override
-    @Deprecated
-    Object evaluateContextField(String expr, String debugLocation, Map additionalContext) {
-        return expression(expr, debugLocation, additionalContext)
-    }
     @Override
     Object expression(String expression, String debugLocation) {
         return expressionInternal(expression, debugLocation, ecfi.getEci())
@@ -483,15 +442,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
 
     @Override
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation) { expand(inputString, debugLocation) }
-    @Override
-    @Deprecated
-    String evaluateStringExpand(String inputString, String debugLocation, Map additionalContext) {
-        return expand(inputString, debugLocation, additionalContext)
-    }
-
-    @Override
     String expand(String inputString, String debugLocation) {
         return expand(inputString, debugLocation, null, true)
     }
@@ -502,10 +452,19 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
-        if (inputString == null || inputString.length() == 0) return ""
+        if (inputString == null) return ""
+        int inputStringLength = inputString.length()
+        if (inputStringLength == 0) return ""
+
+        // localize string before expanding
+        if (localize && inputStringLength < 256) {
+            ExecutionContextImpl eci = ecfi.getEci()
+            inputString = eci.l10nFacade.localize(inputString)
+        }
+        // if no $ then it's a plain String, just return it
+        if (!inputString.contains('$')) return inputString
 
         ExecutionContextImpl eci = ecfi.getEci()
-
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         ContextStack cs = (ContextStack) null
         if (doPushPop) cs = eci.context
@@ -516,11 +475,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
             }
-
-            // localize string before expanding
-            if (localize && inputString.length() < 256) inputString = eci.l10nFacade.localize(inputString)
-            // if no $ then it's a plain String, just return it
-            if (!inputString.contains('$')) return inputString
 
             String expression = '"""' + inputString + '"""'
             try {

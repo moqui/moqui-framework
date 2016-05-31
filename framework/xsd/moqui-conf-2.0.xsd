@@ -13,8 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-1.6.xsd"/>
-    <xs:include schemaLocation="xml-actions-1.6.xsd"/>
+    <xs:include schemaLocation="common-types-2.0.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
 
     <xs:element name="moqui-conf">
         <xs:complexType>
@@ -39,14 +39,28 @@ along with this software (see the LICENSE.md file). If not, see
 
     <xs:element name="tools">
         <xs:complexType>
-            <xs:attribute name="enable-elasticsearch" type="boolean" default="true"/>
-            <xs:attribute name="enable-camel" type="boolean" default="true"/>
-            <xs:attribute name="run-jackrabbit" type="boolean" default="false"/>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="tool-factory"/></xs:sequence>
             <xs:attribute name="empty-db-load" type="xs:string" default="seed"><xs:annotation><xs:documentation>
                 Comma-separated list of data file types to load if database is empty (if there are no records in the
                 table for moqui.basic.Enumeration). Empty or 'none' means load nothing, use 'all' to load all found
                 data files regardless of type. This is for the DEFAULT tenant only.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="worker-queue" type="xs:integer"><xs:annotation><xs:documentation>
+                The maximum size of the worker queue.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="worker-pool-core" type="xs:integer"><xs:annotation><xs:documentation>
+                The core (minimum) size of the worker thread pool.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="worker-pool-max" type="xs:integer"><xs:annotation><xs:documentation>
+                The maximum size of the worker thread pool.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="worker-pool-alive" type="xs:integer"><xs:annotation><xs:documentation>
+                The amount of time, in seconds, to keep idle worker threads alive (beyond core pool size).</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tool-factory">
+        <xs:complexType>
+            <xs:attribute name="class" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                Must implement the org.moqui.context.ToolFactory interface.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="init-priority" type="xs:integer" default="10"/>
+            <xs:attribute name="disabled" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 
@@ -55,26 +69,43 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="cache"/></xs:sequence>
             <xs:attribute name="warm-on-start" type="boolean" default="true"/>
+            <xs:attribute name="local-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The name of the ToolFactory to use for the local CacheManager implementation.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The name of the ToolFactory to use for the distributed CacheManager implementation.</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="cache">
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="key-type" type="xs:string" default="String"/>
+            <xs:attribute name="value-type" type="xs:string" default="Object"/>
+
             <xs:attribute name="expire-time-idle" type="xs:nonNegativeInteger" use="optional">
                 <xs:annotation><xs:documentation>Idle expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="expire-time-live" type="xs:nonNegativeInteger" use="optional">
                 <xs:annotation><xs:documentation>Live expire time in seconds.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="max-elements" type="xs:nonNegativeInteger" use="optional"/>
-            <xs:attribute name="eviction-strategy" use="optional">
+            <xs:attribute name="eviction-strategy" default="least-frequently-used">
                 <xs:simpleType>
                     <xs:restriction base="xs:token">
                         <xs:enumeration value="least-recently-used"/>
                         <xs:enumeration value="least-frequently-used"/>
-                        <xs:enumeration value="least-recently-added"/>
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
             <xs:attribute name="tenants-share" type="boolean" default="false"/>
+            <xs:attribute name="type" default="local">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="local">
+                            <xs:annotation><xs:documentation>Local only cache (MCache)</xs:documentation></xs:annotation></xs:enumeration>
+                        <xs:enumeration value="distributed">
+                            <xs:annotation><xs:documentation>Distributed cache (Hazelcast); keys and values must be serializable</xs:documentation></xs:annotation></xs:enumeration>
+                        <!-- TODO: implement distributed cache invalidate: <xs:enumeration value="local-dci"/> -->
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -98,18 +129,15 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="artifact-stats">
         <xs:complexType>
-            <xs:attribute name="type" use="required">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="screen"/>
-                        <xs:enumeration value="screen-content"/>
-                        <xs:enumeration value="transition"/>
-                        <xs:enumeration value="service"/>
-                        <xs:enumeration value="entity"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="sub-type" type="xs:string"/>
+            <xs:attribute name="type" use="required"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="AT_XML_SCREEN"/>
+                <xs:enumeration value="AT_XML_SCREEN_CONTENT"/>
+                <xs:enumeration value="AT_XML_SCREEN_TRANS"/>
+                <xs:enumeration value="AT_SERVICE"/>
+                <xs:enumeration value="AT_ENTITY"/>
+            </xs:restriction></xs:simpleType></xs:attribute>
+            <!-- Removed, note that entity-auto and entity-implicit service calls never have hits persisted and that is
+                mainly what this was used for: <xs:attribute name="sub-type" type="xs:string"/> -->
             <xs:attribute name="persist-hit" type="boolean" default="false"/>
             <xs:attribute name="persist-bin" type="boolean" default="false"/>
         </xs:complexType>
@@ -123,6 +151,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="root-screen"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="error-screen"/>
                 <xs:element minOccurs="0" ref="first-hit-in-visit"/>
                 <xs:element minOccurs="0" ref="before-request"/>
                 <xs:element minOccurs="0" ref="after-request"/>
@@ -131,13 +160,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="after-startup"/>
                 <xs:element minOccurs="0" ref="before-shutdown"/>
             </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="required">
+            <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
-                    Matched against value of a context-param -> param-value element in the web.xml file where the
+                    Matched against value of a context-param.param-value element in the web.xml file where the
                     param-name is "moqui-name".
                 </xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="root-screen-location" type="xs:string"/>
             <xs:attribute name="https-enabled" default="true" type="boolean"/>
             <xs:attribute name="https-port" type="xs:string"/>
             <xs:attribute name="https-host" type="xs:string"/>
@@ -146,13 +174,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
                 If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to all
                 screen/transition requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
-            <!-- Content URL prefixes to make it easy to move the serving load for static content to other machines -->
-            <!-- TODO use in code
-            <xs:attribute name="content-prefix-secure" type="xs:string"/> -->
-            <!-- TODO use in code
-            <xs:attribute name="content-prefix-standard" type="xs:string"/> -->
-            <!-- TODO use in code
-            <xs:attribute name="cookie-domain" type="xs:string"/> -->
+            <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
         </xs:complexType>
     </xs:element>
     <xs:element name="root-screen">
@@ -161,6 +183,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>A pattern to match the host name against (from ServletRequest.getServerName())</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="location" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>The location of the root screen XML file</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="error-screen">
+        <xs:complexType>
+            <xs:attribute name="error" use="required"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="unauthorized"><xs:annotation><xs:documentation>401 - authentication required</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="forbidden"><xs:annotation><xs:documentation>403 - authorization failed</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="not-found"><xs:annotation><xs:documentation>404 - screen/resource not found</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="too-many"><xs:annotation><xs:documentation>429 - tarpit limit reached</xs:documentation></xs:annotation></xs:enumeration>
+                <xs:enumeration value="internal-error"><xs:annotation><xs:documentation>500 - general error</xs:documentation></xs:annotation></xs:enumeration>
+            </xs:restriction></xs:simpleType></xs:attribute>
+            <xs:attribute name="screen-path" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>The path to the screen to render on error</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="first-hit-in-visit">
@@ -395,6 +430,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- leaving this out for now, not easily supported by Quartz Scheduler: <xs:element minOccurs="0" ref="thread-pool"/> -->
                 <!-- TABLED: not to include in 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="jms-service"/> -->
             </xs:sequence>
+            <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The name of the ToolFactory to use for the distributed async service ExecutorService implementation.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-location">
@@ -406,11 +444,9 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="service-type">
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="runner-class" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>
-                    Fully qualified name of class that implements the org.moqui.impl.service.ServiceRunner interface.
-                </xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="runner-class" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                Fully qualified name of class that implements the org.moqui.impl.service.ServiceRunner interface.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-file">
@@ -440,9 +476,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="load-data"/>
             </xs:sequence>
             <xs:attribute name="entity-eca-enabled" default="true" type="boolean"/>
-            <xs:attribute name="distributed-cache-clear-enabled" default="false" type="boolean"/>
+            <xs:attribute name="distributed-cache-invalidate" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Enable distributed cache invalidate by distributed Topic</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="dci-topic-factory" type="xs:string">
+                <xs:annotation><xs:documentation>Topic factory for distributed cache invalidate</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="sequenced-id-prefix" type="xs:string"/>
-            <xs:attribute name="default-group-name" type="xs:string"/>
+            <xs:attribute name="default-group-name" type="name-plain"/>
             <xs:attribute name="database-time-zone" type="xs:string"/>
             <xs:attribute name="database-locale" type="xs:string"/>
             <xs:attribute name="crypt-pass" type="xs:string"/>
@@ -461,8 +500,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:element minOccurs="0" maxOccurs="1" ref="inline-other"/>
                 </xs:choice>
             </xs:sequence>
-            <xs:attribute name="group-name" type="xs:string" use="required"/>
-            <xs:attribute name="database-conf-name" type="xs:string">
+            <xs:attribute name="group-name" type="name-plain" use="required"/>
+            <xs:attribute name="database-conf-name" type="name-plain">
                 <xs:annotation><xs:documentation>This is only required for JDBC/SQL datasources.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="schema-name" type="xs:string"/>
@@ -558,7 +597,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="database-type"/>
             </xs:sequence>
 
-            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="name" type="name-plain" use="required"/>
 
             <!-- TODO use in code -->
             <xs:attribute name="use-schemas" default="true" type="boolean"/>
@@ -705,7 +744,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element ref="depends-on" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="optional"/>
+            <xs:attribute name="name" type="name-plain" use="optional"/>
             <xs:attribute name="location" type="xs:string" use="optional"><xs:annotation><xs:documentation>
                 Required when under component-list (in Moqui Conf XML file or a components.xml file), optional
                 when component element is in a component.xml file within a component.
@@ -715,7 +754,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="depends-on">
         <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="name" type="name-plain" use="required"/>
             <xs:attribute name="version" type="xs:string" use="optional"/>
         </xs:complexType>
     </xs:element>

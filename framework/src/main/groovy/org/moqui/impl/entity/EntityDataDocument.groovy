@@ -27,6 +27,7 @@ import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.entity.condition.ConditionAlias
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.util.MNode
@@ -51,7 +52,7 @@ class EntityDataDocument {
                              Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
         File outFile = new File(filename)
         if (!outFile.createNewFile()) {
-            efi.ecfi.executionContext.message.addError("File ${filename} already exists.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
             return 0
         }
 
@@ -63,7 +64,7 @@ class EntityDataDocument {
 
         pw.write("{}\n]\n")
         pw.close()
-        efi.ecfi.executionContext.message.addMessage("Wrote ${valuesWritten} documents to file ${filename}")
+        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
         return valuesWritten
     }
 
@@ -72,7 +73,7 @@ class EntityDataDocument {
         File outDir = new File(dirname)
         if (!outDir.exists()) outDir.mkdir()
         if (!outDir.isDirectory()) {
-            efi.ecfi.executionContext.message.addError("Path ${dirname} is not a directory.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('Path ${dirname} is not a directory.','',[dirname:dirname]))
             return 0
         }
 
@@ -82,7 +83,7 @@ class EntityDataDocument {
             String filename = "${dirname}/${dataDocumentId}.json"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError("File ${filename} already exists, skipping document ${dataDocumentId}.")
+                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping document ${dataDocumentId}.','',[filename:filename,dataDocumentId:dataDocumentId]))
                 continue
             }
             outFile.createNewFile()
@@ -94,7 +95,7 @@ class EntityDataDocument {
 
             pw.write("{}\n]\n")
             pw.close()
-            efi.ecfi.executionContext.message.addMessage("Wrote ${valuesWritten} records to file ${filename}")
+            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
         }
 
         return valuesWritten
@@ -175,20 +176,20 @@ class EntityDataDocument {
         if ((Object) fromUpdateStamp != null || (Object) thruUpdatedStamp != null) {
             List<EntityCondition> dateRangeOrCondList = []
             for (MNode memberEntityNode in dynamicView.getMemberEntityNodes()) {
-                ConditionField ludCf = new ConditionField(memberEntityNode.attribute("entity-alias"),
+                ConditionField ludCf = new ConditionAlias(memberEntityNode.attribute("entity-alias"),
                         "lastUpdatedStamp", efi.getEntityDefinition(memberEntityNode.attribute("entity-name")))
                 List<EntityCondition> dateRangeFieldCondList = []
                 if ((Object) fromUpdateStamp != null) {
                     dateRangeFieldCondList.add(efi.getConditionFactory().makeCondition(
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.EQUALS, null),
+                            new FieldValueCondition(ludCf, EntityCondition.EQUALS, null),
                             EntityCondition.OR,
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.GREATER_THAN_EQUAL_TO, fromUpdateStamp)))
+                            new FieldValueCondition(ludCf, EntityCondition.GREATER_THAN_EQUAL_TO, fromUpdateStamp)))
                 }
                 if ((Object) thruUpdatedStamp != null) {
                     dateRangeFieldCondList.add(efi.getConditionFactory().makeCondition(
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.EQUALS, null),
+                            new FieldValueCondition(ludCf, EntityCondition.EQUALS, null),
                             EntityCondition.OR,
-                            new FieldValueCondition(efi.entityConditionFactory, ludCf, EntityCondition.LESS_THAN, thruUpdatedStamp)))
+                            new FieldValueCondition(ludCf, EntityCondition.LESS_THAN, thruUpdatedStamp)))
                 }
                 dateRangeOrCondList.add(efi.getConditionFactory().makeCondition(dateRangeFieldCondList, EntityCondition.AND))
             }
@@ -412,7 +413,7 @@ class EntityDataDocument {
     void checkCreateIndex(String indexName) {
         String baseIndexName = indexName.contains("__") ? indexName.substring(indexName.indexOf("__") + 2) : indexName
 
-        Client client = efi.getEcfi().getElasticSearchClient()
+        Client client = efi.getEcfi().getTool("ElasticSearch", Client.class)
         boolean hasIndex = client.admin().indices().exists(new IndicesExistsRequest(indexName)).actionGet().exists
         // logger.warn("========== Checking index ${indexName} (${baseIndexName}), hasIndex=${hasIndex}")
         if (hasIndex) return
@@ -434,7 +435,7 @@ class EntityDataDocument {
     void putIndexMappings(String indexName) {
         String baseIndexName = indexName.contains("__") ? indexName.substring(indexName.indexOf("__") + 2) : indexName
 
-        Client client = efi.getEcfi().getElasticSearchClient()
+        Client client = efi.getEcfi().getTool("ElasticSearch", Client.class)
         boolean hasIndex = client.admin().indices().exists(new IndicesExistsRequest(indexName)).actionGet().isExists()
         if (!hasIndex) {
             client.admin().indices().prepareCreate(indexName).execute().actionGet()

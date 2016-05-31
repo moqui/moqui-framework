@@ -14,24 +14,17 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
-import org.moqui.util.MNode
-
-import java.sql.Timestamp
-import javax.mail.Flags
-import javax.mail.internet.MimeMessage
-import javax.mail.Address
-import javax.mail.Multipart
-import javax.mail.BodyPart
-import javax.mail.Part
-import javax.mail.Header
-
 import org.apache.commons.io.IOUtils
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.context.ExecutionContext
-
+import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import javax.mail.*
+import javax.mail.internet.MimeMessage
+import java.sql.Timestamp
 
 @CompileStatic
 class EmailEcaRule {
@@ -60,7 +53,7 @@ class EmailEcaRule {
 
     // Node getEmecaNode() { return emecaNode }
 
-    void runIfMatches(MimeMessage message, String emailServerId, ExecutionContext ec) {
+    void runIfMatches(MimeMessage message, String emailServerId, ExecutionContextImpl ec) {
 
         try {
             ec.context.push()

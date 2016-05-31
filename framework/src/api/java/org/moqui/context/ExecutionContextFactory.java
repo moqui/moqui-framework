@@ -13,12 +13,6 @@
  */
 package org.moqui.context;
 
-import org.apache.camel.CamelContext;
-import org.elasticsearch.client.Client;
-import org.kie.api.runtime.KieContainer;
-import org.kie.api.runtime.KieSession;
-import org.kie.api.runtime.StatelessKieSession;
-import org.moqui.BaseException;
 import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
@@ -37,28 +31,17 @@ public interface ExecutionContextFactory {
 
     /** Run after construction is complete and object is active in the Moqui class (called by Moqui.java) */
     void postInit();
-    /** Destroy this Execution Context Factory. */
+    /** Destroy this ExecutionContextFactory and all resources it uses (all facades, tools, etc) */
     void destroy();
 
+    /** Get the path of the runtime directory */
     String getRuntimePath();
 
-    /**
-     * Register a component with the framework. The component name will be the last directory in the location path
-     * unless there is a component.xml file in the directory and the component.@name attribute is specified.
-     *
-     * @param location A file system directory or a content repository location (the component base location).
-     */
-    void initComponent(String location) throws BaseException;
-
-    /**
-     * Destroy a component that has been initialized.
-     *
-     * All initialized components will be destroyed when the framework is destroyed, but this can be used to destroy
-     * a component while the framework is still running.
-     *
-     * @param componentName A component name.
-     */
-    void destroyComponent(String componentName) throws BaseException;
+    /** Get the named ToolFactory instance (loaded by configuration) */
+    <V> ToolFactory<V> getToolFactory(String toolName);
+    /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
+     * null in scripts or other contexts where static typing is not needed */
+    <V> V getTool(String toolName, Class<V> instanceClass);
 
     /** Get a Map where each key is a component name and each value is the component's base location. */
     LinkedHashMap<String, String> getComponentBaseLocations();
@@ -86,17 +69,4 @@ public interface ExecutionContextFactory {
 
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
     ScreenFacade getScreen();
-
-    /** Apache Camel is used for integration message routing. To interact directly with Camel get the context here. */
-    CamelContext getCamelContext();
-
-    /** ElasticSearch Client is used for indexing and searching documents */
-    Client getElasticSearchClient();
-
-    /** Get a KIE Container for Drools, jBPM, OptaPlanner, etc from the KIE Module in the given component. */
-    KieContainer getKieContainer(String componentName);
-    /** Get a KIE Session by name from the last component KIE Module loaded with the given session name. */
-    KieSession getKieSession(String ksessionName);
-    /** Get a KIE Stateless Session by name from the last component KIE Module loaded with the given session name. */
-    StatelessKieSession getStatelessKieSession(String ksessionName);
 }

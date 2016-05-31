@@ -21,6 +21,7 @@ import java.util.ListIterator;
 /**
  * Entity Cursor List Iterator for Handling Cursored Database Results
  */
+@SuppressWarnings("unused")
 public interface EntityListIterator extends ListIterator<EntityValue>, Iterable<EntityValue> {
 
     /** Entity Facade calls this method to tell the ELI additional information for dealing with TX cache, etc */
@@ -119,6 +120,7 @@ public interface EntityListIterator extends ListIterator<EntityValue>, Iterable<
      * @return The number of records written
      */
     int writeXmlText(Writer writer, String prefix, int dependentLevels);
+    int writeXmlTextMaster(Writer writer, String prefix, String masterName);
 
     /** Method to implement the Iterable interface to allow an EntityListIterator to be used in a foreach loop. Just
      * returns this.

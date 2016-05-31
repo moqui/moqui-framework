@@ -38,10 +38,10 @@ Logger logger = LoggerFactory.getLogger("org.moqui.impl.pollEmailServer")
 ExecutionContextImpl ec = context.ec
 
 EntityValue emailServer = ec.entity.find("moqui.basic.email.EmailServer").condition("emailServerId", emailServerId).one()
-if (!emailServer) { ec.message.addError("No EmailServer found for ID [${emailServerId}]"); return }
-if (!emailServer.storeHost) { ec.message.addError("EmailServer [${emailServerId}] has no storeHost") }
-if (!emailServer.mailUsername) { ec.message.addError("EmailServer [${emailServerId}] has no mailUsername") }
-if (!emailServer.mailPassword) { ec.message.addError("EmailServer [${emailServerId}] has no mailPassword") }
+if (!emailServer) { ec.message.addError(ec.resource.expand('No EmailServer found for ID [${emailServerId}]','')); return }
+if (!emailServer.storeHost) { ec.message.addError(ec.resource.expand('EmailServer [${emailServerId}] has no storeHost','')) }
+if (!emailServer.mailUsername) { ec.message.addError(ec.resource.expand('EmailServer [${emailServerId}] has no mailUsername','')) }
+if (!emailServer.mailPassword) { ec.message.addError(ec.resource.expand('EmailServer [${emailServerId}] has no mailPassword','')) }
 if (ec.message.hasError()) return
 
 String host = emailServer.storeHost
@@ -60,7 +60,7 @@ if (!store.isConnected()) store.connect(host, port, user, password)
 
 // open the folder
 Folder folder = store.getFolder(storeFolder)
-if (folder == null || !folder.exists()) { ec.message.addError("No ${storeFolder} folder found"); return }
+if (folder == null || !folder.exists()) { ec.message.addError(ec.resource.expand('No ${storeFolder} folder found','')); return }
 
 // get message count
 folder.open(Folder.READ_WRITE)

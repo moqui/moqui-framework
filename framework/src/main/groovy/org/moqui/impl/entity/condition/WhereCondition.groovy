@@ -21,13 +21,12 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @CompileStatic
-class WhereCondition extends EntityConditionImplBase {
+class WhereCondition implements EntityConditionImplBase {
     protected final static Logger logger = LoggerFactory.getLogger(WhereCondition.class)
     protected String sqlWhereClause
 
-    WhereCondition(EntityConditionFactoryImpl ecFactoryImpl, String sqlWhereClause) {
-        super(ecFactoryImpl)
-        this.sqlWhereClause = sqlWhereClause ? sqlWhereClause : ""
+    WhereCondition(String sqlWhereClause) {
+        this.sqlWhereClause = sqlWhereClause != null ? sqlWhereClause : ""
     }
 
     @Override
@@ -42,6 +41,13 @@ class WhereCondition extends EntityConditionImplBase {
         logger.warn("The mapMatches for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
         return false
     }
+    @Override
+    boolean mapMatchesAny(Map<String, Object> map) {
+        // NOTE: always return false unless we eventually implement some sort of SQL parsing, for caching/etc
+        // always consider not matching
+        logger.warn("The mapMatchesAny for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
+        return false
+    }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }
@@ -52,16 +58,25 @@ class WhereCondition extends EntityConditionImplBase {
     EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }
 
     @Override
-    String toString() { return this.sqlWhereClause }
+    String toString() { return sqlWhereClause }
 
     @Override
-    int hashCode() { return (sqlWhereClause ? sqlWhereClause.hashCode() : 0) }
+    int hashCode() { return (sqlWhereClause != null ? sqlWhereClause.hashCode() : 0) }
 
     @Override
     boolean equals(Object o) {
-        if (o == null || o.getClass() != this.getClass()) return false
+        if (o == null || o.getClass() != getClass()) return false
         WhereCondition that = (WhereCondition) o
-        if (!this.sqlWhereClause.equals(that.sqlWhereClause)) return false
+        if (!sqlWhereClause.equals(that.sqlWhereClause)) return false
         return true
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        out.writeUTF(sqlWhereClause)
+    }
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        sqlWhereClause = objectInput.readUTF()
     }
 }

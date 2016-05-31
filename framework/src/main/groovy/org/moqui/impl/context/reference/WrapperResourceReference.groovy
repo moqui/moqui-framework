@@ -18,7 +18,7 @@ import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 
 @CompileStatic
-class WrapperResourceReference extends BaseResourceReference  {
+class WrapperResourceReference extends BaseResourceReference {
     ResourceReference rr = null
 
     WrapperResourceReference() { }

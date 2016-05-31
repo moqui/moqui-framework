@@ -14,7 +14,6 @@
 package org.moqui.context;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.TimeZone;
 
 /** For localization (l10n) functionality, like localizing messages. */
@@ -32,10 +31,6 @@ public interface L10nFacade {
     String localize(String original);
     /** Localize a String using the given Locale instead of the current user's. */
     String localize(String original, Locale locale);
-
-    /** Old method, still supported. See localize(). */
-    @Deprecated
-    String getLocalizedMessage(String original);
 
     /** Format currency amount for user to view.
      * @param amount An object representing the amount, should be a subclass of Number.
@@ -55,16 +50,10 @@ public interface L10nFacade {
      */
     String format(Object value, String format);
     String format(Object value, String format, Locale locale, TimeZone tz);
-    /** Same as the format() method, exists to support code using this older method name. */
-    @Deprecated
-    String formatValue(Object value, String format);
 
     java.sql.Time parseTime(String input, String format);
-
     java.sql.Date parseDate(String input, String format);
-
     java.sql.Timestamp parseTimestamp(String input, String format);
-
     java.util.Calendar parseDateTime(String input, String format);
 
     java.math.BigDecimal parseNumber(String input, String format);

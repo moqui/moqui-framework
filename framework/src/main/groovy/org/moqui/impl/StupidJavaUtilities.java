@@ -14,6 +14,14 @@
 package org.moqui.impl;
 
 import groovy.lang.GString;
+import org.moqui.entity.EntityFind;
+import org.moqui.entity.EntityList;
+import org.moqui.entity.EntityValue;
+import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.screen.ScreenRenderImpl;
+import org.moqui.util.ContextStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Time;
@@ -22,6 +30,8 @@ import java.util.*;
 
 /** Methods that work better in Java than Groovy, helps with performance and for syntax and language feature reasons */
 public class StupidJavaUtilities {
+    private final static Logger logger = LoggerFactory.getLogger(StupidJavaUtilities.class);
+
     public static class KeyValue {
         public String key;
         public Object value;
@@ -68,17 +78,20 @@ public class StupidJavaUtilities {
         // hopefully less common sub-classes
         if (obj instanceof CharSequence) return ((CharSequence) obj).length() == 0;
         if (obj instanceof Collection) return ((Collection) obj).size() == 0;
-        if (obj instanceof Map) return ((Map) obj).size() == 0;
-        return false;
+        return obj instanceof Map && ((Map) obj).size() == 0;
     }
 
-    public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
+    public static Class getClass(String javaType) {
         Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
         if (theClass == null) {
             try {
-                theClass = StupidJavaUtilities.class.getClassLoader().loadClass(javaType);
+                theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);
             } catch (ClassNotFoundException e) { /* ignore */ }
         }
+        return theClass;
+    }
+    public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
+        Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
         if (theClass == null) {
             try {
                 theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);
@@ -104,22 +117,64 @@ public class StupidJavaUtilities {
         return new String(newChars, 0, lastPos);
     }
 
-    public static boolean internedStringsEqual(String s1, String s2) {
-        if (s1 == null) {
-            return (s2 == null);
+    /** the Groovy JsonBuilder doesn't handle various Moqui objects very well, ends up trying to access all
+     * properties and results in infinite recursion, so need to unwrap and exclude some */
+    public static Map<String, Object> unwrapMap(Map<String, Object> sourceMap) {
+        Map<String, Object> targetMap = new HashMap<>();
+        for (Map.Entry<String, Object> entry: sourceMap.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            if (value == null) continue;
+            // logger.warn("======== actionsResult - ${entry.key} (${entry.value?.getClass()?.getName()}): ${entry.value}")
+            Object unwrapped = unwrap(key, value);
+            if (unwrapped != null) targetMap.put(key, unwrapped);
+        }
+        return targetMap;
+    }
+    @SuppressWarnings("unchecked")
+    public static Object unwrap(String key, Object value) {
+        if (value == null) return null;
+        if (value instanceof CharSequence || value instanceof Number || value instanceof Date) {
+            return value;
+        } else if (value instanceof EntityFind || value instanceof ExecutionContextImpl ||
+                value instanceof ScreenRenderImpl || value instanceof ContextStack) {
+            // intentionally skip, commonly left in context by entity-find XML action
+            return null;
+        } else if (value instanceof EntityValue) {
+            EntityValue ev = (EntityValue) value;
+            return ev.getPlainValueMap(0);
+        } else if (value instanceof EntityList) {
+            EntityList el = (EntityList) value;
+            ArrayList<Map> newList = new ArrayList<>();
+            int elSize = el.size();
+            for (int i = 0; i < elSize; i++) {
+                EntityValue ev = el.get(i);
+                newList.add(ev.getPlainValueMap(0));
+            }
+            return newList;
+        } else if (value instanceof Collection) {
+            Collection valCol = (Collection) value;
+            ArrayList<Object> newList = new ArrayList<>(valCol.size());
+            for (Object entry: valCol) newList.add(unwrap(key, entry));
+            return newList;
+        } else if (value instanceof Map) {
+            Map<Object, Object> valMap = (Map) value;
+            Map<Object, Object> newMap = new HashMap<>(valMap.size());
+            for (Map.Entry entry: valMap.entrySet()) newMap.put(entry.getKey(), unwrap(key, entry.getValue()));
+            return newMap;
         } else {
-            // NOTE: the == is used here intentionally since the Strings passed in should be intern()'ed
-            return s2 != null && (s1 == s2);
+            logger.info("In screen actions skipping value from actions block that is not supported; key=" + key + ", type=" + value.getClass().getName() + ", value=" + value);
+            return null;
         }
     }
-    public static boolean internedNonNullStringsEqual(String s1, String s2) { return (s1 == s2); }
+
 
     public static class MapOrderByComparator implements Comparator<Map> {
-        protected ArrayList<String> fieldNameList;
-        protected int fieldNameListSize;
+        ArrayList<String> fieldNameList;
+        int fieldNameListSize;
 
-        protected final static char minusChar = '-';
-        protected final static char plusChar = '+';
+        final static char minusChar = '-';
+        final static char plusChar = '+';
 
         public MapOrderByComparator(List<String> fieldNameList) {
             this.fieldNameList = fieldNameList instanceof ArrayList ? (ArrayList<String>) fieldNameList : new ArrayList<>(fieldNameList);
@@ -127,6 +182,7 @@ public class StupidJavaUtilities {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public int compare(Map map1, Map map2) {
             if (map1 == null) return -1;
             if (map2 == null) return 1;
@@ -159,8 +215,7 @@ public class StupidJavaUtilities {
 
         @Override
         public boolean equals(Object obj) {
-            if (!(obj instanceof MapOrderByComparator)) return false;
-            return fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList);
+            return obj instanceof MapOrderByComparator && fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList);
         }
 
         @Override
@@ -168,7 +223,7 @@ public class StupidJavaUtilities {
     }
 
     // Lookup table for CRC16 based on irreducible polynomial: 1 + x^2 + x^15 + x^16
-    public static final int[] crc16Table = {
+    private static final int[] crc16Table = {
             0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
             0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
             0xCC01, 0x0CC0, 0x0D80, 0xCD41, 0x0F00, 0xCFC1, 0xCE81, 0x0E40,
@@ -203,6 +258,7 @@ public class StupidJavaUtilities {
             0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040,
     };
 
+    @SuppressWarnings("unused")
     public static int calculateCrc16(String input) {
         byte[] bytes = input.getBytes();
         int crc = 0x0000;

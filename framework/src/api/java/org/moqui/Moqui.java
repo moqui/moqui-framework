@@ -13,6 +13,7 @@
  */
 package org.moqui;
 
+import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.ExecutionContextFactory;
 import org.moqui.entity.EntityDataLoader;
@@ -29,6 +30,7 @@ import java.util.*;
  * not need to be used and the ExecutionContextFactory instance should be referenced and used from somewhere else.
  */
 
+@SuppressWarnings("unused")
 public class Moqui {
     protected final static Logger logger = LoggerFactory.getLogger(Moqui.class);
 
@@ -78,7 +80,7 @@ public class Moqui {
 
         ExecutionContext ec = activeExecutionContextFactory.getExecutionContext();
         ec.getArtifactExecution().disableAuthz();
-        ec.getArtifactExecution().push("loadData", "AT_OTHER", "AUTHZA_ALL", false);
+        ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false);
         ec.getArtifactExecution().setAnonymousAuthorizedAll();
         ec.getUser().loginAnonymousIfNoUser();
 

@@ -14,34 +14,44 @@
 package org.moqui.impl.context.renderer
 
 import freemarker.template.Template
-// import org.markdown4j.Markdown4jProcessor
-import org.moqui.context.Cache
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.pegdown.Extensions
+import org.moqui.jcache.MCache
 import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+
+@CompileStatic
 class FtlMarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(FtlMarkdownTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache templateFtlLocationCache
+    protected Cache<String, Template> templateFtlLocationCache
 
     FtlMarkdownTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location")
+        this.templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class)
         return this
     }
 
     void render(String location, Writer writer) {
-        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        Template theTemplate = (Template) templateFtlLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
+        Template theTemplate;
+        if (templateFtlLocationCache instanceof MCache) {
+            MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
+            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            long lastModified = rr != null ? rr.getLastModified() : 0L;
+            theTemplate = mCache.get(location, lastModified);
+        } else {
+            // TODO: doesn't support on the fly reloading without cache expire/clear!
+            theTemplate = templateFtlLocationCache.get(location);
+        }
         if (theTemplate == null) theTemplate = makeTemplate(location)
         if (theTemplate == null) throw new IllegalArgumentException("Could not find template at ${location}")
         theTemplate.createProcessingEnvironment(ecfi.executionContext.context, writer).process()
@@ -49,7 +59,7 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
 
     protected Template makeTemplate(String location) {
         Template theTemplate = (Template) templateFtlLocationCache.get(location)
-        if (theTemplate) return theTemplate
+        if (theTemplate != null) return theTemplate
 
         Template newTemplate
         try {

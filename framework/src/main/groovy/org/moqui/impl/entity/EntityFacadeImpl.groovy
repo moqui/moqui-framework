@@ -16,21 +16,19 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 
 import org.moqui.BaseException
-import org.moqui.context.Cache
 import org.moqui.context.ResourceReference
-import org.moqui.context.TransactionFacade
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
 
+import javax.cache.Cache
 import javax.sql.DataSource
 import javax.sql.XADataSource
 import java.sql.*
@@ -42,6 +40,7 @@ import java.util.concurrent.locks.ReentrantLock
 @CompileStatic
 class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
     protected final ExecutionContextFactoryImpl ecfi
     protected final String tenantId
@@ -51,15 +50,17 @@ class EntityFacadeImpl implements EntityFacade {
     protected final Map<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new HashMap()
 
     /** Cache with entity name as the key and an EntityDefinition as the value; clear this cache to reload entity def */
-    final Cache entityDefinitionCache
-    /** Cache with entity name as the key and List of file location Strings as the value, Map<String, List<String>> */
-    final Cache entityLocationCache
+    final Cache<String, EntityDefinition> entityDefinitionCache
+    /** Cache with single entry so can be expired/cleared, contains Map with entity name as the key and List of file
+     * location Strings as the value */
+    final Cache<String, Map<String, List<String>>> entityLocationSingleCache
+    static final String entityLocSingleEntryName = "ALL_ENTITIES"
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
     final Map<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
 
     /** Sequence name (often entity name) plus tenantId is the key and the value is an array of 2 Longs the first is the next
      * available value and the second is the highest value reserved/cached in the bank. */
-    final Cache entitySequenceBankCache
+    final Cache<String, long[]> entitySequenceBankCache
     protected final ConcurrentMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
     protected final Lock locationLoadLock = new ReentrantLock()
 
@@ -109,10 +110,10 @@ class EntityFacadeImpl implements EntityFacade {
         databaseTzLcCalendar = Calendar.getInstance(databaseTimeZone, databaseLocale)
 
         // init entity meta-data
-        entityDefinitionCache = ecfi.getCacheFacade().getCacheImpl("entity.definition", this.tenantId)
-        entityLocationCache = ecfi.getCacheFacade().getCacheImpl("entity.location", this.tenantId)
+        entityDefinitionCache = ecfi.getCacheFacade().getCache("entity.definition", this.tenantId)
+        entityLocationSingleCache = ecfi.getCacheFacade().getCache("entity.location", this.tenantId)
         // NOTE: don't try to load entity locations before constructor is complete; this.loadAllEntityLocations()
-        entitySequenceBankCache = ecfi.getCacheFacade().getCacheImpl("entity.sequence.bank", this.tenantId)
+        entitySequenceBankCache = ecfi.getCacheFacade().getCache("entity.sequence.bank", this.tenantId)
 
         // init connection pool (DataSource) for each group
         initAllDatasources()
@@ -128,6 +129,7 @@ class EntityFacadeImpl implements EntityFacade {
         emptyList.setFromCache()
     }
 
+    String getTenantId() { return tenantId; }
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
     EntityCache getEntityCache() { return entityCache }
     EntityDataFeed getEntityDataFeed() { return entityDataFeed }
@@ -153,36 +155,31 @@ class EntityFacadeImpl implements EntityFacade {
     MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }
     void checkInitDatasourceTables() {
         // if startup-add-missing=true check tables now
-        logger.info("Checking tables for all entities")
         long currentTime = System.currentTimeMillis()
 
-        Map<String, Boolean> startupAddMissingByGroup = [:]
+        Set<String> startupAddMissingGroups = new TreeSet<>()
+        Set<String> allConfiguredGroups = new TreeSet<>()
         for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             String groupName = datasourceNode.attribute("group-name")
             if (datasourceNode.attribute("startup-add-missing") == "true") {
-                startupAddMissingByGroup.put(groupName, true)
-                // checkAllEntityTables(groupName)
-            } else {
-                startupAddMissingByGroup.put(groupName, false)
+                startupAddMissingGroups.add(groupName)
             }
+            allConfiguredGroups.add(groupName)
         }
 
-        loadAllEntityLocations()
-        for (String entityName in getAllEntityNames()) {
-            String groupName = getEntityGroupName(entityName)
-            boolean checkAndAdd
-            if (startupAddMissingByGroup.get(groupName) != null) {
-                checkAndAdd = startupAddMissingByGroup.get(groupName)
-            } else {
-                checkAndAdd = startupAddMissingByGroup.get(defaultGroupName)
+        boolean defaultStartAddMissing = startupAddMissingGroups.contains(getEntityFacadeNode().attribute("default-group-name"))
+        if (startupAddMissingGroups.size() > 0) {
+            logger.info("Checking tables for entities in groups ${startupAddMissingGroups}")
+            for (String entityName in getAllEntityNames()) {
+                String groupName = getEntityGroupName(entityName) ?: defaultGroupName
+                if (startupAddMissingGroups.contains(groupName) ||
+                        (allConfiguredGroups.contains(groupName) == false && defaultStartAddMissing)) {
+                    EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+                    edf.checkAndAddTable(entityName)
+                }
             }
-            if (checkAndAdd) {
-                EntityDatasourceFactory edf = getDatasourceFactory(groupName)
-                edf.checkAndAddTable(entityName)
-            }
+            logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
         }
-
-        logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
     }
 
     protected void initAllDatasources() {
@@ -289,7 +286,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     void loadFrameworkEntities() {
         // load framework entity definitions (moqui.*)
-        long startTime = System.nanoTime()
+        long startTime = System.currentTimeMillis()
         Set<String> entityNames = getAllEntityNames()
         int entityCount = 0
         for (String entityName in entityNames) {
@@ -299,66 +296,55 @@ class EntityFacadeImpl implements EntityFacade {
                     EntityDefinition ed = getEntityDefinition(entityName)
                     ed.getRelationshipInfoMap()
                     entityDbMeta.tableExists(ed)
-                } catch (Throwable t) { logger.warn("Error loading framework entity definitions: ${t.toString()}") }
+                } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}", t) }
             }
         }
-        logger.info("Loaded ${entityCount} framework entity definitions in ${(System.nanoTime() - startTime)/1E9} seconds")
+        logger.info("Loaded ${entityCount} framework entity definitions in ${System.currentTimeMillis() - startTime}ms")
     }
 
+    final static Set<String> cachedCountEntities = new HashSet<>(["moqui.basic.EnumerationType"])
+    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.UserField", "moqui.entity.document.DataDocument",
+        "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
+        "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
+        "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
+
+        "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
+        "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
+        "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
+
+        "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
+        "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"
+    ])
+    final static Set<String> cachedOneEntities = new HashSet<>([ "moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
+            "moqui.entity.document.DataDocument", "moqui.entity.view.DbViewEntity", "moqui.screen.form.DbForm",
+            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme",
+            "moqui.server.Visit", "moqui.tenant.Tenant", "moqui.tenant.TenantHostDefault"
+    ])
     void warmCache()  {
         logger.info("Warming cache for all entity definitions")
-        long startTime = System.nanoTime()
+        long startTime = System.currentTimeMillis()
         Set<String> entityNames = getAllEntityNames()
         for (String entityName in entityNames) {
             try {
                 EntityDefinition ed = getEntityDefinition(entityName)
                 ed.getRelationshipInfoMap()
                 entityDbMeta.tableExists(ed)
+
+                if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
+                if (cachedListEntities.contains(entityName)) {
+                    ed.getCacheList(entityCache)
+                    ed.getCacheListRa(entityCache)
+                    ed.getCacheListViewRa(entityCache)
+                }
+                if (cachedOneEntities.contains(entityName)) {
+                    ed.getCacheOne(entityCache)
+                    ed.getCacheOneRa(entityCache)
+                    ed.getCacheOneViewRa(entityCache)
+                }
             } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}") }
         }
 
-        // init a few framework entity caches
-        entityCache.getCacheCount("moqui.basic.EnumerationType")
-
-        entityCache.getCacheList("moqui.entity.UserField")
-        entityCache.getCacheList("moqui.entity.document.DataDocument")
-        entityCache.getCacheList("moqui.entity.document.DataDocumentCondition")
-        entityCache.getCacheList("moqui.entity.document.DataDocumentField")
-        entityCache.getCacheList("moqui.entity.feed.DataFeedAndDocument")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntity")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntityAlias")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntityKeyMap")
-        entityCache.getCacheList("moqui.entity.view.DbViewEntityMember")
-
-        entityCache.getCacheList("moqui.screen.ScreenThemeResource")
-        entityCache.getCacheList("moqui.screen.SubscreensItem")
-        entityCache.getCacheList("moqui.screen.form.DbFormField")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldAttribute")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldEntOpts")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldEntOptsCond")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldEntOptsOrder")
-        entityCache.getCacheList("moqui.screen.form.DbFormFieldOption")
-        entityCache.getCacheList("moqui.screen.form.DbFormLookup")
-
-        entityCache.getCacheList("moqui.security.ArtifactAuthzCheckView")
-        entityCache.getCacheList("moqui.security.ArtifactTarpitCheckView")
-        entityCache.getCacheList("moqui.security.ArtifactTarpitLock")
-        entityCache.getCacheList("moqui.security.UserGroupMember")
-        entityCache.getCacheList("moqui.security.UserGroupPreference")
-
-        entityCache.getCacheOne("moqui.basic.Enumeration")
-        entityCache.getCacheOne("moqui.basic.LocalizedMessage")
-        entityCache.getCacheOne("moqui.entity.document.DataDocument")
-        entityCache.getCacheOne("moqui.entity.view.DbViewEntity")
-        entityCache.getCacheOne("moqui.screen.form.DbForm")
-        entityCache.getCacheOne("moqui.security.UserAccount")
-        entityCache.getCacheOne("moqui.security.UserPreference")
-        entityCache.getCacheOne("moqui.security.UserScreenTheme")
-        entityCache.getCacheOne("moqui.server.Visit")
-        entityCache.getCacheOne("moqui.tenant.Tenant")
-        entityCache.getCacheOne("moqui.tenant.TenantHostDefault")
-
-        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${(System.nanoTime() - startTime)/1E9} seconds")
+        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms")
     }
 
     Set<String> getDatasourceGroupNames() {
@@ -438,60 +424,71 @@ class EntityFacadeImpl implements EntityFacade {
         return entityRrList
     }
 
-    void loadAllEntityLocations() {
+    Map<String, List<String>> loadAllEntityLocations() {
         // lock or wait for lock, this lock used here and for checking entity defined
         locationLoadLock.lock()
 
         try {
             // load all entity files based on ResourceReference
             long startTime = System.currentTimeMillis()
+
+            Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
+            // when loading all entity locations we expect this to be null, if it isn't no need to load
+            if (entityLocationCache != null) return entityLocationCache
+            entityLocationCache = new HashMap<>()
+
             List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations()
-            for (ResourceReference entityRr in allEntityFileLocations) this.loadEntityFileLocations(entityRr)
+            for (ResourceReference entityRr in allEntityFileLocations) this.loadEntityFileLocations(entityRr, entityLocationCache)
             if (logger.isInfoEnabled()) logger.info("Found entities in ${allEntityFileLocations.size()} files in ${System.currentTimeMillis() - startTime}ms")
+
+            // put in the cache for other code to use; needed before DbViewEntity load so DB queries work
+            entityLocationSingleCache.put(entityLocSingleEntryName, entityLocationCache)
 
             // look for view-entity definitions in the database (moqui.entity.view.DbViewEntity)
             if (entityLocationCache.get("moqui.entity.view.DbViewEntity")) {
                 int numDbViewEntities = 0
                 for (EntityValue dbViewEntity in makeFind("moqui.entity.view.DbViewEntity").list()) {
                     if (dbViewEntity.packageName) {
-                        List pkgList = (List) this.entityLocationCache.get((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName)
-                        if (!pkgList) {
-                            pkgList = new LinkedList()
-                            this.entityLocationCache.put((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName, pkgList)
+                        List<String> pkgList = (List<String>) entityLocationCache.get((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName)
+                        if (pkgList == null) {
+                            pkgList = new LinkedList<>()
+                            entityLocationCache.put((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName, pkgList)
                         }
                         if (!pkgList.contains("_DB_VIEW_ENTITY_")) pkgList.add("_DB_VIEW_ENTITY_")
                     }
 
-                    List nameList = (List) this.entityLocationCache.get((String) dbViewEntity.dbViewEntityName)
-                    if (!nameList) {
-                        nameList = new LinkedList()
+                    List<String> nameList = (List<String>) entityLocationCache.get((String) dbViewEntity.dbViewEntityName)
+                    if (nameList == null) {
+                        nameList = new LinkedList<>()
                         // put in cache under both plain entityName and fullEntityName
-                        this.entityLocationCache.put((String) dbViewEntity.dbViewEntityName, nameList)
+                        entityLocationCache.put((String) dbViewEntity.dbViewEntityName, nameList)
                     }
                     if (!nameList.contains("_DB_VIEW_ENTITY_")) nameList.add("_DB_VIEW_ENTITY_")
 
                     numDbViewEntities++
                 }
-                if (logger.infoEnabled) logger.info("Found [${numDbViewEntities}] view-entity definitions in database (moqui.entity.view.DbViewEntity)")
+                if (logger.infoEnabled) logger.info("Found ${numDbViewEntities} view-entity definitions in database (DbViewEntity records)")
             } else {
                 logger.warn("Could not find view-entity definitions in database (moqui.entity.view.DbViewEntity), no location found for the moqui.entity.view.DbViewEntity entity.")
             }
+
+            /* a little code to show all entities and their locations
+            Set<String> enSet = new TreeSet(entityLocationCache.keySet())
+            for (String en in enSet) {
+                List lst = entityLocationCache.get(en)
+                entityLocationCache.put(en, Collections.unmodifiableList(lst))
+                logger.warn("TOREMOVE entity ${en}: ${lst}")
+            }
+            */
+
+            return entityLocationCache
         } finally {
             locationLoadLock.unlock()
         }
-
-        /* a little code to show all entities and their locations
-        Set<String> enSet = new TreeSet(entityLocationCache.keySet())
-        for (String en in enSet) {
-            List lst = entityLocationCache.get(en)
-            entityLocationCache.put(en, Collections.unmodifiableList(lst))
-            logger.warn("TOREMOVE entity ${en}: ${lst}")
-        }
-        */
     }
 
     // NOTE: only called by loadAllEntityLocations() which is synchronized/locked, so doesn't need to be
-    protected void loadEntityFileLocations(ResourceReference entityRr) {
+    protected void loadEntityFileLocations(ResourceReference entityRr, Map<String, List<String>> entityLocationCache) {
         MNode entityRoot = getEntityFileRoot(entityRr)
         if (entityRoot.name == "entities") {
             // loop through all entity, view-entity, and extend-entity and add file location to List for any entity named
@@ -501,40 +498,45 @@ class EntityFacadeImpl implements EntityFacade {
                 String packageName = entity.attribute("package-name")
                 String shortAlias = entity.attribute("short-alias")
 
-                if (!entityName) {
+                if (entityName == null || entityName.length() == 0) {
                     logger.warn("Skipping entity XML file [${entityRr.getLocation()}] element with no @entity-name: ${entity}")
                     continue
                 }
 
-                if (packageName) {
-                    List pkgList = (List) this.entityLocationCache.get(packageName + "." + entityName)
-                    if (!pkgList) {
-                        pkgList = new LinkedList()
-                        this.entityLocationCache.put(packageName + "." + entityName, pkgList)
+                if (packageName != null && packageName.length() > 0) {
+                    List<String> pkgList = (List<String>) entityLocationCache.get(packageName + "." + entityName)
+                    if (pkgList == null) {
+                        pkgList = new LinkedList<>()
+                        pkgList.add(entityRr.location)
+                        entityLocationCache.put(packageName + "." + entityName, pkgList)
+                    } else if (!pkgList.contains(entityRr.location)) {
+                        pkgList.add(entityRr.location)
                     }
-                    if (!pkgList.contains(entityRr.location)) pkgList.add(entityRr.location)
                 }
 
-                if (shortAlias) {
-                    List aliasList = (List) this.entityLocationCache.get(shortAlias)
-                    if (!aliasList) {
-                        aliasList = new LinkedList()
-                        this.entityLocationCache.put(shortAlias, aliasList)
+                if (shortAlias != null && shortAlias.length() > 0) {
+                    List<String> aliasList = (List<String>) entityLocationCache.get(shortAlias)
+                    if (aliasList == null) {
+                        aliasList = new LinkedList<>()
+                        aliasList.add(entityRr.location)
+                        entityLocationCache.put(shortAlias, aliasList)
+                    } else if (!aliasList.contains(entityRr.location)) {
+                        aliasList.add(entityRr.location)
                     }
-                    if (!aliasList.contains(entityRr.location)) aliasList.add(entityRr.location)
                 }
 
-                List nameList = (List) this.entityLocationCache.get(entityName)
-                if (!nameList) {
-                    nameList = new LinkedList()
-                    // put in cache under both plain entityName and fullEntityName
-                    this.entityLocationCache.put(entityName, nameList)
+                List<String> nameList = (List<String>) entityLocationCache.get(entityName)
+                if (nameList == null) {
+                    nameList = new LinkedList<>()
+                    nameList.add(entityRr.location)
+                    entityLocationCache.put(entityName, nameList)
+                } else if (!nameList.contains(entityRr.location)) {
+                    nameList.add(entityRr.location)
                 }
-                if (!nameList.contains(entityRr.location)) nameList.add(entityRr.location)
 
                 numEntities++
             }
-            if (logger.isTraceEnabled()) logger.trace("Found [${numEntities}] entity definitions in [${entityRr.location}]")
+            if (isTraceEnabled) logger.trace("Found [${numEntities}] entity definitions in [${entityRr.location}]")
         }
     }
 
@@ -571,25 +573,32 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityName)
-        if (ed) return ed
+        if (ed != null) return ed
 
-        List entityLocationList = (List) entityLocationCache.get(entityName)
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
+        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
+
+        List<String> entityLocationList = (List<String>) entityLocationCache.get(entityName)
         if (entityLocationList == null) {
-            if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file locations known.")
-            if (logger.isTraceEnabled()) logger.trace("Unknown entity name ${entityName} location", new BaseException("Unknown entity name location"))
+            if (logger.isWarnEnabled()) logger.warn("No location cache found for entity-name [${entityName}], reloading ALL entity file and DB locations")
+            if (isTraceEnabled) logger.trace("Unknown entity name ${entityName} location", new BaseException("Unknown entity name location"))
 
-            this.loadAllEntityLocations()
-            entityLocationList = (List) entityLocationCache.get(entityName)
+            // remove the single cache entry
+            entityLocationSingleCache.remove(entityLocSingleEntryName)
+            // reload all locations
+            entityLocationCache = this.loadAllEntityLocations()
+            entityLocationList = (List<String>) entityLocationCache.get(entityName)
             // no locations found for this entity, entity probably doesn't exist
-            if (!entityLocationList) {
-                entityLocationCache.put(entityName, [])
+            if (entityLocationList == null || entityLocationList.size() == 0) {
+                // TODO: while this is helpful, if another unknown non-existing entity is looked for this will be lost
+                entityLocationCache.put(entityName, new LinkedList<String>())
                 if (logger.isWarnEnabled()) logger.warn("No definition found for entity-name [${entityName}]")
                 throw new EntityNotFoundException("No definition found for entity-name [${entityName}]")
             }
         }
 
         if (entityLocationList.size() == 0) {
-            if (logger.isTraceEnabled()) logger.trace("Entity name [${entityName}] is a known non-entity, returning null for EntityDefinition.")
+            if (isTraceEnabled) logger.trace("Entity name [${entityName}] is a known non-entity, returning null for EntityDefinition.")
             return null
         }
 
@@ -755,7 +764,9 @@ class EntityFacadeImpl implements EntityFacade {
         int relationshipsCreated = 0
         Set<String> entityNameSet = getAllEntityNames()
         for (String entityName in entityNameSet) {
-            EntityDefinition ed = getEntityDefinition(entityName)
+            EntityDefinition ed
+            // for auto reverse relationships just ignore EntityException on getEntityDefinition
+            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
             if (ed == null) continue
             List<String> pkSet = ed.getPkFieldNames()
@@ -814,7 +825,8 @@ class EntityFacadeImpl implements EntityFacade {
         // all EntityDefinition objects now have reverse relationships in place, remember that so this will only be
         //     called for new ones, not from cache
         for (String entityName in entityNameSet) {
-            EntityDefinition ed = getEntityDefinition(entityName)
+            EntityDefinition ed
+            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             if (ed == null) continue
             ed.hasReverseRelationships = true
         }
@@ -831,6 +843,8 @@ class EntityFacadeImpl implements EntityFacade {
     void loadEecaRulesAll() {
         if (eecaRulesByEntityName.size() > 0) eecaRulesByEntityName.clear()
 
+        int numLoaded = 0
+        int numFiles = 0
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity")
@@ -839,14 +853,16 @@ class EntityFacadeImpl implements EntityFacade {
                 if (!entityDirRr.isDirectory()) continue
                 for (ResourceReference rr in entityDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".eecas.xml")) continue
-                    loadEecaRulesFile(rr)
+                    numLoaded += loadEecaRulesFile(rr)
+                    numFiles++
                 }
             } else {
                 logger.warn("Can't load EECA rules from component at [${entityDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files")
     }
-    void loadEecaRulesFile(ResourceReference rr) {
+    int loadEecaRulesFile(ResourceReference rr) {
         MNode eecasRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode secaNode in eecasRoot.children("eeca")) {
@@ -862,7 +878,8 @@ class EntityFacadeImpl implements EntityFacade {
             lst.add(ser)
             numLoaded++
         }
-        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
+        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
+        return numLoaded
     }
 
     boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
@@ -875,25 +892,10 @@ class EntityFacadeImpl implements EntityFacade {
 
             for (int i = 0; i < lst.size(); i++) {
                 EntityEcaRule eer = (EntityEcaRule) lst.get(i)
-                eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getExecutionContext())
+                eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getEci())
             }
         }
-
-        // deprecated: if (entityName == "moqui.entity.ServiceTrigger" && operation == "create" && !before) runServiceTrigger(fieldValues)
     }
-
-    /* Deprecated:
-    void runServiceTrigger(Map fieldValues) {
-        ecfi.getServiceFacade().sync().name((String) fieldValues.serviceName)
-                .parameters((Map) ecfi.resourceFacade.expression((String) fieldValues.mapString, ""))
-                .call()
-        if (ecfi.getExecutionContext().getMessage().hasError())
-            logger.error("Error running ServiceTrigger service [${fieldValues.serviceName}]: ${ecfi.getExecutionContext().getMessage().getErrorsString()}")
-        makeValue("moqui.entity.ServiceTrigger").set("serviceTriggerId", fieldValues.serviceTriggerId)
-                .set("statusId", ecfi.getExecutionContext().getMessage().hasError() ? "SrtrRunError" : "SrtrRunSuccess")
-                .update()
-    }
-    */
 
     void destroy() {
         Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()
@@ -911,13 +913,8 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     Set<String> getAllEntityNames() {
-        locationLoadLock.lock()
-        try {
-            entityLocationCache.clearExpired()
-            if (entityLocationCache.size() == 0) loadAllEntityLocations()
-        } finally {
-            locationLoadLock.unlock()
-        }
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
+        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
         TreeSet<String> allNames = new TreeSet()
         // only add full entity names (with package-name in it, will always have at least one dot)
@@ -940,7 +937,8 @@ class EntityFacadeImpl implements EntityFacade {
         Set<String> allNames = getAllEntityNames()
         Set<String> masterNames = new TreeSet<>()
         for (String name in allNames) {
-            EntityDefinition ed = getEntityDefinition(name)
+            EntityDefinition ed
+            try { ed = getEntityDefinition(name) } catch (EntityException e) { continue }
             if (ed != null && !ed.isViewEntity() && ed.masterDefinitionMap) masterNames.add(name)
         }
         return masterNames
@@ -973,53 +971,23 @@ class EntityFacadeImpl implements EntityFacade {
      * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
      * one of the entity-auto supported verbs. */
     boolean isEntityDefined(String entityName) {
-        if (!entityName) return false
+        if (entityName == null || entityName.length() == 0) return false
 
         // Special treatment for framework entities, quick Map lookup (also faster than Cache get)
         if (frameworkEntityDefinitions.containsKey(entityName)) return true
 
-        // Optimization, common case: if it's in the location cache it is exists, even if expired; if it isn't there
-        //     doesn't necessarily mean it isn't defined, so then do more
-        List locationList = (List) entityLocationCache.get(entityName)
-        if (locationList != null) return locationList.size() > 0
+        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
+        if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
-        // There is a concurrency issue here with clearExpired() and then checking for size() > 0 and assuming all
-        //     entities will be there... if loadEntityFileLocations() is running then some may be loaded and others not
-        //     yet, resulting in an error that is rare but has been observed
-        // The reason for this is performance, reloading all entity locations is expensive, but an empty
-        //     entityLocationCache only happens in dev mode with a timeout on cache entries, or in production when the
-        //     cache is cleared
-        // Solution: use a reentrant lock here and in loadEntityFileLocations()
-        locationLoadLock.lock()
-        try {
-            entityLocationCache.clearExpired()
-            if (entityLocationCache.size() > 0) {
-                return entityLocationCache.containsKey(entityName)
-            } else {
-                // faster to not do this, causes reload of all entity files if not found (happens a lot for this method):
-                long startTime = System.currentTimeMillis()
-                try {
-                    EntityDefinition ed = getEntityDefinition(entityName)
-                    boolean isEntity = ed != null
-                    // log the time it takes to do this to keep an eye on whether a better solution is needed
-                    if (logger.isInfoEnabled()) logger.info("Got definition for uncached entity [${entityName}] in ${System.currentTimeMillis() - startTime}ms, isEntity? ${isEntity}")
-                    return isEntity
-                } catch (EntityNotFoundException enfe) {
-                    // ignore the exception, just means entity not found
-                    if (logger.isInfoEnabled()) logger.info("Exception (not found) for uncached entity [${entityName}] in ${System.currentTimeMillis() - startTime}ms: ${enfe.toString()}")
-                    return false
-                }
-            }
-        } finally {
-            locationLoadLock.unlock()
-        }
+        List<String> locList = entityLocationCache.get(entityName)
+        return locList != null && locList.size() > 0
     }
 
     EntityDefinition getEntityDefinition(String entityName) {
         if (entityName == null || entityName.length() == 0) return null
-        EntityDefinition ed = (EntityDefinition) this.frameworkEntityDefinitions.get(entityName)
+        EntityDefinition ed = (EntityDefinition) frameworkEntityDefinitions.get(entityName)
         if (ed != null) return ed
-        ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
+        ed = (EntityDefinition) entityDefinitionCache.get(entityName)
         if (ed != null) return ed
         return loadEntityDefinition(entityName)
     }
@@ -1432,8 +1400,8 @@ class EntityFacadeImpl implements EntityFacade {
     String sequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
         try {
             // is the seqName an entityName?
-            EntityDefinition ed = getEntityDefinition(seqName)
-            if (ed != null) {
+            if (isEntityDefined(seqName)) {
+                EntityDefinition ed = getEntityDefinition(seqName)
                 String groupName = ed.getEntityGroupName()
                 if (ed.sequencePrimaryUseUuid ||
                         getDatasourceNode(groupName)?.attribute('sequence-primary-use-uuid') == "true")
@@ -1441,7 +1409,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
-            if (logger.isTraceEnabled()) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
+            if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
         }
         // fall through to default to the db sequenced ID
         long staggerMaxPrim = staggerMax != null ? staggerMax.longValue() : 0L
@@ -1455,7 +1423,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (ed.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
-            if (logger.isTraceEnabled()) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
+            if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
         }
         // fall through to default to the db sequenced ID
         return dbSequencedIdPrimary(ed.getFullEntityName(), ed.sequencePrimaryStagger, ed.sequenceBankSize)
@@ -1495,22 +1463,28 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", true, true, {
-                    EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
-                            .useCache(false).forUpdate(true).one()
-                    if (svi == null) {
-                        svi = makeValue("moqui.entity.SequenceValueItem")
-                        svi.set("seqName", seqName)
-                        // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
-                        bank[0] = 100000L
-                        bank[1] = bank[0] + bankSize
-                        svi.set("seqNum", bank[1])
-                        svi.create()
-                    } else {
-                        Long lastSeqNum = svi.getLong("seqNum")
-                        bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
-                        bank[1] = bank[0] + bankSize
-                        svi.set("seqNum", bank[1])
-                        svi.update()
+                    ArtifactExecutionFacadeImpl aefi = ecfi.getEci().getArtifactExecutionImpl()
+                    boolean enableAuthz = !aefi.disableAuthz()
+                    try {
+                        EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
+                                .useCache(false).forUpdate(true).one()
+                        if (svi == null) {
+                            svi = makeValue("moqui.entity.SequenceValueItem")
+                            svi.set("seqName", seqName)
+                            // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
+                            bank[0] = 100000L
+                            bank[1] = bank[0] + bankSize
+                            svi.set("seqNum", bank[1])
+                            svi.create()
+                        } else {
+                            Long lastSeqNum = svi.getLong("seqNum")
+                            bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
+                            bank[1] = bank[0] + bankSize
+                            svi.set("seqNum", bank[1])
+                            svi.update()
+                        }
+                    } finally {
+                        if (enableAuthz) aefi.enableAuthz()
                     }
                 })
             }
@@ -1544,7 +1518,10 @@ class EntityFacadeImpl implements EntityFacade {
     String getEntityGroupName(String entityName) {
         String entityGroupName = (String) entityGroupNameMap.get(entityName)
         if (entityGroupName != null) return entityGroupName
-        EntityDefinition ed = this.getEntityDefinition(entityName)
+        EntityDefinition ed
+        // for entity group name just ignore EntityException on getEntityDefinition
+        try { ed = getEntityDefinition(entityName) } catch (EntityException e) { return null }
+        // may happen if all entity names includes a DB view entity or other that doesn't really exist
         if (ed == null) return null
         entityGroupName = ed.getEntityGroupName()
         entityGroupNameMap.put(entityName, entityGroupName)

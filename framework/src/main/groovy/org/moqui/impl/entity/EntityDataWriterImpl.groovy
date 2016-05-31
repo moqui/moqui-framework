@@ -18,8 +18,6 @@ import org.moqui.entity.EntityValue
 
 import java.sql.Timestamp
 
-import org.apache.commons.collections.set.ListOrderedSet
-
 import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityDataWriter
@@ -37,8 +35,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
     protected EntityDataWriter.FileType fileType = XML
     protected int txTimeout = 3600
-    protected ListOrderedSet entityNames = new ListOrderedSet()
+    protected LinkedHashSet<String> entityNames = new LinkedHashSet<>()
     protected int dependentLevels = 0
+    protected String masterName = null
     protected String prefix = null
     protected Map<String, Object> filterMap = [:]
     protected List<String> orderByList = []
@@ -54,6 +53,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
     EntityDataWriter entityNames(List<String> enList) { entityNames.addAll(enList);  return this }
     EntityDataWriter dependentRecords(boolean dr) { if (dr) { dependentLevels = 2 } else { dependentLevels = 0 }; return this }
     EntityDataWriter dependentLevels(int levels) { dependentLevels = levels; return this }
+    EntityDataWriter master(String mn) { masterName = mn; return this }
     EntityDataWriter prefix(String p) { prefix = p; return this }
     EntityDataWriter filterMap(Map<String, Object> fm) { filterMap.putAll(fm); return this }
     EntityDataWriter orderBy(List<String> obl) { orderByList.addAll(obl); return this }
@@ -64,7 +64,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
     int file(String filename) {
         File outFile = new File(filename)
         if (!outFile.createNewFile()) {
-            efi.ecfi.executionContext.message.addError("File ${filename} already exists.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
             return 0
         }
 
@@ -75,7 +75,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
         // NOTE: don't have to do anything different here for different file types, writer() method will handle that
         int valuesWritten = this.writer(pw)
         pw.close()
-        efi.ecfi.executionContext.message.addMessage("Wrote ${valuesWritten} records to file ${filename}")
+        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
         return valuesWritten
     }
 
@@ -84,7 +84,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
         File outDir = new File(path)
         if (!outDir.exists()) outDir.mkdir()
         if (!outDir.isDirectory()) {
-            efi.ecfi.executionContext.message.addError("Path ${path} is not a directory.")
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('Path ${path} is not a directory.','',[path:path]))
             return 0
         }
 
@@ -129,7 +129,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             String filename = "${path}/${en}.xml"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError("File ${filename} already exists, skipping entity ${en}.")
+                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
                 continue
             }
             outFile.createNewFile()
@@ -138,18 +138,25 @@ class EntityDataWriterImpl implements EntityDataWriter {
             pw.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
             pw.println("<entity-facade-xml>")
 
+            EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
             EntityListIterator eli = ef.iterator()
+
             int curValuesWritten = 0
             try {
-                curValuesWritten = eli.writeXmlText(pw, prefix, dependentLevels)
+                if (useMaster) {
+                    curValuesWritten = eli.writeXmlTextMaster(pw, prefix, masterName)
+                } else {
+                    curValuesWritten = eli.writeXmlText(pw, prefix, dependentLevels)
+                }
             } finally {
                 eli.close()
             }
 
             pw.println("</entity-facade-xml>")
             pw.close()
-            efi.ecfi.executionContext.message.addMessage("Wrote ${curValuesWritten} records to file ${filename}")
+            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten, filename:filename]))
 
             valuesWritten += curValuesWritten
         }
@@ -163,7 +170,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             String filename = "${path}/${en}.json"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError("File ${filename} already exists, skipping entity ${en}.")
+                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
                 continue
             }
             outFile.createNewFile()
@@ -171,6 +178,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
             PrintWriter pw = new PrintWriter(outFile)
             pw.println("[")
 
+            EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
             EntityListIterator eli = ef.iterator()
 
@@ -178,7 +187,12 @@ class EntityDataWriterImpl implements EntityDataWriter {
             try {
                 EntityValue ev
                 while ((ev = eli.next()) != null) {
-                    Map plainMap = ev.getPlainValueMap(dependentLevels)
+                    Map plainMap
+                    if (useMaster) {
+                        plainMap = ev.getMasterValueMap(masterName)
+                    } else {
+                        plainMap = ev.getPlainValueMap(dependentLevels)
+                    }
                     JsonBuilder jb = new JsonBuilder()
                     jb.call(plainMap)
                     String jsonStr = jb.toPrettyString()
@@ -196,7 +210,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             pw.println("")
 
             pw.close()
-            efi.ecfi.executionContext.message.addMessage("Wrote ${curValuesWritten} records to file ${filename}")
+            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten,filename:filename]))
 
             valuesWritten += curValuesWritten
         }
@@ -210,12 +224,16 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         TransactionFacade tf = efi.getEcfi().getTransactionFacade()
         boolean suspendedTransaction = false
+        int valuesWritten = 0
         try {
             if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = tf.begin(txTimeout)
             try {
-                if (fileType == JSON) return writerJson(writer)
-                return writerXml(writer)
+                if (fileType == JSON) {
+                    valuesWritten = writerJson(writer)
+                } else {
+                    valuesWritten = writerXml(writer)
+                }
             } catch (Throwable t) {
                 logger.warn("Error writing data: " + t.toString(), t)
                 tf.rollback(beganTransaction, "Error writing data", t)
@@ -232,6 +250,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 logger.error("Error resuming parent transaction after data write", t)
             }
         }
+
+        return valuesWritten
     }
     protected int writerXml(Writer writer) {
         int valuesWritten = 0
@@ -240,6 +260,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
         writer.println("<entity-facade-xml>")
 
         for (String en in entityNames) {
+            EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
 
             /* leaving commented as might be useful for future con pool debugging:
@@ -253,7 +275,11 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
             EntityListIterator eli = ef.iterator()
             try {
-                valuesWritten += eli.writeXmlText(writer, prefix, dependentLevels)
+                if (useMaster) {
+                    valuesWritten += eli.writeXmlTextMaster(writer, prefix, masterName)
+                } else {
+                    valuesWritten += eli.writeXmlText(writer, prefix, dependentLevels)
+                }
             } finally {
                 eli.close()
             }
@@ -271,12 +297,19 @@ class EntityDataWriterImpl implements EntityDataWriter {
         writer.println("[")
 
         for (String en in entityNames) {
+            EntityDefinition ed = efi.getEntityDefinition(en)
+            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
             EntityFind ef = makeEntityFind(en)
             EntityListIterator eli = ef.iterator()
             try {
                 EntityValue ev
                 while ((ev = eli.next()) != null) {
-                    Map plainMap = ev.getPlainValueMap(dependentLevels)
+                    Map plainMap
+                    if (useMaster) {
+                        plainMap = ev.getMasterValueMap(masterName)
+                    } else {
+                        plainMap = ev.getPlainValueMap(dependentLevels)
+                    }
                     JsonBuilder jb = new JsonBuilder()
                     jb.call(plainMap)
                     String jsonStr = jb.toPrettyString()

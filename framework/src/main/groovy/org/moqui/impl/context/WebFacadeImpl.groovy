@@ -36,6 +36,7 @@ import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
 import org.moqui.impl.service.ServiceXmlRpcDispatcher
+import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -184,10 +185,8 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     String getSessionToken() { return session.getAttribute("moqui.session.token") }
 
-    // ExecutionContextImpl getEci() { eci }
     void runFirstHitInVisitActions() {
         WebappInfo wi = eci.ecfi.getWebappInfo(webappMoquiName)
         if (wi.firstHitInVisitActions) wi.firstHitInVisitActions.run(eci)
@@ -209,7 +208,6 @@ class WebFacadeImpl implements WebFacade {
         if (wi.beforeLogoutActions) wi.beforeLogoutActions.run(eci)
     }
 
-    @CompileStatic
     void saveScreenHistory(ScreenUrlInfo.UrlInstance urlInstanceOrig) {
         ScreenUrlInfo sui = urlInstanceOrig.sui
         ScreenDefinition targetScreen = urlInstanceOrig.sui.targetScreen
@@ -296,7 +294,6 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     List<Map> getScreenHistory() {
         LinkedList<Map> histList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
         if (histList == null) histList = new LinkedList<Map>()
@@ -305,7 +302,6 @@ class WebFacadeImpl implements WebFacade {
 
 
     @Override
-    @CompileStatic
     String getRequestUrl() {
         StringBuilder requestUrl = new StringBuilder()
         requestUrl.append(request.getScheme())
@@ -316,14 +312,12 @@ class WebFacadeImpl implements WebFacade {
         return requestUrl.toString()
     }
 
-    @CompileStatic
     void addDeclaredPathParameter(String name, String value) {
         if (declaredPathParameters == null) declaredPathParameters = new HashMap()
         declaredPathParameters.put(name, value)
     }
 
     @Override
-    @CompileStatic
     Map<String, Object> getParameters() {
         // NOTE: no blocking in these methods because the WebFacadeImpl is created for each thread
 
@@ -345,17 +339,14 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     HttpServletRequest getRequest() { return request }
     @Override
-    @CompileStatic
     Map<String, Object> getRequestAttributes() {
         if (requestAttributes != null) return requestAttributes
         requestAttributes = new StupidWebUtilities.RequestAttributeMap(request)
         return requestAttributes
     }
     @Override
-    @CompileStatic
     Map<String, Object> getRequestParameters() {
         if (requestParameters != null) return requestParameters
 
@@ -369,25 +360,25 @@ class WebFacadeImpl implements WebFacade {
         Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
         if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0)
             cs.push(new StupidWebUtilities.CanonicalizeMap(pathInfoParameterMap))
-
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
+
+        // do one last push so writes don't modify whatever was at the top of the stack
+        cs.push()
         requestParameters = cs
         return requestParameters
     }
     @Override
-    @CompileStatic
     Map<String, Object> getSecureRequestParameters() {
         ContextStack cs = new ContextStack(false)
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
-        if (!request.getQueryString()) cs.push((Map<String, Object>) request.getParameterMap())
+        if (!request.getQueryString()) cs.push(request.getParameterMap() as Map<String, Object>)
 
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
         return new StupidWebUtilities.CanonicalizeMap(cs)
     }
     @Override
-    @CompileStatic
     String getHostName(boolean withPort) {
         URL requestUrl = new URL(getRequest().getRequestURL().toString())
         String hostName = null
@@ -414,7 +405,6 @@ class WebFacadeImpl implements WebFacade {
     @Override
     HttpSession getSession() { return request.getSession(true) }
     @Override
-    @CompileStatic
     Map<String, Object> getSessionAttributes() {
         if (sessionAttributes) return sessionAttributes
         sessionAttributes = new StupidWebUtilities.SessionAttributeMap(getSession())
@@ -424,19 +414,16 @@ class WebFacadeImpl implements WebFacade {
     @Override
     ServletContext getServletContext() { return getSession().getServletContext() }
     @Override
-    @CompileStatic
     Map<String, Object> getApplicationAttributes() {
         if (applicationAttributes) return applicationAttributes
         applicationAttributes = new StupidWebUtilities.ServletContextAttributeMap(getSession().getServletContext())
         return applicationAttributes
     }
     @Override
-    @CompileStatic
     String getWebappRootUrl(boolean requireFullUrl, Boolean useEncryption) {
         return getWebappRootUrl(this.webappMoquiName, null, requireFullUrl, useEncryption, eci)
     }
 
-    @CompileStatic
     static String getWebappRootUrl(String webappName, String servletContextPath, boolean requireFullUrl, Boolean useEncryption, ExecutionContextImpl eci) {
         WebFacade webFacade = eci.getWeb()
         HttpServletRequest request = webFacade?.getRequest()
@@ -553,25 +540,19 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     Map<String, Object> getErrorParameters() { return errorParameters }
     @Override
-    @CompileStatic
     List<String> getSavedMessages() { return savedMessages }
     @Override
-    @CompileStatic
     List<String> getSavedErrors() { return savedErrors }
     @Override
-    @CompileStatic
     List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
 
 
     @Override
-    @CompileStatic
     void sendJsonResponse(Object responseObj) {
         sendJsonResponseInternal(responseObj, eci, request, response, requestAttributes)
     }
-    @CompileStatic
     static void sendJsonResponseInternal(Object responseObj, ExecutionContextImpl eci, HttpServletRequest request,
                                          HttpServletResponse response, Map<String, Object> requestAttributes) {
         String jsonStr
@@ -583,7 +564,7 @@ class WebFacadeImpl implements WebFacade {
                     responseObj = [messages:eci.message.getMessagesString()] as Map<String, Object>
                 } else if (responseObj instanceof Map && !responseObj.containsKey("messages")) {
                     Map responseMap = new HashMap()
-                    responseMap.putAll(responseObj)
+                    responseMap.putAll(responseObj as Map)
                     responseMap.put("messages", eci.message.getMessagesString())
                     responseObj = responseMap
                 }
@@ -650,16 +631,13 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     void sendTextResponse(String text) {
         sendTextResponseInternal(text, "text/plain", null, eci, request, response, requestAttributes)
     }
     @Override
-    @CompileStatic
     void sendTextResponse(String text, String contentType, String filename) {
         sendTextResponseInternal(text, contentType, filename, eci, request, response, requestAttributes)
     }
-    @CompileStatic
     static void sendTextResponseInternal(String text, String contentType, String filename, ExecutionContextImpl eci,
                                          HttpServletRequest request, HttpServletResponse response,
                                          Map<String, Object> requestAttributes) {
@@ -700,15 +678,12 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     void sendResourceResponse(String location) {
         sendResourceResponseInternal(location, false, eci, response, requestAttributes)
     }
-    @CompileStatic
     void sendResourceResponse(String location, boolean inline) {
         sendResourceResponseInternal(location, inline, eci, response, requestAttributes)
     }
-    @CompileStatic
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci,
                                              HttpServletResponse response, Map<String, Object> requestAttributes) {
         ResourceReference rr = eci.resource.getLocationReference(location)
@@ -726,7 +701,7 @@ class WebFacadeImpl implements WebFacade {
                 OutputStream os = response.outputStream
                 try {
                     int totalLen = StupidUtilities.copyStream(is, os)
-                    logger.info("Streamed ${totalLen} bytes from contentLocation ${location}")
+                    logger.info("Streamed ${totalLen} bytes from location ${location}")
                 } finally {
                     os.close()
                 }
@@ -741,15 +716,12 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
 
     @Override
-    @CompileStatic
     void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch(request, response) }
 
     @Override
-    @CompileStatic
     void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
         ContextStack parmStack = (ContextStack) getParameters()
 
@@ -836,7 +808,6 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @CompileStatic
     void handleEntityRestSchema(List<String> extraPathNameList, String schemaUri, String linkPrefix,
                                 String schemaLinkPrefix, boolean getMaster) {
         // make sure a user is logged in, screen/etc that calls will generally be configured to not require auth
@@ -924,7 +895,6 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @CompileStatic
     void handleEntityRestRaml(List<String> extraPathNameList, String linkPrefix, String schemaLinkPrefix, boolean getMaster) {
         // make sure a user is logged in, screen/etc that calls will generally be configured to not require auth
         if (!eci.getUser().getUsername()) {
@@ -1000,7 +970,6 @@ class WebFacadeImpl implements WebFacade {
         sendTextResponse(yamlString, "application/raml+yaml", "MoquiEntities.raml")
     }
 
-    @CompileStatic
     void handleEntityRestSwagger(List<String> extraPathNameList, String basePath, boolean getMaster) {
         if (extraPathNameList.size() == 0) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No entity name specified in path (for all entities use 'all')")
@@ -1035,7 +1004,7 @@ class WebFacadeImpl implements WebFacade {
         String hostName = fullHost.substring(fullHost.indexOf("://") + 3)
         Map definitionsMap = new TreeMap()
         Map<String, Object> swaggerMap = [swagger:'2.0',
-            info:[title:("${filename} REST API"), version:'1.6.3'], host:hostName, basePath:basePath,
+            info:[title:("${filename} REST API"), version:'2.0.0'], host:hostName, basePath:basePath,
             schemes:[scheme], consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
                 api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key, also supports tenant_id header']],
@@ -1091,7 +1060,6 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override
-    @CompileStatic
     void handleServiceRestCall(List<String> extraPathNameList) {
         ContextStack parmStack = (ContextStack) getParameters()
 
@@ -1197,7 +1165,6 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @CompileStatic
     void handleServiceRestSwagger(List<String> extraPathNameList, String basePath) {
         if (extraPathNameList.size() == 0) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path")
@@ -1242,7 +1209,6 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @CompileStatic
     void handleServiceRestRaml(List<String> extraPathNameList, String linkPrefix) {
         if (extraPathNameList.size() == 0) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path")

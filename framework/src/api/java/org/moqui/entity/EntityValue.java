@@ -17,7 +17,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import javax.sql.rowset.serial.SerialBlob;
-import java.io.Serializable;
+import java.io.Externalizable;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,7 +28,8 @@ import java.util.Map;
  * Entity Value Interface - Represents a single database record.
  *
  */
-public interface EntityValue extends Map<String, Object>, Serializable, Comparable<EntityValue>, Cloneable {
+@SuppressWarnings("unused")
+public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable {
 
     String getEntityName();
 
@@ -233,6 +234,7 @@ public interface EntityValue extends Map<String, Object>, Serializable, Comparab
      * @return The number of records written
      */
     int writeXmlText(Writer writer, String prefix, int dependentLevels);
+    int writeXmlTextMaster(Writer pw, String prefix, String masterName);
 
     /** Get a Map with all non-null field values. If dependentLevels is greater than zero includes nested dependents
      * in the Map as an entry with key of the dependent relationship's short-alias or if no short-alias then the

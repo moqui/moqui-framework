@@ -13,12 +13,34 @@
  */
 package org.moqui.context;
 
+import org.moqui.jcache.MCache;
+import javax.cache.Cache;
+import java.util.Set;
+
 /** A facade used for managing and accessing Cache instances. */
 public interface CacheFacade {
     void clearAllCaches();
-    void clearExpiredFromAllCaches();
     void clearCachesByPrefix(String prefix);
 
-    /** Get the named Cache, creating one based on configuration and defaults if none exists. */
+    /** Get the named Cache, creating one based on configuration and defaults if none exists.
+     * Defaults to local cache if no configuration found. */
     Cache getCache(String cacheName);
+    /** A type-safe variation on getCache for configured caches. */
+    <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType);
+    /** For caches that are not tenant shared (based on configuration in Moqui Conf XML file) the tenantId is prefixed
+     * to the full cache name followed by two undersctores (__). This is a convenience method to get a cache for a tenant. */
+    Cache getCache(String cacheName, String tenantId);
+    /** Get the named local Cache (MCache instance), creating one based on defaults if none exists.
+     * If the cache is configured with type != 'local' this will return an error. */
+    MCache getLocalCache(String cacheName);
+    /** Get the named distributed Cache (Hazelcast), creating one based on configuration and defaults if none exists.
+     * If the cache is configured without type != 'distributed' this will return an error. */
+    Cache getDistributedCache(String cacheName);
+
+    /** Register an externally created cache for future gets, inclusion in cache management tools, etc.
+     * If a cache with the same name exists the call will be ignored (ie like putIfAbsent). */
+    void registerCache(Cache cache);
+
+    Set<String> getCacheNames();
+    boolean cacheExists(String cacheName);
 }

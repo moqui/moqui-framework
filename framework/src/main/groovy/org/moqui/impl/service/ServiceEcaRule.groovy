@@ -16,7 +16,7 @@ package org.moqui.impl.service
 import groovy.transform.CompileStatic
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.context.ExecutionContext
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 
 import javax.transaction.Synchronization
@@ -57,7 +57,7 @@ class ServiceEcaRule {
     String getWhen() { return secaNode.attribute("when") }
     // Node getSecaNode() { return secaNode }
 
-    void runIfMatches(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when, ExecutionContext ec) {
+    void runIfMatches(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when, ExecutionContextImpl ec) {
         // see if we match this event and should run
         if (serviceName != (secaNode.attribute("service")?.replace("#", ""))) return
         if (when != secaNode.attribute("when")) return
@@ -66,7 +66,7 @@ class ServiceEcaRule {
         standaloneRun(parameters, results, ec)
     }
 
-    void standaloneRun(Map<String, Object> parameters, Map<String, Object> results, ExecutionContext ec) {
+    void standaloneRun(Map<String, Object> parameters, Map<String, Object> results, ExecutionContextImpl ec) {
         try {
             ec.context.push()
             ec.context.putAll(parameters)
@@ -142,7 +142,7 @@ class ServiceEcaRule {
                 public void run() {
                     boolean beganTransaction = ecfi.transactionFacade.begin(null)
                     try {
-                        sec.standaloneRun(parameters, results, ecfi.executionContext)
+                        sec.standaloneRun(parameters, results, ecfi.getEci())
                     } catch (Throwable t) {
                         logger.error("Error running Service TX ECA rule", t)
                         ecfi.transactionFacade.rollback(beganTransaction, "Error running Service TX ECA rule", t)

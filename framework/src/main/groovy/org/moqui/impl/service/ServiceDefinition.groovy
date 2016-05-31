@@ -17,23 +17,16 @@ import groovy.transform.CompileStatic
 import org.apache.commons.validator.routines.CreditCardValidator
 import org.apache.commons.validator.routines.EmailValidator
 import org.apache.commons.validator.routines.UrlValidator
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.impl.service.ServiceJavaUtil.ParameterInfo
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
-import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
-import org.moqui.context.ContextStack
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.service.ServiceException
 import org.moqui.util.MNode
-import org.owasp.esapi.ValidationErrorList
-import org.owasp.esapi.errors.IntrusionException
-import org.owasp.esapi.errors.ValidationException
-import org.owasp.validator.html.AntiSamy
-import org.owasp.validator.html.CleanResults
-import org.owasp.validator.html.Policy
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -48,6 +41,11 @@ class ServiceDefinition {
     protected MNode serviceNode
     protected MNode inParametersNode
     protected MNode outParametersNode
+    Map<String, ParameterInfo> inParameterInfoMap = new LinkedHashMap<>()
+    Map<String, ParameterInfo> outParameterInfoMap = new LinkedHashMap<>()
+    ArrayList<String> inParameterNameList = new ArrayList<>()
+    ArrayList<String> outParameterNameList = new ArrayList<>()
+
     protected String path = null
     protected String verb = null
     protected String noun = null
@@ -59,6 +57,8 @@ class ServiceDefinition {
     protected boolean internalTxForceNew
     protected boolean internalTxUseCache
     protected Integer internalTransactionTimeout
+    protected boolean internalValidate
+    protected boolean internalHasSemaphore
 
     ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
         this.sfi = sfi
@@ -98,14 +98,14 @@ class ServiceDefinition {
         // if noun is a valid entity name set it on parameters with valid field names on it
         EntityDefinition ed = null
         if (sfi.getEcfi().getEntityFacade().isEntityDefined(this.noun)) ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(this.noun)
-        if (serviceNode.hasChild("in-parameters")) for (MNode paramNode in serviceNode.first("in-parameters")?.children) {
+        if (serviceNode.hasChild("in-parameters")) for (MNode paramNode in serviceNode.first("in-parameters").children) {
             if (paramNode.name == "auto-parameters") {
                 mergeAutoParameters(inParameters, paramNode)
             } else if (paramNode.name == "parameter") {
                 mergeParameter(inParameters, paramNode, ed)
             }
         }
-        if (serviceNode.hasChild("out-parameters")) for (MNode paramNode in serviceNode.first("out-parameters")?.children) {
+        if (serviceNode.hasChild("out-parameters")) for (MNode paramNode in serviceNode.first("out-parameters").children) {
             if (paramNode.name == "auto-parameters") {
                 mergeAutoParameters(outParameters, paramNode)
             } else if (paramNode.name == "parameter") {
@@ -154,9 +154,24 @@ class ServiceDefinition {
         } else {
             internalTransactionTimeout = null
         }
+        // validate defaults to true
+        internalValidate = serviceNode.attribute("validate") != "false"
+        String semaphore = serviceNode.attribute("semaphore")
+        internalHasSemaphore = semaphore != null && semaphore.length() > 0 && semaphore != "none"
 
         inParametersNode = serviceNode.first("in-parameters")
         outParametersNode = serviceNode.first("out-parameters")
+
+        if (inParametersNode != null) for (MNode parameter in inParametersNode.children("parameter")) {
+            String parameterName = parameter.attribute('name')
+            inParameterInfoMap.put(parameterName, new ParameterInfo(this, parameter))
+            inParameterNameList.add(parameterName)
+        }
+        if (outParametersNode != null) for (MNode parameter in outParametersNode.children("parameter")) {
+            String parameterName = parameter.attribute('name')
+            outParameterInfoMap.put(parameterName, new ParameterInfo(this, parameter))
+            outParameterNameList.add(parameterName)
+        }
     }
 
     void mergeAutoParameters(MNode parametersNode, MNode autoParameters) {
@@ -257,6 +272,16 @@ class ServiceDefinition {
         if (authzAction == null) authzAction = 'AUTHZA_ALL'
         return authzAction
     }
+    static final Map<String, ArtifactExecutionInfo.AuthzAction> verbAuthzActionEnumMap = [
+            create:ArtifactExecutionInfo.AUTHZA_CREATE, update:ArtifactExecutionInfo.AUTHZA_UPDATE,
+            store :ArtifactExecutionInfo.AUTHZA_UPDATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
+            view:ArtifactExecutionInfo.AUTHZA_VIEW, find:ArtifactExecutionInfo.AUTHZA_VIEW]
+    static ArtifactExecutionInfo.AuthzAction getVerbAuthzActionEnum(String theVerb) {
+        // default to require the "All" authz action, and for special verbs default to something more appropriate
+        ArtifactExecutionInfo.AuthzAction authzAction = verbAuthzActionEnumMap.get(theVerb)
+        if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL
+        return authzAction
+    }
 
     String getLocation() {
         // TODO: see if the location is an alias from the conf -> service-facade
@@ -267,41 +292,31 @@ class ServiceDefinition {
     XmlAction getXmlAction() { return xmlAction }
 
     MNode getInParameter(String name) { return inParametersNode != null ? inParametersNode.children("parameter").find({ it.attribute("name") == name }) : null }
-    Set<String> getInParameterNames() {
-        Set<String> inNames = new LinkedHashSet()
-        if (inParametersNode == null) return inNames
-        for (MNode parameter in inParametersNode.children("parameter")) inNames.add(parameter.attribute("name"))
-        return inNames
-    }
+    ArrayList<String> getInParameterNames() { return inParameterNameList }
 
     MNode getOutParameter(String name) { return outParametersNode != null ? outParametersNode.children("parameter").find({ it.attribute("name" )== name }) : null }
-    Set<String> getOutParameterNames() {
-        Set<String> outNames = new LinkedHashSet()
-        if (outParametersNode == null) return outNames
-        for (MNode parameter in outParametersNode.children("parameter")) outNames.add(parameter.attribute("name"))
-        return outNames
-    }
+    ArrayList<String> getOutParameterNames() { return outParameterNameList }
 
     void convertValidateCleanParameters(Map<String, Object> parameters, ExecutionContextImpl eci) {
+        // logger.warn("BEFORE ${serviceName} convertValidateCleanParameters: ${parameters.toString()}")
+
         // even if validate is false still apply defaults, convert defined params, etc
-        checkParameterMap("", parameters, parameters, inParametersNode, serviceNode.attribute('validate') != "false", eci)
+        checkParameterMap("", parameters, parameters, inParameterInfoMap, eci)
+
+        // logger.warn("AFTER ${serviceName} convertValidateCleanParameters: ${parameters.toString()}")
     }
 
-    protected void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map parameters,
-                                     MNode parametersParentNode, boolean validate, ExecutionContextImpl eci) {
-        Map<String, MNode> parameterNodeMap = new HashMap<String, MNode>()
-        if (parametersParentNode != null) for (MNode parameter in parametersParentNode.children("parameter")) {
-            String name = (String) parameter.attribute('name')
-            parameterNodeMap.put(name, parameter)
-        }
-
-        // if service is to be validated, go through service in-parameters definition and only get valid parameters
-        // go through a set that is both the defined in-parameters and the keySet of passed in parameters
-        Set<String> iterateSet = new HashSet(parameters.keySet())
-        iterateSet.addAll(parameterNodeMap.keySet())
-        for (String parameterName in iterateSet) {
-            if (!parameterNodeMap.containsKey(parameterName)) {
-                if (validate) {
+    protected void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map<String, Object> parameters,
+                                     Map<String, ParameterInfo> parameterInfoMap, ExecutionContextImpl eci) {
+        Set<String> defaultCheckSet = new HashSet<>(parameterInfoMap.keySet())
+        // have to iterate over a copy of parameters.keySet() as we'll be modifying it
+        ArrayList<String> parameterNameList = new ArrayList<>(parameters.keySet())
+        int parameterNameListSize = parameterNameList.size()
+        for (int i = 0; i < parameterNameListSize; i++) {
+            String parameterName = (String) parameterNameList.get(i)
+            ParameterInfo parameterInfo = (ParameterInfo) parameterInfoMap.get(parameterName)
+            if (parameterInfo == null) {
+                if (internalValidate) {
                     parameters.remove(parameterName)
                     if (logger.isTraceEnabled() && parameterName != "ec")
                         logger.trace("Parameter [${namePrefix}${parameterName}] was passed to service [${getServiceName()}] but is not defined as an in parameter, removing from parameters.")
@@ -310,312 +325,103 @@ class ServiceDefinition {
                 continue
             }
 
-            MNode parameterNode = parameterNodeMap.get(parameterName)
             Object parameterValue = parameters.get(parameterName)
-            String type = parameterNode.attribute('type') ?: "String"
+            String type = parameterInfo.type
 
-            // check type
-            Object converted = checkConvertType(parameterNode, namePrefix, parameterName, parameterValue, rootParameters, eci)
-            if (converted != null) {
-                parameterValue = converted
-                // put the final parameterValue back into the parameters Map
-                parameters.put(parameterName, parameterValue)
-            } else if (!StupidJavaUtilities.isEmpty(parameterValue)) {
-                // no type conversion? error time...
-                if (validate) eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field was type [${parameterValue?.class?.name}], expecting type [${type}]", null)
-                continue
-            }
-            if (converted == null && parameterValue != null && StupidJavaUtilities.isEmpty(parameterValue) && !StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
-                // we have an empty value of a different type, just set it to null
-                parameterValue = null
-                // put the final parameterValue back into the parameters Map
-                parameters.put(parameterName, parameterValue)
-            }
-
-            if (validate && parameterValue != null && parameterNode.hasChild("subtype")) checkSubtype(parameterName, parameterNode, parameterValue, eci)
-            if (validate && parameterValue != null) {
-                parameterValue = validateParameterHtml(parameterNode, namePrefix, parameterName, parameterValue, eci)
-                // put the final parameterValue back into the parameters Map
-                parameters.put(parameterName, parameterValue)
-            }
-
-            // do this after the convert so defaults are in place
-            // check if required and empty - use groovy non-empty rules for String only
-            if (StupidJavaUtilities.isEmpty(parameterValue)) {
-                if (validate && parameterNode.attribute('required') == "true") {
-                    eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
-                }
-                // NOTE: should we change empty values to null? for now, no
-                // if it isn't there continue on since since default-value, etc are handled below
-            }
-
-            // do this after the convert so we can deal with objects when needed
-            if (validate) validateParameter(parameterNode, parameterName, parameterValue, eci)
-
-            // now check parameter sub-elements
-            if (parameterValue instanceof Map) {
-                // any parameter sub-nodes?
-                if (parameterNode.hasChild("parameter"))
-                    checkParameterMap("${namePrefix}${parameterName}.", rootParameters, (Map) parameterValue, parameterNode, validate, eci)
-            } else if (parameterValue instanceof MNode) {
-                if (parameterNode.hasChild("parameter"))
-                    checkParameterNode("${namePrefix}${parameterName}.", rootParameters, (MNode) parameterValue, parameterNode, validate, eci)
-            }
-        }
-    }
-
-    protected void checkParameterNode(String namePrefix, Map<String, Object> rootParameters, MNode nodeValue,
-                                      MNode parametersParentNode, boolean validate, ExecutionContextImpl eci) {
-        // NOTE: don't worry about extra attributes or sub-Nodes... let them through
-
-        // go through attributes of Node, validate each that corresponds to a parameter def
-        for (Map.Entry<String, String> attrEntry in nodeValue.attributes.entrySet()) {
-            String parameterName = attrEntry.getKey()
-            MNode parameterNode = parametersParentNode.children("parameter").find({ it.attribute("name") == parameterName })
-            if (parameterNode == null) {
-                // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
-                continue
-            }
-
-            Object parameterValue = nodeValue.attribute(parameterName)
-
-            // NOTE: required check is done later, now just validating the parameters seen
-            // NOTE: no type conversion for Node attributes, they are always String
-
-            // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
-            Object converted = checkConvertType(parameterNode, namePrefix, parameterName, parameterValue, rootParameters, eci)
-            if (validate && converted != null) validateParameterHtml(parameterNode, namePrefix, parameterName, converted, eci)
-            if (validate) validateParameter(parameterNode, parameterName, converted, eci)
-
-
-            // NOTE: no sub-nodes here, it's an attribute, so ignore child parameter elements
-        }
-
-        // go through sub-Nodes and if corresponds to
-        // - Node parameter, checkParameterNode
-        // - otherwise, check type/etc
-        // TODO - parameter with type Map, convert to Map? ...checkParameterMap; converting to Map would kill multiple values, or they could be put in a List, though that pattern is a bit annoying...
-        for (MNode childNode in nodeValue.children) {
-            String parameterName = childNode.name
-            MNode parameterNode = parametersParentNode.children("parameter").find({ it.attribute("name") == parameterName })
-            if (parameterNode == null) {
-                // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
-                continue
-            }
-
-            if (parameterNode.attribute("type") == "Node" || parameterNode.attribute("type") == "groovy.util.Node") {
-                // recurse back into this method
-                checkParameterNode("${namePrefix}${parameterName}.", rootParameters, childNode, parameterNode, validate, eci)
-            } else {
-                Object parameterValue = StupidUtilities.nodeText(childNode)
-
-                // NOTE: required check is done later, now just validating the parameters seen
-                // NOTE: no type conversion for Node attributes, they are always String
-
-                if (validate) validateParameterHtml(parameterNode, namePrefix, parameterName, parameterValue, eci)
-
-                // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
-                Object converted = checkConvertType(parameterNode, namePrefix, parameterName, parameterValue, rootParameters, eci)
-                if (validate) validateParameter(parameterNode, parameterName, converted, eci)
-            }
-        }
-
-        // if there is text() under this node, use the _VALUE parameter node to validate
-        MNode textValueNode = parametersParentNode.children("parameter").find({ it.attribute("name") == "_VALUE" })
-        if (textValueNode != null) {
-            String parameterValue = nodeValue.text
-            if (!parameterValue) {
-                if (validate && textValueNode.attribute("required") == "true") {
-                    eci.message.addError("${namePrefix}_VALUE cannot be empty (service ${getServiceName()})")
-                }
-            } else {
-                if (validate) validateParameterHtml(textValueNode, namePrefix, "_VALUE", parameterValue, eci)
-
-                // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
-                Object converted = checkConvertType(textValueNode, namePrefix, "_VALUE", parameterValue, rootParameters, eci)
-                if (validate) validateParameter(textValueNode, "_VALUE", converted, eci)
-            }
-        }
-
-        // check for missing parameters (no attribute or sub-Node) that are required
-        for (MNode parameterNode in parametersParentNode.children("parameter")) {
-            // skip _VALUE, checked above
-            if (parameterNode.attribute("name") == "_VALUE") continue
-
-            if (parameterNode.attribute("required") == "true") {
-                String parameterName = parameterNode.attribute("name")
-                boolean valueFound = false
-                if (nodeValue.attribute(parameterName)) {
-                    valueFound = true
+            // set the default if applicable
+            boolean parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
+            if (parameterIsEmpty) {
+                Object defaultValue = getParameterDefault(parameterInfo, rootParameters, eci)
+                if (defaultValue != null) {
+                    parameterValue = defaultValue
+                    parameters.put(parameterName, parameterValue)
+                    // update parameterIsEmpty now that a default is set
+                    parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
                 } else {
-                    for (MNode childNode in nodeValue.children) {
-                        if (childNode.text) {
-                            valueFound = true
-                            break
-                        }
+                    // if empty but not null and types don't match set to null instead of trying to convert
+                    if (parameterValue != null && !parameterInfo.typeMatches(parameterValue)) {
+                        parameterValue = null
+                        // put the final parameterValue back into the parameters Map
+                        parameters.put(parameterName, parameterValue)
                     }
                 }
-
-                if (validate && !valueFound) eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
+                // if required and still empty (nothing from default), complain
+                if (internalValidate && parameterInfo.required && parameterIsEmpty)
+                    eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), eci.l10n.localize("Field cannot be empty"), null)
             }
-        }
-    }
 
-    protected Object checkConvertType(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
-                                      Map<String, Object> rootParameters, ExecutionContextImpl eci) {
-        // set the default if applicable
-        boolean parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
-        if (parameterIsEmpty) {
-            String defaultStr = parameterNode.attribute('default')
-            if (defaultStr != null && defaultStr.length() > 0) {
-                eci.context.push(rootParameters)
-                parameterValue = eci.getResource().expression(defaultStr, "${this.location}_${parameterName}_default")
-                // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default [${parameterNode.'@default'}] and context: ${eci.context}")
-                eci.context.pop()
-            }
-            // set the default-value if applicable
-            String defaultValueStr = parameterNode.attribute('default-value')
-            if (defaultValueStr != null && defaultValueStr.length() > 0) {
-                eci.context.push(rootParameters)
-                parameterValue = eci.getResource().expand(defaultValueStr, "${this.location}_${parameterName}_default_value")
-                // logger.warn("For parameter ${namePrefix}${parameterName} new value ${parameterValue} from default-value [${parameterNode.'@default-value'}] and context: ${eci.context}")
-                eci.context.pop()
-            }
-        }
-
-        // if null value, don't try to convert
-        if (parameterValue == null) return null
-
-        String type = (String) parameterNode.attribute('type') ?: "String"
-        if (!StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
-            // do type conversion if possible
-            String format = (String) parameterNode.attribute('format')
-            Object converted = null
-            boolean isString = parameterValue instanceof CharSequence
-            boolean isEmptyString = isString && ((CharSequence) parameterValue).length() == 0
-            if (isString && !isEmptyString) {
-                // try some String to XYZ specific conversions for parsing with format, locale, etc
-                switch (type) {
-                    case "Integer":
-                    case "java.lang.Integer":
-                    case "Long":
-                    case "java.lang.Long":
-                    case "Float":
-                    case "java.lang.Float":
-                    case "Double":
-                    case "java.lang.Double":
-                    case "BigDecimal":
-                    case "java.math.BigDecimal":
-                    case "BigInteger":
-                    case "java.math.BigInteger":
-                        BigDecimal bdVal = eci.l10n.parseNumber((String) parameterValue, format)
-                        if (bdVal == null) {
-                            eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Value entered (${parameterValue}) could not be converted to a ${type}" + (format ? " using format [${format}]": ""), null)
-                        } else {
-                            converted = StupidUtilities.basicConvert(bdVal, type)
-                        }
-                        break
-                    case "Time":
-                    case "java.sql.Time":
-                        converted = eci.l10n.parseTime((String) parameterValue, format)
-                        if (converted == null) {
-                            eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Value entered (${parameterValue}) could not be converted to a ${type}" + (format ? " using format [${format}]": ""), null)
-                        }
-                        break
-                    case "Date":
-                    case "java.sql.Date":
-                        converted = eci.l10n.parseDate((String) parameterValue, format)
-                        if (converted == null) {
-                            eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Value entered (${parameterValue}) could not be converted to a ${type}" + (format ? " using format [${format}]": ""), null)
-                        }
-                        break
-                    case "Timestamp":
-                    case "java.sql.Timestamp":
-                        converted = eci.l10n.parseTimestamp((String) parameterValue, format)
-                        if ((Object) converted == null) {
-                            eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Value entered (${parameterValue}) could not be converted to a ${type}" + (format ? " using format [${format}]": ""), null)
-                        }
-                        break
-                    case "Collection":
-                    case "List":
-                    case "java.util.Collection":
-                    case "java.util.List":
-                        String valueStr = (String) parameterValue
-                        // strip off square braces
-                        if (valueStr.charAt(0) == ((char) '[') && valueStr.charAt(valueStr.length()-1) == ((char) ']'))
-                            valueStr = valueStr.substring(1, valueStr.length()-1)
-                        // split by comma or just create a list with the single string
-                        if (valueStr.contains(",")) converted = Arrays.asList(valueStr.split(","))
-                        else converted = [valueStr]
-                        break
-                    case "Set":
-                    case "java.util.Set":
-                        String valueStr = (String) parameterValue
-                        // strip off square braces
-                        if (valueStr.charAt(0) == ((char) '[') && valueStr.charAt(valueStr.length()-1) == ((char) ']'))
-                            valueStr = valueStr.substring(1, valueStr.length()-1)
-                        // split by comma or just create a list with the single string
-                        if (valueStr.contains(",")) converted = new HashSet(valueStr.split(",").collect())
-                        else converted = new HashSet([valueStr])
-                        break
+            if (!parameterIsEmpty) {
+                boolean typeMatches = parameterInfo.typeMatches(parameterValue)
+                if (!typeMatches) {
+                    // convert type, at this point parameterValue is not empty and doesn't match parameter type
+                    Object convertedValue = ServiceJavaUtil.convertType(parameterInfo, namePrefix, parameterName, parameterValue, eci)
+                    parameterValue = convertedValue
+                    // put the final parameterValue back into the parameters Map
+                    parameters.put(parameterName, parameterValue)
                 }
-            }
 
-            // fallback to a really simple type conversion
-            if (converted == null && !isEmptyString) converted = StupidUtilities.basicConvert(parameterValue, type)
-
-            return converted
-        }
-        return parameterValue
-    }
-
-    protected Object validateParameterHtml(MNode parameterNode, String namePrefix, String parameterName, Object parameterValue,
-                                         ExecutionContextImpl eci) {
-        // check for none/safe/any HTML
-        boolean isString = parameterValue instanceof CharSequence
-        String allowHtml = parameterNode.attribute('allow-html')
-        if ((isString || parameterValue instanceof List) && allowHtml != "any") {
-            boolean allowSafe = (allowHtml == "safe")
-
-            if (isString) {
-                return canonicalizeAndCheckHtml(parameterName, parameterValue.toString(), allowSafe, eci)
-            } else {
-                List lst = parameterValue as List
-                ArrayList lstClone = new ArrayList(lst)
-                int lstSize = lstClone.size()
-                for (int i = 0; i < lstSize; i++) {
-                    Object obj = lstClone.get(i)
-                    if (obj instanceof CharSequence) {
-                        lstClone.set(i, canonicalizeAndCheckHtml(parameterName, obj.toString(), allowSafe, eci))
-                    } else {
-                        lstClone.set(i, obj)
+                if (internalValidate) {
+                    Object htmlValidated = ServiceJavaUtil.validateParameterHtml(parameterInfo, this, namePrefix, parameterName, parameterValue, eci)
+                    // put the final parameterValue back into the parameters Map
+                    if (htmlValidated != null) {
+                        parameterValue = htmlValidated
+                        parameters.put(parameterName, parameterValue)
                     }
+
+                    // check against validation sub-elements (do this after the convert so we can deal with objects when needed)
+                    if (parameterInfo.validationNodeList.size() > 0) for (MNode valNode in parameterInfo.validationNodeList) {
+                        // NOTE don't break on fail, we want to get a list of all failures for the user to see
+                        try {
+                            // validateParameterSingle calls eci.message.addValidationError as needed so nothing else to do here
+                            validateParameterSingle(valNode, parameterName, parameterValue, eci)
+                        } catch (Throwable t) {
+                            logger.error("Error in validation", t)
+                            eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}','',[parameterValue:parameterValue,valNode:valNode, t:t]), null)
+                        }
+                    }
+
+                    // TODO: consider deprecating the subtype feature, very old and nested parameters much better
+                    if (parameterInfo.subtypeNodeList != null)
+                        checkSubtype(parameterName, parameterInfo.parameterNode, parameterValue, eci)
                 }
-                return lstClone
+
+                // now check parameter sub-elements
+                if (parameterInfo.childParameterInfoMap.size() > 0) {
+                    if (parameterValue instanceof Map) {
+                        // any parameter sub-nodes?
+                        checkParameterMap(namePrefix + parameterName + ".", rootParameters, (Map) parameterValue, parameterInfo.childParameterInfoMap, eci)
+                    }
+
+                    // this is old code not used and not maintained, but may be useful at some point (note that checkParameterNode also commented below):
+                    // } else if (parameterValue instanceof MNode) {
+                    //     checkParameterNode("${namePrefix}${parameterName}.", rootParameters, (MNode) parameterValue, parameterInfo.childParameterInfoMap, validate, eci)
+                }
             }
-        } else {
-            return parameterValue
+
+            defaultCheckSet.remove(parameterName)
+        }
+        // now fill in all parameters with defaults (iterate through all parameters not passed)
+        for (String parameterName in defaultCheckSet) {
+            ParameterInfo parameterInfo = parameterInfoMap.get(parameterName)
+            Object defaultValue = getParameterDefault(parameterInfo, rootParameters, eci)
+            if (defaultValue != null) {
+                if (!StupidJavaUtilities.isInstanceOf(defaultValue, parameterInfo.type))
+                    defaultValue = ServiceJavaUtil.convertType(parameterInfo, namePrefix, parameterName, defaultValue, eci)
+                parameters.put(parameterName, defaultValue)
+            }
         }
     }
 
-    protected boolean validateParameter(MNode vpNode, String parameterName, Object pv, ExecutionContextImpl eci) {
-        // run through validations under parameter node
-
-        // no validation done if value is empty, that should be checked with the required attribute only
-        if (StupidJavaUtilities.isEmpty(pv)) return true
-
-        boolean allPass = true
-        for (MNode child in vpNode.children) {
-            if (child.name == "description" || child.name == "subtype") continue
-            // NOTE don't break on fail, we want to get a list of all failures for the user to see
-            try {
-                if (!validateParameterSingle(child, parameterName, pv, eci)) allPass = false
-            } catch (Throwable t) {
-                logger.error("Error in validation", t)
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) failed ${child.name} validation: ${t.message}", null)
-            }
+    protected static Object getParameterDefault(ParameterInfo parameterInfo, Map<String, Object> rootParameters, ExecutionContextImpl eci) {
+        String defaultStr = parameterInfo.defaultStr
+        if (defaultStr != null && defaultStr.length() > 0) {
+            return eci.getResource().expression(defaultStr, null, rootParameters)
         }
-        return allPass
+        String defaultValueStr = parameterInfo.defaultValue
+        if (defaultValueStr != null && defaultValueStr.length() > 0) {
+            return eci.getResource().expand(defaultValueStr, null, rootParameters, false)
+        }
+        return null
     }
 
     protected boolean validateParameterSingle(MNode valNode, String parameterName, Object pv, ExecutionContextImpl eci) {
@@ -635,14 +441,14 @@ class ServiceDefinition {
             return !allPass
         case "matches":
             if (!(pv instanceof CharSequence)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is not a string, cannot do matches validation.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is not a string, cannot do matches validation.','',[pv:pv]), null)
                 return false
             }
             String pvString = pv.toString()
             String regexp = (String) valNode.attribute('regexp')
             if (regexp && !pvString.matches(regexp)) {
                 // a message attribute should always be there, but just in case we'll have a default
-                eci.message.addValidationError(null, parameterName, getServiceName(), (String) (valNode.attribute('message') ?: "Value entered (${pv}) did not match expression: ${regexp}"), null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand((valNode.attribute('message') ?: 'Value entered (${pv}) did not match expression: ${regexp}'),'',[pv:pv,regexp:regexp]), null)
                 return false
             }
             return true
@@ -654,12 +460,12 @@ class ServiceDefinition {
                 BigDecimal min = new BigDecimal(minStr)
                 if (valNode.attribute('min-include-equals') == "false") {
                     if (bdVal <= min) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is less than or equal to ${min} must be greater than.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is less than or equal to ${min} must be greater than.','',[pv:pv,min:min]), null)
                         return false
                     }
                 } else {
                     if (bdVal < min) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is less than ${min} and must be greater than or equal to.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is less than ${min} and must be greater than or equal to.','',[pv:pv,min:min]), null)
                         return false
                     }
                 }
@@ -669,12 +475,12 @@ class ServiceDefinition {
                 BigDecimal max = new BigDecimal(maxStr)
                 if (valNode.attribute('max-include-equals') == "true") {
                     if (bdVal > max) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is greater than ${max} and must be less than or equal to.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is greater than ${max} and must be less than or equal to.','',[pv:pv,max:max]), null)
                         return false
                     }
                 } else {
                     if (bdVal >= max) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is greater than or equal to ${max} and must be less than.", null)
+                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is greater than or equal to ${max} and must be less than.','',[pv:pv,max:max]), null)
                         return false
                     }
                 }
@@ -685,7 +491,7 @@ class ServiceDefinition {
                 new BigInteger(pv as String)
             } catch (NumberFormatException e) {
                 if (logger.isTraceEnabled()) logger.trace("Adding error message for NumberFormatException for BigInteger parse: ${e.toString()}")
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value [${pv}] is not a whole (integer) number.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${pv}] is not a whole (integer) number.','',[pv:pv]), null)
                 return false
             }
             return true
@@ -694,7 +500,7 @@ class ServiceDefinition {
                 new BigDecimal(pv as String)
             } catch (NumberFormatException e) {
                 if (logger.isTraceEnabled()) logger.trace("Adding error message for NumberFormatException for BigDecimal parse: ${e.toString()}")
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value [${pv}] is not a decimal number.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${pv}] is not a decimal number.','',[pv:pv]), null)
                 return false
             }
             return true
@@ -704,7 +510,7 @@ class ServiceDefinition {
             if (minStr) {
                 int min = minStr as int
                 if (str.length() < min) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}), length ${str.length()}, is shorter than ${minStr} characters.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}), length ${str.length()}, is shorter than ${minStr} characters.','',[pv:pv,str:str,minStr:minStr]), null)
                     return false
                 }
             }
@@ -712,7 +518,7 @@ class ServiceDefinition {
             if (maxStr) {
                 int max = maxStr as int
                 if (str.length() > max) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}), length ${str.length()}, is longer than ${maxStr} characters.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}), length ${str.length()}, is longer than ${maxStr} characters.','',[pv:pv,str:str,maxStr:maxStr]), null)
                     return false
                 }
             }
@@ -720,14 +526,14 @@ class ServiceDefinition {
         case "text-email":
             String str = pv as String
             if (!emailValidator.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) is not a valid email address.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid email address.','',[str:str]), null)
                 return false
             }
             return true
         case "text-url":
             String str = pv as String
             if (!urlValidator.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) is not a valid URL.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid URL.','',[str:str]), null)
                 return false
             }
             return true
@@ -735,7 +541,7 @@ class ServiceDefinition {
             String str = pv as String
             for (char c in str.getChars()) {
                 if (!Character.isLetter(c)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) must have only letters.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) must have only letters.','',[str:str]), null)
                     return false
                 }
             }
@@ -744,7 +550,7 @@ class ServiceDefinition {
             String str = pv as String
             for (char c in str.getChars()) {
                 if (!Character.isDigit(c)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value [${str}] must have only digits.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${str}] must have only digits.','',[str:str]), null)
                     return false
                 }
             }
@@ -771,7 +577,7 @@ class ServiceDefinition {
                     compareCal = eci.l10n.parseDateTime(after, format)
                 }
                 if (cal && !cal.after(compareCal)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is before ${after}.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is before ${after}.','',[pv:pv,after:after]), null)
                     return false
                 }
             }
@@ -786,7 +592,7 @@ class ServiceDefinition {
                     compareCal = eci.l10n.parseDateTime(before, format)
                 }
                 if (cal && !cal.before(compareCal)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${pv}) is after ${before}.", null)
+                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is after ${before}.','',[pv:pv]), null)
                     return false
                 }
             }
@@ -803,51 +609,13 @@ class ServiceDefinition {
             CreditCardValidator ccv = new CreditCardValidator(creditCardTypes)
             String str = pv as String
             if (!ccv.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Value entered (${str}) is not a valid credit card number.", null)
+                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid credit card number.','',[str:str]), null)
                 return false
             }
             return true
         }
         // shouldn't get here, but just in case
         return true
-    }
-
-    protected String canonicalizeAndCheckHtml(String parameterName, String parameterValue, boolean allowSafe,
-                                              ExecutionContextImpl eci) {
-        String canValue
-        try {
-            canValue = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true)
-        } catch (IntrusionException e) {
-            eci.message.addValidationError(null, parameterName, getServiceName(), "Found character escaping (mixed or double) that is not allowed or other format consistency error: " + e.toString(), null)
-            return parameterValue
-        }
-
-        if (allowSafe) {
-            /* Having trouble with ESAPI loading the antisamy-esapi.xml file, so using AntiSamy directly:
-            ValidationErrorList vel = new ValidationErrorList()
-            value = StupidWebUtilities.defaultWebValidator.getValidSafeHTML(parameterName, value, Integer.MAX_VALUE, true, vel)
-            for (ValidationException ve in vel.errors()) eci.message.addValidationError(null, parameterName, getServiceName(), ve.message, null)
-            */
-            AntiSamy antiSamy = new AntiSamy()
-            CleanResults cr = antiSamy.scan(canValue, StupidWebUtilities.getAntiSamyPolicy())
-            List<String> crErrors = cr.getErrorMessages()
-            // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
-            // use message instead of error, accept cleaned up HTML
-            if (crErrors != null && crErrors.size() > 0) {
-                for (String crError in crErrors) eci.message.addMessage(crError)
-                logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}")
-                // the cleaned HTML ends up with line-endings stripped, very ugly, so put new lines between all tags
-                return cr.getCleanHTML().replaceAll(">\\s+<", ">\n<")
-            } else {
-                return parameterValue
-            }
-        } else {
-            // check for "<", ">"; this will protect against HTML/JavaScript injection
-            if (canValue.contains("<") || canValue.contains(">")) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), "Less-than (<) and greater-than (>) symbols are not allowed.", null)
-            }
-            return parameterValue
-        }
     }
 
     protected void checkSubtype(String parameterName, MNode typeParentNode, Object value, ExecutionContextImpl eci) {
@@ -858,7 +626,7 @@ class ServiceDefinition {
                     String subType = typeParentNode.first("subtype").attribute("type")
                     Object subValue = ((Collection) value).iterator().next()
                     if (!StupidJavaUtilities.isInstanceOf(subValue, subType)) {
-                        eci.message.addError("Parameter [${parameterName}] passed to service [${getServiceName()}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]")
+                        eci.message.addError(eci.resource.expand('Parameter [${parameterName}] passed to service [${serviceName}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]','',[parameterName:parameterName,serviceName:getServiceName(),subValue:subValue,subType:subType]))
                     } else {
                         // try the next level down
                         checkSubtype(parameterName, typeParentNode.first("subtype"), subValue, eci)
@@ -875,7 +643,7 @@ class ServiceDefinition {
                     Object subValue = mapVal.get(subName)
                     if (!subValue) continue
                     if (!StupidJavaUtilities.isInstanceOf(subValue, subType)) {
-                        eci.message.addError("Parameter [${parameterName}] passed to service [${getServiceName()}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]")
+                        eci.message.addError(eci.resource.expand('Parameter [${parameterName}] passed to service [${serviceName}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]','',[parameterName:parameterName,serviceName:getServiceName(),subValue:subValue,subType:subType]))
                     } else {
                         // try the next level down
                         checkSubtype(parameterName, stNode, subValue, eci)
@@ -965,6 +733,105 @@ class ServiceDefinition {
             return ((cc.length() == 16) &&
                 (first6digs.equals("417500") || first4digs.equals("4917") || first4digs.equals("4913") ||
                     first4digs.equals("4508") || first4digs.equals("4844") || first4digs.equals("4027")))
+        }
+    }
+    */
+
+    /* old code that hasn't been maintained and isn't being used, but might be useful at some point:
+    protected void checkParameterNode(String namePrefix, Map<String, Object> rootParameters, MNode nodeValue,
+                                      Map<String, ParameterInfo> parameterInfoMap, boolean validate, ExecutionContextImpl eci) {
+        // NOTE: don't worry about extra attributes or sub-Nodes... let them through
+
+        // go through attributes of Node, validate each that corresponds to a parameter def
+        for (Map.Entry<String, String> attrEntry in nodeValue.attributes.entrySet()) {
+            String parameterName = attrEntry.getKey()
+            ParameterInfo parameterInfo = parameterInfoMap.get(parameterName)
+            if (parameterInfo == null) {
+                // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
+                continue
+            }
+
+            Object parameterValue = nodeValue.attribute(parameterName)
+
+            // NOTE: required check is done later, now just validating the parameters seen
+            // NOTE: no type conversion for Node attributes, they are always String
+
+            // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
+            Object converted = ServiceJavaUtil.checkConvertType(parameterInfo, namePrefix, parameterName, parameterValue, rootParameters, eci)
+            if (validate && converted != null) validateParameterHtml(parameterInfo, namePrefix, parameterName, converted, eci)
+            if (validate) validateParameter(parameterInfo, parameterName, converted, eci)
+
+
+            // NOTE: no sub-nodes here, it's an attribute, so ignore child parameter elements
+        }
+
+        // go through sub-Nodes and if corresponds to
+        // - Node parameter, checkParameterNode
+        // - otherwise, check type/etc
+        // TODO - parameter with type Map, convert to Map? ...checkParameterMap; converting to Map would kill multiple values, or they could be put in a List, though that pattern is a bit annoying...
+        for (MNode childNode in nodeValue.children) {
+            String parameterName = childNode.name
+            ParameterInfo parameterInfo = parameterInfoMap.get(parameterName)
+            if (parameterInfo == null) {
+                // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
+                continue
+            }
+
+            if (parameterInfo.type == "MNode" || parameterInfo.type == "org.moqui.util.MNode") {
+                // recurse back into this method
+                checkParameterNode("${namePrefix}${parameterName}.", rootParameters, childNode, parameterInfo.childParameterInfoMap, validate, eci)
+            } else {
+                Object parameterValue = StupidUtilities.nodeText(childNode)
+
+                // NOTE: required check is done later, now just validating the parameters seen
+                // NOTE: no type conversion for Node attributes, they are always String
+
+                if (validate) validateParameterHtml(parameterInfo, namePrefix, parameterName, parameterValue, eci)
+
+                // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
+                Object converted = ServiceJavaUtil.checkConvertType(parameterInfo, namePrefix, parameterName, parameterValue, rootParameters, eci)
+                if (validate) validateParameter(parameterInfo, parameterName, converted, eci)
+            }
+        }
+
+        // if there is text() under this node, use the _VALUE parameter node to validate
+        ParameterInfo textValueInfo = parameterInfoMap.get("_VALUE")
+        if (textValueInfo != null) {
+            String parameterValue = nodeValue.text
+            if (!parameterValue) {
+                if (validate && textValueInfo.required) {
+                    eci.message.addError("${namePrefix}_VALUE cannot be empty (service ${getServiceName()})")
+                }
+            } else {
+                if (validate) validateParameterHtml(textValueInfo, namePrefix, "_VALUE", parameterValue, eci)
+
+                // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
+                Object converted = ServiceJavaUtil.checkConvertType(textValueInfo, namePrefix, "_VALUE", parameterValue, rootParameters, eci)
+                if (validate) validateParameter(textValueInfo, "_VALUE", converted, eci)
+            }
+        }
+
+        // check for missing parameters (no attribute or sub-Node) that are required
+        for (ParameterInfo parameterInfo in parameterInfoMap.values()) {
+            // skip _VALUE, checked above
+            if (parameterInfo.name == "_VALUE") continue
+
+            if (parameterInfo.required) {
+                String parameterName = parameterInfo.name
+                boolean valueFound = false
+                if (nodeValue.attribute(parameterName)) {
+                    valueFound = true
+                } else {
+                    for (MNode childNode in nodeValue.children) {
+                        if (childNode.text) {
+                            valueFound = true
+                            break
+                        }
+                    }
+                }
+
+                if (validate && !valueFound) eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
+            }
         }
     }
     */

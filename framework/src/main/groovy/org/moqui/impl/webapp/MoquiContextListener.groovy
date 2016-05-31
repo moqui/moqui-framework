@@ -14,6 +14,7 @@
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextImpl
 
 import javax.servlet.ServletContext
 import javax.servlet.ServletContextEvent
@@ -30,6 +31,7 @@ import org.slf4j.LoggerFactory
 
 @CompileStatic
 class MoquiContextListener implements ServletContextListener {
+    protected final static Logger logger = LoggerFactory.getLogger(MoquiContextListener.class)
 
     protected static String getId(ServletContext sc) {
         String contextPath = sc.getContextPath()
@@ -39,6 +41,8 @@ class MoquiContextListener implements ServletContextListener {
     protected ExecutionContextFactoryImpl ecfi = null
 
     void contextInitialized(ServletContextEvent servletContextEvent) {
+        long initStartTime = System.currentTimeMillis()
+
         try {
             ServletContext sc = servletContextEvent.servletContext
             String webappId = getId(sc)
@@ -51,8 +55,7 @@ class MoquiContextListener implements ServletContextListener {
 
             ecfi = new ExecutionContextFactoryImpl()
 
-            Logger logger = LoggerFactory.getLogger(MoquiContextListener.class)
-            logger.info("Loading Moqui Webapp at [${webappId}], moqui webapp name [${moquiWebappName}], context name [${sc.getServletContextName()}], located at [${webappRealPath}]")
+            logger.info("Loading Webapp at ${webappId}, moqui name ${moquiWebappName}, context name ${sc.getServletContextName()}\nWebapp located at: ${webappRealPath}")
 
             // check for an empty DB
             if (ecfi.checkEmptyDb()) {
@@ -72,13 +75,14 @@ class MoquiContextListener implements ServletContextListener {
             // run after-startup actions
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
             if (wi.afterStartupActions) {
-                ExecutionContext ec = ecfi.getExecutionContext()
-                wi.afterStartupActions.run(ec)
-                ec.destroy()
+                ExecutionContextImpl eci = ecfi.getEci()
+                wi.afterStartupActions.run(eci)
+                eci.destroy()
             }
+
+            logger.info("Moqui Framework initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
         } catch (Throwable t) {
-            System.out.println("Error initializing webapp context: ${t.toString()}")
-            t.printStackTrace()
+            logger.error("Error initializing webapp context: ${t.toString()}", t)
             throw t
         }
     }
@@ -88,15 +92,14 @@ class MoquiContextListener implements ServletContextListener {
         String webappId = getId(sc)
         String moquiWebappName = sc.getInitParameter("moqui-name")
 
-        Logger logger = LoggerFactory.getLogger(MoquiContextListener.class)
         logger.info("Context Destroyed for Moqui webapp [${webappId}]")
         if (ecfi != null) {
             // run before-shutdown actions
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
             if (wi.beforeShutdownActions) {
-                ExecutionContext ec = ecfi.getExecutionContext()
-                wi.beforeShutdownActions.run(ec)
-                ec.destroy()
+                ExecutionContextImpl eci = ecfi.getEci()
+                wi.beforeShutdownActions.run(eci)
+                eci.destroy()
             }
 
             ecfi.destroy()

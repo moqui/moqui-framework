@@ -16,7 +16,7 @@ package org.moqui.impl.screen
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.net.URLCodec
 import org.moqui.BaseException
-import org.moqui.context.Cache
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
 import org.moqui.entity.EntityCondition
@@ -36,6 +36,8 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import javax.cache.Cache
 
 @CompileStatic
 class ScreenUrlInfo {
@@ -98,7 +100,7 @@ class ScreenUrlInfo {
 
     /** Stub mode for ScreenUrlInfo, represent a plain URL and not a screen URL */
     static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, String url) {
-        Cache screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(url)
         if (cached != null) return cached
 
@@ -109,7 +111,7 @@ class ScreenUrlInfo {
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
                                           ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
-        Cache screenUrlCache = sfi.screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromScreenDef, fpnl, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
         if (cached != null) return cached
@@ -127,7 +129,7 @@ class ScreenUrlInfo {
         if (fromSd == null) fromSd = sri.getActiveScreenDef()
         if (fromPathList == null) fromPathList = sri.getActiveScreenPath()
 
-        Cache screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
         if (cached != null) return cached
@@ -226,7 +228,8 @@ class ScreenUrlInfo {
         int screenPathDefListSize = screenPathDefList.size()
         for (int i = 0; i < screenPathDefListSize; i++) {
             ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
-            ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(), "AT_XML_SCREEN", "AUTHZA_VIEW")
+            ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(),
+                    ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
@@ -243,8 +246,7 @@ class ScreenUrlInfo {
 
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(aeii, lastAeii,
-                    isLast ? (!requireAuthentication || requireAuthentication == "true") : false,
-                    false, ec.getUser().getNowTimestamp())) {
+                    isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false)) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
@@ -386,12 +388,11 @@ class ScreenUrlInfo {
 
                 // is this a file under the screen?
                 ResourceReference existingFileRef = lastSd.getSubContentRef(extraPathNameList)
-                if (existingFileRef != null && existingFileRef.supportsExists() && existingFileRef.exists) {
+                if (existingFileRef != null && existingFileRef.getExists() && !existingFileRef.isDirectory() &&
+                        !sfi.isScreen(existingFileRef.getLocation())) {
                     // exclude screen files, don't want to treat them as resources and let them be downloaded
-                    if (!sfi.isScreen(existingFileRef.getLocation())) {
-                        fileResourceRef = existingFileRef
-                        break
-                    }
+                    fileResourceRef = existingFileRef
+                    break
                 }
 
                 int dotIndex = pathName.indexOf('.')
@@ -793,11 +794,16 @@ class ScreenUrlInfo {
                 String targetServiceName = targetTransition.getSingleServiceName()
                 if (targetServiceName != null && targetServiceName.length() > 0) {
                     ServiceDefinition sd = ec.ecfi.getServiceFacade().getServiceDefinition(targetServiceName)
+                    Map<String, Object> csMap = ec.getContext().getCombinedMap()
+                    Map<String, Object> wfParameters = ec.getWeb()?.getParameters()
                     if (sd != null) {
-                        for (String pn in sd.getInParameterNames()) {
-                            Object value = ec.getContext().getByString(pn)
-                            if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
-                                value = ec.getWeb().getParameters().get(pn)
+                        ArrayList<String> inParameterNames = sd.getInParameterNames()
+                        int inParameterNamesSize = inParameterNames.size()
+                        for (int i = 0; i < inParameterNamesSize; i++) {
+                            String pn = (String) inParameterNames.get(i)
+                            Object value = csMap.get(pn)
+                            if (StupidJavaUtilities.isEmpty(value) && wfParameters != null)
+                                value = wfParameters.get(pn)
                             String valueStr = StupidJavaUtilities.toPlainString(value)
                             if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pn, valueStr)
                         }
@@ -809,9 +815,9 @@ class ScreenUrlInfo {
                             EntityDefinition ed = ec.ecfi.getEntityFacade(ec.tenantId).getEntityDefinition(en)
                             if (ed != null) {
                                 for (String fn in ed.getPkFieldNames()) {
-                                    Object value = ec.getContext().getByString(fn)
-                                    if (StupidJavaUtilities.isEmpty(value) && ec.getWeb() != null)
-                                        value = ec.getWeb().getParameters().get(fn)
+                                    Object value = csMap.get(fn)
+                                    if (StupidJavaUtilities.isEmpty(value) && wfParameters != null)
+                                        value = wfParameters.get(fn)
                                     String valueStr = StupidJavaUtilities.toPlainString(value)
                                     if (valueStr != null && valueStr.length() > 0) allParameterMap.put(fn, valueStr)
                                 }

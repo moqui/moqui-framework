@@ -22,6 +22,8 @@ import org.moqui.context.TransactionInternal
 import org.moqui.entity.EntityFacade
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.util.MNode
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import javax.sql.DataSource
 import javax.transaction.TransactionManager
@@ -30,6 +32,7 @@ import java.sql.Connection
 
 @CompileStatic
 class TransactionInternalBitronix implements TransactionInternal {
+    protected final static Logger logger = LoggerFactory.getLogger(TransactionInternalBitronix.class)
 
     protected ExecutionContextFactoryImpl ecfi
 
@@ -133,6 +136,7 @@ class TransactionInternalBitronix implements TransactionInternal {
 
     @Override
     void destroy() {
+        logger.info("Shutting down Bitronix")
         // close the DataSources
         for (PoolingDataSource pds in pdsList) pds.close()
         // shutdown Bitronix

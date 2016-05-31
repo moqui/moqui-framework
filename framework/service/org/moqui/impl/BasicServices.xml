@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
 
     <!-- ========== Geo Services ========== -->
     <service verb="get" noun="GeoRegionsForDropDown" allow-remote="true">
@@ -182,6 +182,27 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <if condition="!uomConversionList">
                 <return error="true" message="Could not convert from [${uomId}] to [${toUomId}], no UOM Conversion found."/></if>
+        </actions>
+    </service>
+
+    <service verb="echo" noun="Data">
+        <in-parameters>
+            <parameter name="textIn1"/>
+            <parameter name="textIn2" default-value="ping"/>
+            <parameter name="numberIn" type="BigDecimal"/>
+            <parameter name="timestampIn" type="Timestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="textOut1"/>
+            <parameter name="textOut2"/>
+            <parameter name="numberOut" type="BigDecimal"/>
+            <parameter name="timestampOut" type="Timestamp"/>
+        </out-parameters>
+        <actions>
+            <set field="textOut1" from="textIn1"/>
+            <set field="textOut2" from="textIn2"/>
+            <set field="numberOut" from="numberIn"/>
+            <set field="timestampOut" from="timestampIn"/>
         </actions>
     </service>
 </services>

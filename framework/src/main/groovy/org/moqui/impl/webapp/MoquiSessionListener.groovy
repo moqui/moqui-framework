@@ -26,18 +26,17 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 
 @CompileStatic
 class MoquiSessionListener implements HttpSessionListener {
+    protected final static Logger logger = LoggerFactory.getLogger(MoquiSessionListener.class)
     void sessionCreated(HttpSessionEvent event) {
         // NOTE: this method now does nothing because we only want to create the Visit on the first request, and in
         //     order to not create the Visit under certain conditions we need the HttpServletRequest object.
     }
 
     void sessionDestroyed(HttpSessionEvent event) {
-        Logger logger = LoggerFactory.getLogger(MoquiSessionListener.class)
-
         HttpSession session = event.getSession()
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) session.getServletContext().getAttribute("executionContextFactory")
         if (!ecfi) {
-            logger.warn("Not updating (closing) visit for session [${session.id}], no executionContextFactory in ServletContext")
+            logger.warn("Not closing visit for session ${session.id}, no executionContextFactory in ServletContext")
             return
         }
 
@@ -45,13 +44,15 @@ class MoquiSessionListener implements HttpSessionListener {
 
         String visitId = session.getAttribute("moqui.visitId")
         if (!visitId) {
-            logger.info("Not updating (closing) visit for session [${session.id}], no moqui.visitId session attribute found")
+            logger.info("Not closing visit for session ${session.id}, no moqui.visitId session attribute found")
             return
         }
 
         // set thruDate on Visit
+        Timestamp thruDate = new Timestamp(System.currentTimeMillis())
         ecfi.serviceFacade.sync().name("update", "moqui.server.Visit")
-                .parameters([visitId:visitId, thruDate:new Timestamp(System.currentTimeMillis())] as Map<String, Object>)
+                .parameters([visitId:visitId, thruDate:thruDate] as Map<String, Object>)
                 .disableAuthz().call()
+        logger.info("Session ${session.id} destroyed, closed visit ${visitId} at ${thruDate}")
     }
 }

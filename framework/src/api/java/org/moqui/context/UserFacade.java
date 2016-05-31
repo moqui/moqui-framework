@@ -19,6 +19,7 @@ import java.sql.Timestamp;
 import java.util.*;
 
 /** For information about the user and user preferences (including locale, time zone, currency, etc). */
+@SuppressWarnings("unused")
 public interface UserFacade {
     /** @return Locale The active Locale from user preference or system default. */
     Locale getLocale();

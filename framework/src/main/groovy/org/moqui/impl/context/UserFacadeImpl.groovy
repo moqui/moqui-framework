@@ -367,18 +367,19 @@ class UserFacadeImpl implements UserFacade {
     @Override
     boolean loginUser(String username, String password, String tenantId) {
         if (!username) {
-            eci.message.addError("No username specified")
+            eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
         if (!password) {
-            eci.message.addError("No password specified")
+            eci.message.addError(eci.l10n.localize("No password specified"))
             return false
         }
         if (!tenantId) tenantId = eci.tenantId
         if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
-            this.visitId = null
-            if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
+            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
+            // this.visitId = null
+            // if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
         }
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
@@ -411,14 +412,15 @@ class UserFacadeImpl implements UserFacade {
     /** For internal framework use only, does a login without authc. */
     boolean internalLoginUser(String username, String tenantId) {
         if (!username) {
-            eci.message.addError("No username specified")
+            eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
         if (!tenantId) tenantId = eci.tenantId
         if (tenantId && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
-            this.visitId = null
-            if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
+            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
+            // this.visitId = null
+            // if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
         }
 
         // since this doesn't go through the Shiro realm and do validations, do them now
@@ -456,14 +458,15 @@ class UserFacadeImpl implements UserFacade {
 
         if (eci.web != null) {
             eci.web.session.removeAttribute("moqui.tenantId")
-            eci.web.session.removeAttribute("moqui.visitId")
+            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
+            // eci.web.session.removeAttribute("moqui.visitId")
         }
     }
 
     @Override
     boolean loginUserKey(String loginKey, String tenantId) {
         if (!loginKey) {
-            eci.message.addError("No login key specified")
+            eci.message.addError(eci.l10n.localize("No login key specified"))
             return false
         }
         // if tenantId, change before lookup
@@ -476,14 +479,14 @@ class UserFacadeImpl implements UserFacade {
 
         // see if we found a record for the login key
         if (userLoginKey == null) {
-            eci.message.addError("Login key not valid")
+            eci.message.addError(eci.l10n.localize("Login key not valid"))
             return false
         }
 
         // check expire date
         Timestamp nowDate = getNowTimestamp()
         if (nowDate > userLoginKey.getTimestamp("thruDate")) {
-            eci.message.addError("Login key expired")
+            eci.message.addError(eci.l10n.localize("Login key expired"))
             return false
         }
 
@@ -584,27 +587,35 @@ class UserFacadeImpl implements UserFacade {
         return groupIdSet
     }
 
-    EntityList getArtifactTarpitCheckList() {
-        if (currentInfo.internalArtifactTarpitCheckList == null) {
+    ArrayList<Map<String, Object>> getArtifactTarpitCheckList(String artifactTypeEnumId) {
+        ArrayList<Map<String, Object>> checkList = (ArrayList<Map<String, Object>>) currentInfo.internalArtifactTarpitCheckListMap.get(artifactTypeEnumId)
+        if (checkList == null) {
             // get the list for each group separately to increase cache hits/efficiency
-            currentInfo.internalArtifactTarpitCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
+            checkList = new ArrayList<>()
             for (String userGroupId in getUserGroupIdSet()) {
-                currentInfo.internalArtifactTarpitCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
-                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list())
+                EntityList atcvList = eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
+                        .condition("userGroupId", userGroupId).condition("artifactTypeEnumId", artifactTypeEnumId)
+                        .useCache(true).disableAuthz().list()
+                int atcvListSize = atcvList.size()
+                for (int i = 0; i < atcvListSize; i++) checkList.add(((EntityValueBase) atcvList.get(i)).getValueMap())
             }
+            currentInfo.internalArtifactTarpitCheckListMap.put(artifactTypeEnumId, checkList)
         }
-        return currentInfo.internalArtifactTarpitCheckList
+        return checkList
     }
 
-    EntityList getArtifactAuthzCheckList() {
+    ArrayList<Map<String, Object>> getArtifactAuthzCheckList() {
         // NOTE: even if there is no user, still consider part of the ALL_USERS group and such: if (usernameStack.size() == 0) return EntityListImpl.EMPTY
         if (currentInfo.internalArtifactAuthzCheckList == null) {
             // get the list for each group separately to increase cache hits/efficiency
-            currentInfo.internalArtifactAuthzCheckList = new EntityListImpl(eci.getEcfi().getEntityFacade())
+            ArrayList<Map<String, Object>> newList = new ArrayList<>()
             for (String userGroupId in getUserGroupIdSet()) {
-                currentInfo.internalArtifactAuthzCheckList.addAll(eci.getEntity().find("moqui.security.ArtifactAuthzCheckView")
-                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list())
+                EntityList aacvList = eci.getEntity().find("moqui.security.ArtifactAuthzCheckView")
+                        .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list()
+                int aacvListSize = aacvList.size()
+                for (int i = 0; i < aacvListSize; i++) newList.add(((EntityValueBase) aacvList.get(i)).getValueMap())
             }
+            currentInfo.internalArtifactAuthzCheckList = newList
         }
         return currentInfo.internalArtifactAuthzCheckList
     }
@@ -699,8 +710,8 @@ class UserFacadeImpl implements UserFacade {
         protected String userId = (String) null
         Set<String> internalUserGroupIdSet = (Set<String>) null
         // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
-        EntityList internalArtifactTarpitCheckList = (EntityList) null
-        EntityList internalArtifactAuthzCheckList = (EntityList) null
+        Map<String, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap = new HashMap<>()
+        ArrayList<Map<String, Object>> internalArtifactAuthzCheckList = (ArrayList<Map<String, Object>>) null
 
         Locale localeCache = (Locale) null
         TimeZone tzCache = (TimeZone) null
@@ -757,8 +768,8 @@ class UserFacadeImpl implements UserFacade {
             }
 
             internalUserGroupIdSet = (Set<String>) null
-            internalArtifactTarpitCheckList = (EntityList) null
-            internalArtifactAuthzCheckList = (EntityList) null
+            internalArtifactTarpitCheckListMap.clear()
+            internalArtifactAuthzCheckList = (ArrayList<Map<String, Object>>) null
         }
 
         String getUsername() { return username }

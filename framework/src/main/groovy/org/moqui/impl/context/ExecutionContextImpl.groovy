@@ -14,10 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.elasticsearch.client.Client
-import org.kie.api.runtime.KieContainer
-import org.kie.api.runtime.KieSession
-import org.kie.api.runtime.StatelessKieSession
 import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.entity.EntityFacade
@@ -25,16 +21,15 @@ import org.moqui.entity.EntityList
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
+import org.moqui.util.ContextBinding
+import org.moqui.util.ContextStack
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpServletRequest
-import org.apache.camel.CamelContext
 import org.moqui.entity.EntityValue
-
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
 
 @CompileStatic
 class ExecutionContextImpl implements ExecutionContext {
@@ -44,6 +39,7 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected final ContextStack context = new ContextStack()
     protected final ContextBinding contextBinding = new ContextBinding(context)
+    protected final Map<String, Object> toolInstanceMap = new HashMap<>()
     protected String activeTenantId = "DEFAULT"
     protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
@@ -57,9 +53,9 @@ class ExecutionContextImpl implements ExecutionContext {
     protected Boolean skipStats = null
 
     // Caches from EC level facades that are per-tenant so managed here
-    protected CacheImpl l10nMessageCache
+    protected Cache<String, String> l10nMessageCache
     // NOTE: there is no code to clean out old entries in tarpitHitCache, using the cache idle expire time for that
-    protected CacheImpl tarpitHitCache
+    protected Cache<String, ArrayList> tarpitHitCache
 
 
     ExecutionContextImpl(ExecutionContextFactoryImpl ecfi) {
@@ -82,19 +78,31 @@ class ExecutionContextImpl implements ExecutionContext {
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
 
     void initCaches() {
-        tarpitHitCache = ecfi.getCacheFacade().getCacheImpl("artifact.tarpit.hits", activeTenantId)
-        l10nMessageCache = ecfi.getCacheFacade().getCacheImpl("l10n.message", activeTenantId)
+        tarpitHitCache = ecfi.getCacheFacade().getCache("artifact.tarpit.hits", activeTenantId)
+        l10nMessageCache = ecfi.getCacheFacade().getCache("l10n.message", activeTenantId)
     }
-    CacheImpl getTarpitHitCache() { return tarpitHitCache }
-    CacheImpl getL10nMessageCache() { return l10nMessageCache }
+    Cache<String, String> getL10nMessageCache() { return l10nMessageCache }
+    Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache }
+
+    @Override
+    ExecutionContextFactory getFactory() { return ecfi }
 
     @Override
     ContextStack getContext() { return context }
-
     @Override
     Map<String, Object> getContextRoot() { return context.getRootMap() }
-
+    @Override
     ContextBinding getContextBinding() { return contextBinding }
+
+    @Override
+    <V> V getTool(String toolName, Class<V> instanceClass) {
+        V toolInstance = (V) toolInstanceMap.get(toolName)
+        if (toolInstance == null) {
+            toolInstance = ecfi.getTool(toolName, instanceClass)
+            toolInstanceMap.put(toolName, toolInstance)
+        }
+        return toolInstance
+    }
 
     @Override
     String getTenantId() { return activeTenantId }
@@ -173,27 +181,6 @@ class ExecutionContextImpl implements ExecutionContext {
     void registerNotificationMessageListener(NotificationMessageListener nml) {
         ecfi.registerNotificationMessageListener(nml)
     }
-
-
-    @Override
-    CamelContext getCamelContext() { ecfi.getCamelContext() }
-    @Override
-    Client getElasticSearchClient() { ecfi.getElasticSearchClient() }
-    @Override
-    KieContainer getKieContainer(String componentName) { ecfi.getKieContainer(componentName) }
-    @Override
-    KieSession getKieSession(String ksessionName) {
-        KieSession session = ecfi.getKieSession(ksessionName)
-        session.setGlobal("ec", this)
-        return session
-    }
-    @Override
-    StatelessKieSession getStatelessKieSession(String ksessionName) {
-        StatelessKieSession session = ecfi.getStatelessKieSession(ksessionName)
-        session.setGlobal("ec", this)
-        return session
-    }
-
 
     @Override
     void initWebFacade(String webappMoquiName, HttpServletRequest request, HttpServletResponse response) {
@@ -302,6 +289,12 @@ class ExecutionContextImpl implements ExecutionContext {
             threadUsername = eci.user.username
             this.closure = closure
         }
+        ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, String tenantId, String username, Closure closure) {
+            this.ecfi = ecfi
+            threadTenantId = tenantId
+            threadUsername = username
+            this.closure = closure
+        }
 
         @Override
         void run() {
@@ -320,8 +313,8 @@ class ExecutionContextImpl implements ExecutionContext {
         }
     }
 
-    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
-     * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+    @Override
+    void runAsync(Closure closure) { runInWorkerThread(closure) }
     void runInWorkerThread(Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure)
         ecfi.workerPool.execute(runnable)

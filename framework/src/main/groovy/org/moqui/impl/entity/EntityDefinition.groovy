@@ -16,7 +16,9 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.entity.condition.ConditionAlias
 
+import javax.cache.Cache
 import java.sql.Timestamp
 
 import org.apache.commons.collections.set.ListOrderedSet
@@ -33,7 +35,6 @@ import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.FieldToFieldCondition
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
-import org.moqui.impl.StupidUtilities
 import org.moqui.util.MNode
 
 import org.slf4j.Logger
@@ -78,7 +79,7 @@ public class EntityDefinition {
     protected final boolean optimisticLockVal
     protected Boolean needsAuditLogVal = null
     protected Boolean needsEncryptVal = null
-    protected final String useCache
+    protected String useCache
     protected String sequencePrimaryPrefix = ""
     protected long sequencePrimaryStagger = 1
     protected long sequenceBankSize = EntityFacadeImpl.defaultBankSize
@@ -89,7 +90,6 @@ public class EntityDefinition {
     protected final boolean authorizeSkipTrueVal
     protected final boolean authorizeSkipCreateVal
     protected final boolean authorizeSkipViewVal
-
 
     protected List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
@@ -108,7 +108,7 @@ public class EntityDefinition {
         shortAlias = internalEntityNode.attribute("short-alias") ?: null
 
         if (internalEntityNode.attribute("is-dynamic-view") == "true") {
-            // use the name of the first member-entity
+            // use the group of the first member-entity
             String memberEntityName = internalEntityNode.children("member-entity")
                     .find({ !it.attribute("join-from-alias") })?.attribute("entity-name")
             groupName = efi.getEntityGroupName(memberEntityName)
@@ -139,6 +139,7 @@ public class EntityDefinition {
 
         optimisticLockVal = "true".equals(internalEntityNode.attribute('optimistic-lock'))
 
+        // NOTE: see code in initFields that may set this to never if any member-entity is set to cache=never
         useCache = internalEntityNode.attribute('cache') ?: 'false'
 
         tableNameAttr = internalEntityNode.attribute("table-name")
@@ -160,13 +161,29 @@ public class EntityDefinition {
             memberEntityAliasMap = [:]
 
             // get group-name, etc from member-entity
+            Set<String> allGroupNames = new TreeSet<>()
             for (MNode memberEntity in internalEntityNode.children("member-entity")) {
                 String memberEntityName = memberEntity.attribute("entity-name")
                 memberEntityAliasMap.put(memberEntity.attribute("entity-alias"), memberEntity)
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntityName)
+                if (memberEd == null) throw new EntityException("No definition found for member entity alias ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
                 MNode memberEntityNode = memberEd.getEntityNode()
-                if (memberEntityNode.attribute("group-name")) internalEntityNode.attributes.put("group-name", memberEntityNode.attribute("group-name"))
+                String groupNameAttr = memberEntityNode.attribute("group-name")
+                if (groupNameAttr == null || groupNameAttr.length() == 0) {
+                    // use the default group-name
+                    groupNameAttr = efi.getDefaultGroupName()
+                }
+                // only set on view-entity for the first one
+                if (allGroupNames.size() == 0) internalEntityNode.attributes.put("group-name", groupNameAttr)
+                // remember all group names applicable to the view entity
+                allGroupNames.add(groupNameAttr)
+
+                // if is view entity and any member entities set to never cache set this to never cache
+                if ("never".equals(memberEntityNode.attribute("cache"))) this.useCache = "never"
             }
+            // warn if view-entity has members in more than one group (join will fail if deployed in different DBs)
+            // TODO enable this again to check view-entities for groups: if (allGroupNames.size() > 1) logger.warn("view-entity ${getFullEntityName()} has members in more than one group: ${allGroupNames}")
+
             // if this is a view-entity, expand the alias-all elements into alias elements here
             this.expandAliasAlls()
             // set @type, set is-pk on all alias Nodes if the related field is-pk
@@ -230,10 +247,11 @@ public class EntityDefinition {
         }
     }
 
-    String getEntityName() { return this.internalEntityName }
-    String getFullEntityName() { return this.fullEntityName }
-    String getShortAlias() { return this.shortAlias }
-    MNode getEntityNode() { return this.internalEntityNode }
+    EntityFacadeImpl getEfi() { return efi }
+    String getEntityName() { return internalEntityName }
+    String getFullEntityName() { return fullEntityName }
+    String getShortAlias() { return shortAlias }
+    MNode getEntityNode() { return internalEntityNode }
 
     boolean isViewEntity() { return isView }
     boolean hasFunctionAlias() { return hasFunctionAliasVal }
@@ -568,7 +586,7 @@ public class EntityDefinition {
     }
 
     MasterDefinition getMasterDefinition(String name) {
-        if (!name) name = "default"
+        if (name == null || name.length() == 0) name = "default"
         if (masterDefinitionMap == null) makeMasterDefinitionMap()
         return masterDefinitionMap.get(name)
     }
@@ -1689,7 +1707,7 @@ public class EntityDefinition {
                 MNode memberEntity = memberEntityAliasMap.get(econdition.attribute("entity-alias"))
                 if (!memberEntity) throw new EntityException("The entity-alias [${econdition.attribute("entity-alias")}] was not found in view-entity [${this.internalEntityName}]")
                 EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                field = new ConditionField(econdition.attribute("entity-alias"), econdition.attribute("field-name"), aliasEntityDef)
+                field = new ConditionAlias(econdition.attribute("entity-alias"), econdition.attribute("field-name"), aliasEntityDef)
                 condEd = aliasEntityDef;
             } else {
                 field = new ConditionField(econdition.attribute("field-name"))
@@ -1701,26 +1719,24 @@ public class EntityDefinition {
                     MNode memberEntity = memberEntityAliasMap.get(econdition.attribute("to-entity-alias"))
                     if (!memberEntity) throw new EntityException("The entity-alias [${econdition.attribute("to-entity-alias")}] was not found in view-entity [${this.internalEntityName}]")
                     EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                    toField = new ConditionField(econdition.attribute("to-entity-alias"), econdition.attribute("to-field-name"), aliasEntityDef)
+                    toField = new ConditionAlias(econdition.attribute("to-entity-alias"), econdition.attribute("to-field-name"), aliasEntityDef)
                 } else {
                     toField = new ConditionField(econdition.attribute("to-field-name"))
                 }
-                cond = new FieldToFieldCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field,
-                        EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), toField)
+                cond = new FieldToFieldCondition(field, EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), toField)
             } else {
                 // NOTE: may need to convert value from String to object for field
                 String condValue = econdition.attribute("value") ?: null
                 // NOTE: only expand if contains "${", expanding normal strings does l10n and messes up key values; hopefully this won't result in a similar issue
                 if (condValue && condValue.contains("\${")) condValue = efi.getEcfi().getResourceFacade().expand(condValue, "") as String
                 Object condValueObj = condEd.convertFieldString(field.fieldName, condValue, eci);
-                cond = new FieldValueCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field,
-                        EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
+                cond = new FieldValueCondition(field, EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
             }
             if (cond && econdition.attribute("ignore-case") == "true") cond.ignoreCase()
 
             if (cond && econdition.attribute("or-null") == "true") {
                 cond = (EntityConditionImplBase) this.efi.conditionFactory.makeCondition(cond, JoinOperator.OR,
-                        new FieldValueCondition((EntityConditionFactoryImpl) this.efi.conditionFactory, field, EntityCondition.EQUALS, null))
+                        new FieldValueCondition(field, EntityCondition.EQUALS, null))
             }
 
             if (cond) condList.add(cond)
@@ -1737,16 +1753,53 @@ public class EntityDefinition {
         return entityCondition
     }
 
-    @Override
-    int hashCode() {
-        return this.internalEntityName.hashCode()
+    Cache<EntityCondition, EntityValueBase> internalCacheOne = null
+    Cache<EntityCondition, ArrayList<EntityCondition>> internalCacheOneRa = null
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheOneViewRa = null
+    Cache<EntityCondition, EntityListImpl> internalCacheList = null
+    Cache<EntityCondition, ArrayList<EntityCondition>> internalCacheListRa = null
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> internalCacheListViewRa = null
+    Cache<EntityCondition, Long> internalCacheCount = null
+
+    Cache<EntityCondition, EntityValueBase> getCacheOne(EntityCache ec) {
+        if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheOne
     }
+    Cache<EntityCondition, ArrayList<EntityCondition>> getCacheOneRa(EntityCache ec) {
+        if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheOneRa
+    }
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
+        if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return getCacheOneViewRa
+    }
+
+    Cache<EntityCondition, EntityListImpl> getCacheList(EntityCache ec) {
+        if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheList
+    }
+    Cache<EntityCondition, ArrayList<EntityCondition>> getCacheListRa(EntityCache ec) {
+        if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheListRa
+    }
+    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
+        if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheListViewRa
+    }
+
+    Cache<EntityCondition, Long> getCacheCount(EntityCache ec) {
+        if (internalCacheCount == null) internalCacheCount = ec.cfi.getCache(ec.countKeyBase.concat(fullEntityName), efi.tenantId)
+        return internalCacheCount
+    }
+
+    @Override
+    int hashCode() { return this.fullEntityName.hashCode() }
 
     @Override
     boolean equals(Object o) {
         if (o == null || o.getClass() != this.getClass()) return false
         EntityDefinition that = (EntityDefinition) o
-        if (!this.internalEntityName.equals(that.internalEntityName)) return false
+        if (!this.fullEntityName.equals(that.fullEntityName)) return false
         return true
     }
 

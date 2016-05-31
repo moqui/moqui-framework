@@ -48,8 +48,6 @@ public class L10nFacadeImpl implements L10nFacade {
     protected TimeZone getTimeZone() { return eci.getUser().getTimeZone(); }
 
     @Override
-    public String getLocalizedMessage(String original) { return localize(original); }
-    @Override
     public String localize(String original) { return localize(original, getLocale()); }
     @Override
     public String localize(String original, Locale locale) {
@@ -57,14 +55,14 @@ public class L10nFacadeImpl implements L10nFacade {
         int originalLength = original.length();
         if (originalLength == 0) return "";
         if (originalLength > 255) {
-            throw new IllegalArgumentException("Original String cannot be more than 255 characters long, passed in string was [${original.length()}] characters long");
+            throw new IllegalArgumentException("Original String cannot be more than 255 characters long, passed in string was " + originalLength + " characters long");
         }
 
         if (locale == null) locale = getLocale();
         String localeString = locale.toString();
 
         String cacheKey = original.concat("::").concat(localeString);
-        String lmsg = (String) eci.getL10nMessageCache().get(cacheKey);
+        String lmsg = eci.getL10nMessageCache().get(cacheKey);
         if (lmsg != null) return lmsg;
 
         String defaultValue = original;
@@ -146,7 +144,7 @@ public class L10nFacadeImpl implements L10nFacade {
             Long lng = Long.valueOf(input);
             return new Time(lng);
         } catch (NumberFormatException e) {
-            if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Time parse: ${e.toString()}");
+            if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Time parse: " + e.toString());
         }
 
         return null;
@@ -193,7 +191,7 @@ public class L10nFacadeImpl implements L10nFacade {
             Long lng = Long.valueOf(input);
             return new Date(lng);
         } catch (NumberFormatException e) {
-            if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Date parse: ${e.toString()}");
+            if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Date parse: " + e.toString());
         }
 
         return null;
@@ -232,7 +230,7 @@ public class L10nFacadeImpl implements L10nFacade {
                     Long lng = Long.valueOf(input);
                     return new Timestamp(lng);
                 } catch (NumberFormatException e) {
-                    if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Timestamp parse: ${e.toString()}");
+                    if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Timestamp parse: " + e.toString());
                 }
             }
         }
@@ -255,7 +253,7 @@ public class L10nFacadeImpl implements L10nFacade {
             cal = DatatypeConverter.parseDateTime(input);
             if (cal != null) return new Timestamp(cal.getTimeInMillis());
         } catch (Exception e) {
-            if (logger.isTraceEnabled()) logger.trace("Ignoring Exception for DatatypeConverter Timestamp parse: ${e.toString()}");
+            if (logger.isTraceEnabled()) logger.trace("Ignoring Exception for DatatypeConverter Timestamp parse: " + e.toString());
         }
 
         return null;
@@ -269,7 +267,7 @@ public class L10nFacadeImpl implements L10nFacade {
     public Calendar parseDateTime(String input, String format) {
         return calendarValidator.validate(input, format, getLocale(), getTimeZone());
     }
-    static String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+    public static String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
         return calendarValidator.format(input, format, locale, tz);
     }
 
@@ -281,8 +279,6 @@ public class L10nFacadeImpl implements L10nFacade {
         return bigDecimalValidator.format(input, format, locale);
     }
 
-    @Override
-    public String formatValue(Object value, String fmt) { return format(value, fmt); }
     @Override
     public String format(Object value, String format) {
         return this.format(value, format, getLocale(), getTimeZone());

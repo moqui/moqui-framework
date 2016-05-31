@@ -15,6 +15,7 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
@@ -51,7 +52,7 @@ class RestApi {
                     MNode rootNode = MNode.parse(rr)
                     ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
                     rootResourceMap.put(rn.name, rn)
-                    logger.info("Loaded REST API from ${rr.getLocation()}; paths: ${rn.childPaths}, methods: ${rn.childMethods}")
+                    logger.info("Loaded REST API from ${rr.getFileName()} (${rn.childPaths} paths, ${rn.childMethods} methods)")
                     // logger.info(rn.toString())
                 }
             } else {
@@ -234,7 +235,7 @@ class RestApi {
             // add responses
             Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
                              "429":[description:"Too Many Requests (tarpit)"], "500":[description:"General Error"]]
-            if (sd.getOutParameterNames()) {
+            if (sd.getOutParameterNames().size() > 0) {
                 responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.getServiceName()}.Out".toString()]])
                 definitionsMap.put("${sd.getServiceName()}.Out".toString(), sd.getJsonSchemaMapOut())
             }
@@ -264,7 +265,7 @@ class RestApi {
                 typesMap.put("${sd.getServiceName()}.In".toString(), sd.getRamlMapIn())
             }
 
-            if (sd.getOutParameterNames()) {
+            if (sd.getOutParameterNames().size() > 0) {
                 ramlMap.put("responses", [200:[body:['application/json': [type:"${sd.getServiceName()}.Out".toString()]]]])
                 typesMap.put("${sd.getServiceName()}.Out".toString(), sd.getRamlMapOut())
             }
@@ -556,7 +557,7 @@ class RestApi {
 
             // push onto artifact stack, check authz
             String curPath = getFullPathName([])
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, "AT_REST_PATH", getActionFromMethod(ec))
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, ArtifactExecutionInfo.AT_REST_PATH, getActionFromMethod(ec))
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
             ec.getArtifactExecutionImpl().pushInternal(aei, !moreInPath)
 
@@ -610,9 +611,11 @@ class RestApi {
             }
             return curPath.toString()
         }
-        Map<String, String> actionByMethodMap = [get:'AUTHZA_VIEW', patch:'AUTHZA_UPDATE', put:'AUTHZA_UPDATE',
-                             post:'AUTHZA_CREATE', delete:'AUTHZA_DELETE', options:'AUTHZA_VIEW', head:'AUTHZA_VIEW']
-        String getActionFromMethod(ExecutionContext ec) {
+        static final Map<String, ArtifactExecutionInfo.AuthzAction> actionByMethodMap = [get:ArtifactExecutionInfo.AUTHZA_VIEW,
+                patch:ArtifactExecutionInfo.AUTHZA_UPDATE, put:ArtifactExecutionInfo.AUTHZA_UPDATE,
+                post:ArtifactExecutionInfo.AUTHZA_CREATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
+                options:ArtifactExecutionInfo.AUTHZA_VIEW, head:ArtifactExecutionInfo.AUTHZA_VIEW]
+        static ArtifactExecutionInfo.AuthzAction getActionFromMethod(ExecutionContext ec) {
             String method = ec.web.getRequest().getMethod().toLowerCase()
             return actionByMethodMap.get(method)
         }

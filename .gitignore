@@ -8,13 +8,7 @@ build
 
 # build generated files
 /moqui-*.war
-/SaveDEFAULT.zip
-/SaveTenant.zip
-/SaveTransactional.zip
-/SaveAnalytical.zip
-/SaveH2.zip
-/SaveOrientDb.zip
-/SaveElasticSearch.zip
+/Save*.zip
 
 # runtime directory (separate repository so ignore directory entirely)
 /runtime

@@ -88,7 +88,8 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
                 }
                 try {
                     h2Server = Server.createTcpServer(args).start();
-                    logger.info("Started H2 remote server on port ${h2Server.getPort()} status [${h2Server.getStatus()}] from args ${args}")
+                    logger.info("Started H2 remote server on port ${h2Server.getPort()} status: ${h2Server.getStatus()}")
+                    logger.info("H2 args: ${args}")
                 } catch (Throwable t) {
                     logger.warn("Error starting H2 server (may already be running): ${t.toString()}")
                 }
@@ -110,7 +111,14 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     }
 
     @Override
-    void checkAndAddTable(String entityName) { efi.getEntityDbMeta().checkTableStartup(efi.getEntityDefinition(entityName)) }
+    void checkAndAddTable(String entityName) {
+        EntityDefinition ed
+        // just ignore EntityException on getEntityDefinition
+        try { ed = efi.getEntityDefinition(entityName) } catch (EntityException e) { return }
+        // may happen if all entity names includes a DB view entity or other that doesn't really exist
+        if (ed == null) return
+        efi.getEntityDbMeta().checkTableStartup(ed)
+    }
 
     @Override
     EntityValue makeEntityValue(String entityName) {

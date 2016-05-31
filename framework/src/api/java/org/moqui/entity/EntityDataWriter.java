@@ -22,12 +22,13 @@ import java.util.Map;
  *
  * The document will have a root element like <code>&lt;entity-facade-xml&gt;</code>.
  */
+@SuppressWarnings("unused")
 public interface EntityDataWriter {
 
-    public static final FileType XML = FileType.XML;
-    public static final FileType JSON = FileType.JSON;
+    FileType XML = FileType.XML;
+    FileType JSON = FileType.JSON;
 
-    public enum FileType { XML, JSON }
+    enum FileType { XML, JSON }
 
     EntityDataWriter fileType(FileType ft);
 
@@ -56,6 +57,10 @@ public interface EntityDataWriter {
      * If dependentRecords is set but no level limit is specified all levels found will be written (may be large and not
      * what is desired). */
     EntityDataWriter dependentLevels(int levels);
+
+    /** The name of a master definition, applied to all written entities that have a matching master definition otherwise
+     * just the single record is written, or dependent records if dependentREcords or dependentLevels options specified. */
+    EntityDataWriter master(String masterName);
 
     /** A Map of field name, value pairs to filter the results by. Each name/value only used on entities that have a
      * field matching the name.

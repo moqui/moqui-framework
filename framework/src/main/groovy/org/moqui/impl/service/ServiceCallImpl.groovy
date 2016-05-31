@@ -20,20 +20,20 @@ import org.moqui.service.ServiceException
 @CompileStatic
 class ServiceCallImpl implements ServiceCall {
     protected ServiceFacadeImpl sfi
-    protected String path = null
-    protected String verb = null
-    protected String noun = null
-    protected ServiceDefinition sd = null
+    protected String path = (String) null
+    protected String verb = (String) null
+    protected String noun = (String) null
+    protected ServiceDefinition sd = (ServiceDefinition) null
 
-    protected String serviceName = null
-    protected String serviceNameNoHash = null
+    protected String serviceName = (String) null
+    protected String serviceNameNoHash = (String) null
 
     protected Map<String, Object> parameters = new HashMap<String, Object>()
 
     ServiceCallImpl(ServiceFacadeImpl sfi) { this.sfi = sfi }
 
     protected void setServiceName(String serviceName) {
-        if (!serviceName) throw new ServiceException("Service name cannot be empty")
+        if (serviceName == null || serviceName.length() == 0) throw new ServiceException("Service name cannot be empty")
         sd = sfi.getServiceDefinition(serviceName)
         if (sd != null) {
             path = sd.getPath()
@@ -48,11 +48,13 @@ class ServiceCallImpl implements ServiceCall {
 
     @Override
     String getServiceName() {
-        if (serviceName == null) serviceName = (path ? path + "." : "") + verb + (noun ? "#" + noun : "")
+        if (serviceName == null) serviceName = (path != null && path.length() > 0 ? path + "." : "") + verb +
+                (noun != null && noun.length() > 0 ? "#" + noun : "")
         return serviceName
     }
     String getServiceNameNoHash() {
-        if (serviceNameNoHash == null) serviceNameNoHash = (path ? path + "." : "") + verb + (noun ?: "")
+        if (serviceNameNoHash == null) serviceNameNoHash = (path != null && path.length() > 0 ? path + "." : "") +
+                verb + (noun != null ? noun : "")
         return serviceNameNoHash
     }
 

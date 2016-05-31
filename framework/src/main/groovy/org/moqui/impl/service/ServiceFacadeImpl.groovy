@@ -15,44 +15,29 @@ package org.moqui.impl.service
 
 import groovy.json.JsonBuilder
 import groovy.transform.CompileStatic
-import org.moqui.context.Cache
 import org.moqui.context.ResourceReference
+import org.moqui.context.ToolFactory
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
+import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.reference.ClasspathResourceReference
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
-import org.moqui.service.RestClient
-import org.moqui.service.ServiceFacade
-import org.moqui.service.ServiceCallback
-import org.moqui.service.ServiceCallSync
-import org.moqui.service.ServiceCallAsync
-import org.moqui.service.ServiceCallSchedule
-import org.moqui.service.ServiceCallSpecial
-
-import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.context.reference.ClasspathResourceReference
+import org.moqui.service.*
 import org.moqui.util.MNode
-import org.quartz.JobDetail
-import org.quartz.JobExecutionContext
-import org.quartz.JobKey
-import org.quartz.Scheduler
-import org.quartz.SchedulerException
-import org.quartz.SchedulerListener
-import org.quartz.Trigger
-import org.quartz.TriggerKey
-import org.quartz.TriggerListener
+import org.quartz.*
 import org.quartz.impl.StdSchedulerFactory
-import javax.mail.internet.MimeMessage
-import org.moqui.context.ExecutionContext
-import org.moqui.BaseException
-
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
+import javax.mail.internet.MimeMessage
 import java.sql.Timestamp
-import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ExecutorService
 
 @CompileStatic
 class ServiceFacadeImpl implements ServiceFacade {
@@ -60,7 +45,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final ExecutionContextFactoryImpl ecfi
 
-    protected final Cache serviceLocationCache
+    protected final Cache<String, ServiceDefinition> serviceLocationCache
 
     protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
@@ -68,14 +53,18 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
 
+    /** The Quartz Scheduler object */
     protected final Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler()
-    protected Map<String, Object> schedulerInfoMap
+    protected final Map<String, Object> schedulerInfoMap
+
+    /** Hazelcast Distributed ExecutorService for async services, etc */
+    protected final ExecutorService distributedExecutorService
 
     protected final ConcurrentMap<String, List<ServiceCallback>> callbackRegistry = new ConcurrentHashMap<>()
 
     ServiceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        this.serviceLocationCache = ecfi.getCacheFacade().getCache("service.location")
+        serviceLocationCache = ecfi.getCacheFacade().getCache("service.location", String.class, ServiceDefinition.class)
 
         // load Service ECA rules
         loadSecaRulesAll()
@@ -84,11 +73,24 @@ class ServiceFacadeImpl implements ServiceFacade {
         // load REST API
         restApi = new RestApi(ecfi)
 
+        MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
+
         // load service runners from configuration
-        for (MNode serviceType in ecfi.confXmlRoot.first("service-facade").children("service-type")) {
+        for (MNode serviceType in serviceFacadeNode.children("service-type")) {
             ServiceRunner sr = (ServiceRunner) Thread.currentThread().getContextClassLoader()
                     .loadClass(serviceType.attribute("runner-class")).newInstance()
             serviceRunners.put(serviceType.attribute("name"), sr.init(this))
+        }
+
+        // get distributed ExecutorService
+        String distEsFactoryName = serviceFacadeNode.attribute("distributed-factory") ?: "HazelcastExecutor"
+        logger.info("Getting Async Distributed Service ExecutorService (using ToolFactory ${distEsFactoryName})")
+        ToolFactory<ExecutorService> esToolFactory = ecfi.getToolFactory(distEsFactoryName)
+        if (esToolFactory == null) {
+            logger.warn("Could not find ExecutorService ToolFactory with name ${distEsFactoryName}, distributed async service calls will be run local only")
+            distributedExecutorService = null
+        } else {
+            distributedExecutorService = esToolFactory.getInstance()
         }
 
         // prep data for scheduler history listeners
@@ -97,6 +99,7 @@ class ServiceFacadeImpl implements ServiceFacade {
                 hostName:(localHost?.getHostName() ?: 'localhost'), schedulerId:scheduler.getSchedulerInstanceId(),
                 schedulerName:scheduler.getSchedulerName()] as Map<String, Object>
 
+        // add listeners to Quartz Scheduler
         scheduler.getListenerManager().addTriggerListener(new HistoryTriggerListener());
         scheduler.getListenerManager().addSchedulerListener(new HistorySchedulerListener());
     }
@@ -115,7 +118,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             try { getServiceDefinition(serviceName) }
             catch (Throwable t) { logger.warn("Error warming service cache: ${t.toString()}") }
         }
-        logger.info("Warmed service definition cache for ${serviceNames.size()} services in ${(System.currentTimeMillis() - startTime)/1000} seconds")
+        logger.info("Warmed service definition cache for ${serviceNames.size()} services in ${System.currentTimeMillis() - startTime}ms")
     }
 
     void destroy() {
@@ -340,6 +343,8 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected void loadSecaRulesAll() {
         if (secaRulesByServiceName.size() > 0) secaRulesByServiceName.clear()
 
+        int numLoaded = 0
+        int numFiles = 0
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference serviceDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/service")
@@ -348,14 +353,16 @@ class ServiceFacadeImpl implements ServiceFacade {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".secas.xml")) continue
-                    loadSecaRulesFile(rr)
+                    numLoaded += loadSecaRulesFile(rr)
+                    numFiles++
                 }
             } else {
                 logger.warn("Can't load SECA rules from component at [${serviceDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Service ECA rules from ${numFiles} .secas.xml files")
     }
-    protected void loadSecaRulesFile(ResourceReference rr) {
+    protected int loadSecaRulesFile(ResourceReference rr) {
         MNode serviceRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode secaNode in serviceRoot.children("seca")) {
@@ -371,7 +378,8 @@ class ServiceFacadeImpl implements ServiceFacade {
             lst.add(ser)
             numLoaded++
         }
-        if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
+        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
+        return numLoaded
     }
 
     @CompileStatic
@@ -381,10 +389,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
         ArrayList<ServiceEcaRule> lst = (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
         if (lst != null && lst.size() > 0) {
-            ExecutionContext ec = ecfi.getExecutionContext()
+            ExecutionContextImpl eci = ecfi.getEci()
             for (int i = 0; i < lst.size(); i++) {
                 ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
-                ser.runIfMatches(serviceName, parameters, results, when, ec)
+                ser.runIfMatches(serviceName, parameters, results, when, eci)
             }
         }
     }
@@ -438,8 +446,8 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     @CompileStatic
     void runEmecaRules(MimeMessage message, String emailServerId) {
-        ExecutionContext ec = ecfi.executionContext
-        for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, ec)
+        ExecutionContextImpl eci = ecfi.getEci()
+        for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, eci)
     }
 
     @Override
@@ -482,12 +490,14 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     void callRegisteredCallbacks(String serviceName, Map<String, Object> context, Map<String, Object> result) {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
-        if (callbackList) for (ServiceCallback scb in callbackList) scb.receiveEvent(context, result)
+        if (callbackList != null && callbackList.size() > 0)
+            for (ServiceCallback scb in callbackList) scb.receiveEvent(context, result)
     }
 
     void callRegisteredCallbacksThrowable(String serviceName, Map<String, Object> context, Throwable t) {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
-        if (callbackList) for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
+        if (callbackList != null && callbackList.size() > 0)
+            for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
     }
 
     @Override

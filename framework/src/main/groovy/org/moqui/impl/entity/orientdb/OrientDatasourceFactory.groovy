@@ -35,7 +35,7 @@ import javax.sql.DataSource
 /**
  * To use this:
  * 1. add a datasource under the entity-facade element in the Moqui Conf file; for example:
- *      <datasource group-name="transactional_nosql" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory">
+ *      <datasource group-name="nontransactional" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory">
  *          <inline-other uri="plocal:${ORIENTDB_HOME}/databases/MoquiNoSql" username="admin" password="admin"/>
  *      </datasource>
  *
@@ -43,7 +43,7 @@ import javax.sql.DataSource
  *      orientdb-server-config.xml file
  *
  * 3. add the group-name attribute to entity elements as needed to point them to the new datasource; for example:
- *      group-name="transactional_nosql"
+ *      group-name="nontransactional"
  */
 @CompileStatic
 class OrientDatasourceFactory implements EntityDatasourceFactory {
@@ -100,7 +100,8 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
         oserver.activate()
 
         int maxSize = (inlineOtherNode.attribute("pool-maxsize") ?: "50") as int
-        databaseDocumentPool = new OPartitionedDatabasePool(uri, username, password, maxSize)
+        int maxPartitionSize = 64 // NOTE: this is the default value from the constructor without this parameter
+        databaseDocumentPool = new OPartitionedDatabasePool(uri, username, password, maxPartitionSize, maxSize)
         // databaseDocumentPool.setup((inlineOtherNode."@pool-minsize" ?: "5") as int, (inlineOtherNode."@pool-maxsize" ?: "50") as int)
 
         return this
@@ -145,9 +146,15 @@ class OrientDatasourceFactory implements EntityDatasourceFactory {
     @CompileStatic
     @Override
     void checkAndAddTable(String entityName) {
+        EntityDefinition ed
+        // just ignore EntityException on getEntityDefinition
+        try { ed = efi.getEntityDefinition(entityName) } catch (EntityException e) { return }
+        // may happen if all entity names includes a DB view entity or other that doesn't really exist
+        if (ed == null) return
+
         ODatabaseDocumentTx createOddt = getDatabase()
         try {
-            checkCreateDocumentClass(createOddt, efi.getEntityDefinition(entityName))
+            checkCreateDocumentClass(createOddt, ed)
         } finally {
             createOddt.close()
         }

@@ -16,7 +16,6 @@ package org.moqui.util;
 import groovy.lang.Closure;
 import groovy.util.Node;
 import groovy.util.NodeList;
-import groovy.util.XmlParser;
 import org.moqui.BaseException;
 import org.moqui.context.ResourceReference;
 import org.slf4j.Logger;
@@ -32,10 +31,11 @@ import java.io.*;
 import java.util.*;
 
 /** An alternative to groovy.util.Node with methods more type safe and generally useful in Moqui. */
+@SuppressWarnings("unused")
 public class MNode {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
 
-    final static Map<String, MNode> parsedNodeCache = new HashMap<>();
+    private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
 
     /* ========== Factories (XML Parsing) ========== */
 
@@ -51,6 +51,7 @@ public class MNode {
         return node;
     }
     /** Parse from an InputStream and close the stream */
+    @SuppressWarnings("ThrowFromFinallyBlock")
     public static MNode parse(String location, InputStream is) throws BaseException {
         if (is == null) return null;
         try {
@@ -60,6 +61,7 @@ public class MNode {
             catch (IOException e) { throw new BaseException("Error closing XML stream from " + location, e); }
         }
     }
+    @SuppressWarnings("ThrowFromFinallyBlock")
     public static MNode parse(File fl) throws BaseException {
         if (fl == null || !fl.exists()) return null;
 
@@ -100,12 +102,12 @@ public class MNode {
 
     /* ========== Fields ========== */
 
-    protected final String nodeName;
-    protected final Map<String, String> attributeMap = new LinkedHashMap<>();
-    protected MNode parentNode = null;
-    protected final ArrayList<MNode> childList = new ArrayList<>();
-    protected final Map<String, ArrayList<MNode>> childrenByName = new HashMap<>();
-    protected String childText = null;
+    private final String nodeName;
+    private final Map<String, String> attributeMap = new LinkedHashMap<>();
+    private MNode parentNode = null;
+    private final ArrayList<MNode> childList = new ArrayList<>();
+    private final Map<String, ArrayList<MNode>> childrenByName = new HashMap<>();
+    private String childText = null;
     protected long lastModified = 0;
 
     /* ========== Constructors ========== */
@@ -198,6 +200,8 @@ public class MNode {
         }
         return false;
     }
+    /** Get child at index, will throw an exception if index out of bounds */
+    public MNode child(int index) { return childList.get(index); }
 
     /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
      * found or empty List if no nodes found */
@@ -207,7 +211,7 @@ public class MNode {
         descendantsInternal(names, nodes);
         return nodes;
     }
-    protected void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
+    private void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
@@ -224,7 +228,7 @@ public class MNode {
         depthFirstInternal(condition, curList);
         return curList;
     }
-    protected void depthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
+    private void depthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
         int childListSize = childList.size();
         // all grand-children first
         for (int i = 0; i < childListSize; i++) {
@@ -242,7 +246,7 @@ public class MNode {
         breadthFirstInternal(condition, curList);
         return curList;
     }
-    protected void breadthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
+    private void breadthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
         int childListSize = childList.size();
         // direct children first
         for (int i = 0; i < childListSize; i++) {
@@ -283,6 +287,15 @@ public class MNode {
             if (condition.call(curChild)) return curChild;
         }
         return null;
+    }
+    public int firstIndex(Closure<Boolean> condition) {
+        if (condition == null) return childList.size() - 1;
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (condition.call(curChild)) return i;
+        }
+        return -1;
     }
 
     public String getText() { return childText; }
@@ -331,6 +344,7 @@ public class MNode {
         return newNode;
     }
 
+    public void remove(int index) { childList.remove(index); }
     public boolean remove(String name) {
         childrenByName.remove(name);
         boolean removed = false;
@@ -360,6 +374,107 @@ public class MNode {
         return removed;
     }
 
+    /** Merge a single child node with the given name from overrideNode if it has a child with that name.
+     *
+     * If this node has a child with the same name copies/overwrites attributes from the overrideNode's child and if
+     * overrideNode's child has children the children of this node's child will be replaced by them.
+     *
+     * Otherwise appends a copy of the override child as a child of the current node.
+     */
+    public void mergeSingleChild(MNode overrideNode, String childNodeName) {
+        MNode childOverrideNode = overrideNode.first(childNodeName);
+        if (childOverrideNode != null) {
+            MNode childBaseNode = first(childNodeName);
+            if (childBaseNode != null) {
+                childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
+                if (childOverrideNode.childList.size() > 0) {
+                    childBaseNode.childList.clear();
+                    ArrayList<MNode> conChildList = childOverrideNode.childList;
+                    int conChildListSize = conChildList.size();
+                    for (int i = 0; i < conChildListSize; i++) {
+                        MNode grandchild = conChildList.get(i);
+                        childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
+                    }
+                }
+            } else {
+                childList.add(childOverrideNode.deepCopy(this));
+            }
+        }
+    }
+
+    public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Closure grandchildMerger) {
+        MNode baseChildNode = first(childName);
+        MNode overrideChildNode = overrideNode.first(childName);
+        if (overrideChildNode == null) return;
+
+        if (baseChildNode != null) {
+            baseChildNode.mergeNodeWithChildKey(overrideChildNode, grandchildName, keyAttributeName, grandchildMerger);
+        } else {
+            childList.add(overrideChildNode.deepCopy(this));
+        }
+    }
+
+    /** Merge attributes and child nodes from overrideNode into this node, matching on childNodesName and optionally the value of the
+     * attribute in each named by keyAttributeName.
+     *
+     * Always copies/overwrites attributes from override child node, and merges their child nodes using childMerger or
+     * if null the default merge of removing all children under the child of this node and appending copies of the
+     * children of the override child node.
+     */
+    public void mergeNodeWithChildKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeNodeWithChildKey");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeNodeWithChildKey");
+
+        // override attributes for this node
+        attributeMap.putAll(overrideNode.attributeMap);
+
+        mergeChildrenByKey(overrideNode, childNodesName, keyAttributeName, childMerger);
+    }
+    public void mergeChildrenByKey(MNode overrideNode, String childNodesName, String keyAttributeName, Closure childMerger) {
+        if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
+        if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
+
+        ArrayList<MNode> overrideChildren = overrideNode.children(childNodesName);
+        int overrideChildrenSize = overrideChildren.size();
+        for (int curOc = 0; curOc < overrideChildrenSize; curOc++) {
+            MNode childOverrideNode = overrideChildren.get(curOc);
+            boolean skipKeyValue = keyAttributeName == null || keyAttributeName.length() == 0;
+            String keyValue = skipKeyValue ? null : childOverrideNode.attribute(keyAttributeName);
+            // if we have a keyAttributeName but no keyValue for this child node, skip it
+            if ((keyValue == null || keyValue.length() == 0) && !skipKeyValue) continue;
+
+            MNode childBaseNode = null;
+            int childListSize = childList.size();
+            for (int i = 0; i < childListSize; i++) {
+                MNode curChild = childList.get(i);
+                if (curChild.getName().equals(childNodesName) && (skipKeyValue || keyValue.equals(curChild.attribute(keyAttributeName))))
+                    childBaseNode = curChild;
+            }
+
+            if (childBaseNode != null) {
+                // merge the node attributes
+                childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
+
+                if (childMerger != null) {
+                    childMerger.call(childBaseNode, childOverrideNode);
+                } else {
+                    // do the default child merge: remove current nodes children and replace with a copy of the override node's children
+                    childBaseNode.childList.clear();
+                    ArrayList<MNode> conChildList = childOverrideNode.childList;
+                    int conChildListSize = conChildList.size();
+                    for (int i = 0; i < conChildListSize; i++) {
+                        MNode grandchild = conChildList.get(i);
+                        childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
+                    }
+                }
+            } else {
+                // no matching child base node, so add a new one
+                append(childOverrideNode.deepCopy(this));
+            }
+        }
+    }
+
+
     /* ========== String Methods ========== */
 
     public String toString() {
@@ -367,7 +482,7 @@ public class MNode {
         addToSb(sb, 0);
         return sb.toString();
     }
-    protected void addToSb(StringBuilder sb, int level) {
+    private void addToSb(StringBuilder sb, int level) {
         for (int i = 0; i < level; i++) sb.append("    ");
         sb.append('<').append(nodeName);
         for (Map.Entry<String, String> entry : attributeMap.entrySet())
@@ -390,7 +505,7 @@ public class MNode {
         }
     }
 
-    public static String gnodeText(Object nodeObj) {
+    private static String gnodeText(Object nodeObj) {
         if (nodeObj == null) return "";
         Node theNode = null;
         if (nodeObj instanceof Node) {
@@ -414,13 +529,13 @@ public class MNode {
         }
     }
 
-    static class MNodeXmlHandler extends DefaultHandler {
-        protected Locator locator = null;
-        protected long nodesRead = 0;
+    private static class MNodeXmlHandler extends DefaultHandler {
+        Locator locator = null;
+        long nodesRead = 0;
 
-        protected MNode rootNode = null;
-        protected MNode curNode = null;
-        protected StringBuilder curText = null;
+        MNode rootNode = null;
+        MNode curNode = null;
+        StringBuilder curText = null;
 
         MNodeXmlHandler() { }
         MNode getRootNode() { return rootNode; }

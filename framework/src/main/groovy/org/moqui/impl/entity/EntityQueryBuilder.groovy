@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class EntityQueryBuilder {
     protected final static Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
     protected EntityFacadeImpl efi
     EntityDefinition mainEntityDefinition
@@ -91,9 +92,9 @@ class EntityQueryBuilder {
     ResultSet executeQuery() throws EntityException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
         try {
-            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
+            long timeBefore = isTraceEnabled ? System.currentTimeMillis() : 0L
             rs = ps.executeQuery()
-            if (logger.isTraceEnabled()) logger.trace("Executed query with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
+            if (isTraceEnabled) logger.trace("Executed query with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
             return rs
         } catch (SQLException sqle) {
             throw new EntityException("Error in query for:" + sqlTopLevelInternal, sqle)
@@ -103,9 +104,9 @@ class EntityQueryBuilder {
     public int executeUpdate() throws EntityException {
         if (this.ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place")
         try {
-            long timeBefore = logger.isTraceEnabled() ? System.currentTimeMillis() : 0L
+            long timeBefore = isTraceEnabled ? System.currentTimeMillis() : 0L
             int rows = ps.executeUpdate()
-            if (logger.isTraceEnabled()) logger.trace("Executed update with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
+            if (isTraceEnabled) logger.trace("Executed update with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
         } catch (SQLException sqle) {
             throw new EntityException("Error in update for:" + sqlTopLevelInternal, sqle)
@@ -267,7 +268,7 @@ class EntityQueryBuilder {
                     fieldClassName = "char[]"
                 }
 
-                if (logger.isTraceEnabled()) logger.trace((String) "Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
+                if (isTraceEnabled) logger.trace((String) "Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
                         " is " + fieldClassName + ", was expecting " + javaType + " this may " +
                         "indicate an error in the configuration or in the class, and may result " +
                         "in an SQL-Java data conversion error. Will use the real field type: " +

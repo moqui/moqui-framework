@@ -16,7 +16,7 @@ package org.moqui.service;
 import java.util.Map;
 
 public interface ServiceCallback {
-    public boolean isEnabled();
-    public void receiveEvent(Map<String, Object> context, Map<String, Object> result);
-    public void receiveEvent(Map<String, Object> context, Throwable t);
+    boolean isEnabled();
+    void receiveEvent(Map<String, Object> context, Map<String, Object> result);
+    void receiveEvent(Map<String, Object> context, Throwable t);
 }

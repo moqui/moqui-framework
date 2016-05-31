@@ -42,14 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.ArtifactAuthz artifactAuthzId="SystemMessageServicesADMIN" userGroupId="ADMIN" artifactGroupId="SystemMessageServices"
             authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
 
-    <!-- Artifact Authz for UserAccount, user can view own info -->
-    <!-- NOTE: Leaving this here as an example of a record-limited authz, but no longer needed or used:
-    <moqui.security.ArtifactGroup artifactGroupId="UserAccount" description="UserAccount entity."/>
-    <moqui.security.ArtifactGroupMember artifactGroupId="UserAccount" artifactName="moqui.security.UserAccount" nameIsPattern="N"
-                         artifactTypeEnumId="AT_ENTITY" inheritAuthz="Y"/>
-    <moqui.security.ArtifactAuthz artifactAuthzId="ALL_USERS_SELF" userGroupId="ALL_USERS" artifactGroupId="UserAccount"
-                   authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_VIEW"/>
-    <moqui.security.ArtifactAuthzRecord artifactAuthzId="ALL_USERS_SELF" viewEntityName="moqui.security.UserAccount"/>
-    -->
-
+    <!-- Special Permissions -->
+    <moqui.security.UserPermission userPermissionId="ADMIN_PASSWORD" description="Admin Password Update"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ADMIN_PASSWORD"/>
 </entity-facade-xml>

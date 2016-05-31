@@ -17,6 +17,7 @@ import java.util.Map;
 import org.quartz.Scheduler;
 
 /** ServiceFacade Interface */
+@SuppressWarnings("unused")
 public interface ServiceFacade {
 
     /** Get a service caller to call a service synchronously. */

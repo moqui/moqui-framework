@@ -22,30 +22,43 @@ import org.eclipse.mylyn.wikitext.tracwiki.core.TracWikiLanguage
 import org.eclipse.mylyn.wikitext.twiki.core.TWikiLanguage
 
 import org.moqui.BaseException
-import org.moqui.context.Cache
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.screen.ScreenRenderImpl
+import org.moqui.jcache.MCache
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import javax.cache.Cache
 
 class WikiTemplateRenderer implements TemplateRenderer {
-    protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(WikiTemplateRenderer.class)
+    protected final static Logger logger = LoggerFactory.getLogger(WikiTemplateRenderer.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Cache templateWikiLocationCache
+    protected Cache<String, String> templateWikiLocationCache
 
     WikiTemplateRenderer() { }
 
     TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.templateWikiLocationCache = ecfi.cacheFacade.getCache("resource.wiki.location")
+        this.templateWikiLocationCache = ecfi.cacheFacade.getCache("resource.wiki.location", String.class, String.class)
         return this
     }
 
     void render(String location, Writer writer) {
-        ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
-        String wikiText = templateWikiLocationCache.getIfCurrent(location, rr != null ? rr.getLastModified() : 0L)
+        String wikiText;
+        if (templateWikiLocationCache instanceof MCache) {
+            MCache<String, String> mCache = (MCache) templateWikiLocationCache;
+            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            long lastModified = rr != null ? rr.getLastModified() : 0L;
+            wikiText = mCache.get(location, lastModified);
+        } else {
+            // TODO: doesn't support on the fly reloading without cache expire/clear!
+            wikiText = templateWikiLocationCache.get(location);
+        }
+
         if (wikiText) {
             writer.write(wikiText)
             return
@@ -62,7 +75,7 @@ class WikiTemplateRenderer implements TemplateRenderer {
         // avoid the <html> and <body> tags
         builder.setEmitAsDocument(false)
         // if we're in the context of a screen render, use it's URL for the base
-        ScreenRenderImpl sri = (ScreenRenderImpl) ecfi.getExecutionContext().getContext().getByString("sri")
+        ScreenRenderImpl sri = (ScreenRenderImpl) ecfi.getEci().getContext().getByString("sri")
         if (sri != null) builder.setBase(sri.getBaseLinkUri())
 
         MarkupParser parser

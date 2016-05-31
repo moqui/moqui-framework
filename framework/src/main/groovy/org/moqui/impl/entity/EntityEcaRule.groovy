@@ -14,11 +14,11 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ExecutionContext
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -53,7 +53,7 @@ class EntityEcaRule {
     String getEntityName() { return eecaNode.attribute("entity") }
     MNode getEecaNode() { return eecaNode }
 
-    void runIfMatches(String entityName, Map fieldValues, String operation, boolean before, ExecutionContext ec) {
+    void runIfMatches(String entityName, Map fieldValues, String operation, boolean before, ExecutionContextImpl ec) {
         // see if we match this event and should run
 
         // check this first since it is the most common disqualifier
