@@ -344,9 +344,7 @@ Long Term To Do List - aka Informal Roadmap
 - More ToolFactory use
   - Extract the code about jackrabbit from ResourceFacadeImpl as JackrabbitToolFactory which can get
     javax.jcr.RepositoryFactory; make JCR factory configurable for the resource-facade element
-  - Extract the code running and stopping h2 server from EntityDatasourceFactoryImpl as H2DatabaseRunToolFactory
-  - Add configurable factory for local cache like distributed cache
-  - Cache ToolFactory for JCS: https://commons.apache.org/proper/commons-jcs/
+  - ToolFactory useful for OrientDB?
 
 - Support System properties string expansion in all Moqui Conf XML attributes
   - use something like ResourceFacade.expand() with Groovy, but needs to run before ResourceFacade inits

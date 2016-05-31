@@ -14,7 +14,6 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.h2.tools.Server
 import org.moqui.context.TransactionInternal
 import org.moqui.entity.*
 import org.moqui.util.MNode
@@ -36,8 +35,6 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
 
     protected DataSource dataSource
 
-    // for the embedded H2 server to allow remote access, used to stop server on destroy
-    protected Server h2Server = null
 
     EntityDatasourceFactoryImpl() { }
 
@@ -76,23 +73,9 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
             }
         } else if (datasourceNode.hasChild("inline-jdbc")) {
             // special thing for embedded derby, just set an system property; for derby.log, etc
-            if (datasourceNode.attribute("database-conf-name") == "derby") {
+            if (datasourceNode.attribute("database-conf-name") == "derby" && !System.getProperty("derby.system.home")) {
                 System.setProperty("derby.system.home", System.getProperty("moqui.runtime") + "/db/derby")
                 logger.info("Set property derby.system.home to [${System.getProperty("derby.system.home")}]")
-            }
-            if (datasourceNode.attribute("database-conf-name") == "h2" && datasourceNode.attribute("start-server-args")) {
-                String argsString = datasourceNode.attribute("start-server-args")
-                String[] args = argsString.split(" ")
-                for (int i = 0; i < args.length; i++) {
-                    if (args[i].contains('${moqui.runtime}')) args[i] = args[i].replace('${moqui.runtime}', System.getProperty("moqui.runtime"))
-                }
-                try {
-                    h2Server = Server.createTcpServer(args).start();
-                    logger.info("Started H2 remote server on port ${h2Server.getPort()} status: ${h2Server.getStatus()}")
-                    logger.info("H2 args: ${args}")
-                } catch (Throwable t) {
-                    logger.warn("Error starting H2 server (may already be running): ${t.toString()}")
-                }
             }
 
             TransactionInternal ti = efi.getEcfi().getTransactionFacade().getTransactionInternal()
@@ -107,7 +90,6 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     @Override
     void destroy() {
         // NOTE: TransactionInternal DataSource will be destroyed when the TransactionFacade is destroyed
-        if (h2Server != null && h2Server.isRunning(true)) h2Server.stop()
     }
 
     @Override
