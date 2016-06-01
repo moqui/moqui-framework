@@ -43,6 +43,12 @@ Non Backward Compatible Changes
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
+- JCR and Jackrabbit
+  - The repository.@type, @location, and @conf-location attributes have
+    been removed and the repository.parameter sub-element added for use
+    with the javax.jcr.RepositoryFactory interface
+  - See new configuration examples in MoquiDefaultConf.xml under the
+    repository-list element
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)

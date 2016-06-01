@@ -692,26 +692,14 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType><xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="repository"/></xs:sequence></xs:complexType>
     </xs:element>
     <xs:element name="repository">
+        <xs:annotation><xs:documentation>Configuration for a javax.jcr.Repository retrieved through a
+            javax.jcr.RepositoryFactory using parameter sub-elements (with name and value attributes), and a
+            javax.jcr.Session using the workspace, username, and password attributes.</xs:documentation></xs:annotation>
         <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
-
-            <xs:attribute name="location" type="xs:string" use="required"/>
-            <xs:attribute name="conf-location" type="xs:string">
-                <xs:annotation><xs:documentation>Defaults to: [${location}/repository.xml]; only used for local</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="type" use="required">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <!-- this path is relative to the active Moqui runtime directory; start with a forward-slash for an absolute path -->
-                        <!-- how to support this type? <repository name="default" location="rep/jackrabbit" type="local" workspace="default"/> -->
-                        <!-- <xs:enumeration value="local"/> -->
-                        <xs:enumeration value="jndi"/>
-                        <xs:enumeration value="rmi"/>
-                        <xs:enumeration value="davex"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
-
             <xs:attribute name="workspace" type="xs:string">
                 <xs:annotation><xs:documentation>Defaults to the repository's default workspace.</xs:documentation></xs:annotation>
             </xs:attribute>

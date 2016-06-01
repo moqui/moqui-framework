@@ -575,10 +575,12 @@
     </database-list>
     <repository-list>
         <!-- No JCR repo by default, but here are some examples: -->
-        <!-- <repository name="main" location="http://localhost:8081/rmi" type="rmi" workspace="default"
-                    username="admin" password="admin"/> -->
-        <!-- <repository name="main" location="http://localhost:8081/server" type="davex" workspace="default"/> -->
-        <!-- <repository name="main" location="java:comp/env/jcr/repository" type="jndi" workspace="default"/> -->
+        <!-- requires 'org.apache.jackrabbit:jackrabbit-jcr-rmi' in the classpath:
+        <repository name="main" workspace="default" username="admin" password="admin">
+            <parameter name="org.apache.jackrabbit.repository.uri" value="http://localhost:8081/rmi"/></repository> -->
+        <!-- requires 'org.apache.jackrabbit:jackrabbit-jcr2dav' in the classpath:
+        <repository name="main" workspace="default" username="admin" password="admin">
+            <parameter name="org.apache.jackrabbit.spi2davex.uri" value="http://localhost:8081/server"/></repository> -->
     </repository-list>
     <component-list>
         <component-dir location="base-component"/>
