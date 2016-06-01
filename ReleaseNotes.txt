@@ -43,7 +43,7 @@ Non Backward Compatible Changes
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
-- JCR and Jackrabbit
+- JCR and Apache Jackrabbit
   - The repository.@type, @location, and @conf-location attributes have
     been removed and the repository.parameter sub-element added for use
     with the javax.jcr.RepositoryFactory interface
@@ -108,6 +108,11 @@ New Features
 - Implemented distributed entity cache invalidate using a Hazelcast Topic,
   enabled in Moqui Conf XML file with the @distributed-cache-invalidate
   attribute on the entity-facade element
+- JCR and Apache Jackrabbit
+  - JCR support (for content:// locations in the ResourceFacade) now uses
+    javax.jcr interfaces only, no dependencies on Jackrabbit
+  - JCR repository configuration now supports other JCR implementations by
+    using implementation specific RepositoryFactory parameters
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
