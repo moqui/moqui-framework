@@ -347,11 +347,6 @@ Bug Fixes
 Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
-- More ToolFactory use
-  - Extract the code about jackrabbit from ResourceFacadeImpl as JackrabbitToolFactory which can get
-    javax.jcr.RepositoryFactory; make JCR factory configurable for the resource-facade element
-  - ToolFactory useful for OrientDB?
-
 - Support System properties string expansion in all Moqui Conf XML attributes
   - use something like ResourceFacade.expand() with Groovy, but needs to run before ResourceFacade inits
   - Add SystemProperties class that implements the groovy Binding interface, use for expansion
