@@ -366,12 +366,21 @@ Bug Fixes
 Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
+- Move tools from moqui-framework to tool components
+  - Great tools but not used by default in Moqui/Mantle/etc
+    - OrientDB (moqui-orientdb)
+    - Atomikos (moqui-atomikos; leave Bitronix in by default)
+    - Apache Camel (moqui-camel)
+  - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
+    - ElasticSearch (moqui-search)
+    - KIE (moqui-kie)
+    - add mantle-usl dependencies on search, kie
+  - Possible to split out FOP? Used in MoquiFopServlet, send email attachments, PDF render service, much more...
+  - Support some sort of built component archive?
+  - More cleanly handle library jars that will no longer be in WEB-INF/lib? ie other than having Gradle download from
+    dependencies and put in the <component>/lib directory
+
 - Saved form-list Finds
-  - Add option to form-list to allow saved searches along with fields to order by.
-  - As part of this add some sort of way to order by more than one field, with ascending or descending for each.
-  - When enabled show form to save current filters and order by fields in a new saved search, or to update an existing
-    saved search. Also allow deleting an existing saved search.
-  - When saved searches exist for a form show them in a drop-down and when selected reload page with its options.
   - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
 - WebSocket attempt 2
