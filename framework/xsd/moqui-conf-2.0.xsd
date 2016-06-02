@@ -19,6 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="moqui-conf">
         <xs:complexType>
             <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="default-property"/>
                 <xs:element minOccurs="0" ref="tools"/>
                 <xs:element minOccurs="0" ref="cache-list"/>
                 <xs:element minOccurs="0" ref="server-stats"/>
@@ -34,6 +35,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="repository-list"/>
                 <xs:element minOccurs="0" ref="component-list"/>
             </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="default-property">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="value" type="xs:string" use="required"/>
         </xs:complexType>
     </xs:element>
 
@@ -63,7 +71,6 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="disabled" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
-
     <!-- ===================== Cache Conf Root ===================== -->
     <xs:element name="cache-list">
         <xs:complexType>

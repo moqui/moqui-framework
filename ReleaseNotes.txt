@@ -72,6 +72,20 @@ New Features
   - now internally using Servlet API 3.1.0
 - Various library updates, big cleanup of classes found in multiple jar
   files (JarHell checks pass; nice in general, needed for ElasticSearch)
+- Configuration
+  - Added default-property element to set Java System properties from the
+    configuration file
+  - Added Groovy string expansion to various configuration attributes
+    - looks for named fields in Java System properties and environment
+      variables
+    - used in default-property.@value and all xa-properties attributes
+    - replaces the old explicit check for ${moqui.runtime}, which was a
+      simple replacement hack
+    - because these are Groovy expressions the typical dots used in
+      property names cannot be used in these strings, use an underscore
+      instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime};
+      if a property name contains underscores and no value is found with
+      the literal name it replaces underscores with dots and looks again
 - Tool Factory
   - Added org.moqui.context.ToolFactory interface used to initialize,
     destroy, and get instances of tools

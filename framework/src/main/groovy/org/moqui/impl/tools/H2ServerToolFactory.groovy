@@ -19,6 +19,7 @@ import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.MNode
+import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -49,9 +50,7 @@ class H2ServerToolFactory implements ToolFactory<Server> {
             if (datasourceNode.attribute("database-conf-name") == "h2" && datasourceNode.attribute("start-server-args")) {
                 String argsString = datasourceNode.attribute("start-server-args")
                 String[] args = argsString.split(" ")
-                for (int i = 0; i < args.length; i++) {
-                    if (args[i].contains('${moqui.runtime}')) args[i] = args[i].replace('${moqui.runtime}', System.getProperty("moqui.runtime"))
-                }
+                for (int i = 0; i < args.length; i++) if (args[i].contains('${')) args[i] = SystemBinding.expand(args[i])
                 try {
                     h2Server = Server.createTcpServer(args).start();
                     logger.info("Started H2 remote server on port ${h2Server.getPort()} status: ${h2Server.getStatus()}")

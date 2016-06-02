@@ -24,6 +24,7 @@ import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.util.MNode
+import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
@@ -173,7 +174,7 @@ class EntityFacadeImpl implements EntityFacade {
             for (String entityName in getAllEntityNames()) {
                 String groupName = getEntityGroupName(entityName) ?: defaultGroupName
                 if (startupAddMissingGroups.contains(groupName) ||
-                        (allConfiguredGroups.contains(groupName) == false && defaultStartAddMissing)) {
+                        (!allConfiguredGroups.contains(groupName) && defaultStartAddMissing)) {
                     EntityDatasourceFactory edf = getDatasourceFactory(groupName)
                     edf.checkAndAddTable(entityName)
                 }
@@ -245,6 +246,7 @@ class EntityFacadeImpl implements EntityFacade {
             MNode jndiJdbcNode = datasourceNode.first("jndi-jdbc")
             if (jndiJdbcNode != null) {
                 serverJndi = efi.getEntityFacadeNode().first("server-jndi")
+                serverJndi.setSystemExpandAttributes(true)
                 jndiName = tenantDataSource ? tenantDataSource.jndiName : jndiJdbcNode.attribute("jndi-name")
             } else if (xaProperties || tenantDataSourceXaPropList) {
                 xaDsClass = inlineJdbc.attribute("xa-ds-class") ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class")
@@ -252,29 +254,28 @@ class EntityFacadeImpl implements EntityFacade {
                 xaProps = new Properties()
                 if (tenantDataSourceXaPropList) {
                     for (EntityValue tenantDataSourceXaProp in tenantDataSourceXaPropList) {
-                        String propValue = tenantDataSourceXaProp.propValue
+                        // expand all property values from the db
+                        String propValue = SystemBinding.expand(tenantDataSourceXaProp.propValue as String)
                         if (!propValue) {
                             logger.warn("TenantDataSourceXaProp value empty in ${tenantDataSourceXaProp}")
                             continue
                         }
-                        // NOTE: consider changing this to expand for all system properties using groovy or something
-                        if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
                         xaProps.setProperty((String) tenantDataSourceXaProp.propName, propValue)
                     }
                 }
                 // always set default properties for the given data
                 if (!tenantDataSourceXaPropList || tenantDataSource?.defaultToConfProps == "Y") {
-                    for (Map.Entry<String, String> entry in xaProperties.attributes.entrySet()) {
+                    xaProperties.setSystemExpandAttributes(true)
+                    for (String key in xaProperties.attributes.keySet()) {
                         // don't over write existing properties, from tenantDataSourceXaPropList or redundant attributes (shouldn't be allowed)
-                        if (xaProps.containsKey(entry.getKey())) continue
-                        // the Derby "databaseName" property has a ${moqui.runtime} which is a System property, others may have it too
-                        String propValue = entry.getValue()
-                        // NOTE: consider changing this to expand for all system properties using groovy or something
-                        if (propValue.contains("\${moqui.runtime}")) propValue = propValue.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
-                        xaProps.setProperty(entry.getKey(), propValue)
+                        if (xaProps.containsKey(key)) continue
+                        // various H2, Derby, etc properties have a ${moqui.runtime} which is a System property, others may have it too
+                        String propValue = xaProperties.attribute(key)
+                        xaProps.setProperty(key, propValue)
                     }
                 }
             } else {
+                inlineJdbc.setSystemExpandAttributes(true)
                 jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
                 jdbcUri = tenantDataSource ? (String) tenantDataSource.jdbcUri : inlineJdbc.attribute("jdbc-uri")
                 if (jdbcUri.contains("\${moqui.runtime}")) jdbcUri = jdbcUri.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))

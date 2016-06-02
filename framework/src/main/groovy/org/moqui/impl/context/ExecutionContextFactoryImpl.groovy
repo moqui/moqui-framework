@@ -38,7 +38,7 @@ import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
-
+import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -281,6 +281,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // TODO: add some conf or runtime option to log the full config after merge?
         // logger.info("Configuration after all merges:\n${baseConfigNode.toString()}")
+
+        // set default System properties now that all is merged
+        for (MNode defPropNode in baseConfigNode.children("default-property")) {
+            String propName = defPropNode.attribute("name")
+            if (!System.getProperty(propName)) {
+                String propValue = SystemBinding.expand(defPropNode.attribute("value"))
+                System.setProperty(propName, propValue)
+            }
+        }
+
         return baseConfigNode
     }
 
@@ -1201,8 +1211,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Configuration File Merging Methods ==========
 
     protected static void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
+        baseNode.mergeChildrenByKey(overrideNode, "default-property", "name", null)
         baseNode.mergeChildWithChildKey(overrideNode, "tools", "tool-factory", "class", null)
-
         baseNode.mergeChildWithChildKey(overrideNode, "cache-list", "cache", "name", null)
 
         if (overrideNode.hasChild("server-stats")) {
