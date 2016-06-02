@@ -153,6 +153,9 @@ New Features
 
 Bug Fixes
 
+- Fixed issue with REST and other requests using various HTTP request
+  methods that were not handled, MoquiServlet now uses the
+  HttpServlet.service() method instead of the various do*() methods
 - Fixed issue with REST and other JSON request body parameters where single
   entry lists were unwrapped to just the entry by the canonicalization code
 - Fixed NPE in EntityFind.oneMaster() when the master value isn't found,
@@ -375,7 +378,12 @@ Long Term To Do List - aka Informal Roadmap
     - ElasticSearch (moqui-search)
     - KIE (moqui-kie)
     - add mantle-usl dependencies on search, kie
-  - Possible to split out FOP? Used in MoquiFopServlet, send email attachments, PDF render service, much more...
+  - Possible to split out FOP?
+    - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
+    - need some way to add servlet at runtime (from moqui conf xml) instead of in static web.xml (use new ServletContext methods)
+  - Split out Hazelcast
+    - should work fine with dist cache, distributed async services, entity DCI
+    - need some way to add filter and listener at runtime (from moqui conf xml) instead of in static web.xml (use new ServletContext methods)
   - Support some sort of built component archive?
   - More cleanly handle library jars that will no longer be in WEB-INF/lib? ie other than having Gradle download from
     dependencies and put in the <component>/lib directory
