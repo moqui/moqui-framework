@@ -278,7 +278,7 @@ class EntityFacadeImpl implements EntityFacade {
                 inlineJdbc.setSystemExpandAttributes(true)
                 jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
                 jdbcUri = tenantDataSource ? (String) tenantDataSource.jdbcUri : inlineJdbc.attribute("jdbc-uri")
-                if (jdbcUri.contains("\${moqui.runtime}")) jdbcUri = jdbcUri.replace("\${moqui.runtime}", System.getProperty("moqui.runtime"))
+                if (jdbcUri.contains('${')) jdbcUri = SystemBinding.expand(jdbcUri)
                 jdbcUsername = tenantDataSource ? (String) tenantDataSource.jdbcUsername : inlineJdbc.attribute("jdbc-username")
                 jdbcPassword = tenantDataSource ? (String) tenantDataSource.jdbcPassword : inlineJdbc.attribute("jdbc-password")
             }
