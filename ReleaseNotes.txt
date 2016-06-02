@@ -366,10 +366,6 @@ Bug Fixes
 Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
-- Support System properties string expansion in all Moqui Conf XML attributes
-  - use something like ResourceFacade.expand() with Groovy, but needs to run before ResourceFacade inits
-  - Add SystemProperties class that implements the groovy Binding interface, use for expansion
-
 - Saved form-list Finds
   - Add option to form-list to allow saved searches along with fields to order by.
   - As part of this add some sort of way to order by more than one field, with ascending or descending for each.
