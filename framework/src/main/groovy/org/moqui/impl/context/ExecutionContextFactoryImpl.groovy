@@ -59,7 +59,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private boolean destroyed = false
     
     protected String runtimePath
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final String runtimeConfPath
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final MNode confXmlRoot
     protected MNode serverStatsNode
 
@@ -94,14 +96,21 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
 
     // ======== Permanent Delegated Facades ========
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final CacheFacadeImpl cacheFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final LoggerFacadeImpl loggerFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final ResourceFacadeImpl resourceFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final ScreenFacadeImpl screenFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final ServiceFacadeImpl serviceFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final TransactionFacadeImpl transactionFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
+    @SuppressWarnings("GrFinalVariableAccess")
     final ExecutorService workerPool
 
     /**
@@ -317,10 +326,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private void preFacadeInit() {
         // save the current configuration in a file for debugging/reference
         File confSaveFile = new File(runtimePath + "/log/MoquiActualConf.xml")
-        if (confSaveFile.exists()) confSaveFile.delete()
-        FileWriter fw = new FileWriter(confSaveFile)
-        fw.write(confXmlRoot.toString())
-        fw.close()
+        try {
+            if (confSaveFile.exists()) confSaveFile.delete()
+            if (!confSaveFile.parentFile.exists()) confSaveFile.parentFile.mkdirs()
+            FileWriter fw = new FileWriter(confSaveFile)
+            fw.write(confXmlRoot.toString())
+            fw.close()
+        } catch (Exception e) {
+            logger.warn("Could not save ${confSaveFile.absolutePath} file: ${e.toString()}")
+        }
 
         try {
             localhostAddress = InetAddress.getLocalHost()
@@ -1334,8 +1348,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected static void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
-        baseNode.mergeNodeWithChildKey(overrideNode, "root-screen", "host", null)
-        baseNode.mergeNodeWithChildKey(overrideNode, "error-screen", "error", null)
+        baseNode.mergeChildrenByKey(overrideNode, "root-screen", "host", null)
+        baseNode.mergeChildrenByKey(overrideNode, "error-screen", "error", null)
         // handle webapp -> first-hit-in-visit[1], after-request[1], before-request[1], after-login[1], before-logout[1]
         mergeWebappActions(baseNode, overrideNode, "first-hit-in-visit")
         mergeWebappActions(baseNode, overrideNode, "after-request")
@@ -1344,6 +1358,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         mergeWebappActions(baseNode, overrideNode, "before-logout")
         mergeWebappActions(baseNode, overrideNode, "after-startup")
         mergeWebappActions(baseNode, overrideNode, "before-shutdown")
+
+        baseNode.mergeChildrenByKey(overrideNode, "filter", "name", { MNode childBaseNode, MNode childOverrideNode ->
+            childBaseNode.mergeChildrenByKey(childOverrideNode, "init-param", "name", null)
+            for (MNode upNode in overrideNode.children("url-pattern")) childBaseNode.append(upNode.deepCopy(null))
+            for (MNode upNode in overrideNode.children("dispatcher")) childBaseNode.append(upNode.deepCopy(null))
+        })
+        baseNode.mergeChildrenByKey(overrideNode, "listener", "class", null)
+        baseNode.mergeChildrenByKey(overrideNode, "servlet", "name", { MNode childBaseNode, MNode childOverrideNode ->
+            childBaseNode.mergeChildrenByKey(childOverrideNode, "init-param", "name", null)
+            for (MNode upNode in overrideNode.children("url-pattern")) childBaseNode.append(upNode.deepCopy(null))
+        })
+        baseNode.mergeSingleChild(overrideNode, "session-config")
     }
 
     protected static void mergeWebappActions(MNode baseWebappNode, MNode overrideWebappNode, String childNodeName) {
@@ -1381,6 +1407,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction beforeLogoutActions = null
         XmlAction afterStartupActions = null
         XmlAction beforeShutdownActions = null
+        Integer sessionTimeoutSeconds = null
 
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
@@ -1414,6 +1441,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             if (webappNode.hasChild("before-shutdown"))
                 this.beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
+
+            MNode sessionConfigNode = webappNode.first("session-config")
+            if (sessionConfigNode != null && sessionConfigNode.attribute("timeout")) {
+                sessionTimeoutSeconds = (sessionConfigNode.attribute("timeout") as int) * 60
+            }
         }
 
         MNode getErrorScreenNode(String error) {

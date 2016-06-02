@@ -350,9 +350,9 @@ jar {
 war {
     dependsOn jar
     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
-    destinationDir = file(projectDir.absolutePath + '/..')
+    destinationDir = projectDir.parentFile
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
-    from(fileTree(dir: projectDir.absolutePath + '/..', includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+    from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
     classpath = configurations.runtime - configurations.providedCompile
     classpath file(jar.archivePath)

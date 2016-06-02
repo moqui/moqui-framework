@@ -128,6 +128,61 @@
             <after-startup><actions><log level="info" message="========================== after-startup actions"/></actions></after-login>
             <before-shutdown><actions><log level="info" message="========================== before-shutdown actions"/></actions></before-logout>
             -->
+
+            <!-- Hazelcast Session Replication Filter Configuration -->
+            <filter name="hazelcast-filter" class="com.hazelcast.web.WebFilter">
+                <!-- Do you want to use an existing HazelcastInstance? Default is null. -->
+                <init-param name="instance-name" value="moqui"/>
+                <!-- Configuration xml location; * as servlet resource OR * as classpath resource OR * as URL
+                    Default is one of hazelcast-default.xml or hazelcast.xml in classpath. -->
+                <!-- <init-param name="config-location" value="/WEB-INF/hazelcast.xml"/> -->
+                <init-param name="use-client" value="false"/>
+                <!-- Name of the distributed map storing your web session objects -->
+                <init-param name="map-name" value="my-sessions"/>
+                <!-- TTL value of the distributed map storing your web session objects. Any integer between 0 and Integer.MAX_VALUE. Default is 1800 which is 30 minutes. -->
+                <init-param name="session-ttl-seconds" value="3600"/>
+                <!-- How is your load-balancer configured? sticky-session means all requests of a session is routed to the node
+                  where the session is first created. This is excellent for performance. If sticky-session is set to false, when a
+                  session is updated on a node, entry for this session on all other nodes is invalidated. You have to know how your
+                  load-balancer is configured before setting this parameter. Default is true.
+                -->
+                <init-param name="sticky-session" value="true"/>
+                <!-- Name of session id cookie -->
+                <init-param name="cookie-name" value="hazelcast.sessionId"/>
+                <!-- Domain of session id cookie. Default is based on incoming request. -->
+                <!-- <init-param name="cookie-domain" value=".mywebsite.com"/> -->
+                <!-- Should cookie only be sent using a secure protocol? Default is false. -->
+                <init-param name="cookie-secure" value="false"/>
+                <!-- Should HttpOnly attribute be set on cookie ? Default is false. -->
+                <init-param name="cookie-http-only" value="false"/>
+                <!-- Are you debugging? Default is false. -->
+                <init-param name="debug" value="false"/>
+                <!-- Do you want to shutdown HazelcastInstance during web application undeploy process? Default is true. -->
+                <init-param name="shutdown-on-destroy" value="false"/>
+                <!-- Do you want to cache sessions locally in each instance? Default is false. -->
+                <init-param name="deferred-write" value="false"/>
+
+                <url-pattern>/*</url-pattern>
+                <dispatcher>FORWARD</dispatcher><dispatcher>INCLUDE</dispatcher><dispatcher>REQUEST</dispatcher>
+            </filter>
+            <listener class="com.hazelcast.web.SessionListener"/>
+
+            <!-- Moqui Session Listener (necessary to handle expired sessions, etc) -->
+            <listener class="org.moqui.impl.webapp.MoquiSessionListener"/>
+
+            <servlet name="MoquiServlet" class="org.moqui.impl.webapp.MoquiServlet" load-on-startup="1">
+                <url-pattern>/*</url-pattern>
+            </servlet>
+            <servlet name="MoquiFopServlet" class="org.moqui.impl.webapp.MoquiFopServlet" load-on-startup="1">
+                <url-pattern>/fop/*</url-pattern>
+            </servlet>
+            <servlet name="H2Console" class="org.h2.server.web.WebServlet" load-on-startup="1">
+                <!-- <init-param name="webAllowOthers" value=""/><init-param name="trace" value=""/> -->
+                <url-pattern>/h2/*</url-pattern>
+            </servlet>
+
+            <!-- timeout session in 60 minutes without a request -->
+            <session-config timeout="60"/>
         </webapp>
     </webapp-list>
 

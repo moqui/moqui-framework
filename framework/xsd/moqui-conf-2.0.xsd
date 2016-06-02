@@ -166,6 +166,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="before-logout"/>
                 <xs:element minOccurs="0" ref="after-startup"/>
                 <xs:element minOccurs="0" ref="before-shutdown"/>
+
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="context-param"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="filter"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="listener"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="servlet"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="session-config"/>
             </xs:sequence>
             <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
@@ -225,6 +231,60 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="before-shutdown">
         <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+
+    <xs:element name="context-param">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="value" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="filter">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
+                <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
+                <xs:element minOccurs="1" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="init-param">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="value" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="listener">
+        <xs:annotation><xs:documentation>
+            Note that for Jetty, and other servlet containers, these can only be implementations of
+            HttpSessionListener, HttpSessionIdListener, and HttpSessionAttributeListener; other listeners such
+            as ServletContextListener implementations must be in the web.xml file (cannot be loaded when
+            MoquiContextListener initializes).
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="servlet">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
+                <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="load-on-startup" type="xs:nonNegativeInteger" default="1"/>
+            <xs:attribute name="enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="session-config">
+        <xs:complexType>
+            <xs:attribute name="timeout" type="xs:nonNegativeInteger" use="required"/>
+        </xs:complexType>
     </xs:element>
 
     <!-- ====================== Artifact Execution Facade Conf Root ======================= -->
@@ -739,7 +799,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element ref="depends-on" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
-            <xs:attribute name="name" type="name-plain" use="optional"/>
+            <xs:attribute name="name" type="xs:string" use="optional"/>
             <xs:attribute name="location" type="xs:string" use="optional"><xs:annotation><xs:documentation>
                 Required when under component-list (in Moqui Conf XML file or a components.xml file), optional
                 when component element is in a component.xml file within a component.
@@ -749,7 +809,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="depends-on">
         <xs:complexType>
-            <xs:attribute name="name" type="name-plain" use="required"/>
+            <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="version" type="xs:string" use="optional"/>
         </xs:complexType>
     </xs:element>
