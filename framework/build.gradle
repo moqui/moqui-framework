@@ -172,11 +172,10 @@ dependencies {
     compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
     compile 'org.apache.httpcomponents:httpcore:4.4.4' // Apache 2.0
 
-    // Apache Jackrabbit
+    // JCR 2.0
     compile 'javax.jcr:jcr:2.0' // Apache 2.0???
-    compile 'org.apache.jackrabbit:jackrabbit-api:2.12.1' // Apache 2.0
-    compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
-    // Uncomment for WebDAV, along with code using Jcr2davRepositoryFactory in ResourceFacadeImpl
+    // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
+    // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
     // compile 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
 
     // javax.mail

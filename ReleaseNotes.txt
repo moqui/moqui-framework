@@ -43,6 +43,12 @@ Non Backward Compatible Changes
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
+- JCR and Apache Jackrabbit
+  - The repository.@type, @location, and @conf-location attributes have
+    been removed and the repository.parameter sub-element added for use
+    with the javax.jcr.RepositoryFactory interface
+  - See new configuration examples in MoquiDefaultConf.xml under the
+    repository-list element
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)
@@ -66,6 +72,20 @@ New Features
   - now internally using Servlet API 3.1.0
 - Various library updates, big cleanup of classes found in multiple jar
   files (JarHell checks pass; nice in general, needed for ElasticSearch)
+- Configuration
+  - Added default-property element to set Java System properties from the
+    configuration file
+  - Added Groovy string expansion to various configuration attributes
+    - looks for named fields in Java System properties and environment
+      variables
+    - used in default-property.@value and all xa-properties attributes
+    - replaces the old explicit check for ${moqui.runtime}, which was a
+      simple replacement hack
+    - because these are Groovy expressions the typical dots used in
+      property names cannot be used in these strings, use an underscore
+      instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime};
+      if a property name contains underscores and no value is found with
+      the literal name it replaces underscores with dots and looks again
 - Tool Factory
   - Added org.moqui.context.ToolFactory interface used to initialize,
     destroy, and get instances of tools
@@ -102,6 +122,11 @@ New Features
 - Implemented distributed entity cache invalidate using a Hazelcast Topic,
   enabled in Moqui Conf XML file with the @distributed-cache-invalidate
   attribute on the entity-facade element
+- JCR and Apache Jackrabbit
+  - JCR support (for content:// locations in the ResourceFacade) now uses
+    javax.jcr interfaces only, no dependencies on Jackrabbit
+  - JCR repository configuration now supports other JCR implementations by
+    using implementation specific RepositoryFactory parameters
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
@@ -341,23 +366,21 @@ Bug Fixes
 Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
-- More ToolFactory use
-  - Extract the code about jackrabbit from ResourceFacadeImpl as JackrabbitToolFactory which can get
-    javax.jcr.RepositoryFactory; make JCR factory configurable for the resource-facade element
-  - Extract the code running and stopping h2 server from EntityDatasourceFactoryImpl as H2DatabaseRunToolFactory
-  - Add configurable factory for local cache like distributed cache
-  - Cache ToolFactory for JCS: https://commons.apache.org/proper/commons-jcs/
-
-- Support System properties string expansion in all Moqui Conf XML attributes
-  - use something like ResourceFacade.expand() with Groovy, but needs to run before ResourceFacade inits
-  - Add SystemProperties class that implements the groovy Binding interface, use for expansion
+- Move tools from moqui-framework to tool components
+  - Great tools but not used by default in Moqui/Mantle/etc
+    - OrientDB (moqui-orientdb)
+    - Atomikos (moqui-atomikos; leave Bitronix in by default)
+    - Apache Camel (moqui-camel)
+  - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
+    - ElasticSearch (moqui-search)
+    - KIE (moqui-kie)
+    - add mantle-usl dependencies on search, kie
+  - Possible to split out FOP? Used in MoquiFopServlet, send email attachments, PDF render service, much more...
+  - Support some sort of built component archive?
+  - More cleanly handle library jars that will no longer be in WEB-INF/lib? ie other than having Gradle download from
+    dependencies and put in the <component>/lib directory
 
 - Saved form-list Finds
-  - Add option to form-list to allow saved searches along with fields to order by.
-  - As part of this add some sort of way to order by more than one field, with ascending or descending for each.
-  - When enabled show form to save current filters and order by fields in a new saved search, or to update an existing
-    saved search. Also allow deleting an existing saved search.
-  - When saved searches exist for a form show them in a drop-down and when selected reload page with its options.
   - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
 - WebSocket attempt 2

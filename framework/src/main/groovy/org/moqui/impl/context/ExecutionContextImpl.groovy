@@ -242,7 +242,8 @@ class ExecutionContextImpl implements ExecutionContext {
         ecfi.getEntityFacade(tenantId)
 
         // check for moqui.tenantAllowOverride flag set elsewhere
-        if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
+        if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N" &&
+                webFacade.session.getAttribute("moqui.tenantId") != tenantId)
             throw new BaseException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
 
         activeTenantId = tenantId

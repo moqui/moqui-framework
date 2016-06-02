@@ -13,10 +13,10 @@
  */
 package org.moqui.impl.context
 
+import freemarker.template.Template
 import groovy.transform.CompileStatic
 import org.apache.fop.apps.*
 import org.apache.fop.apps.io.ResourceResolverFactory
-import org.apache.jackrabbit.rmi.repository.URLRemoteRepository
 import org.apache.xmlgraphics.io.Resource
 import org.apache.xmlgraphics.io.ResourceResolver
 import org.codehaus.groovy.runtime.InvokerHelper
@@ -28,6 +28,7 @@ import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
 import org.moqui.impl.entity.EntityValueBase
+import org.moqui.jcache.MCache
 import org.moqui.util.ContextBinding
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
@@ -41,10 +42,10 @@ import javax.cache.expiry.Duration
 import javax.cache.expiry.ExpiryPolicy
 import javax.cache.expiry.ModifiedExpiryPolicy
 import javax.jcr.Repository
+import javax.jcr.RepositoryFactory
 import javax.jcr.Session
 import javax.jcr.SimpleCredentials
 import javax.mail.util.ByteArrayDataSource
-import javax.naming.InitialContext
 
 import javax.script.ScriptEngine
 import javax.script.ScriptEngineManager
@@ -134,27 +135,26 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         // Setup content repositories
         for (MNode repositoryNode in ecfi.confXmlRoot.first("repository-list").children("repository")) {
+            String repoName = repositoryNode.attribute("name")
+            Repository repo = null
+            Map parameters = new HashMap()
+            for (MNode paramNode in repositoryNode.children("parameter"))
+                parameters.put(paramNode.attribute("name"), paramNode.attribute("value"))
+
             try {
-                if (repositoryNode.attribute("type") == "davex") {
-                    throw new IllegalArgumentException("JCR davex not enabled by default, change code using Jcr2davRepositoryFactory in ResourceFacadeImpl and uncomment jackrabbit-jcr2dav in framework/build.gradle")
-                    /* Not enabled by default (RMI is more simple), change code here to enable:
-                    org.apache.jackrabbit.jcr2dav.Jcr2davRepositoryFactory j2drf = new org.apache.jackrabbit.jcr2dav.Jcr2davRepositoryFactory()
-                    Repository repository = j2drf.getRepository(["org.apache.jackrabbit.spi2davex.uri":(String) repositoryNode."@location"])
-                    contentRepositories.put((String) repositoryNode."@name", repository)
-                    */
-                } else if (repositoryNode.attribute("type") == "rmi") {
-                    Repository repository = new URLRemoteRepository(repositoryNode.attribute("location"))
-                    contentRepositories.put(repositoryNode.attribute("name"), repository)
-                } else if (repositoryNode.attribute("type") == "jndi") {
-                    InitialContext ic = new InitialContext()
-                    Repository repository = (Repository) ic.lookup(repositoryNode.attribute("location"))
-                    contentRepositories.put(repositoryNode.attribute("name"), repository)
-                } else if (repositoryNode.attribute("type") == "local") {
-                    throw new IllegalArgumentException("The local type content repository is not yet supported, pending research into API support for the concept")
+                for (RepositoryFactory factory : ServiceLoader.load(RepositoryFactory.class)) {
+                    repo = factory.getRepository(parameters)
+                    // factory accepted parameters
+                    if (repo != null) break
                 }
-                logger.info("Added JCR Repository [${repositoryNode.attribute("name")}] at [${repositoryNode.attribute("location")}], workspace [${repositoryNode.attribute("workspace")}]")
+                if (repo != null) {
+                    contentRepositories.put(repoName, repo)
+                    logger.info("Added JCR Repository ${repoName} of type ${repo.class.name} for workspace ${repositoryNode.attribute("workspace")} using parameters: ${parameters}")
+                } else {
+                    logger.error("Could not find JCR RepositoryFactory for repository ${repoName} using parameters: ${parameters}")
+                }
             } catch (Exception e) {
-                logger.error("Error getting JCR content repository with name [${repositoryNode.attribute("name")}], is of type [${repositoryNode.attribute("type")}] at location [${repositoryNode.attribute("location")}]: ${e.toString()}")
+                logger.error("Error getting JCR Repository ${repositoryNode.attribute("name")}: ${e.toString()}")
             }
         }
     }
@@ -246,8 +246,16 @@ public class ResourceFacadeImpl implements ResourceFacade {
             return ""
         }
         if (cache) {
-            ExpiryPolicy expiryPolicy = textRr != null ? new ModifiedExpiryPolicy(new Duration(0L, textRr.getLastModified())) : null
-            String cachedText = (String) textLocationCache.get(location)
+            String cachedText
+            if (textLocationCache instanceof MCache) {
+                MCache<String, String> mCache = (MCache) textLocationCache;
+                // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
+                //     updated time is older/less than rr.lastModified)
+                cachedText = (String) mCache.get(location, textRr.getLastModified())
+            } else {
+                // TODO: doesn't support on the fly reloading without cache expire/clear!
+                cachedText = (String) textLocationCache.get(location)
+            }
             if (cachedText != null) return cachedText
         }
         InputStream locStream = textRr.openStream()

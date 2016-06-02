@@ -501,7 +501,7 @@ class ScreenRenderImpl implements ScreenRender {
                 if (url.startsWith("/")) {
                     this.originalScreenPathNameList = pathElements
                 } else {
-                    this.originalScreenPathNameList = screenUrlInfo.preTransitionPathNameList
+                    this.originalScreenPathNameList = new ArrayList<>(screenUrlInfo.preTransitionPathNameList)
                     this.originalScreenPathNameList.addAll(pathElements)
                 }
                 // reset screenUrlInfo and call this again to start over with the new target
