@@ -171,6 +171,9 @@ Bug Fixes
   some view entity fields are on a member entity
 - Cache clear fix for view-entity list cache fixes issue where adding a
   permission required manual cache clear or restart for permission to apply
+- Fixed issue with Entity/DataEdit screens in the Tools application where
+  the parameter and form field name 'entityName' conflicted with certain
+  entities that have a field named entityName
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
