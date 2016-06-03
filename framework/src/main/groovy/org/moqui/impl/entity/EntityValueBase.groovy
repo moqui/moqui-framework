@@ -228,24 +228,19 @@ abstract class EntityValueBase implements EntityValue {
                             if (ed.isViewEntity()) {
                                 entityName = fieldInfo.viewOriginalEntityName
                                 fieldName = fieldInfo.viewOriginalFieldName
-                                logger.warn("localizing field for ViewEntity ${ed.fullEntityName} field ${name}, using entityName: ${entityName}, fieldName: ${fieldName}, pkValue: ${pkValue}, locale: ${localeStr}")
+                                // logger.warn("localizing field for ViewEntity ${ed.fullEntityName} field ${name}, using entityName: ${entityName}, fieldName: ${fieldName}, pkValue: ${pkValue}, locale: ${localeStr}")
                             }
-							//lefFind.condition([entityName:ed.getFullEntityName(), fieldName:name, pkValue:pkValue, locale:localeStr] as Map<String, Object>)
                             EntityFind lefFind = getEntityFacadeImpl().find("moqui.basic.LocalizedEntityField")
-							lefFind.condition([entityName:entityName, fieldName:fieldName, pkValue:pkValue, locale:localeStr] as Map<String, Object>)
-							logger.warn("======== created lefFind: ${lefFind}")
+                            lefFind.condition([entityName:entityName, fieldName:fieldName, pkValue:pkValue, locale:localeStr] as Map<String, Object>)
                             EntityValue lefValue = lefFind.useCache(true).one()
                             if (lefValue != null) {
                                 String localized = (String) lefValue.localized
                                 StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField)
-								logger.info("localized: ${localized}")
                                 return localized
                             }
-							logger.error("======== no result, trying shortened!")
                             // no result found, try with shortened locale
                             if (localeStr.contains("_")) {
                                 lefFind.condition("locale", localeStr.substring(0, localeStr.indexOf("_")))
-								logger.warn("======== new lefFind: ${lefFind}")
                                 lefValue = lefFind.useCache(true).one()
                                 if (lefValue != null) {
                                     String localized = (String) lefValue.localized
@@ -253,10 +248,8 @@ abstract class EntityValueBase implements EntityValue {
                                     return localized
                                 }
                             }
-							logger.error("======== no result!")
                             // no result found, try "default" locale
                             lefFind.condition("locale", "default")
-							logger.warn("======== new lefFind: ${lefFind}")
                             lefValue = lefFind.useCache(true).one()
                             if (lefValue != null) {
                                 String localized = (String) lefValue.localized
