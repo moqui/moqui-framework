@@ -53,6 +53,7 @@ class ScreenForm {
     protected String fullFormName
     protected boolean hasDbExtensions = false
     protected boolean isDynamic = false
+    protected String extendsScreenLocation = null
 
     protected XmlAction rowActions = null
 
@@ -115,6 +116,7 @@ class ScreenForm {
                             this.sd.sectionByName.put(inclRefNode.attribute("name"), esd.getSection(inclRefNode.attribute("name")))
                     }
                 }
+                extendsScreenLocation = screenLocation
             } else {
                 ScreenForm esf = sd.getForm(extendsForm)
                 formNode = esf?.getOrCreateFormNode()

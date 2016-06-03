@@ -46,10 +46,11 @@ class ScreenDefinition {
     protected final String screenName
     protected boolean standalone = false
     Long sourceLastModified = null
+    final long screenLoadedTime
 
-    protected Map<String, ParameterItem> parameterByName = new HashMap()
-    protected Map<String, TransitionItem> transitionByName = new HashMap()
-    protected Map<String, SubscreensItem> subscreensByName = new HashMap()
+    protected Map<String, ParameterItem> parameterByName = new HashMap<>()
+    protected Map<String, TransitionItem> transitionByName = new HashMap<>()
+    protected Map<String, SubscreensItem> subscreensByName = new HashMap<>()
     protected List<SubscreensItem> subscreensItemsSorted = null
     protected Set<String> tenantsAllowed = null
 
@@ -57,9 +58,10 @@ class ScreenDefinition {
     protected XmlAction preActions = null
 
     protected ScreenSection rootSection = null
-    protected Map<String, ScreenSection> sectionByName = new HashMap()
-    protected Map<String, ScreenForm> formByName = new HashMap()
-    protected Map<String, ScreenTree> treeByName = new HashMap()
+    protected Map<String, ScreenSection> sectionByName = new HashMap<>()
+    protected Map<String, ScreenForm> formByName = new HashMap<>()
+    protected Map<String, ScreenTree> treeByName = new HashMap<>()
+    protected final Set<String> dependsOnScreenLocations = new HashSet<>()
 
     protected Map<String, ResourceReference> subContentRefByPath = new HashMap()
     protected Map<String, String> macroTemplateByRenderMode = null
@@ -72,6 +74,7 @@ class ScreenDefinition {
         this.location = location
 
         long startTime = System.currentTimeMillis()
+        screenLoadedTime = startTime
 
         String filename = location.contains("/") ? location.substring(location.lastIndexOf("/")+1) : location
         screenName = filename.contains(".") ? filename.substring(0, filename.indexOf(".")) : filename
@@ -131,19 +134,23 @@ class ScreenDefinition {
                 sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.section\$${sectionNode.attribute("name")}"))
             for (MNode sectionNode in descMap.get('section-iterate'))
                 sectionByName.put(sectionNode.attribute("name"), new ScreenSection(sfi.ecfi, sectionNode, "${location}.section_iterate\$${sectionNode.attribute("name")}"))
-            for (MNode sectionNode in descMap.get('section-include'))
-                pullSectionInclude(sectionNode)
+            for (MNode sectionNode in descMap.get('section-include')) pullSectionInclude(sectionNode)
 
             // get all forms by name
-            for (MNode formNode in descMap.get('form-single'))
-                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.form_single\$${formNode.attribute("name")}"))
-            for (MNode formNode in descMap.get('form-list'))
-                formByName.put(formNode.attribute("name"), new ScreenForm(sfi.ecfi, this, formNode, "${location}.form_list\$${formNode.attribute("name")}"))
+            for (MNode formNode in descMap.get('form-single')) {
+                ScreenForm newForm = new ScreenForm(sfi.ecfi, this, formNode, "${location}.form_single\$${formNode.attribute("name")}")
+                if (newForm.extendsScreenLocation != null) dependsOnScreenLocations.add(newForm.extendsScreenLocation)
+                formByName.put(formNode.attribute("name"), newForm)
+            }
+            for (MNode formNode in descMap.get('form-list')) {
+                ScreenForm newForm = new ScreenForm(sfi.ecfi, this, formNode, "${location}.form_list\$${formNode.attribute("name")}")
+                if (newForm.extendsScreenLocation != null) dependsOnScreenLocations.add(newForm.extendsScreenLocation)
+                formByName.put(formNode.attribute("name"), newForm)
+            }
 
             // get all trees by name
-            for (MNode treeNode in descMap.get('tree')) {
+            for (MNode treeNode in descMap.get('tree'))
                 treeByName.put(treeNode.attribute("name"), new ScreenTree(sfi.ecfi, this, treeNode, "${location}.tree\$${treeNode.attribute("name")}"))
-            }
         }
 
         if (logger.isTraceEnabled()) logger.trace("Loaded screen at [${location}] in [${(System.currentTimeMillis()-startTime)/1000}] seconds")
@@ -161,6 +168,7 @@ class ScreenDefinition {
         ScreenSection includeSection = includeScreen?.getSection(sectionName)
         if (includeSection == null) throw new IllegalArgumentException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
         sectionByName.put(sectionNode.attribute("name"), includeSection)
+        dependsOnScreenLocations.add(location)
 
         Map<String, ArrayList<MNode>> descMap = includeSection.sectionNode.descendants(
                 new HashSet<String>(['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree']))
@@ -171,14 +179,20 @@ class ScreenDefinition {
         for (MNode inclRefNode in descMap.get('section-iterate'))
             sectionByName.put(inclRefNode.attribute("name"), includeScreen.getSection(inclRefNode.attribute("name")))
         // recurse for section-include
-        for (MNode inclRefNode in descMap.get('section-include'))
-            pullSectionInclude(inclRefNode)
+        for (MNode inclRefNode in descMap.get('section-include')) pullSectionInclude(inclRefNode)
 
         // see if the included section contains any FORMS or TREES, need to reference those here too!
-        for (MNode formNode in descMap.get('form-single'))
-            formByName.put(formNode.attribute("name"), includeScreen.getForm(formNode.attribute("name")))
-        for (MNode formNode in descMap.get('form-list'))
-            formByName.put(formNode.attribute("name"), includeScreen.getForm(formNode.attribute("name")))
+        for (MNode formNode in descMap.get('form-single')) {
+            ScreenForm inclForm = includeScreen.getForm(formNode.attribute("name"))
+            if (inclForm.extendsScreenLocation != null) dependsOnScreenLocations.add(inclForm.extendsScreenLocation)
+            formByName.put(formNode.attribute("name"), inclForm)
+        }
+        for (MNode formNode in descMap.get('form-list')) {
+            ScreenForm inclForm = includeScreen.getForm(formNode.attribute("name"))
+            if (inclForm.extendsScreenLocation != null) dependsOnScreenLocations.add(inclForm.extendsScreenLocation)
+            formByName.put(formNode.attribute("name"), inclForm)
+        }
+
         for (MNode treeNode in descMap.get('tree'))
             treeByName.put(treeNode.attribute("name"), includeScreen.getTree(treeNode.attribute("name")))
     }
