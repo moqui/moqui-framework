@@ -296,7 +296,8 @@ class EntityFacadeImpl implements EntityFacade {
                 try {
                     EntityDefinition ed = getEntityDefinition(entityName)
                     ed.getRelationshipInfoMap()
-                    entityDbMeta.tableExists(ed)
+                    // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
+                    ed.datasourceFactory.checkTableExists(ed.getFullEntityName())
                 } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}", t) }
             }
         }
@@ -329,7 +330,8 @@ class EntityFacadeImpl implements EntityFacade {
             try {
                 EntityDefinition ed = getEntityDefinition(entityName)
                 ed.getRelationshipInfoMap()
-                entityDbMeta.tableExists(ed)
+                // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
+                ed.datasourceFactory.checkTableExists(ed.getFullEntityName())
 
                 if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
                 if (cachedListEntities.contains(entityName)) {

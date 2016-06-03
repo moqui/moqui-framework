@@ -8,75 +8,13 @@
         <param-name>moqui-name</param-name><param-value>webroot</param-value>
     </context-param>
 
-    <!-- Hazelcast Session Replication Filter Configuration -->
-    <filter>
-        <filter-name>hazelcast-filter</filter-name>
-        <filter-class>com.hazelcast.web.WebFilter</filter-class>
-        <!-- Do you want to use an existing HazelcastInstance? Default is null. -->
-        <init-param><param-name>instance-name</param-name><param-value>moqui</param-value></init-param>
-        <!-- Configuration xml location; * as servlet resource OR * as classpath resource OR * as URL
-            Default is one of hazelcast-default.xml or hazelcast.xml in classpath. -->
-        <!-- <init-param><param-name>config-location</param-name><param-value>/WEB-INF/hazelcast.xml</param-value></init-param> -->
-        <init-param><param-name>use-client</param-name><param-value>false</param-value></init-param>
-        <!-- Name of the distributed map storing your web session objects -->
-        <init-param><param-name>map-name</param-name><param-value>my-sessions</param-value></init-param>
-        <!-- TTL value of the distributed map storing your web session objects. Any integer between 0 and Integer.MAX_VALUE. Default is 1800 which is 30 minutes. -->
-        <init-param><param-name>session-ttl-seconds</param-name><param-value>3600</param-value></init-param>
-        <!-- How is your load-balancer configured? sticky-session means all requests of a session is routed to the node
-          where the session is first created. This is excellent for performance. If sticky-session is set to false, when a
-          session is updated on a node, entry for this session on all other nodes is invalidated. You have to know how your
-          load-balancer is configured before setting this parameter. Default is true.
-        -->
-        <init-param><param-name>sticky-session</param-name><param-value>true</param-value></init-param>
-        <!-- Name of session id cookie -->
-        <init-param><param-name>cookie-name</param-name><param-value>hazelcast.sessionId</param-value></init-param>
-        <!-- Domain of session id cookie. Default is based on incoming request. -->
-        <!-- <init-param><param-name>cookie-domain</param-name><param-value>.mywebsite.com</param-value></init-param> -->
-        <!-- Should cookie only be sent using a secure protocol? Default is false. -->
-        <init-param><param-name>cookie-secure</param-name><param-value>false</param-value></init-param>
-        <!-- Should HttpOnly attribute be set on cookie ? Default is false. -->
-        <init-param><param-name>cookie-http-only</param-name><param-value>false</param-value></init-param>
-        <!-- Are you debugging? Default is false. -->
-        <init-param><param-name>debug</param-name><param-value>true</param-value></init-param>
-        <!-- Do you want to shutdown HazelcastInstance during web application undeploy process? Default is true. -->
-        <init-param><param-name>shutdown-on-destroy</param-name><param-value>false</param-value></init-param>
-        <!-- Do you want to cache sessions locally in each instance? Default is false. -->
-        <init-param><param-name>deferred-write</param-name><param-value>false</param-value></init-param>
-    </filter>
-    <filter-mapping><filter-name>hazelcast-filter</filter-name><url-pattern>/*</url-pattern>
-        <dispatcher>FORWARD</dispatcher><dispatcher>INCLUDE</dispatcher><dispatcher>REQUEST</dispatcher></filter-mapping>
-    <listener><listener-class>com.hazelcast.web.SessionListener</listener-class></listener>
-
-    <!-- Moqui Context and Session Listeners (necessary to init Moqui, handle expired sessions, etc) -->
+    <!-- Moqui Context Listener (necessary to init Moqui, etc) -->
     <listener><listener-class>org.moqui.impl.webapp.MoquiContextListener</listener-class></listener>
-    <listener><listener-class>org.moqui.impl.webapp.MoquiSessionListener</listener-class></listener>
-    <!-- Apache Commons FileUpload Cleanup -->
+
+    <!-- Apache Commons FileUpload Cleanup; this must be configured here as it is a ServletContextListener -->
     <listener><listener-class>org.apache.commons.fileupload.servlet.FileCleanerCleanup</listener-class></listener>
 
-    <servlet>
-        <description>Moqui Webapp Servlet</description>
-        <display-name>MoquiServlet</display-name><servlet-name>MoquiServlet</servlet-name>
-        <servlet-class>org.moqui.impl.webapp.MoquiServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
-    </servlet>
-    <servlet>
-        <description>Moqui Webapp FOP Servlet</description>
-        <display-name>MoquiFopServlet</display-name><servlet-name>MoquiFopServlet</servlet-name>
-        <servlet-class>org.moqui.impl.webapp.MoquiFopServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
-    </servlet>
-    <servlet>
-        <servlet-name>H2Console</servlet-name>
-        <servlet-class>org.h2.server.web.WebServlet</servlet-class>
-        <!-- <init-param><param-name>webAllowOthers</param-name><param-value></param-value></init-param>
-            <init-param><param-name>trace</param-name><param-value></param-value></init-param> -->
-        <load-on-startup>1</load-on-startup>
-    </servlet>
-
-    <servlet-mapping><servlet-name>MoquiServlet</servlet-name><url-pattern>/*</url-pattern></servlet-mapping>
-    <servlet-mapping><servlet-name>MoquiFopServlet</servlet-name><url-pattern>/fop/*</url-pattern></servlet-mapping>
-    <servlet-mapping><servlet-name>H2Console</servlet-name><url-pattern>/h2/*</url-pattern></servlet-mapping>
-
-    <!-- timeout session in 60 minutes without a request -->
+    <!-- timeout session in 60 minutes without a request;
+        note that this may be overridden with webapp.session-config.@timeout in the Moqui Conf XML file -->
     <session-config><session-timeout>60</session-timeout></session-config>
 </web-app>

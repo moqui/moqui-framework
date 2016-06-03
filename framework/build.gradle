@@ -69,6 +69,8 @@ dependencies {
     compile 'org.owasp.esapi:esapi-moqui:2.1.0' // New BSD
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
+    // Bitronix depends on javassist (as does OrientDB, etc)
+    compile 'org.javassist:javassist:3.20.0-GA' // Apache 2.0
 
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
 
@@ -198,35 +200,6 @@ dependencies {
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
-    // OrientDB
-    compile 'com.orientechnologies:orientdb-client:2.1.16' // Apache 2.0
-    compile 'com.orientechnologies:orientdb-core:2.1.16' // Apache 2.0
-    compile 'com.orientechnologies:orientdb-enterprise:2.1.16' // Apache 2.0
-    // orientdb-graphdb has a bunch of dependencies that conflict with other things, needed included below or elsewhere
-    compile module('com.orientechnologies:orientdb-graphdb:2.1.16') { // Apache 2.0
-        exclude group: 'com.tinkerpop.gremlin'
-        exclude group: 'com.orientechnologies'
-        exclude group: 'com.fasterxml.jackson.core'
-        exclude group: 'commons-beanutils' // includes commons-beanutils-core, commons-beanutils included elsewhere
-    }
-    compile('com.orientechnologies:orientdb-server:2.1.16') { exclude group: 'javax.mail' } // Apache 2.0
-    // this is a mess: blueprints-core depends on all sorts of things and some required dependencies have conflicts
-    compile module('com.tinkerpop.blueprints:blueprints-core:2.6.0')
-        compile('org.codehaus.jettison:jettison:1.3.7')
-        compile('com.fasterxml.jackson.core:jackson-databind:2.7.4')
-        compile('com.carrotsearch:hppc:0.7.1')
-    compile('com.tinkerpop.gremlin:gremlin-java:2.6.0') // BSD
-    compile('com.tinkerpop.gremlin:gremlin-groovy:2.6.0') {
-        exclude group: 'org.codehaus.groovy'
-        exclude group: 'org.apache.ant'
-        exclude group: 'org.apache.ivy'
-        exclude group: 'org.fusesource.jansi'
-        exclude group: 'jline'
-    } // BSD
-    // NOTE: explicit dependency to get latest version, older versions cause serious runtime errors
-    compile 'org.javassist:javassist:3.20.0-GA' // Apache 2.0
-    // runtime 'com.orientechnologies:orientdb-jdbc:2.1.16' // Apache 2.0
-
     // Quartz Scheduler (NOTE: depends on c3p0 (with a different group) and slf4j, but we include those elsewhere, so use module)
     apiCompile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
     compile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
@@ -350,9 +323,9 @@ jar {
 war {
     dependsOn jar
     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
-    destinationDir = file(projectDir.absolutePath + '/..')
+    destinationDir = projectDir.parentFile
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
-    from(fileTree(dir: projectDir.absolutePath + '/..', includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+    from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
     classpath = configurations.runtime - configurations.providedCompile
     classpath file(jar.archivePath)
