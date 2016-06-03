@@ -31,6 +31,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
+import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
@@ -393,8 +394,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // now that everything is started up, if configured check all entity tables
         defaultEfi.checkInitDatasourceTables()
-        // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
-        defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {

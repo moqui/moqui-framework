@@ -359,7 +359,10 @@
         -->
 
         <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
-            NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX -->
+            NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX
+            NOTE: adding more entities to the nontransactional group is a work in progress, this will not currently run,
+                but you can use a similar configuration for your own entity groups
+        -->
         <!--
         <datasource group-name="nontransactional" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory"
                 startup-add-missing="true">

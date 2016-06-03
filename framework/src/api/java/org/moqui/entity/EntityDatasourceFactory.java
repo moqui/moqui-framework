@@ -20,6 +20,7 @@ import javax.sql.DataSource;
 public interface EntityDatasourceFactory {
     EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode, String tenantId);
     void destroy();
+    boolean checkTableExists(String entityName);
     void checkAndAddTable(String entityName);
     EntityValue makeEntityValue(String entityName);
     EntityFind makeEntityFind(String entityName);

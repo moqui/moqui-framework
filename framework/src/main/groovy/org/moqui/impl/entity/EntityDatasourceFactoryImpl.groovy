@@ -93,6 +93,15 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     }
 
     @Override
+    boolean checkTableExists(String entityName) {
+        EntityDefinition ed
+        // just ignore EntityException on getEntityDefinition
+        try { ed = efi.getEntityDefinition(entityName) } catch (EntityException e) { return false }
+        // may happen if all entity names includes a DB view entity or other that doesn't really exist
+        if (ed == null) return false
+        return efi.getEntityDbMeta().tableExists(ed)
+    }
+    @Override
     void checkAndAddTable(String entityName) {
         EntityDefinition ed
         // just ignore EntityException on getEntityDefinition
