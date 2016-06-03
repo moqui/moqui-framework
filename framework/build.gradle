@@ -139,6 +139,11 @@ dependencies {
     // compile module('org.elasticsearch.module:lang-groovy:2.3.2') // Apache 2.0
     // NOTE: jts explicit dependency because doesn't get picked up in elasticsearch but without has runtime error
     runtime 'com.vividsolutions:jts:1.13' // LGPL (runtime only, needed by spatial4j)
+    // ElasticSearch uses jackson-dataformat-smile, -yaml, -cbor pulling in jackson-core, also used by OrientDB, but gets an older version
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.7.4'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.7.4'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.4'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.7.4'
 
     // Apache FOP
     compile('org.apache.xmlgraphics:fop:2.1') { // Apache 2.0
