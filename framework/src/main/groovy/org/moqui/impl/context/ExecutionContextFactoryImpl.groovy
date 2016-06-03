@@ -31,7 +31,6 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
-import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
@@ -252,7 +251,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         System.setProperty("moqui.runtime", runtimePath)
         System.setProperty("moqui.conf", runtimeConfPath)
 
-        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - config file: ${this.runtimeConfPath}")
+        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
@@ -442,16 +441,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
             if (libRr.exists && libRr.supportsDirectory() && libRr.isDirectory()) {
+                Set<String> jarsLoaded = new LinkedHashSet<>()
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
                             cachedClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
-                            logger.info("Added JAR from component ${ci.name}: ${jarRr.getFileName()}")
+                            jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
                         }
                     }
                 }
+                logger.info("Added JARs from component ${ci.name}: ${jarsLoaded}")
             }
         }
 
@@ -757,7 +758,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Overriding component [${componentInfo.name}] at [${componentInfoMap.get(componentInfo.name).location}] with location [${componentInfo.location}] because another component of the same name was initialized")
         // components registered later override those registered earlier by replacing the Map entry
         componentInfoMap.put(componentInfo.name, componentInfo)
-        logger.info("Added component [${componentInfo.name}] at [${componentInfo.location}]")
+        logger.info("Added component ${componentInfo.name.padRight(18)} at ${componentInfo.location}")
     }
 
     protected void addComponentDir(String location) {

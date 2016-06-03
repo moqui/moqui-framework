@@ -108,8 +108,7 @@
     </server-stats>
 
     <webapp-list>
-        <!-- The webapp.@name attribute value is looked up based on the value of the moqui-name context-param in
-        the web.xml file. This configuration will allow the framework to do various things for that webapp. -->
+        <!-- The webapp.@name is looked up based on the value of the 'moqui-name' context-param in the web.xml file -->
         <webapp name="webroot" http-port="" http-host="" https-port="" https-host=""
                 https-enabled="false" require-session-token="true">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
@@ -119,7 +118,7 @@
             <error-screen error="not-found" screen-path="error/NotFound"/>
             <error-screen error="too-many" screen-path="error/TooMany"/>
             <error-screen error="internal-error" screen-path="error/InternalError"/>
-            <!-- example only, no default actions right now:
+            <!-- lifecycle actions examples, none by default:
             <first-hit-in-visit><actions><log level="info" message="========================== first-hit-in-visit actions"/></actions></first-hit-in-visit>
             <before-request><actions><log level="info" message="========================== before-request actions"/></actions></before-request>
             <after-request><actions><log level="info" message="========================== after-request actions"/></actions></after-request>
@@ -201,22 +200,21 @@
     </user-facade>
 
     <transaction-facade use-transaction-cache="true">
-        <!-- Use this one for the internal transaction manager -->
+        <!-- Use this for the internal transaction manager (not through JNDI) -->
         <!-- <transaction-internal class="org.moqui.impl.context.TransactionInternalAtomikos"/> -->
         <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/>
 
-        <!-- if this is not present the default JNDI server will be used -->
+        <!-- If this is not present the default JNDI server will be used -->
         <!-- <server-jndi context-provider-url="rmi://127.0.0.1:1099"
                      initial-context-factory="com.sun.jndi.rmi.registry.RegistryContextFactory"
                      url-pkg-prefixes="java.naming.rmi.security.manager"
                      security-principal="" security-credentials=""/> -->
 
-        <!-- Use this one for getting the JTA objects from JNDI -->
+        <!-- Use this for getting JTA objects from JNDI -->
         <!-- <transaction-jndi transaction-manager-jndi-name="java:comp/UserTransaction"
                              user-transaction-jndi-name="java:comp/UserTransaction"/> -->
-        <!-- UserTransaction JNDI name for most servers: java:comp/UserTransaction (most servers: Resin, Orion, OC4J, etc)
-            JBoss (separate objects): "java:comp/UserTransaction" and "java:comp/TransactionManager"
-        -->
+        <!-- UserTransaction JNDI name for most servers: java:comp/UserTransaction (Resin, Orion, OC4J, etc);
+            JBoss (separate objects): "java:comp/UserTransaction" and "java:comp/TransactionManager" -->
     </transaction-facade>
 
     <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl">
@@ -297,7 +295,7 @@
         <service-type name="remote-json-rpc" runner-class="org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner"/>
         <service-type name="camel" runner-class="org.moqui.impl.service.runner.CamelServiceRunner"/>
 
-        <!-- These are not needed for running classpath services, but are for service reference (known services) -->
+        <!-- These are not needed for running classpath services, are for service reference (known services) -->
         <service-file location="classpath://service/org/moqui/EmailServices.xml"/>
         <service-file location="classpath://service/org/moqui/EntityServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/BasicServices.xml"/>
@@ -317,36 +315,20 @@
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="HazelcastDciTopic"
-            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES">
-        <!-- note: no crypt-pass attribute by default, must specify in your conf file! -->
+            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="">
+        <!-- NOTE: no crypt-pass attribute by default, must specify in your conf file! -->
 
-        <!-- if this is not present the default JNDI server will be used -->
-        <!-- <server-jndi context-provider-url="rmi://127.0.0.1:1099"
-                     initial-context-factory="com.sun.jndi.rmi.registry.RegistryContextFactory"
-                     url-pkg-prefixes="java.naming.rmi.security.manager"
-                     security-principal="" security-credentials=""/> -->
+        <!-- If this is not present the default JNDI server will be used:
+        <server-jndi context-provider-url="rmi://127.0.0.1:1099"
+                 initial-context-factory="com.sun.jndi.rmi.registry.RegistryContextFactory"
+                 url-pkg-prefixes="java.naming.rmi.security.manager"
+                 security-principal="" security-credentials=""/>
+         -->
 
         <!--
-        The configurations below will use the XADataSource directly to connect, which is required for proper
-        transaction handling with multiple data sources.
+            The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
+            the transactional group's datasource will be used.
 
-        To use the non-XA variety just specify the normal JDBC parameters (like jdbc-uri, etc) and leave out the
-        xa-properties element. If the xa-properties element is present the normal JDBC parameters will be ignored.
-
-        To use a DataSource from JNDI use something the jndi-jdbc element under the datasource element:
-            <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/>
-        -->
-
-        <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
-        <datasource group-name="transactional" database-conf-name="h2" schema-name=""
-                start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}" password="${ds_transactional_password}"/>
-            </inline-jdbc>
-        </datasource>
-        <!-- The entity-facade.default-group-name=transactional, so if other entity groups do not have a data source
-            the transactional group's datasource will be used. -->
-        <!--
             Standard group names include:
             - transactional: transactional business entities that need atomic operations, immediate consistency, etc;
               typically never cached; includes things like work efforts, orders, shipments, inventory/assets, invoices,
@@ -357,6 +339,29 @@
             - configuration: framework and application configuration data; eventual consistency is okay; typically cached
             - analytical: analytical entities with data typically derived from transactional data
         -->
+        <!--
+            The configurations below will use the XADataSource directly to connect, which is required for proper
+            transaction handling with multiple data sources.
+
+            To use the non-XA variety just specify the normal JDBC parameters (like jdbc-uri, etc) and leave out the
+            xa-properties element. If the xa-properties element is present the normal JDBC parameters will be ignored.
+
+            To use a DataSource from JNDI use something the jndi-jdbc element under the datasource element:
+                <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/>
+        -->
+
+        <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
+        <datasource group-name="transactional" database-conf-name="h2" schema-name=""
+                start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
+            <inline-jdbc><xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}"
+                    password="${ds_transactional_password}"/></inline-jdbc>
+        </datasource>
+
+        <!-- The tenantcommon group can also in the same DB, but MUST have a separate definition for multi-tenant to work -->
+        <datasource group-name="tenantcommon" database-conf-name="h2" schema-name="">
+            <inline-jdbc><xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}"
+                    password="${ds_transactional_password}"/></inline-jdbc>
+        </datasource>
 
         <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
             NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX
@@ -364,87 +369,75 @@
                 but you can use a similar configuration for your own entity groups
         -->
         <!--
-        <datasource group-name="nontransactional" object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory"
-                startup-add-missing="true">
+        <datasource group-name="nontransactional" startup-add-missing="true"
+                object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory">
             <inline-other uri="plocal:${ORIENTDB_HOME}/databases/MoquiNoSql" username="admin" password="admin"/>
         </datasource>
         -->
 
-        <!-- The tenantcommon group can also in the same DB, but MUST have a separate definition for multi-tenant to work -->
-        <datasource group-name="tenantcommon" database-conf-name="h2" schema-name="">
-            <inline-jdbc pool-minsize="2" pool-maxsize="10">
-                <xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}" password="${ds_transactional_password}"/>
-            </inline-jdbc>
-        </datasource>
+        <!--
+        ===== Database Configuration Examples =====
 
-
-        <!-- ===== some examples of how other databases would be configured ===== -->
-
-        <!-- Derby
-        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties databaseName="${moqui_runtime}/db/derby/MoquiDEFAULT" createDatabase="create"/>
-            </inline-jdbc>
-            <!- - <inline-jdbc jdbc-uri="jdbc:derby:MoquiDEFAULT;create=true"
-                         jdbc-username="moqui" jdbc-password="moqui" pool-minsize="5" pool-maxsize="50"/> - ->
-        </datasource>
-        -->
-        <!-- DB2
+        * DB2:
         <datasource group-name="transactional" database-conf-name="db2" schema-name="" startup-add-missing="true" runtime-add-missing="false">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5021" driverType="4"
-                               databaseName="MoquiDEFAULT"/>
-            </inline-jdbc>
-            <!- - <inline-jdbc jdbc-uri="jdbc:db2://localhost:5021/MoquiDEFAULT"
-                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5021"
+                    driverType="4" databaseName="MoquiDEFAULT"/></inline-jdbc>
         </datasource>
-        -->
-        <!-- H2 Database
+        <datasource group-name="transactional" database-conf-name="db2" schema-name="" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc jdbc-uri="jdbc:db2://localhost:5021/MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+
+        * Derby:
+        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
+            <inline-jdbc><xa-properties databaseName="${moqui_runtime}/db/derby/MoquiDEFAULT" createDatabase="create"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
+            <inline-jdbc jdbc-uri="jdbc:derby:MoquiDEFAULT;create=true" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+
+        * H2 Database:
         <datasource group-name="transactional" database-conf-name="h2" schema-name="">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties url="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT" user="sa" password=""/>
-            </inline-jdbc>
-            <!- - <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT"
-                         jdbc-username="sa" jdbc-password="sa" pool-minsize="5" pool-maxsize="50"/> - ->
+            <inline-jdbc><xa-properties url="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT" user="sa" password=""/></inline-jdbc>
         </datasource>
-        -->
-        <!-- MS SQL Server
+        <datasource group-name="transactional" database-conf-name="h2" schema-name="">
+            <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT" jdbc-username="sa" jdbc-password="sa"/>
+        </datasource>
+
+        * MS SQL Server:
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433" databaseName="MoquiDEFAULT"/>
-            </inline-jdbc>
-            <!- - <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=MoquiDEFAULT"
-                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433"
+                    databaseName="MoquiDEFAULT"/></inline-jdbc>
         </datasource>
-        -->
-        <!-- MySQL
+        <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
+            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+
+        * MySQL (similar for Percona Server, MariaDB):
         <datasource group-name="transactional" database-conf-name="mysql" schema-name="">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties user="moqui" password="moqui" pinGlobalTxToPhysicalConnection="true"
-                        serverName="127.0.0.1" port="3306" databaseName="MoquiDEFAULT" autoReconnectForPools="true"
-                        useUnicode="true" encoding="UTF-8"/>
-            </inline-jdbc>
-            <!- - <inline-jdbc jdbc-uri="jdbc:mysql://127.0.0.1:3306/MoquiDEFAULT?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8"
-                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+            <inline-jdbc><xa-properties user="moqui" password="moqui" pinGlobalTxToPhysicalConnection="true"
+                    serverName="127.0.0.1" port="3306" databaseName="MoquiDEFAULT" autoReconnectForPools="true"
+                    useUnicode="true" encoding="UTF-8"/></inline-jdbc>
         </datasource>
-        -->
-        <!-- Oracle
+        <datasource group-name="transactional" database-conf-name="mysql" schema-name="">
+            <inline-jdbc jdbc-uri="jdbc:mysql://127.0.0.1:3306/MoquiDEFAULT?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8"
+                    jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+
+        * Oracle:
         <datasource group-name="transactional" database-conf-name="oracle" schema-name="MOQUI">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties user="moqui" password="moqui" URL="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT"/>
-            </inline-jdbc>
-            <!- - <inline-jdbc jdbc-uri="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT"
-                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+            <inline-jdbc><xa-properties user="moqui" password="moqui" URL="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT"/></inline-jdbc>
         </datasource>
-        -->
-        <!-- PostgreSQL
+        <datasource group-name="transactional" database-conf-name="oracle" schema-name="MOQUI">
+            <inline-jdbc jdbc-uri="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+
+        * PostgreSQL:
         <datasource group-name="transactional" database-conf-name="postgres" schema-name="public" startup-add-missing="true" runtime-add-missing="false">
-            <inline-jdbc pool-minsize="5" pool-maxsize="50">
-                <xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5432"
-                               databaseName="MoquiDEFAULT"/>
-            </inline-jdbc>
-            <!- - <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/MoquiDEFAULT"
-                    jdbc-username="moqui" jdbc-password="moqui" pool-minsize="2" pool-maxsize="50"/> - ->
+            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5432"
+                    databaseName="MoquiDEFAULT"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="postgres" schema-name="public" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
 
@@ -531,8 +524,7 @@
         </database>
         <database name="h2"
                 use-pk-constraint-names="false" use-indexes-unique="true" default-isolation-level="ReadCommitted"
-                default-jdbc-driver="org.h2.Driver"
-                default-xa-ds-class="org.h2.jdbcx.JdbcDataSource">
+                default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource">
         </database>
         <database name="hsql" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
                 default-isolation-level="ReadUncommitted" default-jdbc-driver="org.hsqldb.jdbcDriver"
@@ -618,7 +610,7 @@
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
             <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
         </database>
-        <!-- for future reference: <database name="orientdb"
+        <!-- for future reference (OrientDB with JDBC driver): <database name="orientdb"
                 use-pk-constraint-names="false" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="com.orientechnologies.orient.jdbc.OrientJdbcDriver"
                 default-xa-ds-class="">
