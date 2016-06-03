@@ -251,7 +251,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         System.setProperty("moqui.runtime", runtimePath)
         System.setProperty("moqui.conf", runtimeConfPath)
 
-        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - config file: ${this.runtimeConfPath}")
+        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
@@ -758,7 +758,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Overriding component [${componentInfo.name}] at [${componentInfoMap.get(componentInfo.name).location}] with location [${componentInfo.location}] because another component of the same name was initialized")
         // components registered later override those registered earlier by replacing the Map entry
         componentInfoMap.put(componentInfo.name, componentInfo)
-        logger.info("Added component [${componentInfo.name}] at [${componentInfo.location}]")
+        logger.info("Added component ${componentInfo.name.padRight(18)} at ${componentInfo.location}")
     }
 
     protected void addComponentDir(String location) {
