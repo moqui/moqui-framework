@@ -49,6 +49,9 @@ Non Backward Compatible Changes
     with the javax.jcr.RepositoryFactory interface
   - See new configuration examples in MoquiDefaultConf.xml under the
     repository-list element
+- Externalized Tools
+  - OrientDB and Entity Facade interface implementations are now in the
+    moqui-orientdb component, see its README.md for usage
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)
@@ -369,9 +372,11 @@ Bug Fixes
 Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
+- Try Caffeine JCache at https://github.com/ben-manes/caffeine
+  - add multipled threads to SpeedTest.xml?
+
 - Move tools from moqui-framework to tool components
   - Great tools but not used by default in Moqui/Mantle/etc
-    - OrientDB (moqui-orientdb)
     - Atomikos (moqui-atomikos; leave Bitronix in by default)
     - Apache Camel (moqui-camel)
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
