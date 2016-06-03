@@ -31,7 +31,6 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
-import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
@@ -442,16 +441,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
             if (libRr.exists && libRr.supportsDirectory() && libRr.isDirectory()) {
+                Set<String> jarsLoaded = new LinkedHashSet<>()
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
                             cachedClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
-                            logger.info("Added JAR from component ${ci.name}: ${jarRr.getFileName()}")
+                            jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
                         }
                     }
                 }
+                logger.info("Added JARs from component ${ci.name}: ${jarsLoaded}")
             }
         }
 
