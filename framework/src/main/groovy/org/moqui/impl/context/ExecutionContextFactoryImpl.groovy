@@ -446,7 +446,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
                             cachedClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
-                            logger.info("Added JAR from component ${ci.name}: ${jarRr.getLocation()}")
+                            logger.info("Added JAR from component ${ci.name}: ${jarRr.getFileName()}")
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
                         }
