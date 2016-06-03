@@ -497,6 +497,8 @@ public class EntityJavaUtil {
         public String defaultStr = null;
         public String javaType = null;
         public String enableAuditLog = null;
+        public String viewOriginalEntityName = null;
+        public String viewOriginalFieldName = null;
         public int typeValue = -1;
         public boolean isTextVeryLong = false;
         public boolean isPk = false;
