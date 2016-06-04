@@ -38,6 +38,12 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="init-param">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="value" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
     <xs:element name="default-property">
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
@@ -249,12 +255,6 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="class" type="xs:string" use="required"/>
             <xs:attribute name="enabled" type="boolean" default="true"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="init-param">
-        <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="value" type="xs:string" use="required"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="listener">
@@ -764,7 +764,7 @@ along with this software (see the LICENSE.md file). If not, see
             javax.jcr.Session using the workspace, username, and password attributes.</xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:sequence>
-                <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element ref="init-param" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="workspace" type="xs:string">

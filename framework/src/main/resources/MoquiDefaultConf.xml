@@ -632,10 +632,10 @@
         <!-- No JCR repo by default, but here are some examples: -->
         <!-- requires 'org.apache.jackrabbit:jackrabbit-jcr-rmi' in the classpath:
         <repository name="main" workspace="default" username="admin" password="admin">
-            <parameter name="org.apache.jackrabbit.repository.uri" value="http://localhost:8081/rmi"/></repository> -->
+            <init-param name="org.apache.jackrabbit.repository.uri" value="http://localhost:8081/rmi"/></repository> -->
         <!-- requires 'org.apache.jackrabbit:jackrabbit-jcr2dav' in the classpath:
         <repository name="main" workspace="default" username="admin" password="admin">
-            <parameter name="org.apache.jackrabbit.spi2davex.uri" value="http://localhost:8081/server"/></repository> -->
+            <init-param name="org.apache.jackrabbit.spi2davex.uri" value="http://localhost:8081/server"/></repository> -->
     </repository-list>
     <component-list>
         <component-dir location="base-component"/>
