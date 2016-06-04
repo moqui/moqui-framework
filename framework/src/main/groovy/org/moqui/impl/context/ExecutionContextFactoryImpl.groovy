@@ -1334,7 +1334,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     { MNode childBaseNode, MNode childOverrideNode -> childBaseNode.mergeNodeWithChildKey(childOverrideNode, "database-type", "type", null) })
         }
 
-        baseNode.mergeChildWithChildKey(overrideNode, "repository-list", "repository", "name", null)
+        baseNode.mergeChildWithChildKey(overrideNode, "repository-list", "repository", "name", {
+            MNode childBaseNode, MNode childOverrideNode -> childBaseNode.mergeChildrenByKey(childOverrideNode, "init-param", "name", null) })
 
         // NOTE: don't merge component-list node, done separately (for runtime config only, and before component config merges)
     }
