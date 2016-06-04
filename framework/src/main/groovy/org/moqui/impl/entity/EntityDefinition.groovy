@@ -1683,12 +1683,12 @@ public class EntityDefinition {
     }
 
     EntityConditionImplBase makeViewWhereCondition() {
-        if (!this.isViewEntity() || entityConditionNode == null) return null
+        if (!this.isViewEntity() || entityConditionNode == null) return (EntityConditionImplBase) null
         // add the view-entity.entity-condition.econdition(s)
         return makeViewListCondition(entityConditionNode)
     }
     EntityConditionImplBase makeViewHavingCondition() {
-        if (!this.isViewEntity() || entityHavingEconditions == null) return null
+        if (!this.isViewEntity() || entityHavingEconditions == null) return (EntityConditionImplBase) null
         // add the view-entity.entity-condition.having-econditions
         return makeViewListCondition(entityHavingEconditions)
     }
