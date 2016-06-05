@@ -202,11 +202,7 @@ public class EntityDefinition {
                 if (fieldNode == null) throw new EntityException("In view-entity [${internalEntityName}] alias [${aliasNode.attribute("name")}] referred to field [${fieldName}] that does not exist on entity [${memberEd.internalEntityName}].")
                 if (!aliasNode.attribute("type")) aliasNode.attributes.put("type", fieldNode.attribute("type"))
                 if (fieldNode.attribute("is-pk") == "true") aliasNode.attributes.put("is-pk", "true")
-                if (fieldNode.attribute("enable-localization") == "true") {
-                    aliasNode.attributes.put("enable-localization", "true")
-                    aliasNode.attributes.put("view-original-entityName", memberEd.fullEntityName)
-                    aliasNode.attributes.put("view-original-fieldName", fieldName)
-                }
+                if (fieldNode.attribute("enable-localization") == "true") aliasNode.attributes.put("enable-localization", "true")
 
                 // add to aliases by field name by entity name
                 if (!memberEntityFieldAliases.containsKey(memberEd.getFullEntityName())) memberEntityFieldAliases.put(memberEd.getFullEntityName(), [:])
@@ -279,6 +275,11 @@ public class EntityDefinition {
         // no description? just use the first non-pk field: nonPkFields.get(0)
         // not any more, can be confusing... just return empty String
         return ""
+    }
+
+    String getMemberEntityName(String entityAlias) {
+        MNode memberEntityNode = memberEntityAliasMap.get(entityAlias)
+        return memberEntityNode?.attribute("entity-name")
     }
 
     boolean createOnly() { return createOnlyVal }
@@ -392,8 +393,6 @@ public class EntityDefinition {
         fi.isSimple = !fi.enableLocalization && !fi.isUserField
         fi.createOnly = fnAttrs.get('create-only') ? 'true'.equals(fnAttrs.get('create-only')) : ed.createOnly()
         fi.enableAuditLog = fieldNode.attribute('enable-audit-log') ?: ed.internalEntityNode.attribute('enable-audit-log')
-        fi.viewOriginalEntityName = fnAttrs.get('view-original-entityName')
-        fi.viewOriginalFieldName = fnAttrs.get('view-original-fieldName')
 
 
         if (ed.isViewEntity()) {
