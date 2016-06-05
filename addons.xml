@@ -25,6 +25,7 @@
     <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
 
     <!-- Moqui Tool Components -->
+    <component name="moqui-camel" group="moqui" version="1.0.0" branch="master" repository="github"/>
     <component name="moqui-orientdb" group="moqui" version="1.0.0" branch="master" repository="github"/>
 
     <!-- Mantle Components -->

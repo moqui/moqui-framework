@@ -24,7 +24,6 @@
         <tool-factory class="org.moqui.impl.tools.H2ServerToolFactory" init-priority="12" disabled="false"/>
 
         <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="15" disabled="false"/>
-        <tool-factory class="org.moqui.impl.service.camel.CamelToolFactory" init-priority="20" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.KieToolFactory" init-priority="25" disabled="false"/>
 
         <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
@@ -293,7 +292,6 @@
         <service-type name="java" runner-class="org.moqui.impl.service.runner.JavaServiceRunner"/>
         <service-type name="remote-xml-rpc" runner-class="org.moqui.impl.service.runner.RemoteXmlrpcServiceRunner"/>
         <service-type name="remote-json-rpc" runner-class="org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner"/>
-        <service-type name="camel" runner-class="org.moqui.impl.service.runner.CamelServiceRunner"/>
 
         <!-- These are not needed for running classpath services, are for service reference (known services) -->
         <service-file location="classpath://service/org/moqui/EmailServices.xml"/>
