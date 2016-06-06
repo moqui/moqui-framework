@@ -59,8 +59,11 @@ class KieToolFactory implements ToolFactory<KieToolFactory> {
         kieComponentReleaseIdCache = ecf.cache.getCache("kie.component.releaseId", String.class, ReleaseId.class)
         kieSessionComponentCache = ecf.cache.getCache("kie.session.component", String.class, String.class)
 
-        // if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "JANINO")
-        if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "ECLIPSE")
+        if (!System.getProperty("drools.dialect.default")) System.setProperty("drools.dialect.default", "mvel")
+        if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "JANINO")
+        // NOTE: NATIVE compiler doesn't work running on Java 8 in 6.4.0.Final, looks like fixed for future release
+        // if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "NATIVE")
+        // if (!System.getProperty("drools.dialect.java.compiler")) System.setProperty("drools.dialect.java.compiler", "ECLIPSE")
 
         logger.info("Starting KIE (Drools, jBPM, etc)")
         services = KieServices.Factory.get()
