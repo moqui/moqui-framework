@@ -116,7 +116,8 @@ class MoquiContextListener implements ServletContextListener {
                 if (listenerNode.attribute("enabled") == "false") continue
                 String className = listenerNode.attribute("class")
                 try {
-                    sc.addListener(className)
+                    EventListener listener = (EventListener) Thread.currentThread().getContextClassLoader().loadClass(className).newInstance()
+                    sc.addListener(listener)
                     logger.info("Added webapp listener ${className}")
                 } catch (Exception e) {
                     logger.error("Error adding listener ${className}", e)

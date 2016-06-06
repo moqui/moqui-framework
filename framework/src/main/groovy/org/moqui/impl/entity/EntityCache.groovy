@@ -44,7 +44,7 @@ class EntityCache {
     protected final Map<String, ArrayList<String>> cachedListViewEntitiesByMember = new HashMap<>()
 
     protected final boolean distributedCacheInvalidate
-    /** Entity Cache Invalidate Hazelcast Topic */
+    /** Entity Cache Invalidate Topic */
     private SimpleTopic<EntityCacheInvalidate> entityCacheInvalidateTopic = null
 
     EntityCache(EntityFacadeImpl efi) {
@@ -63,12 +63,12 @@ class EntityCache {
         oneBfCache = cfi.getCache(oneBfKey, efi.tenantId)
 
         MNode entityFacadeNode = efi.getEntityFacadeNode()
-        distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true"
+        distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true" && entityFacadeNode.attribute("dci-topic-factory")
         logger.info("Entity Cache initialized, distributed cache invalidate enabled: ${distributedCacheInvalidate}")
 
         if (distributedCacheInvalidate) {
             try {
-                String dciTopicFactory = entityFacadeNode.attribute("dci-topic-factory") ?: "HazelcastDciTopic"
+                String dciTopicFactory = entityFacadeNode.attribute("dci-topic-factory")
                 entityCacheInvalidateTopic = efi.ecfi.getTool(dciTopicFactory, SimpleTopic.class)
             } catch (Exception e) {
                 logger.error("Entity distributed cache invalidate is enabled but could not initialize", e)

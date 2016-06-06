@@ -56,13 +56,13 @@ class JCSCacheToolFactory implements ToolFactory<CacheManager> {
 
     @Override
     CacheManager getInstance() {
-        if (cacheManager == null) throw new IllegalStateException("HazelcastCacheToolFactory not initialized")
+        if (cacheManager == null) throw new IllegalStateException("JCSCacheToolFactory not initialized")
         return cacheManager
     }
 
     @Override
     void destroy() {
-        // do nothing, Hazelcast shutdown in HazelcastToolFactory
+        // do nothing?
     }
 
     ExecutionContextFactory getEcf() { return ecf }
