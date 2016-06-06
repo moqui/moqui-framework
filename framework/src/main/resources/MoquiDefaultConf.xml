@@ -131,10 +131,6 @@
             <servlet name="MoquiFopServlet" class="org.moqui.impl.webapp.MoquiFopServlet" load-on-startup="1">
                 <url-pattern>/fop/*</url-pattern>
             </servlet>
-            <servlet name="H2Console" class="org.h2.server.web.WebServlet" load-on-startup="1">
-                <!-- <init-param name="webAllowOthers" value=""/><init-param name="trace" value=""/> -->
-                <url-pattern>/h2/*</url-pattern>
-            </servlet>
 
             <!-- timeout session in 60 minutes without a request -->
             <session-config timeout="60"/>
