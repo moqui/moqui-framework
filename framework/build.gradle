@@ -16,9 +16,6 @@
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-// Leaving this commented out, REALLY slows things down (about 10x in Java 1.7.0_71 and 1.7.0_75, about 6x in 1.8.0_40, all on Mac)
-// tasks.withType(GroovyCompile) { groovyOptions.optimizationOptions.indy = true }
-
 apply plugin: 'groovy'
 apply plugin: 'war'
 
@@ -28,18 +25,20 @@ buildscript {
   repositories { jcenter() }
   dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0' }
 }
-
 dependencyUpdates.resolutionStrategy = {
   componentSelection { rules ->
     rules.all { ComponentSelection selection ->
       boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier ->
-        selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/
-      }
-      if (rejected) {
-        selection.reject('Release candidate')
-      }
+        selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
+      if (rejected) selection.reject('Release candidate')
     }
   }
+}
+
+// NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
+repositories {
+    flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
+    jcenter() // http://jcenter.bintray.com
 }
 
 sourceCompatibility = '1.7'
@@ -50,12 +49,6 @@ sourceSets {
     start
     api
     execWar
-}
-
-// NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
-repositories {
-    flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
-    jcenter() // http://jcenter.bintray.com
 }
 
 dependencies {
@@ -233,7 +226,7 @@ dependencies {
 
     // ========== runtime-only dependencies ==========
 
-    runtime 'oro:oro:2.0.8' // Apache 2.0
+    // runtime 'oro:oro:2.0.8' // Apache 2.0
 
     // Uncomment this to add Apache Derby
     // runtime 'org.apache.derby:derby:10.12.1.1' // Apache 2.0

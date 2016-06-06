@@ -383,13 +383,13 @@ Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine
-  - add multipled threads to SpeedTest.xml?
+  - add multiple threads to SpeedTest.xml?
 
 - Move tools from moqui-framework to tool components
   - Great tools but not used by default in Moqui/Mantle/etc
     - Atomikos (moqui-atomikos; leave Bitronix in by default)
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
-    - ElasticSearch (moqui-search)
+    - ElasticSearch (moqui-elasticsearch)
     - KIE (moqui-kie)
     - add mantle-usl dependencies on search, kie
   - Possible to split out FOP?
