@@ -17,7 +17,7 @@ import groovy.transform.CompileStatic
 
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
-import org.moqui.impl.entity.EntityQueryBuilder.EntityConditionParameter
+import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

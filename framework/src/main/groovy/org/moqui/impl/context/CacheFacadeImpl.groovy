@@ -13,16 +13,8 @@
  */
 package org.moqui.impl.context
 
-import com.hazelcast.cache.CacheStatistics
-import com.hazelcast.cache.ICache
-import com.hazelcast.cache.impl.AbstractHazelcastCacheManager
-import com.hazelcast.config.CacheConfig
-import com.hazelcast.config.EvictionConfig
-import com.hazelcast.config.EvictionPolicy
-import com.hazelcast.config.InMemoryFormat
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.tools.HazelcastCacheToolFactory
 import org.moqui.jcache.MCache
 import org.moqui.jcache.MCacheConfiguration
 import org.moqui.jcache.MCacheManager
@@ -76,15 +68,13 @@ public class CacheFacadeImpl implements CacheFacade {
     CacheManager getDistCacheManager() {
         if (distCacheManagerInternal == null) {
             MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
-            String distCacheFactoryName = cacheListNode.attribute("distributed-factory") ?: HazelcastCacheToolFactory.TOOL_NAME
+            String distCacheFactoryName = cacheListNode.attribute("distributed-factory") ?: MCacheToolFactory.TOOL_NAME
             distCacheManagerInternal = ecfi.getTool(distCacheFactoryName, CacheManager.class)
         }
         return distCacheManagerInternal
     }
 
-    void destroy() {
-        // no need to do this, ECFI does Hazelcast shutdown: hcCacheManager.close()
-    }
+    void destroy() { }
 
     protected String getFullName(String cacheName, String tenantId) {
         if (cacheName == null) return null
@@ -170,6 +160,8 @@ public class CacheFacadeImpl implements CacheFacade {
             if (tenantId != "DEFAULT" && !cn.startsWith(tenantPrefix)) continue
             if (filterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue
             Cache co = getCache(cn)
+            /* TODO: somehow support external cache stats like Hazelcast, through some sort of Moqui interface or maybe the JMX bean?
+               NOTE: this isn't all that important because we don't have a good use case for distributed caches
             if (co instanceof ICache) {
                 ICache ico = co.unwrap(ICache.class)
                 CacheStatistics cs = ico.getLocalCacheStatistics()
@@ -185,7 +177,9 @@ public class CacheFacadeImpl implements CacheFacade {
                         hitCount:cs.getCacheHits(), missCountTotal:cs.getCacheMisses(),
                         evictionCount:cs.getCacheEvictions(), removeCount:cs.getCacheRemovals(),
                         expireCount:0] as Map<String, Object>)
-            } else if (co instanceof MCache) {
+            } else
+            */
+            if (co instanceof MCache) {
                 MCache mc = co.unwrap(MCache.class)
                 MStats stats = mc.getMStats()
                 Long expireIdle = mc.getAccessDuration()?.durationAmount ?: 0
@@ -265,6 +259,8 @@ public class CacheFacadeImpl implements CacheFacade {
                 }
 
                 config = (Configuration) mConf
+            /* TODO: somehow support external cache configuration like Hazelcast, through some sort of Moqui interface, maybe pass cacheNode to Cache factory?
+               NOTE: this isn't all that important because we don't have a good use case for distributed caches, and they can be configured directly through hazelcast.xml or other Hazelcast conf
             } else if (cacheManager instanceof AbstractHazelcastCacheManager) {
                 // use Hazelcast
                 CacheConfig cacheConfig = new CacheConfig()
@@ -285,6 +281,7 @@ public class CacheFacadeImpl implements CacheFacade {
                 }
 
                 config = (Configuration) cacheConfig
+            */
             } else {
                 logger.info("Initializing cache ${cacheName} which has a CacheManager of type ${cacheManager.class.name} and extended configuration not supported, using simple MutableConfigutation")
                 MutableConfiguration mutConfig = new MutableConfiguration()

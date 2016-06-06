@@ -15,6 +15,12 @@ Non Backward Compatible Changes
 
 - Java JDK 8 now required for running executable WAR
 - No longer using Winstone embedded web server (now using Jetty)
+- Externalized Tools
+  - OrientDB and Entity Facade interface implementations are now in the
+    moqui-orientdb component, see its README.md for usage
+  - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint
+    are now in the moqui-camel component which has a MoquiConf.xml file so
+    no additional configuration is needed
 - ExecutionContext and ExecutionContextFactory
   - Removed initComponent() and destroyComponent() methods; were never well
     supported (runtime component init and destroy caused issues)
@@ -49,9 +55,6 @@ Non Backward Compatible Changes
     with the javax.jcr.RepositoryFactory interface
   - See new configuration examples in MoquiDefaultConf.xml under the
     repository-list element
-- Externalized Tools
-  - OrientDB and Entity Facade interface implementations are now in the
-    moqui-orientdb component, see its README.md for usage
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)
@@ -171,6 +174,9 @@ Bug Fixes
   some view entity fields are on a member entity
 - Cache clear fix for view-entity list cache fixes issue where adding a
   permission required manual cache clear or restart for permission to apply
+- Fixed issue with Entity/DataEdit screens in the Tools application where
+  the parameter and form field name 'entityName' conflicted with certain
+  entities that have a field named entityName
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
@@ -378,7 +384,6 @@ Long Term To Do List - aka Informal Roadmap
 - Move tools from moqui-framework to tool components
   - Great tools but not used by default in Moqui/Mantle/etc
     - Atomikos (moqui-atomikos; leave Bitronix in by default)
-    - Apache Camel (moqui-camel)
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
     - ElasticSearch (moqui-search)
     - KIE (moqui-kie)

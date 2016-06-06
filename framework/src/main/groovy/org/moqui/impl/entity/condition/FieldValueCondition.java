@@ -15,7 +15,7 @@ package org.moqui.impl.entity.condition;
 
 import org.moqui.entity.EntityCondition;
 import org.moqui.impl.entity.EntityJavaUtil;
-import org.moqui.impl.entity.EntityQueryBuilder.EntityConditionParameter;
+import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
 import org.moqui.impl.entity.EntityQueryBuilder;
 
@@ -62,7 +62,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
 
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb) {
-        StringBuilder sql = eqb.getSqlTopLevel();
+        @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder") StringBuilder sql = eqb.getSqlTopLevel();
         boolean valueDone = false;
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {

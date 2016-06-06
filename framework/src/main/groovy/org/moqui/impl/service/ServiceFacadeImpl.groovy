@@ -57,7 +57,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler()
     protected final Map<String, Object> schedulerInfoMap
 
-    /** Hazelcast Distributed ExecutorService for async services, etc */
+    /** Distributed ExecutorService for async services, etc */
     protected final ExecutorService distributedExecutorService
 
     protected final ConcurrentMap<String, List<ServiceCallback>> callbackRegistry = new ConcurrentHashMap<>()
@@ -83,14 +83,19 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
 
         // get distributed ExecutorService
-        String distEsFactoryName = serviceFacadeNode.attribute("distributed-factory") ?: "HazelcastExecutor"
-        logger.info("Getting Async Distributed Service ExecutorService (using ToolFactory ${distEsFactoryName})")
-        ToolFactory<ExecutorService> esToolFactory = ecfi.getToolFactory(distEsFactoryName)
-        if (esToolFactory == null) {
-            logger.warn("Could not find ExecutorService ToolFactory with name ${distEsFactoryName}, distributed async service calls will be run local only")
-            distributedExecutorService = null
+        String distEsFactoryName = serviceFacadeNode.attribute("distributed-factory")
+        if (distEsFactoryName) {
+            logger.info("Getting Async Distributed Service ExecutorService (using ToolFactory ${distEsFactoryName})")
+            ToolFactory<ExecutorService> esToolFactory = ecfi.getToolFactory(distEsFactoryName)
+            if (esToolFactory == null) {
+                logger.warn("Could not find ExecutorService ToolFactory with name ${distEsFactoryName}, distributed async service calls will be run local only")
+                distributedExecutorService = null
+            } else {
+                distributedExecutorService = esToolFactory.getInstance()
+            }
         } else {
-            distributedExecutorService = esToolFactory.getInstance()
+            logger.info("No distributed-factory specified, distributed async service calls will be run local only")
+            distributedExecutorService = null
         }
 
         // prep data for scheduler history listeners

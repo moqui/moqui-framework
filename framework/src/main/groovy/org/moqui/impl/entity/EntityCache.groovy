@@ -44,7 +44,7 @@ class EntityCache {
     protected final Map<String, ArrayList<String>> cachedListViewEntitiesByMember = new HashMap<>()
 
     protected final boolean distributedCacheInvalidate
-    /** Entity Cache Invalidate Hazelcast Topic */
+    /** Entity Cache Invalidate Topic */
     private SimpleTopic<EntityCacheInvalidate> entityCacheInvalidateTopic = null
 
     EntityCache(EntityFacadeImpl efi) {
@@ -63,12 +63,12 @@ class EntityCache {
         oneBfCache = cfi.getCache(oneBfKey, efi.tenantId)
 
         MNode entityFacadeNode = efi.getEntityFacadeNode()
-        distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true"
+        distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true" && entityFacadeNode.attribute("dci-topic-factory")
         logger.info("Entity Cache initialized, distributed cache invalidate enabled: ${distributedCacheInvalidate}")
 
         if (distributedCacheInvalidate) {
             try {
-                String dciTopicFactory = entityFacadeNode.attribute("dci-topic-factory") ?: "HazelcastDciTopic"
+                String dciTopicFactory = entityFacadeNode.attribute("dci-topic-factory")
                 entityCacheInvalidateTopic = efi.ecfi.getTool(dciTopicFactory, SimpleTopic.class)
             } catch (Exception e) {
                 logger.error("Entity distributed cache invalidate is enabled but could not initialize", e)
@@ -91,7 +91,7 @@ class EntityCache {
 
         @Override
         void writeExternal(ObjectOutput out) throws IOException {
-            out.writeObject(tenantId.toCharArray())
+            out.writeUTF(tenantId)
             out.writeBoolean(isCreate)
             // NOTE: this would be faster but can't because don't know which impl of the abstract class was used: evb.writeExternal(out)
             out.writeObject(evb)
@@ -99,7 +99,7 @@ class EntityCache {
 
         @Override
         void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-            tenantId = new String((char[]) objectInput.readObject())
+            tenantId = objectInput.readUTF()
             isCreate = objectInput.readBoolean()
             evb = (EntityValueBase) objectInput.readObject()
         }
@@ -332,7 +332,7 @@ class EntityCache {
             }
 
             // see if this entity is a member of a cached view-entity
-            ArrayList<String> cachedViewEntityNames = cachedListViewEntitiesByMember.get(fullEntityName)
+            ArrayList<String> cachedViewEntityNames = (ArrayList<String>) cachedListViewEntitiesByMember.get(fullEntityName)
             if (cachedViewEntityNames != null) {
                 int cachedViewEntityNamesSize = cachedViewEntityNames.size()
                 for (int i = 0; i < cachedViewEntityNamesSize; i++) {
@@ -349,7 +349,7 @@ class EntityCache {
                         String fieldName = mfAliasEntry.getKey()
                         if (!evbMap.containsKey(fieldName)) continue
                         Object fieldValue = evbMap.get(fieldName)
-                        ArrayList<MNode> aliasNodeList = mfAliasEntry.getValue()
+                        ArrayList<MNode> aliasNodeList = (ArrayList<MNode>) mfAliasEntry.getValue()
                         int aliasNodeListSize = aliasNodeList.size()
                         for (int j = 0 ; j < aliasNodeListSize; j++) {
                             MNode aliasNode = (MNode) aliasNodeList.get(j)

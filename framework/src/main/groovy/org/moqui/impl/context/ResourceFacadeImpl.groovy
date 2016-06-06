@@ -138,7 +138,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             String repoName = repositoryNode.attribute("name")
             Repository repo = null
             Map parameters = new HashMap()
-            for (MNode paramNode in repositoryNode.children("parameter"))
+            for (MNode paramNode in repositoryNode.children("init-param"))
                 parameters.put(paramNode.attribute("name"), paramNode.attribute("value"))
 
             try {
