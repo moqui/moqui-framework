@@ -73,8 +73,7 @@ Non Backward Compatible Changes
 New Features
 
 - Now using Jetty embedded for the executable WAR instead of Winstone
-  - initially Jetty version 9.3.8.v20160314
-  - this version of Jetty requires Java 8
+  - using Jetty 9 which requires Java 8
   - now internally using Servlet API 3.1.0
 - Various library updates, big cleanup of classes found in multiple jar
   files (JarHell checks pass; nice in general, needed for ElasticSearch)
@@ -110,9 +109,9 @@ New Features
     - supports expire by create, access, update
     - supports custom expire on get
     - supports max entries, eviction done in separate thread
-  - For distributed caches now using Hazelcast, initially version 3.6.2
-  - Hazelcast can be used for distributed entity cache and can be used for
-    web session replication, distributed execution, and OrientDB clustering
+  - Support for distributed caches such as Hazelcast
+  - Implemented interfaces to plugin entity distributed cache invalidation
+    through a SimpleTopic interface, supported in moqui-hazelcast
   - Set many entities to cache=never to avoid overhead of caching where
     read/write ratio doesn't justify it or where cache could cause issues
 - Async Services
@@ -120,11 +119,16 @@ New Features
   - Use callFuture() to get a Future object instead of callWaiter()
   - Can now get Runnable or Callable objects to run a service through a
     ExecutorService of your choice
-  - Services can now be called local or distributed through Hazelcast
+  - Services can now be called local or distributed
     - Added ServiceCallAsync.distribute() method
     - Added distribute option to XML Actions service-call.@async attribute
+    - Distributed executor is configurable, supported in moqui-hazelcast
   - Distributed services allow offloading service execution to worker nodes
-- Added default Hazelcast web session replication config (see web.xml)
+- Hazelcast Integration (moqui-hazelcast component)
+  - These features are only enabled with this tool component in place
+  - Added default Hazelcast web session replication config
+  - Hazelcast can be used for distributed entity cache and can be used for
+    web session replication, distributed execution, and OrientDB clustering
 - Implemented distributed entity cache invalidate using a Hazelcast Topic,
   enabled in Moqui Conf XML file with the @distributed-cache-invalidate
   attribute on the entity-facade element
@@ -391,9 +395,6 @@ Long Term To Do List - aka Informal Roadmap
   - Possible to split out FOP?
     - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
     - need some way to add servlet at runtime (from moqui conf xml) instead of in static web.xml (use new ServletContext methods)
-  - Split out Hazelcast
-    - should work fine with dist cache, distributed async services, entity DCI
-    - need some way to add filter and listener at runtime (from moqui conf xml) instead of in static web.xml (use new ServletContext methods)
   - Support some sort of built component archive?
   - More cleanly handle library jars that will no longer be in WEB-INF/lib? ie other than having Gradle download from
     dependencies and put in the <component>/lib directory
