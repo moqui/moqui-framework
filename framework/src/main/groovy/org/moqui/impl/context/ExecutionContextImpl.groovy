@@ -39,7 +39,6 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected final ContextStack context = new ContextStack()
     protected final ContextBinding contextBinding = new ContextBinding(context)
-    protected final Map<String, Object> toolInstanceMap = new HashMap<>()
     protected String activeTenantId = "DEFAULT"
     protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
@@ -95,13 +94,8 @@ class ExecutionContextImpl implements ExecutionContext {
     ContextBinding getContextBinding() { return contextBinding }
 
     @Override
-    <V> V getTool(String toolName, Class<V> instanceClass) {
-        V toolInstance = (V) toolInstanceMap.get(toolName)
-        if (toolInstance == null) {
-            toolInstance = ecfi.getTool(toolName, instanceClass)
-            toolInstanceMap.put(toolName, toolInstance)
-        }
-        return toolInstance
+    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters) {
+        return ecfi.getTool(toolName, instanceClass, parameters)
     }
 
     @Override
@@ -242,7 +236,8 @@ class ExecutionContextImpl implements ExecutionContext {
         ecfi.getEntityFacade(tenantId)
 
         // check for moqui.tenantAllowOverride flag set elsewhere
-        if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N")
+        if (webFacade != null && webFacade.session.getAttribute("moqui.tenantAllowOverride") == "N" &&
+                webFacade.session.getAttribute("moqui.tenantId") != tenantId)
             throw new BaseException("Tenant override is not allowed for host [${webFacade.session.getAttribute("moqui.tenantHostName")?:"Unknown"}].")
 
         activeTenantId = tenantId

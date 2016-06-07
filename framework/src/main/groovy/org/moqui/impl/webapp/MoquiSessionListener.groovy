@@ -27,15 +27,26 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 @CompileStatic
 class MoquiSessionListener implements HttpSessionListener {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiSessionListener.class)
+
     void sessionCreated(HttpSessionEvent event) {
-        // NOTE: this method now does nothing because we only want to create the Visit on the first request, and in
-        //     order to not create the Visit under certain conditions we need the HttpServletRequest object.
+        // NOTE: this method now does not create Visit because we only want to create the Visit on the first request,
+        //     and in order to not create the Visit under certain conditions we need the HttpServletRequest object
+        HttpSession session = event.session
+
+        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) session.servletContext.getAttribute("executionContextFactory")
+        if (ecfi == null) {
+            logger.warn("Not handling timeout, etc for session ${session.id}, no executionContextFactory in ServletContext")
+            return
+        }
+        String moquiWebappName = session.servletContext.getInitParameter("moqui-name")
+        ExecutionContextFactoryImpl.WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
+        if (wi.sessionTimeoutSeconds != null) session.setMaxInactiveInterval(wi.sessionTimeoutSeconds)
     }
 
     void sessionDestroyed(HttpSessionEvent event) {
         HttpSession session = event.getSession()
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) session.getServletContext().getAttribute("executionContextFactory")
-        if (!ecfi) {
+        if (ecfi == null) {
             logger.warn("Not closing visit for session ${session.id}, no executionContextFactory in ServletContext")
             return
         }

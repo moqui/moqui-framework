@@ -18,11 +18,20 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.ProtectionDomain;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
+/**
+ * A caching ClassLoader that allows addition of JAR files and class directories to the classpath at runtime.
+ *
+ * This loads resources from its class directories and JAR files first, then tries the parent. This is not the standard
+ * approach, but needed for configuration in moqui/runtime and components to override other classpath resources.
+ *
+ * This loads classes from the parent first, then its class directories and JAR files.
+ */
 public class StupidClassLoader extends ClassLoader {
     public static final Map<String, Class<?>> commonJavaClassesMap = createCommonJavaClassesMap();
     private static Map<String, Class<?>> createCommonJavaClassesMap() {
@@ -68,8 +77,10 @@ public class StupidClassLoader extends ClassLoader {
     private final ArrayList<File> classesDirectoryList = new ArrayList<>();
     // This Map contains either a Class or a ClassNotFoundException, cached for fast access because Groovy hits a LOT of
     //     weird invalid class names resulting in expensive new ClassNotFoundException instances
-    private final Map<String, Object> classCache = new HashMap<>();
-    private final Map<String, URL> resourceCache = new HashMap<>();
+    private final ConcurrentHashMap<String, Class> classCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ClassNotFoundException> notFoundCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, URL> resourceCache = new ConcurrentHashMap<>();
+    private final Set<String> resourcesNotFound = new HashSet<>();
     private ProtectionDomain pd;
 
     public StupidClassLoader(ClassLoader parent) {
@@ -83,7 +94,31 @@ public class StupidClassLoader extends ClassLoader {
             classCache.put((String) commonClassEntry.getKey(), (Class) commonClassEntry.getValue());
     }
 
-    public void addJarFile(JarFile jf) { jarFileList.add(jf); }
+    private static final boolean checkJars = false;
+    private static final Map<String, String> jarByClass = new HashMap<>();
+    public void addJarFile(JarFile jf) {
+        if (checkJars) {
+            String jfName = jf.getName();
+            Enumeration<JarEntry> jeEnum = jf.entries();
+            while (jeEnum.hasMoreElements()) {
+                JarEntry je = jeEnum.nextElement();
+                if (je.isDirectory()) continue;
+                String jeName = je.getName();
+                if (!jeName.endsWith(".class")) continue;
+                String className = jeName.substring(0, jeName.length() - 6).replace('/', '.');
+                try {
+                    getParent().loadClass(className);
+                    System.out.println("Class " + className + " in jar " + jfName + " already loaded from parent ClassLoader");
+                } catch (ClassNotFoundException e) { /* hoping class is not found! */ }
+                if (jarByClass.containsKey(className)) {
+                    System.out.println("Found class " + className + " in \njar " + jfName + ", already loaded from \njar " + jarByClass.get(className));
+                } else {
+                    jarByClass.put(className, jfName);
+                }
+            }
+        }
+        jarFileList.add(jf);
+    }
     //List<JarFile> getJarFileList() { return jarFileList; }
     //Map<String, Class> getClassCache() { return classCache; }
     //Map<String, URL> getResourceCache() { return resourceCache; }
@@ -94,7 +129,13 @@ public class StupidClassLoader extends ClassLoader {
         classesDirectoryList.add(classesDir);
     }
 
-    protected byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
+    public void clearNotFoundInfo() {
+        notFoundCache.clear();
+        resourcesNotFound.clear();
+    }
+
+    @SuppressWarnings("ThrowFromFinallyBlock")
+    private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
         DataInputStream dis = null;
         byte[] jeBytes = null;
         try {
@@ -112,7 +153,8 @@ public class StupidClassLoader extends ClassLoader {
         return jeBytes;
     }
 
-    protected byte[] getFileBytes(File classFile) throws IOException {
+    @SuppressWarnings("ThrowFromFinallyBlock")
+    private byte[] getFileBytes(File classFile) throws IOException {
         DataInputStream dis = null;
         byte[] jeBytes = null;
         try {
@@ -130,35 +172,31 @@ public class StupidClassLoader extends ClassLoader {
         return jeBytes;
     }
 
-    /**
-     * @see java.lang.ClassLoader#getResource(String)
-     */
+    /** @see java.lang.ClassLoader#getResource(String) */
     @Override
     public URL getResource(String name) {
-        URL url = findResource(name);
-        if (url == null && getParent() !=null) {
-            url = getParent().getResource(name);
-        }
-        return url;
+        return findResource(name);
     }
 
-    /**
-     * @see java.lang.ClassLoader#getResources(String)
-     */
+    /** @see java.lang.ClassLoader#getResources(String) */
     @Override
     public Enumeration<URL> getResources(String name) throws IOException {
-        List<URL> tmp = new ArrayList<>();
-        tmp.addAll(Collections.list(findResources(name)));
-        if(getParent() != null) {
-            tmp.addAll(Collections.list(getParent().getResources(name)));
-        }
-        return Collections.enumeration(tmp);
+        return findResources(name);
     }
 
     /** @see java.lang.ClassLoader#findResource(java.lang.String) */
     @Override
     protected URL findResource(String resourceName) {
-        if (resourceCache.containsKey(resourceName)) return resourceCache.get(resourceName);
+        URL cachedUrl = resourceCache.get(resourceName);
+        if (cachedUrl != null) return cachedUrl;
+        if (resourcesNotFound.contains(resourceName)) return null;
+
+        // Groovy looks for BeanInfo and Customizer groovy resources, even for anonymous scripts and they will never exist
+        if ((resourceName.endsWith("BeanInfo.groovy") || resourceName.endsWith("Customizer.groovy")) &&
+                (resourceName.startsWith("script") || resourceName.contains("_actions") || resourceName.contains("_condition"))) {
+            resourcesNotFound.add(resourceName);
+            return null;
+        }
 
         URL resourceUrl = null;
 
@@ -190,9 +228,17 @@ public class StupidClassLoader extends ClassLoader {
             }
         }
 
-        if (resourceUrl == null) resourceUrl = super.findResource(resourceName);
-        resourceCache.put(resourceName, resourceUrl);
-        return resourceUrl;
+        if (resourceUrl == null) resourceUrl = getParent().getResource(resourceName);
+        if (resourceUrl != null) {
+            URL existingUrl = resourceCache.putIfAbsent(resourceName, resourceUrl);
+            if (existingUrl != null) return existingUrl;
+            else return resourceUrl;
+        } else {
+            // for testing to see if resource not found cache is working, should see this once for each not found resource
+            // System.out.println("Classpath resource not found with name " + resourceName);
+            resourcesNotFound.add(resourceName);
+            return null;
+        }
     }
 
     /** @see java.lang.ClassLoader#findResources(java.lang.String) */
@@ -224,9 +270,25 @@ public class StupidClassLoader extends ClassLoader {
             }
         }
         // add all resources found in parent loader too
-        Enumeration<URL> superResources = super.findResources(resourceName);
+        Enumeration<URL> superResources = getParent().getResources(resourceName);
         while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
         return Collections.enumeration(urlList);
+    }
+
+    /** @see java.lang.ClassLoader#getResourceAsStream(String) */
+    @Override
+    public InputStream getResourceAsStream(String name) {
+        URL resourceUrl = findResource(name);
+        if (resourceUrl == null) {
+            // System.out.println("Classpath resource not found with name " + name);
+            return null;
+        }
+        try {
+            return resourceUrl.openStream();
+        } catch (IOException e) {
+            System.out.println("Error opening stream for classpath resource " + name + ": " + e.toString());
+            return null;
+        }
     }
 
     @Override
@@ -234,22 +296,18 @@ public class StupidClassLoader extends ClassLoader {
 
     @Override
     protected Class<?> loadClass(String className, boolean resolve) throws ClassNotFoundException {
-        Object cachedValue = classCache.get(className);
-        if (cachedValue != null) {
-            if (cachedValue instanceof Class) {
-                return (Class) cachedValue;
-            } else if (cachedValue instanceof ClassNotFoundException) {
-                throw (ClassNotFoundException) cachedValue;
-            }
-            // should never be an instance of anything else, if it is fall through and try to load the class
-        }
+        Class cachedClass = classCache.get(className);
+        if (cachedClass != null) return cachedClass;
+        ClassNotFoundException cachedExc = notFoundCache.get(className);
+        if (cachedExc != null) throw cachedExc;
+
         return loadClassInternal(className, resolve);
     }
 
-    static final ArrayList<String> ignoreSuffixes = new ArrayList<>(Arrays.asList("Customizer", "BeanInfo"));
-    static final int ignoreSuffixesSize = ignoreSuffixes.size();
-    protected synchronized Class<?> loadClassInternal(String className, boolean resolve) throws ClassNotFoundException {
-        /* This may be a good idea, Groovy looks for all sorts of bogus class name but there may be a reason so not doing this or looking for other patterns:
+    // private static final ArrayList<String> ignoreSuffixes = new ArrayList<>(Arrays.asList("Customizer", "BeanInfo"));
+    // private static final int ignoreSuffixesSize = ignoreSuffixes.size();
+    private synchronized Class<?> loadClassInternal(String className, boolean resolve) throws ClassNotFoundException {
+        /* This may not be a good idea, Groovy looks for all sorts of bogus class name but there may be a reason so not doing this or looking for other patterns:
         for (int i = 0; i < ignoreSuffixesSize; i++) {
             String ignoreSuffix = ignoreSuffixes.get(i);
             if (className.endsWith(ignoreSuffix)) {
@@ -262,34 +320,39 @@ public class StupidClassLoader extends ClassLoader {
 
         Class<?> c = null;
         try {
+            // classes handled opposite of resources, try parent first (avoid java.lang.LinkageError)
             try {
-                c = findJarClass(className);
-            } catch (Exception e) {
-                System.out.println("Error loading class [" + className + "] from additional jars: " + e.toString());
+                ClassLoader cl = getParent();
+                c = cl.loadClass(className);
+            } catch (ClassNotFoundException e) {
+                // do nothing, common that class won't be found if expected in additional JARs and class directories
+            } catch (RuntimeException e) {
                 e.printStackTrace();
+                throw e;
             }
 
             if (c == null) {
                 try {
-                    ClassLoader cl = getParent();
-                    c = cl.loadClass(className);
-                } catch (ClassNotFoundException e) {
-                    // remember that the class is not found
-                    classCache.put(className, e);
-                    // System.out.println("Class " + className + " not found (ClassNotFoundException was thrown)");
-                    // e.printStackTrace();
-                    throw e;
-                } catch (RuntimeException e) {
+                    c = findJarClass(className);
+                } catch (Exception e) {
+                    System.out.println("Error loading class [" + className + "] from additional jars: " + e.toString());
                     e.printStackTrace();
-                    throw e;
                 }
             }
 
             // System.out.println("Loading class name [" + className + "] got class: " + c);
             if (c == null) {
-                // this shouldn't generally happen, the parent ClassLoader should throw a ClassNotFoundException
-                classCache.put(className, new ClassNotFoundException("Class " + className + " not found."));
-                System.out.println("Class " + className + " not found and no ClassNotFoundException was thrown, creating new one.");
+                ClassNotFoundException cnfe = new ClassNotFoundException("Class " + className + " not found.");
+                // Groovy seems to look, then re-look, for funny names like:
+                //     groovy.lang.GroovyObject$java$io$org$moqui$entity$EntityListIterator
+                //     java.io.org$moqui$entity$EntityListIterator
+                // Groovy does similar with *Customizer and *BeanInfo; so just don't remember any of these
+                if (!className.startsWith("groovy.lang.") && !className.startsWith("java.io.") &&
+                        !className.endsWith("Customizer") && !className.endsWith("BeanInfo")) {
+                    ClassNotFoundException existingExc = notFoundCache.putIfAbsent(className, cnfe);
+                    if (existingExc != null) throw existingExc;
+                }
+                throw cnfe;
             } else {
                 classCache.put(className, c);
             }
@@ -299,15 +362,11 @@ public class StupidClassLoader extends ClassLoader {
         }
     }
 
-    protected Class<?> findJarClass(String className) throws IOException, ClassFormatError {
-        Object cachedValue = classCache.get(className);
-        if (cachedValue != null) {
-            if (cachedValue instanceof Class) {
-                return (Class) cachedValue;
-            } else {
-                return null;
-            }
-        }
+    private Class<?> findJarClass(String className) throws IOException, ClassFormatError, ClassNotFoundException {
+        Class cachedClass = classCache.get(className);
+        if (cachedClass != null) return cachedClass;
+        ClassNotFoundException cachedExc = notFoundCache.get(className);
+        if (cachedExc != null) throw cachedExc;
 
         Class<?> c = null;
         String classFileName = className.replace('.', '/') + ".class";
@@ -342,7 +401,7 @@ public class StupidClassLoader extends ClassLoader {
                     definePackage(className, jarFile);
                     byte[] jeBytes = getJarEntryBytes(jarFile, jarEntry);
                     if (jeBytes == null) {
-                        System.out.println("Could not get bytes for [" + jarEntry.getName() + "] in [" + jarFile.getName() + "]");
+                        System.out.println("Could not get bytes for entry " + jarEntry.getName() + " in jar" + jarFile.getName());
                         continue;
                     }
                     // System.out.println("Class [" + classFileName + "] FOUND in jarFile [" + jarFile.getName() + "], size is " + jeBytes.length);
@@ -353,11 +412,16 @@ public class StupidClassLoader extends ClassLoader {
         }
 
         // down here only cache if found
-        if (c != null) classCache.put(className, c);
-        return c;
+        if (c != null) {
+            Class existingClass = classCache.putIfAbsent(className, c);
+            if (existingClass != null) return existingClass;
+            else return c;
+        } else {
+            return null;
+        }
     }
 
-    protected void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
+    private void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
         Manifest mf;
         try {
             mf = jarFile.getManifest();
@@ -379,7 +443,7 @@ public class StupidClassLoader extends ClassLoader {
         }
     }
 
-    protected URL getSealURL(Manifest mf) {
+    private URL getSealURL(Manifest mf) {
         String seal = mf.getMainAttributes().getValue(Attributes.Name.SEALED);
         if (seal == null) return null;
         try {

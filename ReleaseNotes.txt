@@ -15,6 +15,14 @@ Non Backward Compatible Changes
 
 - Java JDK 8 now required for running executable WAR
 - No longer using Winstone embedded web server (now using Jetty)
+- Externalized Tools
+  - OrientDB and Entity Facade interface implementations are now in the
+    moqui-orientdb component, see its README.md for usage
+  - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint
+    are now in the moqui-camel component which has a MoquiConf.xml file so
+    no additional configuration is needed
+  - JBoss KIE and Drools are now in tool component moqui-kie, an optional
+    component for mantle-usl; has MoquiConf to add ToolFactory
 - ExecutionContext and ExecutionContextFactory
   - Removed initComponent() and destroyComponent() methods; were never well
     supported (runtime component init and destroy caused issues)
@@ -43,6 +51,12 @@ Non Backward Compatible Changes
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
+- JCR and Apache Jackrabbit
+  - The repository.@type, @location, and @conf-location attributes have
+    been removed and the repository.parameter sub-element added for use
+    with the javax.jcr.RepositoryFactory interface
+  - See new configuration examples in MoquiDefaultConf.xml under the
+    repository-list element
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)
@@ -61,11 +75,24 @@ Non Backward Compatible Changes
 New Features
 
 - Now using Jetty embedded for the executable WAR instead of Winstone
-  - initially Jetty version 9.3.8.v20160314
-  - this version of Jetty requires Java 8
+  - using Jetty 9 which requires Java 8
   - now internally using Servlet API 3.1.0
 - Various library updates, big cleanup of classes found in multiple jar
   files (JarHell checks pass; nice in general, needed for ElasticSearch)
+- Configuration
+  - Added default-property element to set Java System properties from the
+    configuration file
+  - Added Groovy string expansion to various configuration attributes
+    - looks for named fields in Java System properties and environment
+      variables
+    - used in default-property.@value and all xa-properties attributes
+    - replaces the old explicit check for ${moqui.runtime}, which was a
+      simple replacement hack
+    - because these are Groovy expressions the typical dots used in
+      property names cannot be used in these strings, use an underscore
+      instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime};
+      if a property name contains underscores and no value is found with
+      the literal name it replaces underscores with dots and looks again
 - Tool Factory
   - Added org.moqui.context.ToolFactory interface used to initialize,
     destroy, and get instances of tools
@@ -84,9 +111,9 @@ New Features
     - supports expire by create, access, update
     - supports custom expire on get
     - supports max entries, eviction done in separate thread
-  - For distributed caches now using Hazelcast, initially version 3.6.2
-  - Hazelcast can be used for distributed entity cache and can be used for
-    web session replication, distributed execution, and OrientDB clustering
+  - Support for distributed caches such as Hazelcast
+  - Implemented interfaces to plugin entity distributed cache invalidation
+    through a SimpleTopic interface, supported in moqui-hazelcast
   - Set many entities to cache=never to avoid overhead of caching where
     read/write ratio doesn't justify it or where cache could cause issues
 - Async Services
@@ -94,14 +121,24 @@ New Features
   - Use callFuture() to get a Future object instead of callWaiter()
   - Can now get Runnable or Callable objects to run a service through a
     ExecutorService of your choice
-  - Services can now be called local or distributed through Hazelcast
+  - Services can now be called local or distributed
     - Added ServiceCallAsync.distribute() method
     - Added distribute option to XML Actions service-call.@async attribute
+    - Distributed executor is configurable, supported in moqui-hazelcast
   - Distributed services allow offloading service execution to worker nodes
-- Added default Hazelcast web session replication config (see web.xml)
+- Hazelcast Integration (moqui-hazelcast component)
+  - These features are only enabled with this tool component in place
+  - Added default Hazelcast web session replication config
+  - Hazelcast can be used for distributed entity cache and can be used for
+    web session replication, distributed execution, and OrientDB clustering
 - Implemented distributed entity cache invalidate using a Hazelcast Topic,
   enabled in Moqui Conf XML file with the @distributed-cache-invalidate
   attribute on the entity-facade element
+- JCR and Apache Jackrabbit
+  - JCR support (for content:// locations in the ResourceFacade) now uses
+    javax.jcr interfaces only, no dependencies on Jackrabbit
+  - JCR repository configuration now supports other JCR implementations by
+    using implementation specific RepositoryFactory parameters
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
@@ -128,6 +165,9 @@ New Features
 
 Bug Fixes
 
+- Fixed issue with REST and other requests using various HTTP request
+  methods that were not handled, MoquiServlet now uses the
+  HttpServlet.service() method instead of the various do*() methods
 - Fixed issue with REST and other JSON request body parameters where single
   entry lists were unwrapped to just the entry by the canonicalization code
 - Fixed NPE in EntityFind.oneMaster() when the master value isn't found,
@@ -140,6 +180,9 @@ Bug Fixes
   some view entity fields are on a member entity
 - Cache clear fix for view-entity list cache fixes issue where adding a
   permission required manual cache clear or restart for permission to apply
+- Fixed issue with Entity/DataEdit screens in the Tools application where
+  the parameter and form field name 'entityName' conflicted with certain
+  entities that have a field named entityName
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
@@ -341,23 +384,20 @@ Bug Fixes
 Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
-- More ToolFactory use
-  - Extract the code about jackrabbit from ResourceFacadeImpl as JackrabbitToolFactory which can get
-    javax.jcr.RepositoryFactory; make JCR factory configurable for the resource-facade element
-  - Extract the code running and stopping h2 server from EntityDatasourceFactoryImpl as H2DatabaseRunToolFactory
-  - Add configurable factory for local cache like distributed cache
-  - Cache ToolFactory for JCS: https://commons.apache.org/proper/commons-jcs/
+- Try Caffeine JCache at https://github.com/ben-manes/caffeine
+  - add multiple threads to SpeedTest.xml?
 
-- Support System properties string expansion in all Moqui Conf XML attributes
-  - use something like ResourceFacade.expand() with Groovy, but needs to run before ResourceFacade inits
-  - Add SystemProperties class that implements the groovy Binding interface, use for expansion
+- Move tools from moqui-framework to tool components
+  - Great tools but not used by default in Moqui/Mantle/etc
+    - Atomikos (moqui-atomikos; leave Bitronix in by default)
+  - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
+    - ElasticSearch (moqui-elasticsearch)
+    - add mantle-usl dependencies on moqui-elasticsearch; moqui-kie is optional for mantle-usl
+  - Possible to split out FOP?
+    - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
+  - Support some sort of built component archive?
 
 - Saved form-list Finds
-  - Add option to form-list to allow saved searches along with fields to order by.
-  - As part of this add some sort of way to order by more than one field, with ascending or descending for each.
-  - When enabled show form to save current filters and order by fields in a new saved search, or to update an existing
-    saved search. Also allow deleting an existing saved search.
-  - When saved searches exist for a form show them in a drop-down and when selected reload page with its options.
   - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
 - WebSocket attempt 2

@@ -38,7 +38,7 @@ import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
-
+import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -59,7 +59,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private boolean destroyed = false
     
     protected String runtimePath
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final String runtimeConfPath
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final MNode confXmlRoot
     protected MNode serverStatsNode
 
@@ -94,14 +96,21 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
 
     // ======== Permanent Delegated Facades ========
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final CacheFacadeImpl cacheFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final LoggerFacadeImpl loggerFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final ResourceFacadeImpl resourceFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final ScreenFacadeImpl screenFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final ServiceFacadeImpl serviceFacade
+    @SuppressWarnings("GrFinalVariableAccess")
     protected final TransactionFacadeImpl transactionFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
+    @SuppressWarnings("GrFinalVariableAccess")
     final ExecutorService workerPool
 
     /**
@@ -242,7 +251,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         System.setProperty("moqui.runtime", runtimePath)
         System.setProperty("moqui.conf", runtimeConfPath)
 
-        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - config file: ${this.runtimeConfPath}")
+        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
@@ -281,6 +290,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // TODO: add some conf or runtime option to log the full config after merge?
         // logger.info("Configuration after all merges:\n${baseConfigNode.toString()}")
+
+        // set default System properties now that all is merged
+        for (MNode defPropNode in baseConfigNode.children("default-property")) {
+            String propName = defPropNode.attribute("name")
+            if (!System.getProperty(propName)) {
+                String propValue = SystemBinding.expand(defPropNode.attribute("value"))
+                System.setProperty(propName, propValue)
+            }
+        }
+
         return baseConfigNode
     }
 
@@ -307,10 +326,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private void preFacadeInit() {
         // save the current configuration in a file for debugging/reference
         File confSaveFile = new File(runtimePath + "/log/MoquiActualConf.xml")
-        if (confSaveFile.exists()) confSaveFile.delete()
-        FileWriter fw = new FileWriter(confSaveFile)
-        fw.write(confXmlRoot.toString())
-        fw.close()
+        try {
+            if (confSaveFile.exists()) confSaveFile.delete()
+            if (!confSaveFile.parentFile.exists()) confSaveFile.parentFile.mkdirs()
+            FileWriter fw = new FileWriter(confSaveFile)
+            fw.write(confXmlRoot.toString())
+            fw.close()
+        } catch (Exception e) {
+            logger.warn("Could not save ${confSaveFile.absolutePath} file: ${e.toString()}")
+        }
 
         try {
             localhostAddress = InetAddress.getLocalHost()
@@ -369,8 +393,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // now that everything is started up, if configured check all entity tables
         defaultEfi.checkInitDatasourceTables()
-        // check the moqui.server.ArtifactHit entity to avoid conflicts during hit logging; if runtime check not enabled this will do nothing
-        defaultEfi.getEntityDbMeta().checkTableRuntime(this.entityFacade.getEntityDefinition("moqui.server.ArtifactHit"))
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
@@ -419,19 +441,23 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
             if (libRr.exists && libRr.supportsDirectory() && libRr.isDirectory()) {
+                Set<String> jarsLoaded = new LinkedHashSet<>()
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
                             cachedClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
-                            logger.info("Added JAR from component ${ci.name}: ${jarRr.getLocation()}")
+                            jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
                         }
                     }
                 }
+                logger.info("Added JARs from component ${ci.name}: ${jarsLoaded}")
             }
         }
 
+        // clear not found info just in case anything was falsely added
+        cachedClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(cachedClassLoader)
     }
@@ -667,10 +693,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return toolFactory
     }
     @Override
-    <V> V getTool(String toolName, Class<V> instanceClass) {
+    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
-        return toolFactory.getInstance()
+        return toolFactory.getInstance(parameters)
     }
 
     /*
@@ -734,7 +760,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Overriding component [${componentInfo.name}] at [${componentInfoMap.get(componentInfo.name).location}] with location [${componentInfo.location}] because another component of the same name was initialized")
         // components registered later override those registered earlier by replacing the Map entry
         componentInfoMap.put(componentInfo.name, componentInfo)
-        logger.info("Added component [${componentInfo.name}] at [${componentInfo.location}]")
+        logger.info("Added component ${componentInfo.name.padRight(18)} at ${componentInfo.location}")
     }
 
     protected void addComponentDir(String location) {
@@ -1201,8 +1227,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Configuration File Merging Methods ==========
 
     protected static void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
+        baseNode.mergeChildrenByKey(overrideNode, "default-property", "name", null)
         baseNode.mergeChildWithChildKey(overrideNode, "tools", "tool-factory", "class", null)
-
         baseNode.mergeChildWithChildKey(overrideNode, "cache-list", "cache", "name", null)
 
         if (overrideNode.hasChild("server-stats")) {
@@ -1310,7 +1336,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     { MNode childBaseNode, MNode childOverrideNode -> childBaseNode.mergeNodeWithChildKey(childOverrideNode, "database-type", "type", null) })
         }
 
-        baseNode.mergeChildWithChildKey(overrideNode, "repository-list", "repository", "name", null)
+        baseNode.mergeChildWithChildKey(overrideNode, "repository-list", "repository", "name", {
+            MNode childBaseNode, MNode childOverrideNode -> childBaseNode.mergeChildrenByKey(childOverrideNode, "init-param", "name", null) })
 
         // NOTE: don't merge component-list node, done separately (for runtime config only, and before component config merges)
     }
@@ -1324,8 +1351,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected static void mergeWebappChildNodes(MNode baseNode, MNode overrideNode) {
-        baseNode.mergeNodeWithChildKey(overrideNode, "root-screen", "host", null)
-        baseNode.mergeNodeWithChildKey(overrideNode, "error-screen", "error", null)
+        baseNode.mergeChildrenByKey(overrideNode, "root-screen", "host", null)
+        baseNode.mergeChildrenByKey(overrideNode, "error-screen", "error", null)
         // handle webapp -> first-hit-in-visit[1], after-request[1], before-request[1], after-login[1], before-logout[1]
         mergeWebappActions(baseNode, overrideNode, "first-hit-in-visit")
         mergeWebappActions(baseNode, overrideNode, "after-request")
@@ -1334,6 +1361,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         mergeWebappActions(baseNode, overrideNode, "before-logout")
         mergeWebappActions(baseNode, overrideNode, "after-startup")
         mergeWebappActions(baseNode, overrideNode, "before-shutdown")
+
+        baseNode.mergeChildrenByKey(overrideNode, "filter", "name", { MNode childBaseNode, MNode childOverrideNode ->
+            childBaseNode.mergeChildrenByKey(childOverrideNode, "init-param", "name", null)
+            for (MNode upNode in overrideNode.children("url-pattern")) childBaseNode.append(upNode.deepCopy(null))
+            for (MNode upNode in overrideNode.children("dispatcher")) childBaseNode.append(upNode.deepCopy(null))
+        })
+        baseNode.mergeChildrenByKey(overrideNode, "listener", "class", null)
+        baseNode.mergeChildrenByKey(overrideNode, "servlet", "name", { MNode childBaseNode, MNode childOverrideNode ->
+            childBaseNode.mergeChildrenByKey(childOverrideNode, "init-param", "name", null)
+            for (MNode upNode in overrideNode.children("url-pattern")) childBaseNode.append(upNode.deepCopy(null))
+        })
+        baseNode.mergeSingleChild(overrideNode, "session-config")
     }
 
     protected static void mergeWebappActions(MNode baseWebappNode, MNode overrideWebappNode, String childNodeName) {
@@ -1371,6 +1410,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction beforeLogoutActions = null
         XmlAction afterStartupActions = null
         XmlAction beforeShutdownActions = null
+        Integer sessionTimeoutSeconds = null
 
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
@@ -1404,6 +1444,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             if (webappNode.hasChild("before-shutdown"))
                 this.beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
+
+            MNode sessionConfigNode = webappNode.first("session-config")
+            if (sessionConfigNode != null && sessionConfigNode.attribute("timeout")) {
+                sessionTimeoutSeconds = (sessionConfigNode.attribute("timeout") as int) * 60
+            }
         }
 
         MNode getErrorScreenNode(String error) {

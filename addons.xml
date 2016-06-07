@@ -24,6 +24,12 @@
     <!-- Example Component -->
     <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
 
+    <!-- Moqui Tool Components -->
+    <component name="moqui-camel" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="moqui-hazelcast" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="moqui-kie" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="moqui-orientdb" group="moqui" version="1.0.0" branch="master" repository="github"/>
+
     <!-- Mantle Components -->
     <component name="mantle-udm" group="moqui" version="1.0.1" branch="master" repository="github"/>
     <component name="mantle-usl" group="moqui" version="1.0.1" branch="master" repository="github"/>
@@ -39,4 +45,10 @@
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
+
+    <!-- Component Sets -->
+    <component-set name="framework" components="example,moqui-camel,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
+    <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,SimpleScreens"/>
+    <component-set name="apps" components="HiveMind,PopCommerce"/>
+    <component-set name="ecosystem" sets="framework,mantle,apps"/>
 </addons>

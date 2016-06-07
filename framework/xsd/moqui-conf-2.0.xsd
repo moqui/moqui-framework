@@ -19,6 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="moqui-conf">
         <xs:complexType>
             <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="default-property"/>
                 <xs:element minOccurs="0" ref="tools"/>
                 <xs:element minOccurs="0" ref="cache-list"/>
                 <xs:element minOccurs="0" ref="server-stats"/>
@@ -34,6 +35,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="repository-list"/>
                 <xs:element minOccurs="0" ref="component-list"/>
             </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="init-param">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="value" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="default-property">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="value" type="xs:string" use="required"/>
         </xs:complexType>
     </xs:element>
 
@@ -63,7 +77,6 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="disabled" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
-
     <!-- ===================== Cache Conf Root ===================== -->
     <xs:element name="cache-list">
         <xs:complexType>
@@ -101,8 +114,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="local">
                             <xs:annotation><xs:documentation>Local only cache (MCache)</xs:documentation></xs:annotation></xs:enumeration>
                         <xs:enumeration value="distributed">
-                            <xs:annotation><xs:documentation>Distributed cache (Hazelcast); keys and values must be serializable</xs:documentation></xs:annotation></xs:enumeration>
-                        <!-- TODO: implement distributed cache invalidate: <xs:enumeration value="local-dci"/> -->
+                            <xs:annotation><xs:documentation>Distributed cache; keys and values must be serializable</xs:documentation></xs:annotation></xs:enumeration>
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
@@ -159,6 +171,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="before-logout"/>
                 <xs:element minOccurs="0" ref="after-startup"/>
                 <xs:element minOccurs="0" ref="before-shutdown"/>
+
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="context-param"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="filter"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="listener"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="servlet"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="session-config"/>
             </xs:sequence>
             <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
@@ -218,6 +236,54 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="before-shutdown">
         <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
+    </xs:element>
+
+    <xs:element name="context-param">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="value" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="filter">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
+                <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
+                <xs:element minOccurs="1" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="listener">
+        <xs:annotation><xs:documentation>
+            Note that for Jetty, and other servlet containers, these can only be implementations of
+            HttpSessionListener, HttpSessionIdListener, and HttpSessionAttributeListener; other listeners such
+            as ServletContextListener implementations must be in the web.xml file (cannot be loaded when
+            MoquiContextListener initializes).
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="servlet">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
+                <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="load-on-startup" type="xs:nonNegativeInteger" default="1"/>
+            <xs:attribute name="enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="session-config">
+        <xs:complexType>
+            <xs:attribute name="timeout" type="xs:nonNegativeInteger" use="required"/>
+        </xs:complexType>
     </xs:element>
 
     <!-- ====================== Artifact Execution Facade Conf Root ======================= -->
@@ -692,26 +758,14 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType><xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="repository"/></xs:sequence></xs:complexType>
     </xs:element>
     <xs:element name="repository">
+        <xs:annotation><xs:documentation>Configuration for a javax.jcr.Repository retrieved through a
+            javax.jcr.RepositoryFactory using parameter sub-elements (with name and value attributes), and a
+            javax.jcr.Session using the workspace, username, and password attributes.</xs:documentation></xs:annotation>
         <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="init-param" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
-
-            <xs:attribute name="location" type="xs:string" use="required"/>
-            <xs:attribute name="conf-location" type="xs:string">
-                <xs:annotation><xs:documentation>Defaults to: [${location}/repository.xml]; only used for local</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="type" use="required">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <!-- this path is relative to the active Moqui runtime directory; start with a forward-slash for an absolute path -->
-                        <!-- how to support this type? <repository name="default" location="rep/jackrabbit" type="local" workspace="default"/> -->
-                        <!-- <xs:enumeration value="local"/> -->
-                        <xs:enumeration value="jndi"/>
-                        <xs:enumeration value="rmi"/>
-                        <xs:enumeration value="davex"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
-
             <xs:attribute name="workspace" type="xs:string">
                 <xs:annotation><xs:documentation>Defaults to the repository's default workspace.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -744,7 +798,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element ref="depends-on" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
-            <xs:attribute name="name" type="name-plain" use="optional"/>
+            <xs:attribute name="name" type="xs:string" use="optional"/>
             <xs:attribute name="location" type="xs:string" use="optional"><xs:annotation><xs:documentation>
                 Required when under component-list (in Moqui Conf XML file or a components.xml file), optional
                 when component element is in a component.xml file within a component.
@@ -754,7 +808,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="depends-on">
         <xs:complexType>
-            <xs:attribute name="name" type="name-plain" use="required"/>
+            <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="version" type="xs:string" use="optional"/>
         </xs:complexType>
     </xs:element>

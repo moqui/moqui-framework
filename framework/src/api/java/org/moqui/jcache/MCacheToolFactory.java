@@ -43,7 +43,7 @@ public class MCacheToolFactory implements ToolFactory<CacheManager> {
     }
 
     @Override
-    public CacheManager getInstance() {
+    public CacheManager getInstance(Object... parameters) {
         if (cacheManager == null) throw new IllegalStateException("MCacheToolFactory not initialized");
         return cacheManager;
     }

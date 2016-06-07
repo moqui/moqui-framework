@@ -16,9 +16,6 @@
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-// Leaving this commented out, REALLY slows things down (about 10x in Java 1.7.0_71 and 1.7.0_75, about 6x in 1.8.0_40, all on Mac)
-// tasks.withType(GroovyCompile) { groovyOptions.optimizationOptions.indy = true }
-
 apply plugin: 'groovy'
 apply plugin: 'war'
 
@@ -28,18 +25,20 @@ buildscript {
   repositories { jcenter() }
   dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0' }
 }
-
 dependencyUpdates.resolutionStrategy = {
   componentSelection { rules ->
     rules.all { ComponentSelection selection ->
       boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier ->
-        selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/
-      }
-      if (rejected) {
-        selection.reject('Release candidate')
-      }
+        selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
+      if (rejected) selection.reject('Release candidate')
     }
   }
+}
+
+// NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
+repositories {
+    flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
+    jcenter() // http://jcenter.bintray.com
 }
 
 sourceCompatibility = '1.7'
@@ -50,12 +49,6 @@ sourceSets {
     start
     api
     execWar
-}
-
-// NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
-repositories {
-    flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
-    jcenter() // http://jcenter.bintray.com
 }
 
 dependencies {
@@ -69,6 +62,8 @@ dependencies {
     compile 'org.owasp.esapi:esapi-moqui:2.1.0' // New BSD
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
+    // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
+    compile 'org.javassist:javassist:3.20.0-GA' // Apache 2.0
 
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
 
@@ -86,57 +81,42 @@ dependencies {
     // ========== Libraries from jcenter ==========
 
     compile('org.owasp.antisamy:antisamy:1.5.3') { // New BSD
-        exclude group: 'xml-apis' // can't exclude batik-ext but has some same classes as xml-apis so exclude that
+        exclude group: 'xml-apis' // can't exclude batik-ext but has some same classes as xml-apis so exclude this
     }
 
     // Atomikos Transaction Manager
-    compile 'com.atomikos:transactions:4.0.2' // Apache 2.0
-    compile 'com.atomikos:transactions-jdbc:4.0.2' // Apache 2.0
-    compile 'com.atomikos:transactions-jta:4.0.2' // Apache 2.0
-
-    // Apache Camel
-    compile 'org.apache.camel:camel-core:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-csv:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-freemarker:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-groovy:2.17.1' // Apache 2.0
-    /* Uncomment these as desired for use in Camel:
-    // http-common, camel-http4: depends on org.apache.geronimo.specs:geronimo-servlet_3.0_spec:1.0, must be required
-    //     so can't remove and conflicts with the Servlet 2.5 jar which Moqui currently uses, (Winstone relies on this)
-    runtime ('org.apache.camel:camel-http-common:2.17.1') { exclude group: 'org.apache.geronimo.specs' } // Apache 2.0
-    runtime 'org.apache.camel:camel-http4:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-jms:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-lucene:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-lucene:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-mail:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-mqtt:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-quartz2:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-shiro:2.17.1' // Apache 2.0
-    runtime 'org.apache.camel:camel-xmlrpc:2.17.1' // Apache 2.0
-    */
+    compile 'com.atomikos:transactions:4.0.3' // Apache 2.0
+    compile 'com.atomikos:transactions-jdbc:4.0.3' // Apache 2.0
+    compile 'com.atomikos:transactions-jta:4.0.3' // Apache 2.0
 
     // Apache Commons
-    compile 'org.apache.commons:commons-csv:1.2' // Apache 2.0
+    compile 'org.apache.commons:commons-csv:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.4' // Apache 2.0
     compile 'commons-beanutils:commons-beanutils:1.9.2' // Apache 2.0
     compile 'commons-codec:commons-codec:1.10' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile module('commons-configuration:commons-configuration:1.10') // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
-    compile 'commons-fileupload:commons-fileupload:1.3.1' // Apache 2.0
+    compile 'commons-fileupload:commons-fileupload:1.3.2' // Apache 2.0
     compile 'commons-io:commons-io:2.5' // Apache 2.0
     compile 'commons-lang:commons-lang:2.6' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
 
-    // Apache Commons JCS - Only needed when using JCSCacheToolFactory
-    // compile 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0
-
     // ElasticSearch Libraries, including Lucene
-    compile 'org.elasticsearch:elasticsearch:2.3.2' // Apache 2.0
+    compile 'org.elasticsearch:elasticsearch:2.3.3' // Apache 2.0
+    // ElasticSearch uses jackson-dataformat-smile, -yaml, -cbor pulling in jackson-core, also used by OrientDB, but gets an older version
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.7.4'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.7.4'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.4'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.7.4'
+    // JNA, needed by ElasticSearch when run embedded
+    compile 'net.java.dev.jna:jna:4.2.2' // Apache 2.0
+    compile 'net.java.dev.jna:jna-platform:4.2.2' // Apache 2.0
     // NOTE: the lang-groovy module must be in the runtime/elasticsearch/modules directory, not loaded from the classpath; update when updating elasticsearch version!
-    // compile module('org.elasticsearch.module:lang-groovy:2.3.2') // Apache 2.0
-    // NOTE: jts explicit dependency because doesn't get picked up in elasticsearch but without has runtime error
-    runtime 'com.vividsolutions:jts:1.13' // LGPL (runtime only, needed by spatial4j)
+    // compile module('org.elasticsearch.module:lang-groovy:2.3.3') // Apache 2.0
+    // NOTE: jts explicit dependency because doesn't get picked up in ElasticSearch, was error without, now seems fine
+    // runtime 'com.vividsolutions:jts:1.13' // LGPL (runtime only, needed by spatial4j)
 
     // Apache FOP
     compile('org.apache.xmlgraphics:fop:2.1') { // Apache 2.0
@@ -151,82 +131,35 @@ dependencies {
     compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
-    // Some specs from Geronimo, etc
-    compile 'org.apache.geronimo.specs:geronimo-j2ee-connector_1.5_spec:2.0.0' // Apache 2.0
-    compile 'org.apache.geronimo.specs:geronimo-jms_1.1_spec:1.1.1' // Apache 2.0
-    apiCompile 'org.apache.geronimo.specs:geronimo-jta_1.1_spec:1.1.1' // Apache 2.0
-    compile 'org.apache.geronimo.specs:geronimo-jta_1.1_spec:1.1.1' // Apache 2.0
+    // Java Specifications
+    apiCompile 'javax.transaction:jta:1.1'
+    compile 'javax.transaction:jta:1.1'
+    apiCompile 'javax.cache:cache-api:1.0.0'
+    compile 'javax.cache:cache-api:1.0.0'
+    compile 'javax.jcr:jcr:2.0'
     apiCompile 'javax.servlet:javax.servlet-api:3.1.0'
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
+    // Specs not needed by default:
+    // compile 'javax.resource:connector-api:1.5'
+    // compile 'javax.jms:jms:1.1'
 
     // H2 Database
-    compile 'com.h2database:h2:1.4.191' // MPL 2.0, EPL 1.0
-
-    // Hazelcast
-    apiCompile 'javax.cache:cache-api:1.0.0' // ?
-    compile 'javax.cache:cache-api:1.0.0' // ?
-    // use hazelcast-all so various options are available, not that at least hazelcast-wm is needed for web listener
-    compile 'com.hazelcast:hazelcast-all:3.6.2' // Apache 2.0
+    compile 'com.h2database:h2:1.4.192' // MPL 2.0, EPL 1.0
 
     // Apache HTTP Components
     compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
     compile 'org.apache.httpcomponents:httpcore:4.4.4' // Apache 2.0
 
-    // Apache Jackrabbit
-    compile 'javax.jcr:jcr:2.0' // Apache 2.0???
-    compile 'org.apache.jackrabbit:jackrabbit-api:2.12.1' // Apache 2.0
-    compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
-    // Uncomment for WebDAV, along with code using Jcr2davRepositoryFactory in ResourceFacadeImpl
-    // compile 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
-
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.5' // CDDL
 
     // Joda
-    compile 'joda-time:joda-time:2.9.3' // Apache 2.0
+    compile 'joda-time:joda-time:2.9.4' // Apache 2.0
     compile 'org.joda:joda-convert:1.8.1' // Apache 2.0
-
-    // JNA
-    compile 'net.java.dev.jna:jna:4.2.2' // Apache 2.0
-    compile 'net.java.dev.jna:jna-platform:4.2.2' // Apache 2.0
-    // not needed, conflicts with xml-apis:xml-apis:1.3.04 included by dependency from fop
-    // compile 'jaxb:jsr173_api:1.0' // ???
-
-    // Liquibase (for future reference, not used yet)
-    // compile 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
 
     // Pegdown (Markdown renderer)
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
-
-    // OrientDB
-    compile 'com.orientechnologies:orientdb-client:2.1.16' // Apache 2.0
-    compile 'com.orientechnologies:orientdb-core:2.1.16' // Apache 2.0
-    compile 'com.orientechnologies:orientdb-enterprise:2.1.16' // Apache 2.0
-    // orientdb-graphdb has a bunch of dependencies that conflict with other things, needed included below or elsewhere
-    compile module('com.orientechnologies:orientdb-graphdb:2.1.16') { // Apache 2.0
-        exclude group: 'com.tinkerpop.gremlin'
-        exclude group: 'com.orientechnologies'
-        exclude group: 'com.fasterxml.jackson.core'
-        exclude group: 'commons-beanutils' // includes commons-beanutils-core, commons-beanutils included elsewhere
-    }
-    compile('com.orientechnologies:orientdb-server:2.1.16') { exclude group: 'javax.mail' } // Apache 2.0
-    // this is a mess: blueprints-core depends on all sorts of things and some required dependencies have conflicts
-    compile module('com.tinkerpop.blueprints:blueprints-core:2.6.0')
-        compile('org.codehaus.jettison:jettison:1.3.7')
-        compile('com.fasterxml.jackson.core:jackson-databind:2.7.4')
-        compile('com.carrotsearch:hppc:0.7.1')
-    compile('com.tinkerpop.gremlin:gremlin-java:2.6.0') // BSD
-    compile('com.tinkerpop.gremlin:gremlin-groovy:2.6.0') {
-        exclude group: 'org.codehaus.groovy'
-        exclude group: 'org.apache.ant'
-        exclude group: 'org.apache.ivy'
-        exclude group: 'org.fusesource.jansi'
-        exclude group: 'jline'
-    } // BSD
-    // NOTE: explicit dependency to get latest version, older versions cause serious runtime errors
-    compile 'org.javassist:javassist:3.20.0-GA' // Apache 2.0
-    // runtime 'com.orientechnologies:orientdb-jdbc:2.1.16' // Apache 2.0
 
     // Quartz Scheduler (NOTE: depends on c3p0 (with a different group) and slf4j, but we include those elsewhere, so use module)
     apiCompile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
@@ -234,15 +167,15 @@ dependencies {
     compile 'org.quartz-scheduler:quartz-jobs:2.2.3' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.2.4' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.2.4' // Apache 2.0
+    compile 'org.apache.shiro:shiro-core:1.2.5' // Apache 2.0
+    compile 'org.apache.shiro:shiro-web:1.2.5' // Apache 2.0
 
     // SLF4J, Log4J
     apiCompile 'org.slf4j:slf4j-api:1.7.21'
     compile 'org.slf4j:slf4j-api:1.7.21'
-    runtime 'org.apache.logging.log4j:log4j-core:2.5'
-    runtime 'org.apache.logging.log4j:log4j-api:2.5'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.5'
+    runtime 'org.apache.logging.log4j:log4j-core:2.6'
+    runtime 'org.apache.logging.log4j:log4j-api:2.6'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6'
 
     // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
     compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
@@ -253,35 +186,18 @@ dependencies {
     // Snake YAML
     compile 'org.yaml:snakeyaml:1.17' // Apache 2.0
 
-    // KIE Libraries: Drools/jBPM/etc
-    compile('org.kie:kie-api:6.4.0.Final') // Apache 2.0
-    compile('org.drools:drools-core:6.4.0.Final') // Apache 2.0
-    // another big mess drools-compiler depends on a bunch of stuff, including xstream which depends on xmlpull which is
-    //     included in xpp3:xpp3_min, ie redundant classes; so bunch of manual dependencies
-    compile module('org.drools:drools-compiler:6.4.0.Final') // Apache 2.0
-        compile('org.antlr:antlr-runtime:3.5.2')
-        compile('org.eclipse.jdt.core.compiler:ecj:4.5.1')
-        compile('org.mvel:mvel2:2.2.8.Final')
-        compile module('com.thoughtworks.xstream:xstream:1.4.9')
-            compile('xpp3:xpp3_min:1.1.4c') // leave out xmlpull here
-        compile('com.google.protobuf:protobuf-java:2.6.1')
-    compile('org.drools:drools-decisiontables:6.4.0.Final') // Apache 2.0
-    compile('org.drools:drools-jsr94:6.4.0.Final') // Apache 2.0
-    // NOTE: janino in place for issues with ecj
-    runtime 'org.codehaus.janino:janino:2.7.8' // New BSD
-    runtime 'org.codehaus.janino:commons-compiler:2.7.8' // New BSD
-    // NOTE: poi-ooxml-schemas is a required dependency for drools-decisiontables,  but it's a huge file and runs fine without it
-    providedCompile ('org.apache.poi:poi-ooxml-schemas:3.14') // Apache 2.0
+    // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
+    // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
+    // compile 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
 
-    // NOTE: not currently used, may use in the future for transpiling TS to JS on the server
+    // Apache Commons JCS - Only needed when using JCSCacheToolFactory
+    // compile 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0
+
+    // Liquibase (for future reference, not used yet)
+    // compile 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
+
+    // typescript4j: not currently used, may use in the future for transpiling TS to JS on the server
     // compile 'com.mangofactory:typescript4j:0.4.0'
-
-    // ========== runtime-only dependencies ==========
-
-    runtime 'oro:oro:2.0.8' // Apache 2.0
-
-    // Uncomment this to add Apache Derby
-    // runtime 'org.apache.derby:derby:10.12.1.1' // Apache 2.0
 
     // ========== test dependencies ==========
     testCompile 'org.spockframework:spock-core:1.0-groovy-2.4' // Apache 2.0
@@ -290,9 +206,9 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarCompile 'org.eclipse.jetty:jetty-server:9.3.8.v20160314' // Apache 2.0
-    execWarCompile 'org.eclipse.jetty:jetty-webapp:9.3.8.v20160314' // Apache 2.0
-    execWarCompile 'org.eclipse.jetty:jetty-jndi:9.3.8.v20160314' // Apache 2.0
+    execWarCompile 'org.eclipse.jetty:jetty-server:9.3.9.v20160517' // Apache 2.0
+    execWarCompile 'org.eclipse.jetty:jetty-webapp:9.3.9.v20160517' // Apache 2.0
+    execWarCompile 'org.eclipse.jetty:jetty-jndi:9.3.9.v20160517' // Apache 2.0
 }
 
 task apiJavadoc(type: Javadoc) {
@@ -351,9 +267,9 @@ jar {
 war {
     dependsOn jar
     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
-    destinationDir = file(projectDir.absolutePath + '/..')
+    destinationDir = projectDir.parentFile
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
-    from(fileTree(dir: projectDir.absolutePath + '/..', includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+    from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
     classpath = configurations.runtime - configurations.providedCompile
     classpath file(jar.archivePath)

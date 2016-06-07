@@ -91,9 +91,8 @@ class TransactionInternalAtomikos implements TransactionInternal {
         if (txIsolationLevel && efi.getTxIsolationFromString(txIsolationLevel) != -1)
             ads.setDefaultIsolationLevel(efi.getTxIsolationFromString(txIsolationLevel))
 
-        // no need for this, just sets min and max sizes: ads.setPoolSize
-        if (dsi.inlineJdbc.attribute("pool-minsize")) ads.setMinPoolSize(dsi.inlineJdbc.attribute("pool-minsize") as int)
-        if (dsi.inlineJdbc.attribute("pool-maxsize")) ads.setMaxPoolSize(dsi.inlineJdbc.attribute("pool-maxsize") as int)
+        ads.setMinPoolSize((dsi.inlineJdbc.attribute("pool-minsize") ?: "5") as int)
+        ads.setMaxPoolSize((dsi.inlineJdbc.attribute("pool-maxsize") ?: "50") as int)
 
         if (dsi.inlineJdbc.attribute("pool-time-idle")) ads.setMaxIdleTime(dsi.inlineJdbc.attribute("pool-time-idle") as int)
         if (dsi.inlineJdbc.attribute("pool-time-reap")) ads.setReapTimeout(dsi.inlineJdbc.attribute("pool-time-reap") as int)

@@ -509,4 +509,28 @@ public class EntityJavaUtil {
         public boolean createOnly = false;
         public FieldInfo() { /* do nothing, see EntityDefinition.makeFieldInfo() */ }
     }
+
+    public static class EntityConditionParameter {
+        protected FieldInfo fieldInfo;
+        protected Object value;
+        protected EntityQueryBuilder eqb;
+
+        public EntityConditionParameter(FieldInfo fieldInfo, Object value, EntityQueryBuilder eqb) {
+            this.fieldInfo = fieldInfo;
+            this.value = value;
+            this.eqb = eqb;
+        }
+
+        public FieldInfo getFieldInfo() { return fieldInfo; }
+
+        public Object getValue() { return value; }
+
+        public void setPreparedStatementValue(int index) throws EntityException {
+            EntityQueryBuilder.setPreparedStatementValue(eqb.ps, index, value, fieldInfo,
+                    this.eqb.getMainEntityDefinition(), this.eqb.efi);
+        }
+
+        @Override
+        public String toString() { return fieldInfo.name + ':' + value; }
+    }
 }

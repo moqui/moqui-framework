@@ -156,6 +156,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="pathForParentPath" from="pageReference.getActualChildPath() ?: pagePath"/>
             <set field="parentPath" from="pathForParentPath?.contains('/') ? pathForParentPath.substring(0, pathForParentPath.lastIndexOf('/')) : ''"/>
 
+            <!-- now have the real parentPath and pageName, make the full/normalized pagePath -->
+            <set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/>
+
             <script><![CDATA[
                 breadcrumbNameList = []
                 breadcrumbMapList = []
@@ -247,8 +250,8 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!pageReference.exists">
                 <set field="fullPagePath" value="${pagePath}.${wikiType}"/>
                 <set field="pageReference" from="rootPageRef.findChildFile(fullPagePath)"/>
-                <!-- <log level="warn" message="========== new page fullPagePath=${fullPagePath}, pageReference=${pageReference}"/> -->
             </if>
+            <!-- <log message="pagePath=${pagePath}, pageReference=${pageReference}"/> -->
 
             <!-- do the update, then the move if applicable -->
             <script>pageReference.putText(pageText)</script>

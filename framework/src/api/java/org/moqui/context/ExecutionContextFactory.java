@@ -41,7 +41,7 @@ public interface ExecutionContextFactory {
     <V> ToolFactory<V> getToolFactory(String toolName);
     /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
      * null in scripts or other contexts where static typing is not needed */
-    <V> V getTool(String toolName, Class<V> instanceClass);
+    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters);
 
     /** Get a Map where each key is a component name and each value is the component's base location. */
     LinkedHashMap<String, String> getComponentBaseLocations();

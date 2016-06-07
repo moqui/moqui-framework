@@ -118,9 +118,10 @@ class UrlResourceReference extends BaseResourceReference {
         if (isFileProtocol) {
             File f = getFile()
             List<ResourceReference> children = new LinkedList<ResourceReference>()
-            for (File dirFile in f.listFiles()) {
-                children.add(new UrlResourceReference().init("${getLocation()}/${dirFile.getName()}", ecf))
-            }
+            String baseLocation = getLocation()
+            if (baseLocation.endsWith("/")) baseLocation = baseLocation.substring(0, baseLocation.length() - 1)
+            for (File dirFile in f.listFiles())
+                children.add(new UrlResourceReference().init(baseLocation + "/" + dirFile.getName(), ecf))
             return children
         } else {
             throw new IllegalArgumentException("Children not supported for resource with protocol [${locationUrl.protocol}]")

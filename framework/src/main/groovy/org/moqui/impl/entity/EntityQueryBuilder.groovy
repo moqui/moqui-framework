@@ -45,7 +45,7 @@ class EntityQueryBuilder {
     protected final static int sqlInitSize = 500
     protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize)
     protected final static int parametersInitSize = 10
-    protected ArrayList<EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
+    protected ArrayList<EntityJavaUtil.EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
 
     protected PreparedStatement ps = (PreparedStatement) null
     protected ResultSet rs = (ResultSet) null
@@ -63,7 +63,7 @@ class EntityQueryBuilder {
     StringBuilder getSqlTopLevel() { return sqlTopLevelInternal }
 
     /** returns List of EntityConditionParameter meant to be added to */
-    ArrayList<EntityConditionParameter> getParameters() { return parameters }
+    ArrayList<EntityJavaUtil.EntityConditionParameter> getParameters() { return parameters }
 
     Connection makeConnection() {
         connection = efi.getConnection(mainEntityDefinition.getEntityGroupName())
@@ -158,39 +158,12 @@ class EntityQueryBuilder {
 
     void setPreparedStatementValues() {
         // set all of the values from the SQL building in efb
-        ArrayList<EntityConditionParameter> parms = parameters
+        ArrayList<EntityJavaUtil.EntityConditionParameter> parms = parameters
         int size = parms.size()
         for (int i = 0; i < size; i++) {
-            EntityConditionParameter entityConditionParam = (EntityConditionParameter) parms.get(i)
+            EntityJavaUtil.EntityConditionParameter entityConditionParam = (EntityJavaUtil.EntityConditionParameter) parms.get(i)
             entityConditionParam.setPreparedStatementValue(i + 1)
         }
-    }
-
-    @CompileStatic
-    static class EntityConditionParameter {
-        protected final static Logger logger = LoggerFactory.getLogger(EntityConditionParameter.class)
-
-        protected FieldInfo fieldInfo
-        protected Object value
-        protected EntityQueryBuilder eqb
-
-        EntityConditionParameter(FieldInfo fieldInfo, Object value, EntityQueryBuilder eqb) {
-            this.fieldInfo = fieldInfo
-            this.value = value
-            this.eqb = eqb
-        }
-
-        FieldInfo getFieldInfo() { return this.fieldInfo }
-
-        Object getValue() { return this.value }
-
-        void setPreparedStatementValue(int index) throws EntityException {
-            setPreparedStatementValue(this.eqb.ps, index, this.value, this.fieldInfo,
-                    this.eqb.mainEntityDefinition, this.eqb.efi)
-        }
-
-        @Override
-        String toString() { return fieldInfo.name + ':' + value }
     }
 
     static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, Map<String, Object> valueMap,

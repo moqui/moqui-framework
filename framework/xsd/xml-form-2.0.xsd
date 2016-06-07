@@ -29,6 +29,16 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:element name="parameter">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="from" type="xs:string"/>
+            <xs:attribute name="value" type="xs:string"/>
+            <xs:attribute name="required" default="false" type="boolean"><xs:annotation><xs:documentation>The parameter
+                element is used in many places, only some (such as screen.parameter) use this attribute.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
     <!-- ================== Widget Templates ==================== -->
 
     <xs:element name="widget-templates">
@@ -471,15 +481,6 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="transition" type="xs:string" use="required"/>
             <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
                 names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="parameter">
-        <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="from" type="xs:string"/>
-            <xs:attribute name="value" type="xs:string"/>
-            <xs:attribute name="required" default="false" type="boolean"><xs:annotation><xs:documentation>The parameter
-                element is used in many places, only some (such as screen.parameter) use this attribute.</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
 

@@ -107,7 +107,10 @@ public class MCacheManager implements CacheManager {
         throw new UnsupportedOperationException("MCacheManager does not support registered statistics; use the MCache.getStats() or getMStats() methods"); }
 
     @Override
-    public void close() { isClosed = true; }
+    public void close() {
+        cacheMap.clear();
+        // doesn't work well with current singleton approach: isClosed = true;
+    }
     @Override
     public boolean isClosed() { return isClosed; }
 

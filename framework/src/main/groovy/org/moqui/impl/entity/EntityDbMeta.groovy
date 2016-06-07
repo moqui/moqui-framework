@@ -168,12 +168,12 @@ class EntityDbMeta {
                     if (tableSet.next()) {
                         dbResult = true
                     } else {
-                        if (logger.isTraceEnabled()) logger.trace("Table for entity [${ed.getFullEntityName()}] does NOT exist")
+                        if (logger.isTraceEnabled()) logger.trace("Table for entity ${ed.getFullEntityName()} does NOT exist")
                         dbResult = false
                     }
                 }
             } catch (Exception e) {
-                throw new EntityException("Exception checking to see if table [${ed.getTableName()}] exists", e)
+                throw new EntityException("Exception checking to see if table ${ed.getTableName()} exists", e)
             } finally {
                 if (tableSet != null) tableSet.close()
                 if (con != null) con.close()
@@ -181,7 +181,7 @@ class EntityDbMeta {
             }
         }
 
-        if (dbResult == null) throw new EntityException("No result checking if entity [${ed.getFullEntityName()}] table exists")
+        if (dbResult == null) throw new EntityException("No result checking if entity ${ed.getFullEntityName()} table exists")
 
         if (dbResult && !ed.isViewEntity()) {
             // on the first check also make sure all columns/etc exist; we'll do this even on read/exist check otherwise query will blow up when doesn't exist
@@ -247,7 +247,7 @@ class EntityDbMeta {
         if (logger.traceEnabled) logger.trace("Create Table with SQL: " + sql.toString())
 
         runSqlUpdate(sql, groupName)
-        if (logger.infoEnabled) logger.info("Created table [${ed.tableName}] for entity [${ed.getFullEntityName()}]")
+        if (logger.infoEnabled) logger.info("Created table ${ed.tableName} for entity ${ed.getFullEntityName()} in group ${groupName}")
     }
 
     List<String> getMissingColumns(EntityDefinition ed) {
@@ -299,13 +299,13 @@ class EntityDbMeta {
                 }
 
                 if (fnSet.size() == fieldCount) {
-                    logger.warn("Could not find any columns to match fields for entity [${ed.getFullEntityName()}]")
+                    logger.warn("Could not find any columns to match fields for entity ${ed.getFullEntityName()}")
                     return null
                 }
             }
             return fnSet
         } catch (Exception e) {
-            logger.error("Exception checking for missing columns in table [${ed.getTableName()}]", e)
+            logger.error("Exception checking for missing columns in table ${ed.getTableName()}", e)
             return new ArrayList<String>()
         } finally {
             if (colSet != null && !colSet.isClosed()) colSet.close()
@@ -329,8 +329,9 @@ class EntityDbMeta {
         String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
 
         StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName())
+        String colName = ed.getColumnName(fieldName, false)
         // NOTE: if any databases need "ADD COLUMN" instead of just "ADD", change this to try both or based on config
-        sql.append(" ADD ").append(ed.getColumnName(fieldName, false)).append(" ").append(sqlType)
+        sql.append(" ADD ").append(colName).append(" ").append(sqlType)
 
         if ("String" == javaType || "java.lang.String" == javaType) {
             if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
@@ -338,7 +339,7 @@ class EntityDbMeta {
         }
 
         runSqlUpdate(sql, groupName)
-        if (logger.infoEnabled) logger.info("Added column [${ed.getColumnName(fieldName, false)}] to table [${ed.tableName}] for field [${fieldName}] of entity [${ed.getFullEntityName()}]")
+        if (logger.infoEnabled) logger.info("Added column ${colName} to table ${ed.tableName} for field ${fieldName} of entity ${ed.getFullEntityName()} in group ${groupName}")
     }
 
     void createIndexes(EntityDefinition ed) {
@@ -501,7 +502,7 @@ class EntityDbMeta {
             // if we found all of the key-map field-names then fieldNames will be empty, and we have a full fk
             return (fieldNames.size() == 0)
         } catch (Exception e) {
-            logger.error("Exception checking to see if foreign key exists for table [${ed.getTableName()}]", e)
+            logger.error("Exception checking to see if foreign key exists for table ${ed.getTableName()}", e)
             return null
         } finally {
             if (ikSet != null) ikSet.close()
@@ -530,13 +531,13 @@ class EntityDbMeta {
 
             EntityDefinition relEd = relInfo.relatedEd
             if (!tableExists(relEd)) {
-                if (logger.traceEnabled) logger.trace("Not creating foreign key from entity [${ed.getFullEntityName()}] to related entity [${relEd.getFullEntityName()}] because related entity does not yet have a table for it")
+                if (logger.traceEnabled) logger.trace("Not creating foreign key from entity ${ed.getFullEntityName()} to related entity ${relEd.getFullEntityName()} because related entity does not yet have a table")
                 continue
             }
             if (checkFkExists) {
                 Boolean fkExists = foreignKeyExists(ed, relInfo)
                 if (fkExists != null && fkExists) {
-                    if (logger.traceEnabled) logger.trace("Not creating foreign key from entity [${ed.getFullEntityName()}] to related entity [${relEd.getFullEntityName()}] with title [${relInfo.relNode.attribute("title")}] because it already exists (matched by key mappings)")
+                    if (logger.traceEnabled) logger.trace("Not creating foreign key from entity ${ed.getFullEntityName()} to related entity ${relEd.getFullEntityName()} with title ${relInfo.relNode.attribute("title")} because it already exists (matched by key mappings)")
                     continue
                 }
                 // if we get a null back there was an error, and we'll try to create the FK, which may result in another error

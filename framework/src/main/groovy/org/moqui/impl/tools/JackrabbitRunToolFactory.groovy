@@ -76,7 +76,7 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     void preFacadeInit(ExecutionContextFactory ecf) { }
 
     @Override
-    Process getInstance() {
+    Process getInstance(Object... parameters) {
         if (jackrabbitProcess == null) throw new IllegalStateException("JackrabbitRunToolFactory not initialized")
         return jackrabbitProcess
     }

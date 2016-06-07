@@ -109,6 +109,7 @@ public class MNode {
     private final Map<String, ArrayList<MNode>> childrenByName = new HashMap<>();
     private String childText = null;
     protected long lastModified = 0;
+    private boolean systemExpandAttributes = false;
 
     /* ========== Constructors ========== */
 
@@ -164,7 +165,12 @@ public class MNode {
 
     public String getName() { return nodeName; }
     public Map<String, String> getAttributes() { return attributeMap; }
-    public String attribute(String attrName) { return attributeMap.get(attrName); }
+    public String attribute(String attrName) {
+        String attrValue = attributeMap.get(attrName);
+        if (systemExpandAttributes) attrValue = SystemBinding.expand(attrValue);
+        return attrValue;
+    }
+    public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
 
     public MNode getParent() { return parentNode; }
     public ArrayList<MNode> getChildren() { return childList; }

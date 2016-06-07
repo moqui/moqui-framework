@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.entity.EntityDatasourceFactory
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
@@ -44,11 +45,12 @@ import org.slf4j.LoggerFactory
 public class EntityDefinition {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDefinition.class)
 
-    protected EntityFacadeImpl efi
-    protected String internalEntityName
-    protected String fullEntityName
-    protected String shortAlias
-    protected String groupName = null
+    protected final EntityFacadeImpl efi
+    protected final EntityDatasourceFactory datasourceFactory
+    protected final String internalEntityName
+    protected final String fullEntityName
+    protected final String shortAlias
+    protected final String groupName
     protected MNode internalEntityNode
     protected String tableNameAttr
     protected String schemaNameVal
@@ -115,6 +117,7 @@ public class EntityDefinition {
         } else {
             groupName = internalEntityNode.attribute("group-name") ?: efi.getDefaultGroupName()
         }
+        datasourceFactory = efi.getDatasourceFactory(groupName)
 
         this.sequencePrimaryPrefix = internalEntityNode.attribute("sequence-primary-prefix") ?: ""
         if (internalEntityNode.attribute("sequence-primary-stagger"))
@@ -261,6 +264,7 @@ public class EntityDefinition {
     MNode getEntityConditionNode() { return entityConditionNode }
 
     String getEntityGroupName() { return groupName }
+    EntityDatasourceFactory getDatasourceFactory() { return datasourceFactory }
 
     String getDefaultDescriptionField() {
         List<String> nonPkFields = getFieldNames(false, true, false)
@@ -1573,7 +1577,7 @@ public class EntityDefinition {
         return convertFieldInfoString(fieldInfo, value, eci)
     }
 
-    Object convertFieldInfoString(FieldInfo fi, String value, ExecutionContextImpl eci) {
+    static Object convertFieldInfoString(FieldInfo fi, String value, ExecutionContextImpl eci) {
         if (value == null) return null
         if ('null'.equals(value)) return null
         return EntityJavaUtil.convertFromString(value, fi, eci.getL10nFacade())
@@ -1679,12 +1683,12 @@ public class EntityDefinition {
     }
 
     EntityConditionImplBase makeViewWhereCondition() {
-        if (!this.isViewEntity() || entityConditionNode == null) return null
+        if (!this.isViewEntity() || entityConditionNode == null) return (EntityConditionImplBase) null
         // add the view-entity.entity-condition.econdition(s)
         return makeViewListCondition(entityConditionNode)
     }
     EntityConditionImplBase makeViewHavingCondition() {
-        if (!this.isViewEntity() || entityHavingEconditions == null) return null
+        if (!this.isViewEntity() || entityHavingEconditions == null) return (EntityConditionImplBase) null
         // add the view-entity.entity-condition.having-econditions
         return makeViewListCondition(entityHavingEconditions)
     }

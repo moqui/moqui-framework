@@ -33,7 +33,7 @@ public interface CacheFacade {
     /** Get the named local Cache (MCache instance), creating one based on defaults if none exists.
      * If the cache is configured with type != 'local' this will return an error. */
     MCache getLocalCache(String cacheName);
-    /** Get the named distributed Cache (Hazelcast), creating one based on configuration and defaults if none exists.
+    /** Get the named distributed Cache, creating one based on configuration and defaults if none exists.
      * If the cache is configured without type != 'distributed' this will return an error. */
     Cache getDistributedCache(String cacheName);
 
