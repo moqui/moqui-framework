@@ -47,13 +47,11 @@ archivesBaseName = 'moqui'
 
 sourceSets {
     start
-    api
     execWar
 }
 
 dependencies {
-    // Groovy for api and compile
-    apiCompile 'org.codehaus.groovy:groovy-all:2.4.6' // Apache 2.0
+    // Groovy
     compile 'org.codehaus.groovy:groovy-all:2.4.6' // Apache 2.0
 
     // ========== Local (flatDir) libraries in framework/lib ==========
@@ -129,12 +127,9 @@ dependencies {
     compile 'com.google.guava:guava:19.0' // Apache 2.0
 
     // Java Specifications
-    apiCompile 'javax.transaction:jta:1.1'
     compile 'javax.transaction:jta:1.1'
-    apiCompile 'javax.cache:cache-api:1.0.0'
     compile 'javax.cache:cache-api:1.0.0'
     compile 'javax.jcr:jcr:2.0'
-    apiCompile 'javax.servlet:javax.servlet-api:3.1.0'
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
     // Specs not needed by default:
     // compile 'javax.resource:connector-api:1.5'
@@ -162,7 +157,6 @@ dependencies {
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
     // Quartz Scheduler (NOTE: depends on c3p0 (with a different group) and slf4j, but we include those elsewhere, so use module)
-    apiCompile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
     compile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
     compile 'org.quartz-scheduler:quartz-jobs:2.2.3' // Apache 2.0
 
@@ -171,7 +165,6 @@ dependencies {
     compile 'org.apache.shiro:shiro-web:1.2.5' // Apache 2.0
 
     // SLF4J, Log4J
-    apiCompile 'org.slf4j:slf4j-api:1.7.21'
     compile 'org.slf4j:slf4j-api:1.7.21'
     runtime 'org.apache.logging.log4j:log4j-core:2.6'
     runtime 'org.apache.logging.log4j:log4j-api:2.6'
@@ -211,21 +204,10 @@ dependencies {
     execWarCompile 'org.eclipse.jetty:jetty-jndi:9.3.9.v20160517' // Apache 2.0
 }
 
-task apiJavadoc(type: Javadoc) {
-    source sourceSets.api.allJava
-    classpath = sourceSets.main.compileClasspath
-    destinationDir = file(docsDir.absolutePath + '/apiJavadoc')
-}
-
-// setup task dependencies to make sure the start and api sourceSets always get run
+// setup task dependencies to make sure the start sourceSets always get run
 compileJava.dependsOn startClasses
-compileJava.dependsOn apiClasses
-// add the classes directory for the api SourceSet to the main compile classpath so that dependent classes are available
-sourceSets.main.compileClasspath += files(sourceSets.api.output.classesDir)
 
-compileTestGroovy.dependsOn apiClasses
 compileTestGroovy.dependsOn classes
-sourceSets.test.compileClasspath += files(sourceSets.api.output.classesDir)
 sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDir)
 
 // by default the Java plugin runs test on build, change to not do that (only run test if explicit task)
@@ -241,7 +223,6 @@ test {
     testLogging.showStandardStreams = true
     testLogging.showExceptions = true
 
-    classpath += files(sourceSets.api.output.classesDir)
     classpath += files(sourceSets.main.output.classesDir)
     classpath += files(projectDir.absolutePath)
     // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up
@@ -257,7 +238,6 @@ jar {
     enabled = true
     appendix = 'framework'
     manifest { attributes 'Implementation-Title': 'Moqui Framework', 'Implementation-Version': version }
-    from sourceSets.api.output
     from sourceSets.main.output
     // get all of the "resources" that are in component-standard directories instead of src/main/resources
     from fileTree(dir: projectDir.absolutePath,
@@ -285,7 +265,6 @@ war {
 
 task copyDependencies << {
     delete file(projectDir.absolutePath + '/dependencies')
-    copy { from configurations.apiCompile; into file(projectDir.absolutePath + '/dependencies') }
-    copy { from configurations.compile; into file(projectDir.absolutePath + '/dependencies') }
+    copy { from configurations.runtime; into file(projectDir.absolutePath + '/dependencies') }
     copy { from configurations.testCompile; into file(projectDir.absolutePath + '/dependencies') }
 }
