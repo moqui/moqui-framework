@@ -259,9 +259,8 @@ public class ServiceJavaUtil {
             // use message instead of error, accept cleaned up HTML
             if (cleanChanges.size() > 0) {
                 for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
-                logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}");
-                // TODO: happens with OWASP Java HTML Sanitizer? the cleaned HTML ends up with line-endings stripped, very ugly, so put new lines between all tags
-                return cleanHtml.replaceAll(">\\s+<", ">\n<");
+                logger.info("Service parameter safe HTML messages for " + sd.getServiceName() + "." + parameterName + ": " + cleanChanges);
+                return cleanHtml;
             } else {
                 // nothing changed, return null
                 return null;
