@@ -186,28 +186,6 @@ dependencies {
     // Snake YAML
     compile 'org.yaml:snakeyaml:1.17' // Apache 2.0
 
-    // KIE Libraries: Drools/jBPM/etc
-    compile 'org.kie:kie-api:6.4.0.Final' // Apache 2.0
-    compile 'org.drools:drools-core:6.4.0.Final' // Apache 2.0
-    compile 'org.drools:drools-decisiontables:6.4.0.Final' // Apache 2.0
-    compile 'org.drools:drools-jsr94:6.4.0.Final' // Apache 2.0
-    // another big mess drools-compiler depends on a bunch of stuff, including xstream which depends on xmlpull which is
-    //     included in xpp3:xpp3_min, ie redundant classes; so bunch of manual dependencies
-    compile module('org.drools:drools-compiler:6.4.0.Final') // Apache 2.0
-    runtime 'org.antlr:antlr-runtime:3.5.2'
-    runtime 'org.mvel:mvel2:2.2.8.Final'
-    runtime module('com.thoughtworks.xstream:xstream:1.4.9')
-    runtime 'xpp3:xpp3_min:1.1.4c' // leave out xmlpull here
-    runtime 'com.google.protobuf:protobuf-java:2.6.1'
-    // NOTE: drools java dialect options include ECLIPSE, JANINO, and NATIVE; NATIVE would be good but broken now with Java 8
-    // using older version of Janino (2.5.16) as it is the latest version Drools supports
-    runtime 'org.codehaus.janino:janino:2.5.16' // New BSD
-    // 'org.codehaus.janino:janino:2.7.8', 'org.codehaus.janino:commons-compiler:2.7.8', 'org.codehaus.janino:commons-compiler-jdk:2.7.8'
-    // ECJ latest works fine with Drools but is much bigger/etc and so far we are using mvel and not java dialect anyway
-    // runtime 'org.eclipse.jdt.core.compiler:ecj:4.5.1'
-    // NOTE: poi-ooxml-schemas is a required dependency for drools-decisiontables, but it's a huge file and runs fine without it
-    providedCompile ('org.apache.poi:poi-ooxml-schemas:3.14') // Apache 2.0
-
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
     // compile 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
