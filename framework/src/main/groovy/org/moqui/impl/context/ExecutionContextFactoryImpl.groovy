@@ -456,6 +456,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
+        // clear not found info just in case anything was falsely added
+        cachedClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(cachedClassLoader)
     }
