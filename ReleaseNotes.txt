@@ -21,6 +21,8 @@ Non Backward Compatible Changes
   - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint
     are now in the moqui-camel component which has a MoquiConf.xml file so
     no additional configuration is needed
+  - JBoss KIE and Drools are now in tool component moqui-kie, an optional
+    component for mantle-usl; has MoquiConf to add ToolFactory
 - ExecutionContext and ExecutionContextFactory
   - Removed initComponent() and destroyComponent() methods; were never well
     supported (runtime component init and destroy caused issues)
