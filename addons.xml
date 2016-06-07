@@ -45,4 +45,10 @@
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
+
+    <!-- Component Sets -->
+    <component-set name="framework" components="example,moqui-camel,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
+    <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,SimpleScreens"/>
+    <component-set name="apps" components="HiveMind,PopCommerce"/>
+    <component-set name="ecosystem" sets="framework,mantle,apps"/>
 </addons>

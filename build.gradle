@@ -331,6 +331,31 @@ task getDepends {
     }
 }
 
+task getComponentSet {
+    description "Gets all components in the specied componentSet using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    doLast {
+        String curLocationType = file('.git').exists() ? 'git' : 'current'
+        if (project.hasProperty('locationType')) curLocationType = locationType
+        if (!project.hasProperty('componentSet')) throw new InvalidUserDataException("No componentSet property specified")
+        Set compsChecked = new TreeSet()
+        loadComponentSet((String) componentSet, curLocationType, parseAddons(), parseMyaddons(), compsChecked)
+        logger.lifecycle("Got component-set ${componentSet}, got or checked components: ${compsChecked}")
+    }
+}
+def loadComponentSet(String setName, String curLocationType, Node addons, Node myaddons, Set compsChecked) {
+    Node setNode = null
+    if (myaddons) setNode = myaddons.'component-set'.find({ it."@name" == setName })
+    if (setNode == null) setNode = addons.'component-set'.find({ it."@name" == setName })
+    if (setNode == null) throw new InvalidUserDataException("Could not find component-set with name ${setName}")
+    String components = setNode.'@components'
+    if (components) for (String compName in components.split(","))
+        getComponent(compName, curLocationType, addons, myaddons, compsChecked)
+    String sets = setNode.'@sets'
+    if (sets) for (String subsetName in sets.split(","))
+        loadComponentSet(subsetName, curLocationType, addons, myaddons, compsChecked)
+}
+
+
 Node parseAddons() { new XmlParser().parse(file('addons.xml')) }
 Node parseMyaddons() { if (file('myaddons.xml').exists()) { new XmlParser().parse(file('myaddons.xml')) } else { null } }
 
