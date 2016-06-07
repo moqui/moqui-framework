@@ -47,7 +47,7 @@ public interface ExecutionContext {
      * singleton instance, others a new instance each time it is used and that instance is saved with this
      * ExecutionContext to be reused. The instanceClass may be null in scripts or other contexts where static typing
      * is not needed */
-    <V> V getTool(String toolName, Class<V> instanceClass);
+    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters);
 
     /** Get current Tenant ID. A single application may be run in multiple virtual instances, one for each Tenant, and
      * each will have its own set of databases (except for the tenant database which is shared among all Tenants).
