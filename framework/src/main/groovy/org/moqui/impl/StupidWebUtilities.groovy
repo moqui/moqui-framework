@@ -14,6 +14,7 @@
 package org.moqui.impl
 
 import groovy.transform.CompileStatic
+import org.apache.commons.lang.StringEscapeUtils
 import org.apache.http.HttpEntity
 import org.apache.http.NameValuePair
 import org.apache.http.client.entity.UrlEncodedFormEntity
@@ -25,15 +26,11 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.apache.http.util.EntityUtils
-import org.owasp.esapi.ESAPI
 import org.owasp.validator.html.Policy
 
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpSession
 import javax.servlet.ServletContext
-
-import org.owasp.esapi.Encoder
-import org.owasp.esapi.Validator
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -43,9 +40,6 @@ import java.nio.charset.Charset
 @CompileStatic
 class StupidWebUtilities {
     protected final static Logger logger = LoggerFactory.getLogger(StupidUtilities.class)
-
-    public static final Encoder defaultWebEncoder = ESAPI.encoder()
-    public static final Validator defaultWebValidator = ESAPI.validator()
 
     private static Policy antiSamyPolicy = null
     public static Policy getAntiSamyPolicy() {
@@ -225,18 +219,18 @@ class StupidWebUtilities {
         boolean containsValue(Object o) { return mp.containsValue(o) }
         Object get(Object o) {
             // NOTE: in spite of warnings class reference to StupidWebUtilities.canonicalizeValue is necessary or Groovy blows up
-            return (o == null && !supportsNull) ? null : StupidWebUtilities.canonicalizeValue(mp.get(o))
+            return (o == null && !supportsNull) ? null : canonicalizeValue(mp.get(o))
         }
-        Object put(String k, Object v) { return StupidWebUtilities.canonicalizeValue(mp.put(k, v)) }
+        Object put(String k, Object v) { return canonicalizeValue(mp.put(k, v)) }
         Object remove(Object o) {
-            return (o == null && !supportsNull) ? null : StupidWebUtilities.canonicalizeValue(mp.remove(o))
+            return (o == null && !supportsNull) ? null : canonicalizeValue(mp.remove(o))
         }
         void putAll(Map<? extends String, ? extends Object> map) { if (map) mp.putAll(map) }
         void clear() { mp.clear() }
         Set<String> keySet() { return mp.keySet() }
         Collection<Object> values() {
             List<Object> values = new ArrayList<Object>(mp.size())
-            for (Object orig in mp.values()) values.add(StupidWebUtilities.canonicalizeValue(orig))
+            for (Object orig in mp.values()) values.add(canonicalizeValue(orig))
             return values
         }
         Set<Map.Entry<String, Object>> entrySet() {
@@ -252,7 +246,7 @@ class StupidWebUtilities {
         CanonicalizeEntry(String key, Object value) { this.key = key; this.value = value; }
         CanonicalizeEntry(Map.Entry<String, Object> entry) { this.key = entry.getKey(); this.value = entry.getValue(); }
         String getKey() { return key }
-        Object getValue() { return StupidWebUtilities.canonicalizeValue(value) }
+        Object getValue() { return canonicalizeValue(value) }
         Object setValue(Object v) { Object orig = value; value = v; return orig; }
     }
 
@@ -267,7 +261,7 @@ class StupidWebUtilities {
                 canVal = newList
                 for (Object obj in lst) {
                     if (obj instanceof CharSequence) {
-                        newList.add(defaultWebEncoder.canonicalize(obj.toString(), false))
+                        newList.add(StringEscapeUtils.unescapeHtml(obj.toString()))
                     } else {
                         newList.add(obj)
                     }
@@ -275,7 +269,7 @@ class StupidWebUtilities {
             }
         }
         // catch strings or lists with a single string in them unwrapped above
-        if (canVal instanceof CharSequence) canVal = defaultWebEncoder.canonicalize(canVal.toString(), false)
+        if (canVal instanceof CharSequence) canVal = StringEscapeUtils.unescapeHtml(canVal.toString())
         return canVal
     }
 

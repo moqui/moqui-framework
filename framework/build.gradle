@@ -58,8 +58,6 @@ dependencies {
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
-    // NOTE: this is a moqui-specific build to handle log4j2
-    compile 'org.owasp.esapi:esapi-moqui:2.1.0' // New BSD
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)

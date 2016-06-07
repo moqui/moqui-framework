@@ -22,7 +22,7 @@ import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
-
+import org.apache.commons.lang.StringEscapeUtils
 import org.moqui.context.*
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValueNotFoundException
@@ -268,7 +268,7 @@ class WebFacadeImpl implements WebFacade {
 
                     // injection issue with name field: userId=%3Cscript%3Ealert(%27Test%20Crack!%27)%3C/script%3E
                     String parmValue = entry.value
-                    if (parmValue) parmValue = StupidWebUtilities.defaultWebEncoder.encodeForHTML(parmValue)
+                    if (parmValue) parmValue = StringEscapeUtils.escapeHtml(parmValue)
                     paramBuilder.append(parmValue)
 
                     pCount++

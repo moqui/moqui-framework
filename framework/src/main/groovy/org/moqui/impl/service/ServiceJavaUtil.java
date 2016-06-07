@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.service;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.moqui.BaseException;
 import org.moqui.impl.StupidClassLoader;
 import org.moqui.impl.StupidJavaUtilities;
@@ -20,9 +21,6 @@ import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.StupidWebUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
-import org.owasp.esapi.ESAPI;
-import org.owasp.esapi.Encoder;
-import org.owasp.esapi.errors.IntrusionException;
 import org.owasp.validator.html.AntiSamy;
 import org.owasp.validator.html.CleanResults;
 import org.owasp.validator.html.PolicyException;
@@ -254,13 +252,7 @@ public class ServiceJavaUtil {
 
         String canValue = parameterValue;
         if (indexOfEscape >= 0) {
-            try {
-                canValue = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true);
-                indexOfLessThan = canValue.indexOf('<');
-            } catch (IntrusionException e) {
-                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), eci.getL10n().localize("Found character escaping (mixed or double) that is not allowed or other format consistency error: ") + e.toString(), null);
-                return null;
-            }
+            canValue = StringEscapeUtils.unescapeHtml(parameterValue);
         }
 
         if (allowSafe) {
