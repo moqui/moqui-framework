@@ -57,6 +57,9 @@ Non Backward Compatible Changes
     with the javax.jcr.RepositoryFactory interface
   - See new configuration examples in MoquiDefaultConf.xml under the
     repository-list element
+- OWASP ESAPI and AntiSamy
+  - ESAPI removed, now using simple StringEscapeUtils from commons-lang
+  - AntiSamy replaced by OWASP Java HTML Sanitizer
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)

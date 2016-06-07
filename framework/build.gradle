@@ -78,10 +78,6 @@ dependencies {
 
     // ========== Libraries from jcenter ==========
 
-    compile('org.owasp.antisamy:antisamy:1.5.3') { // New BSD
-        exclude group: 'xml-apis' // can't exclude batik-ext but has some same classes as xml-apis so exclude this
-    }
-
     // Atomikos Transaction Manager
     compile 'com.atomikos:transactions:4.0.3' // Apache 2.0
     compile 'com.atomikos:transactions-jdbc:4.0.3' // Apache 2.0
@@ -129,6 +125,9 @@ dependencies {
     compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
+    // Guava (used by OWASP Java HTML Sanitizer, ElasticSearch, may use internally in framework too)
+    compile 'com.google.guava:guava:19.0' // Apache 2.0
+
     // Java Specifications
     apiCompile 'javax.transaction:jta:1.1'
     compile 'javax.transaction:jta:1.1'
@@ -154,6 +153,9 @@ dependencies {
     // Joda
     compile 'joda-time:joda-time:2.9.4' // Apache 2.0
     compile 'org.joda:joda-convert:1.8.1' // Apache 2.0
+
+    // OWASP Java HTML Sanitizer
+    compile 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20160526.1' // New BSD & Apache 2.0
 
     // Pegdown (Markdown renderer)
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0

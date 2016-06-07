@@ -350,11 +350,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         skipStatsCond = serverStatsNode.attribute("stats-skip-condition")
         hitBinLengthMillis = (serverStatsNode.attribute("bin-length-seconds") as Integer)*1000 ?: 900000
 
-        // init ESAPI - NOTE: this should be the first call to anything related to ESAPI or StupidWebUtilities so config is in place
-        if (!System.getProperty("org.owasp.esapi.resources")) System.setProperty("org.owasp.esapi.resources", runtimePath + "/conf/esapi")
-        logger.info("Starting ESAPI, resources at ${System.getProperty("org.owasp.esapi.resources")}")
-        StupidWebUtilities.canonicalizeValue("test")
-
         // Load ToolFactory implementations from tools.tool-factory elements, run preFacadeInit() methods
         ArrayList<Map<String, String>> toolFactoryAttrsList = new ArrayList<>()
         for (MNode toolFactoryNode in confXmlRoot.first("tools").children("tool-factory")) {

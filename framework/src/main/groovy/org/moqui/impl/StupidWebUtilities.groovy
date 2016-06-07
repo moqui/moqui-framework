@@ -26,7 +26,8 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.message.BasicNameValuePair
 import org.apache.http.util.EntityUtils
-import org.owasp.validator.html.Policy
+import org.owasp.html.PolicyFactory
+import org.owasp.html.examples.EbayPolicyExample
 
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpSession
@@ -41,13 +42,8 @@ import java.nio.charset.Charset
 class StupidWebUtilities {
     protected final static Logger logger = LoggerFactory.getLogger(StupidUtilities.class)
 
-    private static Policy antiSamyPolicy = null
-    public static Policy getAntiSamyPolicy() {
-        if (antiSamyPolicy != null) return antiSamyPolicy
-        ClassLoader cl = Thread.currentThread().getContextClassLoader()
-        antiSamyPolicy = Policy.getInstance(cl.getResourceAsStream("antisamy-esapi.xml"))
-        return antiSamyPolicy
-    }
+    private static PolicyFactory safeHtmlPolicy = EbayPolicyExample.POLICY_DEFINITION
+    public static PolicyFactory getSafeHtmlPolicy() { return safeHtmlPolicy }
 
     static final char tildeChar = '~' as char
     public static Map<String, Object> getPathInfoParameterMap(String pathInfoStr) {
