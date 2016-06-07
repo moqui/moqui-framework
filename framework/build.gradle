@@ -19,11 +19,15 @@
 apply plugin: 'groovy'
 apply plugin: 'war'
 
+version = '2.0.0'
+
 // to run use "gradle dependencyUpdates"
 apply plugin: 'com.github.ben-manes.versions'
 buildscript {
-  repositories { jcenter() }
-  dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0' }
+    repositories { jcenter() }
+    dependencies {
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0'
+    }
 }
 dependencyUpdates.resolutionStrategy = {
   componentSelection { rules ->
@@ -50,9 +54,16 @@ sourceSets {
     execWar
 }
 
+groovydoc {
+    docTitle = "Moqui Framework ${version}"
+    source = sourceSets.main.allSource
+}
+
 dependencies {
     // Groovy
     compile 'org.codehaus.groovy:groovy-all:2.4.6' // Apache 2.0
+    // jansi is needed for groovydoc only, so in providedCompile (not included in war)
+    providedCompile 'org.fusesource.jansi:jansi:1.12'
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
@@ -206,7 +217,6 @@ dependencies {
 
 // setup task dependencies to make sure the start sourceSets always get run
 compileJava.dependsOn startClasses
-
 compileTestGroovy.dependsOn classes
 sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDir)
 
