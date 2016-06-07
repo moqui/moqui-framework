@@ -21,6 +21,8 @@ Non Backward Compatible Changes
   - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint
     are now in the moqui-camel component which has a MoquiConf.xml file so
     no additional configuration is needed
+  - JBoss KIE and Drools are now in tool component moqui-kie, an optional
+    component for mantle-usl; has MoquiConf to add ToolFactory
 - ExecutionContext and ExecutionContextFactory
   - Removed initComponent() and destroyComponent() methods; were never well
     supported (runtime component init and destroy caused issues)
@@ -390,14 +392,10 @@ Long Term To Do List - aka Informal Roadmap
     - Atomikos (moqui-atomikos; leave Bitronix in by default)
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
     - ElasticSearch (moqui-elasticsearch)
-    - KIE (moqui-kie)
-    - add mantle-usl dependencies on search, kie
+    - add mantle-usl dependencies on moqui-elasticsearch; moqui-kie is optional for mantle-usl
   - Possible to split out FOP?
     - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
-    - need some way to add servlet at runtime (from moqui conf xml) instead of in static web.xml (use new ServletContext methods)
   - Support some sort of built component archive?
-  - More cleanly handle library jars that will no longer be in WEB-INF/lib? ie other than having Gradle download from
-    dependencies and put in the <component>/lib directory
 
 - Saved form-list Finds
   - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.

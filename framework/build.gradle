@@ -62,7 +62,7 @@ dependencies {
     compile 'org.owasp.esapi:esapi-moqui:2.1.0' // New BSD
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
-    // Bitronix depends on javassist (as does OrientDB, etc)
+    // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
     compile 'org.javassist:javassist:3.20.0-GA' // Apache 2.0
 
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
@@ -81,7 +81,7 @@ dependencies {
     // ========== Libraries from jcenter ==========
 
     compile('org.owasp.antisamy:antisamy:1.5.3') { // New BSD
-        exclude group: 'xml-apis' // can't exclude batik-ext but has some same classes as xml-apis so exclude that
+        exclude group: 'xml-apis' // can't exclude batik-ext but has some same classes as xml-apis so exclude this
     }
 
     // Atomikos Transaction Manager
@@ -103,20 +103,20 @@ dependencies {
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
 
-    // Apache Commons JCS - Only needed when using JCSCacheToolFactory
-    // compile 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0
-
     // ElasticSearch Libraries, including Lucene
     compile 'org.elasticsearch:elasticsearch:2.3.3' // Apache 2.0
-    // NOTE: the lang-groovy module must be in the runtime/elasticsearch/modules directory, not loaded from the classpath; update when updating elasticsearch version!
-    // compile module('org.elasticsearch.module:lang-groovy:2.3.2') // Apache 2.0
-    // NOTE: jts explicit dependency because doesn't get picked up in elasticsearch but without has runtime error
-    runtime 'com.vividsolutions:jts:1.13' // LGPL (runtime only, needed by spatial4j)
     // ElasticSearch uses jackson-dataformat-smile, -yaml, -cbor pulling in jackson-core, also used by OrientDB, but gets an older version
     compile 'com.fasterxml.jackson.core:jackson-databind:2.7.4'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.7.4'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.4'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.7.4'
+    // JNA, needed by ElasticSearch when run embedded
+    compile 'net.java.dev.jna:jna:4.2.2' // Apache 2.0
+    compile 'net.java.dev.jna:jna-platform:4.2.2' // Apache 2.0
+    // NOTE: the lang-groovy module must be in the runtime/elasticsearch/modules directory, not loaded from the classpath; update when updating elasticsearch version!
+    // compile module('org.elasticsearch.module:lang-groovy:2.3.3') // Apache 2.0
+    // NOTE: jts explicit dependency because doesn't get picked up in ElasticSearch, was error without, now seems fine
+    // runtime 'com.vividsolutions:jts:1.13' // LGPL (runtime only, needed by spatial4j)
 
     // Apache FOP
     compile('org.apache.xmlgraphics:fop:2.1') { // Apache 2.0
@@ -131,13 +131,17 @@ dependencies {
     compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
-    // Some specs from Geronimo, etc
-    compile 'org.apache.geronimo.specs:geronimo-j2ee-connector_1.5_spec:2.0.0' // Apache 2.0
-    compile 'org.apache.geronimo.specs:geronimo-jms_1.1_spec:1.1.1' // Apache 2.0
-    apiCompile 'org.apache.geronimo.specs:geronimo-jta_1.1_spec:1.1.1' // Apache 2.0
-    compile 'org.apache.geronimo.specs:geronimo-jta_1.1_spec:1.1.1' // Apache 2.0
+    // Java Specifications
+    apiCompile 'javax.transaction:jta:1.1'
+    compile 'javax.transaction:jta:1.1'
+    apiCompile 'javax.cache:cache-api:1.0.0'
+    compile 'javax.cache:cache-api:1.0.0'
+    compile 'javax.jcr:jcr:2.0'
     apiCompile 'javax.servlet:javax.servlet-api:3.1.0'
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
+    // Specs not needed by default:
+    // compile 'javax.resource:connector-api:1.5'
+    // compile 'javax.jms:jms:1.1'
 
     // H2 Database
     compile 'com.h2database:h2:1.4.192' // MPL 2.0, EPL 1.0
@@ -146,31 +150,12 @@ dependencies {
     compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
     compile 'org.apache.httpcomponents:httpcore:4.4.4' // Apache 2.0
 
-    // JCache (javax.cache)
-    apiCompile 'javax.cache:cache-api:1.0.0' // ?
-    compile 'javax.cache:cache-api:1.0.0' // ?
-
-    // JCR 2.0
-    compile 'javax.jcr:jcr:2.0' // Apache 2.0???
-    // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
-    // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
-    // compile 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
-
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.5' // CDDL
 
     // Joda
     compile 'joda-time:joda-time:2.9.4' // Apache 2.0
     compile 'org.joda:joda-convert:1.8.1' // Apache 2.0
-
-    // JNA
-    compile 'net.java.dev.jna:jna:4.2.2' // Apache 2.0
-    compile 'net.java.dev.jna:jna-platform:4.2.2' // Apache 2.0
-    // not needed, conflicts with xml-apis:xml-apis:1.3.04 included by dependency from fop
-    // compile 'jaxb:jsr173_api:1.0' // ???
-
-    // Liquibase (for future reference, not used yet)
-    // compile 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
 
     // Pegdown (Markdown renderer)
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
@@ -201,35 +186,18 @@ dependencies {
     // Snake YAML
     compile 'org.yaml:snakeyaml:1.17' // Apache 2.0
 
-    // KIE Libraries: Drools/jBPM/etc
-    compile('org.kie:kie-api:6.4.0.Final') // Apache 2.0
-    compile('org.drools:drools-core:6.4.0.Final') // Apache 2.0
-    // another big mess drools-compiler depends on a bunch of stuff, including xstream which depends on xmlpull which is
-    //     included in xpp3:xpp3_min, ie redundant classes; so bunch of manual dependencies
-    compile module('org.drools:drools-compiler:6.4.0.Final') // Apache 2.0
-        compile('org.antlr:antlr-runtime:3.5.2')
-        compile('org.eclipse.jdt.core.compiler:ecj:4.5.1')
-        compile('org.mvel:mvel2:2.2.8.Final')
-        compile module('com.thoughtworks.xstream:xstream:1.4.9')
-            compile('xpp3:xpp3_min:1.1.4c') // leave out xmlpull here
-        compile('com.google.protobuf:protobuf-java:2.6.1')
-    compile('org.drools:drools-decisiontables:6.4.0.Final') // Apache 2.0
-    compile('org.drools:drools-jsr94:6.4.0.Final') // Apache 2.0
-    // NOTE: janino in place for issues with ecj
-    runtime 'org.codehaus.janino:janino:2.7.8' // New BSD
-    runtime 'org.codehaus.janino:commons-compiler:2.7.8' // New BSD
-    // NOTE: poi-ooxml-schemas is a required dependency for drools-decisiontables,  but it's a huge file and runs fine without it
-    providedCompile ('org.apache.poi:poi-ooxml-schemas:3.14') // Apache 2.0
+    // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
+    // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
+    // compile 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
 
-    // NOTE: not currently used, may use in the future for transpiling TS to JS on the server
+    // Apache Commons JCS - Only needed when using JCSCacheToolFactory
+    // compile 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0
+
+    // Liquibase (for future reference, not used yet)
+    // compile 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
+
+    // typescript4j: not currently used, may use in the future for transpiling TS to JS on the server
     // compile 'com.mangofactory:typescript4j:0.4.0'
-
-    // ========== runtime-only dependencies ==========
-
-    // runtime 'oro:oro:2.0.8' // Apache 2.0
-
-    // Uncomment this to add Apache Derby
-    // runtime 'org.apache.derby:derby:10.12.1.1' // Apache 2.0
 
     // ========== test dependencies ==========
     testCompile 'org.spockframework:spock-core:1.0-groovy-2.4' // Apache 2.0

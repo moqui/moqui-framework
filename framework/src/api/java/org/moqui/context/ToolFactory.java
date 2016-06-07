@@ -32,7 +32,7 @@ public interface ToolFactory<V> {
      *
      * @throws IllegalStateException if not initialized
      */
-    V getInstance();
+    V getInstance(Object... parameters);
 
     /** Called on destroy/shutdown of Moqui to destroy (shutdown, close, etc) the underlying tool */
     void destroy();

@@ -65,7 +65,7 @@ class H2ServerToolFactory implements ToolFactory<Server> {
     }
 
     @Override
-    Server getInstance() {
+    Server getInstance(Object... parameters) {
         if (h2Server == null) throw new IllegalStateException("H2ServerToolFactory not initialized")
         return h2Server
     }

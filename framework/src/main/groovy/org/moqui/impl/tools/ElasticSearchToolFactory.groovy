@@ -53,7 +53,7 @@ class ElasticSearchToolFactory implements ToolFactory<Client> {
     void preFacadeInit(ExecutionContextFactory ecf) { }
 
     @Override
-    Client getInstance() {
+    Client getInstance(Object... parameters) {
         if (elasticSearchClient == null) throw new IllegalStateException("ElasticSearchToolFactory not initialized")
         return elasticSearchClient
     }

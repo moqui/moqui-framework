@@ -456,6 +456,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
+        // clear not found info just in case anything was falsely added
+        cachedClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(cachedClassLoader)
     }
@@ -691,10 +693,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return toolFactory
     }
     @Override
-    <V> V getTool(String toolName, Class<V> instanceClass) {
+    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
-        return toolFactory.getInstance()
+        return toolFactory.getInstance(parameters)
     }
 
     /*
