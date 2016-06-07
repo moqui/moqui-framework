@@ -337,6 +337,7 @@ task getComponentSet {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
         if (!project.hasProperty('componentSet')) throw new InvalidUserDataException("No componentSet property specified")
+        checkRuntimeDirAndDefaults(curLocationType)
         Set compsChecked = new TreeSet()
         loadComponentSet((String) componentSet, curLocationType, parseAddons(), parseMyaddons(), compsChecked)
         logger.lifecycle("Got component-set ${componentSet}, got or checked components: ${compsChecked}")
