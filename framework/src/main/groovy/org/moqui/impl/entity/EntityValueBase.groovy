@@ -222,8 +222,7 @@ abstract class EntityValueBase implements EntityValue {
                             pk = null
                             Map<String, String> pkToAliasMap = ed.getMePkFieldToAliasNameMap(aliasNode.attribute('entity-alias'))
                             Set<String> pkSet = pkToAliasMap.keySet()
-                            if (pkSet.size() == 1) pk = pkSet.iterator().next()
-                            // logger.warn("======== changing pk to ${pk}")
+                            if (pkSet.size() == 1) pk = pkToAliasMap.get(pkSet.iterator().next())
                         }
                         String pkValue = pk? get(pk): null
                         if (pkValue) {
