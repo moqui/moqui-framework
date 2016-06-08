@@ -13,7 +13,6 @@
  */
 
 import java.io.*;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -80,6 +79,7 @@ public class MoquiStart extends ClassLoader {
         System.out.println("Using temporary directory: " + tempDir.getCanonicalPath());
         if (tempDir.exists()) {
             System.out.println("Found temporary directory " + tempDirName + ", deleting");
+            //noinspection ResultOfMethodCallIgnored
             tempDir.delete();
         }
 
@@ -335,6 +335,7 @@ public class MoquiStart extends ClassLoader {
         }
     }
 
+    @SuppressWarnings("ThrowFromFinallyBlock")
     private File createTempFile(JarEntry je) throws IOException {
         byte[] jeBytes = getJarEntryBytes(outerFile, je);
 
@@ -353,6 +354,7 @@ public class MoquiStart extends ClassLoader {
         return file;
     }
 
+    @SuppressWarnings("ThrowFromFinallyBlock")
     private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
         DataInputStream dis = null;
         byte[] jeBytes = null;

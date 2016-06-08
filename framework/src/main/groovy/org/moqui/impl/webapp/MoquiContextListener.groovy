@@ -27,8 +27,6 @@ import javax.servlet.ServletContext
 import javax.servlet.ServletContextEvent
 import javax.servlet.ServletContextListener
 
-import org.moqui.context.ExecutionContext
-import org.moqui.context.ExecutionContextFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.Moqui
