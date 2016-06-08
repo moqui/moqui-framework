@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletRegistration
 import javax.websocket.server.ServerContainer
+import javax.websocket.server.ServerEndpointConfig
 
 @CompileStatic
 class MoquiContextListener implements ServletContextListener {
@@ -157,7 +158,13 @@ class MoquiContextListener implements ServletContextListener {
             ServerContainer wsServer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
             if (wsServer != null) {
                 logger.info("Found WebSocket ServerContainer ${wsServer.class.name}")
-                // TODO
+                // TODO: configurable Endpoint objects? configure class, path (make sure path starts with /)
+                Class<?> endpointClass = NotificationEndpoint.class
+                String endpointPath = "/notws"
+                ServerEndpointConfig sec = ServerEndpointConfig.Builder.create(endpointClass, endpointPath).build()
+                sec.userProperties.put("executionContextFactory", ecfi)
+                wsServer.addEndpoint(sec)
+                logger.info("Added WebSocket endpoint ${endpointPath} for class ${endpointClass.name}")
             } else {
                 logger.info("No WebSocket ServerContainer found, web sockets disabled")
             }
