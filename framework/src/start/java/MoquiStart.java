@@ -145,13 +145,13 @@ public class MoquiStart extends ClassLoader {
             System.out.println("Running embedded server on port " + port + " with args [" + argMap + "]");
 
             Class<?> serverClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Server");
-            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+            Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
 
-            Constructor serverConstructor = serverClass.getConstructor(int.class);
-            // TODO: configurable
-            Object server = serverConstructor.newInstance(port);
-            Constructor webappConstructor = webappClass.getConstructor();
-            Object webapp = webappConstructor.newInstance();
+            Object server = serverClass.getConstructor(int.class).newInstance(port);
+
+            // WebApp
+            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+            Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperWarUrl.toExternalForm() + "/WEB-INF/web.xml");
@@ -159,13 +159,22 @@ public class MoquiStart extends ClassLoader {
             webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperWarUrl.toExternalForm());
             webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
 
-            Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             serverClass.getMethod("setHandler", handlerClass).invoke(server, webapp);
+
+            // WebSocket
+            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
+            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
+            Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
+            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
+
+            // Start
             serverClass.getMethod("start").invoke(server);
             serverClass.getMethod("join").invoke(server);
 
             /* The classpath dependent code we are running:
             Server server = new Server(8080);
+
+            // WebApp
             WebAppContext webapp = new WebAppContext();
             webapp.setContextPath("/");
             webapp.setDescriptor(moquiStartLoader.wrapperWarUrl.toExternalForm() + "/WEB-INF/web.xml");
@@ -177,8 +186,12 @@ public class MoquiStart extends ClassLoader {
             // if the temp directory gets cleaned periodically.
             // Removed by the code elsewhere that deletes on close
             webapp.setTempDirectory(new File(tempDirName + "/ROOT"));
-
             server.setHandler(webapp);
+
+            // WebSocket
+            // NOTE: ServletContextHandler.SESSIONS = 1 (int)
+            ServerContainer wsContainer = org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer.configureContext(webapp);
+            webapp.setAttribute("javax.websocket.server.ServerContainer", wsContainer);
 
             // Start things up!
             server.start();

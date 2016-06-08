@@ -141,6 +141,7 @@ dependencies {
     compile 'javax.transaction:jta:1.1'
     compile 'javax.cache:cache-api:1.0.0'
     compile 'javax.jcr:jcr:2.0'
+    compile 'javax.websocket:javax.websocket-api:1.0'
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
     // Specs not needed by default:
     // compile 'javax.resource:connector-api:1.5'
@@ -213,6 +214,7 @@ dependencies {
     execWarCompile 'org.eclipse.jetty:jetty-server:9.3.9.v20160517' // Apache 2.0
     execWarCompile 'org.eclipse.jetty:jetty-webapp:9.3.9.v20160517' // Apache 2.0
     execWarCompile 'org.eclipse.jetty:jetty-jndi:9.3.9.v20160517' // Apache 2.0
+    execWarCompile 'org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.9.v20160517' // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

@@ -37,6 +37,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletRegistration
+import javax.websocket.server.ServerContainer
 
 @CompileStatic
 class MoquiContextListener implements ServletContextListener {
@@ -153,6 +154,15 @@ class MoquiContextListener implements ServletContextListener {
             }
 
             // NOTE: webapp.session-config.@timeout handled in MoquiSessionListener
+
+            // WebSocket Endpoint Setup
+            ServerContainer wsServer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+            if (wsServer != null) {
+                logger.info("Found WebSocket ServerContainer ${wsServer.class.name}")
+                // TODO
+            } else {
+                logger.info("No WebSocket ServerContainer found, web sockets disabled")
+            }
 
             // run after-startup actions
             if (wi.afterStartupActions) {
