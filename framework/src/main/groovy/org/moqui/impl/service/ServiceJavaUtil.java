@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.service;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.codec.net.URLCodec;
 import org.moqui.impl.StupidClassLoader;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.StupidUtilities;
@@ -249,7 +249,8 @@ public class ServiceJavaUtil {
 
         String canValue = parameterValue;
         if (indexOfEscape >= 0) {
-            canValue = StringEscapeUtils.unescapeHtml(parameterValue);
+            // don't want to unescape HTML, escaped chars should be preserved or we mess up the HTML: canValue = StringEscapeUtils.unescapeHtml(parameterValue);
+            // don't want to do this either, should be done before this: canValue = new URLCodec().decode(parameterValue);
         }
 
         if (allowSafe) {
