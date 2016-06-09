@@ -251,6 +251,17 @@ class UserFacadeImpl implements UserFacade {
             this.loginUser(authUsername, authPassword, authTenantId)
         }
     }
+    void initFromHttpSession(HttpSession session) {
+        this.session = session
+        Subject webSubject = makeEmptySubject()
+        if (webSubject.authenticated) {
+            // effectively login the user
+            pushUserSubject(webSubject, null)
+            if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
+        } else {
+            if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
+        }
+    }
 
 
     @Override

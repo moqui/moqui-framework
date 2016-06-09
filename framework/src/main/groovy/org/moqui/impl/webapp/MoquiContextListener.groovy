@@ -162,16 +162,27 @@ class MoquiContextListener implements ServletContextListener {
             ServerContainer wsServer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
             if (wsServer != null) {
                 logger.info("Found WebSocket ServerContainer ${wsServer.class.name}")
-                // TODO: configurable Endpoint objects: configure class, path (make sure path starts with /)
-                Class<?> endpointClass = NotificationEndpoint.class
-                String endpointPath = "/notws"
+                if (wi.webappNode.attribute("websocket-timeout"))
+                    wsServer.setDefaultMaxSessionIdleTimeout(Long.valueOf(wi.webappNode.attribute("websocket-timeout")))
 
-                MoquiServerEndpointConfigurator configurator = new MoquiServerEndpointConfigurator(ecfi)
-                ServerEndpointConfig sec = ServerEndpointConfig.Builder.create(endpointClass, endpointPath)
-                        .configurator(configurator).build()
-                wsServer.addEndpoint(sec)
+                for (MNode endpointNode in wi.webappNode.children("endpoint")) {
+                    if (endpointNode.attribute("enabled") == "false") continue
 
-                logger.info("Added WebSocket endpoint ${endpointPath} for class ${endpointClass.name}")
+                    try {
+                        Class<?> endpointClass = Thread.currentThread().getContextClassLoader().loadClass(endpointNode.attribute("class"))
+                        String endpointPath = endpointNode.attribute("path")
+                        if (!endpointPath.startsWith("/")) endpointPath = "/" + endpointPath
+
+                        MoquiServerEndpointConfigurator configurator = new MoquiServerEndpointConfigurator(ecfi, endpointNode.attribute("timeout"))
+                        ServerEndpointConfig sec = ServerEndpointConfig.Builder.create(endpointClass, endpointPath)
+                                .configurator(configurator).build()
+                        wsServer.addEndpoint(sec)
+
+                        logger.info("Added WebSocket endpoint ${endpointPath} for class ${endpointClass.name}")
+                    } catch (Exception e) {
+                        logger.error("Error WebSocket endpoint on ${endpointNode.attribute("path")}", e)
+                    }
+                }
             } else {
                 logger.info("No WebSocket ServerContainer found, web sockets disabled")
             }
@@ -249,10 +260,12 @@ class MoquiContextListener implements ServletContextListener {
         @Override
         Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
     }
-    public static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
+    static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
         ExecutionContextFactoryImpl ecfi
-        MoquiServerEndpointConfigurator(ExecutionContextFactoryImpl ecfi) {
+        Long maxIdleTimeout = null
+        MoquiServerEndpointConfigurator(ExecutionContextFactoryImpl ecfi, String timeoutStr) {
             this.ecfi = ecfi
+            if (timeoutStr) maxIdleTimeout = Long.valueOf(timeoutStr)
         }
         @Override
         boolean checkOrigin(String originHeaderValue) {
@@ -266,6 +279,7 @@ class MoquiContextListener implements ServletContextListener {
             config.getUserProperties().put("handshakeRequest", request)
             config.getUserProperties().put("httpSession", request.getHttpSession())
             config.getUserProperties().put("executionContextFactory", ecfi)
+            if (maxIdleTimeout != null) config.getUserProperties().put("maxIdleTimeout", maxIdleTimeout)
         }
     }
 }

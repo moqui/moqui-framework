@@ -102,7 +102,7 @@
     <webapp-list>
         <!-- The webapp.@name is looked up based on the value of the 'moqui-name' context-param in the web.xml file -->
         <webapp name="webroot" http-port="" http-host="" https-port="" https-host=""
-                https-enabled="false" require-session-token="true">
+                https-enabled="false" require-session-token="true" websocket-timeout="600000">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
             <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
             <error-screen error="unauthorized" screen-path="error/Unauthorized"/>
@@ -132,6 +132,9 @@
 
             <!-- timeout session in 60 minutes without a request -->
             <session-config timeout="60"/>
+
+            <!-- Notification Message Endpoint -->
+            <endpoint path="/notws" class="org.moqui.impl.webapp.NotificationEndpoint" timeout="3600000" enabled="true"/>
         </webapp>
     </webapp-list>
 
