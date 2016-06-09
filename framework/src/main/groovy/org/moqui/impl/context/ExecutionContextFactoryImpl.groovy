@@ -1368,6 +1368,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             for (MNode upNode in overrideNode.children("url-pattern")) childBaseNode.append(upNode.deepCopy(null))
         })
         baseNode.mergeSingleChild(overrideNode, "session-config")
+
+        baseNode.mergeChildrenByKey(overrideNode, "endpoint", "path", null)
     }
 
     protected static void mergeWebappActions(MNode baseWebappNode, MNode overrideWebappNode, String childNodeName) {

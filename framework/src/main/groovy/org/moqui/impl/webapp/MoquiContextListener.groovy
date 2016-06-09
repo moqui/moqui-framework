@@ -14,7 +14,6 @@
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ExecutionContextFactory
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 
@@ -36,7 +35,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletRegistration
-import javax.servlet.http.HttpSession
 import javax.websocket.HandshakeResponse
 import javax.websocket.server.HandshakeRequest
 import javax.websocket.server.ServerContainer
@@ -261,6 +259,8 @@ class MoquiContextListener implements ServletContextListener {
         Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
     }
     static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
+        // for a good explanation of javax.websocket details related to this see:
+        // http://stackoverflow.com/questions/17936440/accessing-httpsession-from-httpservletrequest-in-a-web-socket-serverendpoint
         ExecutionContextFactoryImpl ecfi
         Long maxIdleTimeout = null
         MoquiServerEndpointConfigurator(ExecutionContextFactoryImpl ecfi, String timeoutStr) {
