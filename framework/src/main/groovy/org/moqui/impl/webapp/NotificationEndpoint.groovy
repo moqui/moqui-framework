@@ -13,30 +13,51 @@
  */
 package org.moqui.impl.webapp
 
-import org.moqui.context.ExecutionContextFactory
+import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.servlet.http.HttpSession
 import javax.websocket.CloseReason
 import javax.websocket.Endpoint
 import javax.websocket.EndpointConfig
 import javax.websocket.MessageHandler
 import javax.websocket.Session
+import javax.websocket.server.HandshakeRequest
 
 class NotificationEndpoint extends Endpoint implements MessageHandler.Whole<String> {
     private final static Logger logger = LoggerFactory.getLogger(NotificationEndpoint.class)
 
-    private ExecutionContextFactory ecf = null
+    private ExecutionContextFactoryImpl ecfi = null
+    private ExecutionContextImpl eci = null
     private Session session = null
+    private HttpSession httpSession = null
+    private HandshakeRequest handshakeRequest = null
+
+    NotificationEndpoint() { super() }
 
     @Override
     void onOpen(Session session, EndpointConfig config) {
         this.session = session
-        this.ecf = (ExecutionContextFactory) config.userProperties.get("executionContextFactory")
-        logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, user: ${session.userProperties}, ${config.userProperties}")
+        ecfi = (ExecutionContextFactoryImpl) config.userProperties.get("executionContextFactory")
+        handshakeRequest = (HandshakeRequest) config.userProperties.get("handshakeRequest")
+        httpSession = (HttpSession) config.userProperties.get("httpSession")
+        eci = ecfi.getEci()
+        eci.userFacade.initFromHandshakeRequest(handshakeRequest)
+
+        session.addMessageHandler(this)
+
+        logger.info("Opened WebSocket Session ${session.getId()}, userId: ${eci.user.userId}, username: ${eci.user.username}, tenant: ${eci.tenantId}")
+
+        logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, username: ${session.getUserPrincipal()?.getName()}, config props: ${config.userProperties}")
+        for (String attrName in httpSession.getAttributeNames())
+            logger.info("WebSocket Session ${session.getId()}, session attribute: ${attrName}=${httpSession.getAttribute(attrName)}")
+
         // TODO: register with all sessions
         // TODO: some sort of auth, by requestParameterMap?
-        // TODO: register with sessions per user
+        // TODO: register with sessions per user (get user from httpSession via Shiro using UserFacadeImpl)
+        session.getBasicRemote().sendText("Test text")
     }
 
     @Override
@@ -48,11 +69,12 @@ class NotificationEndpoint extends Endpoint implements MessageHandler.Whole<Stri
     void onClose(Session session, CloseReason closeReason) {
         // TODO: deregister from sessions per user
         this.session = null
-        logger.info("WebSocket Session ${session.getId()} closed ${closeReason.reasonPhrase}")
+        if (eci != null) eci.destroy()
+        logger.info("Closed WebSocket Session ${session.getId()}: ${closeReason.reasonPhrase}")
     }
 
     @Override
     void onError(Session session, Throwable thr) {
-        logger.warn("WebSocket Session ${session.getId()} error", thr)
+        logger.warn("Error in WebSocket Session ${session.getId()}", thr)
     }
 }

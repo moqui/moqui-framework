@@ -14,6 +14,7 @@
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
+import org.moqui.context.ExecutionContextFactory
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 
@@ -35,6 +36,9 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletRegistration
+import javax.servlet.http.HttpSession
+import javax.websocket.HandshakeResponse
+import javax.websocket.server.HandshakeRequest
 import javax.websocket.server.ServerContainer
 import javax.websocket.server.ServerEndpointConfig
 
@@ -158,12 +162,15 @@ class MoquiContextListener implements ServletContextListener {
             ServerContainer wsServer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
             if (wsServer != null) {
                 logger.info("Found WebSocket ServerContainer ${wsServer.class.name}")
-                // TODO: configurable Endpoint objects? configure class, path (make sure path starts with /)
+                // TODO: configurable Endpoint objects: configure class, path (make sure path starts with /)
                 Class<?> endpointClass = NotificationEndpoint.class
                 String endpointPath = "/notws"
-                ServerEndpointConfig sec = ServerEndpointConfig.Builder.create(endpointClass, endpointPath).build()
-                sec.userProperties.put("executionContextFactory", ecfi)
+
+                MoquiServerEndpointConfigurator configurator = new MoquiServerEndpointConfigurator(ecfi)
+                ServerEndpointConfig sec = ServerEndpointConfig.Builder.create(endpointClass, endpointPath)
+                        .configurator(configurator).build()
                 wsServer.addEndpoint(sec)
+
                 logger.info("Added WebSocket endpoint ${endpointPath} for class ${endpointClass.name}")
             } else {
                 logger.info("No WebSocket ServerContainer found, web sockets disabled")
@@ -241,5 +248,24 @@ class MoquiContextListener implements ServletContextListener {
         String getInitParameter(String name) { return parameters.get(name) }
         @Override
         Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
+    }
+    public static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
+        ExecutionContextFactoryImpl ecfi
+        MoquiServerEndpointConfigurator(ExecutionContextFactoryImpl ecfi) {
+            this.ecfi = ecfi
+        }
+        @Override
+        boolean checkOrigin(String originHeaderValue) {
+            logger.info("New ServerEndpoint Origin: ${originHeaderValue}")
+            // TODO: check this against what? will be something like 'http://localhost:8080'
+            return super.checkOrigin(originHeaderValue)
+        }
+
+        @Override
+        public void modifyHandshake(ServerEndpointConfig config, HandshakeRequest request, HandshakeResponse response) {
+            config.getUserProperties().put("handshakeRequest", request)
+            config.getUserProperties().put("httpSession", request.getHttpSession())
+            config.getUserProperties().put("executionContextFactory", ecfi)
+        }
     }
 }
