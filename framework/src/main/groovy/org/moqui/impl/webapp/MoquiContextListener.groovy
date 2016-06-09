@@ -77,6 +77,8 @@ class MoquiContextListener implements ServletContextListener {
                 ecfi = new ExecutionContextFactoryImpl()
             }
 
+            // tell ECFI about the ServletContext
+            ecfi.initServletContext(sc)
             // set SC attribute and Moqui class static reference
             sc.setAttribute("executionContextFactory", ecfi)
             // there should always be one ECF that is active for things like deserialize of EntityValue
@@ -157,7 +159,7 @@ class MoquiContextListener implements ServletContextListener {
             // NOTE: webapp.session-config.@timeout handled in MoquiSessionListener
 
             // WebSocket Endpoint Setup
-            ServerContainer wsServer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+            ServerContainer wsServer = ecfi.getServerContainer()
             if (wsServer != null) {
                 logger.info("Found WebSocket ServerContainer ${wsServer.class.name}")
                 if (wi.webappNode.attribute("websocket-timeout"))

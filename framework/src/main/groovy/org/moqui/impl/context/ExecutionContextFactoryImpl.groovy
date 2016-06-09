@@ -28,7 +28,6 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidClassLoader
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
-import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
 import org.moqui.impl.entity.EntityFacadeImpl
@@ -42,6 +41,8 @@ import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.servlet.ServletContext
+import javax.websocket.server.ServerContainer
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ExecutorService
@@ -94,6 +95,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
+    /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
+    protected ServletContext internalServletContext = null
+    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
+    protected ServerContainer internalServerContainer = null
 
     // ======== Permanent Delegated Facades ========
     @SuppressWarnings("GrFinalVariableAccess")
@@ -883,27 +888,29 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @Override
     L10nFacade getL10n() { getEci().getL10nFacade() }
-
     @Override
     ResourceFacade getResource() { return resourceFacade }
-
     @Override
     LoggerFacade getLogger() { return loggerFacade }
-
     @Override
     CacheFacade getCache() { return this.cacheFacade }
-
     @Override
     TransactionFacade getTransaction() { return transactionFacade }
-
     @Override
     EntityFacade getEntity() { getEntityFacade(getExecutionContext()?.getTenantId()) }
-
     @Override
     ServiceFacade getService() { return serviceFacade }
-
     @Override
     ScreenFacade getScreen() { return screenFacade }
+
+    @Override
+    ServletContext getServletContext() { return internalServletContext }
+    @Override
+    ServerContainer getServerContainer() { return internalServerContainer }
+    void initServletContext(ServletContext sc) {
+        internalServletContext = sc
+        internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+    }
 
     // ========== Server Stat Tracking ==========
     boolean getSkipStats() {

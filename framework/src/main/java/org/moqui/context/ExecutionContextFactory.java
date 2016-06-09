@@ -17,6 +17,8 @@ import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
 
+import javax.servlet.ServletContext;
+import javax.websocket.server.ServerContainer;
 import java.util.LinkedHashMap;
 
 /**
@@ -69,4 +71,9 @@ public interface ExecutionContextFactory {
 
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
     ScreenFacade getScreen();
+
+    /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
+    ServletContext getServletContext();
+    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
+    ServerContainer getServerContainer();
 }

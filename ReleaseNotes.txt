@@ -106,6 +106,16 @@ New Features
     ExecutionContextFactory.getTool(), and
     ExecutionContext.getTool() methods to interact with tools
   - See non backward compatible change notes for ExecutionContextFactory
+- WebSocket Support
+  - Now looks for javax.websocket.server.ServerContainer in ServletContext
+    during initialization, available through ECFI.getServerContainer()
+  - If ServetContainer found adds endpoints defined in the webapp.endpoint
+    element in the Moqui Conf XML file
+  - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint
+    so that Moqui objects such as ExecutionContext/Factory are available,
+    UserFacade initialized from handshake (HTTP upgrade) request, etc
+  - Added NotificationEndpoint which listens for NotificationMessage
+    through ECFI and sends them over WebSocket to notify user
 - Caching
   - CacheFacade now supports separate local and distributed caches both
     using the javax.cache interfaces
@@ -134,9 +144,9 @@ New Features
   - Added default Hazelcast web session replication config
   - Hazelcast can be used for distributed entity cache and can be used for
     web session replication, distributed execution, and OrientDB clustering
-- Implemented distributed entity cache invalidate using a Hazelcast Topic,
-  enabled in Moqui Conf XML file with the @distributed-cache-invalidate
-  attribute on the entity-facade element
+  - Implemented distributed entity cache invalidate using a Hazelcast
+    Topic, enabled in Moqui Conf XML file with the
+    @distributed-cache-invalidate attribute on the entity-facade element
 - JCR and Apache Jackrabbit
   - JCR support (for content:// locations in the ResourceFacade) now uses
     javax.jcr interfaces only, no dependencies on Jackrabbit
