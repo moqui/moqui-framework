@@ -701,12 +701,6 @@ class UserFacadeImpl implements UserFacade {
         return vst
     }
 
-    @Override
-    List<NotificationMessage> getNotificationMessages(String topic) {
-        if (!currentInfo.userId) return []
-        return eci.getNotificationMessages(currentInfo.userId, topic)
-    }
-
     // ========== UserInfo ==========
 
     UserInfo pushUserSubject(Subject subject, String tenantId) {

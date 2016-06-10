@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.webapp
 
+import groovy.transform.CompileStatic
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -20,6 +21,7 @@ import javax.websocket.CloseReason
 import javax.websocket.EndpointConfig
 import javax.websocket.Session
 
+@CompileStatic
 class NotificationEndpoint extends MoquiAbstractEndpoint {
     private final static Logger logger = LoggerFactory.getLogger(NotificationEndpoint.class)
 
@@ -29,19 +31,19 @@ class NotificationEndpoint extends MoquiAbstractEndpoint {
     void onOpen(Session session, EndpointConfig config) {
         super.onOpen(session, config)
 
-        // TODO: register with sessions per user (get user from httpSession via Shiro using UserFacadeImpl)
+        getEcf().getNotificationWebSocketListener().registerEndpoint(this)
         session.getBasicRemote().sendText("Test text")
     }
 
     @Override
     void onMessage(String message) {
+        // NOTE: this isn't used for notifications, ie meant for sending data only; just log the message for now
         logger.info("Message for WebSocket Session ${session?.id}: ${message}")
-        // TODO
     }
 
     @Override
     void onClose(Session session, CloseReason closeReason) {
-        // TODO: deregister from sessions per user
+        getEcf().getNotificationWebSocketListener().deregisterEndpoint(this)
         super.onClose(session, closeReason)
     }
 }

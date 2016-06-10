@@ -20,19 +20,25 @@ import org.moqui.context.NotificationMessage
 import org.moqui.context.NotificationMessageListener
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 
 @CompileStatic
 class NotificationMessageImpl implements NotificationMessage {
+    private final static Logger logger = LoggerFactory.getLogger(NotificationMessageImpl.class)
 
-    protected final ExecutionContextImpl eci
-    protected Set<String> userIdSet = new HashSet()
-    protected String userGroupId = null
-    protected String topic = null
-    protected String messageJson = null
-    protected String notificationMessageId = null
-    protected Timestamp sentDate = null
+    private final ExecutionContextImpl eci
+    private Set<String> userIdSet = new HashSet()
+    private String userGroupId = null
+    private String topic = null
+    private String messageJson = null
+    private Map<String, Object> messageMap = null
+    private String notificationMessageId = null
+    private Timestamp sentDate = null
+    private String titleTemplate = null
+    private String linkTemplate = null
 
     NotificationMessageImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -43,26 +49,46 @@ class NotificationMessageImpl implements NotificationMessage {
     @Override
     NotificationMessage userIds(Set<String> userIds) { userIdSet.addAll(userIds); return this }
     @Override
-    Set<String> getUserIds() { return userIdSet }
+    Set<String> getUserIds() { userIdSet }
 
     @Override
     NotificationMessage userGroupId(String userGroupId) { this.userGroupId = userGroupId; return this }
     @Override
-    String getUserGroupId() { return userGroupId }
+    String getUserGroupId() { userGroupId }
 
     @Override
     NotificationMessage topic(String topic) { this.topic = topic; return this }
     @Override
-    String getTopic() { return topic }
+    String getTopic() { topic }
 
     @Override
-    NotificationMessage message(String messageJson) { this.messageJson = messageJson; return this }
+    NotificationMessage message(String messageJson) { this.messageJson = messageJson; messageMap = null; return this }
     @Override
-    NotificationMessage message(Map message) { this.messageJson = JsonOutput.toJson(message); return this }
+    NotificationMessage message(Map message) { this.messageMap = Collections.unmodifiableMap(message); messageJson = null; return this }
     @Override
-    String getMessageJson() { return messageJson }
+    String getMessageJson() {
+        if (messageJson == null && messageMap != null)
+            messageJson = JsonOutput.toJson(messageMap)
+        return messageJson
+    }
     @Override
-    Map getMessageMap() { return (Map) new JsonSlurper().parseText(messageJson) }
+    Map<String, Object> getMessageMap() {
+        if (messageMap == null && messageJson != null)
+            messageMap = Collections.unmodifiableMap((Map<String, Object>) new JsonSlurper().parseText(messageJson))
+        return messageMap
+    }
+
+    @Override
+    NotificationMessage title(String title) { titleTemplate = title; return this }
+
+    @Override
+    String getTitle() { titleTemplate ? eci.resource.expand(titleTemplate, "", getMessageMap(), true) : null }
+
+    @Override
+    NotificationMessage link(String link) { linkTemplate = link; return this }
+
+    @Override
+    String getLink() { linkTemplate ? eci.resource.expand(linkTemplate, "", getMessageMap(), true) : null }
 
     @Override
     NotificationMessage send(boolean persist) {
@@ -75,15 +101,17 @@ class NotificationMessageImpl implements NotificationMessage {
                         .call()
                 notificationMessageId = createResult.notificationMessageId
 
+                /* don't set all UserGroupMembers, could be a bit of a data explosion; better to handle that by group:
                 // get explicit and group userIds and create a moqui.security.user.NotificationMessageUser record for each
                 if (userGroupId) for (EntityValue userGroupMember in eci.getEntity().find("moqui.security.UserGroupMember")
-                        .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null))
+                        .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null)) {
                     userIdSet.add(userGroupMember.getString("userId"))
+                }
+                */
 
-                for (String userId in userIdSet) {
+                for (String userId in userIdSet)
                     eci.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
                             .parameters([notificationMessageId:notificationMessageId, userId:userId]).call()
-                }
             } finally {
                 if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
             }
@@ -108,11 +136,11 @@ class NotificationMessageImpl implements NotificationMessage {
 
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
-            EntityValue notificationMessageUser = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId] as Map<String, Object>)
-                    .forUpdate(true).one()
-            notificationMessageUser.sentDate = eci.user.nowTimestamp
-            notificationMessageUser.update()
+            eci.entity.makeValue("moqui.security.user.NotificationMessageUser")
+                    .set("userId", userId ?: eci.user.userId).set("notificationMessageId", notificationMessageId)
+                    .set("sentDate", eci.user.nowTimestamp).update()
+        } catch (Throwable t) {
+            logger.error("Error marking notification message ${notificationMessageId} sent", t)
         } finally {
             if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
         }
@@ -126,17 +154,23 @@ class NotificationMessageImpl implements NotificationMessage {
 
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
-            EntityValue notificationMessageUser = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId] as Map<String, Object>)
-                    .forUpdate(true).one()
-            notificationMessageUser.receivedDate = eci.user.nowTimestamp
-            notificationMessageUser.update()
+            eci.entity.makeValue("moqui.security.user.NotificationMessageUser")
+                    .set("userId", userId?:eci.user.userId).set("notificationMessageId", notificationMessageId)
+                    .set("receivedDate", eci.user.nowTimestamp).update()
+        } catch (Throwable t) {
+            logger.error("Error marking notification message ${notificationMessageId} sent", t)
         } finally {
             if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
         }
 
         return this
     }
+
+    @Override
+    Map<String, Object> getWrappedMessageMap() { [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId,
+                                                  message:getMessageMap(), title:getTitle(), link:getLink()] }
+    @Override
+    String getWrappedMessageJson() { JsonOutput.toJson(getWrappedMessageMap()) }
 
     void populateFromValue(EntityValue nmbu) {
         this.notificationMessageId = nmbu.notificationMessageId
@@ -146,7 +180,7 @@ class NotificationMessageImpl implements NotificationMessage {
         this.messageJson = nmbu.messageJson
 
         EntityList nmuList = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                .condition([notificationMessageId:notificationMessageId] as Map<String, Object>).list()
+                .condition("notificationMessageId", notificationMessageId).disableAuthz().list()
         for (EntityValue nmu in nmuList) userIdSet.add((String) nmu.userId)
     }
 }

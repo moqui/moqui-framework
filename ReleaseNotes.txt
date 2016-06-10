@@ -422,16 +422,6 @@ Long Term To Do List - aka Informal Roadmap
     (have page return immediately, send notification when done)
 
 - User Notification
-  - WebSocket clients: track userId, notificationName, connectionKey
-    - Entity (no, keep in memory): VisitClient - visitId*, userId*, topic*, connectionKey*
-    - when sending out WebSocket messages lookup all active Visits for userId and send to each connectionKey
-    - API (with at least an example transition) for WebSocket client registry; set connectionKey on current Visit
-    - use Camel WebSocket? jWebSocket? (how to send message to client connection key)
-    - after more research candidates are (no jWebSocket because it is huge and messy):
-      * java_websocket: smallest (90k), no dependencies on other libraries (like Tomcat or Jetty WS), very simple
-        library so no authc, no pubsub; has JS library for JS client and Flash SWF file for browsers with no WebSocket
-      - Atmosphere: med size (460k), supports variety of transports, but no internal WebSocket (relies on Tomcat, Jetty,
-        etc websocket impls), has pubsub model and sessions built-in, but questionable authc facility
   x Manual notification:
     x API pass in notificationName, Map message, userGroupId, boolean queue (true: queue if not connected, false: only send if connected)
     x API to get all outstanding notifications

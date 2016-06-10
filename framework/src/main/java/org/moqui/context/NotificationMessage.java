@@ -33,9 +33,18 @@ public interface NotificationMessage extends java.io.Serializable {
      * @return Self-reference for convenience
      */
     NotificationMessage message(String messageJson);
-    NotificationMessage message(Map message);
+    NotificationMessage message(Map<String, Object> message);
     String getMessageJson();
-    Map getMessageMap();
+    Map<String, Object> getMessageMap();
+
+    /** Set the title to display, a GString (${} syntax) that will be expanded using the message Map; may be a localization template name */
+    NotificationMessage title(String title);
+    /** Get the title, expanded using the message Map */
+    String getTitle();
+    /** Set the link to get more detail about the notification or go to its source, a GString (${} syntax) expanded using the message Map */
+    NotificationMessage link(String link);
+    /** Get the link to detail/source, expanded using the message Map */
+    String getLink();
 
     /** Send this Notification Message.
      * @param persist If true this is persisted and message received is tracked. If false this is sent to active topic
@@ -47,4 +56,9 @@ public interface NotificationMessage extends java.io.Serializable {
     String getNotificationMessageId();
     NotificationMessage markSent(String userId);
     NotificationMessage markReceived(String userId);
+
+    /** Get a Map with: topic, sentDate, notificationMessageId, message, title, link */
+    Map<String, Object> getWrappedMessageMap();
+    /** Result of getWrappedMessageMap() as a JSON String */
+    String getWrappedMessageJson();
 }

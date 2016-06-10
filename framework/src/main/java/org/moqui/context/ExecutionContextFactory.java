@@ -76,4 +76,6 @@ public interface ExecutionContextFactory {
     ServletContext getServletContext();
     /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
     ServerContainer getServerContainer();
+
+    void registerNotificationMessageListener(NotificationMessageListener nml);
 }

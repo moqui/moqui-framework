@@ -13,8 +13,7 @@
  */
 package org.moqui.impl.webapp
 
-import org.moqui.context.ExecutionContext
-import org.moqui.context.ExecutionContextFactory
+import groovy.transform.CompileStatic
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
@@ -34,21 +33,28 @@ import javax.websocket.server.HandshakeRequest
  * If you override the onOpen() method call the super method first.
  * If you override the onClose() method call the super method last (will clear out all internal fields).
  */
+@CompileStatic
 abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.Whole<String> {
     private final static Logger logger = LoggerFactory.getLogger(MoquiAbstractEndpoint.class)
 
-    private ExecutionContextFactoryImpl ecfi = null
-    private ExecutionContextImpl eci = null
-    private Session session = null
-    private HttpSession httpSession = null
-    private HandshakeRequest handshakeRequest = null
+    private ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) null
+    private ExecutionContextImpl eci = (ExecutionContextImpl) null
+    private Session session = (Session) null
+    private HttpSession httpSession = (HttpSession) null
+    private HandshakeRequest handshakeRequest = (HandshakeRequest) null
+    private String userId = (String) null
+    private String username = (String) null
+    private String tenantId = (String) null
 
     MoquiAbstractEndpoint() { super() }
 
-    ExecutionContext getEc() { return eci }
-    ExecutionContextFactory getEcf() { return ecfi }
+    ExecutionContextImpl getEc() { return eci }
+    ExecutionContextFactoryImpl getEcf() { return ecfi }
     HttpSession getHttpSession() { return httpSession }
     Session getSession() { return session }
+    String getUserId() { return userId }
+    String getUsername() { return username }
+    String getTenantId() { return tenantId }
 
     @Override
     void onOpen(Session session, EndpointConfig config) {
@@ -65,13 +71,17 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
             logger.warn("No HandshakeRequest or HttpSession found opening WebSocket Session ${session.id}, not logging in user")
         }
 
+        userId = eci.user.userId
+        username = eci.user.username
+        tenantId = eci.tenantId
+
         Long timeout = (Long) config.userProperties.get("maxIdleTimeout")
         if (timeout != null && session.getMaxIdleTimeout() > 0 && session.getMaxIdleTimeout() < timeout)
             session.setMaxIdleTimeout(timeout)
 
         session.addMessageHandler(this)
 
-        logger.info("Opened WebSocket Session ${session.getId()}, userId: ${eci.user.userId}, username: ${eci.user.username}, tenant: ${eci.tenantId}, timeout: ${session.getMaxIdleTimeout()}ms")
+        logger.info("Opened WebSocket Session ${session.getId()}, userId: ${userId}, username: ${username}, tenant: ${tenantId}, timeout: ${session.getMaxIdleTimeout()}ms")
 
         // TODO: comment these out once basic stuff in place
         logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, username: ${session.getUserPrincipal()?.getName()}, config props: ${config.userProperties}")

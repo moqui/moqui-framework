@@ -34,6 +34,7 @@ import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
+import org.moqui.impl.webapp.NotificationWebSocketListener
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
@@ -99,6 +100,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected ServletContext internalServletContext = null
     /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
     protected ServerContainer internalServerContainer = null
+
+    NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
 
     // ======== Permanent Delegated Facades ========
     @SuppressWarnings("GrFinalVariableAccess")
@@ -355,6 +358,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         skipStatsCond = serverStatsNode.attribute("stats-skip-condition")
         hitBinLengthMillis = (serverStatsNode.attribute("bin-length-seconds") as Integer)*1000 ?: 900000
 
+        // register notificationWebSocketListener
+        registerNotificationMessageListener(notificationWebSocketListener)
+
         // Load ToolFactory implementations from tools.tool-factory elements, run preFacadeInit() methods
         ArrayList<Map<String, String>> toolFactoryAttrsList = new ArrayList<>()
         for (MNode toolFactoryNode in confXmlRoot.first("tools").children("tool-factory")) {
@@ -578,11 +584,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     InetAddress getLocalhostAddress() { return localhostAddress }
 
+    @Override
     void registerNotificationMessageListener(NotificationMessageListener nml) {
         nml.init(this)
         registeredNotificationMessageListeners.add(nml)
     }
     List<NotificationMessageListener> getNotificationMessageListeners() { return registeredNotificationMessageListeners }
+    NotificationWebSocketListener getNotificationWebSocketListener() { return notificationWebSocketListener }
 
     org.apache.shiro.mgt.SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) return internalSecurityManager

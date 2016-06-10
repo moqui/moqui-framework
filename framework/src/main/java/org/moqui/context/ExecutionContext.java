@@ -94,8 +94,7 @@ public interface ExecutionContext {
     ScreenFacade getScreen();
 
     NotificationMessage makeNotificationMessage();
-    List<NotificationMessage> getNotificationMessages(String userId, String topic);
-    void registerNotificationMessageListener(NotificationMessageListener nml);
+    List<NotificationMessage> getNotificationMessages(String topic);
 
     /** This should be called by a filter or servlet at the beginning of an HTTP request to initialize a web facade
      * for the current thread.

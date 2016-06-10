@@ -368,4 +368,30 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+
+    <service verb="send" noun="DataDocumentNotifications" authenticate="false">
+        <description>Send a NotificationMessage for each in documentList. Finds all userId fields nested somewhere in
+            the document. Only sent to users where a userId is found, and only sent if userId values are found.</description>
+        <implements service="org.moqui.EntityServices.receive#DataFeed"/>
+        <actions>
+            <iterate list="documentList" entry="document">
+                <set field="userIdSet" from="new HashSet()"/>
+                <script>StupidUtilities.findAllFieldsNestedMap("userId", document, userIdSet)</script>
+                <if condition="!userIdSet"><continue/></if>
+
+                <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument" cache="true">
+                    <field-map field-name="dataDocumentId" from="document._type"/></entity-find-one>
+                <script><![CDATA[
+                    def nm = ec.makeNotificationMessage()
+                    nm.topic((String) document._type).message((Map<String, Object>) document).userIds((Set) userIdSet)
+                    if (dataDocument != null) {
+                        if (dataDocument.documentTitle) nm.title(dataDocument.documentTitle)
+                        def dataDocumentLinks = dataDocument.findRelated("links", null, null, true, false)
+                        if (dataDocumentLinks) nm.link(dataDocumentLinks[0].linkUrl)
+                    }
+                    nm.send(true)
+                ]]></script>
+            </iterate>
+        </actions>
+    </service>
 </services>
