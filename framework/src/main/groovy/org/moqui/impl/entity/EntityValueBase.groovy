@@ -206,13 +206,37 @@ abstract class EntityValueBase implements EntityValue {
                 }
 
                 if (!knownNoLocalized) {
-                    List<String> pks = ed.getPkFieldNames()
+                    List<String> pks
+                    MNode aliasNode = null
+                    String memberEntityName = null
+                    if (ed.isViewEntity()) {
+                        aliasNode = ed.getFieldNode(name)
+                        memberEntityName = ed.getMemberEntityName(aliasNode.attribute('entity-alias'))
+                        EntityDefinition memberEd = getEntityFacadeImpl().getEntityDefinition(memberEntityName)
+                        pks = memberEd.getPkFieldNames()
+                    } else {
+                        pks = ed.getPkFieldNames()
+                    }
                     if (pks.size() == 1) {
-                        String pkValue = get(pks.get(0))
+                        String pk = pks.get(0)
+                        if (ed.isViewEntity()) {
+                            pk = null
+                            Map<String, String> pkToAliasMap = ed.getMePkFieldToAliasNameMap(aliasNode.attribute('entity-alias'))
+                            Set<String> pkSet = pkToAliasMap.keySet()
+                            if (pkSet.size() == 1) pk = pkToAliasMap.get(pkSet.iterator().next())
+                        }
+                        String pkValue = pk? get(pk): null
                         if (pkValue) {
                             // logger.warn("======== field ${name}:${internalValue} finding LocalizedEntityField, localizedByLocaleByField=${localizedByLocaleByField}")
+                            String entityName = ed.getFullEntityName()
+                            String fieldName = name
+                            if (ed.isViewEntity()) {
+                                entityName = memberEntityName
+                                fieldName = aliasNode.attribute('field')?: aliasNode.attribute('name')
+                                // logger.warn("localizing field for ViewEntity ${ed.fullEntityName} field ${name}, using entityName: ${entityName}, fieldName: ${fieldName}, pkValue: ${pkValue}, locale: ${localeStr}")
+                            }
                             EntityFind lefFind = getEntityFacadeImpl().find("moqui.basic.LocalizedEntityField")
-                            lefFind.condition([entityName:ed.getFullEntityName(), fieldName:name, pkValue:pkValue, locale:localeStr] as Map<String, Object>)
+                            lefFind.condition([entityName:entityName, fieldName:fieldName, pkValue:pkValue, locale:localeStr] as Map<String, Object>)
                             EntityValue lefValue = lefFind.useCache(true).one()
                             if (lefValue != null) {
                                 String localized = (String) lefValue.localized
