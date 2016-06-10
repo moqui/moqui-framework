@@ -234,7 +234,7 @@ class NotificationMessageImpl implements NotificationMessage {
 
     @Override
     Map<String, Object> getWrappedMessageMap() { [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId,
-                                                  message:getMessageMap(), title:getTitle(), link:getLink()] }
+            message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert()] }
     @Override
     String getWrappedMessageJson() { JsonOutput.toJson(getWrappedMessageMap()) }
 
