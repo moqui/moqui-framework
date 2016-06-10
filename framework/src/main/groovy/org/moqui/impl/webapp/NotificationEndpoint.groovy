@@ -25,7 +25,14 @@ import javax.websocket.Session
 class NotificationEndpoint extends MoquiAbstractEndpoint {
     private final static Logger logger = LoggerFactory.getLogger(NotificationEndpoint.class)
 
+    final static String subscribePrefix = "subscribe:"
+    final static String unsubscribePrefix = "unsubscribe:"
+
+    private Set<String> subscribedTopics = new HashSet<>()
+
     NotificationEndpoint() { super() }
+
+    Set<String> getSubscribedTopics() { subscribedTopics }
 
     @Override
     void onOpen(Session session, EndpointConfig config) {
@@ -37,8 +44,23 @@ class NotificationEndpoint extends MoquiAbstractEndpoint {
 
     @Override
     void onMessage(String message) {
-        // NOTE: this isn't used for notifications, ie meant for sending data only; just log the message for now
-        logger.info("Message for WebSocket Session ${session?.id}: ${message}")
+        if (message.startsWith(subscribePrefix)) {
+            String topics = message.substring(subscribePrefix.length(), message.length())
+            for (String topic in topics.split(",")) {
+                String trimmedTopic = topic.trim()
+                if (trimmedTopic) subscribedTopics.add(trimmedTopic)
+            }
+            logger.info("Processed notification subscribe to ${topics} in session ${session?.id}, current topics: ${subscribedTopics}")
+        } else if (message.startsWith(unsubscribePrefix)) {
+            String topics = message.substring(unsubscribePrefix.length(), message.length())
+            for (String topic in topics.split(",")) {
+                String trimmedTopic = topic.trim()
+                if (trimmedTopic) subscribedTopics.remove(trimmedTopic)
+            }
+            logger.info("Processed notification unsubscribe from ${topics} in session ${session?.id}, current topics: ${subscribedTopics}")
+        } else {
+            logger.info("Unknown command prefix for message to NotificationEndpoint in session ${session?.id}: ${message}")
+        }
     }
 
     @Override

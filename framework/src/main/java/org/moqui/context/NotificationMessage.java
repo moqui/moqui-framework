@@ -18,6 +18,11 @@ import java.util.Set;
 
 @SuppressWarnings("unused")
 public interface NotificationMessage extends java.io.Serializable {
+    enum NotificationType { info, success, warning, danger }
+    NotificationType info = NotificationType.info;
+    NotificationType success = NotificationType.success;
+    NotificationType warning = NotificationType.warning;
+    NotificationType danger = NotificationType.danger;
 
     NotificationMessage userId(String userId);
     NotificationMessage userIds(Set<String> userIds);
@@ -39,12 +44,22 @@ public interface NotificationMessage extends java.io.Serializable {
 
     /** Set the title to display, a GString (${} syntax) that will be expanded using the message Map; may be a localization template name */
     NotificationMessage title(String title);
-    /** Get the title, expanded using the message Map */
+    /** Get the title, expanded using the message Map; if not set and topic has a NotificationTopic record will default to value there */
     String getTitle();
     /** Set the link to get more detail about the notification or go to its source, a GString (${} syntax) expanded using the message Map */
     NotificationMessage link(String link);
-    /** Get the link to detail/source, expanded using the message Map */
+    /** Get the link to detail/source, expanded using the message Map; if not set and topic has a NotificationTopic record will default to value there */
     String getLink();
+
+    NotificationMessage type(NotificationType type);
+    /** Must be a String for a valid NotificationType (ie info, success, warning, or danger) */
+    NotificationMessage type(String type);
+    /** Get the type as a String; if not set and topic has a NotificationTopic record will default to value there */
+    String getType();
+
+    NotificationMessage showAlert(boolean show);
+    /** Show an alert for this notification? If not set and topic has a NotificationTopic record will default to value there */
+    boolean isShowAlert();
 
     /** Send this Notification Message.
      * @param persist If true this is persisted and message received is tracked. If false this is sent to active topic
@@ -57,7 +72,7 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationMessage markSent(String userId);
     NotificationMessage markReceived(String userId);
 
-    /** Get a Map with: topic, sentDate, notificationMessageId, message, title, link */
+    /** Get a Map with: topic, sentDate, notificationMessageId, message, title, link, type, and showAlert using the get method for each */
     Map<String, Object> getWrappedMessageMap();
     /** Result of getWrappedMessageMap() as a JSON String */
     String getWrappedMessageJson();

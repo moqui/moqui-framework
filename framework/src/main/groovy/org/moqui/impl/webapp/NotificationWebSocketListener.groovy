@@ -74,12 +74,7 @@ class NotificationWebSocketListener implements NotificationMessageListener {
         for (String userId in nm.getUserIds()) {
             // add the user to those notified regardless of result, would be the same by group
             userIdsNotified.add(userId)
-
-            ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userId.concat(tenantId))
-            if (registeredEndPoints == null) continue
-            for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
-                if (endpoint.session.isOpen()) endpoint.session.asyncRemote.sendText(messageWrapperJson)
-            }
+            sendMessageInternal(userId.concat(tenantId), nm, messageWrapperJson)
         }
 
         // notify by group, skipping users already notified
@@ -91,14 +86,16 @@ class NotificationWebSocketListener implements NotificationMessageListener {
                 String userId = (String) nextValue.userId
                 if (userIdsNotified.contains(userId)) continue
                 userIdsNotified.add(userId)
-
-                ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userId.concat(tenantId))
-                if (registeredEndPoints == null) continue
-                for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
-                    if (endpoint.session.isOpen()) endpoint.session.asyncRemote.sendText(messageWrapperJson)
-                }
+                sendMessageInternal(userId.concat(tenantId), nm, messageWrapperJson)
             }
         }
-
+    }
+    protected void sendMessageInternal(String userTenant, NotificationMessage nm, String messageWrapperJson) {
+        ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userTenant)
+        if (registeredEndPoints == null) return
+        for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
+            if (endpoint.session.isOpen() && endpoint.subscribedTopics.contains(nm.topic))
+                endpoint.session.asyncRemote.sendText(messageWrapperJson)
+        }
     }
 }

@@ -17,6 +17,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.moqui.context.NotificationMessage
+import org.moqui.context.NotificationMessage.NotificationType
 import org.moqui.context.NotificationMessageListener
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -31,17 +32,26 @@ class NotificationMessageImpl implements NotificationMessage {
 
     private final ExecutionContextImpl eci
     private Set<String> userIdSet = new HashSet()
-    private String userGroupId = null
-    private String topic = null
-    private String messageJson = null
-    private Map<String, Object> messageMap = null
-    private String notificationMessageId = null
-    private Timestamp sentDate = null
-    private String titleTemplate = null
-    private String linkTemplate = null
+    private String userGroupId = (String) null
+    private String topic = (String) null
+    private EntityValue notificationTopic = (EntityValue) null
+    private String messageJson = (String) null
+    private Map<String, Object> messageMap = (Map<String, Object>) null
+    private String notificationMessageId = (String) null
+    private Timestamp sentDate = (Timestamp) null
+    private String titleTemplate = (String) null
+    private String linkTemplate = (String) null
+    private NotificationType type = (NotificationType) null
+    private Boolean showAlert = (Boolean) null
 
     NotificationMessageImpl(ExecutionContextImpl eci) {
         this.eci = eci
+    }
+
+    EntityValue getNotificationTopic() {
+        if (notificationTopic == null && topic) notificationTopic = eci.entity.find("moqui.security.user.NotificationTopic")
+                .condition("topic", topic).useCache(true).disableAuthz().one()
+        return notificationTopic
     }
 
     @Override
@@ -57,7 +67,7 @@ class NotificationMessageImpl implements NotificationMessage {
     String getUserGroupId() { userGroupId }
 
     @Override
-    NotificationMessage topic(String topic) { this.topic = topic; return this }
+    NotificationMessage topic(String topic) { this.topic = topic; notificationTopic = null; return this }
     @Override
     String getTopic() { topic }
 
@@ -80,15 +90,69 @@ class NotificationMessageImpl implements NotificationMessage {
 
     @Override
     NotificationMessage title(String title) { titleTemplate = title; return this }
-
     @Override
-    String getTitle() { titleTemplate ? eci.resource.expand(titleTemplate, "", getMessageMap(), true) : null }
+    String getTitle() {
+        if (titleTemplate) {
+            return eci.resource.expand(titleTemplate, "", getMessageMap(), true)
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.titleTemplate) {
+                return eci.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
+            } else {
+                return null
+            }
+        }
+    }
 
     @Override
     NotificationMessage link(String link) { linkTemplate = link; return this }
+    @Override
+    String getLink() {
+        if (linkTemplate) {
+            return eci.resource.expand(linkTemplate, "", getMessageMap(), true)
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.linkTemplate) {
+                return eci.resource.expand((String) localNotTopic.linkTemplate, "", getMessageMap(), true)
+            } else {
+                return null
+            }
+        }
+    }
 
     @Override
-    String getLink() { linkTemplate ? eci.resource.expand(linkTemplate, "", getMessageMap(), true) : null }
+    NotificationMessage type(NotificationType type) { this.type = type; return this }
+    @Override
+    NotificationMessage type(String type) { this.type = NotificationType.valueOf(type); return this }
+    @Override
+    String getType() {
+        if (type != null) {
+            return type.name()
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.typeString) {
+                return localNotTopic.typeString
+            } else {
+                return info.name()
+            }
+        }
+    }
+
+    @Override
+    NotificationMessage showAlert(boolean show) { showAlert = show; return this }
+    @Override
+    boolean isShowAlert() {
+        if (showAlert != null) {
+            return showAlert.booleanValue()
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.showAlert) {
+                return localNotTopic.showAlert == 'Y'
+            } else {
+                return false
+            }
+        }
+    }
 
     @Override
     NotificationMessage send(boolean persist) {
@@ -97,7 +161,9 @@ class NotificationMessageImpl implements NotificationMessage {
             try {
                 sentDate = eci.user.nowTimestamp
                 Map createResult = eci.service.sync().name("create", "moqui.security.user.NotificationMessage")
-                        .parameters([topic:topic, userGroupId:userGroupId, sentDate:sentDate, messageJson:messageJson])
+                        .parameters([topic:topic, userGroupId:userGroupId, sentDate:sentDate, messageJson:messageJson,
+                                     titleTemplate:titleTemplate, linkTemplate:linkTemplate, typeString:type?.name(),
+                                     showAlert:(showAlert ? 'Y' : 'N')])
                         .call()
                 notificationMessageId = createResult.notificationMessageId
 
@@ -178,6 +244,10 @@ class NotificationMessageImpl implements NotificationMessage {
         this.sentDate = nmbu.getTimestamp("sentDate")
         this.userGroupId = nmbu.userGroupId
         this.messageJson = nmbu.messageJson
+        this.titleTemplate = nmbu.titleTemplate
+        this.linkTemplate = nmbu.linkTemplate
+        if (nmbu.typeString) this.type = NotificationType.valueOf((String) nmbu.typeString)
+        this.showAlert = nmbu.showAlert == 'Y'
 
         EntityList nmuList = eci.entity.find("moqui.security.user.NotificationMessageUser")
                 .condition("notificationMessageId", notificationMessageId).disableAuthz().list()
