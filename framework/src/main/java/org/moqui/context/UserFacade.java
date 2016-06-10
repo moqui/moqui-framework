@@ -134,6 +134,4 @@ public interface UserFacade {
 
     /** @return The current visit (aka session; from the Visit entity). Depending on the artifact being executed this may be null. */
     EntityValue getVisit();
-
-    List<NotificationMessage> getNotificationMessages(String topic);
 }

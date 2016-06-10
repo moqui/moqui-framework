@@ -20,14 +20,12 @@ buildscript {
 
 import org.ajoberstar.grgit.*
 
-allprojects { version = '2.0.0' }
 defaultTasks 'build'
 
 def tomcatHome = '../apache-tomcat-8.0.21'
-def warName = 'moqui-' + version + '.war'
+def getWarName() { 'moqui-' + childProjects.framework.version + '.war' }
 def plusRuntimeName = 'moqui-plus-runtime.war'
 def execTempDir = 'execwartmp'
-
 def moquiRuntime = 'runtime'
 
 def moquiConfDev = 'conf/MoquiDevConf.xml'

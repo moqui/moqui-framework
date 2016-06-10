@@ -75,6 +75,7 @@ public class EntityDefinition {
     protected MNode entityHavingEconditions = null
 
     protected final boolean isView
+    protected final boolean isDynamicView
     protected final boolean hasFunctionAliasVal
     protected final boolean createOnlyVal
     protected boolean createOnlyFields = false
@@ -105,11 +106,12 @@ public class EntityDefinition {
         // copy the entityNode because we may be modifying it
         internalEntityNode = entityNode.deepCopy(null)
         isView = internalEntityNode.name == "view-entity"
+        isDynamicView = internalEntityNode.attribute("is-dynamic-view") == "true"
         internalEntityName = internalEntityNode.attribute("entity-name")
         fullEntityName = internalEntityNode.attribute("package-name") + "." + internalEntityName
         shortAlias = internalEntityNode.attribute("short-alias") ?: null
 
-        if (internalEntityNode.attribute("is-dynamic-view") == "true") {
+        if (isDynamicView) {
             // use the group of the first member-entity
             String memberEntityName = internalEntityNode.children("member-entity")
                     .find({ !it.attribute("join-from-alias") })?.attribute("entity-name")
@@ -258,6 +260,7 @@ public class EntityDefinition {
     MNode getEntityNode() { return internalEntityNode }
 
     boolean isViewEntity() { return isView }
+    boolean isDynamicViewEntity() { return isDynamicView }
     boolean hasFunctionAlias() { return hasFunctionAliasVal }
     Map<String, ArrayList<MNode>> getMemberFieldAliases(String memberEntityName) {
         return memberEntityFieldAliases?.get(memberEntityName)

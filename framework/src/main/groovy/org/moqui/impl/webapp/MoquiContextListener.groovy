@@ -27,8 +27,6 @@ import javax.servlet.ServletContext
 import javax.servlet.ServletContextEvent
 import javax.servlet.ServletContextListener
 
-import org.moqui.context.ExecutionContext
-import org.moqui.context.ExecutionContextFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.Moqui
@@ -37,6 +35,10 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletRegistration
+import javax.websocket.HandshakeResponse
+import javax.websocket.server.HandshakeRequest
+import javax.websocket.server.ServerContainer
+import javax.websocket.server.ServerEndpointConfig
 
 @CompileStatic
 class MoquiContextListener implements ServletContextListener {
@@ -75,6 +77,8 @@ class MoquiContextListener implements ServletContextListener {
                 ecfi = new ExecutionContextFactoryImpl()
             }
 
+            // tell ECFI about the ServletContext
+            ecfi.initServletContext(sc)
             // set SC attribute and Moqui class static reference
             sc.setAttribute("executionContextFactory", ecfi)
             // there should always be one ECF that is active for things like deserialize of EntityValue
@@ -154,6 +158,35 @@ class MoquiContextListener implements ServletContextListener {
 
             // NOTE: webapp.session-config.@timeout handled in MoquiSessionListener
 
+            // WebSocket Endpoint Setup
+            ServerContainer wsServer = ecfi.getServerContainer()
+            if (wsServer != null) {
+                logger.info("Found WebSocket ServerContainer ${wsServer.class.name}")
+                if (wi.webappNode.attribute("websocket-timeout"))
+                    wsServer.setDefaultMaxSessionIdleTimeout(Long.valueOf(wi.webappNode.attribute("websocket-timeout")))
+
+                for (MNode endpointNode in wi.webappNode.children("endpoint")) {
+                    if (endpointNode.attribute("enabled") == "false") continue
+
+                    try {
+                        Class<?> endpointClass = Thread.currentThread().getContextClassLoader().loadClass(endpointNode.attribute("class"))
+                        String endpointPath = endpointNode.attribute("path")
+                        if (!endpointPath.startsWith("/")) endpointPath = "/" + endpointPath
+
+                        MoquiServerEndpointConfigurator configurator = new MoquiServerEndpointConfigurator(ecfi, endpointNode.attribute("timeout"))
+                        ServerEndpointConfig sec = ServerEndpointConfig.Builder.create(endpointClass, endpointPath)
+                                .configurator(configurator).build()
+                        wsServer.addEndpoint(sec)
+
+                        logger.info("Added WebSocket endpoint ${endpointPath} for class ${endpointClass.name}")
+                    } catch (Exception e) {
+                        logger.error("Error WebSocket endpoint on ${endpointNode.attribute("path")}", e)
+                    }
+                }
+            } else {
+                logger.info("No WebSocket ServerContainer found, web sockets disabled")
+            }
+
             // run after-startup actions
             if (wi.afterStartupActions) {
                 ExecutionContextImpl eci = ecfi.getEci()
@@ -226,5 +259,29 @@ class MoquiContextListener implements ServletContextListener {
         String getInitParameter(String name) { return parameters.get(name) }
         @Override
         Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
+    }
+    static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
+        // for a good explanation of javax.websocket details related to this see:
+        // http://stackoverflow.com/questions/17936440/accessing-httpsession-from-httpservletrequest-in-a-web-socket-serverendpoint
+        ExecutionContextFactoryImpl ecfi
+        Long maxIdleTimeout = null
+        MoquiServerEndpointConfigurator(ExecutionContextFactoryImpl ecfi, String timeoutStr) {
+            this.ecfi = ecfi
+            if (timeoutStr) maxIdleTimeout = Long.valueOf(timeoutStr)
+        }
+        @Override
+        boolean checkOrigin(String originHeaderValue) {
+            // logger.info("New ServerEndpoint Origin: ${originHeaderValue}")
+            // TODO: check this against what? will be something like 'http://localhost:8080'
+            return super.checkOrigin(originHeaderValue)
+        }
+
+        @Override
+        public void modifyHandshake(ServerEndpointConfig config, HandshakeRequest request, HandshakeResponse response) {
+            config.getUserProperties().put("handshakeRequest", request)
+            config.getUserProperties().put("httpSession", request.getHttpSession())
+            config.getUserProperties().put("executionContextFactory", ecfi)
+            if (maxIdleTimeout != null) config.getUserProperties().put("maxIdleTimeout", maxIdleTimeout)
+        }
     }
 }

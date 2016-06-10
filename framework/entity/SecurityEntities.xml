@@ -415,12 +415,24 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== User Notification Message ========== -->
+    <entity entity-name="NotificationTopic" package-name="moqui.security.user" group-name="nontransactional" cache="never">
+        <field name="topic" type="text-medium" is-pk="true"/>
+        <field name="titleTemplate" type="text-long"/>
+        <field name="linkTemplate" type="text-long"/>
+        <field name="typeString" type="text-short"/>
+        <field name="showAlert" type="text-indicator"/>
+    </entity>
     <entity entity-name="NotificationMessage" package-name="moqui.security.user" group-name="nontransactional" cache="never">
         <field name="notificationMessageId" type="id" is-pk="true"/>
         <field name="topic" type="text-medium"/>
         <field name="userGroupId" type="id"/>
         <field name="sentDate" type="date-time"/>
         <field name="messageJson" type="text-very-long"/>
+        <field name="titleTemplate" type="text-long"/>
+        <field name="linkTemplate" type="text-long"/>
+        <field name="typeString" type="text-short"/>
+        <field name="showAlert" type="text-indicator"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.user.NotificationTopic"/>
         <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
     </entity>
     <entity entity-name="NotificationMessageUser" package-name="moqui.security.user" group-name="nontransactional" cache="never">

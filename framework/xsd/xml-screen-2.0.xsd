@@ -559,7 +559,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="section" substitutionGroup="AllWidgets">
         <xs:complexType>
             <xs:group ref="section-elements"/>
-            <xs:attribute name="name" type="name-upper" use="required">
+            <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>A name for the section, used for reference within the screen.
                     Must be specified and must be unique within the screen.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -572,7 +572,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="section-iterate" substitutionGroup="AllWidgets">
         <xs:complexType>
             <xs:group ref="section-elements"/>
-            <xs:attribute name="name" type="name-upper" use="required">
+            <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
                     A name for the section, used for external reference within the screen.
                 </xs:documentation></xs:annotation>
@@ -621,7 +621,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <xs:element name="section-include" substitutionGroup="AllWidgets">
         <xs:complexType>
-            <xs:attribute name="name" type="name-upper" use="required">
+            <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
                     A name for the section, used for reference within the screen.
                     Must be specified and must be unique within the screen.

@@ -347,7 +347,7 @@ public class StupidClassLoader extends ClassLoader {
                 //     groovy.lang.GroovyObject$java$io$org$moqui$entity$EntityListIterator
                 //     java.io.org$moqui$entity$EntityListIterator
                 // Groovy does similar with *Customizer and *BeanInfo; so just don't remember any of these
-                if (!className.startsWith("groovy.lang.") && !className.startsWith("java.io.") &&
+                if (!className.startsWith("groovy.lang.") && !className.startsWith("java.io.") && !className.startsWith("java.util.") &&
                         !className.endsWith("Customizer") && !className.endsWith("BeanInfo")) {
                     ClassNotFoundException existingExc = notFoundCache.putIfAbsent(className, cnfe);
                     if (existingExc != null) throw existingExc;

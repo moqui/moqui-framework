@@ -57,6 +57,9 @@ Non Backward Compatible Changes
     with the javax.jcr.RepositoryFactory interface
   - See new configuration examples in MoquiDefaultConf.xml under the
     repository-list element
+- OWASP ESAPI and AntiSamy
+  - ESAPI removed, now using simple StringEscapeUtils from commons-lang
+  - AntiSamy replaced by OWASP Java HTML Sanitizer
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)
@@ -103,6 +106,16 @@ New Features
     ExecutionContextFactory.getTool(), and
     ExecutionContext.getTool() methods to interact with tools
   - See non backward compatible change notes for ExecutionContextFactory
+- WebSocket Support
+  - Now looks for javax.websocket.server.ServerContainer in ServletContext
+    during initialization, available through ECFI.getServerContainer()
+  - If ServetContainer found adds endpoints defined in the webapp.endpoint
+    element in the Moqui Conf XML file
+  - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint
+    so that Moqui objects such as ExecutionContext/Factory are available,
+    UserFacade initialized from handshake (HTTP upgrade) request, etc
+  - Added NotificationEndpoint which listens for NotificationMessage
+    through ECFI and sends them over WebSocket to notify user
 - Caching
   - CacheFacade now supports separate local and distributed caches both
     using the javax.cache interfaces
@@ -131,9 +144,9 @@ New Features
   - Added default Hazelcast web session replication config
   - Hazelcast can be used for distributed entity cache and can be used for
     web session replication, distributed execution, and OrientDB clustering
-- Implemented distributed entity cache invalidate using a Hazelcast Topic,
-  enabled in Moqui Conf XML file with the @distributed-cache-invalidate
-  attribute on the entity-facade element
+  - Implemented distributed entity cache invalidate using a Hazelcast
+    Topic, enabled in Moqui Conf XML file with the
+    @distributed-cache-invalidate attribute on the entity-facade element
 - JCR and Apache Jackrabbit
   - JCR support (for content:// locations in the ResourceFacade) now uses
     javax.jcr interfaces only, no dependencies on Jackrabbit
@@ -409,16 +422,6 @@ Long Term To Do List - aka Informal Roadmap
     (have page return immediately, send notification when done)
 
 - User Notification
-  - WebSocket clients: track userId, notificationName, connectionKey
-    - Entity (no, keep in memory): VisitClient - visitId*, userId*, topic*, connectionKey*
-    - when sending out WebSocket messages lookup all active Visits for userId and send to each connectionKey
-    - API (with at least an example transition) for WebSocket client registry; set connectionKey on current Visit
-    - use Camel WebSocket? jWebSocket? (how to send message to client connection key)
-    - after more research candidates are (no jWebSocket because it is huge and messy):
-      * java_websocket: smallest (90k), no dependencies on other libraries (like Tomcat or Jetty WS), very simple
-        library so no authc, no pubsub; has JS library for JS client and Flash SWF file for browsers with no WebSocket
-      - Atmosphere: med size (460k), supports variety of transports, but no internal WebSocket (relies on Tomcat, Jetty,
-        etc websocket impls), has pubsub model and sessions built-in, but questionable authc facility
   x Manual notification:
     x API pass in notificationName, Map message, userGroupId, boolean queue (true: queue if not connected, false: only send if connected)
     x API to get all outstanding notifications
