@@ -209,7 +209,8 @@ abstract class EntityValueBase implements EntityValue {
                     List<String> pks
                     MNode aliasNode = null
                     String memberEntityName = null
-                    if (ed.isViewEntity()) {
+                    if (ed.isViewEntity() && !ed.isDynamicViewEntity()) {
+                        // NOTE: there are issues with dynamic view entities here, may be possible to fix them but for now not running for EntityDynamicView
                         aliasNode = ed.getFieldNode(name)
                         memberEntityName = ed.getMemberEntityName(aliasNode.attribute('entity-alias'))
                         EntityDefinition memberEd = getEntityFacadeImpl().getEntityDefinition(memberEntityName)
