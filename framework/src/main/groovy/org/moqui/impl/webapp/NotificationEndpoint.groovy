@@ -37,9 +37,7 @@ class NotificationEndpoint extends MoquiAbstractEndpoint {
     @Override
     void onOpen(Session session, EndpointConfig config) {
         super.onOpen(session, config)
-
         getEcf().getNotificationWebSocketListener().registerEndpoint(this)
-        session.getBasicRemote().sendText("Test text")
     }
 
     @Override
@@ -50,14 +48,14 @@ class NotificationEndpoint extends MoquiAbstractEndpoint {
                 String trimmedTopic = topic.trim()
                 if (trimmedTopic) subscribedTopics.add(trimmedTopic)
             }
-            logger.info("Processed notification subscribe to ${topics} in session ${session?.id}, current topics: ${subscribedTopics}")
+            logger.info("Notification subscribe for user ${getUserId()} in session ${session?.id}, current topics: ${subscribedTopics}")
         } else if (message.startsWith(unsubscribePrefix)) {
             String topics = message.substring(unsubscribePrefix.length(), message.length())
             for (String topic in topics.split(",")) {
                 String trimmedTopic = topic.trim()
                 if (trimmedTopic) subscribedTopics.remove(trimmedTopic)
             }
-            logger.info("Processed notification unsubscribe from ${topics} in session ${session?.id}, current topics: ${subscribedTopics}")
+            logger.info("Notification unsubscribe for user ${getUserId()} in session ${session?.id}, current topics: ${subscribedTopics}")
         } else {
             logger.info("Unknown command prefix for message to NotificationEndpoint in session ${session?.id}: ${message}")
         }

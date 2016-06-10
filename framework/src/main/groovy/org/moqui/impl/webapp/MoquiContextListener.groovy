@@ -271,7 +271,7 @@ class MoquiContextListener implements ServletContextListener {
         }
         @Override
         boolean checkOrigin(String originHeaderValue) {
-            logger.info("New ServerEndpoint Origin: ${originHeaderValue}")
+            // logger.info("New ServerEndpoint Origin: ${originHeaderValue}")
             // TODO: check this against what? will be something like 'http://localhost:8080'
             return super.checkOrigin(originHeaderValue)
         }

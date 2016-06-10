@@ -81,12 +81,13 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
 
         session.addMessageHandler(this)
 
-        logger.info("Opened WebSocket Session ${session.getId()}, userId: ${userId}, username: ${username}, tenant: ${tenantId}, timeout: ${session.getMaxIdleTimeout()}ms")
+        logger.info("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), tenant: ${tenantId}, timeout: ${session.getMaxIdleTimeout()}ms")
 
-        // TODO: comment these out once basic stuff in place
+        /*
         logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, username: ${session.getUserPrincipal()?.getName()}, config props: ${config.userProperties}")
         for (String attrName in httpSession.getAttributeNames())
             logger.info("WebSocket Session ${session.getId()}, session attribute: ${attrName}=${httpSession.getAttribute(attrName)}")
+        */
     }
 
     @Override
@@ -102,7 +103,7 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
             eci.destroy()
             eci = null
         }
-        logger.info("Closed WebSocket Session ${session.getId()}: ${closeReason.reasonPhrase}")
+        // logger.info("Closed WebSocket Session ${session.getId()}: ${closeReason.reasonPhrase}")
     }
 
     @Override
