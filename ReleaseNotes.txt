@@ -398,36 +398,53 @@ Bug Fixes
 Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
+- WebSocket Notifications
+  - Send NotificationMessage through configurable SimpleTopic
+    - expand interface if needed
+    - add Hazelcast implementation so notifications are distributed to all app servers, user may be connected by WebSocket to any in cluster!
+  - Prototype for background process notifications, to be used for various things but start with Payroll run
+    (have page return immediately, send notification when done)
+  - When NotificationMessage sent by WebSocket (or other too?) set sentDate
+  - Added Notifications screen to MyAccount with transition to set receiveDate
+
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine
+  - do in moqui-caffeine tool component
   - add multiple threads to SpeedTest.xml?
 
 - Move tools from moqui-framework to tool components
-  - Great tools but not used by default in Moqui/Mantle/etc
-    - Atomikos (moqui-atomikos; leave Bitronix in by default)
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
     - ElasticSearch (moqui-elasticsearch)
     - add mantle-usl dependencies on moqui-elasticsearch; moqui-kie is optional for mantle-usl
   - Possible to split out FOP?
     - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
-  - Support some sort of built component archive?
+
+- Support some sort of built component archive?
 
 - Saved form-list Finds
   - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
-- WebSocket attempt 2
-  - Also see WebSocket notes under User Notification
-  - Build WebSocket interface for Moqui NotificationMessage interfaces, use javax.websocket as much as possible
-    (run initially on Jetty but be able to support other WebSocket libraries)
-  - Send updates by NotificationMessage to browser for messages, calendar events, tasks (MyAccount stuff)
-  - Prototype for background process notifications, to be used for various things but start with Payroll run
-    (have page return immediately, send notification when done)
+- Improved Distributed Datasource Support
+  - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
+  - Review warnings about view-entities that have members in multiple groups (which may be in different databases)
+  - Test with transactional in H2 and nontransactional, configuration, analytical in OrientDB
+  - Known changes needed
+    - Check distributed foreign keys in create, update, delete (make sure records exist or don't exist in other databases)
+    - Add augment-member to view-entity that can be in a separate database
+      - Make it easier to define view-entity so that caller can treat it mostly as a normal join-based view
+      - Augment query results with optionally cached values from records in a separate database
+      - For conditions on fields from augment-member do a pre-query to get set of PKs, use them in an IN condition on
+        the main query (only support simple AND scenario, error otherwise); sort of like a sub-select
+      - How to handle order by fields on augment-member? Might require separate query and some sort of fancy sorting...
+  - Possibly useful
+    - Consider meta-data management features such as versioning and more complete history for nontransactional and
+      configuration, preferably using some sort of more efficient underlying features in the datasource
+      (like Jackrabbit/Oak; any support for this in OrientDB? ElasticSearch keeps version number for concurrency, but no history)
+    - Write EntityFacade interface for ElasticSearch to use like OrientDB?
+    - Support persistence through EntityFacade as nested documents, ie specify that detail/etc entities be included in parent/master document
+    - SimpleFind interface as an alternative to EntityFind for datasources that don't support joins, etc (like OrientDB)
+      and maybe add support for the internal record ID that can be used for faster graph traversal, etc
 
 - User Notification
-  x Manual notification:
-    x API pass in notificationName, Map message, userGroupId, boolean queue (true: queue if not connected, false: only send if connected)
-    x API to get all outstanding notifications
-    x Entity: NotificationMessage - notificationMessageId*, topic, userGroupId, messageJson (from message Map)
-    x Entity: NotificationMessageUser - notificationMessageId*, userId*, sentDate, receivedDate
   - Add Moqui Conf XML elements to configure NotificationMessageListener classes
   - Listener for Email with XML Screen to layout (and try out using JSON documents as nested Maps from a screen)
     - where to configure the email and screen to use? use EmailTemplate/emailTemplateId, but where to specify?
@@ -457,27 +474,6 @@ Long Term To Do List - aka Informal Roadmap
     - call local when rendered server-side
     - set base URL, use common patterns for get single/multiple record, create, update, and delete
     - use internal data from RestApi class to determine valid services available
-
-- Improved Distributed Datasource Support
-  - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
-  - Review warnings about view-entities that have members in multiple groups (which may be in different databases)
-  - Test with transactional in H2 and nontransactional, configuration, analytical in OrientDB
-  - Known changes needed
-    - Check distributed foreign keys in create, update, delete (make sure records exist or don't exist in other databases)
-    - Add augment-member to view-entity that can be in a separate database
-      - Make it easier to define view-entity so that caller can treat it mostly as a normal join-based view
-      - Augment query results with optionally cached values from records in a separate database
-      - For conditions on fields from augment-member do a pre-query to get set of PKs, use them in an IN condition on
-        the main query (only support simple AND scenario, error otherwise); sort of like a sub-select
-      - How to handle order by fields on augment-member? Might require separate query and some sort of fancy sorting...
-  - Possibly useful
-    - Consider meta-data management features such as versioning and more complete history for nontransactional and
-      configuration, preferably using some sort of more efficient underlying features in the datasource
-      (like Jackrabbit/Oak; any support for this in OrientDB? ElasticSearch keeps version number for concurrency, but no history)
-    - Write EntityFacade interface for ElasticSearch to use like OrientDB?
-    - Support persistence through EntityFacade as nested documents, ie specify that detail/etc entities be included in parent/master document
-    - SimpleFind interface as an alternative to EntityFind for datasources that don't support joins, etc (like OrientDB)
-      and maybe add support for the internal record ID that can be used for faster graph traversal, etc
 
 - Hazelcast-based improvements
   - configuration for 'microservice' deployments, partitioning services to run on particular servers in a cluster and
