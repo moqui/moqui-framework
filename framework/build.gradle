@@ -80,11 +80,6 @@ dependencies {
 
     // ========== Libraries from jcenter ==========
 
-    // Atomikos Transaction Manager
-    compile 'com.atomikos:transactions:4.0.3' // Apache 2.0
-    compile 'com.atomikos:transactions-jdbc:4.0.3' // Apache 2.0
-    compile 'com.atomikos:transactions-jta:4.0.3' // Apache 2.0
-
     // Apache Commons
     compile 'org.apache.commons:commons-csv:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.4' // Apache 2.0

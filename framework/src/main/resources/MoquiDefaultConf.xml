@@ -154,7 +154,6 @@
 
     <transaction-facade use-transaction-cache="true">
         <!-- Use this for the internal transaction manager (not through JNDI) -->
-        <!-- <transaction-internal class="org.moqui.impl.context.TransactionInternalAtomikos"/> -->
         <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/>
 
         <!-- If this is not present the default JNDI server will be used -->

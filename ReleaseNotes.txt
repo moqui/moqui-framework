@@ -23,6 +23,7 @@ Non Backward Compatible Changes
     no additional configuration is needed
   - JBoss KIE and Drools are now in tool component moqui-kie, an optional
     component for mantle-usl; has MoquiConf to add ToolFactory
+  - Atomikos TM moved to moqui-atomikos tool component
 - ExecutionContext and ExecutionContextFactory
   - Removed initComponent() and destroyComponent() methods; were never well
     supported (runtime component init and destroy caused issues)
