@@ -25,19 +25,12 @@ version = '2.0.0'
 apply plugin: 'com.github.ben-manes.versions'
 buildscript {
     repositories { jcenter() }
-    dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0'
-    }
+    dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0' }
 }
-dependencyUpdates.resolutionStrategy = {
-  componentSelection { rules ->
-    rules.all { ComponentSelection selection ->
-      boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier ->
-        selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
-      if (rejected) selection.reject('Release candidate')
-    }
-  }
-}
+dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
+    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
+    if (rejected) selection.reject('Release candidate')
+} } }
 
 // NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
@@ -61,7 +54,7 @@ groovydoc {
 
 dependencies {
     // Groovy
-    compile 'org.codehaus.groovy:groovy-all:2.4.6' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-all:2.4.7' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     providedCompile 'org.fusesource.jansi:jansi:1.12'
 
@@ -109,10 +102,10 @@ dependencies {
     // ElasticSearch Libraries, including Lucene
     compile 'org.elasticsearch:elasticsearch:2.3.3' // Apache 2.0
     // ElasticSearch uses jackson-dataformat-smile, -yaml, -cbor pulling in jackson-core, also used by OrientDB, but gets an older version
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.7.4'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.7.4'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.4'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.7.4'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.7.5'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.7.5'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.5'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.7.5'
     // JNA, needed by ElasticSearch when run embedded
     compile 'net.java.dev.jna:jna:4.2.2' // Apache 2.0
     compile 'net.java.dev.jna:jna-platform:4.2.2' // Apache 2.0
@@ -141,7 +134,7 @@ dependencies {
     compile 'javax.transaction:jta:1.1'
     compile 'javax.cache:cache-api:1.0.0'
     compile 'javax.jcr:jcr:2.0'
-    compile 'javax.websocket:javax.websocket-api:1.0'
+    compile 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
     // Specs not needed by default:
     // compile 'javax.resource:connector-api:1.5'
@@ -152,7 +145,7 @@ dependencies {
 
     // Apache HTTP Components
     compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
-    compile 'org.apache.httpcomponents:httpcore:4.4.4' // Apache 2.0
+    compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.5' // CDDL
@@ -178,9 +171,9 @@ dependencies {
 
     // SLF4J, Log4J
     compile 'org.slf4j:slf4j-api:1.7.21'
-    runtime 'org.apache.logging.log4j:log4j-core:2.6'
-    runtime 'org.apache.logging.log4j:log4j-api:2.6'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6'
+    runtime 'org.apache.logging.log4j:log4j-core:2.6.1'
+    runtime 'org.apache.logging.log4j:log4j-api:2.6.1'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.1'
 
     // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
     compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
