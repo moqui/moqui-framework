@@ -421,6 +421,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="linkTemplate" type="text-long"/>
         <field name="typeString" type="text-short"/>
         <field name="showAlert" type="text-indicator"/>
+        <field name="persistOnSend" type="text-indicator"/>
     </entity>
     <entity entity-name="NotificationMessage" package-name="moqui.security.user" group-name="nontransactional" cache="never">
         <field name="notificationMessageId" type="id" is-pk="true"/>

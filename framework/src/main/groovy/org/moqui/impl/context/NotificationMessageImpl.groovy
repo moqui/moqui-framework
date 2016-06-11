@@ -43,6 +43,7 @@ class NotificationMessageImpl implements NotificationMessage {
     private String linkTemplate = (String) null
     private NotificationType type = (NotificationType) null
     private Boolean showAlert = (Boolean) null
+    private Boolean persistOnSend = (Boolean) null
 
     NotificationMessageImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -155,8 +156,30 @@ class NotificationMessageImpl implements NotificationMessage {
     }
 
     @Override
+    NotificationMessage persistOnSend(boolean persist) { persistOnSend = persist; return this }
+    @Override
+    boolean isPersistOnSend() {
+        if (persistOnSend != null) {
+            return persistOnSend.booleanValue()
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.persistOnSend) {
+                return localNotTopic.persistOnSend == 'Y'
+            } else {
+                return false
+            }
+        }
+    }
+
+    @Override
     NotificationMessage send(boolean persist) {
-        if (persist) {
+        persistOnSend = persist
+        send()
+        return this
+    }
+    @Override
+    NotificationMessage send() {
+        if (isPersistOnSend()) {
             boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
             try {
                 sentDate = eci.user.nowTimestamp

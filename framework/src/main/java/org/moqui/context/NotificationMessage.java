@@ -33,11 +33,15 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationMessage topic(String topic);
     String getTopic();
 
-    /** Set the message as a JSON String. The top-level should be a Map (object).
-     * @param messageJson The message as a JSON string containing a Map (object)
+    /** Set the message as a JSON String. The top-level should be a Map (JSON Object).
+     * @param messageJson The message as a JSON string containing a Map (JSON Object)
      * @return Self-reference for convenience
      */
     NotificationMessage message(String messageJson);
+    /** Set the message as a JSON String. The top-level should be a Map (JSON Object).
+     * @param message The message as a Map (JSON Object), must be convertible to JSON String
+     * @return Self-reference for convenience
+     */
     NotificationMessage message(Map<String, Object> message);
     String getMessageJson();
     Map<String, Object> getMessageMap();
@@ -67,6 +71,12 @@ public interface NotificationMessage extends java.io.Serializable {
      * @return Self-reference for convenience
      */
     NotificationMessage send(boolean persist);
+
+    NotificationMessage persistOnSend(boolean persist);
+    boolean isPersistOnSend();
+    /** Send this Notification Message using persistOnSend setting (defaults to false). */
+    NotificationMessage send();
+
 
     String getNotificationMessageId();
     NotificationMessage markSent(String userId);
