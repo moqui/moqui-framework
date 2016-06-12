@@ -65,6 +65,7 @@ public interface ExecutionContextFactory {
 
     /** For interactions with a relational database. */
     EntityFacade getEntity();
+    EntityFacade getEntity(String tenantId);
 
     /** For calling services (local or remote, sync or async or scheduled). */
     ServiceFacade getService();

@@ -69,7 +69,7 @@ class EntityCache {
         if (distributedCacheInvalidate) {
             try {
                 String dciTopicFactory = entityFacadeNode.attribute("dci-topic-factory")
-                entityCacheInvalidateTopic = (SimpleTopic) efi.ecfi.getTool(dciTopicFactory, SimpleTopic.class)
+                entityCacheInvalidateTopic = (SimpleTopic<EntityCacheInvalidate>) efi.ecfi.getTool(dciTopicFactory, SimpleTopic.class)
             } catch (Exception e) {
                 logger.error("Entity distributed cache invalidate is enabled but could not initialize", e)
             }

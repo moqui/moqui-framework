@@ -14,7 +14,6 @@
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ExecutionContext
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.NotificationMessage
 import org.moqui.context.NotificationMessageListener
@@ -23,12 +22,14 @@ import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.sql.Timestamp
 import java.util.concurrent.ConcurrentHashMap
 
 @CompileStatic
 class NotificationWebSocketListener implements NotificationMessageListener {
     private final static Logger logger = LoggerFactory.getLogger(NotificationWebSocketListener.class)
 
+    private ExecutionContextFactory ecf = null
     private ConcurrentHashMap<String, ConcurrentHashMap<String, NotificationEndpoint>> endpointsByUserTenant = new ConcurrentHashMap<>()
 
     void registerEndpoint(NotificationEndpoint endpoint) {
@@ -60,17 +61,22 @@ class NotificationWebSocketListener implements NotificationMessageListener {
     }
 
     @Override
-    void init(ExecutionContextFactory ecf) { }
+    void init(ExecutionContextFactory ecf) {
+        this.ecf = ecf
+    }
 
     @Override
-    void destroy() { }
+    void destroy() {
+        endpointsByUserTenant.clear()
+        this.ecf = null
+    }
 
     @Override
-    void onMessage(NotificationMessage nm, ExecutionContext ec) {
+    void onMessage(NotificationMessage nm) {
         String messageWrapperJson = nm.getWrappedMessageJson()
         // notify by user, remember users notified
         Set<String> userIdsNotified = new HashSet<>()
-        String tenantId = ec.tenantId
+        String tenantId = nm.tenantId
         for (String userId in nm.getUserIds()) {
             // add the user to those notified regardless of result, would be the same by group
             userIdsNotified.add(userId)
@@ -79,9 +85,10 @@ class NotificationWebSocketListener implements NotificationMessageListener {
 
         // notify by group, skipping users already notified
         if (nm.userGroupId) {
-            EntityListIterator eli = ec.getEntity().find("moqui.security.UserGroupMember")
-                    .condition("userGroupId", nm.userGroupId).conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).iterator()
-            EntityValue nextValue;
+            EntityListIterator eli = ecf.getEntity(tenantId).find("moqui.security.UserGroupMember")
+                    .conditionDate("fromDate", "thruDate", new Timestamp(System.currentTimeMillis()))
+                    .condition("userGroupId", nm.userGroupId).iterator()
+            EntityValue nextValue
             while ((nextValue = (EntityValue) eli.next()) != null) {
                 String userId = (String) nextValue.userId
                 if (userIdsNotified.contains(userId)) continue

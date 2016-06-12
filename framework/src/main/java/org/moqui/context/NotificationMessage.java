@@ -24,6 +24,7 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationType warning = NotificationType.warning;
     NotificationType danger = NotificationType.danger;
 
+    String getTenantId();
     NotificationMessage userId(String userId);
     NotificationMessage userIds(Set<String> userIds);
     Set<String> getUserIds();

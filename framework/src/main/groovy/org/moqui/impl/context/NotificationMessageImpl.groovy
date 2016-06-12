@@ -16,9 +16,9 @@ package org.moqui.impl.context
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
+import org.moqui.Moqui
 import org.moqui.context.NotificationMessage
 import org.moqui.context.NotificationMessage.NotificationType
-import org.moqui.context.NotificationMessageListener
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.slf4j.Logger
@@ -27,16 +27,16 @@ import org.slf4j.LoggerFactory
 import java.sql.Timestamp
 
 @CompileStatic
-class NotificationMessageImpl implements NotificationMessage {
+class NotificationMessageImpl implements NotificationMessage, Externalizable {
     private final static Logger logger = LoggerFactory.getLogger(NotificationMessageImpl.class)
 
-    private final ExecutionContextImpl eci
+    private String tenantId = (String) null
     private Set<String> userIdSet = new HashSet()
     private String userGroupId = (String) null
     private String topic = (String) null
-    private EntityValue notificationTopic = (EntityValue) null
+    private transient EntityValue notificationTopic = (EntityValue) null
     private String messageJson = (String) null
-    private Map<String, Object> messageMap = (Map<String, Object>) null
+    private transient Map<String, Object> messageMap = (Map<String, Object>) null
     private String notificationMessageId = (String) null
     private Timestamp sentDate = (Timestamp) null
     private String titleTemplate = (String) null
@@ -45,15 +45,27 @@ class NotificationMessageImpl implements NotificationMessage {
     private Boolean showAlert = (Boolean) null
     private Boolean persistOnSend = (Boolean) null
 
-    NotificationMessageImpl(ExecutionContextImpl eci) {
-        this.eci = eci
+    private transient ExecutionContextFactoryImpl ecfiTransient = (ExecutionContextFactoryImpl) null
+
+    /** Default constructor for deserialization */
+    NotificationMessageImpl() { }
+    NotificationMessageImpl(ExecutionContextFactoryImpl ecfi, String tenantId) {
+        ecfiTransient = ecfi
+        this.tenantId = tenantId
     }
 
+    ExecutionContextFactoryImpl getEcfi() {
+        if (ecfiTransient == null) ecfiTransient = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+        return ecfiTransient
+    }
     EntityValue getNotificationTopic() {
-        if (notificationTopic == null && topic) notificationTopic = eci.entity.find("moqui.security.user.NotificationTopic")
-                .condition("topic", topic).useCache(true).disableAuthz().one()
+        if (notificationTopic == null && topic) notificationTopic = ecfi.getEntityFacade(tenantId)
+                .find("moqui.security.user.NotificationTopic").condition("topic", topic).useCache(true).disableAuthz().one()
         return notificationTopic
     }
+
+    @Override
+    String getTenantId() { tenantId }
 
     @Override
     NotificationMessage userId(String userId) { userIdSet.add(userId); return this }
@@ -94,11 +106,11 @@ class NotificationMessageImpl implements NotificationMessage {
     @Override
     String getTitle() {
         if (titleTemplate) {
-            return eci.resource.expand(titleTemplate, "", getMessageMap(), true)
+            return ecfi.resource.expand(titleTemplate, "", getMessageMap(), true)
         } else {
             EntityValue localNotTopic = getNotificationTopic()
             if (localNotTopic != null && localNotTopic.titleTemplate) {
-                return eci.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
+                return ecfi.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
             } else {
                 return null
             }
@@ -110,11 +122,11 @@ class NotificationMessageImpl implements NotificationMessage {
     @Override
     String getLink() {
         if (linkTemplate) {
-            return eci.resource.expand(linkTemplate, "", getMessageMap(), true)
+            return ecfi.resource.expand(linkTemplate, "", getMessageMap(), true)
         } else {
             EntityValue localNotTopic = getNotificationTopic()
             if (localNotTopic != null && localNotTopic.linkTemplate) {
-                return eci.resource.expand((String) localNotTopic.linkTemplate, "", getMessageMap(), true)
+                return ecfi.resource.expand((String) localNotTopic.linkTemplate, "", getMessageMap(), true)
             } else {
                 return null
             }
@@ -174,43 +186,34 @@ class NotificationMessageImpl implements NotificationMessage {
     @Override
     NotificationMessage send(boolean persist) {
         persistOnSend = persist
-        send()
-        return this
+        return send()
     }
     @Override
     NotificationMessage send() {
         if (isPersistOnSend()) {
-            boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-            try {
-                sentDate = eci.user.nowTimestamp
-                Map createResult = eci.service.sync().name("create", "moqui.security.user.NotificationMessage")
-                        .parameters([topic:topic, userGroupId:userGroupId, sentDate:sentDate, messageJson:messageJson,
-                                     titleTemplate:titleTemplate, linkTemplate:linkTemplate, typeString:type?.name(),
-                                     showAlert:(showAlert ? 'Y' : 'N')])
-                        .call()
-                notificationMessageId = createResult.notificationMessageId
+            sentDate = new Timestamp(System.currentTimeMillis())
+            Map createResult = ecfi.service.sync().name("create", "moqui.security.user.NotificationMessage")
+                    .parameters([topic:topic, userGroupId:userGroupId, sentDate:sentDate, messageJson:messageJson,
+                                 titleTemplate:titleTemplate, linkTemplate:linkTemplate, typeString:type?.name(),
+                                 showAlert:(showAlert ? 'Y' : 'N')])
+                    .disableAuthz().call()
+            notificationMessageId = createResult.notificationMessageId
 
-                /* don't set all UserGroupMembers, could be a bit of a data explosion; better to handle that by group:
-                // get explicit and group userIds and create a moqui.security.user.NotificationMessageUser record for each
-                if (userGroupId) for (EntityValue userGroupMember in eci.getEntity().find("moqui.security.UserGroupMember")
-                        .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null)) {
-                    userIdSet.add(userGroupMember.getString("userId"))
-                }
-                */
-
-                for (String userId in userIdSet)
-                    eci.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
-                            .parameters([notificationMessageId:notificationMessageId, userId:userId]).call()
-            } finally {
-                if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
+            /* don't set all UserGroupMembers, could be a bit of a data explosion; better to handle that by group:
+            // get explicit and group userIds and create a moqui.security.user.NotificationMessageUser record for each
+            if (userGroupId) for (EntityValue userGroupMember in eci.getEntity().find("moqui.security.UserGroupMember")
+                    .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null)) {
+                userIdSet.add(userGroupMember.getString("userId"))
             }
+            */
+
+            for (String userId in userIdSet)
+                ecfi.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
+                        .parameters([notificationMessageId:notificationMessageId, userId:userId]).disableAuthz().call()
         }
 
-        // now send it to all listeners
-        List<NotificationMessageListener> nmlList = eci.getEcfi().getNotificationMessageListeners()
-        for (NotificationMessageListener nml in nmlList) {
-            nml.onMessage(this, eci)
-        }
+        // now send it to the topic
+        ecfi.sendNotificationMessageToTopic(this)
 
         return this
     }
@@ -223,6 +226,7 @@ class NotificationMessageImpl implements NotificationMessage {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
 
+        ExecutionContextImpl eci = ecfi.getEci()
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
             eci.entity.makeValue("moqui.security.user.NotificationMessageUser")
@@ -241,6 +245,7 @@ class NotificationMessageImpl implements NotificationMessage {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
 
+        ExecutionContextImpl eci = ecfi.getEci()
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
             eci.entity.makeValue("moqui.security.user.NotificationMessageUser")
@@ -272,8 +277,41 @@ class NotificationMessageImpl implements NotificationMessage {
         if (nmbu.typeString) this.type = NotificationType.valueOf((String) nmbu.typeString)
         this.showAlert = nmbu.showAlert == 'Y'
 
-        EntityList nmuList = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                .condition("notificationMessageId", notificationMessageId).disableAuthz().list()
+        EntityList nmuList = nmbu.findRelated("moqui.security.user.NotificationMessageUser",
+                [notificationMessageId:notificationMessageId] as Map<String, Object>, null, false, false)
         for (EntityValue nmu in nmuList) userIdSet.add((String) nmu.userId)
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        // NOTE: lots of writeObject because values are nullable
+        out.writeUTF(tenantId)
+        out.writeObject(userIdSet)
+        out.writeObject(userGroupId)
+        out.writeUTF(topic)
+        out.writeUTF(getMessageJson())
+        out.writeObject(notificationMessageId)
+        out.writeObject(sentDate)
+        out.writeObject(titleTemplate)
+        out.writeObject(linkTemplate)
+        out.writeObject(type)
+        out.writeObject(showAlert)
+        out.writeObject(persistOnSend)
+    }
+
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        tenantId = objectInput.readUTF()
+        userIdSet = (Set<String>) objectInput.readObject()
+        userGroupId = (String) objectInput.readObject()
+        topic = objectInput.readUTF()
+        messageJson = objectInput.readUTF()
+        notificationMessageId = (String) objectInput.readObject()
+        sentDate = (Timestamp) objectInput.readObject()
+        titleTemplate = (String) objectInput.readObject()
+        linkTemplate = (String) objectInput.readObject()
+        type = (NotificationType) objectInput.readObject()
+        showAlert = (Boolean) objectInput.readObject()
+        persistOnSend = (Boolean) objectInput.readObject()
     }
 }

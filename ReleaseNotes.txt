@@ -36,6 +36,10 @@ Non Backward Compatible Changes
     getTool("KIE", KieToolFactory.class) and use the corresponding
     methods there
   - See new feature notes under Tool Factory
+- NotificationMessage
+  - NotificationMessage, NotificationMessageListener interfaces have
+    various changes for more features and to better support serialized
+    messages for notification through a distributed topic
 - Caching
   - Ehcache has been removed
   - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
@@ -117,6 +121,13 @@ New Features
     UserFacade initialized from handshake (HTTP upgrade) request, etc
   - Added NotificationEndpoint which listens for NotificationMessage
     through ECFI and sends them over WebSocket to notify user
+- NotificationMessage
+  - Notifications can now be configured to send through a topic interface
+    for distributed topics (implemented in the moqui-hazelcast component);
+    this handles the scenario where a notification is generated on one
+    server but a user is connected (by WebSocket, etc) to another
+  - Various additional fields for display in the JavaScript
+    NotificationClient including type, title and link templates, etc
 - Caching
   - CacheFacade now supports separate local and distributed caches both
     using the javax.cache interfaces
@@ -399,9 +410,6 @@ Long Term To Do List - aka Informal Roadmap
 ===========================================================================
 
 - WebSocket Notifications
-  - Send NotificationMessage through configurable SimpleTopic
-    - expand interface if needed
-    - add Hazelcast implementation so notifications are distributed to all app servers, user may be connected by WebSocket to any in cluster!
   - Prototype for background process notifications, to be used for various things but start with Payroll run
     (have page return immediately, send notification when done)
   - When NotificationMessage sent by WebSocket (or other too?) set sentDate

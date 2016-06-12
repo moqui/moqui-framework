@@ -149,7 +149,7 @@ class ExecutionContextImpl implements ExecutionContext {
     ScreenFacade getScreen() { ecfi.getScreenFacade() }
 
     @Override
-    NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(this) }
+    NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(ecfi, tenantId) }
     @Override
     List<NotificationMessage> getNotificationMessages(String topic) {
         String userId = userFacade.userId
@@ -162,7 +162,7 @@ class ExecutionContextImpl implements ExecutionContext {
             if (topic) parameters.topic = topic
             EntityList nmbuList = entity.find("moqui.security.user.NotificationMessageByUser").condition(parameters).list()
             for (EntityValue nmbu in nmbuList) {
-                NotificationMessageImpl nmi = new NotificationMessageImpl(this)
+                NotificationMessageImpl nmi = new NotificationMessageImpl(ecfi, tenantId)
                 nmi.populateFromValue(nmbu)
                 nmList.add(nmi)
             }
