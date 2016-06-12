@@ -383,6 +383,8 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="documentList" entry="document">
                 <set field="userIdSet" from="new HashSet()"/>
                 <script>StupidUtilities.findAllFieldsNestedMap("userId", document, userIdSet)</script>
+                <script>StupidUtilities.findAllFieldsNestedMap("fromUserId", document, userIdSet)</script>
+                <script>StupidUtilities.findAllFieldsNestedMap("toUserId", document, userIdSet)</script>
                 <if condition="!userIdSet"><continue/></if>
 
                 <script><![CDATA[
