@@ -619,11 +619,11 @@ class WebFacadeImpl implements WebFacade {
         try {
             response.writer.write(jsonStr)
             response.writer.flush()
-            if (logger.infoEnabled) {
+            if (logger.isTraceEnabled()) {
                 Long startTime = (Long) requestAttributes.get("moquiRequestStartTime")
                 String timeMsg = ""
                 if (startTime) timeMsg = "in ${(System.currentTimeMillis()-startTime)}ms"
-                logger.info("Sent JSON response ${length} bytes ${charset} encoding ${timeMsg} for ${request.getMethod()} to ${request.getPathInfo()}")
+                logger.trace("Sent JSON response ${length} bytes ${charset} encoding ${timeMsg} for ${request.getMethod()} to ${request.getPathInfo()}")
             }
         } catch (IOException e) {
             logger.error("Error sending JSON string response", e)

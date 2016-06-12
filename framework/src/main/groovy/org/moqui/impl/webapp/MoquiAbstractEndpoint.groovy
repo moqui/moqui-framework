@@ -81,7 +81,7 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
 
         session.addMessageHandler(this)
 
-        logger.info("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), tenant: ${tenantId}, timeout: ${session.getMaxIdleTimeout()}ms")
+        if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), tenant: ${tenantId}, timeout: ${session.getMaxIdleTimeout()}ms")
 
         /*
         logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, username: ${session.getUserPrincipal()?.getName()}, config props: ${config.userProperties}")

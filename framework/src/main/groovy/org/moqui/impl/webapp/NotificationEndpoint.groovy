@@ -48,7 +48,7 @@ class NotificationEndpoint extends MoquiAbstractEndpoint {
                 String trimmedTopic = topic.trim()
                 if (trimmedTopic) subscribedTopics.add(trimmedTopic)
             }
-            logger.info("Notification subscribe for user ${getUserId()} in session ${session?.id}, current topics: ${subscribedTopics}")
+            logger.info("Notification subscribe user ${getUserId()} topics ${subscribedTopics} session ${session?.id}")
         } else if (message.startsWith(unsubscribePrefix)) {
             String topics = message.substring(unsubscribePrefix.length(), message.length())
             for (String topic in topics.split(",")) {
