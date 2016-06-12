@@ -412,7 +412,6 @@ Long Term To Do List - aka Informal Roadmap
 - WebSocket Notifications
   - Prototype for background process notifications, to be used for various things but start with Payroll run
     (have page return immediately, send notification when done)
-  - When NotificationMessage sent by WebSocket (or other too?) set sentDate
   - Added Notifications screen to MyAccount with transition to set receiveDate
 
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine

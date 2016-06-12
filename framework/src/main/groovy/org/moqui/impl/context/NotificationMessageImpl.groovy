@@ -192,24 +192,31 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     NotificationMessage send() {
         if (isPersistOnSend()) {
             sentDate = new Timestamp(System.currentTimeMillis())
-            Map createResult = ecfi.service.sync().name("create", "moqui.security.user.NotificationMessage")
-                    .parameters([topic:topic, userGroupId:userGroupId, sentDate:sentDate, messageJson:messageJson,
-                                 titleTemplate:titleTemplate, linkTemplate:linkTemplate, typeString:type?.name(),
-                                 showAlert:(showAlert ? 'Y' : 'N')])
-                    .disableAuthz().call()
-            notificationMessageId = createResult.notificationMessageId
+            // a little trick so that this is available in the closure
+            NotificationMessageImpl nmi = this
+            // run in runRequireNew so that it is saved immediately, NotificationMessage listeners running async are
+            //     outside of this transaction and may use these records (like markSent() before the current tx is complete)
+            ecfi.transactionFacade.runRequireNew(null, "Error saving NotificationMessage", {
+                Map createResult = ecfi.service.sync().name("create", "moqui.security.user.NotificationMessage")
+                        .parameters([topic:nmi.topic, userGroupId:nmi.userGroupId, sentDate:nmi.sentDate, messageJson:nmi.messageJson,
+                                     titleTemplate:nmi.titleTemplate, linkTemplate:nmi.linkTemplate, typeString:nmi.type,
+                                     showAlert:(nmi.showAlert ? 'Y' : 'N')])
+                        .disableAuthz().call()
+                nmi.setNotificationMessageId((String) createResult.notificationMessageId)
 
-            /* don't set all UserGroupMembers, could be a bit of a data explosion; better to handle that by group:
-            // get explicit and group userIds and create a moqui.security.user.NotificationMessageUser record for each
-            if (userGroupId) for (EntityValue userGroupMember in eci.getEntity().find("moqui.security.UserGroupMember")
-                    .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null)) {
-                userIdSet.add(userGroupMember.getString("userId"))
-            }
-            */
+                /* don't set all UserGroupMembers, could be a bit of a data explosion; better to handle that by group:
+                // get explicit and group userIds and create a moqui.security.user.NotificationMessageUser record for each
+                if (userGroupId) for (EntityValue userGroupMember in eci.getEntity().find("moqui.security.UserGroupMember")
+                        .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null)) {
+                    userIdSet.add(userGroupMember.getString("userId"))
+                }
+                */
 
-            for (String userId in userIdSet)
-                ecfi.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
-                        .parameters([notificationMessageId:notificationMessageId, userId:userId]).disableAuthz().call()
+                for (String userId in nmi.userIdSet)
+                    ecfi.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
+                            .parameters([notificationMessageId:createResult.notificationMessageId, userId:userId])
+                            .disableAuthz().call()
+            })
         }
 
         // now send it to the topic
@@ -220,18 +227,20 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
     @Override
     String getNotificationMessageId() { return notificationMessageId }
+    void setNotificationMessageId(String id) { notificationMessageId = id }
 
     @Override
     NotificationMessage markSent(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
+        if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message sent")
 
         ExecutionContextImpl eci = ecfi.getEci()
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
-            eci.entity.makeValue("moqui.security.user.NotificationMessageUser")
-                    .set("userId", userId ?: eci.user.userId).set("notificationMessageId", notificationMessageId)
-                    .set("sentDate", eci.user.nowTimestamp).update()
+            ecfi.getEntityFacade(tenantId).makeValue("moqui.security.user.NotificationMessageUser")
+                    .set("userId", userId).set("notificationMessageId", notificationMessageId)
+                    .set("sentDate", new Timestamp(System.currentTimeMillis())).update()
         } catch (Throwable t) {
             logger.error("Error marking notification message ${notificationMessageId} sent", t)
         } finally {
@@ -244,13 +253,14 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     NotificationMessage markReceived(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
+        if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message received")
 
         ExecutionContextImpl eci = ecfi.getEci()
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
-            eci.entity.makeValue("moqui.security.user.NotificationMessageUser")
-                    .set("userId", userId?:eci.user.userId).set("notificationMessageId", notificationMessageId)
-                    .set("receivedDate", eci.user.nowTimestamp).update()
+            ecfi.getEntityFacade(tenantId).makeValue("moqui.security.user.NotificationMessageUser")
+                    .set("userId", userId).set("notificationMessageId", notificationMessageId)
+                    .set("receivedDate", new Timestamp(System.currentTimeMillis())).update()
         } catch (Throwable t) {
             logger.error("Error marking notification message ${notificationMessageId} sent", t)
         } finally {
