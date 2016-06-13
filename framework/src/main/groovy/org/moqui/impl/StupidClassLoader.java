@@ -90,8 +90,8 @@ public class StupidClassLoader extends ClassLoader {
 
         pd = getClass().getProtectionDomain();
 
-        for (Map.Entry commonClassEntry: commonJavaClassesMap.entrySet())
-            classCache.put((String) commonClassEntry.getKey(), (Class) commonClassEntry.getValue());
+        for (Map.Entry<String, Class<?>> commonClassEntry: commonJavaClassesMap.entrySet())
+            classCache.put(commonClassEntry.getKey(), commonClassEntry.getValue());
     }
 
     private static final boolean checkJars = false;
