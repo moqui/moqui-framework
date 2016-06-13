@@ -346,9 +346,11 @@ public class StupidClassLoader extends ClassLoader {
                 // Groovy seems to look, then re-look, for funny names like:
                 //     groovy.lang.GroovyObject$java$io$org$moqui$entity$EntityListIterator
                 //     java.io.org$moqui$entity$EntityListIterator
+                //     groovy.util.org$moqui$context$ExecutionContext
+                //     org$moqui$context$ExecutionContext
                 // Groovy does similar with *Customizer and *BeanInfo; so just don't remember any of these
-                if (!className.startsWith("groovy.lang.") && !className.startsWith("java.io.") && !className.startsWith("java.util.") &&
-                        !className.endsWith("Customizer") && !className.endsWith("BeanInfo")) {
+                // In general it seems that anything with a '$' needs to be excluded
+                if (!className.contains("$") && !className.endsWith("Customizer") && !className.endsWith("BeanInfo")) {
                     ClassNotFoundException existingExc = notFoundCache.putIfAbsent(className, cnfe);
                     if (existingExc != null) throw existingExc;
                 }
