@@ -414,15 +414,25 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.screen.ScreenTheme"/>
     </entity>
 
-    <!-- ========== User Notification Message ========== -->
-    <entity entity-name="NotificationTopic" package-name="moqui.security.user" group-name="nontransactional" cache="never">
+    <!-- ========== User Notifications ========== -->
+
+    <entity entity-name="NotificationTopic" package-name="moqui.security.user" group-name="configuration" cache="true">
         <field name="topic" type="text-medium" is-pk="true"/>
+        <field name="description" type="text-medium"/>
         <field name="titleTemplate" type="text-long"/>
         <field name="linkTemplate" type="text-long"/>
         <field name="typeString" type="text-short"/>
         <field name="showAlert" type="text-indicator"/>
         <field name="persistOnSend" type="text-indicator"/>
+        <field name="receiveNotifications" type="text-indicator"><description>If Y all applicable users will be sent
+            notification messages. If N users must subscribe (NotificationTopicUser) to receive messages.</description></field>
     </entity>
+    <entity entity-name="NotificationTopicUser" package-name="moqui.security.user" group-name="configuration" cache="true">
+        <field name="topic" type="text-medium" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="receiveNotifications" type="text-indicator"/>
+    </entity>
+
     <entity entity-name="NotificationMessage" package-name="moqui.security.user" group-name="nontransactional" cache="never">
         <field name="notificationMessageId" type="id" is-pk="true"/>
         <field name="topic" type="text-medium"/>
@@ -449,6 +459,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="notificationMessageId"/></member-entity>
         <alias-all entity-alias="NMSG"/>
         <alias entity-alias="NMU" name="userId"/>
+        <alias entity-alias="NMU" name="userSentDate" field="sentDate"/>
         <alias entity-alias="NMU" name="receivedDate"/>
     </view-entity>
 </entities>

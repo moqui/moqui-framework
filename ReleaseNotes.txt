@@ -413,6 +413,10 @@ Long Term To Do List - aka Informal Roadmap
   - Prototype for background process notifications, to be used for various things but start with Payroll run
     (have page return immediately, send notification when done)
   - Added Notifications screen to MyAccount with transition to set receiveDate
+  - Increment message, event, task count labels in header?
+    - DataDocument add flag if new or updated
+    - if new increment count with JS
+    - Side note: DataDocument add info about what was updated somehow?
 
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine
   - do in moqui-caffeine tool component

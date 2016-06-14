@@ -19,7 +19,9 @@ import groovy.transform.CompileStatic
 import org.moqui.Moqui
 import org.moqui.context.NotificationMessage
 import org.moqui.context.NotificationMessage.NotificationType
+import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
+import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -78,6 +80,47 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     NotificationMessage userGroupId(String userGroupId) { this.userGroupId = userGroupId; return this }
     @Override
     String getUserGroupId() { userGroupId }
+
+    @Override
+    Set<String> getNotifyUserIds() {
+        Set<String> notifyUserIds = new HashSet<>()
+        Set<String> checkedUserIds = new HashSet<>()
+        EntityFacade ef = ecfi.getEntity(tenantId)
+
+        for (String userId in userIdSet) {
+            checkedUserIds.add(userId)
+            if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
+        }
+
+        // notify by group, skipping users already notified
+        if (userGroupId) {
+            EntityListIterator eli = ef.find("moqui.security.UserGroupMember")
+                    .conditionDate("fromDate", "thruDate", new Timestamp(System.currentTimeMillis()))
+                    .condition("userGroupId", userGroupId).disableAuthz().iterator()
+            EntityValue nextValue
+            while ((nextValue = (EntityValue) eli.next()) != null) {
+                String userId = (String) nextValue.userId
+                if (checkedUserIds.contains(userId)) continue
+                checkedUserIds.add(userId)
+                if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
+            }
+        }
+
+        return notifyUserIds
+    }
+    private boolean checkUserNotify(String userId, EntityFacade ef) {
+        EntityValue notTopicUser = ef.find("moqui.security.user.NotificationTopicUser")
+                .condition("topic", topic).condition("userId", userId).useCache(true).disableAuthz().one()
+        boolean notifyUser = true
+        if (notTopicUser != null && notTopicUser.receiveNotifications) {
+            notifyUser = notTopicUser.receiveNotifications == 'Y'
+        } else {
+            EntityValue notificationTopic = getNotificationTopic()
+            if (notificationTopic != null && notificationTopic.receiveNotifications)
+                notifyUser = notificationTopic.receiveNotifications == 'Y'
+        }
+        return notifyUser
+    }
 
     @Override
     NotificationMessage topic(String topic) { this.topic = topic; notificationTopic = null; return this }

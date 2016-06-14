@@ -74,35 +74,14 @@ class NotificationWebSocketListener implements NotificationMessageListener {
     @Override
     void onMessage(NotificationMessage nm) {
         String messageWrapperJson = nm.getWrappedMessageJson()
-        // notify by user, remember users notified
-        Set<String> userIdsNotified = new HashSet<>()
-        for (String userId in nm.getUserIds()) {
-            // add the user to those notified regardless of result, would be the same by group
-            userIdsNotified.add(userId)
-            sendMessageInternal(userId, nm, messageWrapperJson)
-        }
-
-        // notify by group, skipping users already notified
-        if (nm.userGroupId) {
-            EntityListIterator eli = ecf.getEntity(nm.tenantId).find("moqui.security.UserGroupMember")
-                    .conditionDate("fromDate", "thruDate", new Timestamp(System.currentTimeMillis()))
-                    .condition("userGroupId", nm.userGroupId).iterator()
-            EntityValue nextValue
-            while ((nextValue = (EntityValue) eli.next()) != null) {
-                String userId = (String) nextValue.userId
-                if (userIdsNotified.contains(userId)) continue
-                userIdsNotified.add(userId)
-                sendMessageInternal(userId, nm, messageWrapperJson)
-            }
-        }
-    }
-    protected void sendMessageInternal(String userId, NotificationMessage nm, String messageWrapperJson) {
-        ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userId.concat(nm.tenantId))
-        if (registeredEndPoints == null) return
-        for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
-            if (endpoint.session.isOpen() && endpoint.subscribedTopics.contains(nm.topic)) {
-                endpoint.session.asyncRemote.sendText(messageWrapperJson)
-                nm.markSent(userId)
+        for (String userId in nm.getNotifyUserIds()) {
+            ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userId.concat(nm.tenantId))
+            if (registeredEndPoints == null) return
+            for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
+                if (endpoint.session.isOpen() && endpoint.subscribedTopics.contains(nm.topic)) {
+                    endpoint.session.asyncRemote.sendText(messageWrapperJson)
+                    nm.markSent(userId)
+                }
             }
         }
     }
