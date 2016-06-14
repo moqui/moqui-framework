@@ -439,8 +439,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userGroupId" type="id"/>
         <field name="sentDate" type="date-time"/>
         <field name="messageJson" type="text-very-long"/>
-        <field name="titleTemplate" type="text-long"/>
-        <field name="linkTemplate" type="text-long"/>
+        <field name="titleText" type="text-long"/>
+        <field name="linkText" type="text-long"/>
         <field name="typeString" type="text-short"/>
         <field name="showAlert" type="text-indicator"/>
         <relationship type="one-nofk" related-entity-name="moqui.security.user.NotificationTopic"/>
@@ -450,7 +450,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="notificationMessageId" type="id" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
         <field name="sentDate" type="date-time"/>
-        <field name="receivedDate" type="date-time"/>
+        <field name="viewedDate" type="date-time"/>
+        <relationship type="one" related-entity-name="moqui.security.user.NotificationMessage" short-alias="notification"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
     </entity>
     <view-entity entity-name="NotificationMessageByUser" package-name="moqui.security.user" cache="never">
@@ -460,6 +461,6 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="NMSG"/>
         <alias entity-alias="NMU" name="userId"/>
         <alias entity-alias="NMU" name="userSentDate" field="sentDate"/>
-        <alias entity-alias="NMU" name="receivedDate"/>
+        <alias entity-alias="NMU" name="viewedDate"/>
     </view-entity>
 </entities>

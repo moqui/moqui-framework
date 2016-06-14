@@ -86,7 +86,7 @@ public interface NotificationMessage extends java.io.Serializable {
 
     String getNotificationMessageId();
     NotificationMessage markSent(String userId);
-    NotificationMessage markReceived(String userId);
+    NotificationMessage markViewed(String userId);
 
     /** Get a Map with: topic, sentDate, notificationMessageId, message, title, link, type, and showAlert using the get method for each */
     Map<String, Object> getWrappedMessageMap();

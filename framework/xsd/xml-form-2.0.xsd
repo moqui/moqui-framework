@@ -530,6 +530,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:element minOccurs="0" ref="SubFields"/>
                     <xs:element minOccurs="0" maxOccurs="unbounded" ref="AllWidgets"/>
                 </xs:choice>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
             </xs:sequence>
             <xs:attribute name="title" type="xs:string">
