@@ -33,6 +33,10 @@ import java.util.jar.Manifest;
  * This loads classes from the parent first, then its class directories and JAR files.
  */
 public class StupidClassLoader extends ClassLoader {
+    private static final boolean checkJars = false;
+    private static final boolean rememberClassNotFound = false;
+    private static final boolean rememberResourceNotFound = true;
+
     public static final Map<String, Class<?>> commonJavaClassesMap = createCommonJavaClassesMap();
     private static Map<String, Class<?>> createCommonJavaClassesMap() {
         Map<String, Class<?>> m = new HashMap<>();
@@ -94,7 +98,6 @@ public class StupidClassLoader extends ClassLoader {
             classCache.put(commonClassEntry.getKey(), commonClassEntry.getValue());
     }
 
-    private static final boolean checkJars = false;
     private static final Map<String, String> jarByClass = new HashMap<>();
     public void addJarFile(JarFile jf) {
         if (checkJars) {
@@ -189,13 +192,15 @@ public class StupidClassLoader extends ClassLoader {
     protected URL findResource(String resourceName) {
         URL cachedUrl = resourceCache.get(resourceName);
         if (cachedUrl != null) return cachedUrl;
-        if (resourcesNotFound.contains(resourceName)) return null;
+        if (rememberResourceNotFound && resourcesNotFound.contains(resourceName)) return null;
 
         // Groovy looks for BeanInfo and Customizer groovy resources, even for anonymous scripts and they will never exist
-        if ((resourceName.endsWith("BeanInfo.groovy") || resourceName.endsWith("Customizer.groovy")) &&
-                (resourceName.startsWith("script") || resourceName.contains("_actions") || resourceName.contains("_condition"))) {
-            resourcesNotFound.add(resourceName);
-            return null;
+        if (rememberResourceNotFound) {
+            if ((resourceName.endsWith("BeanInfo.groovy") || resourceName.endsWith("Customizer.groovy")) &&
+                    (resourceName.startsWith("script") || resourceName.contains("_actions") || resourceName.contains("_condition"))) {
+                resourcesNotFound.add(resourceName);
+                return null;
+            }
         }
 
         URL resourceUrl = null;
@@ -236,7 +241,7 @@ public class StupidClassLoader extends ClassLoader {
         } else {
             // for testing to see if resource not found cache is working, should see this once for each not found resource
             // System.out.println("Classpath resource not found with name " + resourceName);
-            resourcesNotFound.add(resourceName);
+            if (rememberResourceNotFound) resourcesNotFound.add(resourceName);
             return null;
         }
     }
@@ -298,8 +303,10 @@ public class StupidClassLoader extends ClassLoader {
     protected Class<?> loadClass(String className, boolean resolve) throws ClassNotFoundException {
         Class cachedClass = classCache.get(className);
         if (cachedClass != null) return cachedClass;
-        ClassNotFoundException cachedExc = notFoundCache.get(className);
-        if (cachedExc != null) throw cachedExc;
+        if (rememberClassNotFound) {
+            ClassNotFoundException cachedExc = notFoundCache.get(className);
+            if (cachedExc != null) throw cachedExc;
+        }
 
         return loadClassInternal(className, resolve);
     }
@@ -343,16 +350,18 @@ public class StupidClassLoader extends ClassLoader {
             // System.out.println("Loading class name [" + className + "] got class: " + c);
             if (c == null) {
                 ClassNotFoundException cnfe = new ClassNotFoundException("Class " + className + " not found.");
-                // Groovy seems to look, then re-look, for funny names like:
-                //     groovy.lang.GroovyObject$java$io$org$moqui$entity$EntityListIterator
-                //     java.io.org$moqui$entity$EntityListIterator
-                //     groovy.util.org$moqui$context$ExecutionContext
-                //     org$moqui$context$ExecutionContext
-                // Groovy does similar with *Customizer and *BeanInfo; so just don't remember any of these
-                // In general it seems that anything with a '$' needs to be excluded
-                if (!className.contains("$") && !className.endsWith("Customizer") && !className.endsWith("BeanInfo")) {
-                    ClassNotFoundException existingExc = notFoundCache.putIfAbsent(className, cnfe);
-                    if (existingExc != null) throw existingExc;
+                if (rememberClassNotFound) {
+                    // Groovy seems to look, then re-look, for funny names like:
+                    //     groovy.lang.GroovyObject$java$io$org$moqui$entity$EntityListIterator
+                    //     java.io.org$moqui$entity$EntityListIterator
+                    //     groovy.util.org$moqui$context$ExecutionContext
+                    //     org$moqui$context$ExecutionContext
+                    // Groovy does similar with *Customizer and *BeanInfo; so just don't remember any of these
+                    // In general it seems that anything with a '$' needs to be excluded
+                    if (!className.contains("$") && !className.endsWith("Customizer") && !className.endsWith("BeanInfo")) {
+                        ClassNotFoundException existingExc = notFoundCache.putIfAbsent(className, cnfe);
+                        if (existingExc != null) throw existingExc;
+                    }
                 }
                 throw cnfe;
             } else {
@@ -367,8 +376,10 @@ public class StupidClassLoader extends ClassLoader {
     private Class<?> findJarClass(String className) throws IOException, ClassFormatError, ClassNotFoundException {
         Class cachedClass = classCache.get(className);
         if (cachedClass != null) return cachedClass;
-        ClassNotFoundException cachedExc = notFoundCache.get(className);
-        if (cachedExc != null) throw cachedExc;
+        if (rememberClassNotFound) {
+            ClassNotFoundException cachedExc = notFoundCache.get(className);
+            if (cachedExc != null) throw cachedExc;
+        }
 
         Class<?> c = null;
         String classFileName = className.replace('.', '/') + ".class";
