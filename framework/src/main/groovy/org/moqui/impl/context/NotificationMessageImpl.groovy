@@ -252,15 +252,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
                         .disableAuthz().call()
                 nmi.setNotificationMessageId((String) createResult.notificationMessageId)
 
-                /* don't set all UserGroupMembers, could be a bit of a data explosion; better to handle that by group:
-                // get explicit and group userIds and create a moqui.security.user.NotificationMessageUser record for each
-                if (userGroupId) for (EntityValue userGroupMember in eci.getEntity().find("moqui.security.UserGroupMember")
-                        .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null)) {
-                    userIdSet.add(userGroupMember.getString("userId"))
-                }
-                */
-
-                for (String userId in nmi.userIdSet)
+                for (String userId in nmi.getNotifyUserIds())
                     ecfi.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
                             .parameters([notificationMessageId:createResult.notificationMessageId, userId:userId])
                             .disableAuthz().call()
