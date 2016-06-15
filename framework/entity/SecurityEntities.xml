@@ -424,6 +424,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="typeString" type="text-short"/>
         <field name="showAlert" type="text-indicator"/>
         <field name="persistOnSend" type="text-indicator"/>
+        <field name="isPrivate" type="text-indicator"><description>If Y user must be associated to see it or receive notifications.</description></field>
         <field name="receiveNotifications" type="text-indicator"><description>If Y all applicable users will be sent
             notification messages. If N users must subscribe (NotificationTopicUser) to receive messages.</description></field>
     </entity>
