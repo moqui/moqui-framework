@@ -75,7 +75,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         String parametersString = JsonOutput.toJson(parameters)
         Map jobRunResult = ecfi.service.sync().name("create", "moqui.service.job.ServiceJobRun")
                 .parameters([jobName:jobName, userId:eci.user.userId, parameters:parametersString] as Map<String, Object>)
-                .disableAuthz().call()
+                .disableAuthz().requireNewTransaction(true).call()
         String jobRunId = jobRunResult.jobRunId
 
         // run it
@@ -196,7 +196,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                         .disableAuthz().call()
 
                 // if topic send NotificationMessage
-                if (topic) {
+                if (topic && !hasError) {
                     NotificationMessage nm = threadEci.makeNotificationMessage().topic(topic)
                     Map<String, Object> msgMap = new HashMap<>()
                     msgMap.put("serviceCallRun", [jobName:jobName, jobRunId:jobRunId, endTime:nowTimestamp,
@@ -214,6 +214,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
                     nm.send()
                 }
+                // TODO: send some sort of error notification, maybe a different topic set on ServiceRun?
 
                 return results
             } catch (Throwable t) {
