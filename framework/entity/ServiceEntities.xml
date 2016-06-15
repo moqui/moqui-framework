@@ -69,8 +69,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="jobName" type="text-short"/>
         <field name="userId" type="id"><description>The user that initiated the job run</description></field>
         <field name="parameters" type="text-long"/>
-        <field name="results" type="text-long"/>
+        <field name="results" type="text-very-long"/>
         <field name="messages" type="text-long"/>
+        <field name="hasError" type="text-indicator"/>
         <field name="errors" type="text-long"/>
         <field name="hostAddress" type="text-short"/>
         <field name="hostName" type="text-medium"/>

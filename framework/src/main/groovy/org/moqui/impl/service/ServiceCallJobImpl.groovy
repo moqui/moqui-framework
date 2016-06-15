@@ -16,6 +16,7 @@ package org.moqui.impl.service
 import groovy.json.JsonOutput
 import groovy.transform.CompileStatic
 import org.moqui.Moqui
+import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -25,6 +26,7 @@ import org.moqui.service.ServiceException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.sql.Timestamp
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Future
@@ -171,6 +173,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
                 // set hostAddress, hostName, runThread, startTime on ServiceJobRun
                 InetAddress localHost = getEcfi().getLocalhostAddress()
+                // NOTE: no need to run async or separate thread, is in separate TX because no wrapping TX for these service calls
                 ecfi.service.sync().name("update", "moqui.service.job.ServiceJobRun")
                         .parameters([jobRunId:jobRunId, hostAddress:(localHost?.getHostAddress() ?: '127.0.0.1'),
                             hostName:(localHost?.getHostName() ?: 'localhost'), runThread:Thread.currentThread().getName(),
@@ -178,18 +181,41 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                         .disableAuthz().call()
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> result = threadEci.service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                Map<String, Object> results = threadEci.service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
 
                 // set endTime, results, messages, errors on ServiceJobRun
-                String resultString = JsonOutput.toJson(result)
+                String resultString = JsonOutput.toJson(results)
+                boolean hasError = threadEci.message.hasError()
+                String messages = threadEci.message.getMessagesString()
+                String errors = threadEci.message.getErrorsString()
+                Timestamp nowTimestamp = threadEci.user.nowTimestamp
+                // NOTE: no need to run async or separate thread, is in separate TX because no wrapping TX for these service calls
                 ecfi.service.sync().name("update", "moqui.service.job.ServiceJobRun")
-                        .parameters([jobRunId:jobRunId, endTime:threadEci.user.nowTimestamp, results:resultString,
-                            messages:threadEci.message.getMessagesString(), errors:threadEci.message.getErrorsString()] as Map<String, Object>)
+                        .parameters([jobRunId:jobRunId, endTime:nowTimestamp, results:resultString,
+                            messages:messages, hasError:(hasError ? 'Y' : 'N'), errors:errors] as Map<String, Object>)
                         .disableAuthz().call()
 
-                // TODO if topic send NotificationMessage
+                // if topic send NotificationMessage
+                if (topic) {
+                    NotificationMessage nm = threadEci.makeNotificationMessage().topic(topic)
+                    Map<String, Object> msgMap = new HashMap<>()
+                    msgMap.put("serviceCallRun", [jobName:jobName, jobRunId:jobRunId, endTime:nowTimestamp,
+                          messages:messages, hasError:hasError, errors:errors])
+                    msgMap.put("parameters", parameters)
+                    msgMap.put("results", results)
+                    nm.message(msgMap)
 
-                return result
+                    if (currentUserId) nm.userId(currentUserId)
+                    EntityList serviceJobUsers = threadEci.entity.find("moqui.service.job.ServiceJobUser")
+                            .condition("jobName", jobName).useCache(true).disableAuthz().list()
+                    for (EntityValue serviceJobUser in serviceJobUsers)
+                        if (serviceJobUser.receiveNotifications != 'N')
+                            nm.userId((String) serviceJobUser.userId)
+
+                    nm.send()
+                }
+
+                return results
             } catch (Throwable t) {
                 logger.error("Error in async service", t)
                 throw t
