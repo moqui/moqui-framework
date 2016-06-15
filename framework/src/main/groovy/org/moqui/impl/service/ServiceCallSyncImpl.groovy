@@ -406,7 +406,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 ecfi.entity.makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
                         .set('serviceName', getServiceName()).set('parameterValue', parameterValue).delete()
             } finally {
-                if (authzDisabled) eci.artifactExecution.enableAuthz()
+                if (!authzDisabled) eci.artifactExecution.enableAuthz()
             }
         })
     }
@@ -466,7 +466,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                         .set('serviceName', getServiceName()).set('parameterValue', parameterValue)
                         .set('lockThread', lockThreadName).set('lockTime', new Timestamp(currentTime)).create()
             } finally {
-                if (authzDisabled) eci.artifactExecution.enableAuthz()
+                if (!authzDisabled) eci.artifactExecution.enableAuthz()
             }
         })
     }
