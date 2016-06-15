@@ -285,7 +285,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="path-parameter">
         <xs:complexType>
-            <xs:attribute name="name" type="name-lower" use="required"/>
+            <xs:attribute name="name" type="name-parameter" use="required"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="conditional-response">
@@ -410,7 +410,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <xs:element name="transition-include">
         <xs:complexType>
-            <xs:attribute name="name" type="name-lower" use="required"/>
+            <xs:attribute name="name" type="name-package" use="required"/>
             <xs:attribute name="location" type="xs:string" use="required"/>
             <xs:attribute name="method" type="xs:string"/>
         </xs:complexType>

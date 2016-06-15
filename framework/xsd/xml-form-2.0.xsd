@@ -289,7 +289,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:complexType>
     </xs:element>
     <xs:element name="field-ref">
-        <xs:complexType><xs:attribute name="name" type="name-lower" use="required"/></xs:complexType>
+        <xs:complexType><xs:attribute name="name" type="name-parameter" use="required"/></xs:complexType>
     </xs:element>
     <xs:element name="fields-not-referenced">
         <xs:annotation><xs:documentation>Fields not explicitly referenced will be inserted where this element is. If
@@ -494,7 +494,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="default-field"/>
                 <!-- tabled, not to be part of 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="visible-when"/> -->
             </xs:sequence>
-            <xs:attribute name="name" type="name-lower" use="required">
+            <xs:attribute name="name" type="name-parameter" use="required">
                 <xs:annotation><xs:documentation>A unique name for this field. Used for the parameter name, referencing
                     the field in other places, etc.</xs:documentation></xs:annotation>
             </xs:attribute>

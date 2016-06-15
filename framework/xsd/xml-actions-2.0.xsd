@@ -475,7 +475,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:annotation><xs:documentation>Adds a econdition to the query to compare the field-name field to a context
             field, a String value, or another field on the entity.</xs:documentation></xs:annotation>
         <xs:complexType>
-            <xs:attribute name="field-name" type="name-lower" use="required">
+            <xs:attribute name="field-name" type="name-field" use="required">
                 <xs:annotation><xs:documentation>The field on the entity to constrain on. If from, value and
                     to-field-name are all empty this is also used as the name of the context field to compare to.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -502,7 +502,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="value" type="xs:string">
                 <xs:annotation><xs:documentation>Comparison value, use ${} syntax to expand variables.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="to-field-name" type="name-lower">
+            <xs:attribute name="to-field-name" type="name-field">
                 <xs:annotation><xs:documentation>Compare the field-name field to another field on the entity.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="ignore-case" type="boolean" default="false">

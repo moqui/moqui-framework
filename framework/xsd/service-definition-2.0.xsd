@@ -34,7 +34,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="out-parameters"/>
                 <xs:element minOccurs="0" ref="actions"/>
             </xs:sequence>
-            <xs:attribute name="verb" type="name-lower" use="required">
+            <xs:attribute name="verb" type="name-field" use="required">
                 <xs:annotation><xs:documentation>
                     This can be any verb, and will often be one of: create, update, store, delete, or find. The full name of
                     the service will be: "${path}.${verb}#${noun}". The verb is required and the noun is optional so if
@@ -209,7 +209,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="exclude">
         <xs:complexType>
-            <xs:attribute name="field-name" type="name-lower" use="required"/>
+            <xs:attribute name="field-name" type="name-field" use="required"/>
         </xs:complexType>
     </xs:element>
 
@@ -230,7 +230,7 @@ along with this software (see the LICENSE.md file). If not, see
                         inside the element.</xs:documentation></xs:annotation>
                 </xs:element>
             </xs:sequence>
-            <xs:attribute name="name" type="name-lower" use="required">
+            <xs:attribute name="name" type="name-parameter" use="required">
                 <xs:annotation><xs:documentation>The name of the parameter, matches against the key of an entry in the
                     parameters Map passed into or returned from the service.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -263,7 +263,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Optional name of an entity with a field that this parameter is
                     associated with.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="field-name" type="name-lower">
+            <xs:attribute name="field-name" type="name-field">
                 <xs:annotation><xs:documentation>Optional field name within the named entity that this parameter is
                     associated with. Most useful for form fields defined automatically from the service parameter.
                     This is automatically populated when parameters are defined automatically with the auto-parameters
