@@ -432,6 +432,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="topic" type="text-medium" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
         <field name="receiveNotifications" type="text-indicator"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.user.NotificationTopic"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
     </entity>
 
     <entity entity-name="NotificationMessage" package-name="moqui.security.user" group-name="nontransactional" cache="never">
@@ -453,7 +455,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="sentDate" type="date-time"/>
         <field name="viewedDate" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.security.user.NotificationMessage" short-alias="notification"/>
-        <relationship type="one" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
     </entity>
     <view-entity entity-name="NotificationMessageByUser" package-name="moqui.security.user" cache="never">
         <member-entity entity-alias="NMSG" entity-name="NotificationMessage"/>
