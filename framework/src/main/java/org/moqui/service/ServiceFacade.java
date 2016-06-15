@@ -26,8 +26,18 @@ public interface ServiceFacade {
     /** Get a service caller to call a service asynchronously. */
     ServiceCallAsync async();
 
+    /**
+     * Get a service caller to call a service job.
+     *
+     * @param jobName The name of the job. There must be a moqui.service.job.ServiceJob record for this jobName.
+     */
+    ServiceCallJob job(String jobName);
+
     /** Get a service caller to schedule a service. */
+    @Deprecated
     ServiceCallSchedule schedule();
+    @Deprecated
+    Scheduler getScheduler();
 
     /** Get a service caller for special service calls such as on commit and on rollback of current transaction. */
     ServiceCallSpecial special();
@@ -44,6 +54,4 @@ public interface ServiceFacade {
      * @param serviceCallback The callback implementation.
      */
     void registerCallback(String serviceName, ServiceCallback serviceCallback);
-
-    Scheduler getScheduler();
 }

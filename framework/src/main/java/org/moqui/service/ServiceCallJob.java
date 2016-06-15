@@ -16,7 +16,11 @@ package org.moqui.service;
 import java.util.Map;
 import java.util.concurrent.Future;
 
-/** An interface for ad-hoc (explicit) run of configured service jobs (in the moqui.service.job.ServiceJob entity). */
+/**
+ * An interface for ad-hoc (explicit) run of configured service jobs (in the moqui.service.job.ServiceJob entity).
+ *
+ * This interface has minimal options as most should be configured using ServiceJob entity fields.
+ */
 @SuppressWarnings("unused")
 public interface ServiceCallJob extends ServiceCall, Future<Map<String, Object>> {
     /** Map of name, value pairs that make up the context (in parameters) passed to the service. */
@@ -35,8 +39,7 @@ public interface ServiceCallJob extends ServiceCall, Future<Map<String, Object>>
      * configured using ServiceJobUser records. The NotificationMessage.message field will be the results of this
      * service call.
      *
-     * @param jobName The name of the job. There must be a moqui.service.job.ServiceJob record for this jobName.
      * @return The jobRunId for the corresponding moqui.service.job.ServiceJobRun record
      */
-    String run(String jobName) throws ServiceException;
+    String run() throws ServiceException;
 }

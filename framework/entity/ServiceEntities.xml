@@ -27,6 +27,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="serviceName" type="text-medium"/>
         <field name="topic" type="text-medium"><description>On completion send a notification to this topic</description></field>
+        <field name="localOnly" type="text-indicator"><description>If Y this will be run local only. By default runs on any
+            server in a cluster listening for async distributed services (if an async distributed executor is configured).</description></field>
 
         <field name="cronExpression" type="text-short"><description>
             An extended cron expression like Unix crontab but with a seconds field and extended syntax options
