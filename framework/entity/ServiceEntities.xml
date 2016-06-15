@@ -15,10 +15,82 @@ along with this software (see the LICENSE.md file). If not, see
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.0.xsd">
 
     <!-- ========================================================= -->
+    <!-- moqui.service.job -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ServiceJob" package-name="moqui.service.job" group-name="configuration" cache="true">
+        <description>For ad-hoc (explicitly run) or scheduled service jobs. If cronExpression is null the job will only
+            be run ad-hoc, when explicitly called using ServiceCallJob. If a topic is specified results will be sent to
+            the topic (can be configured using a NotificationTopic record) as a NotificationMessage to the user that
+            called the job explicitly (if applicable) and to users associated with ServiceJobUser records.</description>
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="serviceName" type="text-medium"/>
+        <field name="topic" type="text-medium"><description>On completion send a notification to this topic</description></field>
+
+        <field name="cronExpression" type="text-short"><description>
+            An extended cron expression like Unix crontab but with a seconds field and extended syntax options
+            (L, W, etc) similar to Quartz Scheduler. See:
+
+            http://cron-parser.com
+            http://www.quartz-scheduler.org/documentation/quartz-2.2.x/tutorials/tutorial-lesson-06.html
+        </description></field>
+        <field name="fromDate" type="date-time"><description>Only run scheduled after this date/time. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="thruDate" type="date-time"><description>Only run scheduled before this date/time. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="repeatCount" type="number-integer"><description>If specified only run this many times. Must specify
+            a cronExpression for the job to repeat. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="paused" type="text-indicator"><description>If Y this job is inactive and won't be run on a schedule
+            even if cronExpression is not null. Ignored for ad-hoc/explicit runs.</description></field>
+
+        <relationship type="one-nofk" related-entity-name="moqui.security.user.NotificationTopic"/>
+        <relationship type="many" related-entity-name="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>
+        <relationship type="many" related-entity-name="moqui.service.job.ServiceJobUser" short-alias="users"/>
+    </entity>
+    <entity entity-name="ServiceJobParameter" package-name="moqui.service.job" group-name="configuration" cache="true">
+        <description>Parameters automatically added when the job service is called. Always stored as a String and will
+            be converted based on the corresponding service in-parameter.parameter.@type attribute (just as with any
+            service call).</description>
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="parameterName" type="text-short" is-pk="true"/>
+        <field name="parameterValue" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+    </entity>
+    <entity entity-name="ServiceJobUser" package-name="moqui.service.job" group-name="configuration" cache="true">
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="receiveNotifications" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <entity entity-name="ServiceJobRun" package-name="moqui.service.job" group-name="transactional" cache="never">
+        <field name="jobRunId" type="id" is-pk="true"/>
+        <field name="jobName" type="text-short"/>
+        <field name="userId" type="id"><description>The user that initiated the job run</description></field>
+        <field name="parameters" type="text-long"/>
+        <field name="results" type="text-long"/>
+        <field name="messages" type="text-long"/>
+        <field name="errors" type="text-long"/>
+        <field name="hostAddress" type="text-short"/>
+        <field name="hostName" type="text-medium"/>
+        <field name="runThread" type="text-medium"/>
+        <field name="startTime" type="date-time"/>
+        <field name="endTime" type="date-time"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <entity entity-name="ServiceJobRunLock" package-name="moqui.service.job" group-name="transactional" cache="never">
+        <description>Runtime data for a scheduled ServiceJob (with a cronExpression), managed automatically by the service job runner.</description>
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="jobRunId" type="id"><description>If not null this is the currently running job instance.</description></field>
+        <field name="nextRunDate" type="date-time"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+    </entity>
+
+    <!-- ========================================================= -->
     <!-- moqui.service.semaphore -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" cache="never">
+    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" group-name="transactional" cache="never">
         <field name="serviceName" type="text-medium" is-pk="true"/>
         <field name="parameterValue" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
@@ -29,7 +101,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.scheduler -->
     <!-- ========================================================= -->
 
-    <entity entity-name="SchedulerHistory" package-name="moqui.service.scheduler" cache="never">
+    <entity entity-name="SchedulerHistory" package-name="moqui.service.scheduler" group-name="nontransactional" cache="never">
         <field name="schedulerHistoryId" type="id" is-pk="true"/>
         <field name="hostAddress" type="text-short"/>
         <field name="hostName" type="text-medium"/>
