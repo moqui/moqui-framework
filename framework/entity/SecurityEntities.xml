@@ -420,8 +420,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="topic" type="text-medium" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="titleTemplate" type="text-long"/>
+        <field name="errorTitleTemplate" type="text-long"><description>If populated used when type=danger</description></field>
         <field name="linkTemplate" type="text-long"/>
-        <field name="typeString" type="text-short"/>
+        <field name="typeString" type="text-short"><description>One of: info, success, warning, danger</description></field>
         <field name="showAlert" type="text-indicator"/>
         <field name="persistOnSend" type="text-indicator"/>
         <field name="isPrivate" type="text-indicator"><description>If Y user must be associated to see it or receive notifications.</description></field>

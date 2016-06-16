@@ -118,7 +118,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
     static class ServiceJobCallable implements Callable<Map<String, Object>>, Externalizable {
         transient ExecutionContextFactoryImpl ecfi
         String threadTenantId, threadUsername, currentUserId
-        String jobName, serviceName, topic, jobRunId
+        String jobName, jobDescription, serviceName, topic, jobRunId
         Map<String, Object> parameters
 
         ServiceJobCallable(ExecutionContextImpl eci, Map<String, Object> serviceJob, String jobRunId, Map<String, Object> parameters) {
@@ -127,6 +127,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             threadUsername = eci.user.username
             currentUserId = eci.user.userId
             jobName = (String) serviceJob.jobName
+            jobDescription = (String) serviceJob.description
             serviceName = (String) serviceJob.serviceName
             topic = (String) serviceJob.topic
             this.jobRunId = jobRunId
@@ -139,6 +140,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             out.writeObject(threadUsername) // might be null
             out.writeObject(currentUserId) // might be null
             out.writeUTF(jobName) // never null
+            out.writeObject(jobDescription) // might be null
             out.writeUTF(serviceName) // never null
             out.writeObject(topic) // might be null
             out.writeUTF(jobRunId) // never null
@@ -151,6 +153,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             threadUsername = (String) objectInput.readObject()
             currentUserId = (String) objectInput.readObject()
             jobName = objectInput.readUTF()
+            jobDescription = objectInput.readObject()
             serviceName = objectInput.readUTF()
             topic = (String) objectInput.readObject()
             jobRunId = objectInput.readUTF()
@@ -189,6 +192,10 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 String messages = threadEci.message.getMessagesString()
                 String errors = threadEci.message.getErrorsString()
                 Timestamp nowTimestamp = threadEci.user.nowTimestamp
+
+                // before calling other services clear out errors or they won't run
+                if (hasError) threadEci.message.clearErrors()
+
                 // NOTE: no need to run async or separate thread, is in separate TX because no wrapping TX for these service calls
                 ecfi.service.sync().name("update", "moqui.service.job.ServiceJobRun")
                         .parameters([jobRunId:jobRunId, endTime:nowTimestamp, results:resultString,
@@ -196,11 +203,11 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                         .disableAuthz().call()
 
                 // if topic send NotificationMessage
-                if (topic && !hasError) {
+                if (topic) {
                     NotificationMessage nm = threadEci.makeNotificationMessage().topic(topic)
                     Map<String, Object> msgMap = new HashMap<>()
-                    msgMap.put("serviceCallRun", [jobName:jobName, jobRunId:jobRunId, endTime:nowTimestamp,
-                          messages:messages, hasError:hasError, errors:errors])
+                    msgMap.put("serviceCallRun", [jobName:jobName, description:jobDescription, jobRunId:jobRunId,
+                            endTime:nowTimestamp, messages:messages, hasError:hasError, errors:errors])
                     msgMap.put("parameters", parameters)
                     msgMap.put("results", results)
                     nm.message(msgMap)
@@ -212,9 +219,9 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                         if (serviceJobUser.receiveNotifications != 'N')
                             nm.userId((String) serviceJobUser.userId)
 
+                    nm.type(hasError ? NotificationMessage.danger : NotificationMessage.success)
                     nm.send()
                 }
-                // TODO: send some sort of error notification, maybe a different topic set on ServiceRun?
 
                 return results
             } catch (Throwable t) {

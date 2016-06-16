@@ -158,8 +158,13 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
                 titleText = ecfi.resource.expand(titleTemplate, "", getMessageMap(), true)
             } else {
                 EntityValue localNotTopic = getNotificationTopic()
-                if (localNotTopic != null && localNotTopic.titleTemplate)
-                    titleText = ecfi.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
+                if (localNotTopic != null) {
+                    if (type == danger && localNotTopic.errorTitleTemplate) {
+                        titleText = ecfi.resource.expand((String) localNotTopic.errorTitleTemplate, "", getMessageMap(), true)
+                    } else if (localNotTopic.titleTemplate) {
+                        titleText = ecfi.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
+                    }
+                }
             }
         }
         return titleText

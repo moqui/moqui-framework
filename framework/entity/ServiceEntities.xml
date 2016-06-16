@@ -31,8 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
             server in a cluster listening for async distributed services (if an async distributed executor is configured).</description></field>
 
         <field name="cronExpression" type="text-short"><description>
-            An extended cron expression like Unix crontab but with a seconds field and extended syntax options
-            (L, W, etc) similar to Quartz Scheduler. See:
+            An extended cron expression like Unix crontab but with extended syntax options (L, W, etc) similar to Quartz Scheduler. See:
 
             http://cron-parser.com
             http://www.quartz-scheduler.org/documentation/quartz-2.2.x/tutorials/tutorial-lesson-06.html
