@@ -10,6 +10,8 @@
         [0 0/2 * * * ?] every 2 minutes
     -->
 
+    <!-- TODO: remove these once scheduled ServiceJob functionality is implemented -->
+
     <schedule>
         <job>
             <name>clean_ArtifactData_single</name>
@@ -124,7 +126,7 @@
         <job>
             <name>poll_EmailServer_single</name>
             <group>org.moqui.impl.EmailServices.poll#EmailServer</group>
-            <description>Run All EntitySync</description>
+            <description>Poll EmailServer to get new messages</description>
             <job-class>org.moqui.impl.service.ServiceQuartzJob</job-class>
             <job-data-map>
                 <entry><key>emailServerId</key><value>SYSTEM</value></entry>
