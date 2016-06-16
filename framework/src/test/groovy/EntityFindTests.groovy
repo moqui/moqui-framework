@@ -72,6 +72,15 @@ class EntityFindTests extends Specification {
         "testDateTime" | timestamp
     }
 
+    def "find TestEntity and GeoAndType by null PK"() {
+        when:
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition("testId", null).one()
+        EntityValue geoAndType = ec.entity.find("moqui.basic.GeoAndType").condition("geoId", null).one()
+        then:
+        testEntity == null
+        geoAndType == null
+    }
+
     @Unroll
     def "find TestEntity by operator condition (#fieldName #operator #value)"() {
         expect:

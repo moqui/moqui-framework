@@ -77,11 +77,6 @@ public interface ServiceCallSchedule extends ServiceCall {
      */
     ServiceCallSchedule cron(String cronString);
 
-    /** Maximum number of times to retry running this service.
-     * @return Reference to this for convenience.
-     */
-    ServiceCallSchedule maxRetry(int maxRetry);
-
     /** Schedule the service call. */
     void call() throws ServiceException;
 }

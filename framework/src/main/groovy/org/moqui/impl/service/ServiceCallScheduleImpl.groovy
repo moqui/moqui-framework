@@ -42,7 +42,6 @@ class ServiceCallScheduleImpl extends ServiceCallImpl implements ServiceCallSche
     protected Integer interval = null
     protected TimeUnit intervalUnit = null
     protected String cronString = null
-    protected int maxRetry = 1
 
     ServiceCallScheduleImpl(ServiceFacadeImpl sfi) {
         super(sfi)
@@ -85,9 +84,6 @@ class ServiceCallScheduleImpl extends ServiceCallImpl implements ServiceCallSche
 
     @Override
     ServiceCallSchedule cron(String cs) { cronString = cs; return this }
-
-    @Override
-    ServiceCallSchedule maxRetry(int mr) { maxRetry = mr; return this }
 
     @Override
     void call() {

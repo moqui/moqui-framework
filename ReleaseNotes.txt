@@ -151,6 +151,13 @@ New Features
     - Added distribute option to XML Actions service-call.@async attribute
     - Distributed executor is configurable, supported in moqui-hazelcast
   - Distributed services allow offloading service execution to worker nodes
+- Service Jobs
+  - Configure ad-hoc (explicitly executed) or scheduled jobs using the new
+    ServiceJob and related entities
+  - Tracks execution in ServiceJobRun records
+  - Can send NotificationMessage, success or error, to configured topic
+  - Run service job through ServiceCallJob interface, ec.service.job()
+  - Replacement for Quartz Scheduler scheduled services
 - Hazelcast Integration (moqui-hazelcast component)
   - These features are only enabled with this tool component in place
   - Added default Hazelcast web session replication config
@@ -413,6 +420,10 @@ Long Term To Do List - aka Informal Roadmap
   - Prototype for background process notifications, to be used for various things but start with Payroll run
     (have page return immediately, send notification when done)
   - Added Notifications screen to MyAccount with transition to set receiveDate
+  - Increment message, event, task count labels in header?
+    - DataDocument add flag if new or updated
+    - if new increment count with JS
+    - Side note: DataDocument add info about what was updated somehow?
 
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine
   - do in moqui-caffeine tool component

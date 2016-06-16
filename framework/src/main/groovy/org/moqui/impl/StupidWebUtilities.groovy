@@ -14,7 +14,7 @@
 package org.moqui.impl
 
 import groovy.transform.CompileStatic
-import org.apache.commons.lang.StringEscapeUtils
+import org.apache.commons.codec.net.URLCodec
 import org.apache.http.HttpEntity
 import org.apache.http.NameValuePair
 import org.apache.http.client.entity.UrlEncodedFormEntity
@@ -44,6 +44,7 @@ class StupidWebUtilities {
 
     private static PolicyFactory safeHtmlPolicy = EbayPolicyExample.POLICY_DEFINITION
     public static PolicyFactory getSafeHtmlPolicy() { return safeHtmlPolicy }
+    protected final static URLCodec urlCodec = new URLCodec()
 
     static final char tildeChar = '~' as char
     public static Map<String, Object> getPathInfoParameterMap(String pathInfoStr) {
@@ -257,7 +258,7 @@ class StupidWebUtilities {
                 canVal = newList
                 for (Object obj in lst) {
                     if (obj instanceof CharSequence) {
-                        newList.add(StringEscapeUtils.unescapeHtml(obj.toString()))
+                        newList.add(urlCodec.decode(obj.toString()))
                     } else {
                         newList.add(obj)
                     }
@@ -265,7 +266,7 @@ class StupidWebUtilities {
             }
         }
         // catch strings or lists with a single string in them unwrapped above
-        if (canVal instanceof CharSequence) canVal = StringEscapeUtils.unescapeHtml(canVal.toString())
+        if (canVal instanceof CharSequence) canVal = urlCodec.decode(canVal.toString())
         return canVal
     }
 

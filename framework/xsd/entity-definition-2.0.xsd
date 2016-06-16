@@ -164,7 +164,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="field">
         <xs:complexType>
             <xs:sequence><xs:element minOccurs="0" ref="description"/></xs:sequence>
-            <xs:attribute name="name" type="name-lower" use="required"/>
+            <xs:attribute name="name" type="name-field" use="required"/>
             <xs:attribute name="column-name" type="xs:string"/>
             <xs:attribute name="type" type="field-type-options" use="required"/>
             <xs:attribute name="is-pk" default="false" type="boolean"/>
@@ -231,8 +231,8 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="key-map">
         <xs:complexType>
-            <xs:attribute name="field-name" type="name-lower" use="required"/>
-            <xs:attribute name="related-field-name" type="name-lower"/>
+            <xs:attribute name="field-name" type="name-field" use="required"/>
+            <xs:attribute name="related-field-name" type="name-field"/>
         </xs:complexType>
     </xs:element>
 
@@ -392,8 +392,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="complex-alias"/>
             </xs:sequence>
             <xs:attribute name="entity-alias" type="name-plain"/>
-            <xs:attribute name="name" type="name-lower" use="required"/>
-            <xs:attribute name="field" type="name-lower"/>
+            <xs:attribute name="name" type="name-field" use="required"/>
+            <xs:attribute name="field" type="name-field"/>
             <xs:attribute name="function" type="aggregate-function"/>
             <xs:attribute name="type" type="field-type-options" use="optional">
                 <xs:annotation><xs:documentation>Normally determined automatically from the entity field it is based on
@@ -428,7 +428,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="complex-alias-field">
         <xs:complexType>
             <xs:attribute name="entity-alias" type="name-plain" use="required"/>
-            <xs:attribute name="field" type="name-lower" use="required"/>
+            <xs:attribute name="field" type="name-field" use="required"/>
             <xs:attribute name="default-value" type="xs:string"/>
             <xs:attribute name="function" type="aggregate-function"/>
         </xs:complexType>
@@ -465,10 +465,10 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="econdition">
         <xs:complexType>
             <xs:attribute name="entity-alias" type="name-plain"/>
-            <xs:attribute name="field-name" type="name-lower" use="required"/>
+            <xs:attribute name="field-name" type="name-field" use="required"/>
             <xs:attribute name="operator" default="equals" type="operator-entity"/>
             <xs:attribute name="to-entity-alias" type="name-plain"/>
-            <xs:attribute name="to-field-name" type="name-lower"/>
+            <xs:attribute name="to-field-name" type="name-field"/>
             <xs:attribute name="value" type="xs:string"/>
             <xs:attribute name="ignore-case" default="false" type="boolean"/>
             <xs:attribute name="or-null" type="boolean" default="false">
@@ -511,7 +511,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:complexType>
     </xs:element>
     <xs:element name="order-by">
-        <!-- NOTE: note a more constrained name-lower or something as can have |+|-|^|,| etc characters -->
+        <!-- NOTE: note a more constrained name-field or something as can have |+|-|^|,| etc characters -->
         <xs:complexType><xs:attribute name="field-name" type="xs:string" use="required"/></xs:complexType>
     </xs:element>
 </xs:schema>

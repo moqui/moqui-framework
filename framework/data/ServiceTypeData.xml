@@ -21,4 +21,33 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.StatusItem description="Finished" sequenceNum="10" statusCode="FINISHED" statusId="SCHSER_FINISHED" statusTypeId="SCHED_SERVICE"/>
     <moqui.basic.StatusItem description="Crashed" sequenceNum="40" statusCode="CRASHED" statusId="SCHSER_CRASHED" statusTypeId="SCHED_SERVICE"/>
     <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusCode="CANCELLED" statusId="SCHSER_CANCELLED" statusTypeId="SCHED_SERVICE"/>
+
+    <!-- ========== Framework Scheduled ServiceJob Data ========== -->
+    <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
+
+    <moqui.service.job.ServiceJob jobName="clean_ArtifactData_daily" description="Clean Artifact Data: ArtifactHit, ArtifactHitBin"
+            serviceName="org.moqui.impl.ServerServices.clean#ArtifactData" cronExpression="0 0 2 * * ?" paused="N">
+        <parameters parameterName="daysToKeep" parameterValue="30"/>
+    </moqui.service.job.ServiceJob>
+    <!-- TODO: remove clean_SchedulerHistory_daily when Quartz Scheduler removed (or move to moqui-quartz component) -->
+    <moqui.service.job.ServiceJob jobName="clean_SchedulerHistory_daily" description="Clean SchedulerHistory Data"
+            serviceName="org.moqui.impl.ServiceServices.clean#SchedulerHistory" cronExpression="0 0 2 * * ?" paused="N">
+        <parameters parameterName="daysToKeep" parameterValue="30"/>
+    </moqui.service.job.ServiceJob>
+
+    <!-- Change paused to 'N' to run the EntitySync job -->
+    <moqui.service.job.ServiceJob jobName="run_EntitySyncAll_frequent" description="Run All EntitySync"
+            serviceName="org.moqui.impl.EntitySyncServices.run#EntitySyncAll" cronExpression="0 0/15 * * * ?" paused="Y"/>
+
+    <!-- Change paused to 'N' to run SystemMessage send produced and consume received jobs -->
+    <moqui.service.job.ServiceJob jobName="send_AllProducedSystemMessages_frequent" description="Send All Produced SystemMessages"
+            serviceName="org.moqui.impl.SystemMessageServices.send#AllProducedSystemMessages" cronExpression="0 0/15 * * * ?" paused="Y"/>
+    <moqui.service.job.ServiceJob jobName="consume_AllReceivedSystemMessages_frequent" description="Consume All Received SystemMessages"
+            serviceName="org.moqui.impl.SystemMessageServices.consume#AllReceivedSystemMessages" cronExpression="0 0/15 * * * ?" paused="Y"/>
+
+    <!-- Change paused to 'N' to run the poll EmailServer job; NOTE emailServerId=SYSTEM, change if needed along with run frequency -->
+    <moqui.service.job.ServiceJob jobName="poll_EmailServer_frequent" description="Poll EmailServer to get new messages"
+            serviceName="org.moqui.impl.EmailServices.poll#EmailServer" cronExpression="0 0/15 * * * ?" paused="Y">
+        <parameters parameterName="emailServerId" parameterValue="SYSTEM"/>
+    </moqui.service.job.ServiceJob>
 </entity-facade-xml>

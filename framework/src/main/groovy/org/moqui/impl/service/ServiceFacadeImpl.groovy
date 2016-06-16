@@ -134,15 +134,11 @@ class ServiceFacadeImpl implements ServiceFacade {
         scheduler.shutdown(true)
     }
 
-    @CompileStatic
     ExecutionContextFactoryImpl getEcfi() { return ecfi }
 
-    @CompileStatic
     ServiceRunner getServiceRunner(String type) { return serviceRunners.get(type) }
-    @CompileStatic
     RestApi getRestApi() { return restApi }
 
-    @CompileStatic
     boolean isServiceDefined(String serviceName) {
         ServiceDefinition sd = getServiceDefinition(serviceName)
         if (sd != null) return true
@@ -153,20 +149,17 @@ class ServiceFacadeImpl implements ServiceFacade {
         return isEntityAutoPattern(path, verb, noun)
     }
 
-    @CompileStatic
     boolean isEntityAutoPattern(String serviceName) {
         return isEntityAutoPattern(ServiceDefinition.getPathFromName(serviceName), ServiceDefinition.getVerbFromName(serviceName),
                 ServiceDefinition.getNounFromName(serviceName))
     }
 
-    @CompileStatic
     boolean isEntityAutoPattern(String path, String verb, String noun) {
         // if no path, verb is create|update|delete and noun is a valid entity name, do an implicit entity-auto
         return !path && EntityAutoServiceRunner.verbSet.contains(verb) && getEcfi().getEntityFacade("DEFAULT").isEntityDefined(noun)
     }
 
 
-    @CompileStatic
     ServiceDefinition getServiceDefinition(String serviceName) {
         ServiceDefinition sd = (ServiceDefinition) serviceLocationCache.get(serviceName)
         if (sd != null) return sd
@@ -188,7 +181,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         return makeServiceDefinition(serviceName, path, verb, noun)
     }
 
-    @CompileStatic
     protected synchronized ServiceDefinition makeServiceDefinition(String origServiceName, String path, String verb, String noun) {
         String cacheKey = makeCacheKey(path, verb, noun)
         if (serviceLocationCache.containsKey(cacheKey)) {
@@ -211,7 +203,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         return sd
     }
 
-    @CompileStatic
     protected static String makeCacheKey(String path, String verb, String noun) {
         // use a consistent format as the key in the cache, keeping in mind that the verb and noun may be merged in the serviceName passed in
         // no # here so that it doesn't matter if the caller used one or not
@@ -387,7 +378,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         return numLoaded
     }
 
-    @CompileStatic
     void runSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when) {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
         // remove the hash if there is one to more consistently match the service name
@@ -402,7 +392,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
 
-    @CompileStatic
     void registerTxSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results) {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
         // remove the hash if there is one to more consistently match the service name
@@ -449,40 +438,33 @@ class ServiceFacadeImpl implements ServiceFacade {
         if (logger.infoEnabled) logger.info("Loaded [${numLoaded}] Email ECA rules from [${rr.location}]")
     }
 
-    @CompileStatic
     void runEmecaRules(MimeMessage message, String emailServerId) {
         ExecutionContextImpl eci = ecfi.getEci()
         for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, eci)
     }
 
     @Override
-    @CompileStatic
     ServiceCallSync sync() { return new ServiceCallSyncImpl(this) }
-
     @Override
-    @CompileStatic
     ServiceCallAsync async() { return new ServiceCallAsyncImpl(this) }
+    @Override
+    ServiceCallJob job(String jobName) { return new ServiceCallJobImpl(jobName, this) }
 
     @Override
-    @CompileStatic
     ServiceCallSchedule schedule() { return new ServiceCallScheduleImpl(this) }
 
     @Override
-    @CompileStatic
     ServiceCallSpecial special() { return new ServiceCallSpecialImpl(this) }
 
     @Override
-    @CompileStatic
     Map<String, Object> callJsonRpc(String location, String method, Map<String, Object> parameters) {
         return RemoteJsonRpcServiceRunner.runJsonService(null, location, method, parameters, ecfi.getExecutionContext())
     }
 
     @Override
-    @CompileStatic
     RestClient rest() { return new RestClientImpl(ecfi) }
 
     @Override
-    @CompileStatic
     void registerCallback(String serviceName, ServiceCallback serviceCallback) {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
         if (callbackList == null) {
@@ -506,12 +488,10 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     @Override
-    @CompileStatic
     Scheduler getScheduler() { return scheduler }
 
     // ========== Quartz Listeners ==========
 
-    @CompileStatic
     static boolean shouldSkipScheduleHistory(TriggerKey triggerKey) {
         // filter out high-frequency, temporary jobs (these are mostly async service calls)
         return triggerKey.getGroup() == "NowTrigger"

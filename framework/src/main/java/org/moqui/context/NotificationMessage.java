@@ -31,6 +31,11 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationMessage userGroupId(String userGroupId);
     String getUserGroupId();
 
+    /** Get userId for all users associated with this notification, directly or through the UserGroup, and who have
+     * NotificationTopicUser.receiveNotifications=Y, which if not set (or there is no NotificationTopicUser record)
+     * defaults to NotificationTopic.receiveNotifications (if not set defaults to Y) */
+    Set<String> getNotifyUserIds();
+
     NotificationMessage topic(String topic);
     String getTopic();
 
@@ -81,7 +86,7 @@ public interface NotificationMessage extends java.io.Serializable {
 
     String getNotificationMessageId();
     NotificationMessage markSent(String userId);
-    NotificationMessage markReceived(String userId);
+    NotificationMessage markViewed(String userId);
 
     /** Get a Map with: topic, sentDate, notificationMessageId, message, title, link, type, and showAlert using the get method for each */
     Map<String, Object> getWrappedMessageMap();
