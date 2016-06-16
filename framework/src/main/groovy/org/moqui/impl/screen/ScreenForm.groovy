@@ -1083,11 +1083,19 @@ class ScreenForm {
             return headerField.hasChild("submit")
         }
         boolean isListFieldHidden(MNode fieldNode) {
+            if (isListFieldHiddenAttr(fieldNode)) return true
+            return isListFieldHiddenWidget(fieldNode)
+        }
+
+        private boolean isListFieldHiddenAttr(MNode fieldNode) {
             String hideAttr = fieldNode.attribute("hide")
             if (hideAttr != null && hideAttr.length() > 0) {
-                boolean hideResult = ecfi.getEci().resource.condition(hideAttr, "")
-                if (hideResult) return true
+                return ecfi.getEci().resource.condition(hideAttr, "")
             }
+            return false
+        }
+
+        private boolean isListFieldHiddenWidget(MNode fieldNode) {
             // if default-field or any conditional-field don't have hidden or ignored elements then it's not hidden
             MNode defaultField = fieldNode.first("default-field")
             if (defaultField != null && !defaultField.hasChild("hidden") && !defaultField.hasChild("ignored")) return false
@@ -1095,6 +1103,7 @@ class ScreenForm {
             for (MNode condField in condFieldList) if (!condField.hasChild("hidden") && !condField.hasChild("ignored")) return false
             return true
         }
+
         ArrayList<FtlNodeWrapper> getListHiddenFieldList() {
             if (hiddenFieldList != null) return hiddenFieldList
 
@@ -1102,7 +1111,7 @@ class ScreenForm {
             int afnSize = allFieldNodes.size()
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
-                if (isListFieldHidden(fieldNode)) fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
+                if (isListFieldHiddenWidget(fieldNode) && !isListFieldHiddenAttr(fieldNode)) fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
             }
 
             hiddenFieldList = fieldList
