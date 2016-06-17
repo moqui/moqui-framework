@@ -67,9 +67,6 @@ dependencies {
 
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
 
-    // javax.rules, needed for Drools
-    compile 'jsr94:jsr94:1.1' // ???
-
     // Mylyn Wikitext: only older versions found in jcenter or mvnrepository
     compile name: 'org.eclipse.mylyn.wikitext.core_1.8.0.I20121130-0624', version: '' // EPL
     compile name: 'org.eclipse.mylyn.wikitext.confluence.core_1.8.0.I20121130-0624', version: '' // EPL
@@ -83,7 +80,7 @@ dependencies {
     // Apache Commons
     compile 'org.apache.commons:commons-csv:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.4' // Apache 2.0
-    // nothing else using it any more: compile 'org.apache.commons:commons-lang3:3.4' // Apache 2.0
+    compile 'org.apache.commons:commons-lang3:3.4' // Apache 2.0; used by cron-utils, may use internally
     compile 'commons-beanutils:commons-beanutils:1.9.2' // Apache 2.0
     compile 'commons-codec:commons-codec:1.10' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
@@ -93,6 +90,9 @@ dependencies {
     compile 'commons-io:commons-io:2.5' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
+
+    // cron-utils
+    compile 'com.cronutils:cron-utils:4.1.0' // Apache 2.0
 
     // ElasticSearch Libraries, including Lucene
     compile 'org.elasticsearch:elasticsearch:2.3.3' // Apache 2.0
@@ -122,7 +122,7 @@ dependencies {
     compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
-    // Guava (used by OWASP Java HTML Sanitizer, ElasticSearch, may use internally in framework too)
+    // Guava (big but used cron-utils, ElasticSearch, by OWASP Java HTML Sanitizer, may use internally in framework too)
     compile 'com.google.guava:guava:19.0' // Apache 2.0
 
     // Java Specifications
