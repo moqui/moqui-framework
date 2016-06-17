@@ -670,6 +670,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     CacheFacadeImpl getCacheFacade() { return this.cacheFacade }
 
+    Collection<EntityFacadeImpl> getAllEntityFacades() { entityFacadeByTenantMap.values() }
     EntityFacadeImpl getEntityFacade() { return getEntityFacade(getExecutionContext().getTenantId()) }
     EntityFacadeImpl getEntityFacade(String tenantId) {
         // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now

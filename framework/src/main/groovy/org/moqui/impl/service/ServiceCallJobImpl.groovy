@@ -39,6 +39,8 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
     private String jobName
     private EntityValue serviceJob
     private Future<Map<String, Object>> runFuture = (Future) null
+    private String withJobRunId = (String) null
+    private boolean clearLock = false
 
     ServiceCallJobImpl(String jobName, ServiceFacadeImpl sfi) {
         super(sfi)
@@ -65,21 +67,29 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
     @Override
     ServiceCallJob parameter(String name, Object value) { parameters.put(name, value); return this }
 
+    ServiceCallJob withJobRunId(String jobRunId) { withJobRunId = jobRunId; return this }
+    ServiceCallJob clearLock() { clearLock = true; return this }
+
     @Override
     String run() throws ServiceException {
         ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
         ExecutionContextImpl eci = ecfi.getEci()
         validateCall(eci)
 
-        // create the ServiceJobRun record
-        String parametersString = JsonOutput.toJson(parameters)
-        Map jobRunResult = ecfi.service.sync().name("create", "moqui.service.job.ServiceJobRun")
-                .parameters([jobName:jobName, userId:eci.user.userId, parameters:parametersString] as Map<String, Object>)
-                .disableAuthz().requireNewTransaction(true).call()
-        String jobRunId = jobRunResult.jobRunId
+        String jobRunId
+        if (withJobRunId == null) {
+            // create the ServiceJobRun record
+            String parametersString = JsonOutput.toJson(parameters)
+            Map jobRunResult = ecfi.service.sync().name("create", "moqui.service.job.ServiceJobRun")
+                    .parameters([jobName:jobName, userId:eci.user.userId, parameters:parametersString] as Map<String, Object>)
+                    .disableAuthz().requireNewTransaction(true).call()
+            jobRunId = jobRunResult.jobRunId
+        } else {
+            jobRunId = withJobRunId
+        }
 
         // run it
-        ServiceJobCallable callable = new ServiceJobCallable(eci, serviceJob, jobRunId, parameters)
+        ServiceJobCallable callable = new ServiceJobCallable(eci, serviceJob, jobRunId, clearLock, parameters)
         if (sfi.distributedExecutorService == null || serviceJob.localOnly == 'Y') {
             runFuture = ecfi.workerPool.submit(callable)
         } else {
@@ -120,8 +130,12 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         String threadTenantId, threadUsername, currentUserId
         String jobName, jobDescription, serviceName, topic, jobRunId
         Map<String, Object> parameters
+        boolean clearLock
 
-        ServiceJobCallable(ExecutionContextImpl eci, Map<String, Object> serviceJob, String jobRunId, Map<String, Object> parameters) {
+        // default constructor for deserialization only!
+        ServiceJobCallable() { }
+
+        ServiceJobCallable(ExecutionContextImpl eci, Map<String, Object> serviceJob, String jobRunId, boolean clearLock, Map<String, Object> parameters) {
             ecfi = eci.ecfi
             threadTenantId = eci.tenantId
             threadUsername = eci.user.username
@@ -131,6 +145,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             serviceName = (String) serviceJob.serviceName
             topic = (String) serviceJob.topic
             this.jobRunId = jobRunId
+            this.clearLock = clearLock
             this.parameters = new HashMap<>(parameters)
         }
 
@@ -144,6 +159,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             out.writeUTF(serviceName) // never null
             out.writeObject(topic) // might be null
             out.writeUTF(jobRunId) // never null
+            out.writeBoolean(clearLock)
             out.writeObject(parameters)
         }
 
@@ -157,6 +173,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             serviceName = objectInput.readUTF()
             topic = (String) objectInput.readObject()
             jobRunId = objectInput.readUTF()
+            clearLock = objectInput.readBoolean()
             parameters = (Map<String, Object>) objectInput.readObject()
         }
 
@@ -195,6 +212,13 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
                 // before calling other services clear out errors or they won't run
                 if (hasError) threadEci.message.clearErrors()
+
+                // clear the ServiceJobRunLock if there is one
+                if (clearLock) {
+                    ecfi.service.sync().name("update", "moqui.service.job.ServiceJobRunLock")
+                            .parameters([jobName: jobName, jobRunId:null] as Map<String, Object>)
+                            .disableAuthz().call()
+                }
 
                 // NOTE: no need to run async or separate thread, is in separate TX because no wrapping TX for these service calls
                 ecfi.service.sync().name("update", "moqui.service.job.ServiceJobRun")

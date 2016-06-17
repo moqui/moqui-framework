@@ -84,7 +84,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Runtime data for a scheduled ServiceJob (with a cronExpression), managed automatically by the service job runner.</description>
         <field name="jobName" type="text-short" is-pk="true"/>
         <field name="jobRunId" type="id"><description>If not null this is the currently running job instance.</description></field>
-        <field name="nextRunDate" type="date-time"/>
+        <field name="lastRunTime" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
     </entity>
 
