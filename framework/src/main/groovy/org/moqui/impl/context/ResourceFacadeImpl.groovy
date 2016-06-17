@@ -318,7 +318,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             return null
         }
 
-        int mostDots = 0
+        int mostDots = -1
         int templateRendererExtensionsSize = templateRendererExtensions.size()
         for (int i = 0; i < templateRendererExtensionsSize; i++) {
             String ext = (String) templateRendererExtensions.get(i)
@@ -331,7 +331,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
         }
         // if there is no template renderer for extension remember that
-        if (tr == null) templateRenderers.put(fullExt, null)
+        if (tr == null) {
+            // logger.warn("No renderer found for ${location}, exts: ${templateRendererExtensions}\ntemplateRenderers: ${templateRenderers}")
+            templateRenderers.put(fullExt, null)
+        }
         return tr
     }
 
