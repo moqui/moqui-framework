@@ -30,6 +30,7 @@
     <component name="moqui-hazelcast" group="moqui" version="1.0.0" branch="master" repository="github"/>
     <component name="moqui-kie" group="moqui" version="1.0.0" branch="master" repository="github"/>
     <component name="moqui-orientdb" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="moqui-wikitext" group="moqui" version="1.0.0" branch="master" repository="github"/>
 
     <!-- Mantle Components -->
     <component name="mantle-udm" group="moqui" version="1.0.1" branch="master" repository="github"/>
