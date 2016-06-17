@@ -189,14 +189,6 @@
         <template-renderer extension=".gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
         <template-renderer extension=".html.gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
 
-        <template-renderer extension=".cwiki" class="org.moqui.wikitext.WikiTemplateRenderer"/>
-        <template-renderer extension=".cwiki.ftl" class="org.moqui.wikitext.FtlCwikiTemplateRenderer"/>
-        <template-renderer extension=".confluence" class="org.moqui.wikitext.WikiTemplateRenderer"/>
-        <template-renderer extension=".mediawiki" class="org.moqui.wikitext.WikiTemplateRenderer"/>
-        <template-renderer extension=".textile" class="org.moqui.wikitext.WikiTemplateRenderer"/>
-        <template-renderer extension=".tracwiki" class="org.moqui.wikitext.WikiTemplateRenderer"/>
-        <template-renderer extension=".twiki" class="org.moqui.wikitext.WikiTemplateRenderer"/>
-
         <template-renderer extension=".md" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
         <template-renderer extension=".markdown" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
         <template-renderer extension=".md.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
