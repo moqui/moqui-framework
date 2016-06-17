@@ -13,26 +13,15 @@
  */
 package org.moqui.impl.service
 
-import com.cronutils.model.Cron
-import com.cronutils.model.CronType
-import com.cronutils.model.definition.CronDefinition
-import com.cronutils.model.definition.CronDefinitionBuilder
-import com.cronutils.model.time.ExecutionTime
-import com.cronutils.parser.CronParser
 import groovy.json.JsonBuilder
 import groovy.transform.CompileStatic
-import org.joda.time.DateTime
 import org.moqui.context.ResourceReference
 import org.moqui.context.ToolFactory
-import org.moqui.entity.EntityCondition
-import org.moqui.entity.EntityList
-import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.reference.ClasspathResourceReference
-import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.*
@@ -45,12 +34,7 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 import javax.mail.internet.MimeMessage
 import java.sql.Timestamp
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.ScheduledThreadPoolExecutor
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.*
 
 @CompileStatic
 class ServiceFacadeImpl implements ServiceFacade {
@@ -71,7 +55,8 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final Map<String, Object> schedulerInfoMap
 
     /** An executor for the scheduled job runner */
-    ScheduledThreadPoolExecutor jobRunnerExecutor = new ScheduledThreadPoolExecutor(1)
+    private final ScheduledThreadPoolExecutor jobRunnerExecutor = new ScheduledThreadPoolExecutor(1)
+    private final ServiceJobRunner jobRunner
 
     /** Distributed ExecutorService for async services, etc */
     protected final ExecutorService distributedExecutorService
@@ -115,9 +100,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
 
         // setup service job runner
-        ServiceJobRunner jobRunner = new ServiceJobRunner(ecfi)
-        // NOTE: make this configurable?
-        jobRunnerExecutor.scheduleAtFixedRate(jobRunner, 30, 30, TimeUnit.SECONDS)
+        jobRunner = new ServiceJobRunner(ecfi)
+        // TODO: make this configurable
+        long jobRunnerRate = 60L
+        jobRunnerExecutor.scheduleAtFixedRate(jobRunner, 60, jobRunnerRate, TimeUnit.SECONDS)
 
         // prep data for scheduler history listeners
         InetAddress localHost = ecfi.getLocalhostAddress()
@@ -155,10 +141,11 @@ class ServiceFacadeImpl implements ServiceFacade {
         scheduler.shutdown(true)
     }
 
-    ExecutionContextFactoryImpl getEcfi() { return ecfi }
+    ExecutionContextFactoryImpl getEcfi() { ecfi }
 
-    ServiceRunner getServiceRunner(String type) { return serviceRunners.get(type) }
-    RestApi getRestApi() { return restApi }
+    ServiceRunner getServiceRunner(String type) { serviceRunners.get(type) }
+    ServiceJobRunner getServiceJobRunner() { jobRunner }
+    RestApi getRestApi() { restApi }
 
     boolean isServiceDefined(String serviceName) {
         ServiceDefinition sd = getServiceDefinition(serviceName)
@@ -509,111 +496,6 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     @Override
     Scheduler getScheduler() { return scheduler }
-
-    // ========== Service Job Runner ==========
-    static class ServiceJobRunner implements Runnable {
-        private final ExecutionContextFactoryImpl ecfi
-
-        private final CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(CronType.QUARTZ)
-        private final CronParser parser = new CronParser(cronDefinition)
-        private final Map<String, ExecutionTime> executionTimeByExpression = new HashMap<>()
-
-        ServiceJobRunner(ExecutionContextFactoryImpl ecfi) {
-            this.ecfi = ecfi
-        }
-
-        @Override
-        synchronized void run() {
-            DateTime now = DateTime.now()
-
-            // Get ExecutionContext, just for disable authz
-            ExecutionContextImpl eci = ecfi.getEci()
-            eci.artifactExecution.disableAuthz()
-            try {
-                // run for each active tenant
-                for (EntityFacadeImpl efi in ecfi.getAllEntityFacades()) {
-                    // find scheduled jobs
-                    EntityList serviceJobList = efi.find("moqui.service.job.ServiceJob").useCache(true)
-                            .condition("cronExpression", EntityCondition.ComparisonOperator.NOT_EQUAL, null).list()
-                    int serviceJobListSize = serviceJobList.size()
-                    for (int i = 0; i < serviceJobListSize; i++) {
-                        EntityValue serviceJob = (EntityValue) serviceJobList.get(i)
-                        if ("Y".equals(serviceJob.paused)) continue
-
-                        String jobName = (String) serviceJob.jobName
-                        String jobRunId
-                        EntityValue serviceJobRunLock
-                        // get a lock, see if another instance is running the job
-                        // now we need to run in a transaction; note that this is running in a executor service thread, no tx should ever be in place
-                        boolean beganTransaction = ecfi.transaction.begin(null)
-                        try {
-                            serviceJobRunLock = efi.find("moqui.service.job.ServiceJobRunLock")
-                                    .condition("jobName", jobName).forUpdate(true).one()
-                            // TODO: failed with no lock reset run recovery, based on some sort of timeout for the max time a job would run?
-                            if (serviceJobRunLock != null && serviceJobRunLock.jobRunId != null) continue
-
-                            Timestamp lastRunTime = (Timestamp) serviceJobRunLock?.lastRunTime
-                            if (lastRunTime != (Object) null) {
-                                // calculate time it should have run last
-                                String cronExpression = serviceJob.cronExpression
-                                ExecutionTime executionTime = getExecutionTime(cronExpression)
-                                DateTime lastExecution = executionTime.lastExecution(now)
-
-                                // if the time it should have run last is before the time it ran last don't run it
-                                DateTime lastRunDt = new DateTime(lastRunTime.getTime())
-                                if (lastExecution.isBefore(lastRunDt)) continue
-                            }
-
-                            // create a job run and lock it
-                            EntityValue serviceJobRun = efi.makeValue("moqui.service.job.ServiceJobRun")
-                                    .set("jobName", jobName).setSequencedIdPrimary().create()
-                            jobRunId = (String) serviceJobRun.get("jobRunId")
-
-                            if (serviceJobRunLock == null) {
-                                serviceJobRunLock = efi.makeValue("moqui.service.job.ServiceJobRunLock")
-                                        .set("jobName", jobName).set("jobRunId", jobRunId)
-                                        .set("lastRunTime", new Timestamp(now.getMillis())).create()
-                            } else {
-                                serviceJobRunLock.set("jobRunId", jobRunId)
-                                        .set("lastRunTime", new Timestamp(now.getMillis())).update()
-                            }
-                        } catch (Throwable t) {
-                            String errMsg = "Error getting and checking service job run lock"
-                            ecfi.transaction.rollback(beganTransaction, errMsg, t)
-                            logger.error(errMsg, t)
-                            continue
-                        } finally {
-                            ecfi.transaction.commit(beganTransaction)
-                        }
-
-                        // at this point jobRunId and serviceJobRunLock should not be null
-                        ServiceCallJobImpl serviceCallJob = new ServiceCallJobImpl(jobName, ecfi.getServiceFacade())
-                        // use the job run we created
-                        serviceCallJob.withJobRunId(jobRunId)
-                        // clear the lock when finished
-                        serviceCallJob.clearLock()
-                        // run it, will run async
-                        serviceCallJob.run()
-                    }
-                }
-            } finally {
-                // no need, we're destroying the eci: if (!authzDisabled) eci.artifactExecution.enableAuthz()
-                eci.destroy()
-            }
-        }
-
-        // ExecutionTime appears to be reusable, so cache by cronExpression
-        ExecutionTime getExecutionTime(String cronExpression) {
-            ExecutionTime cachedEt = executionTimeByExpression.get(cronExpression)
-            if (cachedEt != null) return cachedEt
-
-            Cron cron = parser.parse(cronExpression)
-            ExecutionTime executionTime = ExecutionTime.forCron(cron)
-
-            executionTimeByExpression.put(cronExpression, executionTime)
-            return executionTime
-        }
-    }
 
     // ========== Quartz Listeners ==========
 

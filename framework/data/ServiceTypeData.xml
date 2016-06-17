@@ -29,6 +29,7 @@ along with this software (see the LICENSE.md file). If not, see
             serviceName="org.moqui.impl.ServerServices.clean#ArtifactData" cronExpression="0 0 2 * * ?" paused="N">
         <parameters parameterName="daysToKeep" parameterValue="30"/>
     </moqui.service.job.ServiceJob>
+    <!-- TODO: add ServiceJobRun cleanup service -->
     <!-- TODO: remove clean_SchedulerHistory_daily when Quartz Scheduler removed (or move to moqui-quartz component) -->
     <moqui.service.job.ServiceJob jobName="clean_SchedulerHistory_daily" description="Clean SchedulerHistory Data"
             serviceName="org.moqui.impl.ServiceServices.clean#SchedulerHistory" cronExpression="0 0 2 * * ?" paused="N">
