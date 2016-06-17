@@ -66,6 +66,7 @@ class ServiceJobRunner implements Runnable {
                 // find scheduled jobs
                 EntityList serviceJobList = efi.find("moqui.service.job.ServiceJob").useCache(true)
                         .condition("cronExpression", EntityCondition.ComparisonOperator.NOT_EQUAL, null).list()
+                serviceJobList.filterByDate("fromDate", "thruDate", new Timestamp(now.getMillis()))
                 int serviceJobListSize = serviceJobList.size()
                 for (int i = 0; i < serviceJobListSize; i++) {
                     EntityValue serviceJob = (EntityValue) serviceJobList.get(i)
