@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.context
 
-import freemarker.template.Template
 import groovy.transform.CompileStatic
 import org.apache.fop.apps.*
 import org.apache.fop.apps.io.ResourceResolverFactory
@@ -38,9 +37,6 @@ import org.slf4j.LoggerFactory
 import javax.activation.DataSource
 import javax.activation.MimetypesFileTypeMap
 import javax.cache.Cache
-import javax.cache.expiry.Duration
-import javax.cache.expiry.ExpiryPolicy
-import javax.cache.expiry.ModifiedExpiryPolicy
 import javax.jcr.Repository
 import javax.jcr.RepositoryFactory
 import javax.jcr.Session
@@ -165,10 +161,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
         contentSessions.remove()
     }
 
-    ExecutionContextFactoryImpl getEcfi() { return ecfi }
-    Map<String, TemplateRenderer> getTemplateRenderers() { return Collections.unmodifiableMap(templateRenderers) }
+    ExecutionContextFactoryImpl getEcfi() { ecfi }
+    Map<String, TemplateRenderer> getTemplateRenderers() { Collections.unmodifiableMap(templateRenderers) }
+    TreeSet<String> getTemplateRendererExtensionSet() { new TreeSet(templateRendererExtensions) }
 
-    Repository getContentRepository(String name) { return contentRepositories.get(name) }
+    Repository getContentRepository(String name) { contentRepositories.get(name) }
 
     /** Get the active JCR Session for the context/thread, making sure it is live, and make one if needed. */
     Session getContentRepositorySession(String name) {
@@ -294,8 +291,6 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override
-    void renderTemplateInCurrentContext(String location, Writer writer) { template(location, writer) }
-    @Override
     void template(String location, Writer writer) {
         TemplateRenderer tr = getTemplateRendererByLocation(location)
         if (tr != null) {
@@ -307,6 +302,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
+    static final Set<String> binaryExtensions = new HashSet<>(["png", "jpg", "jpeg", "gif", "pdf", "doc", "docx", "xsl", "xslx"])
     TemplateRenderer getTemplateRendererByLocation(String location) {
         // match against extension for template renderer, with as many dots that match as possible (most specific match)
         int lastSlashIndex = location.lastIndexOf("/")
@@ -314,6 +310,13 @@ public class ResourceFacadeImpl implements ResourceFacade {
         String fullExt = location.substring(dotIndex + 1)
         TemplateRenderer tr = (TemplateRenderer) templateRenderers.get(fullExt)
         if (tr != null || templateRenderers.containsKey(fullExt)) return tr
+
+        int lastDotIndex = location.lastIndexOf(".", lastSlashIndex)
+        String lastExt = location.substring(lastDotIndex+ 1)
+        if (binaryExtensions.contains(lastExt)) {
+            templateRenderers.put(fullExt, null)
+            return null
+        }
 
         int mostDots = 0
         int templateRendererExtensionsSize = templateRendererExtensions.size()

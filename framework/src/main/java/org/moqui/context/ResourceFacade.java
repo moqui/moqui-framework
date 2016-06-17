@@ -42,7 +42,6 @@ public interface ResourceFacade {
     DataSource getLocationDataSource(String location);
 
     /** Render a template at the given location using the current context and write the output to the given writer. */
-    void renderTemplateInCurrentContext(String location, Writer writer);
     void template(String location, Writer writer);
 
     /** Run a script at the given location (optionally with the given method, like in a groovy class) using the current

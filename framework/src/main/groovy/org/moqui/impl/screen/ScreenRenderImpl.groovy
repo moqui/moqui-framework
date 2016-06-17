@@ -861,7 +861,7 @@ class ScreenRenderImpl implements ScreenRender {
         if ((screenPathIndex+1) >= screenUrlInfo.screenRenderDefList.size()) {
             if (screenUrlInfo.fileResourceRef) {
                 // NOTE: don't set this.outputContentType, when including in a screen the screen determines the type
-                sfi.ecfi.resourceFacade.renderTemplateInCurrentContext(screenUrlInfo.fileResourceRef.location, writer)
+                sfi.ecfi.resourceFacade.template(screenUrlInfo.fileResourceRef.location, writer)
                 return ""
             } else {
                 return "Tried to render subscreen in screen [${getActiveScreenDef()?.location}] but there is no subscreens.@default-item, and no more valid subscreen names in the screen path [${screenUrlInfo.fullPathNameList}]"
@@ -1020,7 +1020,7 @@ class ScreenRenderImpl implements ScreenRender {
             ContextStack cs = (ContextStack) ec.context
             cs.push()
             cs.put("sri", this)
-            sfi.ecfi.resourceFacade.renderTemplateInCurrentContext(location, writer)
+            sfi.ecfi.resourceFacade.template(location, writer)
             cs.pop()
             writer.flush()
             // NOTE: this returns a String so that it can be used in an FTL interpolation, but it always writes to the writer

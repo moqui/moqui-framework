@@ -70,8 +70,9 @@ Non Backward Compatible Changes
   - These methods were deprecated (usually by methods with shorter names)
     long ago and with other API changes now removing them
   - Removed getLocalizedMessage() and formatValue() from L10nFacade
-  - Removed runScriptInCurrentContext(), evaluateCondition(),
-    evaluateContextField(), and evaluateStringExpand() from ResourceFacade
+  - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(),
+    evaluateCondition(), evaluateContextField(), and evaluateStringExpand()
+    from ResourceFacade
 - ArtifactHit and ArtifactHitBin now use same artifact type enum as
   ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and

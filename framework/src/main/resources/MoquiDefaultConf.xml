@@ -184,19 +184,19 @@
         <resource-reference scheme="dbresource" class="org.moqui.impl.context.reference.DbResourceReference"/>
 
         <!-- renderer class needs to implement the org.moqui.context.TemplateRenderer interface -->
-        <template-renderer extension=".ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
-        <template-renderer extension=".html.ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
-        <template-renderer extension=".gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
-        <template-renderer extension=".html.gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
+        <template-renderer extension="ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
+        <template-renderer extension="html.ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
+        <template-renderer extension="gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
+        <template-renderer extension="html.gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
 
-        <template-renderer extension=".md" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
-        <template-renderer extension=".markdown" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
-        <template-renderer extension=".md.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
-        <template-renderer extension=".markdown.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
+        <template-renderer extension="md" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
+        <template-renderer extension="markdown" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
+        <template-renderer extension="md.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
+        <template-renderer extension="markdown.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
 
         <!-- a renderer for .html isn't necessary because the default is to write the text as-is, however this is useful
             so that the extension becomes a default extension and doesn't have to be in the URL -->
-        <template-renderer extension=".html" class="org.moqui.impl.context.renderer.NoTemplateRenderer"/>
+        <template-renderer extension="html" class="org.moqui.impl.context.renderer.NoTemplateRenderer"/>
 
         <!-- this is just an example, always use the ScriptRunner interface instead of javax.script because javax.script
             does not support compiling class scripts and running methods within the class, but Groovy does

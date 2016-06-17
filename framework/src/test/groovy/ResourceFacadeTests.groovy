@@ -68,7 +68,7 @@ class ResourceFacadeTests extends Specification {
         "classpath://shiro.ini" | "org.moqui.impl.util.MoquiShiroRealm"
     }
 
-    // TODO: add tests for renderTemplateInCurrentContext and script
+    // TODO: add tests for template() and script()
 
     @Unroll
     def "groovy evaluate Condition (#expression)"() {
