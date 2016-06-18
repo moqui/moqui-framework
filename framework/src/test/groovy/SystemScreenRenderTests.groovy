@@ -93,12 +93,6 @@ class SystemScreenRenderTests extends Specification {
         // NOTE: without a real browser client not much to test in ElFinder
         "Resource/ElFinder" | "" | ""
 
-        // Scheduler screens
-        "Scheduler/SchedulerDetail" | "ServerServices" | "org.moqui.impl.ServerServices.clean#ArtifactData"
-        "Scheduler/Jobs" | "clean_ArtifactData_daily" | ""
-        "Scheduler/Triggers" | "clean_ArtifactData_single" | ""
-        "Scheduler/History" | "Job Scheduled" | "clean_ArtifactData_daily"
-
         // Security screens
         "Security/UserAccount/UserAccountList?username=john.doe" | "john.doe" | "John Doe"
         "Security/UserAccount/UserAccountDetail?userId=EX_JOHN_DOE" |

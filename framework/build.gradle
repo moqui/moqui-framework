@@ -148,10 +148,6 @@ dependencies {
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
-    // Quartz Scheduler (NOTE: depends on c3p0 (with a different group) and slf4j, but we include those elsewhere, so use module)
-    compile module('org.quartz-scheduler:quartz:2.2.3') // Apache 2.0
-    compile 'org.quartz-scheduler:quartz-jobs:2.2.3' // Apache 2.0
-
     // Apache Shiro
     compile 'org.apache.shiro:shiro-core:1.2.5' // Apache 2.0
     compile 'org.apache.shiro:shiro-web:1.2.5' // Apache 2.0

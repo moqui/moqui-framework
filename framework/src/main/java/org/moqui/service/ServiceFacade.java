@@ -14,7 +14,6 @@
 package org.moqui.service;
 
 import java.util.Map;
-import org.quartz.Scheduler;
 
 /** ServiceFacade Interface */
 @SuppressWarnings("unused")
@@ -32,12 +31,6 @@ public interface ServiceFacade {
      * @param jobName The name of the job. There must be a moqui.service.job.ServiceJob record for this jobName.
      */
     ServiceCallJob job(String jobName);
-
-    /** Get a service caller to schedule a service. */
-    @Deprecated
-    ServiceCallSchedule schedule();
-    @Deprecated
-    Scheduler getScheduler();
 
     /** Get a service caller for special service calls such as on commit and on rollback of current transaction. */
     ServiceCallSpecial special();

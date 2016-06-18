@@ -18,6 +18,25 @@ Non Backward Compatible Changes
 
 - Java JDK 8 now required for running executable WAR
 - No longer using Winstone embedded web server (now using Jetty)
+- Caching
+  - Ehcache has been removed
+  - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
+  - Configuration options for caches changed (moqui-conf.cache-list.cache)
+- Service Job Scheduling
+  - Quartz Scheduler has been removed, use new ServiceJob instead which
+    supports more relevant options, is much cleaner and more manageable
+  - Removed ServiceFacade.getScheduler() method
+  - Removed ServiceCallSchedule interface, implementation, and
+    ServiceFacade.schedule() factory method
+  - Removed ServiceQuartzJob class (impl of Job interface)
+  - Removed EntityJobStore class (impl of JobStore interface); this is a
+    huge and complicated class to handle the various complexities of Quartz
+    and was never fully working, had some remaining issues in testing
+  - Removed HistorySchedulerListener and HistoryTriggerListener classes
+  - Removed all entities in the moqui.service.scheduler and
+    moqui.service.quartz packages
+  - Removed quartz.properties and quartz_data.xml configuration files
+  - Removed Scheduler screens from System app in tools component
 - Externalized Tools
   - OrientDB and Entity Facade interface implementations are now in the
     moqui-orientdb component, see its README.md for usage
@@ -43,10 +62,6 @@ Non Backward Compatible Changes
   - NotificationMessage, NotificationMessageListener interfaces have
     various changes for more features and to better support serialized
     messages for notification through a distributed topic
-- Caching
-  - Ehcache has been removed
-  - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
-  - Configuration options for caches changed (moqui-conf.cache-list.cache)
 - Async Services
   - Now uses more standard java.util.concurrent interfaces
   - Removed ServiceCallAsync.maxRetry() - was never supported
