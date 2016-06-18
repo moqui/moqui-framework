@@ -52,6 +52,7 @@ class ScheduledJobRunner implements Runnable {
     synchronized void run() {
         DateTime now = DateTime.now()
         lastExecuteTime = now.getMillis()
+        Timestamp nowTimestamp = new Timestamp(now.getMillis())
         int jobsRun = 0
         int jobsActive = 0
         int jobsPaused = 0
@@ -72,7 +73,7 @@ class ScheduledJobRunner implements Runnable {
                 // find scheduled jobs
                 EntityList serviceJobList = efi.find("moqui.service.job.ServiceJob").useCache(true)
                         .condition("cronExpression", EntityCondition.ComparisonOperator.NOT_EQUAL, null).list()
-                serviceJobList.filterByDate("fromDate", "thruDate", new Timestamp(now.getMillis()))
+                serviceJobList.filterByDate("fromDate", "thruDate", nowTimestamp)
                 int serviceJobListSize = serviceJobList.size()
                 for (int i = 0; i < serviceJobListSize; i++) {
                     EntityValue serviceJob = (EntityValue) serviceJobList.get(i)
@@ -87,7 +88,7 @@ class ScheduledJobRunner implements Runnable {
                         if (runCount >= repeatCount) {
                             // pause the job and set thruDate for faster future filtering
                             ecfi.service.sync().name("update", "moqui.service.job.ServiceJob")
-                                    .parameters([jobName: jobName, paused:'Y', thruDate:new Timestamp(now.getMillis())] as Map<String, Object>)
+                                    .parameters([jobName: jobName, paused:'Y', thruDate:nowTimestamp] as Map<String, Object>)
                                     .disableAuthz().call()
                             continue
                         }
@@ -95,6 +96,7 @@ class ScheduledJobRunner implements Runnable {
                     jobsActive++
 
                     String jobRunId
+                    EntityValue serviceJobRun
                     EntityValue serviceJobRunLock
                     // get a lock, see if another instance is running the job
                     // now we need to run in a transaction; note that this is running in a executor service thread, no tx should ever be in place
@@ -129,17 +131,17 @@ class ScheduledJobRunner implements Runnable {
                         }
 
                         // create a job run and lock it
-                        EntityValue serviceJobRun = efi.makeValue("moqui.service.job.ServiceJobRun")
+                        serviceJobRun = efi.makeValue("moqui.service.job.ServiceJobRun")
                                 .set("jobName", jobName).setSequencedIdPrimary().create()
                         jobRunId = (String) serviceJobRun.get("jobRunId")
 
                         if (serviceJobRunLock == null) {
                             serviceJobRunLock = efi.makeValue("moqui.service.job.ServiceJobRunLock")
                                     .set("jobName", jobName).set("jobRunId", jobRunId)
-                                    .set("lastRunTime", new Timestamp(now.getMillis())).create()
+                                    .set("lastRunTime", nowTimestamp).create()
                         } else {
                             serviceJobRunLock.set("jobRunId", jobRunId)
-                                    .set("lastRunTime", new Timestamp(now.getMillis())).update()
+                                    .set("lastRunTime", nowTimestamp).update()
                         }
 
                         logger.info("Running job ${jobName} run ${jobRunId} in tenant ${efi.tenantId} (last run ${lastRunTime}, schedule ${lastSchedule})")
@@ -160,9 +162,20 @@ class ScheduledJobRunner implements Runnable {
                     // clear the lock when finished
                     serviceCallJob.clearLock()
                     // run it, will run async
-                    serviceCallJob.run()
+                    try {
+                        serviceCallJob.run()
+                    } catch (Throwable t) {
+                        logger.error("Error running scheduled job ${jobName}", t)
+                        ecfi.transactionFacade.runUseOrBegin(null, "Error clearing lock and saving error on scheduled job run error", {
+                            serviceJobRunLock.set("jobRunId", null).update()
+                            serviceJobRun.set("hasError", "Y").set("errors", t.toString()).set("startTime", nowTimestamp)
+                                    .set("endTime", nowTimestamp).update()
+                        })
+                    }
                 }
             }
+        } catch (Throwable t) {
+            logger.error("Uncaught error in scheduled job runner", t)
         } finally {
             // no need, we're destroying the eci: if (!authzDisabled) eci.artifactExecution.enableAuthz()
             eci.destroy()

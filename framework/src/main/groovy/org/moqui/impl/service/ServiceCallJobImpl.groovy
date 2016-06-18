@@ -216,7 +216,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 // clear the ServiceJobRunLock if there is one
                 if (clearLock) {
                     ecfi.service.sync().name("update", "moqui.service.job.ServiceJobRunLock")
-                            .parameters([jobName: jobName, jobRunId:null] as Map<String, Object>)
+                            .parameter("jobName", jobName).parameter("jobRunId", null)
                             .disableAuthz().call()
                 }
 
