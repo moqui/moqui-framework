@@ -37,6 +37,8 @@ Non Backward Compatible Changes
     moqui.service.quartz packages
   - Removed quartz.properties and quartz_data.xml configuration files
   - Removed Scheduler screens from System app in tools component
+  - For all of these artifacts see moqui-framework commit #d42ede0 and
+    moqui-runtime commit #6a9c61e
 - Externalized Tools
   - OrientDB and Entity Facade interface implementations are now in the
     moqui-orientdb component, see its README.md for usage
