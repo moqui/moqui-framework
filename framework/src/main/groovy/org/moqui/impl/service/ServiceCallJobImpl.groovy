@@ -201,7 +201,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                         .disableAuthz().call()
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> results = threadEci.service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                Map<String, Object> results = getEcfi().service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
 
                 // set endTime, results, messages, errors on ServiceJobRun
                 String resultString = JsonOutput.toJson(results)

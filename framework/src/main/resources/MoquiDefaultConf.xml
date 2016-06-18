@@ -224,7 +224,7 @@
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
     </screen-facade>
 
-    <service-facade distributed-factory="">
+    <service-facade distributed-factory="" scheduled-job-check-time="60">
         <!-- NOTE: scheduled service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
 
         <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>

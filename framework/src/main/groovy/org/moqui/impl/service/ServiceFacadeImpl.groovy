@@ -55,8 +55,8 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final Map<String, Object> schedulerInfoMap
 
     /** An executor for the scheduled job runner */
-    private final ScheduledThreadPoolExecutor jobRunnerExecutor = new ScheduledThreadPoolExecutor(1)
-    private final ServiceJobRunner jobRunner
+    private final ScheduledThreadPoolExecutor jobRunnerExecutor
+    private final ScheduledJobRunner jobRunner
 
     /** Distributed ExecutorService for async services, etc */
     protected final ExecutorService distributedExecutorService
@@ -100,10 +100,16 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
 
         // setup service job runner
-        jobRunner = new ServiceJobRunner(ecfi)
-        // TODO: make this configurable
-        long jobRunnerRate = 60L
-        jobRunnerExecutor.scheduleAtFixedRate(jobRunner, 60, jobRunnerRate, TimeUnit.SECONDS)
+        long jobRunnerRate = (serviceFacadeNode.attribute("scheduled-job-check-time") ?: "60") as long
+        if (jobRunnerRate > 0L) {
+            jobRunnerExecutor = new ScheduledThreadPoolExecutor(1)
+            jobRunner = new ScheduledJobRunner(ecfi)
+            // wait 60 seconds before first run to make sure all is loaded and we're past an initial activity burst
+            jobRunnerExecutor.scheduleAtFixedRate(jobRunner, 60, jobRunnerRate, TimeUnit.SECONDS)
+        } else {
+            jobRunnerExecutor = null
+            jobRunner = null
+        }
 
         // prep data for scheduler history listeners
         InetAddress localHost = ecfi.getLocalhostAddress()
@@ -144,7 +150,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     ExecutionContextFactoryImpl getEcfi() { ecfi }
 
     ServiceRunner getServiceRunner(String type) { serviceRunners.get(type) }
-    ServiceJobRunner getServiceJobRunner() { jobRunner }
+    ScheduledJobRunner getServiceJobRunner() { jobRunner }
     RestApi getRestApi() { restApi }
 
     boolean isServiceDefined(String serviceName) {

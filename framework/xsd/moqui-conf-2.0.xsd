@@ -518,6 +518,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
                 The name of the ToolFactory to use for the distributed async service ExecutorService implementation.
             </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="scheduled-job-check-time" type="xs:nonNegativeInteger"><xs:annotation><xs:documentation>
+                How often to check for and run scheduled service jobs in seconds. Set to 0 (zero) to disable.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-location">
