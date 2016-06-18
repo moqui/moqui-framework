@@ -9,7 +9,10 @@ Moqui Framework 2.0.0 is a major new feature and bug fix release, with
 various non backward compatible API and other changes.
 
 This version is not yet released. The notes below are for the changes
-currently in place in the source repository.
+currently in place in the source repository. If you plan to go into
+production in the near future (before this version is released) it is
+better to use the last released version (1.6.2) as 2.0.0 contains
+significant changes.
 
 Non Backward Compatible Changes
 
