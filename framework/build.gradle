@@ -187,10 +187,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarCompile 'org.eclipse.jetty:jetty-server:9.3.9.v20160517' // Apache 2.0
-    execWarCompile 'org.eclipse.jetty:jetty-webapp:9.3.9.v20160517' // Apache 2.0
-    execWarCompile 'org.eclipse.jetty:jetty-jndi:9.3.9.v20160517' // Apache 2.0
-    execWarCompile 'org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.9.v20160517' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.9.v20160517' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.9.v20160517' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.9.v20160517' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.9.v20160517') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.9.v20160517') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.9.v20160517') // Apache 2.0
+    // only include this if using Endpoint and MessageHandler annotations:
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.9.v20160517') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
@@ -244,7 +248,7 @@ war {
 
     // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
     from sourceSets.start.output
-    from configurations.execWarCompile
+    from(files(configurations.execWarRuntime)) { into 'execlib' }
     // TODO some sort of config for Jetty? from file(projectDir.absolutePath + '/jetty/jetty.xml')
     // setup the manifest for the executable war/jar mode
     manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Framework',
