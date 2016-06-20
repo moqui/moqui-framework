@@ -258,19 +258,6 @@ return;
     if (!(<#visit childCond/>)) ec.message.addError(ec.resource.expand('''<#if .node["@title"]?has_content>[${.node["@title"]}] </#if> Assert failed: <#visit childCond/>''',''))</#list>
 </#macro>
 
-<#macro "xml-consume">
-    // TODO impl xml-consume
-</#macro>
-<#macro "xml-consume-element">
-    // TODO impl xml-consume-element
-</#macro>
-<#macro "xml-produce">
-    // TODO impl xml-produce
-</#macro>
-<#macro "xml-produce-element">
-    // TODO impl xml-produce-element
-</#macro>
-
 <#macro if>    if (<#if .node["@condition"]?has_content>${.node["@condition"]}</#if><#if .node["@condition"]?has_content && .node["condition"]?has_content> && </#if><#if .node["condition"]?has_content><#recurse .node["condition"][0]/></#if>) {
         <#recurse .node/><#if .node["then"]?has_content>
         <#recurse .node["then"][0]/></#if>
