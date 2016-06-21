@@ -334,9 +334,9 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="user-facade">
         <xs:complexType>
             <xs:sequence>
-                <xs:element ref="password"/>
-                <xs:element ref="login-key"/>
-                <xs:element ref="login"/>
+                <xs:element minOccurs="0" ref="password"/>
+                <xs:element minOccurs="0" ref="login-key"/>
+                <xs:element minOccurs="0" ref="login"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
