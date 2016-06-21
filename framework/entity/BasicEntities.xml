@@ -234,7 +234,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="statusId" type="id" is-pk="true"/>
         <field name="toStatusId" type="id" is-pk="true"/>
         <field name="transitionSequence" type="number-integer"/>
-        <field name="transitionName" type="text-medium"/>
+        <field name="transitionName" type="text-medium" enable-localization="true"/>
         <field name="conditionExpression" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.basic.StatusFlow" short-alias="flow"/>
         <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
