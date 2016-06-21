@@ -149,6 +149,7 @@ public class MoquiStart {
 
             Class<?> serverClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Server");
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
+            Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
 
             Object server = serverClass.getConstructor(int.class).newInstance(port);
 
@@ -170,6 +171,12 @@ public class MoquiStart {
             Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
             Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
             webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
+
+            // Log getMinThreads, getMaxThreads
+            Object threadPool = serverClass.getMethod("getThreadPool").invoke(server);
+            int minThreads = (int) sizedThreadPoolClass.getMethod("getMinThreads").invoke(threadPool);
+            int maxThreads = (int) sizedThreadPoolClass.getMethod("getMaxThreads").invoke(threadPool);
+            System.out.println("Jetty min threads " + minThreads + ", max threads " + maxThreads);
 
             // Start
             serverClass.getMethod("start").invoke(server);
