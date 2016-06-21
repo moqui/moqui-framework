@@ -485,7 +485,7 @@ class ScreenUrlInfo {
                     .condition("screenLocation", lastSd.location).useCache(true).disableAuthz().list()
             for (int i = 0; i < subscreensDefaultList.size(); i++) {
                 EntityValue subscreensDefault = subscreensDefaultList.get(i)
-                String condStr = (String) subscreensDefault.condition
+                String condStr = (String) subscreensDefault.conditionExpression
                 if (condStr && !ecfi.getResource().condition(condStr, "SubscreensDefault_condition")) continue
                 subscreenName = subscreensDefault.subscreenName
             }
