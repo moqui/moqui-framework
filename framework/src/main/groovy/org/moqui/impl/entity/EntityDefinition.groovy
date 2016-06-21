@@ -624,7 +624,13 @@ public class EntityDefinition {
         MasterDefinition(EntityDefinition ed, MNode masterNode) {
             name = masterNode.attribute("name") ?: "default"
             List<MNode> detailNodeList = masterNode.children("detail")
-            for (MNode detailNode in detailNodeList) detailList.add(new MasterDetail(ed, detailNode))
+            for (MNode detailNode in detailNodeList) {
+                try {
+                    detailList.add(new MasterDetail(ed, detailNode))
+                } catch (Exception e) {
+                    logger.error("Error adding detail ${detailNode.attribute("relationship")} to master ${name} of entity ${ed.getFullEntityName()}: ${e.toString()}")
+                }
+            }
         }
     }
     @CompileStatic
