@@ -83,7 +83,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         // if ("AT_XML_SCREEN" == aeii.typeEnumId) logger.warn("TOREMOVE artifact push ${username} - ${aeii}")
 
-        if (!isPermitted(aeii, lastAeii, requiresAuthz, true)) {
+        if (!isPermitted(aeii, lastAeii, requiresAuthz, true, true)) {
             Deque<ArtifactExecutionInfo> curStack = getStack()
             StringBuilder warning = new StringBuilder()
             warning.append("User ${eci.user.userId} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}\n")
@@ -221,11 +221,11 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         String name = resourceAccess.substring(secondColon + 1)
 
         return eci.artifactExecutionFacade.isPermitted(new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum),
-                null, true, true)
+                null, true, true, false)
     }
 
     boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii,
-                        boolean requiresAuthz, boolean countTarpit) {
+                        boolean requiresAuthz, boolean countTarpit, boolean isAccess) {
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)
         // right off record whether authz is required
@@ -535,16 +535,18 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 logger.debug(warning.toString())
             }
 
-            alreadyDisabled = disableAuthz()
-            try {
-                // NOTE: this is called sync because failures should be rare and not as performance sensitive, and
-                //    because this is still in a disableAuthz block (if async a service would have to be written for that)
-                eci.service.sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
-                        [artifactName:aeii.getName(), artifactTypeEnumId:artifactTypeEnum.name(),
-                         authzActionEnumId:aeii.getActionEnum().name(), userId:userId,
-                         failureDate:new Timestamp(System.currentTimeMillis()), isDeny:"N"]).call()
-            } finally {
-                if (!alreadyDisabled) enableAuthz()
+            if (isAccess) {
+                alreadyDisabled = disableAuthz()
+                try {
+                    // NOTE: this is called sync because failures should be rare and not as performance sensitive, and
+                    //    because this is still in a disableAuthz block (if async a service would have to be written for that)
+                    eci.service.sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
+                            [artifactName:aeii.getName(), artifactTypeEnumId:artifactTypeEnum.name(),
+                             authzActionEnumId:aeii.getActionEnum().name(), userId:userId,
+                             failureDate:new Timestamp(System.currentTimeMillis()), isDeny:"N"]).call()
+                } finally {
+                    if (!alreadyDisabled) enableAuthz()
+                }
             }
 
             return false
