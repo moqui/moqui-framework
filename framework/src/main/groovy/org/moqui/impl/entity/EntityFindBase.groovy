@@ -45,8 +45,11 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityDefinition entityDef = (EntityDefinition) null
     protected EntityDynamicViewImpl dynamicView = (EntityDynamicViewImpl) null
 
+    protected String singleCondField = (String) null
+    protected Object singleCondValue = null
     protected Map<String, Object> simpleAndMap = (Map<String, Object>) null
     protected EntityConditionImplBase whereEntityCondition = (EntityConditionImplBase) null
+
     protected EntityConditionImplBase havingEntityCondition = (EntityConditionImplBase) null
 
     // always initialize this as it's always used in finds (even if populated with default of all fields)
@@ -66,9 +69,6 @@ abstract class EntityFindBase implements EntityFind {
     protected Integer maxRows = (Integer) null
 
     protected boolean disableAuthz = false
-
-    protected String singleCondField = (String) null
-    protected Object singleCondValue = null
 
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
@@ -230,6 +230,16 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     @Override
+    boolean getHasCondition() {
+        if (singleCondField != null) return true
+        if (simpleAndMap != null && simpleAndMap.size() > 0) return true
+        if (whereEntityCondition != null) return true
+        return false
+    }
+    @Override
+    boolean getHasHavingCondition() { havingEntityCondition != null }
+
+    @Override
     EntityFind havingCondition(EntityCondition condition) {
         if (condition == null) return this
         if (havingEntityCondition != null) {
@@ -345,28 +355,66 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate) {
+        return searchFormInputs(inputFieldsMapName, null, defaultOrderBy, alwaysPaginate)
+    }
+    EntityFind searchFormInputs(String inputFieldsMapName, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
         ExecutionContextImpl ec = efi.getEcfi().getEci()
-        Map inf = inputFieldsMapName ? (Map) ec.resource.expression(inputFieldsMapName, "") : ec.context
-        return searchFormMap(inf, defaultOrderBy, alwaysPaginate)
+        Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ec.resource.expression(inputFieldsMapName, "") : ec.context
+        return searchFormMap(inf, null, defaultOrderBy, alwaysPaginate)
     }
 
     @Override
-    EntityFind searchFormMap(Map inf, String defaultOrderBy, boolean alwaysPaginate) {
+    EntityFind searchFormMap(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
         ExecutionContextImpl ec = efi.getEcfi().getEci()
-        EntityDefinition ed = getEntityDef()
 
         // to avoid issues with entities that have cache=true, if no cache value is specified for this set it to false (avoids pagination errors, etc)
         if (useCache == null) useCache(false)
 
-        if (inf != null && inf.size() > 0) for (String fn in ed.getAllFieldNames()) {
+        boolean addedConditions = false
+        if (inputFieldsMap != null && inputFieldsMap.size() > 0)
+            addedConditions = processInputFields(inputFieldsMap, ec)
+        if (!addedConditions && defaultParameters != null && defaultParameters.size() > 0) {
+            processInputFields(defaultParameters, ec)
+            for (Map.Entry<String, Object> dpEntry in defaultParameters.entrySet())
+                ec.context.put(dpEntry.key, dpEntry.value)
+        }
+
+        // always look for an orderByField parameter too
+        String orderByString = inputFieldsMap?.get("orderByField") ?: defaultOrderBy
+        if (orderByString != null && orderByString.length() > 0) {
+            ec.context.put("orderByField", orderByString)
+            this.orderBy(orderByString)
+        }
+
+        // look for the pageIndex and optional pageSize parameters; don't set these if should cache as will disable the cached query
+        if ((alwaysPaginate || inputFieldsMap?.get("pageIndex") || inputFieldsMap?.get("pageSize")) && !shouldCache()) {
+            int pageIndex = (inputFieldsMap?.get("pageIndex") ?: 0) as int
+            int pageSize = (inputFieldsMap?.get("pageSize") ?: (this.limit ?: 20)) as int
+            offset(pageIndex, pageSize)
+            limit(pageSize)
+        }
+
+        // if there is a pageNoLimit clear out the limit regardless of other settings
+        if (inputFieldsMap?.get("pageNoLimit") == "true" || inputFieldsMap?.get("pageNoLimit") == true) {
+            this.offset = null
+            this.limit = null
+        }
+
+        return this
+    }
+
+    protected boolean processInputFields(Map<String, Object> inputFieldsMap, ExecutionContextImpl ec) {
+        EntityDefinition ed = getEntityDef()
+        boolean addedConditions = false
+        for (String fn in ed.getAllFieldNames()) {
             // NOTE: do we need to do type conversion here?
 
             // this will handle text-find
-            if (inf.containsKey(fn) || inf.containsKey(fn + "_op")) {
-                Object value = inf.get(fn)
-                String op = inf.get(fn + "_op") ?: "equals"
-                boolean not = (inf.get(fn + "_not") == "Y" || inf.get(fn + "_not") == "true")
-                boolean ic = (inf.get(fn + "_ic") == "Y" || inf.get(fn + "_ic") == "true")
+            if (inputFieldsMap.containsKey(fn) || inputFieldsMap.containsKey(fn + "_op")) {
+                Object value = inputFieldsMap.get(fn)
+                String op = inputFieldsMap.get(fn + "_op") ?: "equals"
+                boolean not = (inputFieldsMap.get(fn + "_not") == "Y" || inputFieldsMap.get(fn + "_not") == "true")
+                boolean ic = (inputFieldsMap.get(fn + "_ic") == "Y" || inputFieldsMap.get(fn + "_ic") == "true")
 
                 EntityCondition cond = null
                 switch (op) {
@@ -423,47 +471,33 @@ abstract class EntityFindBase implements EntityFind {
                         }
                         break;
                 }
-                if (cond != null) this.condition(cond)
-            } else if (inf.get(fn + "_period")) {
-                List<Timestamp> range = ec.user.getPeriodRange((String) inf.get(fn + "_period"), (String) inf.get(fn + "_poffset"))
-                this.condition(efi.conditionFactory.makeCondition(fn,
-                        EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
-                this.condition(efi.conditionFactory.makeCondition(fn,
-                        EntityCondition.LESS_THAN, range.get(1)))
+                if (cond != null) {
+                    this.condition(cond)
+                    addedConditions = true
+                }
+            } else if (inputFieldsMap.get(fn + "_period")) {
+                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"), (String) inputFieldsMap.get(fn + "_poffset"))
+                this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
+                this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
+                addedConditions = true
             } else {
                 // these will handle range-find and date-find
-                Object fromValue = inf.get(fn + "_from")
+                Object fromValue = inputFieldsMap.get(fn + "_from")
                 if (fromValue && fromValue instanceof CharSequence) fromValue = ed.convertFieldString(fn, fromValue.toString(), ec)
-                Object thruValue = inf.get(fn + "_thru")
+                Object thruValue = inputFieldsMap.get(fn + "_thru")
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
-                if (fromValue) this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
-                if (thruValue) this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                if (fromValue) {
+                    this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
+                    addedConditions = true
+                }
+                if (thruValue) {
+                    this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                    addedConditions = true
+                }
             }
         }
-
-        // always look for an orderByField parameter too
-        String orderByString = inf?.get("orderByField") ?: defaultOrderBy
-        if (orderByString != null && orderByString.length() > 0) {
-            ec.context.put("orderByField", orderByString)
-            this.orderBy(orderByString)
-        }
-
-        // look for the pageIndex and optional pageSize parameters; don't set these if should cache as will disable the cached query
-        if ((alwaysPaginate || inf?.get("pageIndex") || inf?.get("pageSize")) && !shouldCache()) {
-            int pageIndex = (inf?.get("pageIndex") ?: 0) as int
-            int pageSize = (inf?.get("pageSize") ?: (this.limit ?: 20)) as int
-            offset(pageIndex, pageSize)
-            limit(pageSize)
-        }
-
-        // if there is a pageNoLimit clear out the limit regardless of other settings
-        if (inf?.get("pageNoLimit") == "true" || inf?.get("pageNoLimit") == true) {
-            this.offset = null
-            this.limit = null
-        }
-
-        return this
+        return addedConditions
     }
 
     EntityFind findNode(MNode node) {
@@ -483,6 +517,14 @@ abstract class EntityFindBase implements EntityFind {
         for (MNode sf in node.children("select-field")) this.selectField(sf.attribute("field-name"))
         for (MNode ob in node.children("order-by")) this.orderBy(ob.attribute("field-name"))
 
+        if (node.hasChild("search-form-inputs")) {
+            MNode sfiNode = node.first("search-form-inputs")
+            boolean paginate = (sfiNode.attribute("paginate") ?: "true") as boolean
+            MNode defaultParametersNode = sfiNode.first("default-parameters")
+            searchFormInputs(sfiNode.attribute("input-fields-map"), defaultParametersNode.attributes as Map<String, Object>,
+                    sfiNode.attribute("default-order-by"), paginate)
+        }
+
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
         if (!this.shouldCache()) {
             for (MNode df in node.children("date-filter"))
@@ -500,10 +542,6 @@ abstract class EntityFindBase implements EntityFind {
         for (MNode eco in node.children("econdition-object"))
             this.condition((EntityCondition) ec.resource.expression(eco.attribute("field"), null))
 
-        if (node.hasChild("search-form-inputs")) {
-            MNode sfiNode = node.first("search-form-inputs")
-            searchFormInputs(sfiNode.attribute("input-fields-map"), sfiNode.attribute("default-order-by"), (sfiNode.attribute("paginate") ?: "true") as boolean)
-        }
         if (node.hasChild("having-econditions")) {
             for (MNode havingCond in node.children("having-econditions"))
                 this.havingCondition(((EntityConditionFactoryImpl) efi.conditionFactory).makeActionCondition(havingCond))

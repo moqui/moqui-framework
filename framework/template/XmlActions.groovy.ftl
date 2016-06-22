@@ -138,7 +138,15 @@ return;
     <#-- do having-econditions first, if present will disable cached query, used in search-form-inputs -->
     <#if .node["having-econditions"]?has_content>${.node["@list"]}_xafind<#list .node["having-econditions"][0]?children as havingCond>.havingCondition(<#visit havingCond/>)</#list>
     </#if>
-    <#if .node["search-form-inputs"]?has_content><#assign sfiNode = .node["search-form-inputs"][0]>${.node["@list"]}_xafind.searchFormInputs("${sfiNode["@input-fields-map"]!""}", "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
+    <#if .node["search-form-inputs"]?has_content><#assign sfiNode = .node["search-form-inputs"][0]>
+    if (true) {
+        <#if sfiNode["default-parameters"]?has_content><#assign sfiDpNode = sfiNode["default-parameters"][0]>
+        Map efSfiDefParms = [<#list sfiDpNode?keys as dpName>${dpName}:"""${sfiDpNode["@" + dpName]}"""<#if dpName_has_next>, </#if></#list>]
+        <#else>
+        Map efSfiDefParms = null
+        </#if>
+        ${.node["@list"]}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
+    }
     </#if>
     <#if .node["limit-range"]?has_content && !useCache>
     org.moqui.entity.EntityListIterator ${.node["@list"]}_xafind_eli = ${.node["@list"]}_xafind.iterator()

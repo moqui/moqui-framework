@@ -409,6 +409,12 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:documentation>
         </xs:annotation>
         <xs:complexType>
+            <xs:sequence>
+                <xs:element name="default-parameters" minOccurs="0">
+                    <xs:annotation><xs:documentation>Attributes of this element are default parameters if there are no constraints in the search parameters.</xs:documentation></xs:annotation>
+                    <xs:complexType><xs:anyAttribute processContents="skip"/></xs:complexType>
+                </xs:element>
+            </xs:sequence>
             <xs:attribute name="input-fields-map" type="xs:string">
                 <xs:annotation><xs:documentation>The map to get form fields from. If empty will look at the
                     ec.web.parameters map if the web facade is available, otherwise the current context (ec.context).</xs:documentation></xs:annotation>

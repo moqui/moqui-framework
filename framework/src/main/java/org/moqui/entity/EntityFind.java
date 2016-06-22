@@ -84,6 +84,9 @@ public interface EntityFind extends java.io.Serializable {
      */
     EntityFind conditionDate(String fromFieldName, String thruFieldName, java.sql.Timestamp compareStamp);
 
+    boolean getHasCondition();
+    boolean getHasHavingCondition();
+
     /** Add a EntityCondition to the having clause of the find.
      * If any having constraints are already in place this will be ANDed to them.
      *
@@ -112,7 +115,8 @@ public interface EntityFind extends java.io.Serializable {
      * @return Returns this for chaining of method calls.
      */
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate);
-    EntityFind searchFormMap(Map inf, String defaultOrderBy, boolean alwaysPaginate);
+    EntityFind searchFormMap(Map <String, Object> inputFieldsMap, Map<String, Object> defaultParameters,
+                             String defaultOrderBy, boolean alwaysPaginate);
 
     // ======================== General/Common Options ========================
 

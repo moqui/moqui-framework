@@ -215,6 +215,10 @@ New Features
   dialog instead of in the header
 - form-list now supports @select-columns to allow users to select which
   fields are displayed in which columns, or not displayed
+- EntityFind.searchFormMap() now has a defaultParameters argument, used when
+  no conditions added from the input fields Map; also added
+  entity-find.search-form-inputs.default-parameters element whose
+  attributes are used as defaultParameters in searchFormMap()
 
 Bug Fixes
 
