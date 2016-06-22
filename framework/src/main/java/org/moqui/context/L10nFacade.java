@@ -36,7 +36,7 @@ public interface L10nFacade {
      * @param amount An object representing the amount, should be a subclass of Number.
      * @param uomId The uomId (ISO currency code), required.
      * @param fractionDigits Number of digits after the decimal point to display. If null defaults to number defined
-     *                       by java.util.Currency.defaultFractionDigits() for the current or specified locale.
+     *                       by java.util.Currency.defaultFractionDigits() for the specified currency in uomId.
      * @return The formatted currency amount.
      */
     String formatCurrency(Object amount, String uomId, Integer fractionDigits);
