@@ -49,14 +49,6 @@ public class BaseException extends RuntimeException {
     }
 
     @Override
-    public String getMessage() {
-        String message = super.getMessage();
-        Throwable cause = getCause();
-        if (cause != null) message = message + "; " + cause.getMessage();
-        return message;
-    }
-
-    @Override
     public StackTraceElement[] getStackTrace() {
         StackTraceElement[] filteredTrace = filterStackTrace(super.getStackTrace());
         setStackTrace(filteredTrace);
