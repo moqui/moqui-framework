@@ -1534,6 +1534,7 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     Connection getConnection(String groupName) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
+        if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
         Connection stashed = tfi.getTxConnection(tenantId, groupName)
         if (stashed != null) return stashed
 
