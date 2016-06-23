@@ -120,7 +120,13 @@ public class L10nFacadeImpl implements L10nFacade {
         if (locale == null) locale = getLocale();
         NumberFormat nf = NumberFormat.getCurrencyInstance(locale);
         Currency currency = Currency.getInstance(uomId);
-        if (fractionDigits == null) fractionDigits = currency.getDefaultFractionDigits();
+        if (fractionDigits == null) {
+            if (currency == null) {
+                fractionDigits = 2;
+            } else {
+                fractionDigits = currency.getDefaultFractionDigits();
+            }
+        }
         if (uomId != null && uomId.length() > 0) nf.setCurrency(currency);
         nf.setMaximumFractionDigits(fractionDigits);
         nf.setMinimumFractionDigits(fractionDigits);
