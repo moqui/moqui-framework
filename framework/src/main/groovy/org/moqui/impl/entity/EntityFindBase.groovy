@@ -761,6 +761,9 @@ abstract class EntityFindBase implements EntityFind {
         EntityValueBase txcValue = (EntityValueBase) null
         if (txCache != null) {
             txcValue = txCache.oneGet(this)
+            // NOTE: don't do this, opt to get latest from tx cache instead of from DB instead of trying to merge, lock
+            //     only query done below; tx cache causes issues when for update used after non for update query if
+            //     latest values from DB are needed!
             // if we got a value from txCache and we're doing a for update and it was not created in this tx cache then
             //     don't use it, we want the latest value from the DB (may have been queried without for update in this tx)
             // if (txcValue != null && forUpdate && !txCache.isTxCreate(txcValue)) txcValue = (EntityValueBase) null
@@ -813,6 +816,8 @@ abstract class EntityFindBase implements EntityFind {
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result
+                // we could try to merge the TX cache value and the latest DB value, but for now opt for the TX cache
+                //     value over the DB value
                 if (forUpdate && !txCache.isTxCreate(txcValue)) {
                     oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
                     // if (ed.getEntityName() == "Asset") logger.warn("======== doing find and ignoring result to pass through for update, for: ${txcValue}")
