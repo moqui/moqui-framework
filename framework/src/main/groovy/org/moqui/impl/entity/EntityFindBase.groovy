@@ -684,12 +684,12 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     public boolean shouldCache() {
-        if (this.dynamicView != null) return false
-        if (this.havingEntityCondition != null) return false
-        if (this.limit != null || this.offset != null) return false
-        if (this.useCache != null && Boolean.FALSE.equals(this.useCache)) return false
+        if (dynamicView != null) return false
+        if (havingEntityCondition != null) return false
+        if (limit != null || offset != null) return false
+        if (useCache != null && Boolean.FALSE.equals(useCache)) return false
         String entityCache = this.getEntityDef().getUseCache()
-        return ((Boolean.TRUE.equals(this.useCache) && !"never".equals(entityCache)) || "true".equals(entityCache))
+        return ((Boolean.TRUE.equals(useCache) && !"never".equals(entityCache)) || "true".equals(entityCache))
     }
 
     @Override
@@ -757,16 +757,22 @@ abstract class EntityFindBase implements EntityFind {
         // no condition means no condition/parameter set, so return null for find.one()
         if (whereCondition == null) return (EntityValue) null
 
-        // try the TX cache before the entity cache, may be more up-to-date
-        EntityValueBase txcValue = txCache != null ? txCache.oneGet(this) : (EntityValueBase) null
+        // try the TX cache before the entity cache, should be more up-to-date
+        EntityValueBase txcValue = (EntityValueBase) null
+        if (txCache != null) {
+            txcValue = txCache.oneGet(this)
+            // if we got a value from txCache and we're doing a for update and it was not created in this tx cache then
+            //     don't use it, we want the latest value from the DB (may have been queried without for update in this tx)
+            // if (txcValue != null && forUpdate && !txCache.isTxCreate(txcValue)) txcValue = (EntityValueBase) null
+        }
 
         // if (txcValue != null && ed.getEntityName() == "foo") logger.warn("========= TX cache one value: ${txcValue}")
 
-        boolean doCache = shouldCache()
+        boolean doCache = shouldCache() && whereCondition != null
         Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
                 ed.getCacheOne(efi.getEntityCache()) : (Cache<EntityCondition, EntityValueBase>) null
         EntityValueBase cacheHit = (EntityValueBase) null
-        if (doCache && txcValue == null && whereCondition != null) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
+        if (doCache && txcValue == null && !forUpdate) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
 
         // we always want fieldsToSelect populated so that we know the order of the results coming back
         ArrayList<String> localFts = fieldsToSelect
@@ -803,7 +809,7 @@ abstract class EntityFindBase implements EntityFind {
             if (txcValue instanceof TransactionCache.DeletedEntityValue) {
                 // is deleted value, so leave newEntityValue as null
                 // put in cache as null since this was deleted
-                if (doCache && whereCondition != null) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
+                if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result
@@ -812,6 +818,8 @@ abstract class EntityFindBase implements EntityFind {
                     // if (ed.getEntityName() == "Asset") logger.warn("======== doing find and ignoring result to pass through for update, for: ${txcValue}")
                 }
                 newEntityValue = txcValue
+                // put it in whether null or not (already know cacheHit is null)
+                if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
             }
         } else if (cacheHit != null) {
             if (cacheHit instanceof EntityCache.EmptyRecord) newEntityValue = (EntityValueBase) null
@@ -943,11 +951,12 @@ abstract class EntityFindBase implements EntityFind {
         EntityListImpl txcEli = txCache != null ? txCache.listGet(ed, whereCondition, orderByExpanded) : (EntityListImpl) null
 
         // NOTE: don't cache if there is a having condition, for now just support where
-        boolean doEntityCache = shouldCache()
+        boolean doEntityCache = shouldCache() && whereCondition != null
         Cache<EntityCondition, EntityListImpl> entityListCache = doEntityCache ?
                 ed.getCacheList(efi.getEntityCache()) : (Cache<EntityCondition, EntityListImpl>) null
         EntityListImpl cacheList = (EntityListImpl) null
-        if (doEntityCache) cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
+        if (doEntityCache && txcEli == null && !forUpdate)
+            cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
 
         EntityListImpl el
         if (txcEli != null) {
@@ -997,7 +1006,7 @@ abstract class EntityFindBase implements EntityFind {
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
             EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
-            whereCondition = (EntityConditionImplBase) efi.getConditionFactoryImpl()
+            EntityConditionImplBase queryWhereCondition = (EntityConditionImplBase) efi.getConditionFactoryImpl()
                     .makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
 
             EntityConditionImplBase havingCondition = havingEntityCondition
@@ -1006,10 +1015,10 @@ abstract class EntityFindBase implements EntityFind {
                     .makeConditionImpl(havingCondition, EntityCondition.AND, viewHaving)
 
             // call the abstract method
-            EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded,
+            EntityListIterator eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded,
                     fieldInfoList, fieldOptionsList)
             // these are used by the TransactionCache methods to augment the resulting list and maintain the sort order
-            eli.setQueryCondition(whereCondition)
+            eli.setQueryCondition(queryWhereCondition)
             eli.setOrderByFields(orderByExpanded)
 
             MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
