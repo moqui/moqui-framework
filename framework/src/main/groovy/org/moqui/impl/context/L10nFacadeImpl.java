@@ -98,6 +98,11 @@ public class L10nFacadeImpl implements L10nFacade {
     }
 
     @Override
+    public String formatCurrency(Object amount, String uomId) {
+        return formatCurrency(amount, uomId, null);
+    }
+
+    @Override
     public String formatCurrency(Object amount, String uomId, Integer fractionDigits) {
         return formatCurrency(amount, uomId, fractionDigits, getLocale());
     }
@@ -112,10 +117,17 @@ public class L10nFacadeImpl implements L10nFacade {
             }
         }
 
-        if (fractionDigits == null) fractionDigits = 2;
         if (locale == null) locale = getLocale();
         NumberFormat nf = NumberFormat.getCurrencyInstance(locale);
-        if (uomId != null && uomId.length() > 0) nf.setCurrency(Currency.getInstance(uomId));
+        Currency currency = Currency.getInstance(uomId);
+        if (fractionDigits == null) {
+            if (currency == null) {
+                fractionDigits = 2;
+            } else {
+                fractionDigits = currency.getDefaultFractionDigits();
+            }
+        }
+        if (uomId != null && uomId.length() > 0) nf.setCurrency(currency);
         nf.setMaximumFractionDigits(fractionDigits);
         nf.setMinimumFractionDigits(fractionDigits);
         return nf.format(amount);
