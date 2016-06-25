@@ -211,12 +211,18 @@ class EntityDataFeed {
     }
 
     // this should never be called except through getDataFeedEntityInfoList()
+    private long lastRebuildTime = 0
     protected synchronized void rebuildDataFeedEntityInfo() {
+        // under load make sure waiting threads don't redo it, give it some time
+        if (System.currentTimeMillis() < (lastRebuildTime + 60000)) return
+
         // logger.info("Building entity.data.feed.info cache in tenant ${efi.tenantId}")
         long startTime = System.currentTimeMillis()
 
         // rebuild from the DB for this and other entities, ie have to do it for all DataFeeds and
         //     DataDocuments because we can't query it by entityName
+        Map<String, ArrayList<DocumentEntityInfo>> localInfo = new HashMap<>()
+
         EntityList dataFeedAndDocumentList = efi.find("moqui.entity.feed.DataFeedAndDocument")
                 .condition("dataFeedTypeEnumId", "DTFDTP_RT_PUSH").useCache(true).disableAuthz().list()
         //logger.warn("============= got dataFeedAndDocumentList: ${dataFeedAndDocumentList}")
@@ -231,29 +237,27 @@ class EntityDataFeed {
             Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId)
             // got a Map for all entities in the document, now split them by entity and add to master list for the entity
             for (Map.Entry<String, DocumentEntityInfo> entityInfoMapEntry in entityInfoMap.entrySet()) {
-                ArrayList<DocumentEntityInfo> newEntityInfoList = (ArrayList<DocumentEntityInfo>) dataFeedEntityInfo.get(entityInfoMapEntry.getKey())
+                String entityName = entityInfoMapEntry.getKey()
+                ArrayList<DocumentEntityInfo> newEntityInfoList = (ArrayList<DocumentEntityInfo>) localInfo.get(entityName)
                 if (newEntityInfoList == null) {
                     newEntityInfoList = new ArrayList<DocumentEntityInfo>()
-                    dataFeedEntityInfo.put(entityInfoMapEntry.getKey(), newEntityInfoList)
+                    localInfo.put(entityName, newEntityInfoList)
                     // logger.warn("============= added dataFeedEntityInfo entry for entity [${entityInfoMapEntry.getKey()}]")
                 }
                 newEntityInfoList.add(entityInfoMapEntry.getValue())
             }
         }
 
-        Iterator<Cache.Entry<String, ArrayList<DocumentEntityInfo>>> dfeiIterator = dataFeedEntityInfo.iterator()
-        Set<String> entityNameSet = new HashSet<>()
-        while (dfeiIterator.hasNext()) {
-            Cache.Entry<String, ArrayList<DocumentEntityInfo>> entry = (Cache.Entry<String, ArrayList<DocumentEntityInfo>>) dfeiIterator.next()
-            entityNameSet.add(entry.getKey())
-        }
+        Set<String> entityNameSet = localInfo.keySet()
         if (entitiesWithDataFeed == null) {
             logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
             if (logger.isTraceEnabled()) logger.trace("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
         } else {
-            logger.info("Rebuilt entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+            logger.error("Rebuilt entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
         }
+        dataFeedEntityInfo.putAll(localInfo)
         entitiesWithDataFeed = entityNameSet
+        lastRebuildTime = System.currentTimeMillis()
     }
 
     Map<String, DocumentEntityInfo> getDataDocumentEntityInfo(String dataDocumentId) {
