@@ -33,16 +33,16 @@
                 key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
 
         <cache name="entity.record.one_ra." max-elements="40000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
         <cache name="entity.record.one_view_ra." max-elements="40000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
         <cache name="entity.record.one_bf" max-elements="1000" eviction-strategy="least-frequently-used"
                 value-type="Set"/>
 
         <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
         <cache name="entity.record.list_view_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
 
         <!-- Framework configuration and artifact caches -->
         <!-- NOTE: Production mode by default - No expiration of conf and impl artifacts. -->
@@ -291,6 +291,22 @@
 
             To use a DataSource from JNDI use something the jndi-jdbc element under the datasource element:
                 <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/>
+        -->
+
+        <!--
+            NOTE: for production usage there is one connection pool per datasource so use as few datasources as possible.
+
+            The main datasource should have a max size large enough for all servlet container threads plus a few for
+            the worker pool (see tools.@worker-pool-max). Note that Bitronix has a 30 second timeout waiting for a
+            connection from the pool, and currently connections are NOT shared between transactions (only released when
+            a tx is closed).
+
+            Good numbers for a decent sized server are 100 servlet container (Jetty) threads, 16 worker threads, plus a
+            few extra so 120 connections in the main pool.
+
+            For multi-tenant the tenantcommon pool can be much smaller. The pool sizes for multi-tenant are generally
+            much more complex as there is currently one connection pool per tenant and group (making it more important
+            to use just one datasource). In the future this may change to support higher numbers of tenants under a load.
         -->
 
         <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
