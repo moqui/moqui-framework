@@ -18,6 +18,7 @@ import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -819,8 +820,21 @@ abstract class EntityFindBase implements EntityFind {
                 // we could try to merge the TX cache value and the latest DB value, but for now opt for the TX cache
                 //     value over the DB value
                 if (forUpdate && !txCache.isTxCreate(txcValue)) {
-                    oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
-                    // if (ed.getEntityName() == "Asset") logger.warn("======== doing find and ignoring result to pass through for update, for: ${txcValue}")
+                    EntityValueBase fuDbValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
+                    // if txcValue has been modified (fields in dbValueMap) see if those match what is coming from DB
+                    Map<String, Object> txDbValueMap = txcValue.getDbValueMap()
+                    Map<String, Object> fuDbValueMap = fuDbValue.getValueMap()
+                    if (txDbValueMap != null && txDbValueMap.size() > 0 &&
+                            !StupidUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
+                        StringBuilder fieldDiffBuilder = new StringBuilder()
+                        for (Map.Entry<String, Object> entry in txDbValueMap.entrySet()) {
+                            Object compareObj = txDbValueMap.get(entry.getKey())
+                            Object baseObj = fuDbValueMap.get(entry.getKey())
+                            if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
+                                    .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
+                        }
+                        logger.info("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
+                    }
                 }
                 newEntityValue = txcValue
                 // put it in whether null or not (already know cacheHit is null)

@@ -366,6 +366,15 @@ class StupidUtilities {
         return theMap
     }
 
+    static boolean mapMatchesFields(Map<String, Object> baseMap, Map<String, Object> compareMap) {
+        for (Map.Entry<String, Object> entry in compareMap.entrySet()) {
+            Object compareObj = compareMap.get(entry.getKey())
+            Object baseObj = baseMap.get(entry.getKey())
+            if (compareObj != baseObj) return false
+        }
+        return true
+    }
+
     static Node deepCopyNode(Node original) { return deepCopyNode(original, null) }
     static Node deepCopyNode(Node original, Node parent) {
         if (original == null) return null
