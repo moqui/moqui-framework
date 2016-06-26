@@ -246,7 +246,7 @@ class ScreenUrlInfo {
 
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(aeii, lastAeii,
-                    isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false)) {
+                    isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false)) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
@@ -485,7 +485,7 @@ class ScreenUrlInfo {
                     .condition("screenLocation", lastSd.location).useCache(true).disableAuthz().list()
             for (int i = 0; i < subscreensDefaultList.size(); i++) {
                 EntityValue subscreensDefault = subscreensDefaultList.get(i)
-                String condStr = (String) subscreensDefault.condition
+                String condStr = (String) subscreensDefault.conditionExpression
                 if (condStr && !ecfi.getResource().condition(condStr, "SubscreensDefault_condition")) continue
                 subscreenName = subscreensDefault.subscreenName
             }

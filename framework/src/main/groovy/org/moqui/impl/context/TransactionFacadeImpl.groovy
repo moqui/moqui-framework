@@ -296,7 +296,13 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
 
     @Override
-    boolean isTransactionInPlace() { return getStatus() != Status.STATUS_NO_TRANSACTION }
+    boolean isTransactionInPlace() { getStatus() != Status.STATUS_NO_TRANSACTION }
+
+    boolean isTransactionActive() { getStatus() == Status.STATUS_ACTIVE }
+    boolean isTransactionOperable() {
+        int curStatus = getStatus()
+        return curStatus == Status.STATUS_ACTIVE || curStatus == Status.STATUS_NO_TRANSACTION
+    }
 
     @Override
     boolean begin(Integer timeout) {
@@ -574,16 +580,23 @@ class TransactionFacadeImpl implements TransactionFacade {
         String conKey = tenantId.concat(groupName)
         TxStackInfo txStackInfo = getTxStackInfo()
         ConnectionWrapper con = (ConnectionWrapper) txStackInfo.txConByGroup.get(conKey)
-        if (con != null && con.isClosed()) {
+        if (con == null) return null
+
+        if (con.isClosed()) {
             txStackInfo.txConByGroup.remove(conKey)
             logger.info("Stashed connection closed elsewhere for tenant ${tenantId} group ${groupName}: ${con.toString()}")
             return null
-        } else {
-            return con
         }
+        if (!isTransactionActive()) {
+            con.close()
+            txStackInfo.txConByGroup.remove(conKey)
+            logger.info("Stashed connection found but transaction is not active (${getStatusString()}) for tenant ${tenantId} group ${groupName}: ${con.toString()}")
+            return null
+        }
+        return con
     }
     Connection stashTxConnection(String tenantId, String groupName, Connection con) {
-        if (!useConnectionStash || !isTransactionInPlace()) return con
+        if (!useConnectionStash || !isTransactionActive()) return con
 
         TxStackInfo txStackInfo = getTxStackInfo()
         // if transactionBeginStartTime is null we didn't begin the transaction, so can't count on commit/rollback through this

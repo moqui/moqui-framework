@@ -100,7 +100,8 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><script>ec.entity.getEntityDataDocument().putIndexMappings(indexName)</script></actions>
     </service>
 
-    <service verb="index" noun="DataFeedDocuments" authenticate="false">
+    <service verb="index" noun="DataFeedDocuments" authenticate="false" transaction-timeout="600">
+        <description>Index all documents associated with the feed within the date range. Recommend calling through the IndexDataFeedDocuments service job.</description>
         <in-parameters>
             <parameter name="dataFeedId" required="true"/>
             <parameter name="fromUpdateStamp" type="Timestamp"/>

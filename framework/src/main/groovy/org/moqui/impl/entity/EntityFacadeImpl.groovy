@@ -1253,7 +1253,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             } else {
                 // otherwise do a list find
-                EntityFind ef = find(lastEd.getFullEntityName()).searchFormMap(parameters, null, false)
+                EntityFind ef = find(lastEd.getFullEntityName()).searchFormMap(parameters, null, null, false)
                 // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
                 if (!ef.getLimit()) ef.limit(100)
 
@@ -1534,6 +1534,7 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     Connection getConnection(String groupName) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
+        if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
         Connection stashed = tfi.getTxConnection(tenantId, groupName)
         if (stashed != null) return stashed
 

@@ -174,7 +174,45 @@ class StupidUtilities {
         if (theList && fieldNames) Collections.sort(theList, new StupidJavaUtilities.MapOrderByComparator(fieldNameArray))
     }
 
-    /** NOTE: in Groovy this method is not necessary, just use something like: theList.field
+    /** For a list of Map find the entry that best matches the fieldsByPriority Ordered Map; null field values in a Map
+     * in mapList match against any value but do not contribute to maximal match score, otherwise value for each field
+     * in fieldsByPriority must match for it to be a candidate. */
+    static Map<String, Object> findMaximalMatch(List<Map<String, Object>> mapList, LinkedHashMap<String, Object> fieldsByPriority) {
+        int numFields = fieldsByPriority.size()
+        String[] fieldNames = new String[numFields]
+        int index = 0
+        for (String key in fieldsByPriority.keySet()) { fieldNames[index] = key; index++ }
+
+        int highScore = -1
+        Map<String, Object> highMap = (Map<String, Object>) null
+        for (Map<String, Object> curMap in mapList) {
+            int curScore = 0
+            boolean skipMap = false
+            for (int i = 0; i < numFields; i++) {
+                String curField = fieldNames[i]
+                // if curMap value is null skip field (null value in Map means allow any match value
+                Object curValue = curMap.get(curField)
+                if (curValue == null) continue
+                // if not equal skip Map
+                if (!curValue.equals(fieldsByPriority.get(curField))) {
+                    skipMap = true
+                    break
+                }
+                // add to score based on index (lower index higher score), also add numFields so more fields matched weights higher
+                curScore += (numFields - i) + numFields
+            }
+            if (skipMap) continue
+            // have a higher score?
+            if (curScore > highScore) {
+                highScore = curScore
+                highMap = curMap
+            }
+        }
+
+        return highMap
+    }
+
+    /* NOTE: in Groovy this method is not necessary, just use something like: theList.field
     static Set<Object> getFieldValuesFromMapList(List<Map> theList, String fieldName) {
         Set<Object> theSet = new HashSet<>()
         for (Map curMap in theList) if (curMap.get(fieldName)) theSet.add(curMap.get(fieldName))

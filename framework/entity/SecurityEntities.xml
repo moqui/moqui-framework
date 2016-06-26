@@ -457,6 +457,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="viewedDate" type="date-time"/>
         <relationship type="one" related-entity-name="moqui.security.user.NotificationMessage" short-alias="notification"/>
         <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
+        <index name="NOTMSGUSR_UID_VD" unique="false"><index-field name="userId"/><index-field name="viewedDate"/></index>
     </entity>
     <view-entity entity-name="NotificationMessageByUser" package-name="moqui.security.user" cache="never">
         <member-entity entity-alias="NMSG" entity-name="NotificationMessage"/>

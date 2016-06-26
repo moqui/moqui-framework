@@ -103,11 +103,15 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
             eci.destroy()
             eci = null
         }
-        // logger.info("Closed WebSocket Session ${session.getId()}: ${closeReason.reasonPhrase}")
+        if (logger.isTraceEnabled()) logger.trace("Closed WebSocket Session ${session.getId()}: ${closeReason.reasonPhrase}")
     }
 
     @Override
     void onError(Session session, Throwable thr) {
-        logger.warn("Error in WebSocket Session ${session.getId()}", thr)
+        if (thr instanceof SocketTimeoutException || (thr.getMessage() != null && thr.getMessage().toLowerCase().contains("timeout"))) {
+            logger.info("Timeout in WebSocket Session ${session.getId()}, User ${userId} (${username}): ${thr.getMessage()}")
+        } else {
+            logger.warn("Error in WebSocket Session ${session.getId()}, User ${userId} (${username})", thr)
+        }
     }
 }

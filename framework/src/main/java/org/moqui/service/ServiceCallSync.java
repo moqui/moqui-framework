@@ -66,7 +66,8 @@ public interface ServiceCallSync extends ServiceCall {
      * - find with DB limit will return wrong number of values if deleted values were in the results
      * - find count doesn't add for created values, subtract for deleted values, and for updates if old matched and new doesn't subtract and vice-versa
      * - view-entities won't work, they don't incorporate results from TX Cache
-     * - if a value is created or update, then a record with FK is created, then the value is updated again commit writes may fail with FK violation (see update() method for other notes)
+     * - if a value is created or updated, then a record with FK is created, then the value is updated again commit writes may fail with FK violation (see update() method for other notes)
+     * - queries that do for-update may be unreliable as with the TX cache in place we only do a query to lock the value but don't merge the results
      *
      * @return Reference to this for convenience.
      */

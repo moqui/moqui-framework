@@ -8,9 +8,9 @@
     <!-- Default properties are only set if there is no System property of the same name -->
     <default-property name="ds_transactional_user" value="sa"/>
     <default-property name="ds_transactional_password" value="sa"/>
-    <default-property name="ds_transactional_url" value="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT"/>
+    <default-property name="ds_transactional_url" value="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000"/>
 
-    <tools empty-db-load="seed" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
+    <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.jcache.MCacheToolFactory" init-priority="03" disabled="false"/>
 
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
@@ -33,16 +33,16 @@
                 key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
 
         <cache name="entity.record.one_ra." max-elements="40000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
         <cache name="entity.record.one_view_ra." max-elements="40000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
         <cache name="entity.record.one_bf" max-elements="1000" eviction-strategy="least-frequently-used"
                 value-type="Set"/>
 
         <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
         <cache name="entity.record.list_view_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="ArrayList"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
 
         <!-- Framework configuration and artifact caches -->
         <!-- NOTE: Production mode by default - No expiration of conf and impl artifacts. -->
@@ -93,7 +93,7 @@
     <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true">
         <!-- these are meant to be good production settings -->
         <artifact-stats type="AT_XML_SCREEN" persist-bin="true" persist-hit="true"/>
-        <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="true" persist-hit="false"/>
         <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="true" persist-hit="true"/>
         <artifact-stats type="AT_SERVICE" persist-bin="true" persist-hit="false"/>
         <artifact-stats type="AT_ENTITY" persist-bin="false"/>
@@ -293,6 +293,22 @@
                 <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/>
         -->
 
+        <!--
+            NOTE: for production usage there is one connection pool per datasource so use as few datasources as possible.
+
+            The main datasource should have a max size large enough for all servlet container threads plus a few for
+            the worker pool (see tools.@worker-pool-max). Note that Bitronix has a 30 second timeout waiting for a
+            connection from the pool, and currently connections are NOT shared between transactions (only released when
+            a tx is closed).
+
+            Good numbers for a decent sized server are 100 servlet container (Jetty) threads, 16 worker threads, plus a
+            few extra so 120 connections in the main pool.
+
+            For multi-tenant the tenantcommon pool can be much smaller. The pool sizes for multi-tenant are generally
+            much more complex as there is currently one connection pool per tenant and group (making it more important
+            to use just one datasource). In the future this may change to support higher numbers of tenants under a load.
+        -->
+
         <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
         <datasource group-name="transactional" database-conf-name="h2" schema-name=""
                 start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
@@ -340,10 +356,10 @@
 
         * H2 Database:
         <datasource group-name="transactional" database-conf-name="h2" schema-name="">
-            <inline-jdbc><xa-properties url="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT" user="sa" password=""/></inline-jdbc>
+            <inline-jdbc><xa-properties url="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000" user="sa" password=""/></inline-jdbc>
         </datasource>
         <datasource group-name="transactional" database-conf-name="h2" schema-name="">
-            <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT" jdbc-username="sa" jdbc-password="sa"/>
+            <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000" jdbc-username="sa" jdbc-password="sa"/>
         </datasource>
 
         * MS SQL Server:

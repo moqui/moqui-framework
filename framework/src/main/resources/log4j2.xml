@@ -43,15 +43,11 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <Logger name="org.apache.fop.fo.extensions.svg.SVGElementMapping" level="fatal"/>
 
         <Logger name="freemarker" level="warn"/>
-        <Logger name="net.sf.ehcache" level="warn"/>
-        <Logger name="org.quartz" level="info"/>
-        <Logger name="org.quartz.core" level="warn"/>
         <Logger name="org.elasticsearch" level="warn"/>
         <Logger name="org.drools" level="info"/>
         <Logger name="atomikos" level="warn"/>
         <Logger name="com.atomikos" level="warn"/>
         <Logger name="bitronix" level="warn"/>
-        <Logger name="net.winstone.core.WebXmlParser" level="error"/>
 
         <!-- show Groovy generated from XML Actions:
         <Logger name="org.moqui.impl.actions.XmlAction" level="debug"/> -->
