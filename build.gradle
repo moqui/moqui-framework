@@ -357,6 +357,7 @@ def loadComponentSet(String setName, String curLocationType, Node addons, Node m
 
 Node parseAddons() { new XmlParser().parse(file('addons.xml')) }
 Node parseMyaddons() { if (file('myaddons.xml').exists()) { new XmlParser().parse(file('myaddons.xml')) } else { null } }
+Node parseComponent(project) { new XmlParser().parse(project.file('component.xml')) }
 
 def getComponentTop(String locationType) {
     if (project.hasProperty('component')) {
