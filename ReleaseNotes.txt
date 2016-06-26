@@ -195,9 +195,6 @@ New Features
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
-- EntityDataWriter now supports export with a entity master definition
-  name, applied only to entities exported that have a master def with the
-  given master name
 - Added support for error screens rendered depending on type of error
   - configured in the webapp.error-screen element in Moqui Conf XML file
   - if error screen render fails sends original error response
@@ -211,14 +208,22 @@ New Features
   thread with an ExecutionContext like the current (tenant, user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
-- form-list now supports @header-dialog to put header-field widgets in a
-  dialog instead of in the header
-- form-list now supports @select-columns to allow users to select which
-  fields are displayed in which columns, or not displayed
-- EntityFind.searchFormMap() now has a defaultParameters argument, used when
-  no conditions added from the input fields Map; also added
-  entity-find.search-form-inputs.default-parameters element whose
-  attributes are used as defaultParameters in searchFormMap()
+- Entity Facade
+  - EntityFind.searchFormMap() now has a defaultParameters argument, used
+    when no conditions added from the input fields Map
+  - EntityDataWriter now supports export with a entity master definition
+    name, applied only to entities exported that have a master def with the
+    given master name
+- XML Screen and Form
+  - form-list now supports @header-dialog to put header-field widgets in a
+    dialog instead of in the header
+  - form-list now supports @select-columns to allow users to select which
+    fields are displayed in which columns, or not displayed
+  - added entity-find.search-form-inputs.default-parameters element whose
+    attributes are used as defaultParameters in searchFormMap()
+  - ArtifactAuthzFailure records are only created when a user tries to use
+    an artifact, not when simply checking to see if use is permitted (such
+    as in menus, links, etc)
 
 Bug Fixes
 
@@ -240,6 +245,13 @@ Bug Fixes
 - Fixed issue with Entity/DataEdit screens in the Tools application where
   the parameter and form field name 'entityName' conflicted with certain
   entities that have a field named entityName
+- Concurrency Issues
+  - Fixed concurrent update errors in EntityCache RA (reverse association)
+    using Collections.synchronizedList()
+  - Fixed per-entity DataFeed info rebuild to avoid multiple runs and
+    rebuild completely before adding to cache in use to avoid partial data
+  - Fixed attribute and child node wrapper caching in FtlNodeWrapper where
+    in certain cases a false null would be returned
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
@@ -438,21 +450,10 @@ Bug Fixes
 
 
 ===========================================================================
-Long Term To Do List - aka Informal Roadmap
+Long Term To Do List - aka Informal Road Map
 ===========================================================================
 
-- WebSocket Notifications
-  - Prototype for background process notifications, to be used for various things but start with Payroll run
-    (have page return immediately, send notification when done)
-  - Added Notifications screen to MyAccount with transition to set receiveDate
-  - Increment message, event, task count labels in header?
-    - DataDocument add flag if new or updated
-    - if new increment count with JS
-    - Side note: DataDocument add info about what was updated somehow?
-
-- Try Caffeine JCache at https://github.com/ben-manes/caffeine
-  - do in moqui-caffeine tool component
-  - add multiple threads to SpeedTest.xml?
+- Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 
 - Move tools from moqui-framework to tool components
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
@@ -460,11 +461,6 @@ Long Term To Do List - aka Informal Roadmap
     - add mantle-usl dependencies on moqui-elasticsearch; moqui-kie is optional for mantle-usl
   - Possible to split out FOP?
     - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
-
-- Support some sort of built component archive?
-
-- Saved form-list Finds
-  - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
 - Improved Distributed Datasource Support
   - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
@@ -487,9 +483,24 @@ Long Term To Do List - aka Informal Roadmap
     - SimpleFind interface as an alternative to EntityFind for datasources that don't support joins, etc (like OrientDB)
       and maybe add support for the internal record ID that can be used for faster graph traversal, etc
 
+- Try Caffeine JCache at https://github.com/ben-manes/caffeine
+  - do in moqui-caffeine tool component
+  - add multiple threads to SpeedTest.xml?
+
+- Support some sort of built component archive?
+  - expand zip files found in component directories if not matching directory exists
+
+- Saved form-list Finds
+  - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
+
+- WebSocket Notifications
+  - Increment message, event, task count labels in header?
+    - DataDocument add flag if new or updated
+    - if new increment count with JS
+    - Side note: DataDocument add info about what was updated somehow?
 - User Notification
   - Add Moqui Conf XML elements to configure NotificationMessageListener classes
-  - Listener for Email with XML Screen to layout (and try out using JSON documents as nested Maps from a screen)
+  - Listener to send Email with XML Screen to layout (and try out using JSON documents as nested Maps from a screen)
     - where to configure the email and screen to use? use EmailTemplate/emailTemplateId, but where to specify?
       - for notifications from DataFeeds can add DataFeed.emailTemplateId (or not, what about toAddresses, etc?)
       - maybe have a more general way to configure details of topics, including emailTemplateId and screenLocation...
@@ -518,7 +529,7 @@ Long Term To Do List - aka Informal Roadmap
     - set base URL, use common patterns for get single/multiple record, create, update, and delete
     - use internal data from RestApi class to determine valid services available
 
-- Hazelcast-based improvements
+- Hazelcast based improvements
   - configuration for 'microservice' deployments, partitioning services to run on particular servers in a cluster and
     not others (partition groups or other partition feature?)
   - can use for reliable WAN service calls like needed for EntitySync?
@@ -605,11 +616,7 @@ Long Term To Do List - aka Informal Roadmap
     - generic service for sending Data Document to REST (or other?) end point
   - Service REST API
     - allow mapping DataDocument operations as well
-    x Add artifact type for REST Resource, Method
-    x Call ArtifactExecutionFacade.push/pop for RestApi calls
-    x Setup john.doe user with permissions for root of various APIs
     - Add attribute for resource/method like screen for anonymous and no authz access
-    x Add Service REST API for moqui system admin services
   - OAuth2 Support
     - Use Apache Oltu, see https://cwiki.apache.org/confluence/display/OLTU/OAuth+2.0+Authorization+Server
     - Spec at http://tools.ietf.org/html/rfc6749
