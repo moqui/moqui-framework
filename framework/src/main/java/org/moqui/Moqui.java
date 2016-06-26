@@ -79,14 +79,17 @@ public class Moqui {
             activeExecutionContextFactory = executionContextFactoryLoader.iterator().next();
 
         ExecutionContext ec = activeExecutionContextFactory.getExecutionContext();
+        // disable authz and add an artifact set to anonymous authorized all
         ec.getArtifactExecution().disableAuthz();
         ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false);
         ec.getArtifactExecution().setAnonymousAuthorizedAll();
-        ec.getUser().loginAnonymousIfNoUser();
 
+        // set tenant and user
         String tenantId = argMap.get("tenantId");
         if (tenantId != null && tenantId.length() > 0) ec.changeTenant(tenantId);
+        ec.getUser().loginAnonymousIfNoUser();
 
+        // set the data load parameters
         EntityDataLoader edl = ec.getEntity().makeDataLoader();
         if (argMap.containsKey("types"))
             edl.dataTypes(new HashSet<>(Arrays.asList(argMap.get("types").split(","))));
@@ -97,11 +100,10 @@ public class Moqui {
         if (argMap.containsKey("dummy-fks")) edl.dummyFks(true);
         if (argMap.containsKey("use-try-insert")) edl.useTryInsert(true);
 
-        long startTime = System.currentTimeMillis();
-
+        // do the data load
         try {
+            long startTime = System.currentTimeMillis();
             long records = edl.load();
-
             long totalSeconds = (System.currentTimeMillis() - startTime)/1000;
             logger.info("Loaded [" + records + "] records in " + totalSeconds + " seconds.");
         } catch (Throwable t) {
