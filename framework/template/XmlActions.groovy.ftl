@@ -150,10 +150,11 @@ return;
     </#if>
     <#if .node["limit-range"]?has_content && !useCache>
     org.moqui.entity.EntityListIterator ${.node["@list"]}_xafind_eli = ${.node["@list"]}_xafind.iterator()
-    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList(${.node["@start"]}, ${.node["@size"]}, true)
+    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList(${.node["limit-range"][0]["@start"]}, ${.node["limit-range"][0]["@size"]}, true)
     <#elseif .node["limit-view"]?has_content && !useCache>
     org.moqui.entity.EntityListIterator ${.node["@list"]}_xafind_eli = ${.node["@list"]}_xafind.iterator()
-    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList((${.node["@view-index"]} - 1) * ${.node["@view-size"]}, ${.node["@view-size"]}, true)
+    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList((${.node["limit-view"][0]["@view-index"]} - 1) * ${.node["limit-view"][0]["@view-size"]}, ${.node["limit-view"][0]["@view-size"]},
+    true)
     <#elseif .node["use-iterator"]?has_content && !useCache>
     ${.node["@list"]} = ${.node["@list"]}_xafind.iterator()
     <#else>
