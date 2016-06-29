@@ -289,6 +289,10 @@ task getRelease {
     description "Get the release archive for a component, also check each component it depends on and if not present get its configured release archive; requires component property"
     doLast { getComponentTop('release') }
 }
+task getBinary {
+    description "Get the binary release archive for a component, also check each component it depends on and if not present get its configured release archive; requires component property"
+    doLast { getComponentTop('binary') }
+}
 task getGit {
     description "Clone the git repository for a component, also check each component it depends on and if not present clone its git repository; requires component property"
     doLast { getComponentTop('git') }
@@ -433,7 +437,7 @@ File downloadComponent(String targetDirPath, String type, Node component, Node a
 
     File targetDir = file(targetDirPath)
     if (targetDir.exists()) { logger.lifecycle("Component ${compName} already exists at ${targetDir}"); return targetDir }
-    if (type == 'current' || type == 'release') {
+    if (type in ['current', 'release', 'binary']) {
         File zipFile = file("${targetDirPath}.zip")
         ant.get(src: url, dest: zipFile)
         // the eachFile closure removes the first path from each file, moving everything up a directory
