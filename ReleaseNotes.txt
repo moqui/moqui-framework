@@ -453,6 +453,12 @@ Bug Fixes
 Long Term To Do List - aka Informal Road Map
 ===========================================================================
 
+- Support some sort of built component archive?
+  - expand zip files found in component directories if no matching directory exists
+  - strip off version number from zip name, all dot separated numbers after a dash
+  - add gradle task (zipComponents) to zip all components, maybe one to zip a single component too
+- Use component name and version for jar/etc names in more component build files
+
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 
 - Move tools from moqui-framework to tool components
@@ -474,6 +480,8 @@ Long Term To Do List - aka Informal Road Map
       - For conditions on fields from augment-member do a pre-query to get set of PKs, use them in an IN condition on
         the main query (only support simple AND scenario, error otherwise); sort of like a sub-select
       - How to handle order by fields on augment-member? Might require separate query and some sort of fancy sorting...
+    - Some sort of EntityDynamicView handling without joins possible? Maybe augment member methods?
+    - DataDocument support across multiple databases, doing something other than one big dynamic join...
   - Possibly useful
     - Consider meta-data management features such as versioning and more complete history for nontransactional and
       configuration, preferably using some sort of more efficient underlying features in the datasource
@@ -486,9 +494,6 @@ Long Term To Do List - aka Informal Road Map
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine
   - do in moqui-caffeine tool component
   - add multiple threads to SpeedTest.xml?
-
-- Support some sort of built component archive?
-  - expand zip files found in component directories if not matching directory exists
 
 - Saved form-list Finds
   - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
