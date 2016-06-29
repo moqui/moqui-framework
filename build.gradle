@@ -60,37 +60,6 @@ task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanOrientDb, cleanEla
 
 // ========== check/update tasks ==========
 
-def checkRuntimeDirAndDefaults(String locType) {
-    Node addons = parseAddons()
-    Node myaddons = parseMyaddons()
-    if (!locType) locType = file('.git').exists() ? 'git' : 'current'
-
-    File runtimeDir = file('runtime')
-    if (!runtimeDir.exists()) {
-        Node runtimeNode = myaddons != null && myaddons.runtime ? (Node) myaddons.runtime[0] : null
-        if (runtimeNode == null) runtimeNode = addons != null && addons.runtime ? (Node) addons.runtime[0] : null
-        if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found in myaddons.xml or addons.xml")
-        downloadComponent("runtime", locType, runtimeNode, addons, myaddons)
-    }
-
-    // look for @default in myaddons.xml only
-    if (myaddons?.'@default') {
-        String defaultComps = myaddons.'@default'
-        Set compsChecked = new TreeSet()
-        Set defaultCompsDownloaded = new TreeSet()
-        for (String compName in defaultComps.split(',')) {
-            compName = compName.trim()
-            if (!compName) continue
-            File componentDir = file("runtime/component/${compName}")
-            if (componentDir.exists()) continue
-            getComponent(compName, locType, addons, myaddons, compsChecked)
-            defaultCompsDownloaded.add(compName)
-        }
-        if (defaultCompsDownloaded)
-            logger.lifecycle("Got default components ${defaultCompsDownloaded}, dependent components checked: ${compsChecked}")
-    }
-}
-
 task getRuntime {
     description "If the runtime directory does not exist get it using settings in myaddons.xml or addons.xml; also check default components in myaddons.xml (addons.@default) and download any missing"
     doLast { checkRuntimeDirAndDefaults(project.hasProperty('locationType') ? locationType : null) }
@@ -206,30 +175,34 @@ task loadProduction(type: JavaExec) {
     args = argList
 }
 
-task loadSaveExec << {
-    if (file(moquiRuntime+'/db/derby/MoquiDEFAULT').exists()) ant.zip(destfile: 'SaveDEFAULT.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiDEFAULT') { include(name: '**/*') } }
-    if (file(moquiRuntime+'/db/derby/MoquiTenant').exists()) ant.zip(destfile: 'SaveTenant.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiTenant') { include(name: '**/*') } }
-    if (file(moquiRuntime+'/db/h2').exists()) ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
-    if (file(moquiRuntime+'/db/orientdb/databases').exists()) ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
-    if (file(moquiRuntime+'/elasticsearch/data').exists()) ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
-}
 task loadSave {
     description "Clean all, build and load, then save database (H2, Derby), OrientDB, and ElasticSearch files; to be used before reloadSave"
-    dependsOn cleanAll, load, loadSaveExec
+    dependsOn cleanAll, load
+    doLast {
+        if (file(moquiRuntime+'/db/derby/MoquiDEFAULT').exists())
+            ant.zip(destfile: 'SaveDEFAULT.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiDEFAULT') { include(name: '**/*') } }
+        if (file(moquiRuntime+'/db/derby/MoquiTenant').exists())
+            ant.zip(destfile: 'SaveTenant.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiTenant') { include(name: '**/*') } }
+        if (file(moquiRuntime+'/db/h2').exists())
+            ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
+        if (file(moquiRuntime+'/db/orientdb/databases').exists())
+            ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
+        if (file(moquiRuntime+'/elasticsearch/data').exists())
+            ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+    }
 }
 
-task reloadSaveExec << {
-    if (file('SaveDEFAULT.zip').exists()) copy { from zipTree('SaveDEFAULT.zip'); into file(moquiRuntime+'/db/derby/MoquiDEFAULT') }
-    if (file('SaveTenant.zip').exists()) copy { from zipTree('SaveTenant.zip'); into file(moquiRuntime+'/db/derby/MoquiTenant') }
-    if (file('SaveH2.zip').exists()) copy { from zipTree('SaveH2.zip'); into file(moquiRuntime+'/db/h2') }
-    if (file('SaveOrientDb.zip').exists()) copy { from zipTree('SaveOrientDb.zip'); into file(moquiRuntime+'/db/orientdb/databases') }
-    if (file('SaveElasticSearch.zip').exists()) copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
-}
 task reloadSave {
     description "After a loadSave clean database (H2, Derby), OrientDB, and ElasticSearch files and reload from saved copy"
     dependsOn cleanTempDir, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog
     dependsOn allBuildTasks
-    dependsOn reloadSaveExec
+    doLast {
+        if (file('SaveDEFAULT.zip').exists()) copy { from zipTree('SaveDEFAULT.zip'); into file(moquiRuntime+'/db/derby/MoquiDEFAULT') }
+        if (file('SaveTenant.zip').exists()) copy { from zipTree('SaveTenant.zip'); into file(moquiRuntime+'/db/derby/MoquiTenant') }
+        if (file('SaveH2.zip').exists()) copy { from zipTree('SaveH2.zip'); into file(moquiRuntime+'/db/h2') }
+        if (file('SaveOrientDb.zip').exists()) copy { from zipTree('SaveOrientDb.zip'); into file(moquiRuntime+'/db/orientdb/databases') }
+        if (file('SaveElasticSearch.zip').exists()) copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+    }
 }
 
 // ========== deploy tasks ==========
@@ -341,6 +314,58 @@ task getComponentSet {
         logger.lifecycle("Got component-set ${componentSet}, got or checked components: ${compsChecked}")
     }
 }
+
+task zipComponents {
+    description "Create a .zip archive file for each component in runtime/component"
+    dependsOn allBuildTasks
+    doLast { for (File compDir in findComponentDirs()) createComponentZip(compDir) }
+}
+
+// ========== utility methods ==========
+
+def createComponentZip(File compDir) {
+    File compXmlFile = file("${compDir.path}/component.xml")
+    if (!compXmlFile.exists()) return
+    Node compXml = new XmlParser().parse(compXmlFile)
+    File zipFile = file("${compDir.parentFile.path}/${compXml.'@name'}${compXml.'@version' ? '-' + compXml.'@version' : ''}.zip")
+    if (zipFile.exists()) { logger.lifecycle("Deleting existing component zip file: ${zipFile.name}"); zipFile.delete() }
+    // exclude build, src, librepo, build.gradle, defaultexcludes (which includes .git)
+    ant.zip(destfile: zipFile.path) { fileset(dir: compDir.parentFile.path, includes: "${compDir.name}/**", defaultexcludes: 'yes',
+            excludes: "${compDir.name}/build/**,${compDir.name}/src/**,${compDir.name}/librepo/**,${compDir.name}/build.gradle") }
+    logger.lifecycle("Created component zip file: ${zipFile.name}")
+}
+
+def checkRuntimeDirAndDefaults(String locType) {
+    Node addons = parseAddons()
+    Node myaddons = parseMyaddons()
+    if (!locType) locType = file('.git').exists() ? 'git' : 'current'
+
+    File runtimeDir = file('runtime')
+    if (!runtimeDir.exists()) {
+        Node runtimeNode = myaddons != null && myaddons.runtime ? (Node) myaddons.runtime[0] : null
+        if (runtimeNode == null) runtimeNode = addons != null && addons.runtime ? (Node) addons.runtime[0] : null
+        if (runtimeNode == null) throw new InvalidUserDataException("The runtime directory does not exist and no runtime element found in myaddons.xml or addons.xml")
+        downloadComponent("runtime", locType, runtimeNode, addons, myaddons)
+    }
+
+    // look for @default in myaddons.xml only
+    if (myaddons?.'@default') {
+        String defaultComps = myaddons.'@default'
+        Set compsChecked = new TreeSet()
+        Set defaultCompsDownloaded = new TreeSet()
+        for (String compName in defaultComps.split(',')) {
+            compName = compName.trim()
+            if (!compName) continue
+            File componentDir = file("runtime/component/${compName}")
+            if (componentDir.exists()) continue
+            getComponent(compName, locType, addons, myaddons, compsChecked)
+            defaultCompsDownloaded.add(compName)
+        }
+        if (defaultCompsDownloaded)
+            logger.lifecycle("Got default components ${defaultCompsDownloaded}, dependent components checked: ${compsChecked}")
+    }
+}
+
 def loadComponentSet(String setName, String curLocationType, Node addons, Node myaddons, Set compsChecked) {
     Node setNode = null
     if (myaddons) setNode = myaddons.'component-set'.find({ it."@name" == setName })
@@ -354,7 +379,9 @@ def loadComponentSet(String setName, String curLocationType, Node addons, Node m
         loadComponentSet(subsetName, curLocationType, addons, myaddons, compsChecked)
 }
 
-
+Collection<File> findComponentDirs() {
+    file('runtime/component').listFiles().findAll({ it.isDirectory() && it.listFiles().find({ it.name == 'component.xml' }) })
+}
 Node parseAddons() { new XmlParser().parse(file('addons.xml')) }
 Node parseMyaddons() { if (file('myaddons.xml').exists()) { new XmlParser().parse(file('myaddons.xml')) } else { null } }
 Node parseComponent(project) { new XmlParser().parse(project.file('component.xml')) }
@@ -432,7 +459,7 @@ def checkAllComponentDependencies(String type) {
     Node addons = parseAddons()
     Node myaddons = parseMyaddons()
     Set compsChecked = new TreeSet()
-    for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == 'component.xml' } }) {
+    for (File compDir in findComponentDirs()) {
         checkComponentDependencies(compDir.name, type, addons, myaddons, compsChecked)
     }
     logger.lifecycle("Dependent components checked: ${compsChecked}")
