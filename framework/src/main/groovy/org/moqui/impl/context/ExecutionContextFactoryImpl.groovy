@@ -54,6 +54,8 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.jar.JarFile
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 
 @CompileStatic
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
@@ -299,9 +301,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Merging runtime configuration at ${runtimeConfPath}")
         mergeConfigNodes(baseConfigNode, runtimeConfXmlRoot)
 
-        // TODO: add some conf or runtime option to log the full config after merge?
-        // logger.info("Configuration after all merges:\n${baseConfigNode.toString()}")
-
         // set default System properties now that all is merged
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
@@ -388,7 +387,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     private void postFacadeInit() {
-
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity defs
         logger.info("Loading entity definitions")
@@ -829,17 +827,32 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 TreeMap<String, ResourceReference> componentDirEntries = new TreeMap<String, ResourceReference>()
                 for (ResourceReference componentSubRr in componentRr.getDirectoryEntries()) {
                     // if it's a directory and doesn't start with a "." then add it as a component dir
-                    if (!componentSubRr.isDirectory() || componentSubRr.getFileName().startsWith(".")) continue
+                    String subRrName = componentSubRr.getFileName()
+                    if ((!componentSubRr.isDirectory() && !subRrName.endsWith(".zip")) || subRrName.startsWith(".")) continue
                     componentDirEntries.put(componentSubRr.getFileName(), componentSubRr)
                 }
-                for (Map.Entry<String, ResourceReference> componentDirEntry in componentDirEntries) {
-                    ComponentInfo componentInfo = new ComponentInfo(componentDirEntry.getValue().getLocation(), this)
+                for (Map.Entry<String, ResourceReference> componentDirEntry in componentDirEntries.entrySet()) {
+                    String compName = componentDirEntry.value.getFileName()
+                    // skip zip files that already have a matching directory
+                    if (compName.endsWith(".zip")) {
+                        String compNameNoZip = stripVersionFromName(compName.substring(0, compName.length() - 4))
+                        if (componentDirEntries.containsKey(compNameNoZip)) continue
+                    }
+                    ComponentInfo componentInfo = new ComponentInfo(componentDirEntry.value.location, this)
                     this.addComponent(componentInfo)
                 }
             }
         }
     }
 
+    protected static String stripVersionFromName(String name) {
+        int lastDash = name.lastIndexOf("-")
+        if (lastDash > 0 && lastDash < name.length() - 2 && Character.isDigit(name.charAt(lastDash + 1))) {
+            return name.substring(0, lastDash)
+        } else {
+            return name
+        }
+    }
     protected ResourceReference getResourceReference(String location) {
         // TODO: somehow support other resource location types
         // the ResourceFacade inits after components are loaded (so it is aware of initial components), so we can't get ResourceReferences from it
@@ -868,12 +881,52 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             location = specLoc ?: origNode?.attribute("location")
             if (!location) throw new IllegalArgumentException("Cannot init component with no location (not specified or found in component.@location)")
 
+            // support component zip files, expand now and replace name and location
+            if (location.endsWith(".zip")) {
+                ResourceReference zipRr = ecfi.getResourceReference(location)
+                if (!zipRr.supportsExists()) throw new IllegalArgumentException("Could component location ${location} does not support exists, cannot use as a component location")
+                // make sure corresponding directory does not exist
+                String locNoZip = stripVersionFromName(location.substring(0, location.length() - 4))
+                ResourceReference noZipRr = ecfi.getResourceReference(locNoZip)
+                if (zipRr.getExists() && !noZipRr.getExists()) {
+                    String zipPath = zipRr.getUrl().toExternalForm().substring(5)
+                    File zipFile = new File(zipPath)
+                    String targetDirLocation = zipFile.getParent()
+                    logger.info("Expanding component archive ${zipRr.getFileName()} to ${targetDirLocation}")
+
+                    ZipInputStream zipIn = new ZipInputStream(zipRr.openStream())
+                    try {
+                        ZipEntry entry = zipIn.getNextEntry()
+                        // iterates over entries in the zip file
+                        while (entry != null) {
+                            ResourceReference entryRr = ecfi.getResourceReference(targetDirLocation + '/' + entry.getName())
+                            String filePath = entryRr.getUrl().toExternalForm().substring(5)
+                            if (entry.isDirectory()) {
+                                File dir = new File(filePath)
+                                dir.mkdir()
+                            } else {
+                                OutputStream os = new FileOutputStream(filePath)
+                                StupidUtilities.copyStream(zipIn, os)
+                            }
+                            zipIn.closeEntry()
+                            entry = zipIn.getNextEntry()
+                        }
+                    } finally {
+                        zipIn.close()
+                    }
+                }
+
+                // assumes zip contains a single directory named the same as the component name (without version)
+                location = locNoZip
+            }
+
             // clean up the location
             if (location.endsWith('/')) location = location.substring(0, location.length()-1)
             int lastSlashIndex = location.lastIndexOf('/')
             if (lastSlashIndex < 0) {
                 // if this happens the component directory is directly under the runtime directory, so prefix loc with that
                 location = ecfi.runtimePath + '/' + location
+                lastSlashIndex = location.lastIndexOf('/')
             }
             // set the default component name
             name = location.substring(lastSlashIndex+1)
