@@ -320,12 +320,23 @@ task zipComponents {
     dependsOn allBuildTasks
     doLast { for (File compDir in findComponentDirs()) createComponentZip(compDir) }
 }
+task zipComponent {
+    description "Create a .zip archive file a single component in runtime/component; requires component property"
+    dependsOn allBuildTasks
+    doLast {
+        if (!project.hasProperty('component')) throw new InvalidUserDataException("No component property specified")
+        createComponentZip(file('runtime/component/' + component))
+    }
+}
 
 // ========== utility methods ==========
 
 def createComponentZip(File compDir) {
     File compXmlFile = file("${compDir.path}/component.xml")
-    if (!compXmlFile.exists()) return
+    if (!compXmlFile.exists()) {
+        logger.lifecycle("No component.xml file found at ${compXmlFile.path}, not creating component zip")
+        return
+    }
     Node compXml = new XmlParser().parse(compXmlFile)
     File zipFile = file("${compDir.parentFile.path}/${compXml.'@name'}${compXml.'@version' ? '-' + compXml.'@version' : ''}.zip")
     if (zipFile.exists()) { logger.lifecycle("Deleting existing component zip file: ${zipFile.name}"); zipFile.delete() }
