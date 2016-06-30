@@ -54,6 +54,8 @@ class MoquiServlet extends HttpServlet {
     void service(HttpServletRequest request, HttpServletResponse response) { doScreenRequest(request, response) }
 
     void doScreenRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
+
         if (ecfi == null || moquiWebappName == null) init(getServletConfig())
 
         long startTime = System.currentTimeMillis()
@@ -74,7 +76,6 @@ class MoquiServlet extends HttpServlet {
             ec.initWebFacade(moquiWebappName, request, response)
             ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
-            if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
             ec.screen.makeRender().render(request, response)
         } catch (AuthenticationRequiredException e) {
             logger.warn("Web Unauthorized (no authc): " + e.message)
