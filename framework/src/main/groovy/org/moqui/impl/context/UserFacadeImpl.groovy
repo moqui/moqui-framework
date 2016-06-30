@@ -17,7 +17,6 @@ import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
 import org.joda.time.DateTimeZone
 import org.joda.time.MutableDateTime
-import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.util.MoquiShiroRealm
@@ -41,7 +40,6 @@ import org.apache.shiro.web.session.HttpServletSession
 import org.moqui.context.UserFacade
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
-import org.moqui.impl.entity.EntityListImpl
 import org.apache.shiro.subject.support.DefaultSubjectContext
 
 import org.slf4j.Logger
@@ -563,6 +561,7 @@ class UserFacadeImpl implements UserFacade {
         SecureRandom sr = new SecureRandom()
         byte[] randomBytes = new byte[30]
         sr.nextBytes(randomBytes)
+        // TODO: when we move to Java 8 use java.util.Base64
         String loginKey = Base64.encodeBase64URLSafeString(randomBytes)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates

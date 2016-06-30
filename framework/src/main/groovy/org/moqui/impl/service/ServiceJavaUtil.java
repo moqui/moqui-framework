@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.service;
 
-import org.apache.commons.codec.net.URLCodec;
 import org.moqui.impl.StupidClassLoader;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.StupidUtilities;

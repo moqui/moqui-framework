@@ -14,7 +14,6 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
-import org.apache.commons.codec.net.URLCodec
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
@@ -42,7 +41,6 @@ import javax.cache.Cache
 @CompileStatic
 class ScreenUrlInfo {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenUrlInfo.class)
-    protected final static URLCodec urlCodec = new URLCodec()
 
     // ExecutionContext ec
     ExecutionContextFactoryImpl ecfi
@@ -284,7 +282,7 @@ class ScreenUrlInfo {
             int listSize = fullPathNameList.size()
             for (int i = 0; i < listSize; i++) {
                 String pathName = fullPathNameList.get(i)
-                urlBuilder.append('/').append(urlCodec.encode(pathName))
+                urlBuilder.append('/').append(URLEncoder.encode(pathName, "UTF-8"))
             }
         }
         return urlBuilder.toString()
@@ -618,7 +616,7 @@ class ScreenUrlInfo {
                 List<String> nameValuePairs = pathParmString.replaceAll("&amp;", "&").split("&") as List
                 for (String nameValuePair in nameValuePairs) {
                     String[] nameValue = nameValuePair.substring(0).split("=")
-                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], urlCodec.decode(nameValue[1]))
+                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], URLDecoder.decode(nameValue[1], "UTF-8"))
                 }
             }
             screenPath = screenPath.substring(0, indexOfQuestionMark)
@@ -676,11 +674,11 @@ class ScreenUrlInfo {
             if (pathName.startsWith("~")) {
                 if (inlineParameters != null) {
                     String[] nameValue = pathName.substring(1).split("=")
-                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], urlCodec.decode(nameValue[1]))
+                    if (nameValue.length == 2) inlineParameters.put(nameValue[0], URLDecoder.decode(nameValue[1], "UTF-8"))
                 }
                 continue
             }
-            cleanList.add(urlCodec.decode(pathName))
+            cleanList.add(URLDecoder.decode(pathName, "UTF-8"))
         }
         return cleanList
     }
@@ -844,7 +842,7 @@ class ScreenUrlInfo {
                 if (!pme.value) continue
                 if (pme.key == "moquiSessionToken") continue
                 if (ps.length() > 0) ps.append("&")
-                ps.append(pme.key).append("=").append(urlCodec.encode(pme.value))
+                ps.append(pme.key).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
             }
             return ps.toString()
         }
@@ -854,7 +852,7 @@ class ScreenUrlInfo {
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.getValue()) continue
                 ps.append("/~")
-                ps.append(pme.getKey()).append("=").append(urlCodec.encode(pme.getValue()))
+                ps.append(pme.getKey()).append("=").append(URLEncoder.encode(pme.getValue(), "UTF-8"))
             }
             return ps.toString()
         }

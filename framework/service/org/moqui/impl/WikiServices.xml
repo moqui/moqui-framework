@@ -290,10 +290,9 @@ along with this software (see the LICENSE.md file). If not, see
             <script>
                 List pathElementList = pagePath.split('/') as List
                 StringBuffer encodedPagePathSb = new StringBuffer()
-                def urlCodec = new org.apache.commons.codec.net.URLCodec()
                 for (String pathElement in pathElementList) {
                     if (encodedPagePathSb.length() > 0) encodedPagePathSb.append("/")
-                    encodedPagePathSb.append(urlCodec.encode(pathElement))
+                    encodedPagePathSb.append(java.net.URLEncoder.encode(pathElement, "UTF-8"))
                 }
                 encodedPagePath = encodedPagePathSb.toString()
             </script>

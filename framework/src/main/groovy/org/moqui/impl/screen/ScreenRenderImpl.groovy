@@ -15,7 +15,6 @@ package org.moqui.impl.screen
 
 import freemarker.template.Template
 import groovy.transform.CompileStatic
-import org.apache.commons.codec.net.URLCodec
 import org.apache.commons.collections.map.ListOrderedMap
 
 import org.moqui.BaseException
@@ -56,7 +55,6 @@ import javax.servlet.http.HttpServletResponse
 class ScreenRenderImpl implements ScreenRender {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenRenderImpl.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
-    protected final static URLCodec urlCodec = new URLCodec()
 
     protected final ScreenFacadeImpl sfi
     protected ExecutionContextImpl localEc
@@ -429,7 +427,7 @@ class ScreenRenderImpl implements ScreenRender {
                         for (Map.Entry<String, String> pme in pm.entrySet()) {
                             if (!pme.value) continue
                             if (ps.length() > 0) ps.append("&")
-                            ps.append(pme.key).append("=").append(urlCodec.encode(pme.value))
+                            ps.append(pme.key).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
                         }
                     }
                     String fullUrl = url

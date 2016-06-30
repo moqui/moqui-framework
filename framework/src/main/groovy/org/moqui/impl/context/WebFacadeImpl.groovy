@@ -18,7 +18,6 @@ import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 
 import org.apache.commons.codec.binary.Base64
-import org.apache.commons.codec.net.URLCodec
 import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
@@ -53,7 +52,6 @@ import java.security.SecureRandom
 @CompileStatic
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
-    protected final static URLCodec urlCodec = new URLCodec()
 
     // Not using shared root URL cache because causes issues when requests come to server through different hosts/etc:
     // protected static final Map<String, String> webappRootUrlByParms = new HashMap()
@@ -179,6 +177,7 @@ class WebFacadeImpl implements WebFacade {
             SecureRandom sr = new SecureRandom()
             byte[] randomBytes = new byte[20]
             sr.nextBytes(randomBytes)
+            // TODO: when we move to Java 8 use java.util.Base64
             sessionToken = Base64.encodeBase64URLSafeString(randomBytes)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
@@ -269,7 +268,7 @@ class WebFacadeImpl implements WebFacade {
 
                     // injection issue with name field: userId=%3Cscript%3Ealert(%27Test%20Crack!%27)%3C/script%3E
                     String parmValue = entry.value
-                    if (parmValue) parmValue = urlCodec.encode(parmValue)
+                    if (parmValue) parmValue = URLEncoder.encode(parmValue, "UTF-8")
                     paramBuilder.append(parmValue)
 
                     pCount++
