@@ -101,15 +101,6 @@ dependencies {
     // NOTE: jts explicit dependency because doesn't get picked up in ElasticSearch, was error without, now seems fine
     // runtime 'com.vividsolutions:jts:1.13' // LGPL (runtime only, needed by spatial4j)
 
-    // Apache FOP
-    compile('org.apache.xmlgraphics:fop:2.1') { // Apache 2.0
-        exclude group: 'xalan'
-        exclude group: 'xml-apis' // can't exclude batik-ext but has some same classes as xml-apis so exclude that
-    }
-    // barcode4j as a module to avoid required dependency on ant
-    compile module('net.sf.barcode4j:barcode4j:2.1')
-    compile module('net.sf.barcode4j:barcode4j-fop-ext:2.1')
-
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker

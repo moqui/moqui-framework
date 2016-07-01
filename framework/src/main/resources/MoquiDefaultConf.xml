@@ -18,7 +18,6 @@
 
         <tool-factory class="org.moqui.impl.tools.H2ServerToolFactory" init-priority="12" disabled="false"/>
         <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="15" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.FopToolFactory" init-priority="20" disabled="false"/>
 
         <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
     </tools>
@@ -170,8 +169,7 @@
             JBoss (separate objects): "java:comp/UserTransaction" and "java:comp/TransactionManager" -->
     </transaction-facade>
 
-    <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl"
-            xsl-fo-handler-factory="FOP">
+    <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl">
         <!-- resource reference class needs to implement the org.moqui.context.ResourceReference interface -->
         <resource-reference scheme="http" class="org.moqui.impl.context.reference.UrlResourceReference"/>
         <resource-reference scheme="https" class="org.moqui.impl.context.reference.UrlResourceReference"/>

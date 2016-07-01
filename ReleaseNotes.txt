@@ -40,6 +40,10 @@ Non Backward Compatible Changes
   - For all of these artifacts see moqui-framework commit #d42ede0 and
     moqui-runtime commit #6a9c61e
 - Externalized Tools
+  - Apache FOP is now in the moqui-fop tool component; everything in the
+    framework, including the now poorly named MoquiFopServlet, use generic
+    interfaces but XML-FO files will not transform to PDF/etc without this
+    component in place
   - OrientDB and Entity Facade interface implementations are now in the
     moqui-orientdb component, see its README.md for usage
   - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint
@@ -187,6 +191,9 @@ New Features
   - Implemented distributed entity cache invalidate using a Hazelcast
     Topic, enabled in Moqui Conf XML file with the
     @distributed-cache-invalidate attribute on the entity-facade element
+- XSL-FO rendering now supports a generic ToolFactory to create a
+  org.xml.sax.ContentHandler object, with an implementation using Apache
+  FOP now in the moqui-fop component
 - JCR and Apache Jackrabbit
   - JCR support (for content:// locations in the ResourceFacade) now uses
     javax.jcr interfaces only, no dependencies on Jackrabbit

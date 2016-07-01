@@ -333,6 +333,8 @@ public class StupidClassLoader extends ClassLoader {
                 c = cl.loadClass(className);
             } catch (ClassNotFoundException e) {
                 // do nothing, common that class won't be found if expected in additional JARs and class directories
+            } catch (NoClassDefFoundError e) {
+                // do nothing, common that class won't be found if expected in additional JARs and class directories
             } catch (RuntimeException e) {
                 e.printStackTrace();
                 throw e;
