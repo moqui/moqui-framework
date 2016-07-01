@@ -453,18 +453,12 @@ Bug Fixes
 Long Term To Do List - aka Informal Road Map
 ===========================================================================
 
-- Support some sort of built component archive?
-  - expand zip files found in component directories if no matching directory exists
-  - strip off version number from zip name, all dot separated numbers after a dash
-  - add gradle task (zipComponents) to zip all components, maybe one to zip a single component too
-- Use component name and version for jar/etc names in more component build files
-
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 
 - Move tools from moqui-framework to tool components
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
     - ElasticSearch (moqui-elasticsearch)
-    - add mantle-usl dependencies on moqui-elasticsearch; moqui-kie is optional for mantle-usl
+    - add mantle-usl dependencies on moqui-elasticsearch
   - Possible to split out FOP?
     - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
 
