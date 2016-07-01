@@ -14,12 +14,8 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.apache.fop.apps.*
-import org.apache.fop.apps.io.ResourceResolverFactory
-import org.apache.xmlgraphics.io.Resource
-import org.apache.xmlgraphics.io.ResourceResolver
 import org.codehaus.groovy.runtime.InvokerHelper
-
+import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
@@ -76,7 +72,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>()
     protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>()
     protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager()
-    protected FopFactory internalFopFactory = null
+    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory = null
 
     protected final Map<String, Repository> contentRepositories = new HashMap<>()
     protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<Map<String, Session>>()
@@ -94,8 +90,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
         resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location", String.class, ResourceReference.class)
 
+        MNode resourceFacadeNode = ecfi.confXmlRoot.first("resource-facade")
+
         // Setup resource reference classes
-        for (MNode rrNode in ecfi.confXmlRoot.first("resource-facade").children("resource-reference")) {
+        for (MNode rrNode in resourceFacadeNode.children("resource-reference")) {
             try {
                 Class rrClass = Thread.currentThread().getContextClassLoader().loadClass(rrNode.attribute("class"))
                 resourceReferenceClasses.put(rrNode.attribute("scheme"), rrClass)
@@ -105,7 +103,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
 
         // Setup template renderers
-        for (MNode templateRendererNode in ecfi.confXmlRoot.first("resource-facade").children("template-renderer")) {
+        for (MNode templateRendererNode in resourceFacadeNode.children("template-renderer")) {
             TemplateRenderer tr = (TemplateRenderer) Thread.currentThread().getContextClassLoader()
                     .loadClass(templateRendererNode.attribute("class")).newInstance()
             templateRenderers.put(templateRendererNode.attribute("extension"), tr.init(ecfi))
@@ -116,7 +114,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
 
         // Setup script runners
-        for (MNode scriptRunnerNode in ecfi.confXmlRoot.first("resource-facade").children("script-runner")) {
+        for (MNode scriptRunnerNode in resourceFacadeNode.children("script-runner")) {
             if (scriptRunnerNode.attribute("class")) {
                 ScriptRunner sr = (ScriptRunner) Thread.currentThread().getContextClassLoader()
                         .loadClass(scriptRunnerNode.attribute("class")).newInstance()
@@ -126,6 +124,16 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 scriptRunners.put(scriptRunnerNode.attribute("extension"), sr)
             } else {
                 logger.error("Configured script-runner for extension [${scriptRunnerNode.attribute("extension")}] must have either a class or engine attribute and has neither.")
+            }
+        }
+
+        // Get XSL-FO Handler Factory
+        if (resourceFacadeNode.attribute("xsl-fo-handler-factory")) {
+            xslFoHandlerFactory = ecfi.getToolFactory(resourceFacadeNode.attribute("xsl-fo-handler-factory"))
+            if (xslFoHandlerFactory != null) {
+                logger.info("Using xsl-fo-handler-factory ${resourceFacadeNode.attribute("xsl-fo-handler-factory")} (${xslFoHandlerFactory.class.name})")
+            } else {
+                logger.warn("Could not find xsl-fo-handler-factory with name ${resourceFacadeNode.attribute("xsl-fo-handler-factory")}")
             }
         }
 
@@ -586,76 +594,24 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return true
     }
 
+    @Override
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
+        if (xslFoHandlerFactory == null) throw new BaseException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
+
         TransformerFactory factory = TransformerFactory.newInstance()
         factory.setURIResolver(new LocalResolver(ecfi, factory.getURIResolver()))
 
         Transformer transformer = xsltSrc == null ? factory.newTransformer() : factory.newTransformer(xsltSrc)
         transformer.setURIResolver(new LocalResolver(ecfi, transformer.getURIResolver()))
 
-        FopFactory ff = getFopFactory()
-        FOUserAgent foUserAgent = ff.newFOUserAgent()
-        // no longer needed? foUserAgent.setURIResolver(new LocalResolver(ecfi, foUserAgent.getURIResolver()))
-        Fop fop = ff.newFop(contentType, foUserAgent, out)
-
-        transformer.transform(xslFoSrc, new SAXResult(fop.getDefaultHandler()))
-    }
-
-    FopFactory getFopFactory() {
-        if (internalFopFactory != null) return internalFopFactory
-
-        URI baseURI = getLocationReference((String) ecfi.runtimePath + "/conf").getUri()
-        ResourceResolver resolver = new LocalResourceResolver(ecfi, ResourceResolverFactory.createDefaultResourceResolver())
-        FopConfParser parser = new FopConfParser(getLocationStream("classpath://fop.xconf"), baseURI, resolver)
-        FopFactoryBuilder builder = parser.getFopFactoryBuilder()
-        // Limit the validation for backwards compatibility
-        builder.setStrictFOValidation(false)
-        internalFopFactory = builder.build()
-
-        // need something like this? internalFopFactory.getFontManager().setResourceResolver(resolver)
-
-        return internalFopFactory
-    }
-
-    @CompileStatic
-    static class LocalResourceResolver implements ResourceResolver {
-        protected ExecutionContextFactoryImpl ecfi
-        protected ResourceResolver defaultResolver
-
-        protected LocalResourceResolver() {}
-
-        public LocalResourceResolver(ExecutionContextFactoryImpl ecfi, ResourceResolver defaultResolver) {
-            this.ecfi = ecfi
-            this.defaultResolver = defaultResolver
-        }
-
-        public OutputStream getOutputStream(URI uri) throws IOException {
-            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(uri.toASCIIString())
-            if (rr != null) {
-                OutputStream os = rr.getOutputStream()
-                if (os != null) { return os }
-            }
-
-            return defaultResolver?.getOutputStream(uri)
-         }
-
-         public Resource getResource(URI uri) throws IOException {
-             ResourceReference rr = ecfi.getResourceFacade().getLocationReference(uri.toASCIIString())
-             if (rr != null) {
-                 InputStream is = rr.openStream()
-                 if (is != null) { return new Resource(is) }
-             }
-
-             return defaultResolver?.getResource(uri)
-         }
+        org.xml.sax.ContentHandler contentHandler = xslFoHandlerFactory.getInstance(out, contentType)
+        transformer.transform(xslFoSrc, new SAXResult(contentHandler))
     }
 
     @CompileStatic
     static class LocalResolver implements URIResolver {
         protected ExecutionContextFactoryImpl ecfi
         protected URIResolver defaultResolver
-
-        protected LocalResolver() {}
 
         public LocalResolver(ExecutionContextFactoryImpl ecfi, URIResolver defaultResolver) {
             this.ecfi = ecfi

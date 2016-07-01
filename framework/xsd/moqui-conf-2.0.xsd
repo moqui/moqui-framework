@@ -413,9 +413,8 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="transaction-facade">
         <xs:complexType>
             <xs:sequence>
-                <xs:element minOccurs="0" ref="server-jndi">
-                    <xs:annotation><xs:documentation>If not present the default JNDI server will be used.</xs:documentation></xs:annotation>
-                </xs:element>
+                <xs:element minOccurs="0" ref="server-jndi"><xs:annotation><xs:documentation>
+                    If not present the default JNDI server will be used.</xs:documentation></xs:annotation></xs:element>
                 <xs:choice minOccurs="0">
                     <xs:element minOccurs="0" ref="transaction-jndi"/>
                     <xs:element minOccurs="0" ref="transaction-internal"/>
@@ -446,6 +445,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="script-runner"/>
             </xs:sequence>
             <xs:attribute name="xml-actions-template-location" type="xs:string"/>
+            <xs:attribute name="xsl-fo-handler-factory" type="xs:string"><xs:annotation><xs:documentation>
+                Name of the ToolFactory to use for XSL-FO transformation in the ResourceFacade.xslFoTransform() method.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="resource-reference">

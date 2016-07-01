@@ -150,10 +150,14 @@ try {
                     .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
             String attachmentText = attachmentRender.render()
             if (emailTemplateAttachment.screenRenderMode == "xsl-fo") {
-                // use FOP to change to PDF, then attach that
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()
-                ec.resource.xslFoTransform(new StreamSource(new StringReader(attachmentText)), null, baos, "application/pdf")
-                email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), (String) emailTemplateAttachment.fileName, "")
+                // use ResourceFacade.xslFoTransform() to change to PDF, then attach that
+                try {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream()
+                    ec.resource.xslFoTransform(new StreamSource(new StringReader(attachmentText)), null, baos, "application/pdf")
+                    email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), (String) emailTemplateAttachment.fileName, "")
+                } catch (Exception e) {
+                    logger.warn("Error generating PDF from XSL-FO: ${e.toString()}")
+                }
             } else {
                 String mimeType = ec.screen.getMimeTypeByMode(emailTemplateAttachment.screenRenderMode)
                 DataSource dataSource = new ByteArrayDataSource(attachmentText, mimeType)
