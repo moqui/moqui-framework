@@ -44,8 +44,8 @@ public class JavaServiceRunner implements ServiceRunner {
         }
 
         ExecutionContext ec = sfi.ecfi.getExecutionContext()
-        ContextStack cs = (ContextStack) ec.context
-        Map<String, Object> result = [:]
+        ContextStack cs = ec.context
+        Map<String, Object> result = (Map<String, Object>) null
         try {
             // push the entire context to isolate the context for the service call
             cs.pushContext()
@@ -55,9 +55,8 @@ public class JavaServiceRunner implements ServiceRunner {
             cs.putAll(parameters)
 
             Class c = (Class) StupidJavaUtilities.getClass(sd.location)
-            if (!c) {
-                c = Thread.currentThread().getContextClassLoader().loadClass(sd.location)
-            }
+            if (c == null) c = Thread.currentThread().getContextClassLoader().loadClass(sd.location)
+
             Method m = c.getMethod(sd.serviceNode.attribute("method"), ExecutionContext.class)
             if (Modifier.isStatic(m.getModifiers())) {
                 result = (Map<String, Object>) m.invoke(null, sfi.ecfi.getExecutionContext())
