@@ -960,7 +960,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             for (String dependsOnName in dependsOnNames) {
                 ComponentInfo depCompInfo = ecfi.componentInfoMap.get(dependsOnName)
                 if (depCompInfo == null)
-                    throw new IllegalArgumentException("Component ${name} depends on component ${dependsOnName} which is not initialized")
+                    throw new IllegalArgumentException("Component ${name} depends on component ${dependsOnName} which is not initialized; try running 'gradle getDepends'")
                 List<String> childDepList = depCompInfo.getRecursiveDependencies()
                 for (String childDep in childDepList)
                     if (!dependsOnList.contains(childDep)) dependsOnList.add(childDep)
