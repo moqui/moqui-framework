@@ -14,7 +14,7 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
 
-    <service verb="clean" noun="SchedulerHistory" authenticate="false" transaction-timeout="600">
+    <service verb="clean" noun="ServiceJobRun" authenticate="false" transaction-timeout="600">
         <in-parameters><parameter name="daysToKeep" type="Integer" default="90"/></in-parameters>
         <out-parameters><parameter name="recordsRemoved" type="Long"/></out-parameters>
         <actions>
@@ -25,11 +25,11 @@ along with this software (see the LICENSE.md file). If not, see
                 Calendar basisCal = ec.user.getCalendarSafe()
                 basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
                 basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
-                recordsRemoved = ec.entity.find("moqui.service.scheduler.SchedulerHistory")
-                        .condition("eventDate", EntityCondition.LESS_THAN, basisTimestamp)
+                recordsRemoved = ec.entity.find("moqui.service.job.ServiceJobRun")
+                        .condition("startTime", EntityCondition.LESS_THAN, basisTimestamp)
                         .disableAuthz().deleteAll()
             </script>
-            <log level="info" message="Removed ${recordsRemoved} SchedulerHistory records."/>
+            <log level="info" message="Removed ${recordsRemoved} ServiceJobRun records."/>
         </actions>
     </service>
 </services>

@@ -85,7 +85,9 @@ class EmailEcaRule {
 
             Map<String, Object> headers = [:]
             ec.context.put("headers", headers)
-            for (Header header in message.allHeaders) {
+            Enumeration<Header> allHeaders = message.getAllHeaders()
+            while (allHeaders.hasMoreElements()) {
+                Header header = allHeaders.nextElement()
                 String headerName = header.name.toLowerCase()
                 if (headers.get(headerName)) {
                     Object hi = headers.get(headerName)

@@ -13,7 +13,6 @@
  */
 
 import java.io.*;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -32,10 +31,13 @@ import java.util.jar.Manifest;
  * The best source for research on the topic seems to be at http://www.jdotsoft.com, with a lot of good comments in the
  * JarClassLoader source file there.
  */
-public class MoquiStart extends ClassLoader {
+public class MoquiStart {
     // this default is for development and is here instead of having a buried properties file that might cause conflicts when trying to override
     private static final String defaultConf = "conf/MoquiDevConf.xml";
     private static final String tempDirName = "execwartmp";
+
+    private final static boolean reportJarsUnused = Boolean.valueOf(System.getProperty("report.jars.unused", "false"));
+    // private final static boolean reportJarsUnused = true;
 
     public static void main(String[] args) throws IOException {
         // now grab the first arg and see if it is a known command
@@ -43,9 +45,9 @@ public class MoquiStart extends ClassLoader {
 
         if (firstArg.contains("-help") || "-?".equals(firstArg)) {
             // setup the class loader
-            MoquiStart moquiStartLoader = new MoquiStart(true);
+            StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
-            Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader.jarFileList));
+            Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
             System.out.println("Internal Class Path Jars:");
@@ -71,6 +73,7 @@ public class MoquiStart extends ClassLoader {
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server.");
             System.out.println("    --port=<port> ---------------- The http listening port. Default is 8080");
+            System.out.println("    --threads=<max threads> ------ Maximum number of threads. Default is 100");
             System.out.println("");
             System.exit(0);
         }
@@ -80,6 +83,7 @@ public class MoquiStart extends ClassLoader {
         System.out.println("Using temporary directory: " + tempDir.getCanonicalPath());
         if (tempDir.exists()) {
             System.out.println("Found temporary directory " + tempDirName + ", deleting");
+            //noinspection ResultOfMethodCallIgnored
             tempDir.delete();
         }
 
@@ -88,9 +92,9 @@ public class MoquiStart extends ClassLoader {
 
         // now run the command
         if ("-load".equals(firstArg)) {
-            MoquiStart moquiStartLoader = new MoquiStart(true);
+            StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
-            Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader.jarFileList));
+            Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
             Map<String, String> argMap = new HashMap<>();
@@ -118,10 +122,10 @@ public class MoquiStart extends ClassLoader {
         // ===== Done trying specific commands, so load the embedded server
 
         // Get a start loader with loadWebInf=false since the container will load those we don't want to here (would be on classpath twice)
-        MoquiStart moquiStartLoader = new MoquiStart(false);
+        StartClassLoader moquiStartLoader = new StartClassLoader(reportJarsUnused);
         Thread.currentThread().setContextClassLoader(moquiStartLoader);
         // NOTE: using shutdown hook to close files only:
-        Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader.jarFileList);
+        Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader);
         shutdownHook.setDaemon(true);
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
@@ -142,30 +146,52 @@ public class MoquiStart extends ClassLoader {
             int port = 8080;
             String portStr = argMap.get("port");
             if (portStr != null && portStr.length() > 0) port = Integer.parseInt(portStr);
-            System.out.println("Running embedded server on port " + port + " with args [" + argMap + "]");
+            int threads = 100;
+            String threadsStr = argMap.get("threads");
+            if (threadsStr != null && threadsStr.length() > 0) threads = Integer.parseInt(threadsStr);
+
+            System.out.println("Running Jetty server on port " + port + " max threads " + threads + " with args [" + argMap + "]");
 
             Class<?> serverClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Server");
-            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+            Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
+            Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
 
-            Constructor serverConstructor = serverClass.getConstructor(int.class);
-            // TODO: configurable
-            Object server = serverConstructor.newInstance(port);
-            Constructor webappConstructor = webappClass.getConstructor();
-            Object webapp = webappConstructor.newInstance();
+            Object server = serverClass.getConstructor(int.class).newInstance(port);
+
+            // WebApp
+            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+            Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperWarUrl.toExternalForm() + "/WEB-INF/web.xml");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
             webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperWarUrl.toExternalForm());
             webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
-
-            Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             serverClass.getMethod("setHandler", handlerClass).invoke(server, webapp);
+
+            if (reportJarsUnused) webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
+
+            // WebSocket
+            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
+            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
+            Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
+            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
+
+            // Log getMinThreads, getMaxThreads
+            Object threadPool = serverClass.getMethod("getThreadPool").invoke(server);
+            sizedThreadPoolClass.getMethod("setMaxThreads", int.class).invoke(threadPool, threads);
+            int minThreads = (int) sizedThreadPoolClass.getMethod("getMinThreads").invoke(threadPool);
+            int maxThreads = (int) sizedThreadPoolClass.getMethod("getMaxThreads").invoke(threadPool);
+            System.out.println("Jetty min threads " + minThreads + ", max threads " + maxThreads);
+
+            // Start
             serverClass.getMethod("start").invoke(server);
             serverClass.getMethod("join").invoke(server);
 
             /* The classpath dependent code we are running:
             Server server = new Server(8080);
+
+            // WebApp
             WebAppContext webapp = new WebAppContext();
             webapp.setContextPath("/");
             webapp.setDescriptor(moquiStartLoader.wrapperWarUrl.toExternalForm() + "/WEB-INF/web.xml");
@@ -177,8 +203,12 @@ public class MoquiStart extends ClassLoader {
             // if the temp directory gets cleaned periodically.
             // Removed by the code elsewhere that deletes on close
             webapp.setTempDirectory(new File(tempDirName + "/ROOT"));
-
             server.setHandler(webapp);
+
+            // WebSocket
+            // NOTE: ServletContextHandler.SESSIONS = 1 (int)
+            ServerContainer wsContainer = org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer.configureContext(webapp);
+            webapp.setAttribute("javax.websocket.server.ServerContainer", wsContainer);
 
             // Start things up!
             server.start();
@@ -195,7 +225,7 @@ public class MoquiStart extends ClassLoader {
         // now wait for break...
     }
 
-    private static void initSystemProperties(MoquiStart cl, boolean useProperties) throws IOException {
+    private static void initSystemProperties(StartClassLoader cl, boolean useProperties) throws IOException {
         Properties moquiInitProperties = new Properties();
         URL initProps = cl.getResource("MoquiInit.properties");
         if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
@@ -250,12 +280,12 @@ public class MoquiStart extends ClassLoader {
     private static class MoquiShutdown extends Thread {
         final Method callMethod;
         final Object callObject;
-        final List<JarFile> jarFileList;
-        MoquiShutdown(Method callMethod, Object callObject, List<JarFile> jarFileList) {
+        final StartClassLoader moquiStart;
+        MoquiShutdown(Method callMethod, Object callObject, StartClassLoader moquiStart) {
             super();
             this.callMethod = callMethod;
             this.callObject = callObject;
-            this.jarFileList = jarFileList;
+            this.moquiStart = moquiStart;
         }
         public void run() {
             // run this first, ie shutdown the container before closing jarFiles to avoid errors with classes missing
@@ -268,246 +298,271 @@ public class MoquiStart extends ClassLoader {
             System.out.println("========== Shutting down Moqui Executable (closing jars, etc) ==========");
 
             // close all jarFiles so they will "deleteOnExit"
-            for (JarFile jarFile : jarFileList) {
+            for (JarFile jarFile : moquiStart.jarFileList) {
                 try {
                     jarFile.close();
                 } catch (IOException e) {
                     System.out.println("Error closing jar [" + jarFile + "]: " + e.toString());
                 }
             }
-        }
-    }
 
-    private JarFile outerFile = null;
-    private URL wrapperWarUrl = null;
-    private final ArrayList<JarFile> jarFileList = new ArrayList<>();
-    private final Map<String, Class<?>> classCache = new HashMap<>();
-    private final Map<String, URL> resourceCache = new HashMap<>();
-    private ProtectionDomain pd;
-    private final boolean loadWebInf;
-
-    private MoquiStart(boolean loadWebInf) {
-        this(ClassLoader.getSystemClassLoader(), loadWebInf);
-    }
-
-    private MoquiStart(ClassLoader parent, boolean loadWebInf) {
-        super(parent);
-        this.loadWebInf = loadWebInf;
-
-        try {
-            // get outer file (the war file)
-            pd = getClass().getProtectionDomain();
-            CodeSource cs = pd.getCodeSource();
-            wrapperWarUrl = cs.getLocation();
-            outerFile = new JarFile(new File(wrapperWarUrl.toURI()));
-
-            // allow for classes in the outerFile as well
-            jarFileList.add(outerFile);
-
-            Enumeration<JarEntry> jarEntries = outerFile.entries();
-            while (jarEntries.hasMoreElements()) {
-                JarEntry je = jarEntries.nextElement();
-                if (je.isDirectory()) continue;
-                // if we aren't loading the WEB-INF files and it is one, skip it
-                if (!loadWebInf && je.getName().startsWith("WEB-INF")) continue;
-                // get jars, can be anywhere in the file
-                String jeName = je.getName().toLowerCase();
-                if (jeName.lastIndexOf(".jar") == jeName.length() - 4) {
-                    File file = createTempFile(je);
-                    jarFileList.add(new JarFile(file));
+            if (reportJarsUnused) {
+                Set<String> sortedJars = new TreeSet<>();
+                String baseName = "execwartmp/moqui_temp";
+                for (String jarName: moquiStart.jarsUnused) {
+                    if (jarName.startsWith(baseName)) {
+                        jarName = jarName.substring(baseName.length());
+                        while (Character.isDigit(jarName.charAt(0))) jarName = jarName.substring(1);
+                    }
+                    sortedJars.add(jarName);
                 }
-            }
-        } catch (Exception e) {
-            System.out.println("Error loading jars in war file [" + wrapperWarUrl + "]: " + e.toString());
-        }
-    }
-
-    private File createTempFile(JarEntry je) throws IOException {
-        byte[] jeBytes = getJarEntryBytes(outerFile, je);
-
-        String tempName = je.getName().replace('/', '_') + ".";
-        File tempDir = new File(tempDirName);
-        if (tempDir.mkdir()) tempDir.deleteOnExit();
-        File file = File.createTempFile("moqui_temp", tempName, tempDir);
-        file.deleteOnExit();
-        BufferedOutputStream os = null;
-        try {
-            os = new BufferedOutputStream(new FileOutputStream(file));
-            os.write(jeBytes);
-        } finally {
-            if (os != null) os.close();
-        }
-        return file;
-    }
-
-    private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
-        DataInputStream dis = null;
-        byte[] jeBytes = null;
-        try {
-            long lSize = je.getSize();
-            if (lSize <= 0  ||  lSize >= Integer.MAX_VALUE) {
-                throw new IllegalArgumentException("Size [" + lSize + "] not valid for war entry [" + je + "]");
-            }
-            jeBytes = new byte[(int)lSize];
-            InputStream is = jarFile.getInputStream(je);
-            dis = new DataInputStream(is);
-            dis.readFully(jeBytes);
-        } finally {
-            if (dis != null) dis.close();
-        }
-        return jeBytes;
-    }
-
-    /** @see java.lang.ClassLoader#findResource(java.lang.String) */
-    @Override
-    protected URL findResource(String resourceName) {
-        if (resourceCache.containsKey(resourceName)) return resourceCache.get(resourceName);
-
-        // try the runtime/classes directory for conf files and such
-        String runtimePath = System.getProperty("moqui.runtime");
-        String fullPath = runtimePath + "/classes/" + resourceName;
-        File resourceFile = new File(fullPath);
-        if (resourceFile.exists()) try {
-            return resourceFile.toURI().toURL();
-        } catch (MalformedURLException e) {
-            System.out.println("Error making URL for [" + resourceName + "] in runtime classes directory [" + runtimePath + "/classes/" + "]: " + e.toString());
-        }
-
-        String webInfResourceName = "WEB-INF/classes/" + resourceName;
-        int jarFileListSize = jarFileList.size();
-        for (int i = 0; i < jarFileListSize; i++) {
-            JarFile jarFile = jarFileList.get(i);
-            JarEntry jarEntry = jarFile.getJarEntry(resourceName);
-            // to better support war format, look for the resourceName in the WEB-INF/classes directory
-            if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfResourceName);
-            if (jarEntry != null) {
-                try {
-                    String jarFileName = jarFile.getName();
-                    if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                    URL resourceUrl = new URL("jar:file:" + jarFileName + "!/" + jarEntry);
-                    resourceCache.put(resourceName, resourceUrl);
-                    return resourceUrl;
-                } catch (MalformedURLException e) {
-                    System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + outerFile + "]: " + e.toString());
-                }
+                for (String jarName: sortedJars) System.out.println("JAR unused: " + jarName);
             }
         }
-        return super.findResource(resourceName);
     }
 
-    /** @see java.lang.ClassLoader#findResources(java.lang.String) */
-    @Override
-    public Enumeration<URL> findResources(String resourceName) throws IOException {
-        String webInfResourceName = "WEB-INF/classes/" + resourceName;
-        List<URL> urlList = new ArrayList<>();
-        int jarFileListSize = jarFileList.size();
-        for (int i = 0; i < jarFileListSize; i++) {
-            JarFile jarFile = jarFileList.get(i);
-            JarEntry jarEntry = jarFile.getJarEntry(resourceName);
-            // to better support war format, look for the resourceName in the WEB-INF/classes directory
-            if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfResourceName);
-            if (jarEntry != null) {
-                try {
-                    String jarFileName = jarFile.getName();
-                    if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                    urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
-                } catch (MalformedURLException e) {
-                    System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + outerFile + "]: " + e.toString());
-                }
-            }
+    private static class StartClassLoader extends ClassLoader {
+
+        private JarFile outerFile = null;
+        private URL wrapperWarUrl = null;
+        final ArrayList<JarFile> jarFileList = new ArrayList<>();
+        private final Map<String, Class<?>> classCache = new HashMap<>();
+        private final Map<String, URL> resourceCache = new HashMap<>();
+        private ProtectionDomain pd;
+        private final boolean loadWebInf;
+
+        final Set<String> jarsUnused = new HashSet<>();
+
+        private StartClassLoader(boolean loadWebInf) {
+            this(ClassLoader.getSystemClassLoader(), loadWebInf);
         }
-        // add all resources found in parent loader too
-        Enumeration<URL> superResources = super.findResources(resourceName);
-        while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
-        return Collections.enumeration(urlList);
-    }
 
-    @Override
-    protected synchronized Class<?> loadClass(String className, boolean resolve) throws ClassNotFoundException {
-        Class<?> c = null;
-        try {
-            try {
-                ClassLoader cl = getParent();
-                c = cl.loadClass(className);
-                if (c != null) return c;
-            } catch (ClassNotFoundException e) { /* let the next one handle this */ }
+        private StartClassLoader(ClassLoader parent, boolean loadWebInf) {
+            super(parent);
+            this.loadWebInf = loadWebInf;
 
             try {
-                c = findJarClass(className);
-                if (c != null) return c;
+                // get outer file (the war file)
+                pd = getClass().getProtectionDomain();
+                CodeSource cs = pd.getCodeSource();
+                wrapperWarUrl = cs.getLocation();
+                outerFile = new JarFile(new File(wrapperWarUrl.toURI()));
+
+                // allow for classes in the outerFile as well
+                jarFileList.add(outerFile);
+
+                Enumeration<JarEntry> jarEntries = outerFile.entries();
+                while (jarEntries.hasMoreElements()) {
+                    JarEntry je = jarEntries.nextElement();
+                    if (je.isDirectory()) continue;
+                    // if we aren't loading the WEB-INF files and it is one, skip it
+                    if (!loadWebInf && je.getName().startsWith("WEB-INF")) continue;
+                    // get jars, can be anywhere in the file
+                    String jeName = je.getName().toLowerCase();
+                    if (jeName.lastIndexOf(".jar") == jeName.length() - 4) {
+                        File file = createTempFile(je);
+                        jarFileList.add(new JarFile(file));
+                    }
+                }
             } catch (Exception e) {
-                System.out.println("Error loading class [" + className + "] from jars in war file [" + outerFile.getName() + "]: " + e.toString());
-                e.printStackTrace();
+                System.out.println("Error loading jars in war file [" + wrapperWarUrl + "]: " + e.toString());
             }
 
-            throw new ClassNotFoundException("Class [" + className + "] not found");
-        } finally {
-            if (c != null  &&  resolve) {
-                resolveClass(c);
-            }
+            if (reportJarsUnused) for (JarFile jf : jarFileList) jarsUnused.add(jf.getName());
         }
-    }
 
-    private Class<?> findJarClass(String className) throws IOException, ClassFormatError {
-        if (classCache.containsKey(className)) return classCache.get(className);
+        @SuppressWarnings("ThrowFromFinallyBlock")
+        private File createTempFile(JarEntry je) throws IOException {
+            byte[] jeBytes = getJarEntryBytes(outerFile, je);
 
-        Class<?> c = null;
-        String classFileName = className.replace('.', '/') + ".class";
-        String webInfFileName = "WEB-INF/classes/" + classFileName;
-        int jarFileListSize = jarFileList.size();
-        for (int i = 0; i < jarFileListSize; i++) {
-            JarFile jarFile = jarFileList.get(i);
-            // System.out.println("Finding Class [" + className + "] in jarFile [" + jarFile.getName() + "]");
+            String tempName = je.getName().replace('/', '_') + ".";
+            File tempDir = new File(tempDirName);
+            if (tempDir.mkdir()) tempDir.deleteOnExit();
+            File file = File.createTempFile("moqui_temp", tempName, tempDir);
+            file.deleteOnExit();
+            BufferedOutputStream os = null;
+            try {
+                os = new BufferedOutputStream(new FileOutputStream(file));
+                os.write(jeBytes);
+            } finally {
+                if (os != null) os.close();
+            }
+            return file;
+        }
 
-            JarEntry jarEntry = jarFile.getJarEntry(classFileName);
-            // to better support war format, look for the resourceName in the WEB-INF/classes directory
-            if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfFileName);
-            if (jarEntry != null) {
-                definePackage(className, jarFile);
-                byte[] jeBytes = getJarEntryBytes(jarFile, jarEntry);
-                if (jeBytes == null) {
-                    System.out.println("Could not get bytes for [" + jarEntry.getName() + "] in [" + jarFile.getName() + "]");
-                    continue;
+        @SuppressWarnings("ThrowFromFinallyBlock")
+        private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
+            DataInputStream dis = null;
+            byte[] jeBytes = null;
+            try {
+                long lSize = je.getSize();
+                if (lSize <= 0  ||  lSize >= Integer.MAX_VALUE) {
+                    throw new IllegalArgumentException("Size [" + lSize + "] not valid for war entry [" + je + "]");
                 }
-                // System.out.println("Class [" + classFileName + "] FOUND in jarFile [" + jarFile.getName() + "], size is " + (jeBytes == null ? "null" : jeBytes.length));
-                c = defineClass(className, jeBytes, 0, jeBytes.length, pd);
-                break;
+                jeBytes = new byte[(int)lSize];
+                InputStream is = jarFile.getInputStream(je);
+                dis = new DataInputStream(is);
+                dis.readFully(jeBytes);
+            } finally {
+                if (dis != null) dis.close();
+            }
+            return jeBytes;
+        }
+
+        /** @see java.lang.ClassLoader#findResource(java.lang.String) */
+        @Override
+        protected URL findResource(String resourceName) {
+            if (resourceCache.containsKey(resourceName)) return resourceCache.get(resourceName);
+
+            // try the runtime/classes directory for conf files and such
+            String runtimePath = System.getProperty("moqui.runtime");
+            String fullPath = runtimePath + "/classes/" + resourceName;
+            File resourceFile = new File(fullPath);
+            if (resourceFile.exists()) try {
+                return resourceFile.toURI().toURL();
+            } catch (MalformedURLException e) {
+                System.out.println("Error making URL for [" + resourceName + "] in runtime classes directory [" + runtimePath + "/classes/" + "]: " + e.toString());
+            }
+
+            String webInfResourceName = "WEB-INF/classes/" + resourceName;
+            int jarFileListSize = jarFileList.size();
+            for (int i = 0; i < jarFileListSize; i++) {
+                JarFile jarFile = jarFileList.get(i);
+                JarEntry jarEntry = jarFile.getJarEntry(resourceName);
+                if (reportJarsUnused && jarEntry != null) jarsUnused.remove(jarFile.getName());
+                // to better support war format, look for the resourceName in the WEB-INF/classes directory
+                if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfResourceName);
+                if (jarEntry != null) {
+                    try {
+                        String jarFileName = jarFile.getName();
+                        if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
+                        URL resourceUrl = new URL("jar:file:" + jarFileName + "!/" + jarEntry);
+                        resourceCache.put(resourceName, resourceUrl);
+                        return resourceUrl;
+                    } catch (MalformedURLException e) {
+                        System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + outerFile + "]: " + e.toString());
+                    }
+                }
+            }
+            return super.findResource(resourceName);
+        }
+
+        /** @see java.lang.ClassLoader#findResources(java.lang.String) */
+        @Override
+        public Enumeration<URL> findResources(String resourceName) throws IOException {
+            String webInfResourceName = "WEB-INF/classes/" + resourceName;
+            List<URL> urlList = new ArrayList<>();
+            int jarFileListSize = jarFileList.size();
+            for (int i = 0; i < jarFileListSize; i++) {
+                JarFile jarFile = jarFileList.get(i);
+                JarEntry jarEntry = jarFile.getJarEntry(resourceName);
+                if (reportJarsUnused && jarEntry != null) jarsUnused.remove(jarFile.getName());
+                // to better support war format, look for the resourceName in the WEB-INF/classes directory
+                if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfResourceName);
+                if (jarEntry != null) {
+                    try {
+                        String jarFileName = jarFile.getName();
+                        if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
+                        urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
+                    } catch (MalformedURLException e) {
+                        System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + outerFile + "]: " + e.toString());
+                    }
+                }
+            }
+            // add all resources found in parent loader too
+            Enumeration<URL> superResources = super.findResources(resourceName);
+            while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
+            return Collections.enumeration(urlList);
+        }
+
+        @Override
+        protected synchronized Class<?> loadClass(String className, boolean resolve) throws ClassNotFoundException {
+            Class<?> c = null;
+            try {
+                try {
+                    ClassLoader cl = getParent();
+                    c = cl.loadClass(className);
+                    if (c != null) return c;
+                } catch (ClassNotFoundException e) { /* let the next one handle this */ }
+
+                try {
+                    c = findJarClass(className);
+                    if (c != null) return c;
+                } catch (Exception e) {
+                    System.out.println("Error loading class [" + className + "] from jars in war file [" + outerFile.getName() + "]: " + e.toString());
+                    e.printStackTrace();
+                }
+
+                throw new ClassNotFoundException("Class [" + className + "] not found");
+            } finally {
+                if (c != null  &&  resolve) {
+                    resolveClass(c);
+                }
             }
         }
-        classCache.put(className, c);
-        return c;
-    }
 
-    private void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
-        Manifest mf;
-        try {
-            mf = jarFile.getManifest();
-        } catch (IOException e) {
-            // use default manifest
-            mf = new Manifest();
-        }
-        if (mf == null) mf = new Manifest();
-        int dotIndex = className.lastIndexOf('.');
-        String packageName = dotIndex > 0 ? className.substring(0, dotIndex) : "";
-        if (getPackage(packageName) == null) {
-            definePackage(packageName,
-                    mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_TITLE),
-                    mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_VERSION),
-                    mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_VENDOR),
-                    mf.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_TITLE),
-                    mf.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_VERSION),
-                    mf.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_VENDOR),
-                    getSealURL(mf));
-        }
-    }
+        private Class<?> findJarClass(String className) throws IOException, ClassFormatError {
+            if (classCache.containsKey(className)) return classCache.get(className);
 
-    private URL getSealURL(Manifest mf) {
-        String seal = mf.getMainAttributes().getValue(Attributes.Name.SEALED);
-        if (seal == null) return null;
-        try {
-            return new URL(seal);
-        } catch (MalformedURLException e) {
-            return null;
+            Class<?> c = null;
+            String classFileName = className.replace('.', '/') + ".class";
+            String webInfFileName = "WEB-INF/classes/" + classFileName;
+            int jarFileListSize = jarFileList.size();
+            for (int i = 0; i < jarFileListSize; i++) {
+                JarFile jarFile = jarFileList.get(i);
+                // System.out.println("Finding Class [" + className + "] in jarFile [" + jarFile.getName() + "]");
+                JarEntry jarEntry = jarFile.getJarEntry(classFileName);
+                if (reportJarsUnused && jarEntry != null) jarsUnused.remove(jarFile.getName());
+
+                // to better support war format, look for the resourceName in the WEB-INF/classes directory
+                if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfFileName);
+                if (jarEntry != null) {
+                    definePackage(className, jarFile);
+                    byte[] jeBytes = getJarEntryBytes(jarFile, jarEntry);
+                    if (jeBytes == null) {
+                        System.out.println("Could not get bytes for [" + jarEntry.getName() + "] in [" + jarFile.getName() + "]");
+                        continue;
+                    }
+                    // System.out.println("Class [" + classFileName + "] FOUND in jarFile [" + jarFile.getName() + "], size is " + (jeBytes == null ? "null" : jeBytes.length));
+                    c = defineClass(className, jeBytes, 0, jeBytes.length, pd);
+                    break;
+                }
+            }
+            classCache.put(className, c);
+            return c;
+        }
+
+        private void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
+            Manifest mf;
+            try {
+                mf = jarFile.getManifest();
+            } catch (IOException e) {
+                // use default manifest
+                mf = new Manifest();
+            }
+            if (mf == null) mf = new Manifest();
+            int dotIndex = className.lastIndexOf('.');
+            String packageName = dotIndex > 0 ? className.substring(0, dotIndex) : "";
+            if (getPackage(packageName) == null) {
+                definePackage(packageName,
+                        mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_TITLE),
+                        mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_VERSION),
+                        mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_VENDOR),
+                        mf.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_TITLE),
+                        mf.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_VERSION),
+                        mf.getMainAttributes().getValue(Attributes.Name.IMPLEMENTATION_VENDOR),
+                        getSealURL(mf));
+            }
+        }
+
+        private URL getSealURL(Manifest mf) {
+            String seal = mf.getMainAttributes().getValue(Attributes.Name.SEALED);
+            if (seal == null) return null;
+            try {
+                return new URL(seal);
+            } catch (MalformedURLException e) {
+                return null;
+            }
         }
     }
 }

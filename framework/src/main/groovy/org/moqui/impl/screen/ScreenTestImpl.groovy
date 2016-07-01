@@ -30,7 +30,8 @@ class ScreenTestImpl implements ScreenTest {
 
     protected final ExecutionContextFactoryImpl ecfi
     protected final ScreenFacadeImpl sfi
-    final List<String> errorStrings = ["FTL stack trace", "Could not find subscreen or transition"]
+    // see FtlTemplateRenderer.MoquiTemplateExceptionHandler, others
+    final List<String> errorStrings = ["[FTL Error:", "FTL stack trace", "Could not find subscreen or transition"]
 
     protected String rootScreenLocation = null
     protected ScreenDefinition rootScreenDef = null

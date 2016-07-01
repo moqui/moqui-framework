@@ -15,176 +15,93 @@ along with this software (see the LICENSE.md file). If not, see
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.0.xsd">
 
     <!-- ========================================================= -->
+    <!-- moqui.service.job -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ServiceJob" package-name="moqui.service.job" group-name="configuration" cache="true">
+        <description>For ad-hoc (explicitly run) or scheduled service jobs. If cronExpression is null the job will only
+            be run ad-hoc, when explicitly called using ServiceCallJob. If a topic is specified results will be sent to
+            the topic (can be configured using a NotificationTopic record) as a NotificationMessage to the user that
+            called the job explicitly (if applicable) and to users associated with ServiceJobUser records.</description>
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="serviceName" type="text-medium"/>
+        <field name="topic" type="text-medium"><description>On completion send a notification to this topic</description></field>
+        <field name="localOnly" type="text-indicator"><description>If Y this will be run local only. By default runs on any
+            server in a cluster listening for async distributed services (if an async distributed executor is configured).</description></field>
+
+        <field name="cronExpression" type="text-short"><description>
+            An extended cron expression like Unix crontab but with extended syntax options (L, W, etc) similar to Quartz Scheduler. See:
+
+            http://cron-parser.com
+            http://www.quartz-scheduler.org/documentation/quartz-2.2.x/tutorials/tutorial-lesson-06.html
+        </description></field>
+        <field name="fromDate" type="date-time"><description>Only run scheduled after this date/time. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="thruDate" type="date-time"><description>Only run scheduled before this date/time. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="repeatCount" type="number-integer"><description>If specified only run this many times. Must specify
+            a cronExpression for the job to repeat. When this count is reached thruDate will be set to now and paused set to Y.
+            Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="paused" type="text-indicator"><description>If Y this job is inactive and won't be run on a schedule
+            even if cronExpression is not null. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="expireLockTime" type="number-integer"><description>Ignore lock and run anyway after this many
+            minutes. This should generally be much greater than the longest time the service is expected to run. This is
+            the mechanism for recovering jobs after a run failed in a way that did not clean up the ServiceJobRunLock
+            record. Defaults to 24 hours (1440 minutes) to make sure jobs get recovered.</description></field>
+
+        <relationship type="one-nofk" related-entity-name="moqui.security.user.NotificationTopic"/>
+        <relationship type="many" related-entity-name="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>
+        <relationship type="many" related-entity-name="moqui.service.job.ServiceJobUser" short-alias="users"/>
+    </entity>
+    <entity entity-name="ServiceJobParameter" package-name="moqui.service.job" group-name="configuration" cache="true">
+        <description>Parameters automatically added when the job service is called. Always stored as a String and will
+            be converted based on the corresponding service in-parameter.parameter.@type attribute (just as with any
+            service call).</description>
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="parameterName" type="text-short" is-pk="true"/>
+        <field name="parameterValue" type="text-medium"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+    </entity>
+    <entity entity-name="ServiceJobUser" package-name="moqui.service.job" group-name="configuration" cache="true">
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="receiveNotifications" type="text-indicator"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <entity entity-name="ServiceJobRun" package-name="moqui.service.job" group-name="transactional" cache="never">
+        <field name="jobRunId" type="id" is-pk="true"/>
+        <field name="jobName" type="text-short"/>
+        <field name="userId" type="id"><description>The user that initiated the job run</description></field>
+        <field name="parameters" type="text-long"/>
+        <field name="results" type="text-very-long"/>
+        <field name="messages" type="text-long"/>
+        <field name="hasError" type="text-indicator"/>
+        <field name="errors" type="text-long"/>
+        <field name="hostAddress" type="text-short"/>
+        <field name="hostName" type="text-medium"/>
+        <field name="runThread" type="text-medium"/>
+        <field name="startTime" type="date-time"/>
+        <field name="endTime" type="date-time"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+    </entity>
+    <entity entity-name="ServiceJobRunLock" package-name="moqui.service.job" group-name="transactional" cache="never">
+        <description>Runtime data for a scheduled ServiceJob (with a cronExpression), managed automatically by the service job runner.</description>
+        <field name="jobName" type="text-short" is-pk="true"/>
+        <field name="jobRunId" type="id"><description>If not null this is the currently running job instance.</description></field>
+        <field name="lastRunTime" type="date-time"/>
+        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+    </entity>
+
+    <!-- ========================================================= -->
     <!-- moqui.service.semaphore -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" cache="never">
+    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" group-name="transactional" cache="never">
         <field name="serviceName" type="text-medium" is-pk="true"/>
         <field name="parameterValue" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
         <field name="lockTime" type="date-time"/>
-    </entity>
-
-    <!-- ========================================================= -->
-    <!-- moqui.service.scheduler -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="SchedulerHistory" package-name="moqui.service.scheduler" cache="never">
-        <field name="schedulerHistoryId" type="id" is-pk="true"/>
-        <field name="hostAddress" type="text-short"/>
-        <field name="hostName" type="text-medium"/>
-        <field name="schedulerId" type="text-medium"/>
-        <field name="schedulerName" type="text-medium"/>
-        <field name="eventTypeEnumId" type="id"/>
-        <field name="eventDate" type="date-time"/>
-        <field name="triggerGroup" type="text-medium"/>
-        <field name="triggerName" type="text-medium"/>
-        <field name="jobGroup" type="text-medium"/>
-        <field name="jobName" type="text-medium"/>
-        <field name="fireInstanceId" type="text-medium"/>
-        <field name="message" type="text-medium"/>
-        <field name="paramString" type="text-long"/>
-        <field name="triggerInstructionCode" type="text-short"/>
-        <!-- this is one-nofk because it is used during initial data load, need a better solution for this -->
-        <relationship type="one-nofk" title="SchedulerEventType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="eventTypeEnumId"/></relationship>
-        <seed-data>
-            <!-- Scheduler Event Type -->
-            <moqui.basic.EnumerationType description="Scheduler Event Type" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Job Scheduled" enumId="SchEvJobScheduled" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Job Unscheduled" enumId="SchEvJobUnscheduled" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Trigger Paused" enumId="SchEvTriggerPaused" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Trigger Resumed" enumId="SchEvTriggerResumed" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Triggers Paused" enumId="SchEvTriggersPaused" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Triggers Resumed" enumId="SchEvTriggersResumed" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Scheduler Error" enumId="SchEvSchedulerError" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Job Deleted" enumId="SchEvJobDeleted" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Job Paused" enumId="SchEvJobPaused" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Job Resumed" enumId="SchEvJobResumed" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Jobs Paused" enumId="SchEvJobsPaused" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Jobs Resumed" enumId="SchEvJobsResumed" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Trigger Finalized" enumId="SchEvTriggerFinalized" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Trigger Fired" enumId="SchEvTriggerFired" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Trigger Complete" enumId="SchEvTriggerComplete" enumTypeId="SchedulerEventType"/>
-            <moqui.basic.Enumeration description="Trigger Misfired" enumId="SchEvTriggerMisfired" enumTypeId="SchedulerEventType"/>
-        </seed-data>
-    </entity>
-
-    <!-- ========================================================= -->
-    <!-- moqui.service.quartz -->
-    <!-- NOTE: these entities do not follow general Moqui conventions because they are intended to match the standard Quartz tables -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="QrtzJobDetails" package-name="moqui.service.quartz">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="jobName" type="text-medium" is-pk="true"/>
-        <field name="jobGroup" type="text-medium" is-pk="true"/>
-        <field name="description" type="text-medium"/>
-        <field name="jobClassName" type="text-medium"/>
-        <field name="isDurable" type="text-indicator"/>
-        <field name="isNonconcurrent" type="text-indicator"/>
-        <field name="isUpdateData" type="text-indicator"/>
-        <field name="requestsRecovery" type="text-indicator"/>
-        <field name="jobData" type="binary-very-long"/>
-    </entity>
-    <entity entity-name="QrtzTriggers" package-name="moqui.service.quartz">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="triggerName" type="text-medium" is-pk="true"/>
-        <field name="triggerGroup" type="text-medium" is-pk="true"/>
-        <field name="jobName" type="text-medium"/>
-        <field name="jobGroup" type="text-medium"/>
-        <field name="description" type="text-medium"/>
-        <field name="nextFireTime" type="number-integer"/>
-        <field name="prevFireTime" type="number-integer"/>
-        <field name="priority" type="number-integer"/>
-        <field name="triggerState" type="text-short"/>
-        <field name="triggerType" type="text-short"/>
-        <field name="startTime" type="number-integer"/>
-        <field name="endTime" type="number-integer"/>
-        <field name="calendarName" type="text-medium"/>
-        <field name="misfireInstr" type="number-integer"/>
-        <field name="jobData" type="binary-very-long"/>
-        <relationship type="one" related-entity-name="moqui.service.quartz.QrtzJobDetails">
-            <key-map field-name="schedName"/><key-map field-name="jobName"/><key-map field-name="jobGroup"/></relationship>
-    </entity>
-    <entity entity-name="QrtzSimpleTriggers" package-name="moqui.service.quartz">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="triggerName" type="text-medium" is-pk="true"/>
-        <field name="triggerGroup" type="text-medium" is-pk="true"/>
-        <field name="repeatCount" type="number-integer"/>
-        <field name="repeatInterval" type="number-integer"/>
-        <field name="timesTriggered" type="number-integer"/>
-        <relationship type="one" related-entity-name="moqui.service.quartz.QrtzTriggers">
-            <key-map field-name="schedName"/><key-map field-name="triggerName"/><key-map field-name="triggerGroup"/></relationship>
-    </entity>
-    <entity entity-name="QrtzCronTriggers" package-name="moqui.service.quartz">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="triggerName" type="text-medium" is-pk="true"/>
-        <field name="triggerGroup" type="text-medium" is-pk="true"/>
-        <field name="cronExpression" type="text-medium"/>
-        <field name="timeZoneId" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.service.quartz.QrtzTriggers">
-            <key-map field-name="schedName"/><key-map field-name="triggerName"/><key-map field-name="triggerGroup"/></relationship>
-    </entity>
-    <entity entity-name="QrtzSimpropTriggers" package-name="moqui.service.quartz">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="triggerName" type="text-medium" is-pk="true"/>
-        <field name="triggerGroup" type="text-medium" is-pk="true"/>
-        <field name="strProp1" type="text-long"/>
-        <field name="strProp2" type="text-long"/>
-        <field name="strProp3" type="text-long"/>
-        <field name="intProp1" type="number-integer"/>
-        <field name="intProp2" type="number-integer"/>
-        <field name="longProp1" type="number-integer"/>
-        <field name="longProp2" type="number-integer"/>
-        <field name="decProp1" type="number-decimal"/>
-        <field name="decProp2" type="number-decimal"/>
-        <field name="boolProp1" type="text-indicator"/>
-        <field name="boolProp2" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.service.quartz.QrtzTriggers">
-            <key-map field-name="schedName"/><key-map field-name="triggerName"/><key-map field-name="triggerGroup"/></relationship>
-    </entity>
-    <entity entity-name="QrtzBlobTriggers" package-name="moqui.service.quartz">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="triggerName" type="text-medium" is-pk="true"/>
-        <field name="triggerGroup" type="text-medium" is-pk="true"/>
-        <field name="blobData" type="binary-very-long"/>
-        <relationship type="one" related-entity-name="moqui.service.quartz.QrtzTriggers">
-            <key-map field-name="schedName"/><key-map field-name="triggerName"/><key-map field-name="triggerGroup"/></relationship>
-    </entity>
-    <entity entity-name="QrtzCalendars" package-name="moqui.service.quartz">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="calendarName" type="text-medium" is-pk="true"/>
-        <field name="calendar" type="binary-very-long"/>
-    </entity>
-    <entity entity-name="QrtzPausedTriggerGrps" package-name="moqui.service.quartz" cache="never">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="triggerGroup" type="text-medium" is-pk="true"/>
-    </entity>
-    <entity entity-name="QrtzFiredTriggers" package-name="moqui.service.quartz" cache="never">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="entryId" type="text-medium" is-pk="true"/>
-        <field name="triggerName" type="text-medium"/>
-        <field name="triggerGroup" type="text-medium"/>
-        <field name="instanceName" type="text-medium"/>
-        <field name="firedTime" type="number-integer"/>
-        <field name="schedTime" type="number-integer"/>
-        <field name="priority" type="number-integer"/>
-        <field name="state" type="text-short"/>
-        <field name="jobName" type="text-medium"/>
-        <field name="jobGroup" type="text-medium"/>
-        <field name="isNonconcurrent" type="text-indicator"/>
-        <field name="requestsRecovery" type="text-indicator"/>
-    </entity>
-    <entity entity-name="QrtzSchedulerState" package-name="moqui.service.quartz" cache="never">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="instanceName" type="text-medium" is-pk="true"/>
-        <field name="lastCheckinTime" type="number-integer"/>
-        <field name="checkinInterval" type="number-integer"/>
-    </entity>
-    <entity entity-name="QrtzLocks" package-name="moqui.service.quartz" cache="never">
-        <field name="schedName" type="text-medium" is-pk="true"/>
-        <field name="lockName" type="text-short" is-pk="true"/>
     </entity>
 
     <!-- ========================================================= -->

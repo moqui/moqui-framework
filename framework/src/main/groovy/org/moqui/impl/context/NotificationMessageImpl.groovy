@@ -16,103 +16,278 @@ package org.moqui.impl.context
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
+import org.moqui.Moqui
+import org.moqui.context.ExecutionContext
 import org.moqui.context.NotificationMessage
-import org.moqui.context.NotificationMessageListener
+import org.moqui.context.NotificationMessage.NotificationType
+import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
+import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 
 @CompileStatic
-class NotificationMessageImpl implements NotificationMessage {
+class NotificationMessageImpl implements NotificationMessage, Externalizable {
+    private final static Logger logger = LoggerFactory.getLogger(NotificationMessageImpl.class)
 
-    protected final ExecutionContextImpl eci
-    protected Set<String> userIdSet = new HashSet()
-    protected String userGroupId = null
-    protected String topic = null
-    protected String messageJson = null
-    protected String notificationMessageId = null
-    protected Timestamp sentDate = null
+    private String tenantId = (String) null
+    private Set<String> userIdSet = new HashSet()
+    private String userGroupId = (String) null
+    private String topic = (String) null
+    private transient EntityValue notificationTopic = (EntityValue) null
+    private String messageJson = (String) null
+    private transient Map<String, Object> messageMap = (Map<String, Object>) null
+    private String notificationMessageId = (String) null
+    private Timestamp sentDate = (Timestamp) null
 
-    NotificationMessageImpl(ExecutionContextImpl eci) {
-        this.eci = eci
+    private String titleTemplate = (String) null
+    private String linkTemplate = (String) null
+    private String titleText = (String) null
+    private String linkText = (String) null
+
+    private NotificationType type = (NotificationType) null
+    private Boolean showAlert = (Boolean) null
+    private Boolean persistOnSend = (Boolean) null
+
+    private transient ExecutionContextFactoryImpl ecfiTransient = (ExecutionContextFactoryImpl) null
+
+    /** Default constructor for deserialization */
+    NotificationMessageImpl() { }
+    NotificationMessageImpl(ExecutionContextFactoryImpl ecfi, String tenantId) {
+        ecfiTransient = ecfi
+        this.tenantId = tenantId
     }
+
+    ExecutionContextFactoryImpl getEcfi() {
+        if (ecfiTransient == null) ecfiTransient = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+        return ecfiTransient
+    }
+    EntityValue getNotificationTopic() {
+        if (notificationTopic == null && topic) notificationTopic = ecfi.getEntityFacade(tenantId)
+                .find("moqui.security.user.NotificationTopic").condition("topic", topic).useCache(true).disableAuthz().one()
+        return notificationTopic
+    }
+
+    @Override
+    String getTenantId() { tenantId }
 
     @Override
     NotificationMessage userId(String userId) { userIdSet.add(userId); return this }
     @Override
     NotificationMessage userIds(Set<String> userIds) { userIdSet.addAll(userIds); return this }
     @Override
-    Set<String> getUserIds() { return userIdSet }
+    Set<String> getUserIds() { userIdSet }
 
     @Override
     NotificationMessage userGroupId(String userGroupId) { this.userGroupId = userGroupId; return this }
     @Override
-    String getUserGroupId() { return userGroupId }
+    String getUserGroupId() { userGroupId }
 
     @Override
-    NotificationMessage topic(String topic) { this.topic = topic; return this }
-    @Override
-    String getTopic() { return topic }
+    Set<String> getNotifyUserIds() {
+        Set<String> notifyUserIds = new HashSet<>()
+        Set<String> checkedUserIds = new HashSet<>()
+        EntityFacade ef = ecfi.getEntity(tenantId)
 
-    @Override
-    NotificationMessage message(String messageJson) { this.messageJson = messageJson; return this }
-    @Override
-    NotificationMessage message(Map message) { this.messageJson = JsonOutput.toJson(message); return this }
-    @Override
-    String getMessageJson() { return messageJson }
-    @Override
-    Map getMessageMap() { return (Map) new JsonSlurper().parseText(messageJson) }
+        for (String userId in userIdSet) {
+            checkedUserIds.add(userId)
+            if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
+        }
 
-    @Override
-    NotificationMessage send(boolean persist) {
-        if (persist) {
-            boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-            try {
-                sentDate = eci.user.nowTimestamp
-                Map createResult = eci.service.sync().name("create", "moqui.security.user.NotificationMessage")
-                        .parameters([topic:topic, userGroupId:userGroupId, sentDate:sentDate, messageJson:messageJson])
-                        .call()
-                notificationMessageId = createResult.notificationMessageId
-
-                // get explicit and group userIds and create a moqui.security.user.NotificationMessageUser record for each
-                if (userGroupId) for (EntityValue userGroupMember in eci.getEntity().find("moqui.security.UserGroupMember")
-                        .condition("userGroupId", userGroupId).useCache(true).list().filterByDate(null, null, null))
-                    userIdSet.add(userGroupMember.getString("userId"))
-
-                for (String userId in userIdSet) {
-                    eci.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
-                            .parameters([notificationMessageId:notificationMessageId, userId:userId]).call()
-                }
-            } finally {
-                if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
+        // notify by group, skipping users already notified
+        if (userGroupId) {
+            EntityListIterator eli = ef.find("moqui.security.UserGroupMember")
+                    .conditionDate("fromDate", "thruDate", new Timestamp(System.currentTimeMillis()))
+                    .condition("userGroupId", userGroupId).disableAuthz().iterator()
+            EntityValue nextValue
+            while ((nextValue = (EntityValue) eli.next()) != null) {
+                String userId = (String) nextValue.userId
+                if (checkedUserIds.contains(userId)) continue
+                checkedUserIds.add(userId)
+                if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
             }
         }
 
-        // now send it to all listeners
-        List<NotificationMessageListener> nmlList = eci.getEcfi().getNotificationMessageListeners()
-        for (NotificationMessageListener nml in nmlList) {
-            nml.onMessage(this, eci)
+        return notifyUserIds
+    }
+    private boolean checkUserNotify(String userId, EntityFacade ef) {
+        EntityValue notTopicUser = ef.find("moqui.security.user.NotificationTopicUser")
+                .condition("topic", topic).condition("userId", userId).useCache(true).disableAuthz().one()
+        boolean notifyUser = true
+        if (notTopicUser != null && notTopicUser.receiveNotifications) {
+            notifyUser = notTopicUser.receiveNotifications == 'Y'
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.receiveNotifications)
+                notifyUser = localNotTopic.receiveNotifications == 'Y'
         }
+        return notifyUser
+    }
+
+    @Override
+    NotificationMessage topic(String topic) { this.topic = topic; notificationTopic = null; return this }
+    @Override
+    String getTopic() { topic }
+
+    @Override
+    NotificationMessage message(String messageJson) { this.messageJson = messageJson; messageMap = null; return this }
+    @Override
+    NotificationMessage message(Map message) { this.messageMap = Collections.unmodifiableMap(message); messageJson = null; return this }
+    @Override
+    String getMessageJson() {
+        if (messageJson == null && messageMap != null)
+            messageJson = JsonOutput.toJson(messageMap)
+        return messageJson
+    }
+    @Override
+    Map<String, Object> getMessageMap() {
+        if (messageMap == null && messageJson != null)
+            messageMap = Collections.unmodifiableMap((Map<String, Object>) new JsonSlurper().parseText(messageJson))
+        return messageMap
+    }
+
+    @Override
+    NotificationMessage title(String title) { titleTemplate = title; return this }
+    @Override
+    String getTitle() {
+        if (titleText == null) {
+            if (titleTemplate) {
+                titleText = ecfi.resource.expand(titleTemplate, "", getMessageMap(), true)
+            } else {
+                EntityValue localNotTopic = getNotificationTopic()
+                if (localNotTopic != null) {
+                    if (type == danger && localNotTopic.errorTitleTemplate) {
+                        titleText = ecfi.resource.expand((String) localNotTopic.errorTitleTemplate, "", getMessageMap(), true)
+                    } else if (localNotTopic.titleTemplate) {
+                        titleText = ecfi.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
+                    }
+                }
+            }
+        }
+        return titleText
+    }
+
+    @Override
+    NotificationMessage link(String link) { linkTemplate = link; return this }
+    @Override
+    String getLink() {
+        if (linkText == null) {
+            if (linkTemplate) {
+                linkText = ecfi.resource.expand(linkTemplate, "", getMessageMap(), true)
+            } else {
+                EntityValue localNotTopic = getNotificationTopic()
+                if (localNotTopic != null && localNotTopic.linkTemplate)
+                    linkText = ecfi.resource.expand((String) localNotTopic.linkTemplate, "", getMessageMap(), true)
+            }
+        }
+        return linkText
+    }
+
+    @Override
+    NotificationMessage type(NotificationType type) { this.type = type; return this }
+    @Override
+    NotificationMessage type(String type) { this.type = NotificationType.valueOf(type); return this }
+    @Override
+    String getType() {
+        if (type != null) {
+            return type.name()
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.typeString) {
+                return localNotTopic.typeString
+            } else {
+                return info.name()
+            }
+        }
+    }
+
+    @Override
+    NotificationMessage showAlert(boolean show) { showAlert = show; return this }
+    @Override
+    boolean isShowAlert() {
+        if (showAlert != null) {
+            return showAlert.booleanValue()
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.showAlert) {
+                return localNotTopic.showAlert == 'Y'
+            } else {
+                return false
+            }
+        }
+    }
+
+    @Override
+    NotificationMessage persistOnSend(boolean persist) { persistOnSend = persist; return this }
+    @Override
+    boolean isPersistOnSend() {
+        if (persistOnSend != null) {
+            return persistOnSend.booleanValue()
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.persistOnSend) {
+                return localNotTopic.persistOnSend == 'Y'
+            } else {
+                return false
+            }
+        }
+    }
+
+    @Override
+    NotificationMessage send(boolean persist) {
+        persistOnSend = persist
+        return send()
+    }
+    @Override
+    NotificationMessage send() {
+        if (isPersistOnSend()) {
+            sentDate = new Timestamp(System.currentTimeMillis())
+            // a little trick so that this is available in the closure
+            NotificationMessageImpl nmi = this
+            // run in runRequireNew so that it is saved immediately, NotificationMessage listeners running async are
+            //     outside of this transaction and may use these records (like markSent() before the current tx is complete)
+            ecfi.transactionFacade.runRequireNew(null, "Error saving NotificationMessage", {
+                Map createResult = ecfi.service.sync().name("create", "moqui.security.user.NotificationMessage")
+                        .parameters([topic:nmi.topic, userGroupId:nmi.userGroupId, sentDate:nmi.sentDate,
+                                     messageJson:nmi.getMessageJson(), titleText:nmi.getTitle(), linkText:nmi.getLink(),
+                                     typeString:nmi.getType(), showAlert:(nmi.showAlert ? 'Y' : 'N')])
+                        .disableAuthz().call()
+                nmi.setNotificationMessageId((String) createResult.notificationMessageId)
+
+                for (String userId in nmi.getNotifyUserIds())
+                    ecfi.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
+                            .parameters([notificationMessageId:createResult.notificationMessageId, userId:userId])
+                            .disableAuthz().call()
+            })
+        }
+
+        // now send it to the topic
+        ecfi.sendNotificationMessageToTopic(this)
 
         return this
     }
 
     @Override
     String getNotificationMessageId() { return notificationMessageId }
+    void setNotificationMessageId(String id) { notificationMessageId = id }
 
     @Override
     NotificationMessage markSent(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
+        if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message sent")
 
+        ExecutionContextImpl eci = ecfi.getEci()
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         try {
-            EntityValue notificationMessageUser = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId] as Map<String, Object>)
-                    .forUpdate(true).one()
-            notificationMessageUser.sentDate = eci.user.nowTimestamp
-            notificationMessageUser.update()
+            ecfi.getEntityFacade(tenantId).makeValue("moqui.security.user.NotificationMessageUser")
+                    .set("userId", userId).set("notificationMessageId", notificationMessageId)
+                    .set("sentDate", new Timestamp(System.currentTimeMillis())).update()
+        } catch (Throwable t) {
+            logger.error("Error marking notification message ${notificationMessageId} sent", t)
         } finally {
             if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
         }
@@ -120,23 +295,35 @@ class NotificationMessageImpl implements NotificationMessage {
         return this
     }
     @Override
-    NotificationMessage markReceived(String userId) {
+    NotificationMessage markViewed(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
+        if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message received")
 
-        boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
-        try {
-            EntityValue notificationMessageUser = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                    .condition([userId:userId?:eci.user.getUserId(), notificationMessageId:notificationMessageId] as Map<String, Object>)
-                    .forUpdate(true).one()
-            notificationMessageUser.receivedDate = eci.user.nowTimestamp
-            notificationMessageUser.update()
-        } finally {
-            if (!alreadyDisabled) eci.getArtifactExecution().enableAuthz()
-        }
-
+        markViewed(notificationMessageId, userId, ecfi.getEci())
         return this
     }
+    static Timestamp markViewed(String notificationMessageId, String userId, ExecutionContext ec) {
+        boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
+        try {
+            Timestamp recStamp = new Timestamp(System.currentTimeMillis())
+            ec.factory.getEntity(ec.tenantId).makeValue("moqui.security.user.NotificationMessageUser")
+                    .set("userId", userId).set("notificationMessageId", notificationMessageId)
+                    .set("viewedDate", recStamp).update()
+            return recStamp
+        } catch (Throwable t) {
+            logger.error("Error marking notification message ${notificationMessageId} sent", t)
+            return null
+        } finally {
+            if (!alreadyDisabled) ec.getArtifactExecution().enableAuthz()
+        }
+    }
+
+    @Override
+    Map<String, Object> getWrappedMessageMap() { [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId,
+            message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert()] }
+    @Override
+    String getWrappedMessageJson() { JsonOutput.toJson(getWrappedMessageMap()) }
 
     void populateFromValue(EntityValue nmbu) {
         this.notificationMessageId = nmbu.notificationMessageId
@@ -144,9 +331,46 @@ class NotificationMessageImpl implements NotificationMessage {
         this.sentDate = nmbu.getTimestamp("sentDate")
         this.userGroupId = nmbu.userGroupId
         this.messageJson = nmbu.messageJson
+        this.titleText = nmbu.titleText
+        this.linkText = nmbu.linkText
+        if (nmbu.typeString) this.type = NotificationType.valueOf((String) nmbu.typeString)
+        this.showAlert = nmbu.showAlert == 'Y'
 
-        EntityList nmuList = eci.entity.find("moqui.security.user.NotificationMessageUser")
-                .condition([notificationMessageId:notificationMessageId] as Map<String, Object>).list()
+        EntityList nmuList = nmbu.findRelated("moqui.security.user.NotificationMessageUser",
+                [notificationMessageId:notificationMessageId] as Map<String, Object>, null, false, false)
         for (EntityValue nmu in nmuList) userIdSet.add((String) nmu.userId)
+    }
+
+    @Override
+    void writeExternal(ObjectOutput out) throws IOException {
+        // NOTE: lots of writeObject because values are nullable
+        out.writeUTF(tenantId)
+        out.writeObject(userIdSet)
+        out.writeObject(userGroupId)
+        out.writeUTF(topic)
+        out.writeUTF(getMessageJson())
+        out.writeObject(notificationMessageId)
+        out.writeObject(sentDate)
+        out.writeObject(getTitle())
+        out.writeObject(getLink())
+        out.writeObject(type)
+        out.writeObject(showAlert)
+        out.writeObject(persistOnSend)
+    }
+
+    @Override
+    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        tenantId = objectInput.readUTF()
+        userIdSet = (Set<String>) objectInput.readObject()
+        userGroupId = (String) objectInput.readObject()
+        topic = objectInput.readUTF()
+        messageJson = objectInput.readUTF()
+        notificationMessageId = (String) objectInput.readObject()
+        sentDate = (Timestamp) objectInput.readObject()
+        titleText = (String) objectInput.readObject()
+        linkText = (String) objectInput.readObject()
+        type = (NotificationType) objectInput.readObject()
+        showAlert = (Boolean) objectInput.readObject()
+        persistOnSend = (Boolean) objectInput.readObject()
     }
 }

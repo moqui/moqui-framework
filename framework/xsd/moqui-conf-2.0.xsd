@@ -67,6 +67,8 @@ along with this software (see the LICENSE.md file). If not, see
                 The maximum size of the worker thread pool.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="worker-pool-alive" type="xs:integer"><xs:annotation><xs:documentation>
                 The amount of time, in seconds, to keep idle worker threads alive (beyond core pool size).</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="notification-topic-factory" type="xs:string"><xs:annotation><xs:documentation>
+                The ToolFactory to use to get a SimpleTopic for distributed NotificationMessage</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="tool-factory">
@@ -176,7 +178,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="filter"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="listener"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="servlet"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="session-config"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="session-config"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="endpoint"/>
             </xs:sequence>
             <xs:attribute name="name" type="name-plain" use="required">
                 <xs:annotation><xs:documentation>
@@ -193,6 +196,8 @@ along with this software (see the LICENSE.md file). If not, see
                 If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to all
                 screen/transition requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
             <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
+            <xs:attribute name="websocket-timeout" type="xs:integer"><xs:annotation><xs:documentation>
+                The default WebSocket session max idle timeout for the whole server.</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="root-screen">
@@ -285,6 +290,20 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="timeout" type="xs:nonNegativeInteger" use="required"/>
         </xs:complexType>
     </xs:element>
+    <xs:element name="endpoint">
+        <xs:annotation><xs:documentation>Add a WebSocket Endpoint</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="path" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                The path for the endpoint, relative to webapp, must start with forward slash ('/')</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="class" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                Must extend javax.websocket.Endpoint. For Moqui-specific features including setting up an ExecutionContext
+                extend org.moqui.impl.webapp.MoquiAbstractEndpoint. Even if not using MoquiAbstractEndpoint it will try
+                to add the following ServerEndpointConfig user properties: handshakeRequest, httpSession,
+                executionContextFactory, and maxIdleTimeout (set to value of @timeout).</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="timeout" type="xs:integer"/>
+            <xs:attribute name="enabled" type="boolean" default="true"/>
+        </xs:complexType>
+    </xs:element>
 
     <!-- ====================== Artifact Execution Facade Conf Root ======================= -->
     <xs:element name="artifact-execution-facade">
@@ -315,9 +334,9 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="user-facade">
         <xs:complexType>
             <xs:sequence>
-                <xs:element ref="password"/>
-                <xs:element ref="login-key"/>
-                <xs:element ref="login"/>
+                <xs:element minOccurs="0" ref="password"/>
+                <xs:element minOccurs="0" ref="login-key"/>
+                <xs:element minOccurs="0" ref="login"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -394,9 +413,8 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="transaction-facade">
         <xs:complexType>
             <xs:sequence>
-                <xs:element minOccurs="0" ref="server-jndi">
-                    <xs:annotation><xs:documentation>If not present the default JNDI server will be used.</xs:documentation></xs:annotation>
-                </xs:element>
+                <xs:element minOccurs="0" ref="server-jndi"><xs:annotation><xs:documentation>
+                    If not present the default JNDI server will be used.</xs:documentation></xs:annotation></xs:element>
                 <xs:choice minOccurs="0">
                     <xs:element minOccurs="0" ref="transaction-jndi"/>
                     <xs:element minOccurs="0" ref="transaction-internal"/>
@@ -427,6 +445,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="script-runner"/>
             </xs:sequence>
             <xs:attribute name="xml-actions-template-location" type="xs:string"/>
+            <xs:attribute name="xsl-fo-handler-factory" type="xs:string"><xs:annotation><xs:documentation>
+                Name of the ToolFactory to use for XSL-FO transformation in the ResourceFacade.xslFoTransform() method.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="resource-reference">
@@ -498,6 +519,9 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
                 The name of the ToolFactory to use for the distributed async service ExecutorService implementation.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="scheduled-job-check-time" type="xs:nonNegativeInteger"><xs:annotation><xs:documentation>
+                How often to check for and run scheduled service jobs in seconds. Set to 0 (zero) to disable.
             </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>

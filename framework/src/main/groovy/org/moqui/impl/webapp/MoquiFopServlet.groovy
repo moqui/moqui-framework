@@ -69,7 +69,7 @@ class MoquiFopServlet extends HttpServlet {
             xslFoText = sr.render()
 
             // logger.warn("======== XSL-FO content:\n${xslFoText}")
-            if (logger.traceEnabled) logger.trace("FOP XSL-FO content:\n${xslFoText}")
+            if (logger.traceEnabled) logger.trace("XSL-FO content:\n${xslFoText}")
 
             String contentType = ec.web.requestParameters."contentType" ?: "application/pdf"
             response.setContentType(contentType)
@@ -116,6 +116,6 @@ class MoquiFopServlet extends HttpServlet {
             ec.destroy()
         }
 
-        if (logger.infoEnabled) logger.info("Finished FOP request to [${pathInfo}] of content type [${response.getContentType()}] in [${(System.currentTimeMillis()-startTime)/1000}] seconds in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
+        if (logger.infoEnabled) logger.info("Finished XSL-FO request to ${pathInfo}, content type ${response.getContentType()} in ${System.currentTimeMillis()-startTime}ms; session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}")
     }
 }

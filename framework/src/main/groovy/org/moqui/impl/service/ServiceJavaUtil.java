@@ -13,23 +13,17 @@
  */
 package org.moqui.impl.service;
 
-import org.moqui.BaseException;
 import org.moqui.impl.StupidClassLoader;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.StupidWebUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
-import org.owasp.esapi.ESAPI;
-import org.owasp.esapi.Encoder;
-import org.owasp.esapi.errors.IntrusionException;
-import org.owasp.validator.html.AntiSamy;
-import org.owasp.validator.html.CleanResults;
-import org.owasp.validator.html.PolicyException;
-import org.owasp.validator.html.ScanException;
+import org.owasp.html.HtmlChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.text.MessageFormat;
 import java.util.*;
@@ -254,38 +248,19 @@ public class ServiceJavaUtil {
 
         String canValue = parameterValue;
         if (indexOfEscape >= 0) {
-            try {
-                canValue = StupidWebUtilities.defaultWebEncoder.canonicalize(parameterValue, true);
-                indexOfLessThan = canValue.indexOf('<');
-            } catch (IntrusionException e) {
-                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), eci.getL10n().localize("Found character escaping (mixed or double) that is not allowed or other format consistency error: ") + e.toString(), null);
-                return null;
-            }
+            // don't want to unescape HTML, escaped chars should be preserved or we mess up the HTML: canValue = StringEscapeUtils.unescapeHtml(parameterValue);
+            // don't want to do this either, should be done before this: canValue = new URLCodec().decode(parameterValue);
         }
 
         if (allowSafe) {
-            /* Having trouble with ESAPI loading the antisamy-esapi.xml file, so using AntiSamy directly:
-            ValidationErrorList vel = new ValidationErrorList()
-            value = StupidWebUtilities.defaultWebValidator.getValidSafeHTML(parameterName, value, Integer.MAX_VALUE, true, vel)
-            for (ValidationException ve in vel.errors()) eci.message.addValidationError(null, parameterName, getServiceName(), ve.message, null)
-            */
-            AntiSamy antiSamy = new AntiSamy();
-            CleanResults cr;
-            try {
-                cr = antiSamy.scan(canValue, StupidWebUtilities.getAntiSamyPolicy());
-            } catch (ScanException e) {
-                throw new BaseException(MessageFormat.format(eci.getL10n().localize("Scan error checking field {0} in service {1}"), namePrefix + parameterName, sd.getServiceName()), e);
-            } catch (PolicyException e) {
-                throw new BaseException(MessageFormat.format(eci.getL10n().localize("Policy error checking field {0} in service {1}"), namePrefix + parameterName, sd.getServiceName()), e);
-            }
-            List<String> crErrors = cr.getErrorMessages();
-            // if (crErrors != null) for (String crError in crErrors) eci.message.addValidationError(null, parameterName, getServiceName(), crError, null)
+            SafeHtmlChangeListener changes = new SafeHtmlChangeListener(eci, sd);
+            String cleanHtml = StupidWebUtilities.getSafeHtmlPolicy().sanitize(canValue, changes, namePrefix + parameterName);
+            List<String> cleanChanges = changes.getMessages();
             // use message instead of error, accept cleaned up HTML
-            if (crErrors != null && crErrors.size() > 0) {
-                for (String crError: crErrors) eci.getMessage().addMessage(crError);
-                logger.info("Service parameter safe HTML messages for ${getServiceName()}.${parameterName}: ${crErrors}");
-                // the cleaned HTML ends up with line-endings stripped, very ugly, so put new lines between all tags
-                return cr.getCleanHTML().replaceAll(">\\s+<", ">\n<");
+            if (cleanChanges.size() > 0) {
+                for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
+                logger.info("Service parameter safe HTML messages for " + sd.getServiceName() + "." + parameterName + ": " + cleanChanges);
+                return cleanHtml;
             } else {
                 // nothing changed, return null
                 return null;
@@ -297,6 +272,27 @@ public class ServiceJavaUtil {
             }
             // nothing changed, return null
             return null;
+        }
+    }
+
+    private static class SafeHtmlChangeListener implements HtmlChangeListener<String> {
+        private ExecutionContextImpl eci;
+        private ServiceDefinition sd;
+        private List<String> messages = new LinkedList<>();
+        SafeHtmlChangeListener(ExecutionContextImpl eci, ServiceDefinition sd) { this.eci = eci; this.sd = sd; }
+        List<String> getMessages() { return messages; }
+        @SuppressWarnings("NullableProblems")
+        @Override
+        public void discardedTag(@Nullable String context, String elementName) {
+            messages.add(MessageFormat.format(eci.getL10n().localize("Removed HTML element {0} from field {1} in service {2}"),
+                    elementName, context, sd.getServiceName()));
+        }
+        @SuppressWarnings("NullableProblems")
+        @Override
+        public void discardedAttributes(@Nullable String context, String tagName, String... attributeNames) {
+            for (String attrName: attributeNames)
+                messages.add(MessageFormat.format(eci.getL10n().localize("Removed attribute {0} from HTML element {1} from field {2} in service {3}"),
+                        attrName, tagName, context, sd.getServiceName()));
         }
     }
 }

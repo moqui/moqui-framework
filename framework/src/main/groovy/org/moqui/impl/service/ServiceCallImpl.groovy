@@ -14,6 +14,9 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.service.ServiceCall
 import org.moqui.service.ServiceException
 
@@ -67,4 +70,33 @@ class ServiceCallImpl implements ServiceCall {
     }
 
     boolean isEntityAutoPattern() { return sfi.isEntityAutoPattern(path, verb, noun) }
+
+    void validateCall(ExecutionContextImpl eci) {
+        // Before scheduling the service check a few basic things so they show up sooner than later:
+        ServiceDefinition sd = sfi.getServiceDefinition(getServiceName())
+        if (sd == null && !isEntityAutoPattern()) throw new IllegalArgumentException("Could not find service with name [${getServiceName()}]")
+
+        if (sd != null) {
+            String serviceType = (String) sd.serviceNode.attribute('type') ?: "inline"
+            if (serviceType == "interface") throw new IllegalArgumentException("Cannot run interface service [${getServiceName()}]")
+            ServiceRunner sr = sfi.getServiceRunner(serviceType)
+            if (sr == null) throw new IllegalArgumentException("Could not find service runner for type [${serviceType}] for service [${getServiceName()}]")
+            // validation
+            sd.convertValidateCleanParameters(this.parameters, eci)
+            // if error(s) in parameters, return now with no results
+            if (eci.getMessage().hasError()) return
+        }
+
+        // always do an authz before scheduling the job
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(),
+                ArtifactExecutionInfo.AT_SERVICE, ServiceDefinition.getVerbAuthzActionEnum(verb))
+        eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
+        // pop immediately, just did the push to to an authz
+        eci.getArtifactExecution().pop(aei)
+
+        parameters.authUsername = eci.getUser().getUsername()
+        parameters.authTenantId = eci.getTenantId()
+
+        // logger.warn("=========== async call ${serviceName}, parameters: ${parameters}")
+    }
 }

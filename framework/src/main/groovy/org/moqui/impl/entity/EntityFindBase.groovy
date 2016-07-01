@@ -18,6 +18,7 @@ import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -45,8 +46,11 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityDefinition entityDef = (EntityDefinition) null
     protected EntityDynamicViewImpl dynamicView = (EntityDynamicViewImpl) null
 
+    protected String singleCondField = (String) null
+    protected Object singleCondValue = null
     protected Map<String, Object> simpleAndMap = (Map<String, Object>) null
     protected EntityConditionImplBase whereEntityCondition = (EntityConditionImplBase) null
+
     protected EntityConditionImplBase havingEntityCondition = (EntityConditionImplBase) null
 
     // always initialize this as it's always used in finds (even if populated with default of all fields)
@@ -66,9 +70,6 @@ abstract class EntityFindBase implements EntityFind {
     protected Integer maxRows = (Integer) null
 
     protected boolean disableAuthz = false
-
-    protected String singleCondField = (String) null
-    protected Object singleCondValue = null
 
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
@@ -230,6 +231,16 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     @Override
+    boolean getHasCondition() {
+        if (singleCondField != null) return true
+        if (simpleAndMap != null && simpleAndMap.size() > 0) return true
+        if (whereEntityCondition != null) return true
+        return false
+    }
+    @Override
+    boolean getHasHavingCondition() { havingEntityCondition != null }
+
+    @Override
     EntityFind havingCondition(EntityCondition condition) {
         if (condition == null) return this
         if (havingEntityCondition != null) {
@@ -345,28 +356,66 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate) {
+        return searchFormInputs(inputFieldsMapName, null, defaultOrderBy, alwaysPaginate)
+    }
+    EntityFind searchFormInputs(String inputFieldsMapName, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
         ExecutionContextImpl ec = efi.getEcfi().getEci()
-        Map inf = inputFieldsMapName ? (Map) ec.resource.expression(inputFieldsMapName, "") : ec.context
-        return searchFormMap(inf, defaultOrderBy, alwaysPaginate)
+        Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ec.resource.expression(inputFieldsMapName, "") : ec.context
+        return searchFormMap(inf, null, defaultOrderBy, alwaysPaginate)
     }
 
     @Override
-    EntityFind searchFormMap(Map inf, String defaultOrderBy, boolean alwaysPaginate) {
+    EntityFind searchFormMap(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
         ExecutionContextImpl ec = efi.getEcfi().getEci()
-        EntityDefinition ed = getEntityDef()
 
         // to avoid issues with entities that have cache=true, if no cache value is specified for this set it to false (avoids pagination errors, etc)
         if (useCache == null) useCache(false)
 
-        if (inf != null && inf.size() > 0) for (String fn in ed.getAllFieldNames()) {
+        boolean addedConditions = false
+        if (inputFieldsMap != null && inputFieldsMap.size() > 0)
+            addedConditions = processInputFields(inputFieldsMap, ec)
+        if (!addedConditions && defaultParameters != null && defaultParameters.size() > 0) {
+            processInputFields(defaultParameters, ec)
+            for (Map.Entry<String, Object> dpEntry in defaultParameters.entrySet())
+                ec.context.put(dpEntry.key, dpEntry.value)
+        }
+
+        // always look for an orderByField parameter too
+        String orderByString = inputFieldsMap?.get("orderByField") ?: defaultOrderBy
+        if (orderByString != null && orderByString.length() > 0) {
+            ec.context.put("orderByField", orderByString)
+            this.orderBy(orderByString)
+        }
+
+        // look for the pageIndex and optional pageSize parameters; don't set these if should cache as will disable the cached query
+        if ((alwaysPaginate || inputFieldsMap?.get("pageIndex") || inputFieldsMap?.get("pageSize")) && !shouldCache()) {
+            int pageIndex = (inputFieldsMap?.get("pageIndex") ?: 0) as int
+            int pageSize = (inputFieldsMap?.get("pageSize") ?: (this.limit ?: 20)) as int
+            offset(pageIndex, pageSize)
+            limit(pageSize)
+        }
+
+        // if there is a pageNoLimit clear out the limit regardless of other settings
+        if (inputFieldsMap?.get("pageNoLimit") == "true" || inputFieldsMap?.get("pageNoLimit") == true) {
+            this.offset = null
+            this.limit = null
+        }
+
+        return this
+    }
+
+    protected boolean processInputFields(Map<String, Object> inputFieldsMap, ExecutionContextImpl ec) {
+        EntityDefinition ed = getEntityDef()
+        boolean addedConditions = false
+        for (String fn in ed.getAllFieldNames()) {
             // NOTE: do we need to do type conversion here?
 
             // this will handle text-find
-            if (inf.containsKey(fn) || inf.containsKey(fn + "_op")) {
-                Object value = inf.get(fn)
-                String op = inf.get(fn + "_op") ?: "equals"
-                boolean not = (inf.get(fn + "_not") == "Y" || inf.get(fn + "_not") == "true")
-                boolean ic = (inf.get(fn + "_ic") == "Y" || inf.get(fn + "_ic") == "true")
+            if (inputFieldsMap.containsKey(fn) || inputFieldsMap.containsKey(fn + "_op")) {
+                Object value = inputFieldsMap.get(fn)
+                String op = inputFieldsMap.get(fn + "_op") ?: "equals"
+                boolean not = (inputFieldsMap.get(fn + "_not") == "Y" || inputFieldsMap.get(fn + "_not") == "true")
+                boolean ic = (inputFieldsMap.get(fn + "_ic") == "Y" || inputFieldsMap.get(fn + "_ic") == "true")
 
                 EntityCondition cond = null
                 switch (op) {
@@ -423,47 +472,33 @@ abstract class EntityFindBase implements EntityFind {
                         }
                         break;
                 }
-                if (cond != null) this.condition(cond)
-            } else if (inf.get(fn + "_period")) {
-                List<Timestamp> range = ec.user.getPeriodRange((String) inf.get(fn + "_period"), (String) inf.get(fn + "_poffset"))
-                this.condition(efi.conditionFactory.makeCondition(fn,
-                        EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
-                this.condition(efi.conditionFactory.makeCondition(fn,
-                        EntityCondition.LESS_THAN, range.get(1)))
+                if (cond != null) {
+                    this.condition(cond)
+                    addedConditions = true
+                }
+            } else if (inputFieldsMap.get(fn + "_period")) {
+                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"), (String) inputFieldsMap.get(fn + "_poffset"))
+                this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
+                this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
+                addedConditions = true
             } else {
                 // these will handle range-find and date-find
-                Object fromValue = inf.get(fn + "_from")
+                Object fromValue = inputFieldsMap.get(fn + "_from")
                 if (fromValue && fromValue instanceof CharSequence) fromValue = ed.convertFieldString(fn, fromValue.toString(), ec)
-                Object thruValue = inf.get(fn + "_thru")
+                Object thruValue = inputFieldsMap.get(fn + "_thru")
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
-                if (fromValue) this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
-                if (thruValue) this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                if (fromValue) {
+                    this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
+                    addedConditions = true
+                }
+                if (thruValue) {
+                    this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                    addedConditions = true
+                }
             }
         }
-
-        // always look for an orderByField parameter too
-        String orderByString = inf?.get("orderByField") ?: defaultOrderBy
-        if (orderByString != null && orderByString.length() > 0) {
-            ec.context.put("orderByField", orderByString)
-            this.orderBy(orderByString)
-        }
-
-        // look for the pageIndex and optional pageSize parameters; don't set these if should cache as will disable the cached query
-        if ((alwaysPaginate || inf?.get("pageIndex") || inf?.get("pageSize")) && !shouldCache()) {
-            int pageIndex = (inf?.get("pageIndex") ?: 0) as int
-            int pageSize = (inf?.get("pageSize") ?: (this.limit ?: 20)) as int
-            offset(pageIndex, pageSize)
-            limit(pageSize)
-        }
-
-        // if there is a pageNoLimit clear out the limit regardless of other settings
-        if (inf?.get("pageNoLimit") == "true" || inf?.get("pageNoLimit") == true) {
-            this.offset = null
-            this.limit = null
-        }
-
-        return this
+        return addedConditions
     }
 
     EntityFind findNode(MNode node) {
@@ -483,6 +518,14 @@ abstract class EntityFindBase implements EntityFind {
         for (MNode sf in node.children("select-field")) this.selectField(sf.attribute("field-name"))
         for (MNode ob in node.children("order-by")) this.orderBy(ob.attribute("field-name"))
 
+        if (node.hasChild("search-form-inputs")) {
+            MNode sfiNode = node.first("search-form-inputs")
+            boolean paginate = (sfiNode.attribute("paginate") ?: "true") as boolean
+            MNode defaultParametersNode = sfiNode.first("default-parameters")
+            searchFormInputs(sfiNode.attribute("input-fields-map"), defaultParametersNode.attributes as Map<String, Object>,
+                    sfiNode.attribute("default-order-by"), paginate)
+        }
+
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
         if (!this.shouldCache()) {
             for (MNode df in node.children("date-filter"))
@@ -500,10 +543,6 @@ abstract class EntityFindBase implements EntityFind {
         for (MNode eco in node.children("econdition-object"))
             this.condition((EntityCondition) ec.resource.expression(eco.attribute("field"), null))
 
-        if (node.hasChild("search-form-inputs")) {
-            MNode sfiNode = node.first("search-form-inputs")
-            searchFormInputs(sfiNode.attribute("input-fields-map"), sfiNode.attribute("default-order-by"), (sfiNode.attribute("paginate") ?: "true") as boolean)
-        }
         if (node.hasChild("having-econditions")) {
             for (MNode havingCond in node.children("having-econditions"))
                 this.havingCondition(((EntityConditionFactoryImpl) efi.conditionFactory).makeActionCondition(havingCond))
@@ -646,12 +685,12 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     public boolean shouldCache() {
-        if (this.dynamicView != null) return false
-        if (this.havingEntityCondition != null) return false
-        if (this.limit != null || this.offset != null) return false
-        if (this.useCache != null && Boolean.FALSE.equals(this.useCache)) return false
+        if (dynamicView != null) return false
+        if (havingEntityCondition != null) return false
+        if (limit != null || offset != null) return false
+        if (useCache != null && Boolean.FALSE.equals(useCache)) return false
         String entityCache = this.getEntityDef().getUseCache()
-        return ((Boolean.TRUE.equals(this.useCache) && !"never".equals(entityCache)) || "true".equals(entityCache))
+        return ((Boolean.TRUE.equals(useCache) && !"never".equals(entityCache)) || "true".equals(entityCache))
     }
 
     @Override
@@ -719,16 +758,25 @@ abstract class EntityFindBase implements EntityFind {
         // no condition means no condition/parameter set, so return null for find.one()
         if (whereCondition == null) return (EntityValue) null
 
-        // try the TX cache before the entity cache, may be more up-to-date
-        EntityValueBase txcValue = txCache != null ? txCache.oneGet(this) : (EntityValueBase) null
+        // try the TX cache before the entity cache, should be more up-to-date
+        EntityValueBase txcValue = (EntityValueBase) null
+        if (txCache != null) {
+            txcValue = txCache.oneGet(this)
+            // NOTE: don't do this, opt to get latest from tx cache instead of from DB instead of trying to merge, lock
+            //     only query done below; tx cache causes issues when for update used after non for update query if
+            //     latest values from DB are needed!
+            // if we got a value from txCache and we're doing a for update and it was not created in this tx cache then
+            //     don't use it, we want the latest value from the DB (may have been queried without for update in this tx)
+            // if (txcValue != null && forUpdate && !txCache.isTxCreate(txcValue)) txcValue = (EntityValueBase) null
+        }
 
         // if (txcValue != null && ed.getEntityName() == "foo") logger.warn("========= TX cache one value: ${txcValue}")
 
-        boolean doCache = shouldCache()
+        boolean doCache = shouldCache() && whereCondition != null
         Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
                 ed.getCacheOne(efi.getEntityCache()) : (Cache<EntityCondition, EntityValueBase>) null
         EntityValueBase cacheHit = (EntityValueBase) null
-        if (doCache && txcValue == null && whereCondition != null) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
+        if (doCache && txcValue == null && !forUpdate) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
 
         // we always want fieldsToSelect populated so that we know the order of the results coming back
         ArrayList<String> localFts = fieldsToSelect
@@ -765,15 +813,32 @@ abstract class EntityFindBase implements EntityFind {
             if (txcValue instanceof TransactionCache.DeletedEntityValue) {
                 // is deleted value, so leave newEntityValue as null
                 // put in cache as null since this was deleted
-                if (doCache && whereCondition != null) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
+                if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result
+                // we could try to merge the TX cache value and the latest DB value, but for now opt for the TX cache
+                //     value over the DB value
                 if (forUpdate && !txCache.isTxCreate(txcValue)) {
-                    oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
-                    // if (ed.getEntityName() == "Asset") logger.warn("======== doing find and ignoring result to pass through for update, for: ${txcValue}")
+                    EntityValueBase fuDbValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
+                    // if txcValue has been modified (fields in dbValueMap) see if those match what is coming from DB
+                    Map<String, Object> txDbValueMap = txcValue.getDbValueMap()
+                    Map<String, Object> fuDbValueMap = fuDbValue.getValueMap()
+                    if (txDbValueMap != null && txDbValueMap.size() > 0 &&
+                            !StupidUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
+                        StringBuilder fieldDiffBuilder = new StringBuilder()
+                        for (Map.Entry<String, Object> entry in txDbValueMap.entrySet()) {
+                            Object compareObj = txDbValueMap.get(entry.getKey())
+                            Object baseObj = fuDbValueMap.get(entry.getKey())
+                            if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
+                                    .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
+                        }
+                        logger.info("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
+                    }
                 }
                 newEntityValue = txcValue
+                // put it in whether null or not (already know cacheHit is null)
+                if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
             }
         } else if (cacheHit != null) {
             if (cacheHit instanceof EntityCache.EmptyRecord) newEntityValue = (EntityValueBase) null
@@ -905,11 +970,12 @@ abstract class EntityFindBase implements EntityFind {
         EntityListImpl txcEli = txCache != null ? txCache.listGet(ed, whereCondition, orderByExpanded) : (EntityListImpl) null
 
         // NOTE: don't cache if there is a having condition, for now just support where
-        boolean doEntityCache = shouldCache()
+        boolean doEntityCache = shouldCache() && whereCondition != null
         Cache<EntityCondition, EntityListImpl> entityListCache = doEntityCache ?
                 ed.getCacheList(efi.getEntityCache()) : (Cache<EntityCondition, EntityListImpl>) null
         EntityListImpl cacheList = (EntityListImpl) null
-        if (doEntityCache) cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
+        if (doEntityCache && txcEli == null && !forUpdate)
+            cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
 
         EntityListImpl el
         if (txcEli != null) {
@@ -959,7 +1025,7 @@ abstract class EntityFindBase implements EntityFind {
             // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
             EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
-            whereCondition = (EntityConditionImplBase) efi.getConditionFactoryImpl()
+            EntityConditionImplBase queryWhereCondition = (EntityConditionImplBase) efi.getConditionFactoryImpl()
                     .makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
 
             EntityConditionImplBase havingCondition = havingEntityCondition
@@ -968,10 +1034,10 @@ abstract class EntityFindBase implements EntityFind {
                     .makeConditionImpl(havingCondition, EntityCondition.AND, viewHaving)
 
             // call the abstract method
-            EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded,
+            EntityListIterator eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded,
                     fieldInfoList, fieldOptionsList)
             // these are used by the TransactionCache methods to augment the resulting list and maintain the sort order
-            eli.setQueryCondition(whereCondition)
+            eli.setQueryCondition(queryWhereCondition)
             eli.setOrderByFields(orderByExpanded)
 
             MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())

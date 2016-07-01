@@ -12,6 +12,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 import org.moqui.impl.StupidUtilities
+import java.sql.Timestamp
 // these are in the context by default: ExecutionContext ec, Map<String, Object> context, Map<String, Object> result
 <#visit xmlActionsRoot/>
 
@@ -137,14 +138,23 @@ return;
     <#-- do having-econditions first, if present will disable cached query, used in search-form-inputs -->
     <#if .node["having-econditions"]?has_content>${.node["@list"]}_xafind<#list .node["having-econditions"][0]?children as havingCond>.havingCondition(<#visit havingCond/>)</#list>
     </#if>
-    <#if .node["search-form-inputs"]?has_content><#assign sfiNode = .node["search-form-inputs"][0]>${.node["@list"]}_xafind.searchFormInputs("${sfiNode["@input-fields-map"]!""}", "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
+    <#if .node["search-form-inputs"]?has_content><#assign sfiNode = .node["search-form-inputs"][0]>
+    if (true) {
+        <#if sfiNode["default-parameters"]?has_content><#assign sfiDpNode = sfiNode["default-parameters"][0]>
+        Map efSfiDefParms = [<#list sfiDpNode?keys as dpName>${dpName}:"""${sfiDpNode["@" + dpName]}"""<#if dpName_has_next>, </#if></#list>]
+        <#else>
+        Map efSfiDefParms = null
+        </#if>
+        ${.node["@list"]}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
+    }
     </#if>
     <#if .node["limit-range"]?has_content && !useCache>
     org.moqui.entity.EntityListIterator ${.node["@list"]}_xafind_eli = ${.node["@list"]}_xafind.iterator()
-    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList(${.node["@start"]}, ${.node["@size"]}, true)
+    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList(${.node["limit-range"][0]["@start"]}, ${.node["limit-range"][0]["@size"]}, true)
     <#elseif .node["limit-view"]?has_content && !useCache>
     org.moqui.entity.EntityListIterator ${.node["@list"]}_xafind_eli = ${.node["@list"]}_xafind.iterator()
-    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList((${.node["@view-index"]} - 1) * ${.node["@view-size"]}, ${.node["@view-size"]}, true)
+    ${.node["@list"]} = ${.node["@list"]}_xafind_eli.getPartialList((${.node["limit-view"][0]["@view-index"]} - 1) * ${.node["limit-view"][0]["@view-size"]}, ${.node["limit-view"][0]["@view-size"]},
+    true)
     <#elseif .node["use-iterator"]?has_content && !useCache>
     ${.node["@list"]} = ${.node["@list"]}_xafind.iterator()
     <#else>
@@ -195,7 +205,7 @@ return;
 <#macro "entity-make-value">    ${.node["@value-field"]} = ec.entity.makeValue("${.node["@entity-name"]}")<#if .node["@map"]?has_content>
     ${.node["@value-field"]}.setFields(${.node["@map"]}, true, null, null)</#if>
 </#macro>
-<#macro "entity-create">    ${.node["@value-field"]}<#if .node["@or-update"]?has_content && .node["@or-update"] == "true">.createOrUpdate()<#else/>.create()</#if>
+<#macro "entity-create">    ${.node["@value-field"]}<#if .node["@or-update"]?has_content && .node["@or-update"] == "true">.createOrUpdate()<#else>.create()</#if>
 </#macro>
 <#macro "entity-update">    ${.node["@value-field"]}.update()
 </#macro>
@@ -206,7 +216,7 @@ return;
 <#macro "entity-delete-by-condition">    ec.entity.find("${.node["@entity-name"]}")
             <#list .node["date-filter"] as df>.condition(<#visit df/>)</#list><#list .node["econdition"] as ec>.condition(<#visit ec/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>.deleteAll()
 </#macro>
-<#macro "entity-set">    ${.node["@value-field"]}.setFields(${.node["@map"]?default("context")}, ${.node["@set-if-empty"]?default("false")}, ${.node["@prefix"]?default("null")}, <#if .node["@include"]?has_content && .node["@include"] == "pk">true<#elseif .node["@include"]?has_content && .node["@include"] == "nonpk"/>false<#else/>null</#if>)
+<#macro "entity-set">    ${.node["@value-field"]}.setFields(${.node["@map"]?default("context")}, ${.node["@set-if-empty"]?default("false")}, ${.node["@prefix"]?default("null")}, <#if .node["@include"]?has_content && .node["@include"] == "pk">true<#elseif .node["@include"]?has_content && .node["@include"] == "nonpk"/>false<#else>null</#if>)
 </#macro>
 
 <#macro break>    break
@@ -244,7 +254,7 @@ return;
         if (${.node["@list"]} instanceof org.moqui.entity.EntityListIterator) ${.node["@list"]}.close()
     <#if .node["@key"]?has_content>}</#if>
 </#macro>
-<#macro message><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${.node?trim}''',''))<#else/>    ec.message.addMessage(ec.resource.expand('''${.node?trim}''',''))</#if>
+<#macro message><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${.node?trim}''',''))<#else>    ec.message.addMessage(ec.resource.expand('''${.node?trim}''',''))</#if>
 </#macro>
 <#macro "check-errors">    if (ec.message.errors) return
 </#macro>
@@ -255,19 +265,6 @@ return;
 </#macro>
 <#macro assert><#list .node["*"] as childCond>
     if (!(<#visit childCond/>)) ec.message.addError(ec.resource.expand('''<#if .node["@title"]?has_content>[${.node["@title"]}] </#if> Assert failed: <#visit childCond/>''',''))</#list>
-</#macro>
-
-<#macro "xml-consume">
-    // TODO impl xml-consume
-</#macro>
-<#macro "xml-consume-element">
-    // TODO impl xml-consume-element
-</#macro>
-<#macro "xml-produce">
-    // TODO impl xml-produce
-</#macro>
-<#macro "xml-produce-element">
-    // TODO impl xml-produce-element
 </#macro>
 
 <#macro if>    if (<#if .node["@condition"]?has_content>${.node["@condition"]}</#if><#if .node["@condition"]?has_content && .node["condition"]?has_content> && </#if><#if .node["condition"]?has_content><#recurse .node["condition"][0]/></#if>) {
@@ -299,17 +296,17 @@ return;
 <#macro and>(<#list .node.children as childNode><#visit childNode/><#if childNode_has_next> && </#if></#list>)</#macro>
 <#macro not>!<#visit .node.children[0]/></#macro>
 
-<#macro "compare">    <#if (.node?size > 0)>if (StupidUtilities.compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else/>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else/>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else/>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else/>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else/>"Object"</#if>)) {
+<#macro "compare">    <#if (.node?size > 0)>if (StupidUtilities.compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)) {
         <#recurse .node/>
     }<#if .node.else?has_content> else {
         <#recurse .node.else[0]/>
     }</#if>
-    <#else/>StupidUtilities.compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else/>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else/>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else/>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else/>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else/>"Object"</#if>)</#if>
+    <#else>StupidUtilities.compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)</#if>
 </#macro>
 <#macro "expression">${.node}
 </#macro>
 
 <#-- =================== other elements =================== -->
 
-<#macro "log">    ec.logger.log(<#if .node["@level"]?has_content>"${.node["@level"]}"<#else/>"info"</#if>, """${.node["@message"]}""", null)
+<#macro "log">    ec.logger.log(<#if .node["@level"]?has_content>"${.node["@level"]}"<#else>"info"</#if>, """${.node["@message"]}""", null)
 </#macro>

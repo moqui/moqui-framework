@@ -147,8 +147,27 @@ public class ScreenFacadeImpl implements ScreenFacade {
         ScreenDefinition permSd = (ScreenDefinition) screenLocationPermCache.get(location)
         if (permSd != null) {
             // check to see if file has been modified, if we know when it was last modified
-            if (permSd.sourceLastModified != null && screenRr.supportsLastModified() &&
-                    permSd.sourceLastModified.equals(screenRr.getLastModified())) {
+            boolean modified = true
+            if (screenRr.supportsLastModified()) {
+                long rrLastModified = screenRr.getLastModified()
+                modified = permSd.screenLoadedTime < rrLastModified
+                // see if any screens it depends on (any extends, etc) have been modified
+                if (!modified) {
+                    for (String dependLocation in permSd.dependsOnScreenLocations) {
+                        ScreenDefinition dependSd = getScreenDefinition(dependLocation)
+                        if (dependSd.sourceLastModified == null) { modified = true; break; }
+                        if (dependSd.sourceLastModified > permSd.screenLoadedTime) {
+                            // logger.info("Screen ${location} depends on ${dependLocation}, modified ${dependSd.sourceLastModified} > ${permSd.screenLoadedTime}")
+                            modified = true; break;
+                        }
+                    }
+                }
+            }
+
+            if (modified) {
+                screenLocationPermCache.remove(location)
+                logger.info("Reloading modified screen ${location}")
+            } else {
                 //logger.warn("========= screen expired but hasn't changed so reusing: ${location}")
 
                 // call this just in case a new screen was added, note this does slow things down just a bit, but only in dev (not in production)
@@ -156,20 +175,17 @@ public class ScreenFacadeImpl implements ScreenFacade {
 
                 screenLocationCache.put(location, permSd)
                 return permSd
-            } else {
-                screenLocationPermCache.remove(location)
-                logger.info("Screen modified since last loaded, reloading: ${location}")
             }
         }
 
         MNode screenNode = MNode.parse(screenRr)
         if (screenNode == null) {
-            throw new IllegalArgumentException("Cound not find definition for screen at location [${location}]")
+            throw new IllegalArgumentException("Cound not find definition for screen location ${location}")
         }
 
         sd = new ScreenDefinition(this, screenNode, location)
         // logger.warn("========= loaded screen [${location}] supports LM ${screenRr.supportsLastModified()}, LM: ${screenRr.getLastModified()}")
-        sd.sourceLastModified = screenRr.supportsLastModified() ? screenRr.getLastModified() : null
+        if (screenRr.supportsLastModified()) sd.sourceLastModified = screenRr.getLastModified()
         screenLocationCache.put(location, sd)
         if (screenRr.supportsLastModified()) screenLocationPermCache.put(location, sd)
         return sd

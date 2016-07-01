@@ -9,13 +9,41 @@ Moqui Framework 2.0.0 is a major new feature and bug fix release, with
 various non backward compatible API and other changes.
 
 This version is not yet released. The notes below are for the changes
-currently in place in the source repository.
+currently in place in the source repository. If you plan to go into
+production in the near future (before this version is released) it is
+better to use the last released version (1.6.2) as 2.0.0 contains
+significant changes.
 
 Non Backward Compatible Changes
 
 - Java JDK 8 now required for running executable WAR
 - No longer using Winstone embedded web server (now using Jetty)
+- Caching
+  - Ehcache has been removed
+  - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
+  - Configuration options for caches changed (moqui-conf.cache-list.cache)
+- Service Job Scheduling
+  - Quartz Scheduler has been removed, use new ServiceJob instead which
+    supports more relevant options, is much cleaner and more manageable
+  - Removed ServiceFacade.getScheduler() method
+  - Removed ServiceCallSchedule interface, implementation, and
+    ServiceFacade.schedule() factory method
+  - Removed ServiceQuartzJob class (impl of Job interface)
+  - Removed EntityJobStore class (impl of JobStore interface); this is a
+    huge and complicated class to handle the various complexities of Quartz
+    and was never fully working, had some remaining issues in testing
+  - Removed HistorySchedulerListener and HistoryTriggerListener classes
+  - Removed all entities in the moqui.service.scheduler and
+    moqui.service.quartz packages
+  - Removed quartz.properties and quartz_data.xml configuration files
+  - Removed Scheduler screens from System app in tools component
+  - For all of these artifacts see moqui-framework commit #d42ede0 and
+    moqui-runtime commit #6a9c61e
 - Externalized Tools
+  - Apache FOP is now in the moqui-fop tool component; everything in the
+    framework, including the now poorly named MoquiFopServlet, use generic
+    interfaces but XML-FO files will not transform to PDF/etc without this
+    component in place
   - OrientDB and Entity Facade interface implementations are now in the
     moqui-orientdb component, see its README.md for usage
   - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint
@@ -23,6 +51,7 @@ Non Backward Compatible Changes
     no additional configuration is needed
   - JBoss KIE and Drools are now in tool component moqui-kie, an optional
     component for mantle-usl; has MoquiConf to add ToolFactory
+  - Atomikos TM moved to moqui-atomikos tool component
 - ExecutionContext and ExecutionContextFactory
   - Removed initComponent() and destroyComponent() methods; were never well
     supported (runtime component init and destroy caused issues)
@@ -35,10 +64,10 @@ Non Backward Compatible Changes
     getTool("KIE", KieToolFactory.class) and use the corresponding
     methods there
   - See new feature notes under Tool Factory
-- Caching
-  - Ehcache has been removed
-  - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
-  - Configuration options for caches changed (moqui-conf.cache-list.cache)
+- NotificationMessage
+  - NotificationMessage, NotificationMessageListener interfaces have
+    various changes for more features and to better support serialized
+    messages for notification through a distributed topic
 - Async Services
   - Now uses more standard java.util.concurrent interfaces
   - Removed ServiceCallAsync.maxRetry() - was never supported
@@ -57,13 +86,17 @@ Non Backward Compatible Changes
     with the javax.jcr.RepositoryFactory interface
   - See new configuration examples in MoquiDefaultConf.xml under the
     repository-list element
+- OWASP ESAPI and AntiSamy
+  - ESAPI removed, now using simple StringEscapeUtils from commons-lang
+  - AntiSamy replaced by OWASP Java HTML Sanitizer
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (usually by methods with shorter names)
     long ago and with other API changes now removing them
   - Removed getLocalizedMessage() and formatValue() from L10nFacade
-  - Removed runScriptInCurrentContext(), evaluateCondition(),
-    evaluateContextField(), and evaluateStringExpand() from ResourceFacade
+  - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(),
+    evaluateCondition(), evaluateContextField(), and evaluateStringExpand()
+    from ResourceFacade
 - ArtifactHit and ArtifactHitBin now use same artifact type enum as
   ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and
@@ -103,6 +136,23 @@ New Features
     ExecutionContextFactory.getTool(), and
     ExecutionContext.getTool() methods to interact with tools
   - See non backward compatible change notes for ExecutionContextFactory
+- WebSocket Support
+  - Now looks for javax.websocket.server.ServerContainer in ServletContext
+    during initialization, available through ECFI.getServerContainer()
+  - If ServetContainer found adds endpoints defined in the webapp.endpoint
+    element in the Moqui Conf XML file
+  - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint
+    so that Moqui objects such as ExecutionContext/Factory are available,
+    UserFacade initialized from handshake (HTTP upgrade) request, etc
+  - Added NotificationEndpoint which listens for NotificationMessage
+    through ECFI and sends them over WebSocket to notify user
+- NotificationMessage
+  - Notifications can now be configured to send through a topic interface
+    for distributed topics (implemented in the moqui-hazelcast component);
+    this handles the scenario where a notification is generated on one
+    server but a user is connected (by WebSocket, etc) to another
+  - Various additional fields for display in the JavaScript
+    NotificationClient including type, title and link templates, etc
 - Caching
   - CacheFacade now supports separate local and distributed caches both
     using the javax.cache interfaces
@@ -126,14 +176,24 @@ New Features
     - Added distribute option to XML Actions service-call.@async attribute
     - Distributed executor is configurable, supported in moqui-hazelcast
   - Distributed services allow offloading service execution to worker nodes
+- Service Jobs
+  - Configure ad-hoc (explicitly executed) or scheduled jobs using the new
+    ServiceJob and related entities
+  - Tracks execution in ServiceJobRun records
+  - Can send NotificationMessage, success or error, to configured topic
+  - Run service job through ServiceCallJob interface, ec.service.job()
+  - Replacement for Quartz Scheduler scheduled services
 - Hazelcast Integration (moqui-hazelcast component)
   - These features are only enabled with this tool component in place
   - Added default Hazelcast web session replication config
   - Hazelcast can be used for distributed entity cache and can be used for
     web session replication, distributed execution, and OrientDB clustering
-- Implemented distributed entity cache invalidate using a Hazelcast Topic,
-  enabled in Moqui Conf XML file with the @distributed-cache-invalidate
-  attribute on the entity-facade element
+  - Implemented distributed entity cache invalidate using a Hazelcast
+    Topic, enabled in Moqui Conf XML file with the
+    @distributed-cache-invalidate attribute on the entity-facade element
+- XSL-FO rendering now supports a generic ToolFactory to create a
+  org.xml.sax.ContentHandler object, with an implementation using Apache
+  FOP now in the moqui-fop component
 - JCR and Apache Jackrabbit
   - JCR support (for content:// locations in the ResourceFacade) now uses
     javax.jcr interfaces only, no dependencies on Jackrabbit
@@ -142,9 +202,6 @@ New Features
 - Added ADMIN_PASSWORD permission for administrative password change
   (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
-- EntityDataWriter now supports export with a entity master definition
-  name, applied only to entities exported that have a master def with the
-  given master name
 - Added support for error screens rendered depending on type of error
   - configured in the webapp.error-screen element in Moqui Conf XML file
   - if error screen render fails sends original error response
@@ -158,10 +215,22 @@ New Features
   thread with an ExecutionContext like the current (tenant, user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
-- form-list now supports @header-dialog to put header-field widgets in a
-  dialog instead of in the header
-- form-list now supports @select-columns to allow users to select which
-  fields are displayed in which columns, or not displayed
+- Entity Facade
+  - EntityFind.searchFormMap() now has a defaultParameters argument, used
+    when no conditions added from the input fields Map
+  - EntityDataWriter now supports export with a entity master definition
+    name, applied only to entities exported that have a master def with the
+    given master name
+- XML Screen and Form
+  - form-list now supports @header-dialog to put header-field widgets in a
+    dialog instead of in the header
+  - form-list now supports @select-columns to allow users to select which
+    fields are displayed in which columns, or not displayed
+  - added entity-find.search-form-inputs.default-parameters element whose
+    attributes are used as defaultParameters in searchFormMap()
+  - ArtifactAuthzFailure records are only created when a user tries to use
+    an artifact, not when simply checking to see if use is permitted (such
+    as in menus, links, etc)
 
 Bug Fixes
 
@@ -183,6 +252,13 @@ Bug Fixes
 - Fixed issue with Entity/DataEdit screens in the Tools application where
   the parameter and form field name 'entityName' conflicted with certain
   entities that have a field named entityName
+- Concurrency Issues
+  - Fixed concurrent update errors in EntityCache RA (reverse association)
+    using Collections.synchronizedList()
+  - Fixed per-entity DataFeed info rebuild to avoid multiple runs and
+    rebuild completely before adding to cache in use to avoid partial data
+  - Fixed attribute and child node wrapper caching in FtlNodeWrapper where
+    in certain cases a false null would be returned
 
 ===========================================================================
 Release 1.6.2 - 26 Mar 2016
@@ -381,51 +457,54 @@ Bug Fixes
 
 
 ===========================================================================
-Long Term To Do List - aka Informal Roadmap
+Long Term To Do List - aka Informal Road Map
 ===========================================================================
 
-- Try Caffeine JCache at https://github.com/ben-manes/caffeine
-  - add multiple threads to SpeedTest.xml?
+- Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 
 - Move tools from moqui-framework to tool components
-  - Great tools but not used by default in Moqui/Mantle/etc
-    - Atomikos (moqui-atomikos; leave Bitronix in by default)
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
     - ElasticSearch (moqui-elasticsearch)
-    - add mantle-usl dependencies on moqui-elasticsearch; moqui-kie is optional for mantle-usl
-  - Possible to split out FOP?
-    - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
-  - Support some sort of built component archive?
+    - add mantle-usl dependencies on moqui-elasticsearch
+
+- Improved Distributed Datasource Support
+  - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
+  - Review warnings about view-entities that have members in multiple groups (which may be in different databases)
+  - Test with transactional in H2 and nontransactional, configuration, analytical in OrientDB
+  - Known changes needed
+    - Check distributed foreign keys in create, update, delete (make sure records exist or don't exist in other databases)
+    - Add augment-member to view-entity that can be in a separate database
+      - Make it easier to define view-entity so that caller can treat it mostly as a normal join-based view
+      - Augment query results with optionally cached values from records in a separate database
+      - For conditions on fields from augment-member do a pre-query to get set of PKs, use them in an IN condition on
+        the main query (only support simple AND scenario, error otherwise); sort of like a sub-select
+      - How to handle order by fields on augment-member? Might require separate query and some sort of fancy sorting...
+    - Some sort of EntityDynamicView handling without joins possible? Maybe augment member methods?
+    - DataDocument support across multiple databases, doing something other than one big dynamic join...
+  - Possibly useful
+    - Consider meta-data management features such as versioning and more complete history for nontransactional and
+      configuration, preferably using some sort of more efficient underlying features in the datasource
+      (like Jackrabbit/Oak; any support for this in OrientDB? ElasticSearch keeps version number for concurrency, but no history)
+    - Write EntityFacade interface for ElasticSearch to use like OrientDB?
+    - Support persistence through EntityFacade as nested documents, ie specify that detail/etc entities be included in parent/master document
+    - SimpleFind interface as an alternative to EntityFind for datasources that don't support joins, etc (like OrientDB)
+      and maybe add support for the internal record ID that can be used for faster graph traversal, etc
+
+- Try Caffeine JCache at https://github.com/ben-manes/caffeine
+  - do in moqui-caffeine tool component
+  - add multiple threads to SpeedTest.xml?
 
 - Saved form-list Finds
   - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
-- WebSocket attempt 2
-  - Also see WebSocket notes under User Notification
-  - Build WebSocket interface for Moqui NotificationMessage interfaces, use javax.websocket as much as possible
-    (run initially on Jetty but be able to support other WebSocket libraries)
-  - Send updates by NotificationMessage to browser for messages, calendar events, tasks (MyAccount stuff)
-  - Prototype for background process notifications, to be used for various things but start with Payroll run
-    (have page return immediately, send notification when done)
-
+- WebSocket Notifications
+  - Increment message, event, task count labels in header?
+    - DataDocument add flag if new or updated
+    - if new increment count with JS
+    - Side note: DataDocument add info about what was updated somehow?
 - User Notification
-  - WebSocket clients: track userId, notificationName, connectionKey
-    - Entity (no, keep in memory): VisitClient - visitId*, userId*, topic*, connectionKey*
-    - when sending out WebSocket messages lookup all active Visits for userId and send to each connectionKey
-    - API (with at least an example transition) for WebSocket client registry; set connectionKey on current Visit
-    - use Camel WebSocket? jWebSocket? (how to send message to client connection key)
-    - after more research candidates are (no jWebSocket because it is huge and messy):
-      * java_websocket: smallest (90k), no dependencies on other libraries (like Tomcat or Jetty WS), very simple
-        library so no authc, no pubsub; has JS library for JS client and Flash SWF file for browsers with no WebSocket
-      - Atmosphere: med size (460k), supports variety of transports, but no internal WebSocket (relies on Tomcat, Jetty,
-        etc websocket impls), has pubsub model and sessions built-in, but questionable authc facility
-  x Manual notification:
-    x API pass in notificationName, Map message, userGroupId, boolean queue (true: queue if not connected, false: only send if connected)
-    x API to get all outstanding notifications
-    x Entity: NotificationMessage - notificationMessageId*, topic, userGroupId, messageJson (from message Map)
-    x Entity: NotificationMessageUser - notificationMessageId*, userId*, sentDate, receivedDate
   - Add Moqui Conf XML elements to configure NotificationMessageListener classes
-  - Listener for Email with XML Screen to layout (and try out using JSON documents as nested Maps from a screen)
+  - Listener to send Email with XML Screen to layout (and try out using JSON documents as nested Maps from a screen)
     - where to configure the email and screen to use? use EmailTemplate/emailTemplateId, but where to specify?
       - for notifications from DataFeeds can add DataFeed.emailTemplateId (or not, what about toAddresses, etc?)
       - maybe have a more general way to configure details of topics, including emailTemplateId and screenLocation...
@@ -454,28 +533,7 @@ Long Term To Do List - aka Informal Roadmap
     - set base URL, use common patterns for get single/multiple record, create, update, and delete
     - use internal data from RestApi class to determine valid services available
 
-- Improved Distributed Datasource Support
-  - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
-  - Review warnings about view-entities that have members in multiple groups (which may be in different databases)
-  - Test with transactional in H2 and nontransactional, configuration, analytical in OrientDB
-  - Known changes needed
-    - Check distributed foreign keys in create, update, delete (make sure records exist or don't exist in other databases)
-    - Add augment-member to view-entity that can be in a separate database
-      - Make it easier to define view-entity so that caller can treat it mostly as a normal join-based view
-      - Augment query results with optionally cached values from records in a separate database
-      - For conditions on fields from augment-member do a pre-query to get set of PKs, use them in an IN condition on
-        the main query (only support simple AND scenario, error otherwise); sort of like a sub-select
-      - How to handle order by fields on augment-member? Might require separate query and some sort of fancy sorting...
-  - Possibly useful
-    - Consider meta-data management features such as versioning and more complete history for nontransactional and
-      configuration, preferably using some sort of more efficient underlying features in the datasource
-      (like Jackrabbit/Oak; any support for this in OrientDB? ElasticSearch keeps version number for concurrency, but no history)
-    - Write EntityFacade interface for ElasticSearch to use like OrientDB?
-    - Support persistence through EntityFacade as nested documents, ie specify that detail/etc entities be included in parent/master document
-    - SimpleFind interface as an alternative to EntityFind for datasources that don't support joins, etc (like OrientDB)
-      and maybe add support for the internal record ID that can be used for faster graph traversal, etc
-
-- Hazelcast-based improvements
+- Hazelcast based improvements
   - configuration for 'microservice' deployments, partitioning services to run on particular servers in a cluster and
     not others (partition groups or other partition feature?)
   - can use for reliable WAN service calls like needed for EntitySync?
@@ -562,11 +620,7 @@ Long Term To Do List - aka Informal Roadmap
     - generic service for sending Data Document to REST (or other?) end point
   - Service REST API
     - allow mapping DataDocument operations as well
-    x Add artifact type for REST Resource, Method
-    x Call ArtifactExecutionFacade.push/pop for RestApi calls
-    x Setup john.doe user with permissions for root of various APIs
     - Add attribute for resource/method like screen for anonymous and no authz access
-    x Add Service REST API for moqui system admin services
   - OAuth2 Support
     - Use Apache Oltu, see https://cwiki.apache.org/confluence/display/OLTU/OAuth+2.0+Authorization+Server
     - Spec at http://tools.ietf.org/html/rfc6749

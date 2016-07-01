@@ -75,6 +75,7 @@ public class EntityDefinition {
     protected MNode entityHavingEconditions = null
 
     protected final boolean isView
+    protected final boolean isDynamicView
     protected final boolean hasFunctionAliasVal
     protected final boolean createOnlyVal
     protected boolean createOnlyFields = false
@@ -105,11 +106,12 @@ public class EntityDefinition {
         // copy the entityNode because we may be modifying it
         internalEntityNode = entityNode.deepCopy(null)
         isView = internalEntityNode.name == "view-entity"
+        isDynamicView = internalEntityNode.attribute("is-dynamic-view") == "true"
         internalEntityName = internalEntityNode.attribute("entity-name")
         fullEntityName = internalEntityNode.attribute("package-name") + "." + internalEntityName
         shortAlias = internalEntityNode.attribute("short-alias") ?: null
 
-        if (internalEntityNode.attribute("is-dynamic-view") == "true") {
+        if (isDynamicView) {
             // use the group of the first member-entity
             String memberEntityName = internalEntityNode.children("member-entity")
                     .find({ !it.attribute("join-from-alias") })?.attribute("entity-name")
@@ -205,6 +207,7 @@ public class EntityDefinition {
                 if (fieldNode == null) throw new EntityException("In view-entity [${internalEntityName}] alias [${aliasNode.attribute("name")}] referred to field [${fieldName}] that does not exist on entity [${memberEd.internalEntityName}].")
                 if (!aliasNode.attribute("type")) aliasNode.attributes.put("type", fieldNode.attribute("type"))
                 if (fieldNode.attribute("is-pk") == "true") aliasNode.attributes.put("is-pk", "true")
+                if (fieldNode.attribute("enable-localization") == "true") aliasNode.attributes.put("enable-localization", "true")
 
                 // add to aliases by field name by entity name
                 if (!memberEntityFieldAliases.containsKey(memberEd.getFullEntityName())) memberEntityFieldAliases.put(memberEd.getFullEntityName(), [:])
@@ -257,6 +260,7 @@ public class EntityDefinition {
     MNode getEntityNode() { return internalEntityNode }
 
     boolean isViewEntity() { return isView }
+    boolean isDynamicViewEntity() { return isDynamicView }
     boolean hasFunctionAlias() { return hasFunctionAliasVal }
     Map<String, ArrayList<MNode>> getMemberFieldAliases(String memberEntityName) {
         return memberEntityFieldAliases?.get(memberEntityName)
@@ -278,6 +282,11 @@ public class EntityDefinition {
         // no description? just use the first non-pk field: nonPkFields.get(0)
         // not any more, can be confusing... just return empty String
         return ""
+    }
+
+    String getMemberEntityName(String entityAlias) {
+        MNode memberEntityNode = memberEntityAliasMap.get(entityAlias)
+        return memberEntityNode?.attribute("entity-name")
     }
 
     boolean createOnly() { return createOnlyVal }
@@ -391,6 +400,7 @@ public class EntityDefinition {
         fi.isSimple = !fi.enableLocalization && !fi.isUserField
         fi.createOnly = fnAttrs.get('create-only') ? 'true'.equals(fnAttrs.get('create-only')) : ed.createOnly()
         fi.enableAuditLog = fieldNode.attribute('enable-audit-log') ?: ed.internalEntityNode.attribute('enable-audit-log')
+
 
         if (ed.isViewEntity()) {
             // NOTE: for view-entity the incoming fieldNode will actually be for an alias element
@@ -614,7 +624,13 @@ public class EntityDefinition {
         MasterDefinition(EntityDefinition ed, MNode masterNode) {
             name = masterNode.attribute("name") ?: "default"
             List<MNode> detailNodeList = masterNode.children("detail")
-            for (MNode detailNode in detailNodeList) detailList.add(new MasterDetail(ed, detailNode))
+            for (MNode detailNode in detailNodeList) {
+                try {
+                    detailList.add(new MasterDetail(ed, detailNode))
+                } catch (Exception e) {
+                    logger.error("Error adding detail ${detailNode.attribute("relationship")} to master ${name} of entity ${ed.getFullEntityName()}: ${e.toString()}")
+                }
+            }
         }
     }
     @CompileStatic
@@ -1758,22 +1774,22 @@ public class EntityDefinition {
     }
 
     Cache<EntityCondition, EntityValueBase> internalCacheOne = null
-    Cache<EntityCondition, ArrayList<EntityCondition>> internalCacheOneRa = null
-    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheOneViewRa = null
+    Cache<EntityCondition, List<EntityCondition>> internalCacheOneRa = null
+    Cache<EntityCondition, List<EntityCache.ViewRaKey>> getCacheOneViewRa = null
     Cache<EntityCondition, EntityListImpl> internalCacheList = null
-    Cache<EntityCondition, ArrayList<EntityCondition>> internalCacheListRa = null
-    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> internalCacheListViewRa = null
+    Cache<EntityCondition, List<EntityCondition>> internalCacheListRa = null
+    Cache<EntityCondition, List<EntityCache.ViewRaKey>> internalCacheListViewRa = null
     Cache<EntityCondition, Long> internalCacheCount = null
 
     Cache<EntityCondition, EntityValueBase> getCacheOne(EntityCache ec) {
         if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheOne
     }
-    Cache<EntityCondition, ArrayList<EntityCondition>> getCacheOneRa(EntityCache ec) {
+    Cache<EntityCondition, List<EntityCondition>> getCacheOneRa(EntityCache ec) {
         if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheOneRa
     }
-    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
+    Cache<EntityCondition, List<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
         if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName), efi.tenantId)
         return getCacheOneViewRa
     }
@@ -1782,11 +1798,11 @@ public class EntityDefinition {
         if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheList
     }
-    Cache<EntityCondition, ArrayList<EntityCondition>> getCacheListRa(EntityCache ec) {
+    Cache<EntityCondition, List<EntityCondition>> getCacheListRa(EntityCache ec) {
         if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheListRa
     }
-    Cache<EntityCondition, ArrayList<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
+    Cache<EntityCondition, List<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
         if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheListViewRa
     }

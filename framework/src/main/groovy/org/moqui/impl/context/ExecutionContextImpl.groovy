@@ -149,20 +149,20 @@ class ExecutionContextImpl implements ExecutionContext {
     ScreenFacade getScreen() { ecfi.getScreenFacade() }
 
     @Override
-    NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(this) }
+    NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(ecfi, tenantId) }
     @Override
-    List<NotificationMessage> getNotificationMessages(String userId, String topic) {
-        if (!userId && !topic) return []
+    List<NotificationMessage> getNotificationMessages(String topic) {
+        String userId = userFacade.userId
+        if (!userId) return []
 
         List<NotificationMessage> nmList = []
         boolean alreadyDisabled = getArtifactExecution().disableAuthz()
         try {
-            Map<String, Object> parameters = [receivedDate:null] as Map<String, Object>
-            if (userId) parameters.userId = userId
+            Map<String, Object> parameters = [userId:userId, receivedDate:null] as Map<String, Object>
             if (topic) parameters.topic = topic
             EntityList nmbuList = entity.find("moqui.security.user.NotificationMessageByUser").condition(parameters).list()
             for (EntityValue nmbu in nmbuList) {
-                NotificationMessageImpl nmi = new NotificationMessageImpl(this)
+                NotificationMessageImpl nmi = new NotificationMessageImpl(ecfi, tenantId)
                 nmi.populateFromValue(nmbu)
                 nmList.add(nmi)
             }
@@ -170,10 +170,6 @@ class ExecutionContextImpl implements ExecutionContext {
             if (!alreadyDisabled) getArtifactExecution().enableAuthz()
         }
         return nmList
-    }
-    @Override
-    void registerNotificationMessageListener(NotificationMessageListener nml) {
-        ecfi.registerNotificationMessageListener(nml)
     }
 
     @Override

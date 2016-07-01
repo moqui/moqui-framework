@@ -208,6 +208,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 String entityAlias = aliasNode != null ? aliasNode.attribute('entity-alias') : null
                 if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias)
 
+                if (aliasNode == null) throw new EntityException("No alias found for name ${fieldName} in view-entity ${localEntityDefinition.getFullEntityName()}")
                 MNode complexAliasNode = aliasNode.first("complex-alias")
                 if (aliasNode != null && complexAliasNode != null) {
                     ArrayList<MNode> cafList = complexAliasNode.children("complex-alias-field")

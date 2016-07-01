@@ -17,12 +17,12 @@ import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
 import org.joda.time.DateTimeZone
 import org.joda.time.MutableDateTime
-import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
 
+import javax.websocket.server.HandshakeRequest
 import java.security.SecureRandom
 import java.sql.Timestamp
 import javax.servlet.http.Cookie
@@ -40,7 +40,6 @@ import org.apache.shiro.web.session.HttpServletSession
 import org.moqui.context.UserFacade
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
-import org.moqui.impl.entity.EntityListImpl
 import org.apache.shiro.subject.support.DefaultSubjectContext
 
 import org.slf4j.Logger
@@ -63,6 +62,7 @@ class UserFacadeImpl implements UserFacade {
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
     protected HttpServletResponse response = (HttpServletResponse) null
+    protected HttpSession session = (HttpSession) null
 
     UserFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -70,11 +70,11 @@ class UserFacadeImpl implements UserFacade {
     }
 
     Subject makeEmptySubject() {
-        if (request != null) {
-            HttpSession session = request.getSession()
+        if (session != null) {
             WebSubjectContext wsc = new DefaultWebSubjectContext()
-            wsc.setServletRequest(request); wsc.setServletResponse(response)
-            wsc.setSession(new HttpServletSession(session, request.getServerName()))
+            if (request != null) wsc.setServletRequest(request)
+            if (response != null) wsc.setServletResponse(response)
+            wsc.setSession(new HttpServletSession(session, request?.getServerName()))
             return eci.getEcfi().getSecurityManager().createSubject(wsc)
         } else {
             return eci.getEcfi().getSecurityManager().createSubject(new DefaultSubjectContext())
@@ -84,7 +84,7 @@ class UserFacadeImpl implements UserFacade {
     void initFromHttpRequest(HttpServletRequest request, HttpServletResponse response) {
         this.request = request
         this.response = response
-        HttpSession session = request.getSession()
+        this.session = request.getSession()
 
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
@@ -99,7 +99,7 @@ class UserFacadeImpl implements UserFacade {
         // NOTE: do this even if there is another user logged in, will go on stack
         Map secureParameters = eci.webImpl.getSecureRequestParameters()
         String authzHeader = request.getHeader("Authorization")
-        if (authzHeader && authzHeader.substring(0, 6).equals("Basic ")) {
+        if (authzHeader != null && authzHeader.length() > 6 && authzHeader.substring(0, 6).equals("Basic ")) {
             String basicAuthEncoded = authzHeader.substring(6).trim()
             String basicAuthAsString = new String(basicAuthEncoded.decodeBase64())
             if (basicAuthAsString.indexOf(":") > 0) {
@@ -204,6 +204,63 @@ class UserFacadeImpl implements UserFacade {
             }
         }
     }
+    void initFromHandshakeRequest(HandshakeRequest request) {
+        this.session = (HttpSession) request.getHttpSession()
+
+        // WebSocket handshake request is the HTTP upgrade request so this will be the original session
+        // login user from value in session
+        Subject webSubject = makeEmptySubject()
+        if (webSubject.authenticated) {
+            // effectively login the user
+            pushUserSubject(webSubject, null)
+            if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
+        } else {
+            if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
+        }
+
+        Map<String, List<String>> headers = request.getHeaders()
+        Map<String, List<String>> parameters = request.getParameterMap()
+        String authzHeader = headers.get("Authorization") ? headers.get("Authorization").get(0) : null
+        if (authzHeader != null && authzHeader.length() > 6 && authzHeader.substring(0, 6).equals("Basic ")) {
+            String basicAuthEncoded = authzHeader.substring(6).trim()
+            String basicAuthAsString = new String(basicAuthEncoded.decodeBase64())
+            if (basicAuthAsString.indexOf(":") > 0) {
+                String username = basicAuthAsString.substring(0, basicAuthAsString.indexOf(":"))
+                String password = basicAuthAsString.substring(basicAuthAsString.indexOf(":") + 1)
+                String tenantId = parameters.authTenantId ? parameters.authTenantId.get(0) : null
+                this.loginUser(username, password, tenantId)
+            } else {
+                logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
+            }
+        } else if (headers.api_key || headers.login_key) {
+            String loginKey = headers.api_key ? headers.api_key.get(0) : (headers.login_key ? headers.login_key.get(0) : null)
+            String tenantId = headers.tenant_id ? headers.tenant_id.get(0) : null
+            if (loginKey) this.loginUserKey(loginKey.trim(), tenantId?.trim())
+        } else if (parameters.api_key || parameters.login_key) {
+            String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
+            String tenantId = parameters.tenant_id ? parameters.tenant_id.get(0) : null
+            if (loginKey) this.loginUserKey(loginKey.trim(), tenantId?.trim())
+        } else if (parameters.authUsername) {
+            // try the Moqui-specific parameters for instant login
+            // if we have credentials coming in anywhere other than URL parameters, try logging in
+            String authUsername = parameters.authUsername.get(0)
+            String authPassword = parameters.authPassword ? parameters.authPassword.get(0) : null
+            String authTenantId = parameters.authTenantId ? parameters.authTenantId.get(0) : null
+            this.loginUser(authUsername, authPassword, authTenantId)
+        }
+    }
+    void initFromHttpSession(HttpSession session) {
+        this.session = session
+        Subject webSubject = makeEmptySubject()
+        if (webSubject.authenticated) {
+            // effectively login the user
+            pushUserSubject(webSubject, null)
+            if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
+        } else {
+            if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
+        }
+    }
+
 
     @Override
     Locale getLocale() { return currentInfo.localeCache }
@@ -504,6 +561,7 @@ class UserFacadeImpl implements UserFacade {
         SecureRandom sr = new SecureRandom()
         byte[] randomBytes = new byte[30]
         sr.nextBytes(randomBytes)
+        // TODO: when we move to Java 8 use java.util.Base64
         String loginKey = Base64.encodeBase64URLSafeString(randomBytes)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
@@ -517,7 +575,7 @@ class UserFacadeImpl implements UserFacade {
 
         // clean out expired keys
         eci.entity.find("moqui.security.UserLoginKey").condition("userId", userId)
-                .condition("thruDate", "less-than", fromDate).disableAuthz().deleteAll()
+                .condition("thruDate", EntityCondition.LESS_THAN, fromDate).disableAuthz().deleteAll()
 
         return loginKey
     }
@@ -640,12 +698,6 @@ class UserFacadeImpl implements UserFacade {
         if (!visitId) return null
         EntityValue vst = eci.getEntity().find("moqui.server.Visit").condition("visitId", visitId).useCache(true).disableAuthz().one()
         return vst
-    }
-
-    @Override
-    List<NotificationMessage> getNotificationMessages(String topic) {
-        if (!currentInfo.userId) return []
-        return eci.getNotificationMessages(currentInfo.userId, topic)
     }
 
     // ========== UserInfo ==========
