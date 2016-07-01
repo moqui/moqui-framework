@@ -466,8 +466,6 @@ Long Term To Do List - aka Informal Road Map
   - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
     - ElasticSearch (moqui-elasticsearch)
     - add mantle-usl dependencies on moqui-elasticsearch
-  - Possible to split out FOP?
-    - Used in MoquiFopServlet, send email attachments, PDF render service, much more...
 
 - Improved Distributed Datasource Support
   - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
