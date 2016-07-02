@@ -122,7 +122,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="primaryEntityName" type="text-medium"/>
         <field name="manualDataServiceName" type="text-medium"><description>Name of a service to call to get additional
             data to include in the document. This service should implement the
-            org.moqui.impl.EntityServices.add#ManualDocumentData interface.</description></field>
+            org.moqui.EntityServices.add#ManualDocumentData interface.</description></field>
 
         <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentField" short-alias="fields">
             <key-map field-name="dataDocumentId"/></relationship>

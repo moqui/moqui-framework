@@ -181,8 +181,11 @@ class ScheduledJobRunner implements Runnable {
             eci.destroy()
         }
 
-        // TODO: change this to trace at some point once more tested
-        logger.info("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused}, tenants: ${allEntityFacades.size()})")
+        if (jobsRun > 0) {
+            logger.info("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused}, tenants: ${allEntityFacades.size()})")
+        } else if (logger.isTraceEnabled()) {
+            logger.trace("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused}, tenants: ${allEntityFacades.size()})")
+        }
     }
 
     // ExecutionTime appears to be reusable, so cache by cronExpression

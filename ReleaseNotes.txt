@@ -40,6 +40,19 @@ Non Backward Compatible Changes
   - For all of these artifacts see moqui-framework commit #d42ede0 and
     moqui-runtime commit #6a9c61e
 - Externalized Tools
+  - ElasticSearch (and Apache Lucene)
+    - libraries, classes and all related services, screens, etc are now in
+      the moqui-elasticsearch component
+    - System/DataDocument screens now in moqui-elasticsearch component and
+      added to tools/System app through SubscreensItem record
+    - all ElasticSearch services in org.moqui.impl.EntityServices moved to
+      org.moqui.elasticsearch.SearchServices including:
+      index#DataDocuments, put#DataDocumentMappings,
+      index#DataFeedDocuments, search#DataDocuments, search#CountBySource
+    - Moved index#WikiSpacePages service from org.moqui.impl.WikiServices
+      to org.moqui.elasticsearch.SearchServices
+    - ElasticSearch dependent REST API methods moved to the 'elasticsearch'
+      REST API in the moqui-elasticsearch component
   - Apache FOP is now in the moqui-fop tool component; everything in the
     framework, including the now poorly named MoquiFopServlet, use generic
     interfaces but XML-FO files will not transform to PDF/etc without this
@@ -459,6 +472,11 @@ Bug Fixes
 ===========================================================================
 Long Term To Do List - aka Informal Road Map
 ===========================================================================
+
+- Option for link element to only render if referenced transition/screen exists
+- Option for transition to only mount if all response URLs for screen paths exist
+- Perhaps never throw exception for ScreenUrlInfo or UrlInstance if screen or transition does not exist, ie just add
+  method to see if exists and show disabled link if it doesn't?
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 

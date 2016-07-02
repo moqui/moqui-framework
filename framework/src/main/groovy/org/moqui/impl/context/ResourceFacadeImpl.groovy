@@ -526,7 +526,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         if (script == null) {
             Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
             if (groovyClass == null) {
-                groovyClass = new GroovyClassLoader().parseClass(expression)
+                groovyClass = ecfi.getGroovyClassLoader().parseClass(expression)
                 scriptGroovyExpressionCache.put(expression, groovyClass)
             }
             script = InvokerHelper.createScript(groovyClass, curBinding)

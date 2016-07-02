@@ -70,7 +70,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final MNode confXmlRoot
     protected MNode serverStatsNode
 
-    protected StupidClassLoader cachedClassLoader
+    protected StupidClassLoader stupidClassLoader
+    protected GroovyClassLoader groovyClassLoader
     protected InetAddress localhostAddress = null
 
     protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>()
@@ -429,17 +430,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
     private void initClassLoader() {
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
-        cachedClassLoader = new StupidClassLoader(pcl)
+        stupidClassLoader = new StupidClassLoader(pcl)
+        groovyClassLoader = new GroovyClassLoader(stupidClassLoader)
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
-            cachedClassLoader.addClassesDirectory(runtimeClassesFile)
+            stupidClassLoader.addClassesDirectory(runtimeClassesFile)
         }
         // add runtime/lib jar files to the class loader
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                cachedClassLoader.addJarFile(new JarFile(jarFile))
+                stupidClassLoader.addJarFile(new JarFile(jarFile))
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -448,7 +450,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ComponentInfo ci in componentInfoMap.values()) {
             ResourceReference classesRr = ci.componentRr.getChild("classes")
             if (classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
-                cachedClassLoader.addClassesDirectory(new File(classesRr.getUri()))
+                stupidClassLoader.addClassesDirectory(new File(classesRr.getUri()))
             }
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
@@ -457,7 +459,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            cachedClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
+                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -469,9 +471,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // clear not found info just in case anything was falsely added
-        cachedClassLoader.clearNotFoundInfo()
+        stupidClassLoader.clearNotFoundInfo()
         // set as context classloader
-        Thread.currentThread().setContextClassLoader(cachedClassLoader)
+        Thread.currentThread().setContextClassLoader(groovyClassLoader)
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
@@ -706,8 +708,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (ec != null) return ec
 
         if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
-        if (!(Thread.currentThread().getContextClassLoader() instanceof StupidClassLoader))
-            Thread.currentThread().setContextClassLoader(cachedClassLoader)
+        if (!Thread.currentThread().getContextClassLoader().is(groovyClassLoader))
+            Thread.currentThread().setContextClassLoader(groovyClassLoader)
         ec = new ExecutionContextImpl(this)
         this.activeContext.set(ec)
         return ec
@@ -889,6 +891,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 String locNoZip = stripVersionFromName(location.substring(0, location.length() - 4))
                 ResourceReference noZipRr = ecfi.getResourceReference(locNoZip)
                 if (zipRr.getExists() && !noZipRr.getExists()) {
+                    // NOTE: could use getPath() instead of toExternalForm().substring(5) for file specific URLs, will work on Windows?
                     String zipPath = zipRr.getUrl().toExternalForm().substring(5)
                     File zipFile = new File(zipPath)
                     String targetDirLocation = zipFile.getParent()
@@ -1000,6 +1003,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     ServiceFacade getService() { serviceFacade }
     @Override
     ScreenFacade getScreen() { screenFacade }
+
+    @Override
+    ClassLoader getClassLoader() { groovyClassLoader }
+    @Override
+    GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
 
     @Override
     ServletContext getServletContext() { internalServletContext }

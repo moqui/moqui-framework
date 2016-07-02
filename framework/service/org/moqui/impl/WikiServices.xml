@@ -343,31 +343,8 @@ along with this software (see the LICENSE.md file). If not, see
             <log level="warn" message="============= rootChildResourceList=${rootChildResourceList}"/> -->
         </actions>
     </service>
-    <service verb="index" noun="WikiSpacePages">
-        <description>Find all pages in space, make sure each has a WikiPage record, and index the page for searching.</description>
-        <in-parameters>
-            <parameter name="wikiSpaceId"/>
-            <parameter name="dataDocumentId" required="true"/>
-        </in-parameters>
-        <actions>
-            <service-call name="org.moqui.impl.WikiServices.get#WikiSpacePages" in-map="[wikiSpaceId:wikiSpaceId]" out-map="context"/>
 
-            <set field="recordsCreated" from="0"/>
-            <set field="documentList" from="[]"/>
-            <iterate list="allChildFileFlatList" entry="allChildFileFlat">
-                <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" out-map="getWpiResult"
-                        in-map="[wikiSpaceId:wikiSpaceId, pagePath:allChildFileFlat.path, createIfMissing:true]"/>
-                <if condition="getWpiResult.createdRecord"><set field="recordsCreated" from="recordsCreated + 1"/></if>
-
-                <script>documentList.addAll(ec.entity.getDataDocuments(dataDocumentId,
-                        ec.entity.conditionFactory.makeCondition([wikiPageId:getWpiResult.wikiPageId]), null, null))</script>
-            </iterate>
-            <script>ec.service.sync().name("org.moqui.impl.EntityServices", "index", "DataDocuments")
-                    .parameters([documentList:documentList]).call()</script>
-
-            <message>Found and indexed ${allChildFileFlatList.size()} pages in Wiki Space [${wikiSpaceId}], created DB records for ${recordsCreated}.</message>
-        </actions>
-    </service>
+    <!-- org.moqui.impl.WikiServices.index#WikiSpacePages moved to org.moqui.elasticsearch.SearchServices.index#WikiSpacePages -->
 
     <service verb="get" noun="UserWikiSpaces">
         <in-parameters><parameter name="userId"/></in-parameters>

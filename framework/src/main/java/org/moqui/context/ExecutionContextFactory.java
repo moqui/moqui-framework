@@ -13,6 +13,7 @@
  */
 package org.moqui.context;
 
+import groovy.lang.GroovyClassLoader;
 import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
@@ -25,7 +26,7 @@ import java.util.LinkedHashMap;
  * Interface for the object that will be used to get an ExecutionContext object and manage framework life cycle.
  */
 public interface ExecutionContextFactory {
-    /** Initialize a simple ExecutionContext for use in a non-webapp context, like a remote service call or similar. */
+    /** Get the ExecutionContext associated with the current thread or initialize one and associate it with the thread. */
     ExecutionContext getExecutionContext();
 
     /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
@@ -72,6 +73,11 @@ public interface ExecutionContextFactory {
 
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
     ScreenFacade getScreen();
+
+    /** Get the framework ClassLoader, aware of all additional classes in runtime and in components. */
+    ClassLoader getClassLoader();
+    /** Get a GroovyClassLoader for runtime compilation, etc. */
+    GroovyClassLoader getGroovyClassLoader();
 
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
     ServletContext getServletContext();

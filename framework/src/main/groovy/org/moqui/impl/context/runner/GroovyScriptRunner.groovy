@@ -63,7 +63,7 @@ class GroovyScriptRunner implements ScriptRunner {
         Class gc = (Class) scriptGroovyLocationCache.get(location)
         if (!gc) {
             String groovyText = ecfi.resourceFacade.getLocationText(location, false)
-            gc = new GroovyClassLoader().parseClass(groovyText, StupidUtilities.cleanStringForJavaName(location))
+            gc = ecfi.getGroovyClassLoader().parseClass(groovyText, StupidUtilities.cleanStringForJavaName(location))
             scriptGroovyLocationCache.put(location, gc)
         }
         return gc

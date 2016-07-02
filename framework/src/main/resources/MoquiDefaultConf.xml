@@ -17,7 +17,6 @@
         <!-- <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/> -->
 
         <tool-factory class="org.moqui.impl.tools.H2ServerToolFactory" init-priority="12" disabled="false"/>
-        <tool-factory class="org.moqui.impl.tools.ElasticSearchToolFactory" init-priority="15" disabled="false"/>
 
         <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
     </tools>
