@@ -34,6 +34,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.slf4j.Logger
                 import org.slf4j.LoggerFactory
                 import org.moqui.context.ExecutionContext
+                import org.moqui.elasticsearch.ElasticSearchUtil
 
                 ExecutionContext ec = context.ec
                 Client elasticSearchClient = ec.getTool("ElasticSearch", Client.class)
@@ -42,9 +43,7 @@ along with this software (see the LICENSE.md file). If not, see
                 // Make sure all indices exist
                 Set indexNames = new HashSet()
                 for (Map document in documentList) indexNames.add(document._index)
-                for (String indexName in indexNames) {
-                    ec.entity.getEntityDataDocument().checkCreateIndex(indexName)
-                }
+                for (String indexName in indexNames) ElasticSearchUtil.checkCreateIndex(indexName, ec)
 
                 documentVersionList = []
                 originalDocumentList = getOriginalDocuments ? [] : null
@@ -97,7 +96,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="put" noun="DataDocumentMappings">
         <in-parameters><parameter name="indexName" required="true"/></in-parameters>
-        <actions><script>ec.entity.getEntityDataDocument().putIndexMappings(indexName)</script></actions>
+        <actions><script>org.moqui.elasticsearch.ElasticSearchUtil.putIndexMappings(indexName, ec)</script></actions>
     </service>
 
     <service verb="index" noun="DataFeedDocuments" authenticate="false" transaction-timeout="600">
@@ -193,6 +192,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.elasticsearch.search.SearchHits
                 import org.elasticsearch.search.sort.SortOrder
                 import org.moqui.context.ExecutionContext
+                import org.moqui.elasticsearch.ElasticSearchUtil
 
                 ExecutionContext ec = context.ec
                 Client elasticSearchClient = ec.getTool("ElasticSearch", Client.class)
@@ -202,7 +202,7 @@ along with this software (see the LICENSE.md file). If not, see
                 if (!indexName.contains("__")) indexName = "${ec.tenantId}__${indexName}".toLowerCase()
 
                 // make sure index exists
-                ec.entity.getEntityDataDocument().checkCreateIndex(indexName)
+                ElasticSearchUtil.checkCreateIndex(indexName, ec)
 
                 // get the search hits
                 SearchRequestBuilder srb = elasticSearchClient.prepareSearch().setIndices(indexName).setTypes(documentType)
@@ -292,6 +292,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.elasticsearch.action.search.SearchRequestBuilder
                 import org.elasticsearch.action.search.SearchResponse
                 import org.moqui.context.ExecutionContext
+                import org.moqui.elasticsearch.ElasticSearchUtil
 
                 ExecutionContext ec = context.ec
                 Client elasticSearchClient = ec.getTool("ElasticSearch", Client.class)
@@ -299,7 +300,7 @@ along with this software (see the LICENSE.md file). If not, see
                 if (!indexName.contains('__')) indexName = "${ec.tenantId}__${indexName}".toLowerCase()
 
                 // make sure index exists
-                ec.entity.getEntityDataDocument().checkCreateIndex(indexName)
+                ElasticSearchUtil.checkCreateIndex(indexName, ec)
 
                 // get the search hits
                 SearchRequestBuilder srb = elasticSearchClient.prepareSearch().setIndices((String) indexName)

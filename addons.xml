@@ -29,6 +29,7 @@
     <!-- Moqui Tool Components -->
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master" repository="github"/>
     <component name="moqui-camel" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="moqui-elasticsearch" group="moqui" version="1.0.0" branch="master" repository="github"/>
     <component name="moqui-fop" group="moqui" version="1.0.0" branch="master" repository="github"/>
     <component name="moqui-hazelcast" group="moqui" version="1.0.0" branch="master" repository="github"/>
     <component name="moqui-kie" group="moqui" version="1.0.0" branch="master" repository="github"/>
@@ -52,7 +53,7 @@
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
 
     <!-- Component Sets -->
-    <component-set name="framework" components="example,moqui-camel,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
+    <component-set name="framework" components="example,moqui-camel,moqui-elasticsearch,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
     <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,SimpleScreens"/>
     <component-set name="apps" components="HiveMind,PopCommerce"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
