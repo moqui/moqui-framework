@@ -49,6 +49,8 @@ Non Backward Compatible Changes
       org.moqui.elasticsearch.SearchServices including:
       index#DataDocuments, put#DataDocumentMappings,
       index#DataFeedDocuments, search#DataDocuments, search#CountBySource
+    - Moved index#WikiSpacePages service from org.moqui.impl.WikiServices
+      to org.moqui.elasticsearch.SearchServices
     - ElasticSearch dependent REST API methods moved to the 'elasticsearch'
       REST API in the moqui-elasticsearch component
   - Apache FOP is now in the moqui-fop tool component; everything in the
