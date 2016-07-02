@@ -57,4 +57,6 @@
     <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,SimpleScreens"/>
     <component-set name="apps" components="HiveMind,PopCommerce"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
+
+    <component-set name="demo" components="example,HiveMind,PopCommerce"/>
 </addons>
