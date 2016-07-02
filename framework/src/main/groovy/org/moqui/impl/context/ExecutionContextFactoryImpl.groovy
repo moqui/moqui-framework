@@ -891,6 +891,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 String locNoZip = stripVersionFromName(location.substring(0, location.length() - 4))
                 ResourceReference noZipRr = ecfi.getResourceReference(locNoZip)
                 if (zipRr.getExists() && !noZipRr.getExists()) {
+                    // NOTE: could use getPath() instead of toExternalForm().substring(5) for file specific URLs, will work on Windows?
                     String zipPath = zipRr.getUrl().toExternalForm().substring(5)
                     File zipFile = new File(zipPath)
                     String targetDirLocation = zipFile.getParent()
