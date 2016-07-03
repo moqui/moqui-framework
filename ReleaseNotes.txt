@@ -46,11 +46,11 @@ Non Backward Compatible Changes
     - System/DataDocument screens now in moqui-elasticsearch component and
       added to tools/System app through SubscreensItem record
     - all ElasticSearch services in org.moqui.impl.EntityServices moved to
-      org.moqui.elasticsearch.SearchServices including:
+      org.moqui.search.SearchServices including:
       index#DataDocuments, put#DataDocumentMappings,
       index#DataFeedDocuments, search#DataDocuments, search#CountBySource
     - Moved index#WikiSpacePages service from org.moqui.impl.WikiServices
-      to org.moqui.elasticsearch.SearchServices
+      to org.moqui.search.SearchServices
     - ElasticSearch dependent REST API methods moved to the 'elasticsearch'
       REST API in the moqui-elasticsearch component
   - Apache FOP is now in the moqui-fop tool component; everything in the
