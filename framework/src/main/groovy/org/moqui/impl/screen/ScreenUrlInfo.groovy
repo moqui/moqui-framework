@@ -842,7 +842,7 @@ class ScreenUrlInfo {
                 if (!pme.value) continue
                 if (pme.key == "moquiSessionToken") continue
                 if (ps.length() > 0) ps.append("&")
-                ps.append(pme.key).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
+                ps.append(URLEncoder.encode(pme.key, "UTF-8")).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
             }
             return ps.toString()
         }
@@ -852,7 +852,7 @@ class ScreenUrlInfo {
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.getValue()) continue
                 ps.append("/~")
-                ps.append(pme.getKey()).append("=").append(URLEncoder.encode(pme.getValue(), "UTF-8"))
+                ps.append(URLEncoder.encode(pme.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(pme.getValue(), "UTF-8"))
             }
             return ps.toString()
         }
