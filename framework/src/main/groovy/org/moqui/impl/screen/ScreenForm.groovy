@@ -630,7 +630,7 @@ class ScreenForm {
             if (relDefaultDescriptionField) textStr = "\${" + relDefaultDescriptionField + " ?: ''} [\${" + relKeyField + "}]"
             else textStr = "[\${" + relKeyField + "}]"
             if (oneRelNode != null) subFieldNode.append("display-entity",
-                    ["entity-name":oneRelNode.attribute("related-entity-name"), "text":textStr])
+                    ["entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name")), "text":textStr])
             else subFieldNode.append("display", null)
             break
         case "find-display":
@@ -655,7 +655,8 @@ class ScreenForm {
                 String textStr
                 if (relDefaultDescriptionField) textStr = "\${" + relDefaultDescriptionField + " ?: ''} [\${" + relKeyField + "}]"
                 else textStr = "[\${" + relKeyField + "}]"
-                subFieldNode.append("display-entity", ["entity-name":oneRelNode.attribute("related-entity-name"), "text":textStr])
+                subFieldNode.append("display-entity", ["text":textStr,
+                        "entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name"))])
             } else {
                 subFieldNode.append("display", null)
             }

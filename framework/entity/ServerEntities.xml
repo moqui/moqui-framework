@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.server -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ArtifactHit" package-name="moqui.server" use="nontransactional"
+    <entity entity-name="ArtifactHit" package="moqui.server" use="nontransactional"
             cache="never" sequence-bank-size="100">
         <field name="hitId" type="id" is-pk="true"/>
         <field name="visitId" type="id"/>
@@ -38,10 +38,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="referrerUrl" type="text-long"/>
         <field name="serverIpAddress" type="id"/>
         <field name="serverHostName" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.server.Visit"/>
-        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" related="moqui.server.Visit"/>
+        <relationship type="one" related="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="ArtifactHitBin" package-name="moqui.server" use="nontransactional"
+    <entity entity-name="ArtifactHitBin" package="moqui.server" use="nontransactional"
             cache="never" sequence-bank-size="100">
         <field name="hitBinId" type="id" is-pk="true"/>
         <field name="artifactType" type="text-medium"/>
@@ -60,7 +60,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="slowHitCount" type="number-integer"><description>After 100 hits count of hits more that 2.6
             standard deviations above average (both avg and std dev adjusted incrementally).</description></field>
     </entity>
-    <view-entity entity-name="ArtifactHitReport" package-name="moqui.server" cache="never">
+    <view-entity entity-name="ArtifactHitReport" package="moqui.server" cache="never">
         <member-entity entity-alias="AHB" entity-name="moqui.server.ArtifactHitBin"/>
         <alias entity-alias="AHB" name="artifactType"/><!-- this will group by automatically -->
         <alias entity-alias="AHB" name="artifactSubType"/><!-- this will group by automatically -->
@@ -75,7 +75,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="AHB" name="slowHitCount" function="sum"/>
     </view-entity>
 
-    <entity entity-name="Visit" package-name="moqui.server" sequence-bank-size="100" use="nontransactional" cache="never">
+    <entity entity-name="Visit" package="moqui.server" sequence-bank-size="100" use="nontransactional" cache="never">
         <field name="visitId" type="id" is-pk="true"/>
         <field name="visitorId" type="id"/>
         <field name="userId" type="id"/>
@@ -104,15 +104,15 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="clientIpTimeZone" type="text-short"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="moqui.server.Visitor"/>
-        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
-        <relationship type="one" title="ClientIpStateProv" related-entity-name="Geo">
-            <key-map field-name="clientIpStateProvGeoId" related-field-name="geoId"/></relationship>
-        <relationship type="one" title="ClientIpCountry" related-entity-name="Geo">
-            <key-map field-name="clientIpCountryGeoId" related-field-name="geoId"/></relationship>
+        <relationship type="one" related="moqui.server.Visitor"/>
+        <relationship type="one" related="moqui.security.UserAccount"/>
+        <relationship type="one" title="ClientIpStateProv" related="Geo">
+            <key-map field-name="clientIpStateProvGeoId" related="geoId"/></relationship>
+        <relationship type="one" title="ClientIpCountry" related="Geo">
+            <key-map field-name="clientIpCountryGeoId" related="geoId"/></relationship>
         <index name="VisitThruIndex" unique="false"><index-field name="thruDate"/></index>
     </entity>
-    <entity entity-name="Visitor" package-name="moqui.server" sequence-bank-size="100" cache="never">
+    <entity entity-name="Visitor" package="moqui.server" sequence-bank-size="100" cache="never">
         <field name="visitorId" type="id" is-pk="true"/>
         <field name="createdDate" type="date-time"/>
     </entity>

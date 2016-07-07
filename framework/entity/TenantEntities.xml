@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.tenant -->
     <!-- ========================================================= -->
 
-    <entity entity-name="Tenant" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
+    <entity entity-name="Tenant" package="moqui.tenant" group="tenantcommon" use="tenantcommon">
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="tenantName" type="text-medium"/>
         <field name="isEnabled" type="text-indicator"/>
@@ -30,7 +30,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="defaultTimeZone" type="text-medium"/>
         <field name="defaultCountryGeoId" type="id"/>
     </entity>
-    <entity entity-name="TenantDataSource" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
+    <entity entity-name="TenantDataSource" package="moqui.tenant" group="tenantcommon" use="tenantcommon">
         <description>
             There should be one record for each tenant and each group-map for the active EntityProxy.
             The jdbc fields will override the datasource -> inline-jdbc values for the per-tenant EntityProxy.
@@ -43,22 +43,22 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="jdbcPassword" type="text-medium" encrypt="true"/>
         <field name="defaultToConfProps" type="text-indicator"><description>If Y and using XA properties, copy any
             properties not specified in TenantDataSourceXaProp from the XML conf element</description></field>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+        <relationship type="one" related="moqui.tenant.Tenant"/>
     </entity>
-    <entity entity-name="TenantDataSourceXaProp" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
+    <entity entity-name="TenantDataSourceXaProp" package="moqui.tenant" group="tenantcommon" use="tenantcommon">
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="entityGroupName" type="text-medium" is-pk="true"/>
         <field name="propName" type="text-medium" is-pk="true"/>
         <field name="propValue" type="text-medium" encrypt="true"/>
-        <relationship type="one" related-entity-name="moqui.tenant.TenantDataSource"/>
+        <relationship type="one" related="moqui.tenant.TenantDataSource"/>
     </entity>
-    <entity entity-name="TenantHostDefault" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
+    <entity entity-name="TenantHostDefault" package="moqui.tenant" group="tenantcommon" use="tenantcommon">
         <field name="hostName" type="text-medium" is-pk="true"/>
         <field name="tenantId" type="id"/>
         <field name="allowOverride" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+        <relationship type="one" related="moqui.tenant.Tenant"/>
     </entity>
-    <view-entity entity-name="TenantAndHostDefault" package-name="moqui.tenant">
+    <view-entity entity-name="TenantAndHostDefault" package="moqui.tenant">
         <member-entity entity-alias="TNT" entity-name="moqui.tenant.Tenant"/>
         <member-entity entity-alias="THD" entity-name="moqui.tenant.TenantHostDefault" join-from-alias="TNT">
             <key-map field-name="tenantId"/></member-entity>
@@ -66,45 +66,45 @@ along with this software (see the LICENSE.md file). If not, see
     </view-entity>
 
     <!-- on reconsideration, these are not useful, better to keep business level stuff out of these technical level conf entities:
-    <entity entity-name="TenantCurrency" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantCurrency" package="moqui.tenant" group="tenantcommon">
         <description>Each record represents a Currency UOM to be available to the tenant.
             If no records are present all system currencies will be available.</description>
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="currencyUomId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+        <relationship type="one" related="moqui.tenant.Tenant"/>
     </entity>
-    <entity entity-name="TenantEmail" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantEmail" package="moqui.tenant" group="tenantcommon">
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="emailTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="emailTemplateId" type="id"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
-        <relationship type="one-nofk" title="EmailType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" related="moqui.tenant.Tenant"/>
+        <relationship type="one-nofk" title="EmailType" related="moqui.basic.Enumeration">
             <key-map field-name="emailTypeEnumId"/>
         </relationship>
-        <relationship type="one-nofk" related-entity-name="moqui.basic.email.EmailTemplate"/>
+        <relationship type="one-nofk" related="moqui.basic.email.EmailTemplate"/>
     </entity>
-    <entity entity-name="TenantLocale" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantLocale" package="moqui.tenant" group="tenantcommon">
         <description>Each record represents a Locale to be available to the tenant.
             If no records are present all system locales will be available.</description>
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="locale" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+        <relationship type="one" related="moqui.tenant.Tenant"/>
     </entity>
-    <entity entity-name="TenantTimeZone" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantTimeZone" package="moqui.tenant" group="tenantcommon">
         <description>Each record represents a Time Zone to be available to the tenant.
             If no records are present all system time zones will be available.</description>
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="timeZone" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+        <relationship type="one" related="moqui.tenant.Tenant"/>
     </entity>
-    <entity entity-name="TenantCountry" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantCountry" package="moqui.tenant" group="tenantcommon">
         <description>Each record represents a Country (Geo) to be available to the tenant.
             If no records are present all system countries will be available.</description>
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="countryGeoId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
+        <relationship type="one" related="moqui.tenant.Tenant"/>
     </entity>
     -->
 </entities>

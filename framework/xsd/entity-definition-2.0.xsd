@@ -86,9 +86,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="master"/>
             </xs:sequence>
             <xs:attribute name="entity-name" type="name-upper" use="required"/>
-            <xs:attribute name="package-name" type="name-package" use="required"/>
+            <xs:attribute name="package" type="name-package" use="required"/>
             <xs:attribute name="table-name" type="xs:string"/>
-            <xs:attribute name="group-name" type="name-plain" use="optional"/>
+            <xs:attribute name="group" type="name-plain" use="optional"/>
             <xs:attribute name="use" default="transactional">
                 <xs:annotation><xs:documentation>The intended use of an entity.</xs:documentation></xs:annotation>
                 <xs:simpleType><xs:restriction base="xs:token">
@@ -167,9 +167,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="master"/>
             </xs:sequence>
             <xs:attribute name="entity-name" type="name-upper" use="required"/>
-            <xs:attribute name="package-name" type="name-package" use="required"/>
+            <xs:attribute name="package" type="name-package" use="required"/>
+            <xs:attribute name="package-name" use="prohibited"><xs:annotation><xs:documentation>
+                Deprecated, use package attribute</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="table-name" type="xs:string"/>
-            <xs:attribute name="group-name" type="name-plain" use="optional"/>
+            <xs:attribute name="group" type="name-plain"/>
+            <xs:attribute name="group-name" use="prohibited"><xs:annotation><xs:documentation>
+                Deprecated, use group attribute</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="sequence-bank-size" type="xs:string"/>
             <xs:attribute name="sequence-primary-prefix" type="xs:string"/>
             <xs:attribute name="optimistic-lock" default="false" type="boolean"/>
@@ -231,7 +235,9 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="title" type="name-upper"/>
-            <xs:attribute name="related-entity-name" type="name-full" use="required"/>
+            <xs:attribute name="related" type="name-full" use="required"/>
+            <xs:attribute name="related-entity-name" type="name-full" use="prohibited"><xs:annotation><xs:documentation>
+                Deprecated, use the related attribute</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="fk-name" type="xs:string"/>
             <xs:attribute name="short-alias" type="xs:string">
                 <xs:annotation><xs:documentation>A short alias for the relationship, mainly meant for REST URLs but
@@ -249,7 +255,9 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="key-map">
         <xs:complexType>
             <xs:attribute name="field-name" type="name-field" use="required"/>
-            <xs:attribute name="related-field-name" type="name-field"/>
+            <xs:attribute name="related" type="name-field"/>
+            <xs:attribute name="related-field-name" use="prohibited"><xs:annotation><xs:documentation>
+                Deprecated, use the related attribute</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -368,7 +376,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="entity-condition"/>
             </xs:sequence>
             <xs:attribute name="entity-name" type="name-upper" use="required"/>
-            <xs:attribute name="package-name" type="name-package" use="required"/>
+            <xs:attribute name="package" type="name-package" use="required"/>
             <xs:attribute name="cache" default="false" type="cache-options"/>
             <xs:attribute name="auto-clear-cache" default="true" type="boolean"/>
             <xs:attribute name="authorize-skip" type="authorize-skip-options" default="false"/>

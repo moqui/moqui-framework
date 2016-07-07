@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.test -->
     <!-- ========================================================= -->
 
-    <entity entity-name="TestEntity" package-name="moqui.test" sequence-bank-size="100">
+    <entity entity-name="TestEntity" package="moqui.test" sequence-bank-size="100">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
         <field name="testLong" type="text-long"/>
@@ -32,7 +32,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
     </entity>
-    <entity entity-name="TestNoSqlEntity" package-name="moqui.test" sequence-bank-size="100" use="nontransactional" cache="never">
+    <entity entity-name="TestNoSqlEntity" package="moqui.test" sequence-bank-size="100" use="nontransactional" cache="never">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
         <field name="testLong" type="text-long"/>
