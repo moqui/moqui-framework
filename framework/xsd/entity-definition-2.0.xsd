@@ -89,6 +89,25 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="package-name" type="name-package" use="required"/>
             <xs:attribute name="table-name" type="xs:string"/>
             <xs:attribute name="group-name" type="name-plain" use="optional"/>
+            <xs:attribute name="use" default="transactional">
+                <xs:annotation><xs:documentation>The intended use of an entity.</xs:documentation></xs:annotation>
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="transactional"><xs:annotation><xs:documentation>transactional business
+                        entities that need atomic operations, immediate consistency, etc; typically never cached;
+                        includes things like work efforts, orders, shipments, inventory/assets, invoices, accounting
+                        and financial transactions</xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="nontransactional"><xs:annotation><xs:documentation>non-transactional business
+                        entities; eventual consistency is adequate; may be cached; non-transactional does not mean
+                        transactions are not used, but that strict consistency is not important; includes things like
+                        parties, facilities, products, history/tracking data (master data, meta-data)</xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="configuration"><xs:annotation><xs:documentation>framework and application
+                        configuration data; eventual consistency is okay; typically cached</xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="analytical"><xs:annotation><xs:documentation>analytical entities with data
+                        typically derived from transactional data</xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="tenantcommon"><xs:annotation><xs:documentation>tenant configuration and other
+                        data common among all tenants</xs:documentation></xs:annotation></xs:enumeration>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
             <xs:attribute name="sequence-primary-use-uuid" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Uses java.util.UUID.randomUUID() to get sequenced IDs for this entity.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -205,13 +224,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="key-map"/>
             </xs:sequence>
             <xs:attribute name="type" use="required">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="one"/>
-                        <xs:enumeration value="many"/>
-                        <xs:enumeration value="one-nofk"/>
-                    </xs:restriction>
-                </xs:simpleType>
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="one"/>
+                    <xs:enumeration value="many"/>
+                    <xs:enumeration value="one-nofk"/>
+                </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="title" type="name-upper"/>
             <xs:attribute name="related-entity-name" type="name-full" use="required"/>

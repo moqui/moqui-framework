@@ -260,6 +260,8 @@
             distributed-cache-invalidate="false" dci-topic-factory=""
             crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="">
         <!-- NOTE: no crypt-pass attribute by default, must specify in your conf file! -->
+        <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
+            the transactional group's datasource will be used. -->
 
         <!-- If this is not present the default JNDI server will be used:
         <server-jndi context-provider-url="rmi://127.0.0.1:1099"
@@ -269,20 +271,6 @@
          -->
 
         <!--
-            The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
-            the transactional group's datasource will be used.
-
-            Standard group names include:
-            - transactional: transactional business entities that need atomic operations, immediate consistency, etc;
-              typically never cached; includes things like work efforts, orders, shipments, inventory/assets, invoices,
-              accounting and financial transactions
-            - nontransactional: non-transactional business entities; eventual consistency is adequate; may be cached;
-              non-transactional does not mean transactions are not used, but that strict consistency is not important;
-              includes things like parties, facilities, products, history/tracking data (master data, meta-data)
-            - configuration: framework and application configuration data; eventual consistency is okay; typically cached
-            - analytical: analytical entities with data typically derived from transactional data
-        -->
-        <!--
             The configurations below will use the XADataSource directly to connect, which is required for proper
             transaction handling with multiple data sources.
 
@@ -291,9 +279,7 @@
 
             To use a DataSource from JNDI use something the jndi-jdbc element under the datasource element:
                 <jndi-jdbc jndi-name="java:/MoquiDEFAULTDataSource"/>
-        -->
 
-        <!--
             NOTE: for production usage there is one connection pool per datasource so use as few datasources as possible.
 
             The main datasource should have a max size large enough for all servlet container threads plus a few for

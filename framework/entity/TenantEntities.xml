@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.tenant -->
     <!-- ========================================================= -->
 
-    <entity entity-name="Tenant" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="Tenant" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="tenantName" type="text-medium"/>
         <field name="isEnabled" type="text-indicator"/>
@@ -30,7 +30,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="defaultTimeZone" type="text-medium"/>
         <field name="defaultCountryGeoId" type="id"/>
     </entity>
-    <entity entity-name="TenantDataSource" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantDataSource" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
         <description>
             There should be one record for each tenant and each group-map for the active EntityProxy.
             The jdbc fields will override the datasource -> inline-jdbc values for the per-tenant EntityProxy.
@@ -45,14 +45,14 @@ along with this software (see the LICENSE.md file). If not, see
             properties not specified in TenantDataSourceXaProp from the XML conf element</description></field>
         <relationship type="one" related-entity-name="moqui.tenant.Tenant"/>
     </entity>
-    <entity entity-name="TenantDataSourceXaProp" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantDataSourceXaProp" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
         <field name="tenantId" type="id" is-pk="true"/>
         <field name="entityGroupName" type="text-medium" is-pk="true"/>
         <field name="propName" type="text-medium" is-pk="true"/>
         <field name="propValue" type="text-medium" encrypt="true"/>
         <relationship type="one" related-entity-name="moqui.tenant.TenantDataSource"/>
     </entity>
-    <entity entity-name="TenantHostDefault" package-name="moqui.tenant" group-name="tenantcommon">
+    <entity entity-name="TenantHostDefault" package-name="moqui.tenant" group-name="tenantcommon" use="tenantcommon">
         <field name="hostName" type="text-medium" is-pk="true"/>
         <field name="tenantId" type="id"/>
         <field name="allowOverride" type="text-indicator"/>

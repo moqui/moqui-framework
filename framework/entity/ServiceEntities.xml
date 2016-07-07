@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.job -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ServiceJob" package-name="moqui.service.job" group-name="configuration" cache="true">
+    <entity entity-name="ServiceJob" package-name="moqui.service.job" use="configuration" cache="true">
         <description>For ad-hoc (explicitly run) or scheduled service jobs. If cronExpression is null the job will only
             be run ad-hoc, when explicitly called using ServiceCallJob. If a topic is specified results will be sent to
             the topic (can be configured using a NotificationTopic record) as a NotificationMessage to the user that
@@ -52,7 +52,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related-entity-name="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>
         <relationship type="many" related-entity-name="moqui.service.job.ServiceJobUser" short-alias="users"/>
     </entity>
-    <entity entity-name="ServiceJobParameter" package-name="moqui.service.job" group-name="configuration" cache="true">
+    <entity entity-name="ServiceJobParameter" package-name="moqui.service.job" use="configuration" cache="true">
         <description>Parameters automatically added when the job service is called. Always stored as a String and will
             be converted based on the corresponding service in-parameter.parameter.@type attribute (just as with any
             service call).</description>
@@ -61,14 +61,14 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="parameterValue" type="text-medium"/>
         <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
     </entity>
-    <entity entity-name="ServiceJobUser" package-name="moqui.service.job" group-name="configuration" cache="true">
+    <entity entity-name="ServiceJobUser" package-name="moqui.service.job" use="configuration" cache="true">
         <field name="jobName" type="text-short" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
         <field name="receiveNotifications" type="text-indicator"/>
         <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
         <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="ServiceJobRun" package-name="moqui.service.job" group-name="transactional" cache="never">
+    <entity entity-name="ServiceJobRun" package-name="moqui.service.job" use="transactional" cache="never">
         <field name="jobRunId" type="id" is-pk="true"/>
         <field name="jobName" type="text-short"/>
         <field name="userId" type="id"><description>The user that initiated the job run</description></field>
@@ -85,7 +85,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
         <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="ServiceJobRunLock" package-name="moqui.service.job" group-name="transactional" cache="never">
+    <entity entity-name="ServiceJobRunLock" package-name="moqui.service.job" use="transactional" cache="never">
         <description>Runtime data for a scheduled ServiceJob (with a cronExpression), managed automatically by the service job runner.</description>
         <field name="jobName" type="text-short" is-pk="true"/>
         <field name="jobRunId" type="id"><description>If not null this is the currently running job instance.</description></field>
@@ -97,7 +97,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.semaphore -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" group-name="transactional" cache="never">
+    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" use="transactional" cache="never">
         <field name="serviceName" type="text-medium" is-pk="true"/>
         <field name="parameterValue" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
