@@ -277,12 +277,12 @@ class StupidWebUtilities {
                 reqParmMap.put(entry.getKey(), null)
             } else {
                 int valLength = valArray.length
-                if (valArray == null || valLength == 0) {
+                if (valLength == 0) {
                     reqParmMap.put(entry.getKey(), null)
                 } else if (valLength == 1) {
                     reqParmMap.put(entry.getKey(), valArray[0])
                 } else {
-                    ArrayList<String> newArray = new ArrayList<String>(valArray.length)
+                    ArrayList<String> newArray = new ArrayList<String>(valLength)
                     for (int i = 0; i < valLength; i++) newArray.add(valArray[i])
                     reqParmMap.put(entry.getKey(), newArray)
                 }
