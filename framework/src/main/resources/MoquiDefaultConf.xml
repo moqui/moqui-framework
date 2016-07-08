@@ -253,6 +253,7 @@
         <service-file location="classpath://service/org/moqui/impl/TenantServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/UserServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
+        <service-file location="classpath://service/org/moqui/search/SearchServices.xml"/>
     </service-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""

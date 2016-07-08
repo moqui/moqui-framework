@@ -28,4 +28,13 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Enumeration description="not-like" enumCode="NOT_LIKE" enumId="ENTCO_NOT_LIKE" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="is-null" enumCode="IS_NULL" enumId="ENTCO_IS_NULL" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="is-not-null" enumCode="IS_NOT_NULL" enumId="ENTCO_IS_NOT_NULL" enumTypeId="ComparisonOperator"/>
+
+    <!-- Service Job: Index DataFeed Documents -->
+    <moqui.security.user.NotificationTopic topic="IndexDataFeedDocuments" description="Index DataFeed Documents Completed"
+            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
+            titleTemplate="Index Documents Completed for DataFeed ${parameters.dataFeedId}, indexed ${results.documentsIndexed} documents"
+            errorTitleTemplate="Error in Index Documents for DataFeed ${parameters.dataFeedId}"
+            linkTemplate=""/>
+    <moqui.service.job.ServiceJob jobName="IndexDataFeedDocuments" description="Index DataFeed Documents"
+            serviceName="org.moqui.search.SearchServices.index#DataFeedDocuments" topic="IndexDataFeedDocuments"/>
 </entity-facade-xml>
