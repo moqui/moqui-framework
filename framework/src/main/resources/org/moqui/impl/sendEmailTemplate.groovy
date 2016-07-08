@@ -42,7 +42,7 @@ try {
     if (bodyParameters) context.putAll(bodyParameters)
 
     def emailTemplate = ec.entity.find("moqui.basic.email.EmailTemplate").condition("emailTemplateId", emailTemplateId).one()
-    if (!emailTemplate) ec.message.addError(ec.resource.expand('No EmailTemplate record found for ID [${emailTemplateId}]',''))
+    if (emailTemplate == null) ec.message.addError(ec.resource.expand('No EmailTemplate record found for ID [${emailTemplateId}]',''))
     if (ec.message.hasError()) return
 
     // combine ccAddresses and bccAddresses
@@ -81,7 +81,7 @@ try {
     }
 
     def emailTemplateAttachmentList = emailTemplate."moqui.basic.email.EmailTemplateAttachment"
-    def emailServer = emailTemplate."moqui.basic.email.EmailServer"
+    emailServer = emailTemplate."moqui.basic.email.EmailServer"
 
     // check a couple of required fields
     if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate [${emailTemplateId}]',''))
