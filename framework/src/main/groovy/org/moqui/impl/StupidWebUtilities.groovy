@@ -57,8 +57,8 @@ class StupidWebUtilities {
                 String element = (String) pathElements[i]
                 int equalsIndex = element.indexOf("=")
                 if (element.length() > 0 && element.charAt(0) == tildeChar && equalsIndex > 0) {
-                    String name = element.substring(1, equalsIndex)
-                    String value = element.substring(equalsIndex + 1)
+                    String name = URLDecoder.decode(element.substring(1, equalsIndex), "UTF-8")
+                    String value = URLDecoder.decode(element.substring(equalsIndex + 1), "UTF-8")
                     // NOTE: currently ignoring existing values, likely won't be any: Object curValue = paramMap.get(name)
                     if (paramMap == null) paramMap = new HashMap<String, Object>()
                     paramMap.put(name, value)
@@ -266,6 +266,29 @@ class StupidWebUtilities {
         // catch strings or lists with a single string in them unwrapped above
         if (canVal instanceof CharSequence) canVal = URLDecoder.decode(canVal.toString(), "UTF-8")
         return canVal
+    }
+
+    static Map<String, Object> simplifyRequestParameters(ServletRequest request) {
+        Map<String, String[]> reqParmOrigMap = request.getParameterMap()
+        Map<String, Object> reqParmMap = new LinkedHashMap<>()
+        for (Map.Entry<String, String[]> entry in reqParmOrigMap.entrySet()) {
+            String[] valArray = entry.getValue()
+            if (valArray == null) {
+                reqParmMap.put(entry.getKey(), null)
+            } else {
+                int valLength = valArray.length
+                if (valArray == null || valLength == 0) {
+                    reqParmMap.put(entry.getKey(), null)
+                } else if (valLength == 1) {
+                    reqParmMap.put(entry.getKey(), valArray[0])
+                } else {
+                    ArrayList<String> newArray = new ArrayList<String>(valArray.length)
+                    for (int i = 0; i < valLength; i++) newArray.add(valArray[i])
+                    reqParmMap.put(entry.getKey(), newArray)
+                }
+            }
+        }
+        return reqParmMap
     }
 
     static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
