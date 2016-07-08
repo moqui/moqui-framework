@@ -550,7 +550,7 @@ class EntityDbMeta {
                 int commonChars = 0
                 while (title.length() > commonChars && ed.entityName.length() > commonChars &&
                         title.charAt(commonChars) == ed.entityName.charAt(commonChars)) commonChars++
-                // related-entity-name may have the entity's package-name in it; if so, remove it
+                // related-entity-name may have the entity's package in it; if so, remove it
                 String relatedEntityName = relInfo.relatedEntityName
                 if (relatedEntityName.contains("."))
                     relatedEntityName = relatedEntityName.substring(relatedEntityName.lastIndexOf(".")+1)

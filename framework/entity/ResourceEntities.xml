@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.resource -->
     <!-- ========================================================= -->
 
-    <entity entity-name="DbResource" package-name="moqui.resource" group-name="nontransactional">
+    <entity entity-name="DbResource" package="moqui.resource" use="nontransactional">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="parentResourceId" type="id"/>
         <field name="filename" type="text-medium"/>
@@ -26,18 +26,18 @@ along with this software (see the LICENSE.md file). If not, see
         <index name="DB_RES_PARENT"><index-field name="parentResourceId"/></index>
         <index name="DB_RES_PAR_FN" unique="true"><index-field name="parentResourceId"/><index-field name="filename"/></index>
     </entity>
-    <entity entity-name="DbResourceFile" package-name="moqui.resource" group-name="nontransactional">
+    <entity entity-name="DbResourceFile" package="moqui.resource" use="nontransactional">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="mimeType" type="text-medium"/>
         <field name="fileData" type="binary-very-long"/>
-        <relationship type="one" related-entity-name="moqui.resource.DbResource"/>
+        <relationship type="one" related="moqui.resource.DbResource"/>
     </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.resource.wiki -->
     <!-- ========================================================= -->
 
-    <entity entity-name="WikiPage" package-name="moqui.resource.wiki" group-name="nontransactional">
+    <entity entity-name="WikiPage" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageId" type="id" is-pk="true"/>
         <field name="wikiSpaceId" type="id"/>
         <field name="pagePath" type="text-medium"/>
@@ -45,33 +45,33 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="createdByUserId" type="id"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.resource.wiki.WikiSpace" short-alias="space"/>
-        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user">
-            <key-map field-name="createdByUserId" related-field-name="userId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
+        <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user">
+            <key-map field-name="createdByUserId" related="userId"/></relationship>
+        <relationship type="many" related="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
             <key-map field-name="wikiPageId"/></relationship>
         <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
     </entity>
-    <entity entity-name="WikiPageHistory" package-name="moqui.resource.wiki" group-name="nontransactional" cache="never">
+    <entity entity-name="WikiPageHistory" package="moqui.resource.wiki" use="nontransactional" cache="never">
         <field name="wikiPageId" type="id" is-pk="true"/>
         <field name="historySeqId" type="id" is-pk="true"/>
         <field name="oldPagePath" type="text-medium"/>
         <field name="userId" type="id"/>
         <field name="changeDateTime" type="date-time"/>
         <!-- TODO: add rev data for pages in JCR -->
-        <relationship type="one" related-entity-name="moqui.resource.wiki.WikiPage" short-alias="page"/>
-        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount" short-alias="user"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
-    <entity entity-name="WikiPageUser" package-name="moqui.resource.wiki" group-name="nontransactional">
+    <entity entity-name="WikiPageUser" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageId" type="id" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
         <field name="receiveNotifications" type="text-indicator"/>
         <field name="allowView" type="text-indicator"/>
         <field name="allowUpdate" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.resource.wiki.WikiPage"/>
-        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
     </entity>
-    <view-entity entity-name="WikiPageAndUser" package-name="moqui.resource.wiki">
+    <view-entity entity-name="WikiPageAndUser" package="moqui.resource.wiki">
         <member-entity entity-alias="WKPG" entity-name="moqui.resource.wiki.WikiPage"/>
         <member-entity entity-alias="WPU" entity-name="moqui.resource.wiki.WikiPageUser" join-from-alias="WKPG" join-optional="true">
             <key-map field-name="wikiPageId"/>
@@ -80,7 +80,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="WPU"/>
     </view-entity>
 
-    <entity entity-name="WikiSpace" package-name="moqui.resource.wiki" group-name="nontransactional">
+    <entity entity-name="WikiSpace" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiSpaceId" type="id" is-pk="true"/>
         <field name="description" type="text-long"/>
         <field name="rootPageLocation" type="text-medium"/>
@@ -88,17 +88,17 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
     </entity>
-    <entity entity-name="WikiSpaceUser" package-name="moqui.resource.wiki" group-name="nontransactional">
+    <entity entity-name="WikiSpaceUser" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiSpaceId" type="id" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
         <field name="receiveNotifications" type="text-indicator"/>
         <field name="allowAdmin" type="text-indicator"/>
         <field name="allowView" type="text-indicator"/>
         <field name="allowUpdate" type="text-indicator"/>
-        <relationship type="one" related-entity-name="WikiSpace"/>
-        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" related="WikiSpace"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
     </entity>
-    <view-entity entity-name="WikiSpaceAndUser" package-name="moqui.resource.wiki">
+    <view-entity entity-name="WikiSpaceAndUser" package="moqui.resource.wiki">
         <member-entity entity-alias="WKSP" entity-name="moqui.resource.wiki.WikiSpace"/>
         <member-entity entity-alias="WSU" entity-name="moqui.resource.wiki.WikiSpaceUser" join-from-alias="WKSP" join-optional="true">
             <key-map field-name="wikiSpaceId"/>

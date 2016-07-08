@@ -25,7 +25,7 @@ version = '2.0.0'
 apply plugin: 'com.github.ben-manes.versions'
 buildscript {
     repositories { jcenter() }
-    dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0' }
+    dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0' }
 }
 dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
     boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
@@ -56,7 +56,7 @@ dependencies {
     // Groovy
     compile 'org.codehaus.groovy:groovy-all:2.4.7' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    providedCompile 'org.fusesource.jansi:jansi:1.12'
+    providedCompile 'org.fusesource.jansi:jansi:1.13'
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
@@ -87,7 +87,7 @@ dependencies {
     compile 'com.cronutils:cron-utils:4.1.0' // Apache 2.0
 
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
     // Guava (big but used cron-utils, ElasticSearch, by OWASP Java HTML Sanitizer, may use internally in framework too)
@@ -125,8 +125,8 @@ dependencies {
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.2.5' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.2.5' // Apache 2.0
+    compile 'org.apache.shiro:shiro-core:1.2.6' // Apache 2.0
+    compile 'org.apache.shiro:shiro-web:1.2.6' // Apache 2.0
 
     // SLF4J, Log4J
     compile 'org.slf4j:slf4j-api:1.7.21'
@@ -163,14 +163,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.9.v20160517' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.9.v20160517' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.9.v20160517' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.9.v20160517') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.9.v20160517') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.9.v20160517') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.10.v20160621' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.10.v20160621' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.10.v20160621' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.10.v20160621') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.10.v20160621') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.10.v20160621') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.9.v20160517') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.10.v20160621') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

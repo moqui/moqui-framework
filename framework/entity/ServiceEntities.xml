@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.job -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ServiceJob" package-name="moqui.service.job" group-name="configuration" cache="true">
+    <entity entity-name="ServiceJob" package="moqui.service.job" use="configuration" cache="true">
         <description>For ad-hoc (explicitly run) or scheduled service jobs. If cronExpression is null the job will only
             be run ad-hoc, when explicitly called using ServiceCallJob. If a topic is specified results will be sent to
             the topic (can be configured using a NotificationTopic record) as a NotificationMessage to the user that
@@ -48,27 +48,27 @@ along with this software (see the LICENSE.md file). If not, see
             the mechanism for recovering jobs after a run failed in a way that did not clean up the ServiceJobRunLock
             record. Defaults to 24 hours (1440 minutes) to make sure jobs get recovered.</description></field>
 
-        <relationship type="one-nofk" related-entity-name="moqui.security.user.NotificationTopic"/>
-        <relationship type="many" related-entity-name="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>
-        <relationship type="many" related-entity-name="moqui.service.job.ServiceJobUser" short-alias="users"/>
+        <relationship type="one-nofk" related="moqui.security.user.NotificationTopic"/>
+        <relationship type="many" related="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>
+        <relationship type="many" related="moqui.service.job.ServiceJobUser" short-alias="users"/>
     </entity>
-    <entity entity-name="ServiceJobParameter" package-name="moqui.service.job" group-name="configuration" cache="true">
+    <entity entity-name="ServiceJobParameter" package="moqui.service.job" use="configuration" cache="true">
         <description>Parameters automatically added when the job service is called. Always stored as a String and will
             be converted based on the corresponding service in-parameter.parameter.@type attribute (just as with any
             service call).</description>
         <field name="jobName" type="text-short" is-pk="true"/>
         <field name="parameterName" type="text-short" is-pk="true"/>
         <field name="parameterValue" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+        <relationship type="one" related="moqui.service.job.ServiceJob"/>
     </entity>
-    <entity entity-name="ServiceJobUser" package-name="moqui.service.job" group-name="configuration" cache="true">
+    <entity entity-name="ServiceJobUser" package="moqui.service.job" use="configuration" cache="true">
         <field name="jobName" type="text-short" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
         <field name="receiveNotifications" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
-        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" related="moqui.service.job.ServiceJob"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="ServiceJobRun" package-name="moqui.service.job" group-name="transactional" cache="never">
+    <entity entity-name="ServiceJobRun" package="moqui.service.job" use="transactional" cache="never">
         <field name="jobRunId" type="id" is-pk="true"/>
         <field name="jobName" type="text-short"/>
         <field name="userId" type="id"><description>The user that initiated the job run</description></field>
@@ -82,22 +82,22 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="runThread" type="text-medium"/>
         <field name="startTime" type="date-time"/>
         <field name="endTime" type="date-time"/>
-        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
-        <relationship type="one-nofk" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" related="moqui.service.job.ServiceJob"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
     </entity>
-    <entity entity-name="ServiceJobRunLock" package-name="moqui.service.job" group-name="transactional" cache="never">
+    <entity entity-name="ServiceJobRunLock" package="moqui.service.job" use="transactional" cache="never">
         <description>Runtime data for a scheduled ServiceJob (with a cronExpression), managed automatically by the service job runner.</description>
         <field name="jobName" type="text-short" is-pk="true"/>
         <field name="jobRunId" type="id"><description>If not null this is the currently running job instance.</description></field>
         <field name="lastRunTime" type="date-time"/>
-        <relationship type="one" related-entity-name="moqui.service.job.ServiceJob"/>
+        <relationship type="one" related="moqui.service.job.ServiceJob"/>
     </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.service.semaphore -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ServiceParameterSemaphore" package-name="moqui.service.semaphore" group-name="transactional" cache="never">
+    <entity entity-name="ServiceParameterSemaphore" package="moqui.service.semaphore" use="transactional" cache="never">
         <field name="serviceName" type="text-medium" is-pk="true"/>
         <field name="parameterValue" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
@@ -108,7 +108,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.message -->
     <!-- ========================================================= -->
 
-    <entity entity-name="SystemMessage" package-name="moqui.service.message" short-alias="systemMessages" cache="never">
+    <entity entity-name="SystemMessage" package="moqui.service.message" short-alias="systemMessages" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="systemMessageTypeId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
@@ -156,12 +156,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="authId" type="text-medium"/>
         -->
 
-        <relationship type="one" related-entity-name="moqui.service.message.SystemMessageType" short-alias="type"/>
-        <relationship type="one" title="SystemMessage" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
-        <relationship type="one" title="Parent" related-entity-name="moqui.service.message.SystemMessage" short-alias="parent">
-            <key-map field-name="parentMessageId" related-field-name="systemMessageId"/></relationship>
-        <relationship type="one" related-entity-name="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
-        <relationship type="many" related-entity-name="moqui.service.message.SystemMessageError" short-alias="errors">
+        <relationship type="one" related="moqui.service.message.SystemMessageType" short-alias="type"/>
+        <relationship type="one" title="SystemMessage" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="Parent" related="moqui.service.message.SystemMessage" short-alias="parent">
+            <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
+        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
+        <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
             <key-map field-name="systemMessageId"/></relationship>
         <seed-data>
             <moqui.basic.StatusType description="System Message" statusTypeId="SystemMessage"/>
@@ -228,7 +228,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="remote"/><detail relationship="errors"/>
         </master>
     </entity>
-    <entity entity-name="SystemMessageType" package-name="moqui.service.message">
+    <entity entity-name="SystemMessageType" package="moqui.service.message">
         <field name="systemMessageTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="produceServiceName" type="text-medium"><description>Not used in automated processing, but useful
@@ -249,7 +249,7 @@ along with this software (see the LICENSE.md file). If not, see
             If not specified receive#IncomingSystemMessage just saves the message directly.
             When applicable, used by the send service as the service on the remote server to call to receive the message.</description></field>
     </entity>
-    <entity entity-name="SystemMessageRemote" package-name="moqui.service.message">
+    <entity entity-name="SystemMessageRemote" package="moqui.service.message">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="sendUrl" type="text-medium"/>
@@ -287,12 +287,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="componentDelimiter" type="text-indicator"/>
         <field name="escapeCharacter" type="text-indicator"/>
     </entity>
-    <entity entity-name="SystemMessageError" package-name="moqui.service.message" cache="never">
+    <entity entity-name="SystemMessageError" package="moqui.service.message" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="errorDate" type="date-time" is-pk="true"/>
         <field name="attemptedStatusId" type="id"/>
         <!-- maybe for future use: <field name="reasonCode" type="text-short"/> -->
         <field name="errorText" type="text-very-long"/>
-        <relationship type="one" related-entity-name="moqui.service.message.SystemMessage"/>
+        <relationship type="one" related="moqui.service.message.SystemMessage"/>
     </entity>
 </entities>

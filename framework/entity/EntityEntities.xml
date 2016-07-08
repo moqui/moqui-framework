@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.entity -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EntityAuditLog" package-name="moqui.entity" group-name="transactional" authorize-skip="create" cache="never">
+    <entity entity-name="EntityAuditLog" package="moqui.entity" use="transactional" authorize-skip="create" cache="never">
         <field name="auditHistorySeqId" type="id" is-pk="true"/>
         <field name="changedEntityName" type="text-medium"/>
         <field name="changedFieldName" type="text-medium"/>
@@ -35,14 +35,14 @@ along with this software (see the LICENSE.md file). If not, see
             <index-field name="pkPrimaryValue"/></index>
     </entity>
 
-    <entity entity-name="SequenceValueItem" package-name="moqui.entity" group-name="transactional" cache="never">
+    <entity entity-name="SequenceValueItem" package="moqui.entity" use="transactional" cache="never">
         <field name="seqName" type="text-medium" is-pk="true"/>
         <field name="seqNum" type="number-integer"/>
     </entity>
 
-    <entity entity-name="UserField" package-name="moqui.entity" group-name="configuration" cache="true">
+    <entity entity-name="UserField" package="moqui.entity" use="configuration" cache="true">
         <field name="entityName" type="text-medium" is-pk="true">
-            <description>This should be the full entity name, ie like "${package-name}.${entity-name}"</description></field>
+            <description>This should be the full entity name, ie like "${package}.${entity-name}"</description></field>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="userGroupId" type="id" is-pk="true">
             <description>These settings are for a UserGroup. To apply to all users just use the ALL_USERS UserGroup.</description></field>
@@ -50,9 +50,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enableAuditLog" type="text-indicator"/>
         <field name="enableLocalization" type="text-indicator"/>
         <field name="encrypt" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.security.UserGroup"/>
+        <relationship type="one" related="moqui.security.UserGroup"/>
     </entity>
-    <entity entity-name="UserFieldValue" package-name="moqui.entity" group-name="configuration">
+    <entity entity-name="UserFieldValue" package="moqui.entity" use="configuration">
         <field name="fieldValueSeqId" type="id" is-pk="true"/>
         <field name="entityName" type="text-medium"/>
         <field name="fieldName" type="text-medium"/>
@@ -67,34 +67,34 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.entity.view -->
     <!-- ========================================================= -->
 
-    <entity entity-name="DbViewEntity" package-name="moqui.entity.view" group-name="configuration" cache="true" authorize-skip="view">
+    <entity entity-name="DbViewEntity" package="moqui.entity.view" use="configuration" cache="true" authorize-skip="view">
         <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
         <field name="packageName" type="text-medium"/>
         <field name="cache" type="text-indicator"/>
         <field name="isDataView" type="text-indicator"/>
     </entity>
-    <entity entity-name="DbViewEntityMember" package-name="moqui.entity.view" group-name="configuration" cache="true" authorize-skip="view">
+    <entity entity-name="DbViewEntityMember" package="moqui.entity.view" use="configuration" cache="true" authorize-skip="view">
         <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
         <field name="entityAlias" type="text-short" is-pk="true"/>
         <field name="entityName" type="text-medium"/>
         <field name="joinFromAlias" type="text-short"/>
         <field name="joinOptional" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntity"/>
-        <relationship type="one" title="JoinFrom" related-entity-name="moqui.entity.view.DbViewEntityMember">
+        <relationship type="one" related="moqui.entity.view.DbViewEntity"/>
+        <relationship type="one" title="JoinFrom" related="moqui.entity.view.DbViewEntityMember">
             <key-map field-name="dbViewEntityName"/>
-            <key-map field-name="joinFromAlias" related-field-name="entityAlias"/>
+            <key-map field-name="joinFromAlias" related="entityAlias"/>
         </relationship>
     </entity>
-    <entity entity-name="DbViewEntityAlias" package-name="moqui.entity.view" group-name="configuration" cache="true" authorize-skip="view">
+    <entity entity-name="DbViewEntityAlias" package="moqui.entity.view" use="configuration" cache="true" authorize-skip="view">
         <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
         <field name="fieldAlias" type="text-medium" is-pk="true"/>
         <field name="entityAlias" type="text-short"/>
         <field name="fieldName" type="text-medium"/>
         <field name="functionName" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntity"/>
-        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntityMember"/>
+        <relationship type="one" related="moqui.entity.view.DbViewEntity"/>
+        <relationship type="one" related="moqui.entity.view.DbViewEntityMember"/>
     </entity>
-    <entity entity-name="DbViewEntityKeyMap" package-name="moqui.entity.view" group-name="configuration" cache="true" authorize-skip="view">
+    <entity entity-name="DbViewEntityKeyMap" package="moqui.entity.view" use="configuration" cache="true" authorize-skip="view">
         <field name="dbViewEntityName" type="text-medium" is-pk="true"/>
         <field name="joinFromAlias" type="text-short" is-pk="true"/>
         <field name="entityAlias" type="text-short" is-pk="true"/>
@@ -102,15 +102,15 @@ along with this software (see the LICENSE.md file). If not, see
             <description>The name of the field corresponding to the joinFromAlias.</description></field>
         <field name="relatedFieldName" type="text-medium">
             <description>The name of the field corresponding to the entityAlias, ie the related field.</description></field>
-        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntity"/>
-        <relationship type="one" related-entity-name="moqui.entity.view.DbViewEntityMember"/>
+        <relationship type="one" related="moqui.entity.view.DbViewEntity"/>
+        <relationship type="one" related="moqui.entity.view.DbViewEntityMember"/>
     </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.entity.document -->
     <!-- ========================================================= -->
 
-    <entity entity-name="DataDocument" package-name="moqui.entity.document" group-name="configuration" short-alias="dataDocuments">
+    <entity entity-name="DataDocument" package="moqui.entity.document" use="configuration" short-alias="dataDocuments">
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="documentName" type="text-medium"><description>The name of the document for display in search
             results and such.</description></field>
@@ -124,15 +124,15 @@ along with this software (see the LICENSE.md file). If not, see
             data to include in the document. This service should implement the
             org.moqui.EntityServices.add#ManualDocumentData interface.</description></field>
 
-        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentField" short-alias="fields">
+        <relationship type="many" related="moqui.entity.document.DataDocumentField" short-alias="fields">
             <key-map field-name="dataDocumentId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentRelAlias" short-alias="relAliases">
+        <relationship type="many" related="moqui.entity.document.DataDocumentRelAlias" short-alias="relAliases">
             <key-map field-name="dataDocumentId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentCondition" short-alias="conditions">
+        <relationship type="many" related="moqui.entity.document.DataDocumentCondition" short-alias="conditions">
             <key-map field-name="dataDocumentId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.entity.document.DataDocumentLink" short-alias="links">
+        <relationship type="many" related="moqui.entity.document.DataDocumentLink" short-alias="links">
             <key-map field-name="dataDocumentId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.entity.feed.DataFeedDocument" short-alias="feeds">
+        <relationship type="many" related="moqui.entity.feed.DataFeedDocument" short-alias="feeds">
             <key-map field-name="dataDocumentId"/></relationship>
         <master>
             <detail relationship="fields"/><detail relationship="relAliases"/>
@@ -140,7 +140,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="feeds"><detail relationship="feed"/></detail>
         </master>
     </entity>
-    <entity entity-name="DataDocumentField" package-name="moqui.entity.document" group-name="configuration">
+    <entity entity-name="DataDocumentField" package="moqui.entity.document" use="configuration">
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="fieldPath" type="text-medium" is-pk="true"><description>String formatted like
             "RelationshipName:RelationshipName:fieldName" with zero or more relationship names. If there is no
@@ -151,17 +151,17 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fieldNameAlias" type="text-medium"><description>Alias to put in document output for field name
             (ie final part of fieldPath only). Defaults to final part of fieldPath. Must be unique within the document
             and can be used in EntityCondition passed into the EntityFacade.findDataDocuments() method.</description></field>
-        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+        <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
-    <entity entity-name="DataDocumentRelAlias" package-name="moqui.entity.document" group-name="configuration">
+    <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="relationshipName" type="text-medium" is-pk="true"><description>The name of a relationship used in
             any fieldPath to be aliased in the output document.</description></field>
         <field name="documentAlias" type="text-medium"><description>Alias to put in document output instead of the full
             relationship name.</description></field>
-        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+        <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
-    <entity entity-name="DataDocumentCondition" package-name="moqui.entity.document" group-name="configuration">
+    <entity entity-name="DataDocumentCondition" package="moqui.entity.document" use="configuration">
         <description>This is a very simple sort of condition to constrain data document output.</description>
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="fieldNameAlias" type="text-medium" is-pk="true"/>
@@ -172,32 +172,32 @@ along with this software (see the LICENSE.md file). If not, see
             instead of being added to the query as a condition. Must match at least one nested field with the specified
             fieldNameAlias. The fieldValue String will be compared to the Object from the database field after
             conversion using the Groovy asType() method.</description></field>
-        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+        <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
-    <entity entity-name="DataDocumentLink" package-name="moqui.entity.document" group-name="configuration">
+    <entity entity-name="DataDocumentLink" package="moqui.entity.document" use="configuration">
         <description>This is a very simple sort of condition to constrain data document output.</description>
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="label" type="text-short" is-pk="true"/>
         <field name="linkUrl" type="text-medium"/>
         <field name="urlType" type="text-short" default="'plain'">
             <description>Must match an option for the XML Screen link.@url-type attribute. Defaults to 'plain'.</description></field>
-        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument"/>
+        <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.entity.feed -->
     <!-- ========================================================= -->
 
-    <entity entity-name="DataFeed" package-name="moqui.entity.feed" group-name="configuration">
+    <entity entity-name="DataFeed" package="moqui.entity.feed" use="configuration">
         <field name="dataFeedId" type="id" is-pk="true"/>
         <field name="dataFeedTypeEnumId" type="id"/>
         <field name="feedName" type="text-medium"/>
         <field name="feedReceiveServiceName" type="text-medium"><description>The service named here should implement the
             org.moqui.EntityServices.receive#DataFeed interface.</description></field>
         <field name="lastFeedStamp" type="date-time"><description>Used only for periodic feeds.</description></field>
-        <relationship type="one" title="DataFeedType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+        <relationship type="one" title="DataFeedType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="dataFeedTypeEnumId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.entity.feed.DataFeedDocument" short-alias="documents">
+        <relationship type="many" related="moqui.entity.feed.DataFeedDocument" short-alias="documents">
             <key-map field-name="dataFeedId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Data Feed Type" enumTypeId="DataFeedType"/>
@@ -206,13 +206,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <moqui.basic.Enumeration description="Periodic Service Push" enumId="DTFDTP_PER_PUSH" enumTypeId="DataFeedType"/> -->
         </seed-data>
     </entity>
-    <entity entity-name="DataFeedDocument" package-name="moqui.entity.feed" group-name="configuration">
+    <entity entity-name="DataFeedDocument" package="moqui.entity.feed" use="configuration">
         <field name="dataFeedId" type="id" is-pk="true"/>
         <field name="dataDocumentId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="moqui.entity.feed.DataFeed" short-alias="feed"/>
-        <relationship type="one" related-entity-name="moqui.entity.document.DataDocument" short-alias="document"/>
+        <relationship type="one" related="moqui.entity.feed.DataFeed" short-alias="feed"/>
+        <relationship type="one" related="moqui.entity.document.DataDocument" short-alias="document"/>
     </entity>
-    <view-entity entity-name="DataFeedAndDocument" package-name="moqui.entity.feed">
+    <view-entity entity-name="DataFeedAndDocument" package="moqui.entity.feed">
         <member-entity entity-alias="DTFD" entity-name="moqui.entity.feed.DataFeed"/>
         <member-entity entity-alias="DFD" entity-name="moqui.entity.feed.DataFeedDocument" join-from-alias="DTFD">
             <key-map field-name="dataFeedId"/></member-entity>
@@ -224,7 +224,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.entity.sync -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EntitySync" package-name="moqui.entity.sync" group-name="configuration" short-alias="entitySyncs">
+    <entity entity-name="EntitySync" package="moqui.entity.sync" use="configuration" short-alias="entitySyncs">
         <field name="entitySyncId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="statusId" type="id"/>
@@ -242,8 +242,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="keepRemoveInfoHours" type="number-decimal"/>
         <field name="forPull" type="text-indicator"><description>If Y this record tracks data pulled from a remote
             system, otherwise it tracks data pushed from this system.</description></field>
-        <relationship type="one" title="EntitySync" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
-        <relationship type="many" related-entity-name="moqui.entity.sync.EntitySyncArtifact" short-alias="artifacts">
+        <relationship type="one" title="EntitySync" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="many" related="moqui.entity.sync.EntitySyncArtifact" short-alias="artifacts">
             <key-map field-name="entitySyncId"/></relationship>
         <seed-data>
             <moqui.basic.StatusType description="Entity Sync" parentTypeId="" statusTypeId="EntitySync"/>
@@ -272,7 +272,7 @@ along with this software (see the LICENSE.md file). If not, see
             </detail>
         </master>
     </entity>
-    <entity entity-name="EntitySyncArtifact" package-name="moqui.entity.sync" group-name="configuration">
+    <entity entity-name="EntitySyncArtifact" package="moqui.entity.sync" use="configuration">
         <description>
             Associates a set of entities through ArtifactGroupMember records associated with an ArtifactGroup.
             ArtifactGroupMember records may have filterMap value and may have nameIsPattern=Y.
@@ -287,9 +287,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="applEnumId" type="id"/>
         <field name="dependents" type="text-indicator"><description>If Y also include dependents of records, will apply
             to all records for applicable entities.</description></field>
-        <relationship type="one" related-entity-name="moqui.entity.sync.EntitySync" short-alias="entitySync"/>
-        <relationship type="one" related-entity-name="moqui.security.ArtifactGroup" short-alias="group" mutable="true"/>
-        <relationship type="one" title="EntitySyncArtifactAppl" related-entity-name="moqui.basic.Enumeration" short-alias="applType">
+        <relationship type="one" related="moqui.entity.sync.EntitySync" short-alias="entitySync"/>
+        <relationship type="one" related="moqui.security.ArtifactGroup" short-alias="group" mutable="true"/>
+        <relationship type="one" title="EntitySyncArtifactAppl" related="moqui.basic.Enumeration" short-alias="applType">
             <key-map field-name="applEnumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Entity Sync Artifact Application Type" enumTypeId="EntitySyncArtifactAppl"/>
@@ -298,14 +298,14 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Always Include" enumId="EsaaAlways" sequenceNum="3" enumTypeId="EntitySyncArtifactAppl"/>
         </seed-data>
     </entity>
-    <view-entity entity-name="EntitySyncArtifactDetail" package-name="moqui.entity.sync">
+    <view-entity entity-name="EntitySyncArtifactDetail" package="moqui.entity.sync">
         <member-entity entity-alias="ESA" entity-name="moqui.entity.sync.EntitySyncArtifact"/>
         <member-entity entity-alias="AGM" entity-name="moqui.security.ArtifactGroupMember" join-from-alias="ESA">
             <key-map field-name="artifactGroupId"/></member-entity>
         <alias-all entity-alias="ESA"/>
         <alias-all entity-alias="AGM"/>
     </view-entity>
-    <entity entity-name="EntitySyncHistory" package-name="moqui.entity.sync" group-name="nontransactional" cache="never">
+    <entity entity-name="EntitySyncHistory" package="moqui.entity.sync" use="nontransactional" cache="never">
         <field name="entitySyncId" type="id" is-pk="true"/>
         <field name="startDate" type="date-time" is-pk="true"/>
         <field name="finishDate" type="date-time"/>
@@ -317,10 +317,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toRemoveAlreadyDeleted" type="number-integer"/>
         <field name="runningTimeMillis" type="number-integer"/>
         <field name="errorMessage" type="text-long"/>
-        <relationship type="one" related-entity-name="moqui.entity.sync.EntitySync"/>
-        <relationship type="one" title="EntitySync" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" related="moqui.entity.sync.EntitySync"/>
+        <relationship type="one" title="EntitySync" related="moqui.basic.StatusItem"/>
     </entity>
-    <entity entity-name="EntitySyncRemove" package-name="moqui.entity.sync" group-name="nontransactional" cache="never">
+    <entity entity-name="EntitySyncRemove" package="moqui.entity.sync" use="nontransactional" cache="never">
         <field name="entitySyncRemoveId" type="id" is-pk="true"/>
         <field name="entityName" type="text-medium" is-pk="true"/>
         <field name="primaryKeyRemoved" type="text-long"/>

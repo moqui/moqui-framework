@@ -355,11 +355,13 @@ class WebFacadeImpl implements WebFacade {
         if (multiPartParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(multiPartParameters))
         if (jsonParameters != null) cs.push(jsonParameters)
         if (declaredPathParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(declaredPathParameters))
-        Map reqParmMap = request.getParameterMap()
-        if (reqParmMap != null && reqParmMap.size() > 0) cs.push(new StupidWebUtilities.CanonicalizeMap(reqParmMap))
+
+        // no longer uses StupidWebUtilities.CanonicalizeMap, search Map for String[] of size 1 and change to String
+        Map<String, Object> reqParmMap = StupidWebUtilities.simplifyRequestParameters(request)
+        if (reqParmMap.size() > 0) cs.push(reqParmMap)
+
         Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
-        if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0)
-            cs.push(new StupidWebUtilities.CanonicalizeMap(pathInfoParameterMap))
+        if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0) cs.push(pathInfoParameterMap)
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
 
         // do one last push so writes don't modify whatever was at the top of the stack
@@ -373,10 +375,11 @@ class WebFacadeImpl implements WebFacade {
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
-        if (!request.getQueryString()) cs.push(request.getParameterMap() as Map<String, Object>)
-
-        // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
-        return new StupidWebUtilities.CanonicalizeMap(cs)
+        if (!request.getQueryString()) {
+            Map<String, Object> reqParmMap = StupidWebUtilities.simplifyRequestParameters(request)
+            if (reqParmMap.size() > 0) cs.push(reqParmMap)
+        }
+        return cs
     }
     @Override
     String getHostName(boolean withPort) {

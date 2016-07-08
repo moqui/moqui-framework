@@ -317,7 +317,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
                     localBuilder.append(" = ")
 
-                    String relatedFieldName = keyMap.attribute('related-field-name')
+                    String relatedFieldName = keyMap.attribute('related') ?: keyMap.attribute('related-field-name')
                     if (relatedFieldName == null || relatedFieldName.length() == 0) relatedFieldName = keyMap.attribute('field-name')
                     if (!relatedLinkEntityDefinition.isField(relatedFieldName) &&
                             relatedLinkEntityDefinition.pkFieldNames.size() == 1 && keyMaps.size() == 1) {

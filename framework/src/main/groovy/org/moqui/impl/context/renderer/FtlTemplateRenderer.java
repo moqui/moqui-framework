@@ -34,7 +34,7 @@ import java.util.Locale;
 
 @CompileStatic
 public class FtlTemplateRenderer implements TemplateRenderer {
-    public static final Version FTL_VERSION = Configuration.VERSION_2_3_24;
+    public static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
     protected static final Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class);
     protected ExecutionContextFactoryImpl ecfi;
     private Configuration defaultFtlConfiguration;
