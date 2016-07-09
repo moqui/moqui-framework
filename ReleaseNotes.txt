@@ -120,6 +120,9 @@ Non Backward Compatible Changes
   ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and
   caused performance overhead
+- Removed ArtifactAuthzRecord/Cond entities and support for them; this was
+  never all that useful and is replaced by the ArtifactAuthzFilter and
+  EntityFilter entities
 - The ContextStack class has moved to the org.moqui.util package
 - When updating to this version recommend stopping all instances in a
   cluster before starting any instance with the new version

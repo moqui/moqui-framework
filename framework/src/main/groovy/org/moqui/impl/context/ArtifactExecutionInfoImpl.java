@@ -15,6 +15,7 @@ package org.moqui.impl.context;
 
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.impl.StupidUtilities;
+import org.moqui.impl.entity.EntityValueBase;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -26,8 +27,8 @@ import java.util.*;
 public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     // NOTE: these need to be in a Map instead of the DB because Enumeration records may not yet be loaded
-    final static Map<ArtifactType, String> artifactTypeDescriptionMap = new EnumMap<>(ArtifactType.class);
-    final static Map<AuthzAction, String> artifactActionDescriptionMap = new EnumMap<>(AuthzAction.class);
+    private final static Map<ArtifactType, String> artifactTypeDescriptionMap = new EnumMap<>(ArtifactType.class);
+    private final static Map<AuthzAction, String> artifactActionDescriptionMap = new EnumMap<>(AuthzAction.class);
     static {
         artifactTypeDescriptionMap.put(AT_XML_SCREEN, "Screen"); artifactTypeDescriptionMap.put(AT_XML_SCREEN_TRANS, "Transition");
         artifactTypeDescriptionMap.put(AT_XML_SCREEN_CONTENT, "Screen Content");
@@ -50,7 +51,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public boolean internalAuthorizationInheritable = false;
     private Boolean internalAuthzWasRequired = null;
     private Boolean internalAuthzWasGranted = null;
-    public Map<String, Object> internalAacv = null;
+    public ArtifactAuthzCheck internalAacv = null;
 
     //protected Exception createdLocation = null
     private ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null;
@@ -112,14 +113,14 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public Boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
 
-    Map<String, Object> getAacv() { return internalAacv; }
+    ArtifactAuthzCheck getAacv() { return internalAacv; }
 
-    public void copyAacvInfo(Map<String, Object> aacv, String userId, boolean wasGranted) {
+    public void copyAacvInfo(ArtifactAuthzCheck aacv, String userId, boolean wasGranted) {
         internalAacv = aacv;
         internalAuthorizedUserId = userId;
-        internalAuthorizedAuthzType = AuthzType.valueOf((String) aacv.get("authzTypeEnumId"));
-        internalAuthorizedActionEnum = AuthzAction.valueOf((String) aacv.get("authzActionEnumId"));
-        internalAuthorizationInheritable = "Y".equals(aacv.get("inheritAuthz"));
+        internalAuthorizedAuthzType = aacv.authzType;
+        internalAuthorizedActionEnum = aacv.authzAction;
+        internalAuthorizationInheritable = aacv.inheritAuthz;
         internalAuthzWasGranted = wasGranted;
     }
 
@@ -136,7 +137,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     void setEndTime() { this.endTime = System.nanoTime(); }
     @Override
     public long getRunningTime() { return endTime != 0 ? endTime - startTime : 0; }
-    void calcChildTime(boolean recurse) {
+    private void calcChildTime(boolean recurse) {
         childrenRunningTime = 0;
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) {
             childrenRunningTime += aeii.getRunningTime();
@@ -188,10 +189,12 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
             if (children && childList != null)
                 for (ArtifactExecutionInfoImpl aeii: childList) aeii.print(writer, level + 1, true);
-        } catch (IOException e) { }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    String getKeyString() { return nameInternal + ":" + internalTypeEnum.name() + ":" + internalActionEnum.name() + ":" + actionDetail; }
+    private String getKeyString() { return nameInternal + ":" + internalTypeEnum.name() + ":" + internalActionEnum.name() + ":" + actionDetail; }
 
     @SuppressWarnings("unchecked")
     static List<Map<String, Object>> hotSpotByTime(List<ArtifactExecutionInfoImpl> aeiiList, boolean ownTime, String orderBy) {
@@ -217,7 +220,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 // calc new average, add knockOutCount times to fill in gaps, calc new time total
                 BigDecimal newTotal = BigDecimal.ZERO;
                 BigDecimal newMax = BigDecimal.ZERO;
-                for (BigDecimal time: newTimes) { newTotal.add(time); if (time.compareTo(newMax) > 0) newMax = time; }
+                for (BigDecimal time: newTimes) { newTotal = newTotal.add(time); if (time.compareTo(newMax) > 0) newMax = time; }
                 BigDecimal newAvg = newTotal.divide(new BigDecimal(newTimes.size()), 2, BigDecimal.ROUND_HALF_UP);
                 // long newTimeAvg = newAvg.setScale(0, BigDecimal.ROUND_HALF_UP)
                 newTotal = newTotal.add(newAvg.multiply(new BigDecimal(knockOutCount)));
@@ -233,7 +236,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         return hotSpotList;
     }
     @SuppressWarnings("unchecked")
-    void addToMapByTime(Map<String, Map<String, Object>> timeByArtifact, boolean ownTime) {
+    private void addToMapByTime(Map<String, Map<String, Object>> timeByArtifact, boolean ownTime) {
         String key = getKeyString();
         Map<String, Object> val = timeByArtifact.get(key);
         BigDecimal curTime = ownTime ? getThisRunningTimeMillis() : getRunningTimeMillis();
@@ -290,7 +293,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         return topLevelList;
     }
     @SuppressWarnings("unchecked")
-    void consolidateArtifactInfo(List<Map> topLevelList, Map<String, Map<String, Object>> flatMap, Map parentArtifactMap) {
+    private void consolidateArtifactInfo(List<Map> topLevelList, Map<String, Map<String, Object>> flatMap, Map parentArtifactMap) {
         String key = getKeyString();
         Map<String, Object> artifactMap = flatMap.get(key);
         if (artifactMap == null) {
@@ -321,13 +324,13 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) aeii.consolidateArtifactInfo(topLevelList, flatMap, artifactMap);
     }
-    static String printArtifactInfoList(List<Map> infoList) throws IOException {
+    public static String printArtifactInfoList(List<Map> infoList) throws IOException {
         StringWriter sw = new StringWriter();
         printArtifactInfoList(sw, infoList, 0);
         return sw.toString();
     }
     @SuppressWarnings("unchecked")
-    static void printArtifactInfoList(Writer writer, List<Map> infoList, int level) throws IOException {
+    public static void printArtifactInfoList(Writer writer, List<Map> infoList, int level) throws IOException {
         // "[${time}:${thisTime}:${childrenTime}][${count}] ${type} ${action} ${actionDetail} ${name}"
         for (Map info: infoList) {
             for (int i = 0; i < level; i++) writer.append("|").append(" ");
@@ -352,5 +355,34 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     @Override
     public String toString() {
         return "[name:'" + nameInternal + "', type:'" + internalTypeEnum + "', action:'" + internalActionEnum + "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted + ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzType + "', authAction:'" + internalAuthorizedActionEnum + "', inheritable:" + internalAuthorizationInheritable + ", runningTime:" + getRunningTime() + "]";
+    }
+
+    public static class ArtifactAuthzCheck {
+        public String userGroupId, artifactAuthzId, authzServiceName;
+        public String artifactGroupId, artifactName, filterMap;
+        public ArtifactType artifactType;
+        public AuthzAction authzAction;
+        public AuthzType authzType;
+        public boolean nameIsPattern, inheritAuthz;
+        public ArtifactAuthzCheck(EntityValueBase aacvEvb) {
+            Map<String, Object> aacvMap = aacvEvb.getValueMap();
+            userGroupId = (String) aacvMap.get("userGroupId");
+            artifactAuthzId = (String) aacvMap.get("artifactAuthzId");
+            authzServiceName = (String) aacvMap.get("authzServiceName");
+
+            artifactGroupId = (String) aacvMap.get("artifactGroupId");
+            artifactName = (String) aacvMap.get("artifactName");
+            filterMap = (String) aacvMap.get("filterMap");
+
+            String artifactTypeEnumId = (String) aacvMap.get("artifactTypeEnumId");
+            artifactType = artifactTypeEnumId != null ? ArtifactType.valueOf(artifactTypeEnumId) : null;
+            String authzActionEnumId = (String) aacvMap.get("authzActionEnumId");
+            authzAction = authzActionEnumId != null ? AuthzAction.valueOf(authzActionEnumId) : null;
+            String authzTypeEnumId = (String) aacvMap.get("authzTypeEnumId");
+            authzType = authzTypeEnumId != null ? AuthzType.valueOf(authzTypeEnumId) : null;
+
+            nameIsPattern = "Y".equals(aacvMap.get("nameIsPattern"));
+            inheritAuthz = "Y".equals(aacvMap.get("inheritAuthz"));
+        }
     }
 }

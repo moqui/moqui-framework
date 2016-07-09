@@ -18,6 +18,7 @@ import org.apache.commons.codec.binary.Base64
 import org.joda.time.DateTimeZone
 import org.joda.time.MutableDateTime
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
@@ -662,16 +663,16 @@ class UserFacadeImpl implements UserFacade {
         return checkList
     }
 
-    ArrayList<Map<String, Object>> getArtifactAuthzCheckList() {
+    ArrayList<ArtifactAuthzCheck> getArtifactAuthzCheckList() {
         // NOTE: even if there is no user, still consider part of the ALL_USERS group and such: if (usernameStack.size() == 0) return EntityListImpl.EMPTY
         if (currentInfo.internalArtifactAuthzCheckList == null) {
             // get the list for each group separately to increase cache hits/efficiency
-            ArrayList<Map<String, Object>> newList = new ArrayList<>()
+            ArrayList<ArtifactAuthzCheck> newList = new ArrayList<>()
             for (String userGroupId in getUserGroupIdSet()) {
                 EntityList aacvList = eci.getEntity().find("moqui.security.ArtifactAuthzCheckView")
                         .condition("userGroupId", userGroupId).useCache(true).disableAuthz().list()
                 int aacvListSize = aacvList.size()
-                for (int i = 0; i < aacvListSize; i++) newList.add(((EntityValueBase) aacvList.get(i)).getValueMap())
+                for (int i = 0; i < aacvListSize; i++) newList.add(new ArtifactAuthzCheck((EntityValueBase) aacvList.get(i)))
             }
             currentInfo.internalArtifactAuthzCheckList = newList
         }
@@ -763,7 +764,7 @@ class UserFacadeImpl implements UserFacade {
         Set<String> internalUserGroupIdSet = (Set<String>) null
         // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
         Map<String, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap = new HashMap<>()
-        ArrayList<Map<String, Object>> internalArtifactAuthzCheckList = (ArrayList<Map<String, Object>>) null
+        ArrayList<ArtifactAuthzCheck> internalArtifactAuthzCheckList = (ArrayList<ArtifactAuthzCheck>) null
 
         Locale localeCache = (Locale) null
         TimeZone tzCache = (TimeZone) null
@@ -821,7 +822,7 @@ class UserFacadeImpl implements UserFacade {
 
             internalUserGroupIdSet = (Set<String>) null
             internalArtifactTarpitCheckListMap.clear()
-            internalArtifactAuthzCheckList = (ArrayList<Map<String, Object>>) null
+            internalArtifactAuthzCheckList = (ArrayList<ArtifactAuthzCheck>) null
         }
 
         String getUsername() { return username }

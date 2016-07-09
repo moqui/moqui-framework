@@ -53,7 +53,7 @@ class ScreenDefinition {
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
     protected Map<String, SubscreensItem> subscreensByName = new HashMap<>()
     protected List<SubscreensItem> subscreensItemsSorted = null
-    protected Set<String> tenantsAllowed = null
+    protected Set<String> tenantsAllowed = new HashSet<>()
 
     protected XmlAction alwaysActions = null
     protected XmlAction preActions = null
@@ -112,9 +112,8 @@ class ScreenDefinition {
         populateSubscreens()
 
         // tenants-allowed
-        if (screenNode.attribute("tenants-allowed")) {
-            tenantsAllowed = new HashSet(Arrays.asList((screenNode.attribute("tenants-allowed")).split(",")))
-        }
+        if (screenNode.attribute("tenants-allowed")) tenantsAllowed.addAll(Arrays.asList((screenNode.attribute("tenants-allowed")).split(",")))
+
         // macro-template - go through entire list and set all found, basically we want the last one if there are more than one
         List<MNode> macroTemplateList = screenNode.children("macro-template")
         if (macroTemplateList.size() > 0) {
@@ -279,7 +278,7 @@ class ScreenDefinition {
     /** Get macro template location specific to screen from marco-template elements */
     String getMacroTemplateLocation(String renderMode) {
         if (macroTemplateByRenderMode == null) return null
-        return macroTemplateByRenderMode.get(renderMode)
+        return (String) macroTemplateByRenderMode.get(renderMode)
     }
 
     Map<String, ParameterItem> getParameterMap() { return parameterByName }
