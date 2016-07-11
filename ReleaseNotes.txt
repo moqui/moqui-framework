@@ -489,11 +489,6 @@ Long Term To Do List - aka Informal Road Map
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 
-- Move tools from moqui-framework to tool components
-  - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
-    - ElasticSearch (moqui-elasticsearch)
-    - add mantle-usl dependencies on moqui-elasticsearch
-
 - Improved Distributed Datasource Support
   - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical
   - Review warnings about view-entities that have members in multiple groups (which may be in different databases)

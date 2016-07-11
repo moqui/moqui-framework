@@ -84,7 +84,7 @@ dependencies {
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
 
     // cron-utils
-    compile 'com.cronutils:cron-utils:4.1.0' // Apache 2.0
+    compile 'com.cronutils:cron-utils:4.1.1' // Apache 2.0
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
@@ -130,9 +130,9 @@ dependencies {
 
     // SLF4J, Log4J
     compile 'org.slf4j:slf4j-api:1.7.21'
-    runtime 'org.apache.logging.log4j:log4j-core:2.6.1'
-    runtime 'org.apache.logging.log4j:log4j-api:2.6.1'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.1'
+    runtime 'org.apache.logging.log4j:log4j-core:2.6.2'
+    runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
 
     // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
     compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
