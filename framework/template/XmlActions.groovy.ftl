@@ -90,7 +90,7 @@ return;
     StupidUtilities.orderMapList(${.node["@list"]}, [<#list .node["order-by"] as ob>"${ob["@field-name"]}"<#if ob_has_next>, </#if></#list>])
 </#macro>
 <#macro "filter-map-list">
-    if (${.node["@list"]}) {
+    if (${.node["@list"]} != null) {
     <#if .node["@to-list"]?has_content>
         ${.node["@to-list"]} = new ArrayList(${.node["@list"]})
         def _listToFilter = ${.node["@to-list"]}
