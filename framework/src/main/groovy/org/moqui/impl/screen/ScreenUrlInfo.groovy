@@ -211,7 +211,7 @@ class ScreenUrlInfo {
 
         // if a user is permitted to view a certain location once in a render/ec they can safely be always allowed to, so cache it
         // add the username to the key just in case user changes during an EC instance
-        String permittedCacheKey = null
+        String permittedCacheKey = (String) null
         if (fullPathNameList != null) {
             String keyUserId = userId != null ? userId : '_anonymous'
             permittedCacheKey = keyUserId.concat(fullPathNameList.toString())
@@ -237,7 +237,7 @@ class ScreenUrlInfo {
             MNode screenNode = screenDef.getScreenNode()
 
             // if screen is limited to certain tenants, and current tenant is not in the Set, it is not permitted
-            if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
+            if (screenDef.getTenantsAllowed().size() > 0 && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
             }

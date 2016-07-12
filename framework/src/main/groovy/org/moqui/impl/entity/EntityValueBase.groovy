@@ -168,7 +168,7 @@ abstract class EntityValueBase implements EntityValue {
             // if this is not a valid field name but is a valid relationship name, do a getRelated or getRelatedOne to return an EntityList or an EntityValue
             RelationshipInfo relInfo = ed.getRelationshipInfo(name)
             // logger.warn("====== get related relInfo: ${relInfo}")
-            if (relInfo!= null) {
+            if (relInfo != null) {
                 if (relInfo.isTypeOne) {
                     return this.findRelatedOne(name, null, null)
                 } else {
@@ -183,24 +183,22 @@ abstract class EntityValueBase implements EntityValue {
         // if enabled use moqui.basic.LocalizedEntityField for any localized fields
         if (fieldInfo.enableLocalization) {
             String localeStr = getEntityFacadeImpl().ecfi.getExecutionContext().getUser().getLocale()?.toString()
-            if (localeStr) {
+            if (localeStr != null) {
                 Object internalValue = valueMap.get(name)
 
                 boolean knownNoLocalized = false
                 if (localizedByLocaleByField == null) {
                     localizedByLocaleByField = new HashMap<String, Map<String, String>>()
                 } else {
-                    Map<String, String> localizedByLocale = localizedByLocaleByField.get(name)
+                    Map<String, String> localizedByLocale = (Map<String, String>) localizedByLocaleByField.get(name)
                     if (localizedByLocale != null) {
-                        if (localizedByLocale.containsKey(localeStr)) {
-                            String cachedLocalized = localizedByLocale.get(localeStr)
-                            if (cachedLocalized) {
-                                // logger.warn("======== field ${name}:${internalValue} found cached localized ${cachedLocalized}")
-                                return cachedLocalized
-                            } else {
-                                // logger.warn("======== field ${name}:${internalValue} known no localized")
-                                knownNoLocalized = true
-                            }
+                        String cachedLocalized = localizedByLocale.get(localeStr)
+                        if (cachedLocalized != null && cachedLocalized.length() > 0) {
+                            // logger.warn("======== field ${name}:${internalValue} found cached localized ${cachedLocalized}")
+                            return cachedLocalized
+                        } else {
+                            // logger.warn("======== field ${name}:${internalValue} known no localized")
+                            knownNoLocalized = localizedByLocale.containsKey(localeStr)
                         }
                     }
                 }
@@ -226,8 +224,8 @@ abstract class EntityValueBase implements EntityValue {
                             Set<String> pkSet = pkToAliasMap.keySet()
                             if (pkSet.size() == 1) pk = pkToAliasMap.get(pkSet.iterator().next())
                         }
-                        String pkValue = pk? get(pk): null
-                        if (pkValue) {
+                        String pkValue = pk != null ? get(pk): null
+                        if (pkValue != null) {
                             // logger.warn("======== field ${name}:${internalValue} finding LocalizedEntityField, localizedByLocaleByField=${localizedByLocaleByField}")
                             String entityName = ed.getFullEntityName()
                             String fieldName = name

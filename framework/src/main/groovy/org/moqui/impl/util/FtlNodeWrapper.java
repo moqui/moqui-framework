@@ -43,12 +43,25 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
     private FtlTextWrapper textNode = null;
     private FtlNodeListWrapper allChildren = null;
 
-    private ConcurrentHashMap<String, TemplateModel> attrAndChildrenByName = new ConcurrentHashMap<>();
+    private HashMap<String, TemplateModel> attrAndChildrenByName = new HashMap<>();
 
     private FtlNodeWrapper(MNode wrapNode) { this.mNode = wrapNode; }
     private FtlNodeWrapper(MNode wrapNode, FtlNodeWrapper parentNode) {
         this.mNode = wrapNode;
         this.parentNode = parentNode;
+        // add all attributes
+        Map<String, String> attrs = wrapNode.getAttributes();
+        for (Map.Entry<String, String> attrEntry: attrs.entrySet()) {
+            String attrName = attrEntry.getKey();
+            attrAndChildrenByName.put("@" + attrName, new FtlAttributeWrapper(attrName, attrEntry.getValue(), this));
+        }
+        // add all sub-nodes
+        for (Map.Entry<String, ArrayList<MNode>> childrenEntry: wrapNode.getChildrenByName().entrySet())
+            attrAndChildrenByName.put(childrenEntry.getKey(), new FtlNodeListWrapper(childrenEntry.getValue(), this));
+        // add text
+        String nodeText = wrapNode.getText();
+        if (nodeText != null && nodeText.length() > 0)
+            attrAndChildrenByName.put("@@text", new FtlTextWrapper(nodeText, this));
     }
 
     public MNode getMNode() { return mNode; }
@@ -62,10 +75,9 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
         if (s == null) return null;
         // first try the attribute and children caches, then if not found in either pick it apart and create what is needed
         TemplateModel attrOrChildWrapper = attrAndChildrenByName.get(s);
-        if (attrOrChildWrapper != null) {
-            if (attrOrChildWrapper instanceof FtlAttributeWrapper && ((FtlAttributeWrapper) attrOrChildWrapper).getAsString() == null) return null;
-            return attrOrChildWrapper;
-        }
+        if (attrOrChildWrapper != null) return attrOrChildWrapper;
+        // got a null value, is it a remembered one we don't have?
+        if (attrAndChildrenByName.containsKey(s)) return null;
 
         // odd performance note: String.startsWith and String.charAt both take nearly as long as a HashMap.get
         if (s.startsWith("@")) {
@@ -79,16 +91,19 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
             String key = s.substring(1);
 
             String attrValue = mNode.attribute(key);
+            if (attrValue == null) {
+                attrAndChildrenByName.put(s, null);
+                return null;
+            }
             FtlAttributeWrapper attributeWrapper = new FtlAttributeWrapper(key, attrValue, this);
-            TemplateModel existingWrapper = attrAndChildrenByName.putIfAbsent(s, attributeWrapper);
-            if (attrValue == null) return null;
-            return existingWrapper != null ? existingWrapper : attributeWrapper;
+            attrAndChildrenByName.put(s, attributeWrapper);
+            return attributeWrapper;
         } else {
-            // no @ prefix, looking for a child node
-            // logger.info("Looking for child nodes with name [${s}] found: ${childList}")
-            FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(mNode.children(s), this);
-            TemplateModel existingWrapper = attrAndChildrenByName.putIfAbsent(s, nodeListWrapper);
-            return existingWrapper != null ? existingWrapper : nodeListWrapper;
+            // no @ prefix, looking for child nodes
+            ArrayList<MNode> childList = mNode.children(s);
+            FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(childList, this);
+            attrAndChildrenByName.put(s, nodeListWrapper);
+            return nodeListWrapper;
         }
     }
 

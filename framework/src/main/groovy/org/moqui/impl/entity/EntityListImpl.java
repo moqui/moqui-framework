@@ -321,6 +321,7 @@ public class EntityListImpl implements EntityList {
 
     @Override
     public EntityList addIfMissing(EntityValue value) {
+        if (fromCache) throw new EntityException("Cannot modify EntityList from cache");
         if (!valueList.contains(value)) valueList.add(value);
         return this;
     }
@@ -339,8 +340,26 @@ public class EntityListImpl implements EntityList {
     }
 
     @Override
-    public Iterator<EntityValue> iterator() {
-        return valueList.iterator();
+    public Iterator<EntityValue> iterator() { return new EntityIterator(); }
+    private class EntityIterator implements Iterator<EntityValue> {
+        int curIndex = -1;
+        boolean valueRemoved = false;
+        @Override
+        public boolean hasNext() { return (curIndex + 1) < valueList.size(); }
+        @Override
+        public EntityValue next() {
+            if ((curIndex + 1) >= valueList.size()) throw new NoSuchElementException("Next is beyond end of list (index " + (curIndex + 1) + ", size " + valueList.size() + ")");
+            curIndex++;
+            valueRemoved = false;
+            return valueList.get(curIndex);
+        }
+        @Override
+        public void remove() {
+            if (fromCache) throw new UnsupportedOperationException("Cannot modify EntityList from cache");
+            if (curIndex == -1) throw new IllegalStateException("Cannot remove, next() has not been called");
+            valueList.remove(curIndex);
+            valueRemoved = true;
+        }
     }
 
     @Override

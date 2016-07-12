@@ -199,6 +199,9 @@ public class MNode {
     }
     public boolean hasChild(String name) {
         if (name == null) return false;
+        ArrayList<MNode> curList = childrenByName.get(name);
+        if (curList != null && curList.size() > 0) return true;
+
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
@@ -208,6 +211,24 @@ public class MNode {
     }
     /** Get child at index, will throw an exception if index out of bounds */
     public MNode child(int index) { return childList.get(index); }
+
+    public Map<String, ArrayList<MNode>> getChildrenByName() {
+        Map<String, ArrayList<MNode>> allByName = new HashMap<>();
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            String name = curChild.nodeName;
+            if (childrenByName.containsKey(name)) continue;
+            ArrayList<MNode> curList = allByName.get(name);
+            if (curList == null) {
+                curList = new ArrayList<>();
+                allByName.put(name, curList);
+            }
+            curList.add(curChild);
+        }
+        childrenByName.putAll(allByName);
+        return Collections.unmodifiableMap(childrenByName);
+    }
 
     /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
      * found or empty List if no nodes found */

@@ -159,9 +159,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
                            StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ")
 
-        MNode entityNode = localEntityDefinition.getEntityNode()
-
         if (localEntityDefinition.isViewEntity()) {
+            MNode entityNode = localEntityDefinition.getEntityNode()
             MNode databaseNode = efi.getDatabaseNode(localEntityDefinition.getEntityGroupName())
             String jsAttr = databaseNode?.attribute('join-style')
             String joinStyle = jsAttr != null && jsAttr.length() > 0 ? jsAttr : "ansi"
@@ -170,7 +169,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 throw new IllegalArgumentException("The join-style [${joinStyle}] is not supported, found on database [${databaseNode?.attribute('name')}]")
             }
 
-            boolean useParenthesis = ("ansi" == joinStyle)
+            boolean useParenthesis = ("ansi".equals(joinStyle))
 
             ArrayList<MNode> memberEntityNodes = entityNode.children("member-entity")
             int memberEntityNodesSize = memberEntityNodes.size()
@@ -443,10 +442,10 @@ class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     void makeOrderByClause(ArrayList<String> orderByFieldList) {
-        if (orderByFieldList) {
-            sqlTopLevelInternal.append(" ORDER BY ")
-        }
         int obflSize = orderByFieldList.size()
+        if (obflSize == 0) return
+
+        sqlTopLevelInternal.append(" ORDER BY ")
         for (int i = 0; i < obflSize; i++) {
             String fieldName = (String) orderByFieldList.get(i)
             if (fieldName == null || fieldName.length() == 0) continue
@@ -472,7 +471,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
             sqlTopLevelInternal.append(foo.descending ? " DESC" : " ASC")
 
-            if (foo.nullsFirstLast != null) sqlTopLevelInternal.append(foo.nullsFirstLast ? " NULLS FIRST" : " NULLS LAST")
+            if (foo.nullsFirstLast != null) sqlTopLevelInternal.append(foo.nullsFirstLast.booleanValue() ? " NULLS FIRST" : " NULLS LAST")
         }
     }
 

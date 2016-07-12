@@ -955,7 +955,7 @@ class ScreenForm {
         try {
             String key = null
             String keyAttr = (String) childNode.attribute('key')
-            if (keyAttr) {
+            if (keyAttr != null && keyAttr.length() > 0) {
                 key = ec.resource.expand(keyAttr, null)
                 // we just did a string expand, if it evaluates to a literal "null" then there was no value
                 if (key == "null") key = null
@@ -967,17 +967,16 @@ class ScreenForm {
             if (key == null) return
 
             String text = childNode.attribute('text')
-            if (!text) {
+            if (text == null || text.length() == 0) {
                 if ((listOptionEvb == null || listOptionEvb.getEntityDefinition().isField("description"))
                         && listOption["description"]) {
                     options.put(key, listOption["description"])
                 } else {
                     options.put(key, key)
                 }
-
             } else {
                 String value = ec.resource.expand(text, null)
-                if (value == "null") value = key
+                if ("null".equals(value)) value = key
                 options.put(key, value)
             }
         } finally {

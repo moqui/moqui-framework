@@ -100,8 +100,6 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="authzActionEnumId"/></relationship>
         <relationship type="many" related="moqui.security.ArtifactAuthzFilter" short-alias="filters">
             <key-map field-name="artifactAuthzId"/></relationship>
-        <relationship type="many" related="moqui.security.ArtifactAuthzRecord" short-alias="records">
-            <key-map field-name="artifactAuthzId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Authorization Type" enumTypeId="AuthzType"/>
             <moqui.basic.Enumeration description="Allow" enumId="AUTHZT_ALLOW" enumTypeId="AuthzType"/>
@@ -132,36 +130,10 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related="moqui.security.UserAccount">
             <description>No FK in order to allow externally authenticated users.</description></relationship>
     </entity>
-    <entity entity-name="ArtifactAuthzRecord" package="moqui.security" use="configuration">
-        <field name="artifactAuthzId" type="id" is-pk="true"/>
-        <field name="viewEntityName" type="text-medium"/>
-        <field name="filterByDate" type="text-indicator"/>
-        <field name="filterByDateFromField" type="text-medium"/>
-        <field name="filterByDateThruField" type="text-medium"/>
-        <field name="userIdField" type="text-medium">
-            <description>Will lookup in viewEntityName view-entity for the currently logged in userId, and
-                if this field is set it will use this field name to match against, otherwise it will automatically
-                use the userId field in the view-entity.
-            </description>
-        </field>
-        <relationship type="one" related="moqui.security.ArtifactAuthz" short-alias="authz"/>
-    </entity>
-    <entity entity-name="ArtifactAuthzRecordCond" package="moqui.security" use="configuration">
-        <field name="artifactAuthzId" type="id" is-pk="true"/>
-        <field name="artifactAuthzCondSeqId" type="id" is-pk="true"/>
-        <field name="fieldName" type="text-medium"/>
-        <field name="operatorEnumId" type="id"/>
-        <field name="condValue" type="text-long">
-            <description>Use ${} syntax to expand from variable in artifact's context.</description></field>
-        <relationship type="one" title="ComparisonOperator" related="moqui.basic.Enumeration">
-            <key-map field-name="operatorEnumId" related="enumId"/></relationship>
-    </entity>
     <view-entity entity-name="ArtifactAuthzCheckView" package="moqui.security">
         <member-entity entity-alias="AAZ" entity-name="moqui.security.ArtifactAuthz"/>
         <member-entity entity-alias="AGM" entity-name="moqui.security.ArtifactGroupMember" join-from-alias="AAZ">
             <key-map field-name="artifactGroupId"/></member-entity>
-        <member-entity entity-alias="AAR" entity-name="moqui.security.ArtifactAuthzRecord" join-from-alias="AAZ" join-optional="true">
-            <key-map field-name="artifactAuthzId"/></member-entity>
         <alias entity-alias="AAZ" name="userGroupId"/>
         <alias entity-alias="AAZ" name="artifactAuthzId"/>
         <alias entity-alias="AAZ" name="authzActionEnumId"/>
@@ -173,7 +145,6 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="AGM" name="nameIsPattern"/>
         <alias entity-alias="AGM" name="inheritAuthz"/>
         <alias entity-alias="AGM" name="filterMap"/>
-        <alias entity-alias="AAR" name="viewEntityName"/>
     </view-entity>
 
     <entity entity-name="ArtifactAuthzFilter" package="moqui.security" use="configuration">
