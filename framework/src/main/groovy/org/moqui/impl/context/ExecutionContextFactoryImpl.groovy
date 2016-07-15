@@ -261,9 +261,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
-        // always set the full moqui.runtime, moqui.conf system properties for use in various places
-        System.setProperty("moqui.runtime", runtimePath)
-        System.setProperty("moqui.conf", runtimeConfPath)
+        // don't set the moqui.runtime and moqui.conf system properties as before, causes conflict with multiple moqui instances in one JVM
+        // NOTE: moqui.runtime is set in MoquiStart and in MoquiContextListener (if there is an embedded runtime directory)
+        // System.setProperty("moqui.runtime", runtimePath)
+        // System.setProperty("moqui.conf", runtimeConfPath)
 
         logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
