@@ -296,17 +296,21 @@
         -->
 
         <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
-        <datasource group-name="transactional" database-conf-name="h2" schema-name=""
+        <!--
+		<datasource group-name="transactional" database-conf-name="h2" schema-name=""
                 start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
             <inline-jdbc><xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}"
                     password="${ds_transactional_password}"/></inline-jdbc>
         </datasource>
+		-->
 
         <!-- The tenantcommon group can also in the same DB, but MUST have a separate definition for multi-tenant to work -->
-        <datasource group-name="tenantcommon" database-conf-name="h2" schema-name="">
+        <!--
+		<datasource group-name="tenantcommon" database-conf-name="h2" schema-name="">
             <inline-jdbc><xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}"
                     password="${ds_transactional_password}"/></inline-jdbc>
         </datasource>
+		-->
 
         <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
             NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX
