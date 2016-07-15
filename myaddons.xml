@@ -17,28 +17,28 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <runtime name="moqui-runtime" group="mrovnanik" version="1.6.2" branch="develop" repository="github"/>
+    <runtime name="moqui-runtime" group="mrovnanik" version="1.6.2" branch="develop" repository="github-ssh"/>
 
     <!-- Example Component -->
     <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
 
     <!-- Mantle Components -->
-    <component name="mantle-udm" group="mrovnanik" version="1.0.1" branch="master" repository="github"/>
-    <component name="mantle-usl" group="mrovnanik" version="1.0.1" branch="master" repository="github"/>
-    <component name="mantle-edi" group="mrovnanik" version="1.0.0" branch="master" repository="github"/>
-    <component name="AuthorizeDotNet" group="mrovnanik" version="1.0.0" branch="master" repository="github"/>
-    <component name="mantle-ubpl" group="mrovnanik" version="" branch="master" repository="github"/><!-- no releases -->
-    <component name="mantle-oagis" group="mrovnanik" version="" branch="master" repository="github"/><!-- no releases -->
-    <component name="SimpleScreens" group="mrovnanik" version="1.0.2" branch="master" repository="github"/>
+    <component name="mantle-udm" group="mrovnanik" version="1.0.1" branch="master" repository="github-ssh"/>
+    <component name="mantle-usl" group="mrovnanik" version="1.0.1" branch="master" repository="github-ssh"/>
+    <component name="mantle-edi" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="mantle-ubpl" group="moqui" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="mantle-oagis" group="moqui" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="SimpleScreens" group="mrovnanik" version="1.0.2" branch="master" repository="github-ssh"/>
 
     <!-- Moqui Applications -->
-    <component name="HiveMind" group="mrovnanik" version="1.1.5" branch="master" repository="github"/>
-    <component name="PopCommerce" group="mrovnanik" version="1.0.3" branch="master" repository="github"/>
+    <component name="HiveMind" group="mrovnanik" version="1.1.5" branch="master" repository="github-ssh"/>
+    <component name="PopCommerce" group="mrovnanik" version="1.0.3" branch="master" repository="github-ssh"/>
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
 	
 	<!-- rovnanik.sk Components -->
-    <component name="economy-setup" group="mrovnanik" version="" branch="master" repository="github"/>      <!-- no releases -->
-    <component name="Kinekus-data" group="mrovnanik" version="" branch="master" repository="github"/>       <!-- no releases -->
+    <component name="economy-setup" group="mrovnanik" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
+    <component name="Kinekus-data" group="mrovnanik" version="" branch="master" repository="github-ssh"/>       <!-- no releases -->
 </addons>
