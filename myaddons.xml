@@ -37,4 +37,8 @@
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
+	
+	<!-- rovnanik.sk Components -->
+    <component name="economy-setup" group="mrovnanik" version="" branch="master" repository="github"/>      <!-- no releases -->
+    <component name="Kinekus-data" group="mrovnanik" version="" branch="master" repository="github"/>       <!-- no releases -->
 </addons>
