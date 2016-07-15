@@ -74,7 +74,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
         } else if (datasourceNode.hasChild("inline-jdbc")) {
             // special thing for embedded derby, just set an system property; for derby.log, etc
             if (datasourceNode.attribute("database-conf-name") == "derby" && !System.getProperty("derby.system.home")) {
-                System.setProperty("derby.system.home", System.getProperty("moqui.runtime") + "/db/derby")
+                System.setProperty("derby.system.home", efi.ecfi.runtimePath + "/db/derby")
                 logger.info("Set property derby.system.home to [${System.getProperty("derby.system.home")}]")
             }
 
