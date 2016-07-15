@@ -17,10 +17,10 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <runtime name="moqui-runtime" group="mrovnanik" version="1.6.2" branch="master" repository="github"/>
+    <runtime name="moqui-runtime" group="mrovnanik" version="1.6.2" branch="develop" repository="github"/>
 
     <!-- Example Component -->
-    <component name="example" group="mrovnanik" version="1.6.2" branch="master" repository="github"/>
+    <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
 
     <!-- Mantle Components -->
     <component name="mantle-udm" group="mrovnanik" version="1.0.1" branch="master" repository="github"/>
