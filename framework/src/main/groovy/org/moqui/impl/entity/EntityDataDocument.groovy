@@ -198,7 +198,8 @@ class EntityDataDocument {
         EntityListIterator mainEli = mainFind.iterator()
         Map<String, Map<String, Object>> documentMapMap = [:]
         try {
-            for (EntityValue ev in mainEli) {
+            EntityValue ev
+            while ((ev = (EntityValue) mainEli.next()) != null) {
                 // logger.warn("=========== DataDocument query result for ${dataDocumentId}: ${ev}")
 
                 StringBuffer pkCombinedSb = new StringBuffer()
