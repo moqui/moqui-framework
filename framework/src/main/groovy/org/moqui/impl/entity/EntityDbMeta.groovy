@@ -152,20 +152,21 @@ class EntityDbMeta {
         } else {
             String groupName = ed.getEntityGroupName()
             Connection con = null
-            ResultSet tableSet = null
+            ResultSet tableSet1 = null
+            ResultSet tableSet2 = null
             boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
             try {
                 con = efi.getConnection(groupName)
                 DatabaseMetaData dbData = con.getMetaData()
 
                 String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
-                tableSet = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types)
-                if (tableSet.next()) {
+                tableSet1 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types)
+                if (tableSet1.next()) {
                     dbResult = true
                 } else {
                     // try lower case, just in case DB is case sensitive
-                    tableSet = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
-                    if (tableSet.next()) {
+                    tableSet2 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
+                    if (tableSet2.next()) {
                         dbResult = true
                     } else {
                         if (logger.isTraceEnabled()) logger.trace("Table for entity ${ed.getFullEntityName()} does NOT exist")
@@ -175,7 +176,8 @@ class EntityDbMeta {
             } catch (Exception e) {
                 throw new EntityException("Exception checking to see if table ${ed.getTableName()} exists", e)
             } finally {
-                if (tableSet != null) tableSet.close()
+                if (tableSet1 != null && !tableSet1.isClosed()) tableSet1.close()
+                if (tableSet2 != null && !tableSet2.isClosed()) tableSet2.close()
                 if (con != null) con.close()
                 if (beganTx) efi.ecfi.transactionFacade.commit()
             }
@@ -255,7 +257,8 @@ class EntityDbMeta {
 
         String groupName = ed.getEntityGroupName()
         Connection con = null
-        ResultSet colSet = null
+        ResultSet colSet1 = null
+        ResultSet colSet2 = null
         boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
         try {
             con = efi.getConnection(groupName)
@@ -264,13 +267,13 @@ class EntityDbMeta {
 
             List<String> fnSet = new ArrayList(ed.getFieldNames(true, true, false))
             int fieldCount = fnSet.size()
-            colSet = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
-            if (colSet.isClosed()) {
+            colSet1 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
+            if (colSet1.isClosed()) {
                 logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
                 return new ArrayList<String>()
             }
-            while (colSet.next()) {
-                String colName = colSet.getString("COLUMN_NAME")
+            while (colSet1.next()) {
+                String colName = colSet1.getString("COLUMN_NAME")
                 for (String fn in fnSet) {
                     String fieldColName = ed.getColumnName(fn, false)
                     if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
@@ -282,13 +285,13 @@ class EntityDbMeta {
 
             if (fnSet.size() == fieldCount) {
                 // try lower case table name
-                colSet = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
-                if (colSet.isClosed()) {
+                colSet2 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
+                if (colSet2.isClosed()) {
                     logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
                     return new ArrayList<String>()
                 }
-                while (colSet.next()) {
-                    String colName = colSet.getString("COLUMN_NAME")
+                while (colSet2.next()) {
+                    String colName = colSet2.getString("COLUMN_NAME")
                     for (String fn in fnSet) {
                         String fieldColName = ed.getColumnName(fn, false)
                         if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
@@ -308,7 +311,8 @@ class EntityDbMeta {
             logger.error("Exception checking for missing columns in table ${ed.getTableName()}", e)
             return new ArrayList<String>()
         } finally {
-            if (colSet != null && !colSet.isClosed()) colSet.close()
+            if (colSet1 != null && !colSet1.isClosed()) colSet1.close()
+            if (colSet2 != null && !colSet2.isClosed()) colSet2.close()
             if (con != null && !con.isClosed()) con.close()
             if (beganTx) efi.ecfi.transactionFacade.commit()
         }
@@ -451,7 +455,8 @@ class EntityDbMeta {
         String groupName = ed.getEntityGroupName()
         EntityDefinition relEd = relInfo.relatedEd
         Connection con = null
-        ResultSet ikSet = null
+        ResultSet ikSet1 = null
+        ResultSet ikSet2 = null
         try {
             con = efi.getConnection(groupName)
             DatabaseMetaData dbData = con.getMetaData()
@@ -463,12 +468,12 @@ class EntityDbMeta {
             Set<String> fieldNames = new HashSet(keyMap.keySet())
             Set<String> fkColsFound = new HashSet()
 
-            ikSet = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName())
-            while (ikSet.next()) {
-                String pkTable = ikSet.getString("PKTABLE_NAME")
+            ikSet1 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName())
+            while (ikSet1.next()) {
+                String pkTable = ikSet1.getString("PKTABLE_NAME")
                 // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
                 if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
-                String fkCol = ikSet.getString("FKCOLUMN_NAME")
+                String fkCol = ikSet1.getString("FKCOLUMN_NAME")
                 fkColsFound.add(fkCol)
                 for (String fn in fieldNames) {
                     String fnColName = ed.getColumnName(fn, false)
@@ -480,12 +485,12 @@ class EntityDbMeta {
             }
             if (fieldNames.size() > 0) {
                 // try with lower case table name
-                ikSet = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase())
-                while (ikSet.next()) {
-                    String pkTable = ikSet.getString("PKTABLE_NAME")
+                ikSet2 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase())
+                while (ikSet2.next()) {
+                    String pkTable = ikSet2.getString("PKTABLE_NAME")
                     // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
                     if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
-                    String fkCol = ikSet.getString("FKCOLUMN_NAME")
+                    String fkCol = ikSet2.getString("FKCOLUMN_NAME")
                     fkColsFound.add(fkCol)
                     for (String fn in fieldNames) {
                         String fnColName = ed.getColumnName(fn, false)
@@ -505,7 +510,8 @@ class EntityDbMeta {
             logger.error("Exception checking to see if foreign key exists for table ${ed.getTableName()}", e)
             return null
         } finally {
-            if (ikSet != null) ikSet.close()
+            if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close()
+            if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close()
             if (con != null) con.close()
         }
     }
