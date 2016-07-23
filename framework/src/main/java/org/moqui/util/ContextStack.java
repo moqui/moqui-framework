@@ -172,6 +172,7 @@ public class ContextStack implements Map<String, Object> {
      *
      * @return Clone of this ContextStack
      */
+    @Override
     public ContextStack clone() throws CloneNotSupportedException {
         ContextStack newStack = new ContextStack();
         newStack.stackList.addAll(stackList);
@@ -180,12 +181,14 @@ public class ContextStack implements Map<String, Object> {
         return newStack;
     }
 
+    @Override
     public int size() {
         // use the keySet since this gets a set of all unique keys for all Maps in the stack
         Set keys = keySet();
         return keys.size();
     }
 
+    @Override
     public boolean isEmpty() {
         for (Map curMap: stackList) {
             if (!curMap.isEmpty()) return false;
@@ -193,10 +196,12 @@ public class ContextStack implements Map<String, Object> {
         return true;
     }
 
+    @Override
     public boolean containsKey(Object key) {
         return combinedMap.containsKey(key);
     }
 
+    @Override
     public boolean containsValue(Object value) {
         return combinedMap.containsValue(value);
     }
@@ -208,6 +213,7 @@ public class ContextStack implements Map<String, Object> {
         return combinedMap.get(key);
     }
 
+    @Override
     public Object get(Object keyObj) {
         String key = null;
         if (keyObj instanceof String) {
@@ -224,18 +230,21 @@ public class ContextStack implements Map<String, Object> {
         return combinedMap.get(key);
     }
 
+    @Override
     public Object put(String key, Object value) {
         if ("context".equals(key)) throw new IllegalArgumentException("Cannot put with key 'context', reserved key");
         combinedMap.put(key, value);
         return topMap.put(key, value);
     }
 
+    @Override
     public Object remove(Object key) {
         Object oldVal = topMap.remove(key);
         resetCombinedEntry(key.toString(), stackList.size());
         return oldVal;
     }
 
+    @Override
     public void putAll(Map<? extends String, ?> theMap) {
         if (theMap == null) return;
         combinedMap.putAll(theMap);
@@ -243,6 +252,7 @@ public class ContextStack implements Map<String, Object> {
         topMap.putAll(theMap);
     }
 
+    @Override
     public void clear() {
         topMap.clear();
         if (stackList.size() > 1) {
@@ -253,15 +263,18 @@ public class ContextStack implements Map<String, Object> {
         }
     }
 
+    @Override
     public Set<String> keySet() {
         return combinedMap.keySet();
     }
 
+    @Override
     public Collection<Object> values() {
         return combinedMap.values();
     }
 
     /** @see java.util.Map#entrySet() */
+    @Override
     public Set<Map.Entry<String, Object>> entrySet() {
         return combinedMap.entrySet();
     }
@@ -324,11 +337,17 @@ public class ContextStack implements Map<String, Object> {
         Map<String, Object> getWrapped() { return internal; }
         Map<String, Object> getCombined() { return combined; }
 
+        @Override
         public int size() { return internal.size(); }
+        @Override
         public boolean isEmpty() { return internal.isEmpty(); }
+        @Override
         public boolean containsKey(Object key) { return internal.containsKey(key); }
+        @Override
         public boolean containsValue(Object value) { return internal.containsValue(value); }
+        @Override
         public Object get(Object key) { return internal.get(key); }
+        @Override
         public Object put(String key, Object value) {
             if ("context".equals(key)) throw new IllegalArgumentException("Cannot put with key 'context', reserved key");
             Object orig = internal.put(key, value);
@@ -336,21 +355,27 @@ public class ContextStack implements Map<String, Object> {
             contextStack.rebuildCombinedMap();
             return orig;
         }
+        @Override
         public Object remove(Object key) {
             Object orig = internal.remove(key);
             contextStack.rebuildCombinedMap();
             return orig;
         }
+        @Override
         public void putAll(Map<? extends String, ?> m) {
             internal.putAll(m);
             contextStack.rebuildCombinedMap();
         }
+        @Override
         public void clear() {
             internal.clear();
             contextStack.rebuildCombinedMap();
         }
+        @Override
         public Set<String> keySet() { return internal.keySet(); }
+        @Override
         public Collection<Object> values() { return internal.values(); }
+        @Override
         public Set<Entry<String, Object>> entrySet() { return internal.entrySet(); }
     }
 }

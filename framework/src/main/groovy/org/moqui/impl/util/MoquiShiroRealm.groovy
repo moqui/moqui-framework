@@ -119,11 +119,17 @@ class MoquiShiroRealm implements Realm {
         }
 
         // no more auth failures? record the various account state updates, hasLoggedOut=N
-        if (newUserAccount.successiveFailedLogins != 0 || newUserAccount.disabled != "N" ||
-                newUserAccount.disabledDateTime != null || newUserAccount.hasLoggedOut != "N") {
-            Map<String, Object> uaParameters = [userId:newUserAccount.userId, successiveFailedLogins:0,
-                    disabled:"N", disabledDateTime:null, hasLoggedOut:"N"]
-            eci.service.sync().name("update", "moqui.security.UserAccount").parameters(uaParameters).disableAuthz().call()
+        if (newUserAccount.successiveFailedLogins || newUserAccount.disabled == "Y" ||
+                newUserAccount.disabledDateTime != null || newUserAccount.hasLoggedOut == "Y") {
+            newUserAccount.set("successiveFailedLogins", 0)
+            newUserAccount.set("disabled", "N")
+            newUserAccount.set("disabledDateTime", null)
+            newUserAccount.set("hasLoggedOut", "N")
+            try {
+                newUserAccount.update()
+            } catch (Exception e) {
+                logger.warn("Error resetting UserAccount login status", e)
+            }
         }
 
         // update visit if no user in visit yet

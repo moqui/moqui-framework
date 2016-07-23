@@ -141,6 +141,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @param that Object to compare this to
      * @return int representing the result of the comparison (-1,0, or 1)
      */
+    @Override
     int compareTo(EntityValue that);
 
     /** Returns true if all entries in the Map match field values. */

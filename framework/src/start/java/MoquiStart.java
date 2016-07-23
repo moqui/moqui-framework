@@ -177,6 +177,14 @@ public class MoquiStart {
             Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
             webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
 
+            // GzipHandler
+            Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
+            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
+            Object gzipHandler = gzipHandlerClass.getConstructor().newInstance();
+            // use defaults, should include all except certain excludes:
+            // gzipHandlerClass.getMethod("setIncludedMimeTypes", String[].class).invoke(gzipHandler, new Object[] { new String[] {"text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript"} });
+            serverClass.getMethod("insertHandler", handlerWrapperClass).invoke(server, gzipHandler);
+
             // Log getMinThreads, getMaxThreads
             Object threadPool = serverClass.getMethod("getThreadPool").invoke(server);
             sizedThreadPoolClass.getMethod("setMaxThreads", int.class).invoke(threadPool, threads);
@@ -209,6 +217,11 @@ public class MoquiStart {
             // NOTE: ServletContextHandler.SESSIONS = 1 (int)
             ServerContainer wsContainer = org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer.configureContext(webapp);
             webapp.setAttribute("javax.websocket.server.ServerContainer", wsContainer);
+
+            // GzipHandler
+            GzipHandler gzipHandler = new GzipHandler();
+            // gzipHandler.setIncludedMimeTypes("text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript");
+            server.insertHandler(gzipHandler);
 
             // Start things up!
             server.start();
@@ -287,6 +300,7 @@ public class MoquiStart {
             this.callObject = callObject;
             this.moquiStart = moquiStart;
         }
+        @Override
         public void run() {
             // run this first, ie shutdown the container before closing jarFiles to avoid errors with classes missing
             if (callMethod != null) {

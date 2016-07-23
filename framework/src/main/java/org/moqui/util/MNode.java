@@ -28,7 +28,10 @@ import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
+import java.nio.file.Files;
 import java.util.*;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /** An alternative to groovy.util.Node with methods more type safe and generally useful in Moqui. */
 @SuppressWarnings("unused")
@@ -69,9 +72,9 @@ public class MNode {
         MNode cached = parsedNodeCache.get(location);
         if (cached != null && cached.lastModified >= fl.lastModified()) return cached;
 
-        FileReader fr = null;
+        BufferedReader fr = null;
         try {
-            fr = new FileReader(fl);
+            fr = Files.newBufferedReader(fl.toPath(), UTF_8); // new FileReader(fl);
             MNode node = parse(fl.getPath(), new InputSource(fr));
             node.lastModified = fl.lastModified();
             if (node.lastModified > 0) parsedNodeCache.put(location, node);
@@ -504,6 +507,7 @@ public class MNode {
 
     /* ========== String Methods ========== */
 
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         addToSb(sb, 0);
@@ -568,6 +572,7 @@ public class MNode {
         MNode getRootNode() { return rootNode; }
         long getNodesRead() { return nodesRead; }
 
+        @Override
         public void startElement(String ns, String localName, String qName, Attributes attributes) {
             // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
             if (curNode == null) {
@@ -586,10 +591,12 @@ public class MNode {
             }
         }
 
+        @Override
         public void characters(char[] chars, int offset, int length) {
             if (curText == null) curText = new StringBuilder();
             curText.append(chars, offset, length);
         }
+        @Override
         public void endElement(String ns, String localName, String qName) {
             if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
             if (curText != null) {
@@ -600,6 +607,7 @@ public class MNode {
             curText = null;
         }
 
+        @Override
         public void setDocumentLocator(Locator locator) { this.locator = locator; }
     }
 }

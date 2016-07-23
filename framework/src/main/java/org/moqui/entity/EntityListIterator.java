@@ -22,7 +22,7 @@ import java.util.ListIterator;
  * Entity Cursor List Iterator for Handling Cursored Database Results
  */
 @SuppressWarnings("unused")
-public interface EntityListIterator extends ListIterator<EntityValue>, Iterable<EntityValue> {
+public interface EntityListIterator extends ListIterator<EntityValue> {
 
     /** Entity Facade calls this method to tell the ELI additional information for dealing with TX cache, etc */
     void setQueryCondition(EntityCondition ec);
@@ -74,11 +74,13 @@ public interface EntityListIterator extends ListIterator<EntityValue>, Iterable<
      *      while ((nextValue = (EntityValue) eli.next()) != null) { ... }
      *
      */
+    @Override
     boolean hasNext();
 
     /** PLEASE NOTE: Because of the nature of the JDBC ResultSet interface this method can be very inefficient; it is
      * much better to just use previous() until it returns null.
      */
+    @Override
     boolean hasPrevious();
 
     /** Moves the cursor to the next position and returns the EntityValue object for that position; if there is no next,
@@ -90,17 +92,21 @@ public interface EntityListIterator extends ListIterator<EntityValue>, Iterable<
      *      while ((nextValue = (EntityValue) eli.next()) != null) { ... }
      *
      */
+    @Override
     EntityValue next();
 
     /** Returns the index of the next result, but does not guarantee that there will be a next result */
+    @Override
     int nextIndex();
 
     /** Moves the cursor to the previous position and returns the EntityValue object for that position; if there is no
      * previous, returns null.
      */
+    @Override
     EntityValue previous();
 
     /** Returns the index of the previous result, but does not guarantee that there will be a previous result */
+    @Override
     int previousIndex();
 
     void setFetchSize(int rows) throws EntityException;
@@ -121,9 +127,4 @@ public interface EntityListIterator extends ListIterator<EntityValue>, Iterable<
      */
     int writeXmlText(Writer writer, String prefix, int dependentLevels);
     int writeXmlTextMaster(Writer writer, String prefix, String masterName);
-
-    /** Method to implement the Iterable interface to allow an EntityListIterator to be used in a foreach loop. Just
-     * returns this.
-     */
-    Iterator<EntityValue> iterator();
 }

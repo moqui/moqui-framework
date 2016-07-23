@@ -16,16 +16,23 @@
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-apply plugin: 'groovy'
-apply plugin: 'war'
-
 version = '2.0.0'
 
-// to run use "gradle dependencyUpdates"
+apply plugin: 'groovy'
+apply plugin: 'war'
+// to run gradle-versions-plugin use "gradle dependencyUpdates"
 apply plugin: 'com.github.ben-manes.versions'
+// uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
+// apply plugin: 'net.ltgt.errorprone'
 buildscript {
-    repositories { jcenter() }
-    dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0' }
+    repositories {
+        jcenter()
+        // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0'
+        // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
+    }
 }
 dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
     boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }

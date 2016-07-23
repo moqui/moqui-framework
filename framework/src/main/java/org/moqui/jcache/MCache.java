@@ -63,7 +63,7 @@ public class MCache<K, V> implements Cache<K, V> {
     private static class WorkerThreadFactory implements ThreadFactory {
         private final ThreadGroup workerGroup = new ThreadGroup("MCacheEvict");
         private final AtomicInteger threadNumber = new AtomicInteger(1);
-        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MCacheEvict-" + threadNumber.getAndIncrement()); }
+        @Override public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MCacheEvict-" + threadNumber.getAndIncrement()); }
     }
     private static ScheduledThreadPoolExecutor workerPool = new ScheduledThreadPoolExecutor(1, new WorkerThreadFactory());
     static { workerPool.setRemoveOnCancelPolicy(true); }
