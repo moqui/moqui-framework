@@ -141,10 +141,10 @@ class WebFacadeImpl implements WebFacade {
 
             for (FileItem item in items) {
                 if (item.isFormField()) {
-                    multiPartParameters.put(item.getFieldName(), item.getString("UTF-8"))
+                    addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
                 } else {
                     // put the FileItem itself in the Map to be used by the application code
-                    multiPartParameters.put(item.getFieldName(), item)
+                    addValueToMultipartParameterMap(item.getFieldName(), item)
                     fileUploadList.add(item)
 
                     /* Stuff to do with the FileItem:
@@ -181,6 +181,25 @@ class WebFacadeImpl implements WebFacade {
             sessionToken = Base64.encodeBase64URLSafeString(randomBytes)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
+        }
+    }
+
+    /**
+     * commons fileupload not support string array, when use multiple select, there's duplicate fieldName,
+     * convert value to an array list when fieldName already in multipart parameters.
+     * @param key
+     * @param value
+     */
+    private <T> void addValueToMultipartParameterMap(String key, T value) {
+        Object previouseValue = multiPartParameters.put(key, value)
+        if (previouseValue !=null) {
+            List<T> values = new ArrayList<>()
+            values.add((T) multiPartParameters.put(key, values))
+            if(previouseValue instanceof Collection) {
+                values.addAll((Collection)previouseValue)
+            } else {
+                values.add((T) previouseValue)
+            }
         }
     }
 
@@ -352,7 +371,7 @@ class WebFacadeImpl implements WebFacade {
 
         ContextStack cs = new ContextStack(false)
         if (savedParameters != null) cs.push(savedParameters)
-        if (multiPartParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(multiPartParameters))
+        if (multiPartParameters != null) cs.push(multiPartParameters)
         if (jsonParameters != null) cs.push(jsonParameters)
         if (declaredPathParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(declaredPathParameters))
 
