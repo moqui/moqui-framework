@@ -306,7 +306,9 @@ class ScreenRenderImpl implements ScreenRender {
             if (request != null && targetTransition.hasActionsOrSingleService()) {
                 MNode webappNode = sfi.getWebappNode(webappName)
                 String queryString = request.getQueryString()
-                Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
+
+                // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
+                Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getRequestURI())
                 if (!targetTransition.isReadOnly() && (
                         (!request.isSecure() && !"false".equals(webappNode.attribute('https-enabled'))) ||
                         (queryString != null && queryString.length() > 0) ||
@@ -427,7 +429,7 @@ class ScreenRenderImpl implements ScreenRender {
                         for (Map.Entry<String, String> pme in pm.entrySet()) {
                             if (!pme.value) continue
                             if (ps.length() > 0) ps.append("&")
-                            ps.append(pme.key).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
+                            ps.append(URLEncoder.encode(pme.key, 'UTF-8')).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
                         }
                     }
                     String fullUrl = url
