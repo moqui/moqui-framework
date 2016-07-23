@@ -320,72 +320,6 @@
         </datasource>
         -->
 
-        <!--
-        ===== Database Configuration Examples =====
-
-        * DB2:
-        <datasource group-name="transactional" database-conf-name="db2" schema-name="" startup-add-missing="true" runtime-add-missing="false">
-            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5021"
-                    driverType="4" databaseName="MoquiDEFAULT"/></inline-jdbc>
-        </datasource>
-        <datasource group-name="transactional" database-conf-name="db2" schema-name="" startup-add-missing="true" runtime-add-missing="false">
-            <inline-jdbc jdbc-uri="jdbc:db2://localhost:5021/MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
-        </datasource>
-
-        * Derby:
-        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
-            <inline-jdbc><xa-properties databaseName="${moqui_runtime}/db/derby/MoquiDEFAULT" createDatabase="create"/></inline-jdbc>
-        </datasource>
-        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
-            <inline-jdbc jdbc-uri="jdbc:derby:MoquiDEFAULT;create=true" jdbc-username="moqui" jdbc-password="moqui"/>
-        </datasource>
-
-        * H2 Database:
-        <datasource group-name="transactional" database-conf-name="h2" schema-name="">
-            <inline-jdbc><xa-properties url="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000" user="sa" password=""/></inline-jdbc>
-        </datasource>
-        <datasource group-name="transactional" database-conf-name="h2" schema-name="">
-            <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000" jdbc-username="sa" jdbc-password="sa"/>
-        </datasource>
-
-        * MS SQL Server:
-        <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
-            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433"
-                    databaseName="MoquiDEFAULT"/></inline-jdbc>
-        </datasource>
-        <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
-            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
-        </datasource>
-
-        * MySQL (similar for Percona Server, MariaDB):
-        <datasource group-name="transactional" database-conf-name="mysql" schema-name="">
-            <inline-jdbc><xa-properties user="moqui" password="moqui" pinGlobalTxToPhysicalConnection="true"
-                    serverName="127.0.0.1" port="3306" databaseName="MoquiDEFAULT" autoReconnectForPools="true"
-                    useUnicode="true" encoding="UTF-8"/></inline-jdbc>
-        </datasource>
-        <datasource group-name="transactional" database-conf-name="mysql" schema-name="">
-            <inline-jdbc jdbc-uri="jdbc:mysql://127.0.0.1:3306/MoquiDEFAULT?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8"
-                    jdbc-username="moqui" jdbc-password="moqui"/>
-        </datasource>
-
-        * Oracle:
-        <datasource group-name="transactional" database-conf-name="oracle" schema-name="MOQUI">
-            <inline-jdbc><xa-properties user="moqui" password="moqui" URL="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT"/></inline-jdbc>
-        </datasource>
-        <datasource group-name="transactional" database-conf-name="oracle" schema-name="MOQUI">
-            <inline-jdbc jdbc-uri="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
-        </datasource>
-
-        * PostgreSQL:
-        <datasource group-name="transactional" database-conf-name="postgres" schema-name="public" startup-add-missing="true" runtime-add-missing="false">
-            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5432"
-                    databaseName="MoquiDEFAULT"/></inline-jdbc>
-        </datasource>
-        <datasource group-name="transactional" database-conf-name="postgres" schema-name="public" startup-add-missing="true" runtime-add-missing="false">
-            <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
-        </datasource>
-        -->
-
         <!-- Refer to these explicitly instead of by directory name convention as is done in components.
              There is no reliable way to search within directories on the classpath (if in a file or jar is fine, but
              not in a war/ear file or from special ClassLoaders) -->
@@ -437,14 +371,31 @@
 
         <dictionary-type type="binary-very-long" java-type="java.sql.Blob" default-sql-type="BLOB"/>
 
+        <!--
+        * DB2:
+        * to support LIMIT and OFFSET: "db2set DB2_COMPATIBILITY_VECTOR=MYS" (and if already running: db2stop then db2start)
+        * default page size of 4k not adequate, use something like: "create database moqui pagesize 32 k"
+
+        * NOTE: with default-isolation-level="ReadCommitted locks (like FOR UPDATE) are not kept for entire transaction,
+        * this causes concurrency issues; under default-isolation-level=RepeatableRead it fixes that but currently
+        * causes deadlock issues; see the AssetReservationMultipleThreads tests
+
+        <datasource group-name="transactional" database-conf-name="db2" schema-name="DB2INST1" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc><xa-properties user="db2inst1" password="db2inst1" serverName="localhost" portNumber="50000"
+                    driverType="4" databaseName="moqui"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="db2" schema-name="" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc jdbc-uri="jdbc:db2://localhost:50000/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+        -->
         <database name="db2" join-style="ansi" offset-style="limit" default-isolation-level="ReadCommitted"
-                  use-schema-for-all="true" use-indexes-unique="false"
+                  use-schema-for-all="true" use-indexes-unique="false" use-pk-constraint-names="false" fk-style="name_fk"
                   default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
                   default-jdbc-driver="com.ibm.db2.jcc.DB2Driver"
                   default-xa-ds-class="com.ibm.db2.jcc.DB2XADataSource">
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
-            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+            <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
 
             <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
@@ -456,21 +407,40 @@
                   default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource">
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
-            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+            <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
 
             <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
         </database>
+        <!--
+        * Derby:
+        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
+            <inline-jdbc><xa-properties databaseName="${moqui_runtime}/db/derby/MoquiDEFAULT" createDatabase="create"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="derby" schema-name="MOQUI">
+            <inline-jdbc jdbc-uri="jdbc:derby:MoquiDEFAULT;create=true" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+        -->
         <database name="derby"
                 use-pk-constraint-names="false" use-indexes-unique="false" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.apache.derby.jdbc.EmbeddedDriver"
                 default-xa-ds-class="org.apache.derby.jdbc.EmbeddedXADataSource">
             <!-- default-test-query="???" maybe like SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0 -->
         </database>
+        <!--
+        * H2 Database:
+        <datasource group-name="transactional" database-conf-name="h2" schema-name="">
+            <inline-jdbc><xa-properties url="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000" user="sa" password=""/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="h2" schema-name="">
+            <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000" jdbc-username="sa" jdbc-password="sa"/>
+        </datasource>
+        -->
         <database name="h2"
                 use-pk-constraint-names="false" use-indexes-unique="true" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource">
         </database>
+        <!-- TODO: add configuration examples -->
         <database name="hsql" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
                 default-isolation-level="ReadUncommitted" default-jdbc-driver="org.hsqldb.jdbcDriver"
                 default-test-query="SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0">
@@ -492,6 +462,16 @@
 
             <database-type type="binary-very-long" sql-type="OBJECT" sql-type-alias="OTHER"/>
         </database>
+        <!--
+        * MS SQL Server:
+        <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
+            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433"
+                    databaseName="MoquiDEFAULT"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
+            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+        -->
         <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="cursor"
                 default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver"
                 default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource">
@@ -518,6 +498,18 @@
 
             <database-type type="binary-very-long" sql-type="IMAGE"/>
         </database>
+        <!--
+        * MySQL (similar for Percona Server, MariaDB, AWS Aurora):
+        <datasource group-name="transactional" database-conf-name="mysql" schema-name="">
+            <inline-jdbc><xa-properties user="moqui" password="moqui" pinGlobalTxToPhysicalConnection="true"
+                    serverName="127.0.0.1" port="3306" databaseName="MoquiDEFAULT" autoReconnectForPools="true"
+                    useUnicode="true" encoding="UTF-8"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="mysql" schema-name="">
+            <inline-jdbc jdbc-uri="jdbc:mysql://127.0.0.1:3306/MoquiDEFAULT?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8"
+                    jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+        -->
         <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
                 table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
                 default-isolation-level="ReadCommitted" use-tm-join="true"
@@ -538,6 +530,15 @@
 
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
         </database>
+        <!--
+        * Oracle:
+        <datasource group-name="transactional" database-conf-name="oracle" schema-name="MOQUI">
+            <inline-jdbc><xa-properties user="moqui" password="moqui" URL="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="oracle" schema-name="MOQUI">
+            <inline-jdbc jdbc-uri="jdbc:oracle:thin:@127.0.0.1:1521:MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+        -->
         <database name="oracle" join-style="ansi" default-isolation-level="ReadCommitted"
                   default-test-query="SELECT 1 FROM DUAL" default-jdbc-driver="oracle.jdbc.driver.OracleDriver"
                   default-xa-ds-class="oracle.jdbc.xa.client.OracleXADataSource">
@@ -555,11 +556,23 @@
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
             <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
         </database>
+
         <!-- for future reference (OrientDB with JDBC driver): <database name="orientdb"
                 use-pk-constraint-names="false" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="com.orientechnologies.orient.jdbc.OrientJdbcDriver"
                 default-xa-ds-class="">
         </database> -->
+
+        <!--
+        * PostgreSQL:
+        <datasource group-name="transactional" database-conf-name="postgres" schema-name="public" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="5432"
+                    databaseName="MoquiDEFAULT"/></inline-jdbc>
+        </datasource>
+        <datasource group-name="transactional" database-conf-name="postgres" schema-name="public" startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/MoquiDEFAULT" jdbc-username="moqui" jdbc-password="moqui"/>
+        </datasource>
+        -->
         <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
                   default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                   default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource">
