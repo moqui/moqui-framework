@@ -135,11 +135,11 @@ class StupidUtilities {
     }
 
     static void filterMapList(List<Map> theList, Map<String, Object> fieldValues) {
-        if (!theList || !fieldValues) return
+        if (theList == null || theList.size() == 0 || fieldValues == null || fieldValues.size() == 0) return
         Iterator<Map> theIterator = theList.iterator()
         while (theIterator.hasNext()) {
-            Map curMap = theIterator.next()
-            for (Map.Entry entry in fieldValues.entrySet()) {
+            Map curMap = (Map) theIterator.next()
+            for (Map.Entry<String, Object> entry in fieldValues.entrySet()) {
                 if (curMap.get(entry.key) != entry.value) { theIterator.remove(); break }
             }
         }

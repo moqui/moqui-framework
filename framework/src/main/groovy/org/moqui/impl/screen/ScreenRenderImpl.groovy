@@ -306,7 +306,9 @@ class ScreenRenderImpl implements ScreenRender {
             if (request != null && targetTransition.hasActionsOrSingleService()) {
                 MNode webappNode = sfi.getWebappNode(webappName)
                 String queryString = request.getQueryString()
-                Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
+
+                // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
+                Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getRequestURI())
                 if (!targetTransition.isReadOnly() && (
                         (!request.isSecure() && !"false".equals(webappNode.attribute('https-enabled'))) ||
                         (queryString != null && queryString.length() > 0) ||
@@ -427,7 +429,7 @@ class ScreenRenderImpl implements ScreenRender {
                         for (Map.Entry<String, String> pme in pm.entrySet()) {
                             if (!pme.value) continue
                             if (ps.length() > 0) ps.append("&")
-                            ps.append(pme.key).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
+                            ps.append(URLEncoder.encode(pme.key, 'UTF-8')).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
                         }
                     }
                     String fullUrl = url
@@ -901,18 +903,21 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     Template getTemplate() {
-        if (macroTemplateLocation) {
+        if (macroTemplateLocation != null) {
             return sfi.getTemplateByLocation(macroTemplateLocation)
         } else {
-            String overrideTemplateLocation = null
+            String overrideTemplateLocation = (String) null
             // go through the screenPathDefList instead screenRenderDefList so that parent screen can override template
             //     even if it isn't rendered to decorate subscreen
-            for (ScreenDefinition sd in screenUrlInfo.screenPathDefList) {
+            ArrayList<ScreenDefinition> screenPathDefList = screenUrlInfo.screenPathDefList
+            int screenPathDefListSize = screenPathDefList.size()
+            for (int i = 0; i < screenPathDefListSize; i++) {
+                ScreenDefinition sd = (ScreenDefinition) screenPathDefList.get(i)
                 String curLocation = sd.getMacroTemplateLocation(renderMode)
                 if (curLocation != null && curLocation.length() > 0) overrideTemplateLocation = curLocation
             }
 
-            if (overrideTemplateLocation) {
+            if (overrideTemplateLocation != null) {
                 return sfi.getTemplateByLocation(overrideTemplateLocation)
             } else {
                 return sfi.getTemplateByMode(renderMode)

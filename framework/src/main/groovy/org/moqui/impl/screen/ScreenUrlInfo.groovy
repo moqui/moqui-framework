@@ -211,7 +211,7 @@ class ScreenUrlInfo {
 
         // if a user is permitted to view a certain location once in a render/ec they can safely be always allowed to, so cache it
         // add the username to the key just in case user changes during an EC instance
-        String permittedCacheKey = null
+        String permittedCacheKey = (String) null
         if (fullPathNameList != null) {
             String keyUserId = userId != null ? userId : '_anonymous'
             permittedCacheKey = keyUserId.concat(fullPathNameList.toString())
@@ -237,7 +237,7 @@ class ScreenUrlInfo {
             MNode screenNode = screenDef.getScreenNode()
 
             // if screen is limited to certain tenants, and current tenant is not in the Set, it is not permitted
-            if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
+            if (screenDef.getTenantsAllowed().size() > 0 && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
             }
@@ -678,7 +678,9 @@ class ScreenUrlInfo {
                 }
                 continue
             }
-            cleanList.add(URLDecoder.decode(pathName, "UTF-8"))
+            // cleanList.add(URLDecoder.decode(pathName, "UTF-8"))
+            // NOTE: pathName from request.getPathInfo already decoded. avoid decode again.
+            cleanList.add(pathName)
         }
         return cleanList
     }
@@ -842,7 +844,7 @@ class ScreenUrlInfo {
                 if (!pme.value) continue
                 if (pme.key == "moquiSessionToken") continue
                 if (ps.length() > 0) ps.append("&")
-                ps.append(pme.key).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
+                ps.append(URLEncoder.encode(pme.key, "UTF-8")).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
             }
             return ps.toString()
         }
@@ -852,7 +854,7 @@ class ScreenUrlInfo {
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.getValue()) continue
                 ps.append("/~")
-                ps.append(pme.getKey()).append("=").append(URLEncoder.encode(pme.getValue(), "UTF-8"))
+                ps.append(URLEncoder.encode(pme.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(pme.getValue(), "UTF-8"))
             }
             return ps.toString()
         }

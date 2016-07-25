@@ -16,16 +16,23 @@
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-apply plugin: 'groovy'
-apply plugin: 'war'
-
 version = '2.0.0'
 
-// to run use "gradle dependencyUpdates"
+apply plugin: 'groovy'
+apply plugin: 'war'
+// to run gradle-versions-plugin use "gradle dependencyUpdates"
 apply plugin: 'com.github.ben-manes.versions'
+// uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
+// apply plugin: 'net.ltgt.errorprone'
 buildscript {
-    repositories { jcenter() }
-    dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.12.0' }
+    repositories {
+        jcenter()
+        // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0'
+        // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
+    }
 }
 dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
     boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
@@ -56,7 +63,7 @@ dependencies {
     // Groovy
     compile 'org.codehaus.groovy:groovy-all:2.4.7' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    providedCompile 'org.fusesource.jansi:jansi:1.12'
+    providedCompile 'org.fusesource.jansi:jansi:1.13'
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
@@ -84,25 +91,10 @@ dependencies {
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
 
     // cron-utils
-    compile 'com.cronutils:cron-utils:4.1.0' // Apache 2.0
-
-    // ElasticSearch Libraries, including Lucene
-    compile 'org.elasticsearch:elasticsearch:2.3.3' // Apache 2.0
-    // ElasticSearch uses jackson-dataformat-smile, -yaml, -cbor pulling in jackson-core, also used by OrientDB, but gets an older version
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.7.5'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.7.5'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.5'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.7.5'
-    // JNA, needed by ElasticSearch when run embedded
-    compile 'net.java.dev.jna:jna:4.2.2' // Apache 2.0
-    // not currently needed/used: compile 'net.java.dev.jna:jna-platform:4.2.2' // Apache 2.0
-    // NOTE: the lang-groovy module must be in the runtime/elasticsearch/modules directory, not loaded from the classpath; update when updating elasticsearch version!
-    // compile module('org.elasticsearch.module:lang-groovy:2.3.3') // Apache 2.0
-    // NOTE: jts explicit dependency because doesn't get picked up in ElasticSearch, was error without, now seems fine
-    // runtime 'com.vividsolutions:jts:1.13' // LGPL (runtime only, needed by spatial4j)
+    compile 'com.cronutils:cron-utils:4.1.1' // Apache 2.0
 
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.24-incubating' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
     // Guava (big but used cron-utils, ElasticSearch, by OWASP Java HTML Sanitizer, may use internally in framework too)
@@ -140,14 +132,14 @@ dependencies {
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.2.5' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.2.5' // Apache 2.0
+    compile 'org.apache.shiro:shiro-core:1.2.6' // Apache 2.0
+    compile 'org.apache.shiro:shiro-web:1.2.6' // Apache 2.0
 
     // SLF4J, Log4J
     compile 'org.slf4j:slf4j-api:1.7.21'
-    runtime 'org.apache.logging.log4j:log4j-core:2.6.1'
-    runtime 'org.apache.logging.log4j:log4j-api:2.6.1'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.1'
+    runtime 'org.apache.logging.log4j:log4j-core:2.6.2'
+    runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
 
     // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
     compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
@@ -178,14 +170,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.9.v20160517' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.9.v20160517' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.9.v20160517' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.9.v20160517') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.9.v20160517') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.9.v20160517') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.10.v20160621' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.10.v20160621' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.10.v20160621' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.10.v20160621') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.10.v20160621') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.10.v20160621') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.9.v20160517') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.10.v20160621') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

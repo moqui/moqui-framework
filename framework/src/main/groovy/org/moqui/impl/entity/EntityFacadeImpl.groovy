@@ -498,7 +498,7 @@ class EntityFacadeImpl implements EntityFacade {
             int numEntities = 0
             for (MNode entity in entityRoot.children) {
                 String entityName = entity.attribute("entity-name")
-                String packageName = entity.attribute("package-name")
+                String packageName = entity.attribute("package") ?: entity.attribute("package-name")
                 String shortAlias = entity.attribute("short-alias")
 
                 if (entityName == null || entityName.length() == 0) {
@@ -620,7 +620,7 @@ class EntityFacadeImpl implements EntityFacade {
                 logger.warn("Could not find DbViewEntity with name ${entityName}")
                 return null
             }
-            MNode dbViewNode = new MNode("view-entity", ["entity-name":entityName, "package-name":(String) dbViewEntity.packageName])
+            MNode dbViewNode = new MNode("view-entity", ["entity-name":entityName, "package":(String) dbViewEntity.packageName])
             if (dbViewEntity.cache == "Y") dbViewNode.attributes.put("cache", "true")
             else if (dbViewEntity.cache == "N") dbViewNode.attributes.put("cache", "false")
 
@@ -640,7 +640,7 @@ class EntityFacadeImpl implements EntityFacade {
                 for (EntityValue dbViewEntityKeyMap in dbViewEntityKeyMapList) {
                     MNode keyMapNode = memberEntity.append("key-map", ["field-name":(String) dbViewEntityKeyMap.fieldName])
                     if (dbViewEntityKeyMap.relatedFieldName)
-                        keyMapNode.attributes.put("related-field-name", (String) dbViewEntityKeyMap.relatedFieldName)
+                        keyMapNode.attributes.put("related", (String) dbViewEntityKeyMap.relatedFieldName)
                 }
             }
             for (EntityValue dbViewEntityAlias in makeFind("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
@@ -673,10 +673,10 @@ class EntityFacadeImpl implements EntityFacade {
         List<MNode> extendEntityNodes = new ArrayList<MNode>()
         for (String location in entityLocationList) {
             MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
-            // filter by package-name if specified, otherwise grab whatever
+            // filter by package if specified, otherwise grab whatever
             List<MNode> packageChildren = entityRoot.children
                     .findAll({ (it.attribute("entity-name") == entityName || it.attribute("short-alias") == entityName) &&
-                        (packageName ? it.attribute("package-name") == packageName : true) })
+                        (packageName ? (it.attribute("package") == packageName || it.attribute("package-name") == packageName) : true) })
             for (MNode childNode in packageChildren) {
                 if (childNode.name == "extend-entity") {
                     extendEntityNodes.add(childNode)
@@ -691,11 +691,12 @@ class EntityFacadeImpl implements EntityFacade {
         // if entityName is a short-alias extend-entity elements won't match it, so find them again now that we have the main entityNode
         if (entityName == entityNode.attribute("short-alias")) {
             entityName = entityNode.attribute("entity-name")
-            packageName = entityNode.attribute("package-name")
+            packageName = entityNode.attribute("package") ?: entityNode.attribute("package-name")
             for (String location in entityLocationList) {
                 MNode entityRoot = getEntityFileRoot(this.ecfi.resourceFacade.getLocationReference(location))
                 List<MNode> packageChildren = entityRoot.children
-                        .findAll({ it.attribute("entity-name") == entityName && (packageName ? it.attribute("package-name") == packageName : true) })
+                        .findAll({ it.attribute("entity-name") == entityName &&
+                            (packageName ? (it.attribute("package") == packageName || it.attribute("package-name") == packageName) : true) })
                 for (MNode childNode in packageChildren) {
                     if (childNode.name == "extend-entity") {
                         extendEntityNodes.add(childNode)
@@ -707,8 +708,10 @@ class EntityFacadeImpl implements EntityFacade {
 
         // merge the extend-entity nodes
         for (MNode extendEntity in extendEntityNodes) {
-            // if package-name attributes don't match, skip
-            if (entityNode.attribute("package-name") != extendEntity.attribute("package-name")) continue
+            // if package attributes don't match, skip
+            String entityPackage = entityNode.attribute("package") ?: entityNode.attribute("package-name")
+            String extendPackage = extendEntity.attribute("package") ?: extendEntity.attribute("package-name")
+            if (entityPackage != extendPackage) continue
             // merge attributes
             entityNode.attributes.putAll(extendEntity.attributes)
             // merge field nodes
@@ -723,8 +726,11 @@ class EntityFacadeImpl implements EntityFacade {
             for (int i = 0; i < relNodeList.size(); i++) {
                 MNode copyNode = relNodeList.get(i)
                 int curNodeIndex = entityNode.children
-                        .findIndexOf({ MNode it -> it.name == "relationship" && it.attribute('title') == copyNode.attribute('title') &&
-                            it.attribute('related-entity-name') == copyNode.attribute('related-entity-name') })
+                        .findIndexOf({ MNode it ->
+                            String itRelated = it.attribute('related') ?: it.attribute('related-entity-name');
+                            String copyRelated = copyNode.attribute('related') ?: copyNode.attribute('related-entity-name');
+                            return it.name == "relationship" && itRelated == copyRelated &&
+                                    it.attribute('title') == copyNode.attribute('title'); })
                 if (curNodeIndex >= 0) {
                     entityNode.children.set(curNodeIndex, copyNode)
                 } else {
@@ -776,7 +782,7 @@ class EntityFacadeImpl implements EntityFacade {
             for (MNode relNode in ed.entityNode.children("relationship")) {
                 // don't create reverse for auto reference relationships
                 if (relNode.attribute('is-auto-reverse') == "true") continue
-                String relatedEntityName = (String) relNode.attribute("related-entity-name")
+                String relatedEntityName = (String) relNode.attribute("related") ?: relNode.attribute("related-entity-name")
                 // don't create reverse relationships coming back to the same entity, since it will have the same title
                 //     it would create multiple relationships with the same name
                 if (entityName == relatedEntityName) continue
@@ -799,8 +805,9 @@ class EntityFacadeImpl implements EntityFacade {
 
                 // does a relationship coming back already exist?
                 MNode reverseRelNode = reverseEd.entityNode.children("relationship").find( {
-                        (it.attribute('related-entity-name') == ed.entityName || it.attribute('related-entity-name') == ed.fullEntityName) &&
-                        ((!title && !it.attribute('title')) || it.attribute('title') == title) } )
+                        String itRelated = it.attribute('related') ?: it.attribute('related-entity-name')
+                        return (itRelated == ed.entityName || itRelated == ed.fullEntityName) &&
+                            ((!title && !it.attribute('title')) || it.attribute('title') == title); } )
                 // NOTE: removed "it."@type" == relType && ", if there is already any relationship coming back don't create the reverse
                 if (reverseRelNode != null) {
                     // NOTE DEJ 20150314 Just track auto-reverse, not one-reverse
@@ -816,11 +823,11 @@ class EntityFacadeImpl implements EntityFacade {
                 Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd)
 
                 MNode newRelNode = reverseEd.entityNode.append("relationship",
-                        ["related-entity-name":ed.fullEntityName, "type":relType, "is-auto-reverse":"true", "mutable":"true"])
+                        ["related":ed.fullEntityName, "type":relType, "is-auto-reverse":"true", "mutable":"true"])
                 if (relNode.attribute('title')) newRelNode.attributes.title = title
                 for (Map.Entry<String, String> keyEntry in keyMap) {
                     // add a key-map with the reverse fields
-                    newRelNode.append("key-map", ["field-name":keyEntry.value, "related-field-name":keyEntry.key])
+                    newRelNode.append("key-map", ["field-name":keyEntry.value, "related":keyEntry.key])
                 }
                 relationshipsCreated++
             }
@@ -920,7 +927,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
         TreeSet<String> allNames = new TreeSet()
-        // only add full entity names (with package-name in it, will always have at least one dot)
+        // only add full entity names (with package in it, will always have at least one dot)
         // only include entities that have a non-empty List of locations in the cache (otherwise are invalid entities)
         for (String en in entityLocationCache.keySet())
             if (en.contains(".") && entityLocationCache.get(en)) allNames.add(en)
@@ -1024,7 +1031,7 @@ class EntityFacadeImpl implements EntityFacade {
                 if (ed.getPkFieldNames().size() > 1) continue
             }
 
-            eil.add([entityName:ed.entityName, "package":ed.entityNode.attribute("package-name"),
+            eil.add([entityName:ed.entityName, "package":ed.entityNode.attribute("package"),
                     isView:(ed.isViewEntity() ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 

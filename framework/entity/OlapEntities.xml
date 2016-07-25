@@ -13,7 +13,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.0.xsd">
-    <entity entity-name="DateDayDimension" package-name="moqui.olap" group-name="analytical">
+    <entity entity-name="DateDayDimension" package="moqui.olap" use="analytical">
         <description>Date Day Dimension. The natural key is [dateValue]</description>
         <field name="dimensionId" type="id" is-pk="true"/>
         <field name="dateValue" type="date"/>
@@ -30,7 +30,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="yearAndMonth" type="text-medium"><description>Format: YYYY-MM</description></field>
         <field name="isWeekEnd" type="text-indicator"/>
     </entity>
-    <entity entity-name="CurrencyDimension" package-name="moqui.olap" group-name="analytical">
+    <entity entity-name="CurrencyDimension" package="moqui.olap" use="analytical">
         <description>Currency Dimension. The natural key is [currencyId]</description>
         <field name="dimensionId" type="id" is-pk="true"/>
         <field name="currencyId" type="id"/>

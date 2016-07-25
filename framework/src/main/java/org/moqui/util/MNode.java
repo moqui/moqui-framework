@@ -28,7 +28,10 @@ import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
+import java.nio.file.Files;
 import java.util.*;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /** An alternative to groovy.util.Node with methods more type safe and generally useful in Moqui. */
 @SuppressWarnings("unused")
@@ -69,9 +72,9 @@ public class MNode {
         MNode cached = parsedNodeCache.get(location);
         if (cached != null && cached.lastModified >= fl.lastModified()) return cached;
 
-        FileReader fr = null;
+        BufferedReader fr = null;
         try {
-            fr = new FileReader(fl);
+            fr = Files.newBufferedReader(fl.toPath(), UTF_8); // new FileReader(fl);
             MNode node = parse(fl.getPath(), new InputSource(fr));
             node.lastModified = fl.lastModified();
             if (node.lastModified > 0) parsedNodeCache.put(location, node);
@@ -199,6 +202,9 @@ public class MNode {
     }
     public boolean hasChild(String name) {
         if (name == null) return false;
+        ArrayList<MNode> curList = childrenByName.get(name);
+        if (curList != null && curList.size() > 0) return true;
+
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
@@ -208,6 +214,24 @@ public class MNode {
     }
     /** Get child at index, will throw an exception if index out of bounds */
     public MNode child(int index) { return childList.get(index); }
+
+    public Map<String, ArrayList<MNode>> getChildrenByName() {
+        Map<String, ArrayList<MNode>> allByName = new HashMap<>();
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            String name = curChild.nodeName;
+            if (childrenByName.containsKey(name)) continue;
+            ArrayList<MNode> curList = allByName.get(name);
+            if (curList == null) {
+                curList = new ArrayList<>();
+                allByName.put(name, curList);
+            }
+            curList.add(curChild);
+        }
+        childrenByName.putAll(allByName);
+        return Collections.unmodifiableMap(childrenByName);
+    }
 
     /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
      * found or empty List if no nodes found */
@@ -483,6 +507,7 @@ public class MNode {
 
     /* ========== String Methods ========== */
 
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         addToSb(sb, 0);
@@ -547,6 +572,7 @@ public class MNode {
         MNode getRootNode() { return rootNode; }
         long getNodesRead() { return nodesRead; }
 
+        @Override
         public void startElement(String ns, String localName, String qName, Attributes attributes) {
             // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
             if (curNode == null) {
@@ -565,10 +591,12 @@ public class MNode {
             }
         }
 
+        @Override
         public void characters(char[] chars, int offset, int length) {
             if (curText == null) curText = new StringBuilder();
             curText.append(chars, offset, length);
         }
+        @Override
         public void endElement(String ns, String localName, String qName) {
             if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
             if (curText != null) {
@@ -579,6 +607,7 @@ public class MNode {
             curText = null;
         }
 
+        @Override
         public void setDocumentLocator(Locator locator) { this.locator = locator; }
     }
 }

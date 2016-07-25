@@ -21,11 +21,11 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <!-- ========== DataSource ========== -->
-    <entity entity-name="DataSource" package-name="moqui.basic" group-name="nontransactional" cache="true">
+    <entity entity-name="DataSource" package="moqui.basic" use="nontransactional" cache="true">
         <field name="dataSourceId" type="id" is-pk="true"/>
         <field name="dataSourceTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
-        <relationship type="one" title="DataSourceType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="DataSourceType" related="moqui.basic.Enumeration">
             <key-map field-name="dataSourceTypeEnumId"/></relationship>
         <seed-data>
             <!-- =========================== Data Source Type Data ==================== -->
@@ -38,7 +38,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== Enumeration ========== -->
-    <entity entity-name="Enumeration" package-name="moqui.basic" group-name="configuration" short-alias="enums" cache="true">
+    <entity entity-name="Enumeration" package="moqui.basic" use="configuration" short-alias="enums" cache="true">
         <field name="enumId" type="id" is-pk="true"/>
         <field name="enumTypeId" type="id"/>
         <field name="parentEnumId" type="id"/>
@@ -46,10 +46,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
         <field name="relatedEnumId" type="id"/>
-        <relationship type="one" related-entity-name="moqui.basic.EnumerationType" short-alias="type"/>
-        <relationship type="one-nofk" title="Parent" related-entity-name="moqui.basic.Enumeration" short-alias="parent">
+        <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
+        <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
             <key-map field-name="parentEnumId"/></relationship>
-        <relationship type="one-nofk" title="Related" related-entity-name="moqui.basic.Enumeration" short-alias="related">
+        <relationship type="one-nofk" title="Related" related="moqui.basic.Enumeration" short-alias="related">
             <key-map field-name="relatedEnumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
@@ -57,13 +57,13 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
-    <entity entity-name="EnumerationType" package-name="moqui.basic" group-name="configuration" short-alias="enumerationTypes" cache="true">
+    <entity entity-name="EnumerationType" package="moqui.basic" use="configuration" short-alias="enumerationTypes" cache="true">
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
 
     <!-- ========== Geo ========== -->
-    <entity entity-name="Geo" package-name="moqui.basic" group-name="configuration" short-alias="geos" cache="true">
+    <entity entity-name="Geo" package="moqui.basic" use="configuration" short-alias="geos" cache="true">
         <field name="geoId" type="id" is-pk="true"/>
         <field name="geoTypeEnumId" type="id"/>
         <field name="geoName" type="text-medium"/>
@@ -72,12 +72,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="geoCodeAlpha3" type="text-short"/>
         <field name="geoCodeNumeric" type="text-short"/>
         <field name="wellKnownText" type="text-very-long"/>
-        <relationship type="one" title="GeoType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+        <relationship type="one" title="GeoType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="geoTypeEnumId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.basic.GeoAssoc" short-alias="assocs">
+        <relationship type="many" related="moqui.basic.GeoAssoc" short-alias="assocs">
             <key-map field-name="geoId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.basic.GeoAssoc" short-alias="toAssocs">
-            <key-map field-name="geoId" related-field-name="toGeoId"/></relationship>
+        <relationship type="many" related="moqui.basic.GeoAssoc" short-alias="toAssocs">
+            <key-map field-name="geoId" related="toGeoId"/></relationship>
         <seed-data>
             <!-- A placeholder for when there is no Geo -->
             <moqui.basic.Geo geoId="_NA_" geoName="Not Applicable" geoCodeAlpha3="_NA" geoCodeAlpha2="_N"/>
@@ -108,21 +108,21 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="toAssocs"><detail relationship="geo"/><detail relationship="type"/></detail>
         </master>
     </entity>
-    <view-entity entity-name="GeoAndType" package-name="moqui.basic">
+    <view-entity entity-name="GeoAndType" package="moqui.basic">
         <member-entity entity-alias="GEO" entity-name="moqui.basic.Geo"/>
         <member-entity entity-alias="GTE" entity-name="moqui.basic.Enumeration" join-from-alias="GEO">
-            <key-map field-name="geoTypeEnumId" related-field-name="enumId"/></member-entity>
+            <key-map field-name="geoTypeEnumId" related="enumId"/></member-entity>
         <alias-all entity-alias="GEO"/>
         <alias-all entity-alias="GTE" prefix="type"/>
     </view-entity>
-    <entity entity-name="GeoAssoc" package-name="moqui.basic" group-name="configuration" cache="true">
+    <entity entity-name="GeoAssoc" package="moqui.basic" use="configuration" cache="true">
         <field name="geoId" type="id" is-pk="true"/>
         <field name="toGeoId" type="id" is-pk="true"/>
         <field name="geoAssocTypeEnumId" type="id"/>
-        <relationship type="one" title="Main" related-entity-name="moqui.basic.Geo" short-alias="geo"/>
-        <relationship type="one" title="Assoc" related-entity-name="moqui.basic.Geo" short-alias="toGeo">
+        <relationship type="one" title="Main" related="moqui.basic.Geo" short-alias="geo"/>
+        <relationship type="one" title="Assoc" related="moqui.basic.Geo" short-alias="toGeo">
             <key-map field-name="toGeoId"/></relationship>
-        <relationship type="one" title="GeoAssocType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+        <relationship type="one" title="GeoAssocType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="geoAssocTypeEnumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Geo Assoc Type" enumTypeId="GeoAssocType"/>
@@ -131,21 +131,21 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Administrative City" enumId="GAT_COUNTY_SEAT" enumTypeId="GeoAssocType"/>
         </seed-data>
     </entity>
-    <view-entity entity-name="GeoAssocAndToDetail" package-name="moqui.basic">
+    <view-entity entity-name="GeoAssocAndToDetail" package="moqui.basic">
         <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc"/>
         <member-entity entity-alias="GEOTO" entity-name="moqui.basic.Geo" join-from-alias="GEOA">
-            <key-map field-name="toGeoId" related-field-name="geoId"/></member-entity>
+            <key-map field-name="toGeoId" related="geoId"/></member-entity>
         <alias-all entity-alias="GEOA"/>
         <alias-all entity-alias="GEOTO"><exclude field="geoId"/></alias-all>
     </view-entity>
-    <view-entity entity-name="GeoAssocAndFromDetail" package-name="moqui.basic">
+    <view-entity entity-name="GeoAssocAndFromDetail" package="moqui.basic">
         <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc"/>
         <member-entity entity-alias="GEOFR" entity-name="moqui.basic.Geo" join-from-alias="GEOA">
             <key-map field-name="geoId"/></member-entity>
         <alias-all entity-alias="GEOA"/>
         <alias-all entity-alias="GEOFR"><exclude field="geoId"/></alias-all>
     </view-entity>
-    <entity entity-name="GeoPoint" package-name="moqui.basic" group-name="configuration" short-alias="geoPoints">
+    <entity entity-name="GeoPoint" package="moqui.basic" use="configuration" short-alias="geoPoints">
         <field name="geoPointId" type="id" is-pk="true"/>
         <field name="geoPointTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
@@ -155,21 +155,21 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="elevation" type="number-float"/>
         <field name="elevationUomId" type="id"/>
         <field name="information" type="text-medium"/>
-        <relationship type="one" title="GeoPointType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+        <relationship type="one" title="GeoPointType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="geoPointTypeEnumId"/></relationship>
-        <relationship type="one" related-entity-name="moqui.basic.DataSource" short-alias="dataSource"/>
-        <relationship type="one" title="Elevation" related-entity-name="moqui.basic.Uom" short-alias="elevationUom">
+        <relationship type="one" related="moqui.basic.DataSource" short-alias="dataSource"/>
+        <relationship type="one" title="Elevation" related="moqui.basic.Uom" short-alias="elevationUom">
             <key-map field-name="elevationUomId"/></relationship>
         <master><detail relationship="type"/><detail relationship="dataSource"/><detail relationship="elevationUom"/></master>
     </entity>
 
     <!-- ========== Localized ========== -->
-    <entity entity-name="LocalizedMessage" package-name="moqui.basic" group-name="configuration" authorize-skip="view" cache="true">
+    <entity entity-name="LocalizedMessage" package="moqui.basic" use="configuration" authorize-skip="view" cache="true">
         <field name="original" type="text-medium" is-pk="true"/>
         <field name="locale" type="text-short" is-pk="true"/>
         <field name="localized" type="text-long"/>
     </entity>
-    <entity entity-name="LocalizedEntityField" package-name="moqui.basic" group-name="configuration" authorize-skip="view" cache="true">
+    <entity entity-name="LocalizedEntityField" package="moqui.basic" use="configuration" authorize-skip="view" cache="true">
         <field name="entityName" type="text-medium" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
         <field name="pkValue" type="text-medium" is-pk="true"/>
@@ -178,20 +178,19 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== Status ========== -->
-    <!-- StatusItem and related entities are in transactional group as many entities with a status are transactional; may change to configuration -->
-    <entity entity-name="StatusItem" package-name="moqui.basic" group-name="transactional" short-alias="statuses" cache="true">
+    <entity entity-name="StatusItem" package="moqui.basic" use="configuration" short-alias="statuses" cache="true">
         <field name="statusId" type="id" is-pk="true"/>
         <field name="statusTypeId" type="id"/>
         <field name="statusCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusType" short-alias="type"/>
-        <relationship type="many" related-entity-name="moqui.basic.StatusFlowItem" short-alias="flows">
+        <relationship type="one" related="moqui.basic.StatusType" short-alias="type"/>
+        <relationship type="many" related="moqui.basic.StatusFlowItem" short-alias="flows">
             <key-map field-name="statusId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.basic.StatusFlowTransition" short-alias="transitions">
+        <relationship type="many" related="moqui.basic.StatusFlowTransition" short-alias="transitions">
             <key-map field-name="statusId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.basic.StatusFlowTransition" short-alias="toTransitions">
-            <key-map field-name="statusId" related-field-name="toStatusId"/></relationship>
+        <relationship type="many" related="moqui.basic.StatusFlowTransition" short-alias="toTransitions">
+            <key-map field-name="statusId" related="toStatusId"/></relationship>
         <seed-data>
             <moqui.basic.StatusType statusTypeId="_NA_" description="Not Applicable"/>
             <moqui.basic.StatusItem statusId="_NA_" statusTypeId="_NA_" description="Not Applicable"/>
@@ -203,65 +202,65 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="toTransitions"><detail relationship="flow"/><detail relationship="status"/></detail>
         </master>
     </entity>
-    <entity entity-name="StatusType" package-name="moqui.basic" group-name="transactional" short-alias="statusTypes">
+    <entity entity-name="StatusType" package="moqui.basic" use="configuration" short-alias="statusTypes">
         <field name="statusTypeId" type="id" is-pk="true"/>
         <field name="parentTypeId" type="id"/>
         <field name="description" type="text-medium"/>
-        <relationship type="one" title="Parent" related-entity-name="moqui.basic.StatusType">
-            <!-- NOTE: the related-field-name is necessary here because it is a reference back to the same entity and
+        <relationship type="one" title="Parent" related="moqui.basic.StatusType">
+            <!-- NOTE: related is necessary here because it is a reference back to the same entity and
                  will find the parentTypeId as the related field because it matches by name. -->
-            <key-map field-name="parentTypeId" related-field-name="statusTypeId"/>
+            <key-map field-name="parentTypeId" related="statusTypeId"/>
         </relationship>
     </entity>
-    <entity entity-name="StatusFlow" package-name="moqui.basic" group-name="transactional">
+    <entity entity-name="StatusFlow" package="moqui.basic" use="configuration">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusTypeId" type="id"><description>Optional. If specified uses status items with this type.</description></field>
         <field name="description" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusType" short-alias="type"/>
+        <relationship type="one" related="moqui.basic.StatusType" short-alias="type"/>
         <seed-data>
             <moqui.basic.StatusFlow statusFlowId="Default" description="Default status flow across entire system."/>
         </seed-data>
     </entity>
-    <entity entity-name="StatusFlowItem" package-name="moqui.basic" group-name="transactional">
+    <entity entity-name="StatusFlowItem" package="moqui.basic" use="configuration">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
         <field name="isInitial" type="text-indicator"><description>If true can be an initial status in this flow.</description></field>
-        <relationship type="one" related-entity-name="moqui.basic.StatusFlow" short-alias="flow"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
     </entity>
-    <entity entity-name="StatusFlowTransition" package-name="moqui.basic" group-name="transactional" cache="true">
+    <entity entity-name="StatusFlowTransition" package="moqui.basic" use="configuration" cache="true">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
         <field name="toStatusId" type="id" is-pk="true"/>
         <field name="transitionSequence" type="number-integer"/>
         <field name="transitionName" type="text-medium" enable-localization="true"/>
         <field name="conditionExpression" type="text-medium"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusFlow" short-alias="flow"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
-        <relationship type="one" title="To" related-entity-name="moqui.basic.StatusItem" short-alias="toStatus">
-            <key-map field-name="toStatusId" related-field-name="statusId"/></relationship>
+        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
+            <key-map field-name="toStatusId" related="statusId"/></relationship>
     </entity>
-    <view-entity entity-name="StatusFlowTransitionToDetail" package-name="moqui.basic">
+    <view-entity entity-name="StatusFlowTransitionToDetail" package="moqui.basic">
         <member-entity entity-alias="SFT" entity-name="moqui.basic.StatusFlowTransition"/>
         <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFT">
-            <key-map field-name="toStatusId" related-field-name="statusId"/></member-entity>
+            <key-map field-name="toStatusId" related="statusId"/></member-entity>
         <alias-all entity-alias="SFT"/>
         <alias-all entity-alias="SI"><exclude field="statusId"/></alias-all>
         <entity-condition><order-by field-name="sequenceNum"/></entity-condition>
     </view-entity>
 
     <!-- ========== Uom ========== -->
-    <entity entity-name="Uom" package-name="moqui.basic" group-name="configuration" short-alias="uoms" cache="true">
+    <entity entity-name="Uom" package="moqui.basic" use="configuration" short-alias="uoms" cache="true">
         <field name="uomId" type="id" is-pk="true"/>
         <field name="uomTypeEnumId" type="id"/>
         <field name="abbreviation" type="text-short"/>
         <field name="description" type="text-medium"/>
-        <relationship type="one" title="UomType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+        <relationship type="one" title="UomType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="uomTypeEnumId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.basic.UomConversion" short-alias="conversions">
+        <relationship type="many" related="moqui.basic.UomConversion" short-alias="conversions">
             <key-map field-name="uomId"/></relationship>
-        <relationship type="many" related-entity-name="moqui.basic.UomConversion" short-alias="toConversions">
-            <key-map field-name="uomId" related-field-name="toUomId"/></relationship>
+        <relationship type="many" related="moqui.basic.UomConversion" short-alias="toConversions">
+            <key-map field-name="uomId" related="toUomId"/></relationship>
         <seed-data>
             <!-- =========================== UOM Type Data ============================ -->
             <moqui.basic.EnumerationType description="UOM Type" enumTypeId="UomType"/>
@@ -288,17 +287,17 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="toConversions"><detail relationship="uom"/></detail>
         </master>
     </entity>
-    <view-entity entity-name="UomAndType" package-name="moqui.basic" cache="true">
+    <view-entity entity-name="UomAndType" package="moqui.basic" cache="true">
         <member-entity entity-alias="UOM" entity-name="moqui.basic.Uom"/>
         <member-entity entity-alias="UTE" entity-name="moqui.basic.Enumeration" join-from-alias="UOM">
-            <key-map field-name="uomTypeEnumId" related-field-name="enumId"/></member-entity>
+            <key-map field-name="uomTypeEnumId" related="enumId"/></member-entity>
         <alias entity-alias="UOM" name="uomId"/>
         <alias entity-alias="UOM" name="uomTypeEnumId"/>
         <alias entity-alias="UOM" name="description"/>
         <alias entity-alias="UOM" name="abbreviation"/>
         <alias entity-alias="UTE" name="typeDescription" field="description"/>
     </view-entity>
-    <entity entity-name="UomConversion" package-name="moqui.basic" group-name="configuration" cache="true">
+    <entity entity-name="UomConversion" package="moqui.basic" use="configuration" cache="true">
         <field name="uomConversionId" type="id" is-pk="true"/>
         <field name="uomId" type="id"/>
         <field name="toUomId" type="id"/>
@@ -310,18 +309,18 @@ along with this software (see the LICENSE.md file). If not, see
                 direction the offset is subtracted first, then divided by the factor.
             </description>
         </field>
-        <relationship type="one" related-entity-name="moqui.basic.Uom" short-alias="uom"/>
-        <relationship type="one" title="To" related-entity-name="moqui.basic.Uom" short-alias="toUom">
-            <key-map field-name="toUomId" related-field-name="uomId"/></relationship>
+        <relationship type="one" related="moqui.basic.Uom" short-alias="uom"/>
+        <relationship type="one" title="To" related="moqui.basic.Uom" short-alias="toUom">
+            <key-map field-name="toUomId" related="uomId"/></relationship>
     </entity>
-    <view-entity entity-name="UomConversionAndToDetail" package-name="moqui.basic">
+    <view-entity entity-name="UomConversionAndToDetail" package="moqui.basic">
         <member-entity entity-alias="UOMC" entity-name="moqui.basic.UomConversion"/>
         <member-entity entity-alias="UOMTO" entity-name="moqui.basic.Uom" join-from-alias="UOMC">
-            <key-map field-name="toUomId" related-field-name="uomId"/></member-entity>
+            <key-map field-name="toUomId" related="uomId"/></member-entity>
         <alias-all entity-alias="UOMC"/>
         <alias-all entity-alias="UOMTO"><exclude field="uomId"/></alias-all>
     </view-entity>
-    <view-entity entity-name="UomConversionAndFromDetail" package-name="moqui.basic">
+    <view-entity entity-name="UomConversionAndFromDetail" package="moqui.basic">
         <member-entity entity-alias="UOMC" entity-name="moqui.basic.UomConversion"/>
         <member-entity entity-alias="UOMFR" entity-name="moqui.basic.Uom" join-from-alias="UOMC">
             <key-map field-name="uomId"/></member-entity>
@@ -333,7 +332,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.basic.email -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EmailMessage" package-name="moqui.basic.email" group-name="nontransactional" short-alias="emailMessages" cache="never">
+    <entity entity-name="EmailMessage" package="moqui.basic.email" use="nontransactional" short-alias="emailMessages" cache="never">
         <field name="emailMessageId" type="id" is-pk="true"/>
         <field name="rootEmailMessageId" type="id">
             <description>For threaded messages, this points to the message that started the thread.</description></field>
@@ -359,21 +358,21 @@ along with this software (see the LICENSE.md file). If not, see
             <description>For outgoing messages that came from an EmailTemplate.</description></field>
         <field name="emailServerId" type="id"/>
 
-        <relationship type="one" title="EmailMessage" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
-        <relationship type="one" title="EmailType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
+        <relationship type="one" title="EmailMessage" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="EmailType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="emailTypeEnumId"/></relationship>
-        <relationship type="one" title="Root" related-entity-name="moqui.basic.email.EmailMessage" short-alias="root">
-            <key-map field-name="rootEmailMessageId" related-field-name="emailMessageId"/></relationship>
-        <relationship type="one" title="Parent" related-entity-name="moqui.basic.email.EmailMessage" short-alias="parent">
-            <key-map field-name="parentEmailMessageId" related-field-name="emailMessageId"/></relationship>
-        <relationship type="many" title="Child" related-entity-name="moqui.basic.email.EmailMessage" short-alias="children">
-            <key-map field-name="emailMessageId" related-field-name="parentEmailMessageId"/></relationship>
-        <relationship type="one" title="From" related-entity-name="moqui.security.UserAccount" short-alias="fromUser">
+        <relationship type="one" title="Root" related="moqui.basic.email.EmailMessage" short-alias="root">
+            <key-map field-name="rootEmailMessageId" related="emailMessageId"/></relationship>
+        <relationship type="one" title="Parent" related="moqui.basic.email.EmailMessage" short-alias="parent">
+            <key-map field-name="parentEmailMessageId" related="emailMessageId"/></relationship>
+        <relationship type="many" title="Child" related="moqui.basic.email.EmailMessage" short-alias="children">
+            <key-map field-name="emailMessageId" related="parentEmailMessageId"/></relationship>
+        <relationship type="one" title="From" related="moqui.security.UserAccount" short-alias="fromUser">
             <key-map field-name="fromUserId"/></relationship>
-        <relationship type="one" title="To" related-entity-name="moqui.security.UserAccount" short-alias="toUser">
+        <relationship type="one" title="To" related="moqui.security.UserAccount" short-alias="toUser">
             <key-map field-name="toUserId"/></relationship>
-        <relationship type="one" related-entity-name="moqui.basic.email.EmailTemplate" short-alias="template"/>
-        <relationship type="one" related-entity-name="moqui.basic.email.EmailServer" short-alias="server"/>
+        <relationship type="one" related="moqui.basic.email.EmailTemplate" short-alias="template"/>
+        <relationship type="one" related="moqui.basic.email.EmailServer" short-alias="server"/>
 
         <index name="EMAIL_MSG_ID"><index-field name="messageId"/></index>
 
@@ -415,7 +414,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="template"/><detail relationship="server"/>
         </master>
     </entity>
-    <entity entity-name="EmailServer" package-name="moqui.basic.email" group-name="configuration" cache="true">
+    <entity entity-name="EmailServer" package="moqui.basic.email" use="configuration" cache="true">
         <field name="emailServerId" type="id" is-pk="true"/>
         <field name="smtpHost" type="text-medium"/>
         <field name="smtpPort" type="text-short"/>
@@ -445,7 +444,7 @@ along with this software (see the LICENSE.md file). If not, see
             -->
         </seed-data>
     </entity>
-    <entity entity-name="EmailTemplate" package-name="moqui.basic.email" group-name="configuration" short-alias="emailTemplates" cache="true">
+    <entity entity-name="EmailTemplate" package="moqui.basic.email" use="configuration" short-alias="emailTemplates" cache="true">
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="emailServerId" type="id"/>
@@ -459,13 +458,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="bodyScreenLocation" type="text-medium"/>
         <field name="webappName" type="text-medium"/>
         <field name="sendPartial" type="text-indicator"/>
-        <relationship type="one" related-entity-name="moqui.basic.email.EmailServer" short-alias="server"/>
-        <relationship type="many" related-entity-name="moqui.basic.email.EmailTemplateAttachment"
+        <relationship type="one" related="moqui.basic.email.EmailServer" short-alias="server"/>
+        <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment"
                 short-alias="attachments" mutable="true">
             <key-map field-name="emailTemplateId"/></relationship>
         <master><detail relationship="server"/><detail relationship="attachments"/></master>
     </entity>
-    <entity entity-name="EmailTemplateAttachment" package-name="moqui.basic.email" group-name="configuration" cache="true">
+    <entity entity-name="EmailTemplateAttachment" package="moqui.basic.email" use="configuration" cache="true">
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="fileName" type="text-medium" is-pk="true"/>
         <field name="attachmentLocation" type="text-medium"/>
@@ -477,14 +476,14 @@ along with this software (see the LICENSE.md file). If not, see
                 be based on its extension.
             </description>
         </field>
-        <relationship type="one" related-entity-name="moqui.basic.email.EmailTemplate"/>
+        <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.basic.print -->
     <!-- ========================================================= -->
     
-    <entity entity-name="NetworkPrinter" package-name="moqui.basic.print" group-name="configuration">
+    <entity entity-name="NetworkPrinter" package="moqui.basic.print" use="configuration">
         <field name="networkPrinterId" type="id" is-pk="true"/>
         <field name="serverHost" type="text-medium"/>
         <field name="serverPort" type="number-integer"><description>Defaults to 631</description></field>
@@ -492,7 +491,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="location" type="text-medium"/>
     </entity>
-    <entity entity-name="PrintJob" package-name="moqui.basic.print" group-name="nontransactional" short-alias="printJobs" cache="never">
+    <entity entity-name="PrintJob" package="moqui.basic.print" use="nontransactional" short-alias="printJobs" cache="never">
         <field name="printJobId" type="id" is-pk="true"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="createdDate" type="date-time"/>
@@ -506,8 +505,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="pageRanges" type="text-short"/>
         <field name="contentType" type="text-short"/>
         <field name="document" type="binary-very-long"/>
-        <relationship type="one" related-entity-name="moqui.basic.print.NetworkPrinter" short-alias="printer"/>
-        <relationship type="one" title="PrintJob" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" related="moqui.basic.print.NetworkPrinter" short-alias="printer"/>
+        <relationship type="one" title="PrintJob" related="moqui.basic.StatusItem" short-alias="status"/>
         <seed-data>
             <!-- Print Job Status -->
             <moqui.basic.StatusType description="Print Job Status" statusTypeId="PrintJob"/>

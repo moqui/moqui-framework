@@ -108,7 +108,8 @@ public class EntityDefinition {
         isView = internalEntityNode.name == "view-entity"
         isDynamicView = internalEntityNode.attribute("is-dynamic-view") == "true"
         internalEntityName = internalEntityNode.attribute("entity-name")
-        fullEntityName = internalEntityNode.attribute("package-name") + "." + internalEntityName
+        String packageName = internalEntityNode.attribute("package") ?: internalEntityNode.attribute("package-name")
+        fullEntityName = packageName + "." + internalEntityName
         shortAlias = internalEntityNode.attribute("short-alias") ?: null
 
         if (isDynamicView) {
@@ -117,7 +118,7 @@ public class EntityDefinition {
                     .find({ !it.attribute("join-from-alias") })?.attribute("entity-name")
             groupName = efi.getEntityGroupName(memberEntityName)
         } else {
-            groupName = internalEntityNode.attribute("group-name") ?: efi.getDefaultGroupName()
+            groupName = internalEntityNode.attribute("group") ?: internalEntityNode.attribute("group-name") ?: efi.getDefaultGroupName()
         }
         datasourceFactory = efi.getDatasourceFactory(groupName)
 
@@ -165,7 +166,7 @@ public class EntityDefinition {
             memberEntityFieldAliases = [:]
             memberEntityAliasMap = [:]
 
-            // get group-name, etc from member-entity
+            // get group, etc from member-entity
             Set<String> allGroupNames = new TreeSet<>()
             for (MNode memberEntity in internalEntityNode.children("member-entity")) {
                 String memberEntityName = memberEntity.attribute("entity-name")
@@ -173,13 +174,13 @@ public class EntityDefinition {
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntityName)
                 if (memberEd == null) throw new EntityException("No definition found for member entity alias ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
                 MNode memberEntityNode = memberEd.getEntityNode()
-                String groupNameAttr = memberEntityNode.attribute("group-name")
+                String groupNameAttr = memberEntityNode.attribute("group") ?: memberEntityNode.attribute("group-name")
                 if (groupNameAttr == null || groupNameAttr.length() == 0) {
-                    // use the default group-name
+                    // use the default group
                     groupNameAttr = efi.getDefaultGroupName()
                 }
                 // only set on view-entity for the first one
-                if (allGroupNames.size() == 0) internalEntityNode.attributes.put("group-name", groupNameAttr)
+                if (allGroupNames.size() == 0) internalEntityNode.attributes.put("group", groupNameAttr)
                 // remember all group names applicable to the view entity
                 allGroupNames.add(groupNameAttr)
 
@@ -470,7 +471,7 @@ public class EntityDefinition {
         } else {
             for (MNode keyMap in keyMapList) {
                 String fieldName = keyMap.attribute('field-name')
-                String relFn = keyMap.attribute('related-field-name') ?: fieldName
+                String relFn = keyMap.attribute('related') ?: keyMap.attribute('related-field-name') ?: fieldName
                 if (!relEd.isField(relFn) && ((String) relationship.attribute('type')).startsWith("one")) {
                     List<String> pks = relEd.getPkFieldNames()
                     if (pks.size() == 1) relFn = pks.get(0)
@@ -559,7 +560,7 @@ public class EntityDefinition {
             type = relNode.attribute('type')
             isTypeOne = type.startsWith("one")
             title = relNode.attribute('title') ?: ''
-            relatedEntityName = relNode.attribute('related-entity-name')
+            relatedEntityName = relNode.attribute('related') ?: relNode.attribute('related-entity-name')
             relatedEd = efi.getEntityDefinition(relatedEntityName)
             if (relatedEd == null) throw new EntityNotFoundException("Invalid entity relationship, ${relatedEntityName} not found in definition for entity ${fromEd.getFullEntityName()}")
             relatedEntityName = relatedEd.getFullEntityName()
@@ -580,9 +581,10 @@ public class EntityDefinition {
 
         private boolean hasReverse() {
             MNode reverseRelNode = relatedEd.internalEntityNode.children("relationship").find(
-                    { ((it.attribute("related-entity-name") == fromEd.internalEntityName || it.attribute("related-entity-name") == fromEd.fullEntityName)
+                    { String related = it.attribute("related") ?: it.attribute("related-entity-name");
+                      return ((related == fromEd.internalEntityName || related == fromEd.fullEntityName)
                             && (it.attribute("type") == "one" || it.attribute("type") == "one-nofk")
-                            && ((!title && !it.attribute("title")) || it.attribute("title") == title)) })
+                            && ((!title && !it.attribute("title")) || it.attribute("title") == title)); })
             return reverseRelNode != null
         }
 
@@ -1424,8 +1426,8 @@ public class EntityDefinition {
                 boolean foundOne = false
                 for (MNode keyMapNode in memberEntityNode.children("key-map")) {
                     //logger.warn("TOREMOVE 4 getMePkFieldToAliasNameMap entityAlias=${entityAlias} for pkName=${pkName}, keyMapNode=${keyMapNode}")
-                    if (keyMapNode.attribute("related-field-name") == pkName ||
-                            (!keyMapNode.attribute("related-field-name") && keyMapNode.attribute("field-name") == pkName)) {
+                    String relatedField = keyMapNode.attribute("related") ?: keyMapNode.attribute("related-field-name") ?: keyMapNode.attribute("field-name")
+                    if (relatedField == pkName) {
                         String relatedPkName = keyMapNode.attribute("field-name")
                         MNode relatedMatchingAliasNode = entityNode.children("alias").find({
                             it.attribute("entity-alias") == memberEntityNode.attribute("join-from-alias") &&
@@ -1447,7 +1449,8 @@ public class EntityDefinition {
                     boolean foundOne = false
                     for (MNode keyMapNode in relatedMeNode.children("key-map")) {
                         if (keyMapNode.attribute("field-name") == pkName) {
-                            String relatedPkName = keyMapNode.attribute("related-field-name") ?: keyMapNode.attribute("field-name")
+                            String relatedPkName = keyMapNode.attribute("related") ?:
+                                    keyMapNode.attribute("related-field-name") ?: keyMapNode.attribute("field-name")
                             MNode relatedMatchingAliasNode = entityNode.children("alias").find({
                                 it.attribute("entity-alias") == relatedMeNode.attribute("entity-alias") &&
                                 (it.attribute("field") == relatedPkName || (!it.attribute("field") && it.attribute("name") == relatedPkName)) })
@@ -1670,7 +1673,7 @@ public class EntityDefinition {
                             if (!isRel && keyMap.attribute("field-name") == fieldNode.attribute("name")) {
                                 isInViewLink = true
                                 break
-                            } else if (isRel && (keyMap.attribute("related-field-name") ?: keyMap.attribute("field-name")) == fieldNode.attribute("name")) {
+                            } else if (isRel && ((keyMap.attribute("related") ?: keyMap.attribute("related-field-name") ?: keyMap.attribute("field-name"))) == fieldNode.attribute("name")) {
                                 isInViewLink = true
                                 break
                             }

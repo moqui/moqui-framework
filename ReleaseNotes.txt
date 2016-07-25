@@ -18,10 +18,12 @@ Non Backward Compatible Changes
 
 - Java JDK 8 now required for running executable WAR
 - No longer using Winstone embedded web server (now using Jetty)
-- Caching
-  - Ehcache has been removed
-  - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
-  - Configuration options for caches changed (moqui-conf.cache-list.cache)
+- Entity Definitions
+  - XSDs updated for these changes, though old attributes still supported
+  - changed entity.@package-name to entity.@package
+  - changed entity.@group-name to entity.@group
+  - changed relationship.@related-entity-name to relationship.@related
+  - changed key-map.@related-field-name to key-map.@related
 - Service Job Scheduling
   - Quartz Scheduler has been removed, use new ServiceJob instead which
     supports more relevant options, is much cleaner and more manageable
@@ -40,6 +42,19 @@ Non Backward Compatible Changes
   - For all of these artifacts see moqui-framework commit #d42ede0 and
     moqui-runtime commit #6a9c61e
 - Externalized Tools
+  - ElasticSearch (and Apache Lucene)
+    - libraries, classes and all related services, screens, etc are now in
+      the moqui-elasticsearch component
+    - System/DataDocument screens now in moqui-elasticsearch component and
+      added to tools/System app through SubscreensItem record
+    - all ElasticSearch services in org.moqui.impl.EntityServices moved to
+      org.moqui.search.SearchServices including:
+      index#DataDocuments, put#DataDocumentMappings,
+      index#DataFeedDocuments, search#DataDocuments, search#CountBySource
+    - Moved index#WikiSpacePages service from org.moqui.impl.WikiServices
+      to org.moqui.search.SearchServices
+    - ElasticSearch dependent REST API methods moved to the 'elasticsearch'
+      REST API in the moqui-elasticsearch component
   - Apache FOP is now in the moqui-fop tool component; everything in the
     framework, including the now poorly named MoquiFopServlet, use generic
     interfaces but XML-FO files will not transform to PDF/etc without this
@@ -64,6 +79,10 @@ Non Backward Compatible Changes
     getTool("KIE", KieToolFactory.class) and use the corresponding
     methods there
   - See new feature notes under Tool Factory
+- Caching
+  - Ehcache has been removed
+  - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
+  - Configuration options for caches changed (moqui-conf.cache-list.cache)
 - NotificationMessage
   - NotificationMessage, NotificationMessageListener interfaces have
     various changes for more features and to better support serialized
@@ -101,6 +120,9 @@ Non Backward Compatible Changes
   ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and
   caused performance overhead
+- Removed ArtifactAuthzRecord/Cond entities and support for them; this was
+  never all that useful and is replaced by the ArtifactAuthzFilter and
+  EntityFilter entities
 - The ContextStack class has moved to the org.moqui.util package
 - When updating to this version recommend stopping all instances in a
   cluster before starting any instance with the new version
@@ -460,12 +482,12 @@ Bug Fixes
 Long Term To Do List - aka Informal Road Map
 ===========================================================================
 
-- Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
+- Option for link element to only render if referenced transition/screen exists
+- Option for transition to only mount if all response URLs for screen paths exist
+- Perhaps never throw exception for ScreenUrlInfo or UrlInstance if screen or transition does not exist, ie just add
+  method to see if exists and show disabled link if it doesn't?
 
-- Move tools from moqui-framework to tool components
-  - Used in Mantle/HM/PC, but might not be used by all moqui-framework users
-    - ElasticSearch (moqui-elasticsearch)
-    - add mantle-usl dependencies on moqui-elasticsearch
+- Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 
 - Improved Distributed Datasource Support
   - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical

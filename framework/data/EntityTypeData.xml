@@ -35,6 +35,6 @@ along with this software (see the LICENSE.md file). If not, see
             titleTemplate="Index Documents Completed for DataFeed ${parameters.dataFeedId}, indexed ${results.documentsIndexed} documents"
             errorTitleTemplate="Error in Index Documents for DataFeed ${parameters.dataFeedId}"
             linkTemplate=""/>
-    <moqui.service.job.ServiceJob jobName="IndexDataFeedDocuments" description="Process Pay for Payroll Period"
-            serviceName="org.moqui.impl.EntityServices.index#DataFeedDocuments" topic="IndexDataFeedDocuments"/>
+    <moqui.service.job.ServiceJob jobName="IndexDataFeedDocuments" description="Index DataFeed Documents"
+            serviceName="org.moqui.search.SearchServices.index#DataFeedDocuments" topic="IndexDataFeedDocuments"/>
 </entity-facade-xml>

@@ -90,11 +90,10 @@ class XmlAction {
     protected synchronized Class makeGroovyClass() {
         if (groovyClassInternal != null) return groovyClassInternal
 
-        getGroovyString()
-        // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${groovyString}")
+        String curGroovy = getGroovyString()
+        // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
         try {
-            groovyClassInternal = new GroovyClassLoader(Thread.currentThread().getContextClassLoader())
-                    .parseClass(groovyString, StupidUtilities.cleanStringForJavaName(location))
+            groovyClassInternal = ecfi.getGroovyClassLoader().parseClass(curGroovy, StupidUtilities.cleanStringForJavaName(location))
         } catch (Throwable t) {
             groovyClassInternal = null
             logger.error("Error parsing groovy String at [${location}]:\n${writeGroovyWithLines()}\n")

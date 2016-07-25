@@ -42,7 +42,7 @@ class ScreenSection {
 
         // prep condition attribute
         String conditionAttr = sectionNode.attribute("condition")
-        if (conditionAttr) conditionClass = new GroovyClassLoader().parseClass(conditionAttr)
+        if (conditionAttr) conditionClass = ecfi.getGroovyClassLoader().parseClass(conditionAttr)
 
         // prep condition element
         if (sectionNode.first("condition")?.first() != null) {

@@ -13,15 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entity-facade-xml type="seed">
-    <!-- Scheduled Service Statuses -->
-    <moqui.basic.StatusType description="Scheduled Service" parentTypeId="" statusTypeId="SCHED_SERVICE"/>
-    <moqui.basic.StatusItem description="Pending" sequenceNum="01" statusCode="PENDING" statusId="SCHSER_PENDING" statusTypeId="SCHED_SERVICE"/>
-    <moqui.basic.StatusItem description="Memory Queued" sequenceNum="02" statusCode="QUEUED" statusId="SCHSER_QUEUED" statusTypeId="SCHED_SERVICE"/>
-    <moqui.basic.StatusItem description="Running" sequenceNum="05" statusCode="RUNNING" statusId="SCHSER_RUNNING" statusTypeId="SCHED_SERVICE"/>
-    <moqui.basic.StatusItem description="Finished" sequenceNum="10" statusCode="FINISHED" statusId="SCHSER_FINISHED" statusTypeId="SCHED_SERVICE"/>
-    <moqui.basic.StatusItem description="Crashed" sequenceNum="40" statusCode="CRASHED" statusId="SCHSER_CRASHED" statusTypeId="SCHED_SERVICE"/>
-    <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusCode="CANCELLED" statusId="SCHSER_CANCELLED" statusTypeId="SCHED_SERVICE"/>
-
     <!-- ========== Framework Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
 

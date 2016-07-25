@@ -39,6 +39,8 @@ import java.sql.Timestamp
 abstract class EntityFindBase implements EntityFind {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFindBase.class)
 
+    final static int defaultResultSetType = ResultSet.TYPE_FORWARD_ONLY
+
     protected final EntityFacadeImpl efi
     protected final TransactionCache txCache
 
@@ -64,7 +66,7 @@ abstract class EntityFindBase implements EntityFind {
     protected Integer limit = (Integer) null
     protected boolean forUpdate = false
 
-    protected int resultSetType = ResultSet.TYPE_SCROLL_INSENSITIVE
+    protected int resultSetType = defaultResultSetType
     protected int resultSetConcurrency = ResultSet.CONCUR_READ_ONLY
     protected Integer fetchSize = (Integer) null
     protected Integer maxRows = (Integer) null
@@ -643,7 +645,11 @@ abstract class EntityFindBase implements EntityFind {
     int getPageSize() { return limit != null ? limit : 20 }
 
     @Override
-    EntityFind forUpdate(boolean forUpdate) { this.forUpdate = forUpdate; return this }
+    EntityFind forUpdate(boolean forUpdate) {
+        this.forUpdate = forUpdate
+        this.resultSetType = forUpdate ? ResultSet.TYPE_SCROLL_SENSITIVE : defaultResultSetType
+        return this
+    }
     @Override
     boolean getForUpdate() { return this.forUpdate }
 
@@ -866,7 +872,7 @@ abstract class EntityFindBase implements EntityFind {
         // count the artifact hit
         // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
         efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "one", ed.getFullEntityName(), simpleAndMap,
-                startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, newEntityValue ? 1L : 0L)
+                startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, newEntityValue != null ? 1L : 0L)
 
         return newEntityValue
     }

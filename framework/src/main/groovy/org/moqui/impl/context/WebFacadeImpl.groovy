@@ -141,10 +141,10 @@ class WebFacadeImpl implements WebFacade {
 
             for (FileItem item in items) {
                 if (item.isFormField()) {
-                    multiPartParameters.put(item.getFieldName(), item.getString("UTF-8"))
+                    addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
                 } else {
                     // put the FileItem itself in the Map to be used by the application code
-                    multiPartParameters.put(item.getFieldName(), item)
+                    addValueToMultipartParameterMap(item.getFieldName(), item)
                     fileUploadList.add(item)
 
                     /* Stuff to do with the FileItem:
@@ -181,6 +181,25 @@ class WebFacadeImpl implements WebFacade {
             sessionToken = Base64.encodeBase64URLSafeString(randomBytes)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
+        }
+    }
+
+    /**
+     * commons fileupload not support string array, when use multiple select, there's duplicate fieldName,
+     * convert value to an array list when fieldName already in multipart parameters.
+     * @param key
+     * @param value
+     */
+    private <T> void addValueToMultipartParameterMap(String key, T value) {
+        Object previouseValue = multiPartParameters.put(key, value)
+        if (previouseValue !=null) {
+            List<T> values = new ArrayList<>()
+            values.add((T) multiPartParameters.put(key, values))
+            if(previouseValue instanceof Collection) {
+                values.addAll((Collection)previouseValue)
+            } else {
+                values.add((T) previouseValue)
+            }
         }
     }
 
@@ -352,14 +371,17 @@ class WebFacadeImpl implements WebFacade {
 
         ContextStack cs = new ContextStack(false)
         if (savedParameters != null) cs.push(savedParameters)
-        if (multiPartParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(multiPartParameters))
+        if (multiPartParameters != null) cs.push(multiPartParameters)
         if (jsonParameters != null) cs.push(jsonParameters)
         if (declaredPathParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(declaredPathParameters))
-        Map reqParmMap = request.getParameterMap()
-        if (reqParmMap != null && reqParmMap.size() > 0) cs.push(new StupidWebUtilities.CanonicalizeMap(reqParmMap))
-        Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
-        if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0)
-            cs.push(new StupidWebUtilities.CanonicalizeMap(pathInfoParameterMap))
+
+        // no longer uses StupidWebUtilities.CanonicalizeMap, search Map for String[] of size 1 and change to String
+        Map<String, Object> reqParmMap = StupidWebUtilities.simplifyRequestParameters(request)
+        if (reqParmMap.size() > 0) cs.push(reqParmMap)
+
+        // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
+        Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getRequestURI())
+        if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0) cs.push(pathInfoParameterMap)
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
 
         // do one last push so writes don't modify whatever was at the top of the stack
@@ -373,10 +395,11 @@ class WebFacadeImpl implements WebFacade {
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
-        if (!request.getQueryString()) cs.push(request.getParameterMap() as Map<String, Object>)
-
-        // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
-        return new StupidWebUtilities.CanonicalizeMap(cs)
+        if (!request.getQueryString()) {
+            Map<String, Object> reqParmMap = StupidWebUtilities.simplifyRequestParameters(request)
+            if (reqParmMap.size() > 0) cs.push(reqParmMap)
+        }
+        return cs
     }
     @Override
     String getHostName(boolean withPort) {
@@ -1295,9 +1318,9 @@ class WebFacadeImpl implements WebFacade {
         session.setAttribute("moqui.error.parameters", parms)
     }
 
-    static DiskFileItemFactory makeDiskFileItemFactory(ServletContext context) {
+    DiskFileItemFactory makeDiskFileItemFactory(ServletContext context) {
         // NOTE: consider keeping this factory somewhere to be more efficient, if it even makes a difference...
-        File repository = new File(System.getProperty("moqui.runtime") + "/tmp")
+        File repository = new File(eci.ecfi.runtimePath + "/tmp")
         if (!repository.exists()) repository.mkdir()
 
         DiskFileItemFactory factory = new DiskFileItemFactory(DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD, repository)

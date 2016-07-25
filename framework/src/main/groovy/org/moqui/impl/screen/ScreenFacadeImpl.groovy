@@ -216,16 +216,16 @@ public class ScreenFacadeImpl implements ScreenFacade {
 
     Template getTemplateByMode(String renderMode) {
         Template template = (Template) screenTemplateModeCache.get(renderMode)
-        if (template) return template
+        if (template != null) return template
 
         template = makeTemplateByMode(renderMode)
-        if (!template) throw new IllegalArgumentException("Could not find screen render template for mode [${renderMode}]")
+        if (template == null) throw new IllegalArgumentException("Could not find screen render template for mode [${renderMode}]")
         return template
     }
 
     protected synchronized Template makeTemplateByMode(String renderMode) {
         Template template = (Template) screenTemplateModeCache.get(renderMode)
-        if (template) return template
+        if (template != null) return template
 
         MNode stoNode = ecfi.getConfXmlRoot().first("screen-facade")
                 .first({ MNode it -> it.name == "screen-text-output" && it.attribute("type") == renderMode })
@@ -248,13 +248,13 @@ public class ScreenFacadeImpl implements ScreenFacade {
 
     Template getTemplateByLocation(String templateLocation) {
         Template template = (Template) screenTemplateLocationCache.get(templateLocation)
-        if (template) return template
+        if (template != null) return template
         return makeTemplateByLocation(templateLocation)
     }
 
     protected synchronized Template makeTemplateByLocation(String templateLocation) {
         Template template = (Template) screenTemplateLocationCache.get(templateLocation)
-        if (template) return template
+        if (template != null) return template
 
         // NOTE: this is a special case where we need something to call #recurse so that all includes can be straight libraries
         String rootTemplate = """<#include "${templateLocation}"/><#visit widgetsNode>"""
