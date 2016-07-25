@@ -128,6 +128,7 @@ class TransactionInternalBitronix implements TransactionInternal {
 
         // init the DataSource
         pds.init()
+        logger.info("Init DataSource ${dsi.uniqueName}: ${dsi.database.attribute('name')}, isolation ${pds.getIsolationLevel()} (${isolationInt}), max pool ${pds.getMaxPoolSize()}")
 
         pdsList.add(pds)
 
