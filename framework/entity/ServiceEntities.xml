@@ -68,6 +68,15 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.service.job.ServiceJob"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
     </entity>
+    <view-entity entity-name="ServiceJobUserDetail" package="moqui.service.job">
+        <member-entity entity-alias="SJU" entity-name="moqui.service.job.ServiceJobUser"/>
+        <member-entity entity-alias="UAC" entity-name="moqui.security.UserAccount" join-from-alias="SJU">
+            <key-map field-name="userId"/></member-entity>
+        <alias-all entity-alias="SJU"/>
+        <alias name="username" entity-alias="UAC"/>
+        <alias name="userFullName" entity-alias="UAC"/>
+        <alias name="emailAddress" entity-alias="UAC"/>
+    </view-entity>
     <entity entity-name="ServiceJobRun" package="moqui.service.job" use="transactional" cache="never">
         <field name="jobRunId" type="id" is-pk="true"/>
         <field name="jobName" type="text-short"/>
