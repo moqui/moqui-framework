@@ -218,19 +218,32 @@ public class MNode {
     public Map<String, ArrayList<MNode>> getChildrenByName() {
         Map<String, ArrayList<MNode>> allByName = new HashMap<>();
         int childListSize = childList.size();
+        ArrayList<String> newChildNames = new ArrayList<>();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
             String name = curChild.nodeName;
-            if (childrenByName.containsKey(name)) continue;
+            ArrayList<MNode> existingList = childrenByName.get(name);
+            if (existingList != null) {
+                if (existingList.size() > 0 && !allByName.containsKey(name)) allByName.put(name, existingList);
+                continue;
+            }
+
             ArrayList<MNode> curList = allByName.get(name);
             if (curList == null) {
                 curList = new ArrayList<>();
                 allByName.put(name, curList);
+                newChildNames.add(name);
             }
             curList.add(curChild);
         }
+        // since we got all children by name save them for future use
+        int newChildNamesSize = newChildNames.size();
+        for (int i = 0; i < newChildNamesSize; i++) {
+            String newChildName = newChildNames.get(i);
+            childrenByName.put(newChildName, allByName.get(newChildName));
+        }
         childrenByName.putAll(allByName);
-        return Collections.unmodifiableMap(childrenByName);
+        return allByName;
     }
 
     /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
