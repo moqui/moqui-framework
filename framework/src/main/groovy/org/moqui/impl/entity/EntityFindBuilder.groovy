@@ -59,7 +59,15 @@ class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     /** Adds FOR UPDATE, should be added to end of query */
-    void makeForUpdate() { sqlTopLevelInternal.append(" FOR UPDATE") }
+    void makeForUpdate() {
+        MNode databaseNode = efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName())
+        String forUpdateStr = databaseNode.attribute("for-update")
+        if (forUpdateStr != null && forUpdateStr.length() > 0) {
+            sqlTopLevelInternal.append(" ").append(forUpdateStr)
+        } else {
+            sqlTopLevelInternal.append(" FOR UPDATE")
+        }
+    }
 
     void makeDistinct() { sqlTopLevelInternal.append("DISTINCT ") }
 
