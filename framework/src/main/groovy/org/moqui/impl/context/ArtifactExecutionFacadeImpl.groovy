@@ -23,6 +23,7 @@ import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionFacade
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ArtifactTarpitException
+import org.moqui.context.AuthenticationRequiredException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
@@ -93,7 +94,13 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
             ArtifactAuthorizationException e = new ArtifactAuthorizationException(warning.toString(), aeii, curStack)
             // logger.warn("Artifact authorization failed: " + warning.toString())
-            throw e
+            if (eci.user.userId == null) {
+                AuthenticationRequiredException are = new AuthenticationRequiredException("It requires authentication for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}\\n", e)
+                throw are
+            }
+            else {
+                throw e
+            }
         }
 
         // NOTE: if needed the isPermitted method will set additional info in aeii
