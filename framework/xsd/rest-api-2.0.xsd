@@ -15,6 +15,8 @@ along with this software (see the LICENSE.md file). If not, see
 
 <!-- NOTE: files using this schema are found in the service directory in a component when named *.rest.xml -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="common-types-2.0.xsd"/>
+
     <xs:element name="resource">
         <xs:complexType>
             <xs:sequence>
@@ -26,6 +28,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="displayName" type="xs:string"/>
             <xs:attribute name="description" type="xs:string"/>
             <xs:attribute name="version" type="xs:string"/>
+            <xs:attribute name="require-authentication" type="authc-options" default="true"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="id">
@@ -36,6 +39,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="resource"/>
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="require-authentication" type="authc-options" default="true"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="method">
@@ -57,6 +61,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="require-authentication" type="authc-options" default="true"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="service">

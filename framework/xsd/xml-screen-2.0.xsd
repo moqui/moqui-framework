@@ -93,16 +93,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:simpleType>
             </xs:attribute>
 
-            <xs:attribute name="require-authentication" default="true">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="true"/>
-                        <xs:enumeration value="false"/>
-                        <xs:enumeration value="anonymous-all"/>
-                        <xs:enumeration value="anonymous-view"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
+            <xs:attribute name="require-authentication" type="authc-options" default="true"/>
             <!-- TABLED, not to be part of 1.0: <xs:attribute name="require-certificate" default="false" type="boolean"/> -->
             <xs:attribute name="begin-transaction" type="boolean" default="false">
                 <xs:annotation><xs:documentation>
