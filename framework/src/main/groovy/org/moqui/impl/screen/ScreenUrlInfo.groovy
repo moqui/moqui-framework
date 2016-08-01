@@ -678,9 +678,10 @@ class ScreenUrlInfo {
                 }
                 continue
             }
-            // cleanList.add(URLDecoder.decode(pathName, "UTF-8"))
-            // NOTE: pathName from request.getPathInfo already decoded. avoid decode again.
-            cleanList.add(pathName)
+            cleanList.add(URLDecoder.decode(pathName, "UTF-8"))
+            // NOTE jonesde 20160731: doing the decode because otherwise URLs for things like + for space don't work, in wiki page paths for example
+            // NOTE chunlinyao: pathName from request.getPathInfo already decoded. avoid decode again.
+            // cleanList.add(pathName)
         }
         return cleanList
     }
