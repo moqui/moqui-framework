@@ -656,6 +656,8 @@ class ScreenUrlInfo {
         }
     }
 
+    static final char plusChar = '+' as char
+    static final char spaceChar = ' ' as char
     static ArrayList<String> cleanupPathNameList(ArrayList<String> inputPathNameList, Map inlineParameters) {
         // filter the list: remove empty, remove ".", remove ".." and previous
         int inputPathNameListSize = inputPathNameList.size()
@@ -678,10 +680,12 @@ class ScreenUrlInfo {
                 }
                 continue
             }
-            cleanList.add(URLDecoder.decode(pathName, "UTF-8"))
-            // NOTE jonesde 20160731: doing the decode because otherwise URLs for things like + for space don't work, in wiki page paths for example
-            // NOTE chunlinyao: pathName from request.getPathInfo already decoded. avoid decode again.
-            // cleanList.add(pathName)
+
+            // the original approach, not needed as already decoded: cleanList.add(URLDecoder.decode(pathName, "UTF-8"))
+
+            // while already decoded plus for space is not generally supported in URLs aside from parameters, but we
+            //     want to support that in screen path URLs
+            cleanList.add(pathName.replace(plusChar, spaceChar))
         }
         return cleanList
     }
