@@ -93,6 +93,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="endTime" type="date-time"/>
         <relationship type="one" related="moqui.service.job.ServiceJob"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <index name="SVC_JOBRUN_NAME" unique="false"><index-field name="jobName"/></index>
     </entity>
     <entity entity-name="ServiceJobRunLock" package="moqui.service.job" use="transactional" cache="never">
         <description>Runtime data for a scheduled ServiceJob (with a cronExpression), managed automatically by the service job runner.</description>
