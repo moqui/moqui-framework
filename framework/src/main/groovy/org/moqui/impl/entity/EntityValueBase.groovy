@@ -1108,6 +1108,17 @@ abstract class EntityValueBase implements EntityValue {
     abstract EntityValue cloneValue();
     abstract EntityValue cloneDbValue(boolean getOld);
 
+    // ========== GroovyObject Override Methods ==========
+
+    @Override
+    Object getProperty(String property) {
+        return get(property)
+    }
+    @Override
+    void setProperty(String property, Object newValue) {
+        put(property, newValue)
+    }
+
     // =========== The CrUD and abstract methods ===========
 
     boolean doDataFeed() {
