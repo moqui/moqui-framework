@@ -306,13 +306,13 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
         if (efi.getEcfi().getResourceFacade().condition(ignore, null)) return null
 
-        if (toFieldName) {
+        if (toFieldName != null && toFieldName.length() > 0) {
             EntityCondition ec = makeConditionToField(fieldName, getComparisonOperator(operator), toFieldName)
             if (ignoreCase) ec.ignoreCase()
             return ec
         } else {
             Object condValue
-            if (value) {
+            if (value != null && value.length() > 0) {
                 // NOTE: have to convert value (if needed) later on because we don't know which entity/field this is for, or change to pass in entity?
                 condValue = value
             } else {
@@ -344,7 +344,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         return makeCondition(condList, getJoinOperator(node.attribute("combine")))
     }
 
-    protected static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new HashMap()
+    protected static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new EnumMap(ComparisonOperator.class)
     static {
         comparisonOperatorStringMap.put(ComparisonOperator.EQUALS, "=")
         comparisonOperatorStringMap.put(ComparisonOperator.NOT_EQUAL, "<>")
@@ -428,8 +428,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         return comparisonOperatorStringMap.get(op)
     }
     static ComparisonOperator getComparisonOperator(String opName) {
-        if (!opName) return ComparisonOperator.EQUALS
-        return stringComparisonOperatorMap.get(opName)
+        if (opName == null) return ComparisonOperator.EQUALS
+        ComparisonOperator co = stringComparisonOperatorMap.get(opName)
+        return co != null ? co : ComparisonOperator.EQUALS
     }
 
     static boolean compareByOperator(Object value1, ComparisonOperator op, Object value2) {

@@ -146,12 +146,15 @@ abstract class EntityValueBase implements EntityValue {
     Map getMap() {
         // call get() for each field for localization, etc
         Map theMap = new LinkedHashMap()
-        ArrayList<String> allFieldNames = getEntityDefinition().getAllFieldNames()
-        for (int i = 0; i < allFieldNames.size(); i++) {
-            String fieldName = (String) allFieldNames.get(i)
-            Object fieldValue = get(fieldName)
+
+        EntityDefinition ed = getEntityDefinition()
+        ArrayList<FieldInfo> allFieldInfos = ed.getAllFieldInfoList()
+        int allFieldInfosSize = allFieldInfos.size()
+        for (int i = 0; i < allFieldInfosSize; i++) {
+            FieldInfo fieldInfo = (FieldInfo) allFieldInfos.get(i)
+            Object fieldValue = getKnownField(fieldInfo)
             // NOTE DEJ20151117 also put nulls in Map, make more complete, removed: if (fieldValue != null)
-            theMap.put(fieldName, fieldValue)
+            theMap.put(fieldInfo.name, fieldValue)
         }
         return theMap
     }
@@ -161,10 +164,9 @@ abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = getEntityDefinition()
 
         FieldInfo fieldInfo = ed.getFieldInfo(name)
-        // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
-        if (fieldInfo != null && fieldInfo.isSimple) return valueMap.get(name)
-
-        if (fieldInfo == null) {
+        if (fieldInfo != null) {
+            return getKnownField(fieldInfo)
+        } else {
             // if this is not a valid field name but is a valid relationship name, do a getRelated or getRelatedOne to return an EntityList or an EntityValue
             RelationshipInfo relInfo = ed.getRelationshipInfo(name)
             // logger.warn("====== get related relInfo: ${relInfo}")
@@ -179,6 +181,13 @@ abstract class EntityValueBase implements EntityValue {
                 throw new EntityException("The name [${name}] is not a valid field name or relationship name for entity [${entityName}]")
             }
         }
+    }
+
+    private Object getKnownField(FieldInfo fieldInfo) {
+        EntityDefinition ed = fieldInfo.ed
+        String name = fieldInfo.name
+        // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
+        if (fieldInfo.isSimple) return valueMap.get(name)
 
         // if enabled use moqui.basic.LocalizedEntityField for any localized fields
         if (fieldInfo.enableLocalization) {
@@ -322,6 +331,9 @@ abstract class EntityValueBase implements EntityValue {
     }
 
     @Override
+    Object getNoCheckSimple(String name) { return valueMap.get(name) }
+
+    @Override
     Object getOriginalDbValue(String name) {
         return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMap.get(name)
     }
@@ -369,8 +381,11 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     String getString(String name) {
-        Object valueObj = this.get(name)
-        return entityDefinition.getFieldString(name, valueObj)
+        EntityDefinition ed = getEntityDefinition()
+        FieldInfo fieldInfo = ed.getFieldInfo(name)
+
+        Object valueObj = getKnownField(fieldInfo)
+        return entityDefinition.getFieldInfoString(fieldInfo, valueObj)
     }
 
     @Override
@@ -476,7 +491,7 @@ abstract class EntityValueBase implements EntityValue {
 
         Integer highestSeqVal = null
         for (EntityValue curValue in allValues) {
-            String currentSeqId = curValue.getString(seqFieldName)
+            String currentSeqId = (String) curValue.getNoCheckSimple(seqFieldName)
             if (currentSeqId) {
                 try {
                     int seqVal = Integer.parseInt(currentSeqId)
@@ -610,19 +625,19 @@ abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = getEntityDefinition()
 
         // get pkPrimaryValue, pkSecondaryValue, pkRestCombinedValue (just like the AuditLog stuff)
-        ArrayList<String> pkFieldList = new ArrayList(ed.getPkFieldNames())
-        String firstPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null
-        String secondPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null
+        ArrayList<FieldInfo> pkFieldList = new ArrayList(ed.getPkFieldInfoList())
+        FieldInfo firstPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null
+        FieldInfo secondPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null
         StringBuffer pkTextSb = new StringBuffer()
         for (int i = 0; i < pkFieldList.size(); i++) {
-            String fieldName = pkFieldList.get(i)
+            FieldInfo curFieldInfo = (FieldInfo) pkFieldList.get(i)
             if (i > 0) pkTextSb.append(",")
-            pkTextSb.append(fieldName).append(":'").append(ed.getFieldStringForFile(fieldName, get(fieldName))).append("'")
+            pkTextSb.append(curFieldInfo.name).append(":'").append(ed.getFieldStringForFile(curFieldInfo, getKnownField(curFieldInfo))).append("'")
         }
         String pkText = pkTextSb.toString()
 
-        if (firstPkField) parms.pkPrimaryValue = get(firstPkField)
-        if (secondPkField) parms.pkSecondaryValue = get(secondPkField)
+        if (firstPkField) parms.pkPrimaryValue = getKnownField(firstPkField)
+        if (secondPkField) parms.pkSecondaryValue = getKnownField(secondPkField)
         if (pkText) parms.pkRestCombinedValue = pkText
     }
 
@@ -1036,18 +1051,37 @@ abstract class EntityValueBase implements EntityValue {
     Set<Map.Entry<String, Object>> entrySet() {
         // everything needs to go through the get method, so iterate through the fields and get the values
         List<String> allFieldNames = getEntityDefinition().getAllFieldNames()
+        ArrayList<FieldInfo> allFieldInfos = getEntityDefinition().getAllFieldInfoList()
         Set<Map.Entry<String, Object>> entries = new HashSet()
-        for (String fieldName in allFieldNames) entries.add(new EntityFieldEntry(fieldName, this))
+        int allFieldInfosSize = allFieldInfos.size()
+        for (int i = 0; i < allFieldInfosSize; i++) {
+            FieldInfo fi = (FieldInfo) allFieldInfos.get(i)
+            entries.add(new EntityFieldEntry(fi, this))
+        }
         return entries
     }
 
     static class EntityFieldEntry implements Map.Entry<String, Object> {
-        protected String key
+        protected FieldInfo fi
         protected EntityValueBase evb
-        EntityFieldEntry(String key, EntityValueBase evb) { this.key = key; this.evb = evb; }
-        String getKey() { return key }
-        Object getValue() { return evb.get(key) }
-        Object setValue(Object v) { return evb.set(key, v) }
+        EntityFieldEntry(FieldInfo fi, EntityValueBase evb) { this.fi = fi; this.evb = evb; }
+        String getKey() { return fi.name }
+        Object getValue() { return evb.getKnownField(fi) }
+        Object setValue(Object v) { return evb.set(fi.name, v) }
+        @Override
+        int hashCode() {
+            Object val = getValue()
+            return fi.name.hashCode() + (val != null ? val.hashCode() : 0)
+        }
+        @Override
+        boolean equals(Object obj) {
+            if (obj instanceof EntityFieldEntry) {
+                EntityFieldEntry other = (EntityFieldEntry) obj
+                return fi.name.equals(other.fi.name) && getValue() == other.getValue()
+            } else {
+                return false
+            }
+        }
     }
 
     // ========== Object Override Methods ==========

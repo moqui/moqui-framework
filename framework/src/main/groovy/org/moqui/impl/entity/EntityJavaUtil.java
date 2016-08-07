@@ -489,7 +489,7 @@ public class EntityJavaUtil {
     /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT,
      * though initialized in the EntityDefinition.makeFieldInfo() method. */
     public static class FieldInfo {
-        public Object ed = null;
+        public EntityDefinition ed = null;
         public MNode fieldNode = null;
         public String entityName = null;
         public String name = null;

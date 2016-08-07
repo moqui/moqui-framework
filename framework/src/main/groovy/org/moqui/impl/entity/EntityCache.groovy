@@ -439,7 +439,7 @@ class EntityCache {
 
                     Map<String, Object> pkCondMap = new HashMap<>()
                     for (Map.Entry<String, String> mePkEntry in mePkFieldToAliasNameMap.entrySet())
-                        pkCondMap.put(mePkEntry.getKey(), evb.get(mePkEntry.getValue()))
+                        pkCondMap.put(mePkEntry.getKey(), evb.getNoCheckSimple(mePkEntry.getValue()))
                     // no PK fields? view-entity must not have them, skip it
                     if (pkCondMap.size() == 0) continue
 
@@ -499,7 +499,7 @@ class EntityCache {
                     EntityValue ev = (EntityValue) eli.get(i)
                     Map pkCondMap = new HashMap()
                     for (Map.Entry<String, String> mePkEntry in mePkFieldToAliasNameMap.entrySet())
-                        pkCondMap.put(mePkEntry.getKey(), ev.get(mePkEntry.getValue()))
+                        pkCondMap.put(mePkEntry.getKey(), ev.getNoCheckSimple(mePkEntry.getValue()))
 
                     EntityCondition pkCondition = efi.getConditionFactory().makeCondition(pkCondMap)
                     List<ViewRaKey> raKeyList = (List<ViewRaKey>) listViewRaCache.get(pkCondition)

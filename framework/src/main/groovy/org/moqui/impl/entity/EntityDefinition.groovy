@@ -908,7 +908,7 @@ public class EntityDefinition {
 
                     Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
                     for (EntityValue userField in userFieldList) {
-                        if (userGroupIdSet.contains(userField.get('userGroupId'))) userFieldNames.add((String) userField.get('fieldName'))
+                        if (userGroupIdSet.contains(userField.getNoCheckSimple('userGroupId'))) userFieldNames.add((String) userField.getNoCheckSimple('fieldName'))
                     }
                 } else {
                     hasUserFields = false
@@ -1602,17 +1602,12 @@ public class EntityDefinition {
         return EntityJavaUtil.convertFromString(value, fi, eci.getL10nFacade())
     }
 
-    String getFieldString(String name, Object value) {
-        if (value == null) return null
-        FieldInfo fi = getFieldInfo(name)
-        return getFieldInfoString(fi, value)
-    }
     String getFieldInfoString(FieldInfo fi, Object value) {
         if (value == null) return null
         return EntityJavaUtil.convertToString(value, fi, efi)
     }
 
-    String getFieldStringForFile(String name, Object value) {
+    String getFieldStringForFile(FieldInfo fieldInfo, Object value) {
         if (value == null) return null
 
         String outValue
@@ -1622,7 +1617,7 @@ public class EntityDefinition {
         } else if (value instanceof BigDecimal) {
             outValue = value.toPlainString()
         } else {
-            outValue = getFieldString(name, value)
+            outValue = getFieldInfoString(fieldInfo, value)
         }
 
         return outValue

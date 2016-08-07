@@ -832,8 +832,8 @@ class ScreenRenderImpl implements ScreenRender {
 
     boolean doBoundaryComments() {
         if (screenPathIndex == 0) return false
-        if (boundaryComments != null) return boundaryComments
-        boundaryComments = sfi.ecfi.confXmlRoot.first("screen-facade").attribute("boundary-comments") == "true"
+        if (boundaryComments != null) return boundaryComments.booleanValue()
+        boundaryComments = "true".equals(sfi.ecfi.confXmlRoot.first("screen-facade").attribute("boundary-comments"))
         return boundaryComments
     }
 
@@ -929,7 +929,7 @@ class ScreenRenderImpl implements ScreenRender {
         ScreenDefinition sd = getActiveScreenDef()
         try {
             ScreenSection section = sd.getSection(sectionName)
-            if (!section) throw new IllegalArgumentException("No section with name [${sectionName}] in screen [${sd.location}]")
+            if (section == null) throw new IllegalArgumentException("No section with name [${sectionName}] in screen [${sd.location}]")
             writer.flush()
             section.render(this)
             writer.flush()
@@ -1382,7 +1382,7 @@ class ScreenRenderImpl implements ScreenRender {
         ArrayList<String> values = new ArrayList<>(strListSize)
         for (int i = 0; i < strListSize; i++) {
             EntityValue str = (EntityValue) strList.get(i)
-            values.add(str.getString("resourceValue"))
+            values.add((String) str.getNoCheckSimple("resourceValue"))
         }
 
         curThemeValuesByType.put(resourceTypeEnumId, values)
