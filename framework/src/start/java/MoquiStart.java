@@ -197,6 +197,7 @@ public class MoquiStart {
             serverClass.getMethod("join").invoke(server);
 
             /* The classpath dependent code we are running:
+
             Server server = new Server(8080);
 
             // WebApp
@@ -229,6 +230,49 @@ public class MoquiStart {
             // wait until the server is done executing.
             // See http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#join()
             server.join();
+
+            // Possible code to handle HTTPS, HTTP/2 (h2, h2c):
+
+            // see https://webtide.com/introduction-to-http2-in-jetty/
+            // see https://www.eclipse.org/jetty/documentation/9.3.x/http2.html
+            // org.mortbay.jetty.alpn:alpn-boot:8.1.9.v20160720
+            // http2-common, http2-hpack, http2-server
+
+            // try the Jetty HTTP client instead of Apache?
+            // see https://www.eclipse.org/jetty/documentation/9.3.x/http-client.html
+            // http2-client, http2-http-client-transport
+
+            Server server = new Server();
+            HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
+            httpConfig.setSecureScheme("https");
+            httpConfig.setSecurePort(8443);
+            HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
+            httpsConfig.addCustomizer(new SecureRequestCustomizer());
+
+            SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
+            sslContextFactory.setKeyStoreResource(org.eclipse.jetty.util.resource.Resource.newClassPathResource("keystore"));
+            sslContextFactory.setKeyStorePassword("kStorePassword");
+            sslContextFactory.setKeyManagerPassword("kMgrPassword");
+            sslContextFactory.setCipherComparator(org.eclipse.jetty.http2.HTTP2Cipher.COMPARATOR);
+
+            HttpConnectionFactory http1 = new HttpConnectionFactory(httpConfig);
+
+            HTTP2ServerConnectionFactory http2 = new org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory(httpsConfig);
+            NegotiatingServerConnectionFactory.checkProtocolNegotiationAvailable();
+            ALPNServerConnectionFactory alpn = new org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory();
+            alpn.setDefaultProtocol("h2");
+            SslConnectionFactory ssl = new org.eclipse.jetty.server?.SslConnectionFactory(sslContextFactory,alpn.getProtocol());
+
+            HTTP2CServerConnectionFactory http2c = new org.eclipse.jetty.http2.server.HTTP2CServerConnectionFactory(httpsConfig);
+
+            ServerConnector httpsConnector = new org.eclipse.jetty.server.ServerConnector(server, ssl, alpn, http2, http1 );
+            httpsConnector.setPort(8443);
+            server.addConnector(httpsConnector);
+
+            ServerConnector httpConnector = new org.eclipse.jetty.server.ServerConnector(server, http1, http2c);
+            httpConnector.setPort(8080);
+            server.addConnector(httpConnector);
+
             */
         } catch (Exception e) {
             System.out.println("Error loading or running Jetty embedded server with args [" + argMap + "]: " + e.toString());
