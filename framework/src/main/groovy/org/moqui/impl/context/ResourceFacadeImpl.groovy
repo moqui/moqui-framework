@@ -464,9 +464,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
 
     @Override
-    String expand(String inputString, String debugLocation) {
-        return expand(inputString, debugLocation, null, true)
-    }
+    String expandNoL10n(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, false) }
+    @Override
+    String expand(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, true) }
     @Override
     String expand(String inputString, String debugLocation, Map additionalContext) {
         return expand(inputString, debugLocation, additionalContext, true)
@@ -506,7 +506,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 script.setBinding(null)
                 return result as String
             } catch (Exception e) {
-                throw new IllegalArgumentException("Error in string expression [${expression}] from [${debugLocation}]", e)
+                throw new IllegalArgumentException("Error in string expression [${expression}] from ${debugLocation}", e)
             }
         } finally {
             if (doPushPop) { cs.pop(); cs.pop(); }

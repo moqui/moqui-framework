@@ -137,7 +137,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                 // if it has a default value don't sequence the PK
                 if (!singlePkField.defaultStr) {
                     newEntityValue.setSequencedIdPrimary()
-                    pkValue = newEntityValue.get(singlePkField.name)
+                    pkValue = newEntityValue.getNoCheckSimple(singlePkField.name)
                 }
             }
             if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains(singlePkField.name))
@@ -151,7 +151,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             if (!doublePkSecondary.defaultStr) {
                 newEntityValue.setSequencedIdSecondary()
                 if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains(doublePkSecondary.name))
-                    tempResult.put(doublePkSecondary.name, newEntityValue.get(doublePkSecondary.name))
+                    tempResult.put(doublePkSecondary.name, newEntityValue.getNoCheckSimple(doublePkSecondary.name))
             }
         } else if (allPksIn) {
             /* **** plain specified primary key **** */
@@ -211,7 +211,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             String pkName = pkFieldNames.get(i)
             EntityJavaUtil.FieldInfo pkInfo = ed.getFieldInfo(pkName)
             if (pkInfo.defaultStr) {
-                tempResult.put(pkName, newEntityValue.get(pkName))
+                tempResult.put(pkName, newEntityValue.getNoCheckSimple(pkName))
             }
         }
 
@@ -287,17 +287,17 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
         // populate the oldStatusId out if there is a service parameter for it, and before we do the set non-pk fields
         if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("oldStatusId")) {
-            result.put("oldStatusId", lookedUpValue.get("statusId"))
+            result.put("oldStatusId", lookedUpValue.getNoCheckSimple("statusId"))
         }
         if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("statusChanged")) {
-            result.put("statusChanged", !(lookedUpValue.get("statusId") == parameters.get("statusId")))
+            result.put("statusChanged", !(lookedUpValue.getNoCheckSimple("statusId") == parameters.get("statusId")))
             // logger.warn("========= oldStatusId=${result.oldStatusId}, statusChanged=${result.statusChanged}, lookedUpValue.statusId=${lookedUpValue.statusId}, parameters.statusId=${parameters.statusId}, lookedUpValue=${lookedUpValue}")
         }
 
         // do the StatusValidChange check
         String parameterStatusId = (String) parameters.get("statusId")
         if (parameterStatusId) {
-            String lookedUpStatusId = (String) lookedUpValue.get("statusId")
+            String lookedUpStatusId = (String) lookedUpValue.getNoCheckSimple("statusId")
             if (lookedUpStatusId && !parameterStatusId.equals(lookedUpStatusId)) {
                 // there was an old status, and in this call we are trying to change it, so do the StatusFlowTransition check
                 // NOTE that we are using a cached list from a common pattern so it should generally be there instead of a count that wouldn't

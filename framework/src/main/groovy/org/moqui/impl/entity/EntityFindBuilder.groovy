@@ -59,7 +59,15 @@ class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     /** Adds FOR UPDATE, should be added to end of query */
-    void makeForUpdate() { sqlTopLevelInternal.append(" FOR UPDATE") }
+    void makeForUpdate() {
+        MNode databaseNode = efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName())
+        String forUpdateStr = databaseNode.attribute("for-update")
+        if (forUpdateStr != null && forUpdateStr.length() > 0) {
+            sqlTopLevelInternal.append(" ").append(forUpdateStr)
+        } else {
+            sqlTopLevelInternal.append(" FOR UPDATE")
+        }
+    }
 
     void makeDistinct() { sqlTopLevelInternal.append("DISTINCT ") }
 
@@ -203,21 +211,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
             if (additionalFieldsUsed != null) fieldUsedSet.addAll(additionalFieldsUsed)
             // get a list of entity aliases used
             for (String fieldName in fieldUsedSet) {
-                MNode aliasNode = localEntityDefinition.getFieldNode(fieldName)
-                String entityAlias = aliasNode != null ? aliasNode.attribute('entity-alias') : null
-                if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias)
-
-                if (aliasNode == null) throw new EntityException("No alias found for name ${fieldName} in view-entity ${localEntityDefinition.getFullEntityName()}")
-                MNode complexAliasNode = aliasNode.first("complex-alias")
-                if (aliasNode != null && complexAliasNode != null) {
-                    ArrayList<MNode> cafList = complexAliasNode.children("complex-alias-field")
-                    int cafListSize = cafList.size()
-                    for (int i = 0; i < cafListSize; i++) {
-                        MNode cafNode = (MNode) cafList.get(i)
-                        String cafEntityAlias = cafNode.attribute('entity-alias')
-                        if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias)
-                    }
-                }
+                FieldInfo fi = localEntityDefinition.getFieldInfo(fieldName)
+                entityAliasUsedSet.addAll(fi.entityAliasUsedSet)
             }
             // if (localEntityDefinition.getFullEntityName().contains("Example"))
             //    logger.warn("============== entityAliasUsedSet=${entityAliasUsedSet} for entity ${localEntityDefinition.entityName}\n fieldUsedSet=${fieldUsedSet}\n fieldInfoList=${fieldInfoList}\n orderByFields=${entityFindBase.orderByFields}")
@@ -479,7 +474,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
     PreparedStatement makePreparedStatement() {
         if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
         String sql = sqlTopLevelInternal.toString()
-        // if (this.mainEntityDefinition.getFullEntityName().contains("Example")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
+        // if (this.mainEntityDefinition.entityName.equals("Foo")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
         if (logger.isDebugEnabled()) logger.debug("making find PreparedStatement for SQL: ${sql}")
         try {
             ps = connection.prepareStatement(sql, entityFindBase.resultSetType, entityFindBase.resultSetConcurrency)

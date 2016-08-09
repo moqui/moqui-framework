@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.entity.EntityValueBase
 import org.moqui.util.MNode
 
 import java.sql.Timestamp
@@ -550,7 +551,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
                 for (int j = 0; j < entFilterSize; j++) {
                     EntityValue entityFilter = entityFilterList.get(j)
-                    String filterEntityName = entityFilter.getString("entityName")
+                    String filterEntityName = (String) entityFilter.getNoCheckSimple("entityName")
 
                     // see if there if any filter entities match the current entity or if it is a view then a member entity
                     Map<String, ArrayList<MNode>> memberFieldAliases = null
@@ -563,7 +564,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         }
                     }
 
-                    Object filterMapObjEval = eci.getResource().expression(entityFilter.getString('filterMap'), null)
+                    Object filterMapObjEval = eci.getResource().expression((String) entityFilter.getNoCheckSimple('filterMap'), null)
                     Map<String, Object> filterMapObj
                     if (filterMapObjEval instanceof Map<String, Object>) {
                         filterMapObj = filterMapObjEval as Map<String, Object>
@@ -573,9 +574,10 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     }
                     // logger.info("===== ${findEntityName} filterMapObj: ${filterMapObj}")
 
-                    ComparisonOperator compOp = entityFilter.comparisonEnumId ? eci.entity.conditionFactory
-                            .comparisonOperatorFromEnumId((String) entityFilter.comparisonEnumId) : null
-                    JoinOperator joinOp = entityFilter.joinOr == "Y" ? EntityCondition.OR : EntityCondition.AND
+                    String efComparisonEnumId = (String) entityFilter.getNoCheckSimple('comparisonEnumId')
+                    ComparisonOperator compOp = efComparisonEnumId != null && efComparisonEnumId.length() > 0 ?
+                            eci.entity.conditionFactory.comparisonOperatorFromEnumId(efComparisonEnumId) : null
+                    JoinOperator joinOp = "Y".equals(entityFilter.getNoCheckSimple('joinOr')) ? EntityCondition.OR : EntityCondition.AND
 
                     // use makeCondition(Map) instead of breaking down here
                     try {
@@ -588,8 +590,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         addedFilter = true
                         efb.condition(entCond)
 
-                        // TODO: once more tested change this to trace
-                        logger.info("Query on ${findEntityName} added authz filter conditions: ${entCond}")
+                        // logger.info("Query on ${findEntityName} added authz filter conditions: ${entCond}")
                         // logger.info("Query on ${findEntityName} find: ${efb.toString()}")
                     } catch (Exception e) {
                         logger.warn("Error adding authz entity filter condition: ${e.toString()}")

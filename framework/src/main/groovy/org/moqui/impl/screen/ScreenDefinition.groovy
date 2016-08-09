@@ -540,7 +540,7 @@ class ScreenDefinition {
                 }
             }
             if (value == null) value = ec.context.getByString(name)
-            if (value == null && ec.web) value = ec.web.parameters.get(name)
+            if (value == null && ec.web != null) value = ec.web.parameters.get(name)
             return value
         }
     }

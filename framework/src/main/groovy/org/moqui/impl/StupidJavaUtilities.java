@@ -173,9 +173,6 @@ public class StupidJavaUtilities {
         ArrayList<String> fieldNameList;
         int fieldNameListSize;
 
-        final static char minusChar = '-';
-        final static char plusChar = '+';
-
         public MapOrderByComparator(List<String> fieldNameList) {
             this.fieldNameList = fieldNameList instanceof ArrayList ? (ArrayList<String>) fieldNameList : new ArrayList<>(fieldNameList);
             fieldNameListSize = fieldNameList.size();
@@ -189,10 +186,15 @@ public class StupidJavaUtilities {
             for (int i = 0; i < fieldNameListSize; i++) {
                 String fieldName = fieldNameList.get(i);
                 boolean ascending = true;
-                if (fieldName.charAt(0) == minusChar) {
+                boolean ignoreCase = false;
+                if (fieldName.charAt(0) == '-') {
                     ascending = false;
                     fieldName = fieldName.substring(1);
-                } else if (fieldName.charAt(0) == plusChar) {
+                } else if (fieldName.charAt(0) == '+') {
+                    fieldName = fieldName.substring(1);
+                }
+                if (fieldName.charAt(0) == '^') {
+                    ignoreCase = true;
                     fieldName = fieldName.substring(1);
                 }
                 Comparable value1 = (Comparable) map1.get(fieldName);
@@ -204,8 +206,13 @@ public class StupidJavaUtilities {
                     if (value2 == null) {
                         return ascending ? -1 : 1;
                     } else {
-                        int comp = value1.compareTo(value2);
-                        if (comp != 0) return ascending ? comp : -comp;
+                        if (ignoreCase && value1 instanceof String && value2 instanceof String) {
+                            int comp = ((String) value1).compareToIgnoreCase((String) value2);
+                            if (comp != 0) return ascending ? comp : -comp;
+                        } else {
+                            int comp = value1.compareTo(value2);
+                            if (comp != 0) return ascending ? comp : -comp;
+                        }
                     }
                 }
             }

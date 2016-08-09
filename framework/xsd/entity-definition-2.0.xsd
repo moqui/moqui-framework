@@ -414,7 +414,25 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" ref="description"/>
-                <xs:element minOccurs="0" ref="complex-alias"/>
+                <xs:choice minOccurs="0">
+                    <xs:element ref="complex-alias"/>
+                    <xs:element name="case">
+                        <xs:complexType>
+                            <xs:sequence>
+                                <xs:element maxOccurs="unbounded" name="when">
+                                    <xs:complexType>
+                                        <xs:sequence><xs:element ref="complex-alias"/></xs:sequence>
+                                        <xs:attribute name="expression" type="xs:string" use="required"/>
+                                    </xs:complexType>
+                                </xs:element>
+                                <xs:element minOccurs="0" name="else">
+                                    <xs:complexType><xs:sequence><xs:element ref="complex-alias"/></xs:sequence></xs:complexType>
+                                </xs:element>
+                            </xs:sequence>
+                            <xs:attribute name="expression" type="xs:string"/>
+                        </xs:complexType>
+                    </xs:element>
+                </xs:choice>
             </xs:sequence>
             <xs:attribute name="entity-alias" type="name-plain"/>
             <xs:attribute name="name" type="name-field" use="required"/>
@@ -435,7 +453,7 @@ along with this software (see the LICENSE.md file). If not, see
                 The complex-alias tag is the way to do this.
 
                 The argument to the right of operator = can be any operator valid for that data type on the database system you are using.
-                For example, *, +, -, and / are commonly available mathematical operators (min, max, sum, avg, count, count-distinct, upper, lower)
+                For example *, +, -, and / are commonly available mathematical operators.
                 You can also use any operator on any data type supported on the underlying database system including string and date operators.
                 complex-alias can be as complex as you need by adding nested complex-alias statements and complex-alias-field
                 can use the same functions (min, max, count, count-distinct, sum, avg, upper, and lower) as the alias tag.
@@ -446,7 +464,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="complex-alias"/>
                 <xs:element ref="complex-alias-field"/>
             </xs:choice>
-            <xs:attribute name="operator" type="xs:string" use="required"/>
+            <xs:attribute name="operator" type="xs:string" default="+"/>
             <xs:attribute name="expression" type="xs:string"/>
         </xs:complexType>
     </xs:element>
