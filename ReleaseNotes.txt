@@ -16,7 +16,7 @@ significant changes.
 
 Non Backward Compatible Changes
 
-- Java JDK 8 now required for running executable WAR
+- Java JDK 8 now required (Java 7 no longer supported)
 - No longer using Winstone embedded web server (now using Jetty)
 - Entity Definitions
   - XSDs updated for these changes, though old attributes still supported
@@ -124,6 +124,8 @@ Non Backward Compatible Changes
   never all that useful and is replaced by the ArtifactAuthzFilter and
   EntityFilter entities
 - The ContextStack class has moved to the org.moqui.util package
+- Replaced Apache HttpComponents client with jetty-client to get support
+  for HTTP/2, cleaner API, better async support and other options
 - When updating to this version recommend stopping all instances in a
   cluster before starting any instance with the new version
 
