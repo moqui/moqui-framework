@@ -196,7 +196,6 @@ test {
     systemProperty 'moqui.conf', 'conf/MoquiDevTestConf.xml'
     systemProperty 'moqui.init.static', 'true'
     maxHeapSize = "512M"
-    jvmArgs '-XX:MaxPermSize=192m'
 
     testLogging.showStandardStreams = true
     testLogging.showExceptions = true
