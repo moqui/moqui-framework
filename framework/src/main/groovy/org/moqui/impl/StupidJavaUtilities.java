@@ -37,6 +37,11 @@ public class StupidJavaUtilities {
         public Object value;
         public KeyValue(String key, Object value) { this.key = key; this.value = value; }
     }
+    public static class KeyValueString {
+        public String key;
+        public String value;
+        public KeyValueString(String key, String value) { this.key = key; this.value = value; }
+    }
 
     public static String toPlainString(Object obj) {
         if (obj == null) return "";

@@ -14,20 +14,14 @@
 package org.moqui.impl
 
 import groovy.transform.CompileStatic
-import org.apache.http.HttpEntity
-import org.apache.http.NameValuePair
-import org.apache.http.client.entity.UrlEncodedFormEntity
-import org.apache.http.client.methods.CloseableHttpResponse
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.http.impl.client.HttpClients
-import org.apache.http.message.BasicNameValuePair
-import org.apache.http.util.EntityUtils
+import org.eclipse.jetty.client.HttpClient
+import org.eclipse.jetty.client.api.ContentResponse
+import org.eclipse.jetty.client.api.Request
+import org.eclipse.jetty.client.util.StringContentProvider
 import org.owasp.html.PolicyFactory
 import org.owasp.html.examples.EbayPolicyExample
 
+import java.nio.charset.StandardCharsets
 import javax.servlet.ServletRequest
 import javax.servlet.http.HttpSession
 import javax.servlet.ServletContext
@@ -35,7 +29,6 @@ import javax.servlet.ServletContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import java.nio.charset.Charset
 
 @CompileStatic
 class StupidWebUtilities {
@@ -294,24 +287,18 @@ class StupidWebUtilities {
     static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
         if (!contentType) contentType = "text/plain"
         String resultString = ""
-        CloseableHttpClient httpClient = HttpClients.createDefault()
-        try {
-            HttpPost httpPost = new HttpPost(location)
-            if (requestBody) {
-                StringEntity requestEntity = new StringEntity(requestBody, ContentType.create(contentType, "UTF-8"))
-                httpPost.setEntity(requestEntity)
-                httpPost.setHeader("Content-Type", contentType)
-            }
 
-            CloseableHttpResponse response = httpClient.execute(httpPost)
-            try {
-                HttpEntity entity = response.getEntity()
-                resultString = StupidUtilities.toStringCleanBom(EntityUtils.toByteArray(entity))
-            } finally {
-                response.close()
-            }
+        HttpClient httpClient = new HttpClient()
+        httpClient.start()
+
+        try {
+            Request request = httpClient.POST(location)
+            if (requestBody) request.content(new StringContentProvider(contentType, requestBody, StandardCharsets.UTF_8), contentType)
+            ContentResponse response = request.send()
+            resultString = StupidUtilities.toStringCleanBom(response.getContent())
+
         } finally {
-            httpClient.close()
+            httpClient.stop()
         }
 
         return resultString
@@ -319,24 +306,18 @@ class StupidWebUtilities {
 
     static String simpleHttpMapRequest(String location, Map requestMap) {
         String resultString = ""
-        CloseableHttpClient httpClient = HttpClients.createDefault()
+
+        HttpClient httpClient = new HttpClient()
+        httpClient.start()
+
         try {
-            List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>()
+            Request request = httpClient.POST(location)
             if (requestMap) for (Map.Entry requestEntry in requestMap.entrySet())
-                nameValuePairs.add(new BasicNameValuePair(requestEntry.key as String, requestEntry.value as String))
-
-            HttpPost httpPost = new HttpPost(location)
-            if (nameValuePairs) httpPost.setEntity(new UrlEncodedFormEntity(nameValuePairs, Charset.forName("UTF-8")))
-
-            CloseableHttpResponse response = httpClient.execute(httpPost)
-            try {
-                HttpEntity entity = response.getEntity()
-                resultString = StupidUtilities.toStringCleanBom(EntityUtils.toByteArray(entity))
-            } finally {
-                response.close()
-            }
+                request.param(requestEntry.key as String, requestEntry.value as String)
+            ContentResponse response = request.send()
+            resultString = StupidUtilities.toStringCleanBom(response.getContent())
         } finally {
-            httpClient.close()
+            httpClient.stop()
         }
 
         return resultString

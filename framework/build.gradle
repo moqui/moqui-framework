@@ -45,8 +45,8 @@ repositories {
     jcenter() // http://jcenter.bintray.com
 }
 
-sourceCompatibility = '1.7'
-targetCompatibility = '1.7'
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
 archivesBaseName = 'moqui'
 
 sourceSets {
@@ -114,8 +114,11 @@ dependencies {
     compile 'com.h2database:h2:1.4.192' // MPL 2.0, EPL 1.0
 
     // Apache HTTP Components
-    compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
-    compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
+    // compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
+    // compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
+
+    // Jetty HTTP Client
+    compile 'org.eclipse.jetty:jetty-client:9.3.11.v20160721' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.5' // CDDL
