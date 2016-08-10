@@ -1,9 +1,7 @@
 
-Moqui Framework Release Notes
+# Moqui Framework Release Notes
 
-===========================================================================
-Release 2.0.0 - TBD
-===========================================================================
+## Release 2.0.0 - TBD
 
 Moqui Framework 2.0.0 is a major new feature and bug fix release, with
 various non backward compatible API and other changes.
@@ -14,7 +12,7 @@ production in the near future (before this version is released) it is
 better to use the last released version (1.6.2) as 2.0.0 contains
 significant changes.
 
-Non Backward Compatible Changes
+### Non Backward Compatible Changes
 
 - Java JDK 8 now required (Java 7 no longer supported)
 - No longer using Winstone embedded web server (now using Jetty)
@@ -129,7 +127,7 @@ Non Backward Compatible Changes
 - When updating to this version recommend stopping all instances in a
   cluster before starting any instance with the new version
 
-New Features
+### New Features
 
 - Now using Jetty embedded for the executable WAR instead of Winstone
   - using Jetty 9 which requires Java 8
@@ -262,7 +260,7 @@ New Features
     an artifact, not when simply checking to see if use is permitted (such
     as in menus, links, etc)
 
-Bug Fixes
+### Bug Fixes
 
 - Fixed issue with REST and other requests using various HTTP request
   methods that were not handled, MoquiServlet now uses the
@@ -290,9 +288,7 @@ Bug Fixes
   - Fixed attribute and child node wrapper caching in FtlNodeWrapper where
     in certain cases a false null would be returned
 
-===========================================================================
-Release 1.6.2 - 26 Mar 2016
-===========================================================================
+## Release 1.6.2 - 26 Mar 2016
 
 Moqui Framework 1.6.2 is a minor new feature and bug fix release.
 
@@ -302,7 +298,7 @@ multi-tenant handling (and security), optionally loading data on start if
 the DB is empty, more flexible handling of runtime Moqui Conf XML location,
 database support and transaction management, and so on.
 
-Non Backward Compatible Changes
+### Non Backward Compatible Changes
 
 - Entity field types are somewhat more strict for database operations; this
   is partly for performance reasons and partly to avoid database errors
@@ -314,7 +310,7 @@ Non Backward Compatible Changes
   TenantCountry entities; they aren't generally used and better not to have
   business settings in these restricted technical config entities
 
-New Features
+### New Features
 
 - Many performance improvements based on profiling; cached entities finds
   around 6x faster, non cached around 3x; screen rendering also faster
@@ -398,7 +394,7 @@ New Features
     that screen in a list and parameters for it, along with
     messages/errors/etc for client side routing between screens
 
-Bug Fixes
+### Bug Fixes
 
 - DB operations for sequenced IDs, service semaphores, and DB meta data are
   now run in a separate thread instead of tx suspend/resume as some
@@ -433,9 +429,7 @@ Bug Fixes
 - Fixed issues with ResourceReference operations and wiki page updates
 
 
-===========================================================================
-Release 1.6.1 - 24 Jan 2016
-===========================================================================
+## Release 1.6.1 - 24 Jan 2016
 
 Moqui Framework 1.6.1 is a minor new feature and bug fix release.
 
@@ -446,7 +440,7 @@ them in the framework/lib directory. Overall the result is a small
 foundation with additional libraries, components, etc added as needed using
 Gradle tasks.
 
-Build Changes
+### Build Changes
 
 - Gradle tasks to help handle runtime directory in a separate repository
   from Moqui Framework
@@ -468,7 +462,7 @@ Build Changes
 - If your component builds source or runs Spock tests changes will be
   needed, see the runtime/base-component/example/build.gradle file
 
-New Features
+### New Features
 
 - The makeCondition(Map) methods now support _comp entry for comparison
   operator, _join entry for join operator, and _list entry for a list of
@@ -476,7 +470,7 @@ New Features
 - In FieldValueCondition if the value is a collection and operator is
   EQUALS set to IN, or if NOT_EQUAL then NOT_IN
 
-Bug Fixes
+### Bug Fixes
 
 - Fixed issue with EntityFindBase.condition() where condition break down
   set ignore case to true
@@ -486,9 +480,7 @@ Bug Fixes
   instead of rendering the widgets (usually just resulting in more errors)
 
 
-===========================================================================
-Long Term To Do List - aka Informal Road Map
-===========================================================================
+## Long Term To Do List - aka Informal Road Map
 
 - Option for link element to only render if referenced transition/screen exists
 - Option for transition to only mount if all response URLs for screen paths exist
