@@ -112,6 +112,14 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="clientIpCountryGeoId" related="geoId"/></relationship>
         <index name="VisitThruIndex" unique="false"><index-field name="thruDate"/></index>
     </entity>
+    <view-entity entity-name="VisitUserSummary" package="moqui.server">
+        <member-entity entity-alias="VST" entity-name="moqui.server.Visit"/>
+        <alias entity-alias="VST" name="userId"/>
+        <alias entity-alias="VST" name="visitCount" field="visitId" function="count"/>
+        <alias entity-alias="VST" name="fromDateMin" field="fromDate" function="min"/>
+        <alias entity-alias="VST" name="fromDateMax" field="fromDate" function="max"/>
+        <alias entity-alias="VST" name="fromDate"/><!-- filter only, don't select -->
+    </view-entity>
     <entity entity-name="Visitor" package="moqui.server" sequence-bank-size="100" cache="never">
         <field name="visitorId" type="id" is-pk="true"/>
         <field name="createdDate" type="date-time"/>

@@ -238,6 +238,12 @@ New Features
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
 - Entity Facade
+  - In view-entity.alias.complex-alias the expression attribute is now
+    expanded so context fields may be inserted or other Groovy expressions
+    evaluated using dollar-sign curly-brace syntax
+  - Added view-entity.alias.case element with when and else sub-elements
+    that contain complex-alias elements; these can be used for CASE,
+    CASE WHEN, etc SQL expressions
   - EntityFind.searchFormMap() now has a defaultParameters argument, used
     when no conditions added from the input fields Map
   - EntityDataWriter now supports export with a entity master definition

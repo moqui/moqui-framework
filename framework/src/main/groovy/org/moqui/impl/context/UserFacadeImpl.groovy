@@ -502,7 +502,10 @@ class UserFacadeImpl implements UserFacade {
         pushUser(username, tenantId)
 
         // after successful login trigger the after-login actions
-        if (eci.getWebImpl() != null) eci.getWebImpl().runAfterLoginActions()
+        if (eci.getWebImpl() != null) {
+            eci.getWebImpl().runAfterLoginActions()
+            eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+        }
 
         return true
     }

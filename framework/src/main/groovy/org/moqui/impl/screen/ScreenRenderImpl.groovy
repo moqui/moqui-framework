@@ -832,8 +832,8 @@ class ScreenRenderImpl implements ScreenRender {
 
     boolean doBoundaryComments() {
         if (screenPathIndex == 0) return false
-        if (boundaryComments != null) return boundaryComments
-        boundaryComments = sfi.ecfi.confXmlRoot.first("screen-facade").attribute("boundary-comments") == "true"
+        if (boundaryComments != null) return boundaryComments.booleanValue()
+        boundaryComments = "true".equals(sfi.ecfi.confXmlRoot.first("screen-facade").attribute("boundary-comments"))
         return boundaryComments
     }
 
@@ -929,7 +929,7 @@ class ScreenRenderImpl implements ScreenRender {
         ScreenDefinition sd = getActiveScreenDef()
         try {
             ScreenSection section = sd.getSection(sectionName)
-            if (!section) throw new IllegalArgumentException("No section with name [${sectionName}] in screen [${sd.location}]")
+            if (section == null) throw new IllegalArgumentException("No section with name [${sectionName}] in screen [${sd.location}]")
             writer.flush()
             section.render(this)
             writer.flush()
@@ -1165,6 +1165,8 @@ class ScreenRenderImpl implements ScreenRender {
     }
     String getFieldValueString(FtlNodeWrapper fieldNodeWrapper, String defaultValue, String format) {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
+        if (obj == null) return ""
+        if (obj instanceof String) return (String) obj
         String strValue = ec.l10n.format(obj, format)
         return strValue
     }
@@ -1183,19 +1185,24 @@ class ScreenRenderImpl implements ScreenRender {
         String entryName = fieldNode.attribute('entry-name')
         if (entryName != null && entryName.length() > 0) return ec.getResource().expression(entryName, null)
         String fieldName = fieldNode.attribute('name')
-        String mapAttr = fieldNode.parent.attribute('map')
-        String mapName = mapAttr != null && mapAttr.length() > 0 ? mapAttr : "fieldValues"
         Object value = null
+
         // if this is an error situation try parameters first, otherwise try parameters last
         Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
-        if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute('name')))
+        if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute('name'))) {
             value = errorParameters.get(fieldName)
-        Map valueMap = (Map) ec.resource.expression(mapName, "")
-        if (StupidJavaUtilities.isEmpty(value)) {
-            MNode formNode = fieldNode.parent
-            boolean isFormSingle = "form-single".equals(formNode.name)
-            boolean isFormList = !isFormSingle && "form-list".equals(formNode.name)
-            if (valueMap != null && isFormSingle) {
+            if (!StupidJavaUtilities.isEmpty(value)) return value
+        }
+
+        MNode formNode = fieldNode.parent
+        boolean isFormList = "form-list".equals(formNode.name)
+        boolean isFormSingle = !isFormList && "form-single".equals(formNode.name)
+        if (isFormSingle) {
+            String mapAttr = formNode.attribute('map')
+            String mapName = mapAttr != null && mapAttr.length() > 0 ? mapAttr : "fieldValues"
+            Map valueMap = (Map) ec.resource.expression(mapName, "")
+
+            if (valueMap != null) {
                 try {
                     if (valueMap instanceof EntityValueBase) {
                         // if it is an EntityValueImpl, only get if the fieldName is a value
@@ -1208,13 +1215,17 @@ class ScreenRenderImpl implements ScreenRender {
                     // do nothing, not necessarily an entity field
                     if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
-            } else if (isFormList) {
-                String listEntryAttr = formNode.attribute('list-entry')
-                if (listEntryAttr != null && listEntryAttr.length() > 0) {
-                    // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
-                    //     putting all Map entries in the context for each row)
-                    Object entryObj = ec.getContext().getByString(listEntryAttr)
-                    if (entryObj != null && !(entryObj instanceof Map)) {
+            }
+        } else if (isFormList) {
+            String listEntryAttr = formNode.attribute('list-entry')
+            if (listEntryAttr != null && listEntryAttr.length() > 0) {
+                // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
+                //     putting all Map entries in the context for each row)
+                Object entryObj = ec.getContext().getByString(listEntryAttr)
+                if (entryObj != null && !(entryObj instanceof Map)) {
+                    if (entryObj instanceof Map) {
+                        value = ((Map) entryObj).get(fieldName)
+                    } else {
                         try {
                             value = entryObj.getAt(fieldName)
                         } catch (MissingPropertyException e) {
@@ -1225,42 +1236,22 @@ class ScreenRenderImpl implements ScreenRender {
                 }
             }
         }
-        if (StupidJavaUtilities.isEmpty(value)) value = ec.getContext().getByString(fieldName)
-        // this isn't needed since the parameters are copied to the context: if (!isError && isWebAndSameForm && !value) value = ec.getWeb().parameters.get(fieldName)
 
-        if (!StupidJavaUtilities.isEmpty(value)) return value
+        // the value == null check here isn't necessary but is the most common case so
+        if (value == null || StupidJavaUtilities.isEmpty(value)) {
+            value = ec.getContext().getByString(fieldName)
+            if (!StupidJavaUtilities.isEmpty(value)) return value
+        } else {
+            return value
+        }
+        // this isn't needed since the parameters are copied to the context: if (!isError && isWebAndSameForm && !value) value = ec.getWeb().parameters.get(fieldName)
 
         String defaultStr = ec.getResource().expand(defaultValue, null)
         if (defaultStr != null && defaultStr.length() > 0) return defaultStr
         return value
     }
     String getFieldValueClass(FtlNodeWrapper fieldNodeWrapper) {
-        Object fieldValue = null
-
-        MNode fieldNode = fieldNodeWrapper.getMNode()
-        String entryName = fieldNode.attribute('entry-name')
-        if (entryName != null && entryName.length() > 0) fieldValue = ec.getResource().expression(entryName, null)
-        if (fieldValue == null) {
-            String fieldName = fieldNode.attribute('name')
-            String mapName = fieldNode.parent.attribute('map') ?: "fieldValues"
-            if (ec.getContext().getByString(mapName) != null && fieldNode.parent.name == "form-single") {
-                try {
-                    Map valueMap = (Map) ec.getContext().getByString(mapName)
-                    if (valueMap instanceof EntityValueImpl) {
-                        // if it is an EntityValueImpl, only get if the fieldName is a value
-                        EntityValueImpl evi = (EntityValueImpl) valueMap
-                        if (evi.getEntityDefinition().isField(fieldName)) fieldValue = evi.get(fieldName)
-                    } else {
-                        fieldValue = valueMap.get(fieldName)
-                    }
-                } catch (EntityException e) {
-                    // do nothing, not necessarily an entity field
-                    if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
-                }
-            }
-            if (StupidJavaUtilities.isEmpty(fieldValue)) fieldValue = ec.getContext().getByString(fieldName)
-        }
-
+        Object fieldValue = getFieldValue(fieldNodeWrapper, null)
         return fieldValue != null ? fieldValue.getClass().getSimpleName() : "String"
     }
 
@@ -1382,7 +1373,7 @@ class ScreenRenderImpl implements ScreenRender {
         ArrayList<String> values = new ArrayList<>(strListSize)
         for (int i = 0; i < strListSize; i++) {
             EntityValue str = (EntityValue) strList.get(i)
-            values.add(str.getString("resourceValue"))
+            values.add((String) str.getNoCheckSimple("resourceValue"))
         }
 
         curThemeValuesByType.put(resourceTypeEnumId, values)

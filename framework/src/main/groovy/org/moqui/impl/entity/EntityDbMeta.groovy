@@ -234,7 +234,6 @@ class EntityDbMeta {
         }
         sql.append(" PRIMARY KEY (")
         boolean isFirstPk = true
-        logger.info("Creating ${ed.getFullEntityName()} pks: ${ed.getPkFieldNames()}")
         for (String pkName in ed.getPkFieldNames()) {
             if (isFirstPk) isFirstPk = false else sql.append(", ")
             sql.append(ed.getColumnName(pkName, false))
@@ -246,10 +245,11 @@ class EntityDbMeta {
         if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
         if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
 
+        logger.info("Creating table for ${ed.getFullEntityName()} pks: ${ed.getPkFieldNames()}")
         if (logger.traceEnabled) logger.trace("Create Table with SQL: " + sql.toString())
 
         runSqlUpdate(sql, groupName)
-        if (logger.infoEnabled) logger.info("Created table ${ed.tableName} for entity ${ed.getFullEntityName()} in group ${groupName}")
+        if (logger.infoEnabled) logger.info("Created table ${ed.getFullTableName()} for entity ${ed.getFullEntityName()} in group ${groupName}")
     }
 
     List<String> getMissingColumns(EntityDefinition ed) {

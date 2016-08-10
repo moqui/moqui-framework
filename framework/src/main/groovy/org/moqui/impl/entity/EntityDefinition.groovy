@@ -194,14 +194,12 @@ public class EntityDefinition {
             this.expandAliasAlls()
             // set @type, set is-pk on all alias Nodes if the related field is-pk
             for (MNode aliasNode in internalEntityNode.children("alias")) {
-                MNode memberEntity = memberEntityAliasMap.get(aliasNode.attribute("entity-alias"))
-                if (memberEntity == null) {
-                    if (aliasNode.hasChild("complex-alias")) {
-                        continue
-                    } else {
-                        throw new EntityException("Could not find member-entity with entity-alias [${aliasNode.attribute("entity-alias")}] in view-entity [${internalEntityName}]")
-                    }
-                }
+                if (aliasNode.hasChild("complex-alias") || aliasNode.hasChild("case")) continue
+
+                String entityAlias = aliasNode.attribute("entity-alias")
+                MNode memberEntity = memberEntityAliasMap.get(entityAlias)
+                if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias ${entityAlias} in view-entity ${internalEntityName}")
+
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
                 String fieldName = aliasNode.attribute("field") ?: aliasNode.attribute("name")
                 MNode fieldNode = memberEd.getFieldNode(fieldName)
@@ -383,7 +381,7 @@ public class EntityDefinition {
         fi.type = fnAttrs.get('type')
         fi.columnName = fnAttrs.get('column-name') ?: camelCaseToUnderscored(fi.name)
         fi.defaultStr = fnAttrs.get('default')
-        if (!fi.type && fieldNode.hasChild("complex-alias") && fnAttrs.get('function')) {
+        if (!fi.type && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get('function')) {
             // this is probably a calculated value, just default to number-decimal
             fi.type = 'number-decimal'
         }
@@ -402,45 +400,18 @@ public class EntityDefinition {
         fi.createOnly = fnAttrs.get('create-only') ? 'true'.equals(fnAttrs.get('create-only')) : ed.createOnly()
         fi.enableAuditLog = fieldNode.attribute('enable-audit-log') ?: ed.internalEntityNode.attribute('enable-audit-log')
 
-
+        fi.setFullColumnName(ed.makeFullColumnName(fieldNode))
         if (ed.isViewEntity()) {
-            // NOTE: for view-entity the incoming fieldNode will actually be for an alias element
-            StringBuilder colNameBuilder = new StringBuilder()
-            /*
-            if (includeFunctionAndComplex) {
-                // column name for view-entity (prefix with "${entity-alias}.")
-                //colName.append(fieldNode."@entity-alias").append('.')
-                if (logger.isTraceEnabled()) logger.trace("For view-entity include function and complex not yet supported, for entity [${internalEntityName}], may get bad SQL...")
+            String entityAlias = fieldNode.attribute('entity-alias')
+            if (entityAlias != null && entityAlias.length() > 0) fi.entityAliasUsedSet.add(entityAlias)
+
+            ArrayList<MNode> cafList = fieldNode.depthFirst({ MNode it -> "complex-alias-field".equals(it.name) })
+            int cafListSize = cafList.size()
+            for (int i = 0; i < cafListSize; i++) {
+                MNode cafNode = (MNode) cafList.get(i)
+                String cafEntityAlias = cafNode.attribute('entity-alias')
+                if (cafEntityAlias != null && cafEntityAlias.length() > 0) fi.entityAliasUsedSet.add(cafEntityAlias)
             }
-            // else {
-            */
-
-            if (fieldNode.hasChild('complex-alias')) {
-                String function = fieldNode.attribute('function')
-                if (function) {
-                    colNameBuilder.append(getFunctionPrefix(function))
-                }
-                ed.buildComplexAliasName(fieldNode, "+", colNameBuilder)
-                if (function) colNameBuilder.append(')')
-            } else {
-                String function = fieldNode.attribute('function')
-                if (function) {
-                    colNameBuilder.append(getFunctionPrefix(function))
-                }
-                // column name for view-entity (prefix with "${entity-alias}.")
-                colNameBuilder.append(fieldNode.attribute('entity-alias')).append('.')
-
-                String memberFieldName = fieldNode.attribute('field') ?: fieldNode.attribute('name')
-                colNameBuilder.append(ed.getBasicFieldColName(ed.internalEntityNode,
-                        (String) fieldNode.attribute('entity-alias'), memberFieldName))
-
-                if (function) colNameBuilder.append(')')
-            }
-
-            // }
-            fi.fullColumnName = colNameBuilder.toString()
-        } else {
-            fi.fullColumnName = fi.columnName
         }
 
         return fi
@@ -769,7 +740,7 @@ public class EntityDefinition {
         if (fieldInfo == null) {
             throw new EntityException("Invalid field-name [${fieldName}] for the [${this.getFullEntityName()}] entity")
         }
-        return fieldInfo.fullColumnName
+        return fieldInfo.getFullColumnName()
     }
 
     protected String getBasicFieldColName(MNode entityNode, String entityAlias, String fieldName) {
@@ -779,20 +750,80 @@ public class EntityDefinition {
         return memberEd.getColumnName(fieldName, false)
     }
 
-    protected void buildComplexAliasName(MNode parentNode, String operator, StringBuilder colNameBuilder) {
-        //TODO expand expression against current context
-        colNameBuilder.append(parentNode.attribute('expression') ?: '')
-        if (parentNode.children.isEmpty()) {
-            return
-        }
-        colNameBuilder.append('(')
-        boolean isFirst = true
-        for (MNode childNode in parentNode.children) {
-            if (isFirst) isFirst=false else colNameBuilder.append(' ').append(operator).append(' ')
+    protected String makeFullColumnName(MNode fieldNode) {
+        if (isViewEntity()) {
+            // NOTE: for view-entity the incoming fieldNode will actually be for an alias element
+            StringBuilder colNameBuilder = new StringBuilder()
 
-            if (childNode.name == "complex-alias") {
-                buildComplexAliasName(childNode, (String) childNode.attribute("operator"), colNameBuilder)
-            } else if (childNode.name == "complex-alias-field") {
+            MNode caseNode = fieldNode.first("case")
+            MNode complexAliasNode = fieldNode.first("complex-alias")
+            String function = fieldNode.attribute('function')
+            boolean hasFunction = function != null && function.length() > 0
+
+            if (hasFunction) colNameBuilder.append(getFunctionPrefix(function))
+            if (caseNode != null) {
+                colNameBuilder.append("CASE")
+                String caseExpr = caseNode.attribute("expression")
+                if (caseExpr != null) colNameBuilder.append(" ").append(caseExpr)
+
+                ArrayList<MNode> whenNodeList = caseNode.children("when")
+                int whenNodeListSize = whenNodeList.size()
+                if (whenNodeListSize == 0) throw new EntityException("No when element under case in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}")
+                for (int i = 0; i < whenNodeListSize; i++) {
+                    MNode whenNode = (MNode) whenNodeList.get(i)
+                    colNameBuilder.append(" WHEN ").append(whenNode.attribute("expression")).append(" THEN ")
+                    MNode whenComplexAliasNode = whenNode.first("complex-alias")
+                    if (whenComplexAliasNode == null) throw new EntityException("No complex-alias element under case.when in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}")
+                    buildComplexAliasName(whenComplexAliasNode, colNameBuilder)
+                }
+
+                MNode elseNode = caseNode.first("else")
+                if (elseNode != null) {
+                    colNameBuilder.append(" ELSE ")
+                    MNode elseComplexAliasNode = elseNode.first("complex-alias")
+                    if (elseComplexAliasNode == null) throw new EntityException("No complex-alias element under case.else in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}")
+                    buildComplexAliasName(elseComplexAliasNode, colNameBuilder)
+                }
+
+                colNameBuilder.append(" END")
+            } else if (complexAliasNode != null) {
+                buildComplexAliasName(fieldNode, colNameBuilder)
+            } else {
+                // column name for view-entity (prefix with "${entity-alias}.")
+                colNameBuilder.append(fieldNode.attribute('entity-alias')).append('.')
+
+                String memberFieldName = fieldNode.attribute('field') ?: fieldNode.attribute('name')
+                colNameBuilder.append(getBasicFieldColName(internalEntityNode,
+                        (String) fieldNode.attribute('entity-alias'), memberFieldName))
+            }
+            if (hasFunction) colNameBuilder.append(')')
+
+            return colNameBuilder.toString()
+        } else {
+            return null
+        }
+    }
+
+    protected void buildComplexAliasName(MNode parentNode, StringBuilder colNameBuilder) {
+        String expression = parentNode.attribute('expression')
+        // NOTE: this is expanded in FieldInfo.getFullColumnName() if needed
+        if (expression != null && expression.length() > 0) colNameBuilder.append(expression)
+
+        ArrayList<MNode> childList = parentNode.children
+        int childListSize = childList.size()
+        if (childListSize == 0) return
+
+        String operator = parentNode.attribute("operator")
+        if (operator == null || operator.length() == 0) operator = "+"
+
+        if (childListSize > 1) colNameBuilder.append('(')
+        for (int i = 0; i < childListSize; i++) {
+            MNode childNode = (MNode) childList.get(i)
+            if (i > 0) colNameBuilder.append(' ').append(operator).append(' ')
+
+            if ("complex-alias".equals(childNode.name)) {
+                buildComplexAliasName(childNode, colNameBuilder)
+            } else if ("complex-alias-field".equals(childNode.name)) {
                 String entityAlias = childNode.attribute("entity-alias")
                 String basicColName = getBasicFieldColName(internalEntityNode, entityAlias, (String) childNode.attribute("field"))
                 String colName = entityAlias + "." + basicColName
@@ -810,7 +841,7 @@ public class EntityDefinition {
                 colNameBuilder.append(colName)
             }
         }
-        colNameBuilder.append(')')
+        if (childListSize > 1) colNameBuilder.append(')')
     }
 
     static protected String getFunctionPrefix(String function) {
@@ -908,7 +939,7 @@ public class EntityDefinition {
 
                     Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
                     for (EntityValue userField in userFieldList) {
-                        if (userGroupIdSet.contains(userField.get('userGroupId'))) userFieldNames.add((String) userField.get('fieldName'))
+                        if (userGroupIdSet.contains(userField.getNoCheckSimple('userGroupId'))) userFieldNames.add((String) userField.getNoCheckSimple('fieldName'))
                     }
                 } else {
                     hasUserFields = false
@@ -1602,17 +1633,12 @@ public class EntityDefinition {
         return EntityJavaUtil.convertFromString(value, fi, eci.getL10nFacade())
     }
 
-    String getFieldString(String name, Object value) {
-        if (value == null) return null
-        FieldInfo fi = getFieldInfo(name)
-        return getFieldInfoString(fi, value)
-    }
     String getFieldInfoString(FieldInfo fi, Object value) {
         if (value == null) return null
         return EntityJavaUtil.convertToString(value, fi, efi)
     }
 
-    String getFieldStringForFile(String name, Object value) {
+    String getFieldStringForFile(FieldInfo fieldInfo, Object value) {
         if (value == null) return null
 
         String outValue
@@ -1622,7 +1648,7 @@ public class EntityDefinition {
         } else if (value instanceof BigDecimal) {
             outValue = value.toPlainString()
         } else {
-            outValue = getFieldString(name, value)
+            outValue = getFieldInfoString(fieldInfo, value)
         }
 
         return outValue

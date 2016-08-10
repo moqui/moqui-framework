@@ -16,9 +16,11 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========================================================= -->
     <!-- moqui.security -->
+    <!-- moqui.security.user -->
     <!-- ========================================================= -->
 
     <!-- ========== Artifact Group ========== -->
+
     <entity entity-name="ArtifactGroup" package="moqui.security" use="configuration" short-alias="artifactGroups">
         <field name="artifactGroupId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
@@ -74,6 +76,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== Artifact Authz ========== -->
+
     <entity entity-name="ArtifactAuthz" package="moqui.security" use="configuration">
         <description>If an artifact in the group specified is accessed by any user in the AuthzGroup maxHitsCount
             times in maxHitsDuration seconds then the user/artifact will be blocked fir tarputDuration seconds.
@@ -189,6 +192,7 @@ along with this software (see the LICENSE.md file). If not, see
     </view-entity>
 
     <!-- ========== Artifact Tarpit ========== -->
+
     <entity entity-name="ArtifactTarpit" package="moqui.security" use="configuration">
         <description>If an artifact in the group specified is accessed by any user in the UserGroup maxHitsCount
             times in maxHitsDuration seconds then the user/artifact will be blocked for tarpitDuration seconds.
@@ -229,6 +233,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <!-- ========== User ========== -->
+
     <entity entity-name="UserAccount" package="moqui.security" use="transactional" short-alias="users">
         <field name="userId" type="id" is-pk="true"/>
         <field name="username" type="text-medium" enable-audit-log="true">

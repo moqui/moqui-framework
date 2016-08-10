@@ -167,7 +167,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- NOTE: this is NOT functional, create database doesn't work through JDBC so it will fail and there doesn't seem
+    <!-- NOTE: this is NOT fully functional, create database doesn't work through JDBC so it will fail and there doesn't seem
         to be a workaround for creating databases on the fly like this (appears they must be created externally, then tenant will work) -->
     <service verb="provision" noun="TenantDB2">
         <implements service="org.moqui.impl.TenantServices.provision#Tenant"/>
@@ -207,7 +207,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <message>Created tenant ${tenantId} and added MySQL database settings</message>
             <script>})</script>
 
-            <!-- create database; as with other code above assumes on same server as DEFAULT tenant, so connects to that and creates the database -->
+            <!-- For DB2 don't try to create database or load data as we can't create a database or user on the fly through JDBC for DB2:
+
+            <!- - create database; as with other code above assumes on same server as DEFAULT tenant, so connects to that and creates the database - ->
             <script><![CDATA[
                 import org.moqui.context.ExecutionContext
                 ExecutionContext ec = context.ec
@@ -218,11 +220,12 @@ along with this software (see the LICENSE.md file). If not, see
             ]]></script>
             <log level="info" message="Created DB2 database ${dbName} with user ${dbUser}, rows affected: ${rowsAffected}"/>
 
-            <!-- call setup#Tenant to load data, etc -->
+            <!- - call setup#Tenant to load data, etc - ->
             <script>
                 def srw = ec.service.async().name("org.moqui.impl.TenantServices.setup#Tenant").parameters(context).callFuture()
                 if (waitForSetup) srw.get()
             </script>
+            -->
             <if condition="ec.message.hasError()">
                 <message error="true">Found errors setting up tenant. Data may not have loaded data or admin user may not have been created (see other messages).</message></if>
         </actions>

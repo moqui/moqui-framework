@@ -45,8 +45,8 @@ repositories {
     jcenter() // http://jcenter.bintray.com
 }
 
-sourceCompatibility = '1.7'
-targetCompatibility = '1.7'
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
 archivesBaseName = 'moqui'
 
 sourceSets {
@@ -114,8 +114,11 @@ dependencies {
     compile 'com.h2database:h2:1.4.192' // MPL 2.0, EPL 1.0
 
     // Apache HTTP Components
-    compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
-    compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
+    // compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
+    // compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
+
+    // Jetty HTTP Client
+    compile 'org.eclipse.jetty:jetty-client:9.3.11.v20160721' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.5' // CDDL
@@ -132,8 +135,8 @@ dependencies {
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.2.6' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.2.6' // Apache 2.0
+    compile 'org.apache.shiro:shiro-core:1.3.0' // Apache 2.0
+    compile 'org.apache.shiro:shiro-web:1.3.0' // Apache 2.0
 
     // SLF4J, Log4J
     compile 'org.slf4j:slf4j-api:1.7.21'
@@ -170,14 +173,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.10.v20160621' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.10.v20160621' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.10.v20160621' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.10.v20160621') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.10.v20160621') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.10.v20160621') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.11.v20160721' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.11.v20160721' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.11.v20160721' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.11.v20160721') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.11.v20160721') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.11.v20160721') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.10.v20160621') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.11.v20160721') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
@@ -193,7 +196,6 @@ test {
     systemProperty 'moqui.conf', 'conf/MoquiDevTestConf.xml'
     systemProperty 'moqui.init.static', 'true'
     maxHeapSize = "512M"
-    jvmArgs '-XX:MaxPermSize=192m'
 
     testLogging.showStandardStreams = true
     testLogging.showExceptions = true

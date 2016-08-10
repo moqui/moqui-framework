@@ -95,9 +95,11 @@ class EntityValueImpl extends EntityValueBase {
                     String fieldName = fieldInfo.name
                     eqb.setPreparedStatementValue(i+1I, getValueMap().get(fieldName), fieldInfo)
                 }
+
+                // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} in tenant ${efi.tenantId} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
                 eqb.executeUpdate()
                 setSyncedWithDb()
-            } catch (EntityException e) {
+            } catch (Exception e) {
                 throw new EntityException("Error in create of [${this.toString()}]", e)
             } finally {
                 eqb.closeAll()
@@ -139,11 +141,13 @@ class EntityValueImpl extends EntityValueBase {
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
                 eqb.setPreparedStatementValues()
+
+                // if (ed.entityName == "Subscription") logger.warn("Update ${this.toString()} in tenant ${efi.tenantId} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
                 if (eqb.executeUpdate() == 0)
                     throw new EntityException("Tried to update a value that does not exist [${this.toString()}]. SQL used was [${eqb.sqlTopLevelInternal}], parameters were [${eqb.parameters}]")
                 setSyncedWithDb()
-            } catch (EntityException e) {
-                throw new EntityException("Error in update of [${this.toString()}]", e)
+            } catch (Exception e) {
+                throw new EntityException("Error in update of ${this.toString()} in tenant ${efi.tenantId} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}", e)
             } finally {
                 eqb.closeAll()
             }
@@ -178,7 +182,7 @@ class EntityValueImpl extends EntityValueBase {
                 eqb.makePreparedStatement()
                 eqb.setPreparedStatementValues()
                 if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist [${this.toString()}]")
-            } catch (EntityException e) {
+            } catch (Exception e) {
                 throw new EntityException("Error in delete of [${this.toString()}]", e)
             } finally {
                 eqb.closeAll()
@@ -249,7 +253,7 @@ class EntityValueImpl extends EntityValueBase {
             } else {
                 if (logger.traceEnabled) logger.trace("No record found in refresh for entity [${getEntityName()}] with values [${getValueMap()}]")
             }
-        } catch (EntityException e) {
+        } catch (Exception e) {
             throw new EntityException("Error in refresh of [${this.toString()}]", e)
         } finally {
             eqb.closeAll()
