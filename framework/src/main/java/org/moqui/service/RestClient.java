@@ -16,6 +16,7 @@ package org.moqui.service;
 import groovy.util.Node;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -81,7 +82,7 @@ public interface RestClient {
         byte[] bytes();
         // FUTURE: handle stream response, but in a way that avoids requiring an explicit close for other methods
 
-        Map<String, List<String>> headers();
+        Map<String, ArrayList<String>> headers();
         String headerFirst(String name);
     }
 }

@@ -26,22 +26,47 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.jcache.MCache
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
 import javax.servlet.http.HttpServletResponse
 
 @CompileStatic
 class RestApi {
     protected final static Logger logger = LoggerFactory.getLogger(RestApi.class)
 
-    protected ExecutionContextFactoryImpl ecfi
-    Map<String, ResourceNode> rootResourceMap = [:]
+    @SuppressWarnings("GrFinalVariableAccess")
+    protected final ExecutionContextFactoryImpl ecfi
+    @SuppressWarnings("GrFinalVariableAccess")
+    final MCache<String, ResourceNode> rootResourceCache
 
     RestApi(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
+        rootResourceCache = ecfi.getCacheFacade().getLocalCache("service.rest.api")
+        loadRootResourceNode(null)
+    }
 
+    ResourceNode getRootResourceNode(String name) {
+        ResourceNode resourceNode = rootResourceCache.get(name)
+        if (resourceNode != null) return resourceNode
+
+        loadRootResourceNode(name)
+        resourceNode = rootResourceCache.get(name)
+        if (resourceNode != null) return resourceNode
+
+        throw new ResourceNotFoundException("Service REST API Root resource not found with name ${name}")
+    }
+
+    synchronized void loadRootResourceNode(String name) {
+        if (name != null) {
+            ResourceNode resourceNode = rootResourceCache.get(name)
+            if (resourceNode != null) return
+        }
+
+        long startTime = System.currentTimeMillis()
         // find *.rest.xml files in component/service directories, put in rootResourceMap
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference serviceDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/service")
@@ -51,28 +76,36 @@ class RestApi {
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".rest.xml")) continue
                     MNode rootNode = MNode.parse(rr)
-                    ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
-                    rootResourceMap.put(rn.name, rn)
-                    logger.info("Loaded REST API from ${rr.getFileName()} (${rn.childPaths} paths, ${rn.childMethods} methods)")
-                    // logger.info(rn.toString())
+                    if (name == null || name.equals(rootNode.attribute("name"))) {
+                        ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
+                        rootResourceCache.put(rn.name, rn)
+                        logger.info("Loaded REST API from ${rr.getFileName()} (${rn.childPaths} paths, ${rn.childMethods} methods)")
+                        // logger.info(rn.toString())
+                    }
                 }
             } else {
                 logger.warn("Can't load REST APIs from component at [${serviceDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        logger.info("Loaded REST API files, ${rootResourceCache.size()} roots, in ${System.currentTimeMillis() - startTime}ms")
+    }
+
+    List<ResourceNode> getFreshRootResources() {
+        loadRootResourceNode(null)
+        List<ResourceNode> rootList = new ArrayList<>()
+        for (Cache.Entry<String, ResourceNode> entry in rootResourceCache.getEntryList()) rootList.add(entry.getValue())
+        return rootList
     }
 
     RestResult run(List<String> pathList, ExecutionContextImpl ec) {
-        if (!pathList) throw new ResourceNotFoundException("Cannot run REST service with no path")
+        if (pathList == null || pathList.size() == 0) throw new ResourceNotFoundException("Cannot run REST service with no path")
         String firstPath = pathList[0]
-        ResourceNode resourceNode = rootResourceMap.get(firstPath)
-        if (resourceNode == null) throw new ResourceNotFoundException("Root resource not found with name ${firstPath}")
+        ResourceNode resourceNode = getRootResourceNode(firstPath)
         return resourceNode.visit(pathList, 0, ec)
     }
 
     Map<String, Object> getRamlMap(String rootResourceName, String linkPrefix) {
-        ResourceNode resourceNode = rootResourceMap.get(rootResourceName)
-        if (resourceNode == null) throw new ResourceNotFoundException("Root resource not found with name ${rootResourceName}")
+        ResourceNode resourceNode = getRootResourceNode(rootResourceName)
 
         Map<String, Object> typesMap = new TreeMap<String, Object>()
 
@@ -103,8 +136,7 @@ class RestApi {
         // TODO: support generate for all roots with empty path
         if (!rootPathList) throw new ResourceNotFoundException("No resource path specified")
         String rootResourceName = rootPathList[0]
-        ResourceNode resourceNode = rootResourceMap.get(rootResourceName)
-        if (resourceNode == null) throw new ResourceNotFoundException("Root resource not found with name ${rootResourceName}")
+        ResourceNode resourceNode = getRootResourceNode(rootResourceName)
 
         StringBuilder fullBasePath = new StringBuilder(basePath)
         for (String rootPath in rootPathList) fullBasePath.append('/').append(rootPath)

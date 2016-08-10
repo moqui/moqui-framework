@@ -53,6 +53,7 @@
         <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList"/>
 
         <cache name="service.location" tenants-share="true" value-type="org.moqui.impl.service.ServiceDefinition"/>
+        <cache name="service.rest.api" tenants-share="true" value-type="org.moqui.impl.service.RestApi$ResourceNode"/>
         <cache name="kie.component.releaseId" tenants-share="true" value-type="org.kie.api.builder.ReleaseId"/>
         <cache name="kie.session.component" tenants-share="true" value-type="String"/>
 

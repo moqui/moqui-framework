@@ -575,7 +575,7 @@ class UserFacadeImpl implements UserFacade {
         long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
         eci.service.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
-                .disableAuthz().call()
+                .disableAuthz().requireNewTransaction(true).call()
 
         // clean out expired keys
         eci.entity.find("moqui.security.UserLoginKey").condition("userId", userId)

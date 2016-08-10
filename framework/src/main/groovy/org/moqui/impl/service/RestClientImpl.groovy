@@ -148,7 +148,7 @@ class RestClientImpl implements RestClient {
             }
             request.accept(contentType)
 
-            logger.info("RestClient request ${request.getMethod()} ${request.getURI()} Headers: ${request.getHeaders()}")
+            if (logger.isTraceEnabled()) logger.trace("RestClient request ${request.getMethod()} ${request.getURI()} Headers: ${request.getHeaders()}")
 
             response = request.send()
         } finally {
@@ -179,7 +179,7 @@ class RestClientImpl implements RestClient {
         protected RestClientImpl rci
         protected ContentResponse response
         protected byte[] bytes = null
-        protected Map<String, List<String>> headers = [:]
+        protected Map<String, ArrayList<String>> headers = [:]
         protected int statusCode
         protected String reasonPhrase
 
@@ -192,9 +192,9 @@ class RestClientImpl implements RestClient {
             // get headers
             for (HttpField hdr in response.getHeaders()) {
                 String name = hdr.getName()
-                List<String> curList = Arrays.asList(hdr.getValues())
-                if (curList == null) { curList = []; headers.put(name, curList) }
-                curList.add(hdr.getValue())
+                ArrayList<String> curList = headers.get(name)
+                if (curList == null) { curList = new ArrayList<>(); headers.put(name, curList) }
+                curList.addAll(Arrays.asList(hdr.getValues()))
             }
 
             // get the response body
@@ -236,7 +236,7 @@ class RestClientImpl implements RestClient {
         byte[] bytes() { return bytes }
 
         @Override
-        Map<String, List<String>> headers() { return headers }
+        Map<String, ArrayList<String>> headers() { return headers }
 
         @Override
         String headerFirst(String name) {
