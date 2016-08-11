@@ -346,11 +346,6 @@ class EntityListIteratorImpl implements EntityListIterator {
     }
 
     @Override
-    Iterator<EntityValue> iterator() {
-        return this
-    }
-
-    @Override
     void remove() {
         // TODO: call EECAs
         try {

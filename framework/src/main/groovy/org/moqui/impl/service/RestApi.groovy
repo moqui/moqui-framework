@@ -23,24 +23,50 @@ import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.jcache.MCache
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.cache.Cache
 import javax.servlet.http.HttpServletResponse
 
 @CompileStatic
 class RestApi {
     protected final static Logger logger = LoggerFactory.getLogger(RestApi.class)
 
-    protected ExecutionContextFactoryImpl ecfi
-    Map<String, ResourceNode> rootResourceMap = [:]
+    @SuppressWarnings("GrFinalVariableAccess")
+    protected final ExecutionContextFactoryImpl ecfi
+    @SuppressWarnings("GrFinalVariableAccess")
+    final MCache<String, ResourceNode> rootResourceCache
 
     RestApi(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
+        rootResourceCache = ecfi.getCacheFacade().getLocalCache("service.rest.api")
+        loadRootResourceNode(null)
+    }
 
+    ResourceNode getRootResourceNode(String name) {
+        ResourceNode resourceNode = rootResourceCache.get(name)
+        if (resourceNode != null) return resourceNode
+
+        loadRootResourceNode(name)
+        resourceNode = rootResourceCache.get(name)
+        if (resourceNode != null) return resourceNode
+
+        throw new ResourceNotFoundException("Service REST API Root resource not found with name ${name}")
+    }
+
+    synchronized void loadRootResourceNode(String name) {
+        if (name != null) {
+            ResourceNode resourceNode = rootResourceCache.get(name)
+            if (resourceNode != null) return
+        }
+
+        long startTime = System.currentTimeMillis()
         // find *.rest.xml files in component/service directories, put in rootResourceMap
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference serviceDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/service")
@@ -50,28 +76,36 @@ class RestApi {
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".rest.xml")) continue
                     MNode rootNode = MNode.parse(rr)
-                    ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
-                    rootResourceMap.put(rn.name, rn)
-                    logger.info("Loaded REST API from ${rr.getFileName()} (${rn.childPaths} paths, ${rn.childMethods} methods)")
-                    // logger.info(rn.toString())
+                    if (name == null || name.equals(rootNode.attribute("name"))) {
+                        ResourceNode rn = new ResourceNode(rootNode, null, ecfi)
+                        rootResourceCache.put(rn.name, rn)
+                        logger.info("Loaded REST API from ${rr.getFileName()} (${rn.childPaths} paths, ${rn.childMethods} methods)")
+                        // logger.info(rn.toString())
+                    }
                 }
             } else {
                 logger.warn("Can't load REST APIs from component at [${serviceDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        logger.info("Loaded REST API files, ${rootResourceCache.size()} roots, in ${System.currentTimeMillis() - startTime}ms")
+    }
+
+    List<ResourceNode> getFreshRootResources() {
+        loadRootResourceNode(null)
+        List<ResourceNode> rootList = new ArrayList<>()
+        for (Cache.Entry<String, ResourceNode> entry in rootResourceCache.getEntryList()) rootList.add(entry.getValue())
+        return rootList
     }
 
     RestResult run(List<String> pathList, ExecutionContextImpl ec) {
-        if (!pathList) throw new ResourceNotFoundException("Cannot run REST service with no path")
+        if (pathList == null || pathList.size() == 0) throw new ResourceNotFoundException("Cannot run REST service with no path")
         String firstPath = pathList[0]
-        ResourceNode resourceNode = rootResourceMap.get(firstPath)
-        if (resourceNode == null) throw new ResourceNotFoundException("Root resource not found with name ${firstPath}")
+        ResourceNode resourceNode = getRootResourceNode(firstPath)
         return resourceNode.visit(pathList, 0, ec)
     }
 
     Map<String, Object> getRamlMap(String rootResourceName, String linkPrefix) {
-        ResourceNode resourceNode = rootResourceMap.get(rootResourceName)
-        if (resourceNode == null) throw new ResourceNotFoundException("Root resource not found with name ${rootResourceName}")
+        ResourceNode resourceNode = getRootResourceNode(rootResourceName)
 
         Map<String, Object> typesMap = new TreeMap<String, Object>()
 
@@ -102,8 +136,7 @@ class RestApi {
         // TODO: support generate for all roots with empty path
         if (!rootPathList) throw new ResourceNotFoundException("No resource path specified")
         String rootResourceName = rootPathList[0]
-        ResourceNode resourceNode = rootResourceMap.get(rootResourceName)
-        if (resourceNode == null) throw new ResourceNotFoundException("Root resource not found with name ${rootResourceName}")
+        ResourceNode resourceNode = getRootResourceNode(rootResourceName)
 
         StringBuilder fullBasePath = new StringBuilder(basePath)
         for (String rootPath in rootPathList) fullBasePath.append('/').append(rootPath)
@@ -142,10 +175,12 @@ class RestApi {
         ExecutionContextFactoryImpl ecfi
         String method
         PathNode pathNode
-        MethodHandler(String method, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
+        String requireAuthentication
+        MethodHandler(MNode methodNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
-            this.method = method
+            method = methodNode.attribute("type")
             this.pathNode = pathNode
+            requireAuthentication = methodNode.attribute("require-authentication") ?: pathNode.requireAuthentication ?: "true"
         }
         abstract RestResult run(List<String> pathList, ExecutionContext ec)
         abstract void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap)
@@ -184,13 +219,26 @@ class RestApi {
 
     static class MethodService extends MethodHandler {
         String serviceName
-        MethodService(String method, MNode serviceNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
-            super(method, pathNode, ecfi)
+        MethodService(MNode methodNode, MNode serviceNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
+            super(methodNode, pathNode, ecfi)
             serviceName = serviceNode.attribute("name")
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
-            Map result = ec.getService().sync().name(serviceName).parameters(ec.context).call()
-            return new RestResult(result, null)
+            boolean loggedInAnonymous = false
+            if ("anonymous-all".equals(requireAuthentication)) {
+                ec.artifactExecution.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            } else if ("anonymous-view".equals(requireAuthentication)) {
+                ec.artifactExecution.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            }
+
+            try {
+                Map result = ec.getService().sync().name(serviceName).parameters(ec.context).call()
+                return new RestResult(result, null)
+            } finally {
+                if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+            }
         }
 
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
@@ -281,55 +329,69 @@ class RestApi {
 
     static class MethodEntity extends MethodHandler {
         String entityName, masterName, operation
-        MethodEntity(String method, MNode entityNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
-            super(method, pathNode, ecfi)
+        MethodEntity(MNode methodNode, MNode entityNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
+            super(methodNode, pathNode, ecfi)
             entityName = entityNode.attribute("name")
             masterName = entityNode.attribute("masterName")
             operation = entityNode.attribute("operation")
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
             // service calls handle their own auth, for entity ops authc always required
-            if (!ec.getUser().getUsername()) {
+            if ((requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) &&
+                    !ec.getUser().getUsername()) {
                 throw new AuthenticationRequiredException("User must be logged in for operaton ${operation} on entity ${entityName}")
             }
 
-            if (operation == 'one') {
-                EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
-                if (masterName) {
-                    return new RestResult(ef.oneMaster(masterName), null)
-                } else {
-                    return new RestResult(ef.one(), null)
-                }
-            } else if (operation == 'list') {
-                EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
-                // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
-                if (!ef.getLimit()) ef.limit(100)
+            boolean loggedInAnonymous = false
+            if ("anonymous-all".equals(requireAuthentication)) {
+                ec.artifactExecution.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            } else if ("anonymous-view".equals(requireAuthentication)) {
+                ec.artifactExecution.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            }
 
-                int count = ef.count() as int
-                int pageIndex = ef.getPageIndex()
-                int pageSize = ef.getPageSize()
-                int pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, BigDecimal.ROUND_DOWN).intValue()
-                int pageRangeLow = pageIndex * pageSize + 1
-                int pageRangeHigh = (pageIndex * pageSize) + pageSize
-                if (pageRangeHigh > count) pageRangeHigh = count
-                Map<String, Object> headers = ['X-Total-Count':count, 'X-Page-Index':pageIndex, 'X-Page-Size':pageSize,
-                    'X-Page-Max-Index':pageMaxIndex, 'X-Page-Range-Low':pageRangeLow, 'X-Page-Range-High':pageRangeHigh] as Map<String, Object>
+            try {
+                if (operation == 'one') {
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    if (masterName) {
+                        return new RestResult(ef.oneMaster(masterName), null)
+                    } else {
+                        return new RestResult(ef.one(), null)
+                    }
+                } else if (operation == 'list') {
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
+                    if (!ef.getLimit()) ef.limit(100)
 
-                if (masterName) {
-                    return new RestResult(ef.listMaster(masterName), headers)
+                    int count = ef.count() as int
+                    int pageIndex = ef.getPageIndex()
+                    int pageSize = ef.getPageSize()
+                    int pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, BigDecimal.ROUND_DOWN).intValue()
+                    int pageRangeLow = pageIndex * pageSize + 1
+                    int pageRangeHigh = (pageIndex * pageSize) + pageSize
+                    if (pageRangeHigh > count) pageRangeHigh = count
+                    Map<String, Object> headers = ['X-Total-Count':count, 'X-Page-Index':pageIndex, 'X-Page-Size':pageSize,
+                        'X-Page-Max-Index':pageMaxIndex, 'X-Page-Range-Low':pageRangeLow, 'X-Page-Range-High':pageRangeHigh] as Map<String, Object>
+
+                    if (masterName) {
+                        return new RestResult(ef.listMaster(masterName), headers)
+                    } else {
+                        return new RestResult(ef.list(), headers)
+                    }
+                } else if (operation == 'count') {
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    long count = ef.count()
+                    Map<String, Object> headers = ['X-Total-Count':count] as Map<String, Object>
+                    return new RestResult([count:count], headers)
+                } else if (operation in ['create', 'update', 'store', 'delete']) {
+                    Map result = ec.getService().sync().name(operation, entityName).parameters(ec.context).call()
+                    return new RestResult(result, null)
                 } else {
-                    return new RestResult(ef.list(), headers)
+                    throw new IllegalArgumentException("Entity operation ${operation} not supported, must be one of: one, list, count, create, update, store, delete")
                 }
-            } else if (operation == 'count') {
-                EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
-                long count = ef.count()
-                Map<String, Object> headers = ['X-Total-Count':count] as Map<String, Object>
-                return new RestResult([count:count], headers)
-            } else if (operation in ['create', 'update', 'store', 'delete']) {
-                Map result = ec.getService().sync().name(operation, entityName).parameters(ec.context).call()
-                return new RestResult(result, null)
-            } else {
-                throw new IllegalArgumentException("Entity operation ${operation} not supported, must be one of: one, list, count, create, update, store, delete")
+            } finally {
+                if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
             }
         }
 
@@ -491,6 +553,7 @@ class RestApi {
         Map<String, ResourceNode> resourceMap = [:]
 
         String name
+        String requireAuthentication
         PathNode parent
         List<String> fullPathList = []
         Set<String> pathParameters = new LinkedHashSet<String>()
@@ -511,6 +574,7 @@ class RestApi {
             if (parent != null) fullPathList.addAll(parent.fullPathList)
             fullPathList.add(isId ? "{${name}}".toString() : name)
             if (isId) pathParameters.add(name)
+            requireAuthentication = node.attribute("require-authentication") ?: parent?.requireAuthentication ?: "true"
 
             for (MNode childNode in node.children) {
                 if (childNode.name == "method") {
@@ -518,9 +582,9 @@ class RestApi {
 
                     MNode methodNode = childNode.children[0]
                     if (methodNode.name == "service") {
-                        methodMap.put(method, new MethodService(method, methodNode, this, ecfi))
+                        methodMap.put(method, new MethodService(childNode, methodNode, this, ecfi))
                     } else if (methodNode.name == "entity") {
-                        methodMap.put(method, new MethodEntity(method, methodNode, this, ecfi))
+                        methodMap.put(method, new MethodEntity(childNode, methodNode, this, ecfi))
                     }
                 } else if (childNode.name == "resource") {
                     ResourceNode resourceNode = new ResourceNode(childNode, this, ecfi)
@@ -559,7 +623,17 @@ class RestApi {
             String curPath = getFullPathName([])
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, ArtifactExecutionInfo.AT_REST_PATH, getActionFromMethod(ec))
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
-            ec.getArtifactExecutionImpl().pushInternal(aei, !moreInPath)
+            ec.artifactExecutionImpl.pushInternal(aei, !moreInPath ?
+                    (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)
+
+            boolean loggedInAnonymous = false
+            if ("anonymous-all".equals(requireAuthentication)) {
+                ec.artifactExecution.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            } else if ("anonymous-view".equals(requireAuthentication)) {
+                ec.artifactExecution.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+            }
 
             try {
                 if (moreInPath) {
@@ -580,6 +654,7 @@ class RestApi {
                 }
             } finally {
                 ec.getArtifactExecution().pop(aei)
+                if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
             }
         }
 

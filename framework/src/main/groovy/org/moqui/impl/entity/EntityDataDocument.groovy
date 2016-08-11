@@ -198,13 +198,14 @@ class EntityDataDocument {
         EntityListIterator mainEli = mainFind.iterator()
         Map<String, Map<String, Object>> documentMapMap = [:]
         try {
-            for (EntityValue ev in mainEli) {
+            EntityValue ev
+            while ((ev = (EntityValue) mainEli.next()) != null) {
                 // logger.warn("=========== DataDocument query result for ${dataDocumentId}: ${ev}")
 
                 StringBuffer pkCombinedSb = new StringBuffer()
                 for (String pkFieldName in primaryPkFieldNames) {
                     if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
-                    pkCombinedSb.append(ev.getString(pkFieldName))
+                    pkCombinedSb.append((String) ev.getNoCheckSimple(pkFieldName))
                 }
                 String docId = pkCombinedSb.toString()
 

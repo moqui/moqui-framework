@@ -235,7 +235,7 @@ class EntityFacadeImpl implements EntityFacade {
                             .condition("entityGroupName", efi.getDefaultGroupName()).disableAuthz().one()
                 }
                 tenantDataSourceXaPropList = tenantDataSource != null ? defaultEfi.find("moqui.tenant.TenantDataSourceXaProp")
-                        .condition("tenantId", tenantId) .condition("entityGroupName", tenantDataSource.entityGroupName)
+                        .condition("tenantId", tenantId).condition("entityGroupName", tenantDataSource.entityGroupName)
                         .disableAuthz().list() : null
             }
 

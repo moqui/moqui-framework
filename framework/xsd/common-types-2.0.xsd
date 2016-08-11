@@ -130,6 +130,14 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:enumeration>
         </xs:restriction>
     </xs:simpleType>
+    <xs:simpleType name="authc-options">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+            <xs:enumeration value="anonymous-all"/>
+            <xs:enumeration value="anonymous-view"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <xs:simpleType name="aggregate-function">
         <xs:restriction base="xs:token">

@@ -135,20 +135,14 @@ task gitUpstreamAll {
 
 task run(type: JavaExec) {
     dependsOn getRuntime, allBuildTasks, cleanTempDir
-    workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m', '-XX:-OmitStackTraceInFastThrow']; maxHeapSize = '512M'
+    workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow']; maxHeapSize = '512M'
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
     main = '-jar'; args = [warName]
 }
-task runStaging(type: JavaExec) {
-    dependsOn getRuntime, allBuildTasks, cleanTempDir
-    workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m', '-Xms512M']; maxHeapSize = '512M'
-    systemProperties = ['moqui.conf':'conf/MoquiStagingConf.xml', 'moqui.runtime':moquiRuntime]
-    main = '-jar'; args = [warName]
-}
 task runProduction(type: JavaExec) {
     dependsOn getRuntime, allBuildTasks, cleanTempDir
-    workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m', '-Xms1024M']; maxHeapSize = '1024M'
+    workingDir = '.'; jvmArgs = ['-server', '-Xms1024M']; maxHeapSize = '1024M'
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     main = '-jar'; args = [warName]
 }
@@ -156,7 +150,7 @@ task runProduction(type: JavaExec) {
 task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types and tenant use something like: gradle load -Ptypes=seed -PtenantId=EXAMPLE1"
     dependsOn getRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m']; maxHeapSize = '512M'
+    workingDir = '.'; jvmArgs = ['-server']; maxHeapSize = '512M'
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     main = '-jar'
     def argList = [warName, '-load']
@@ -166,7 +160,7 @@ task load(type: JavaExec) {
 }
 task loadProduction(type: JavaExec) {
     dependsOn getRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server', '-XX:MaxPermSize=192m']; maxHeapSize = '512M'
+    workingDir = '.'; jvmArgs = ['-server']; maxHeapSize = '512M'
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     main = '-jar'
     def argList = [warName, '-load']

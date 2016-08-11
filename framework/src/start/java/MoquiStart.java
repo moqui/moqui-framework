@@ -58,7 +58,7 @@ public class MoquiStart {
             System.out.println("------------------------------------------------");
             System.out.println("Current runtime directory (moqui.runtime): " + System.getProperty("moqui.runtime"));
             System.out.println("Current configuration file (moqui.conf): " + System.getProperty("moqui.conf"));
-            System.out.println("To set these properties use something like: java -Dmoqui.conf=conf/MoquiStagingConf.xml -jar moqui.war ...");
+            System.out.println("To set these properties use something like: java -Dmoqui.conf=conf/MoquiProductionConf.xml -jar moqui.war ...");
             System.out.println("------------------------------------------------");
             System.out.println("Usage: java -jar moqui.war [command] [arguments]");
             System.out.println("-help, -? ---- Help (this text)");
@@ -177,6 +177,14 @@ public class MoquiStart {
             Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
             webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
 
+            // GzipHandler
+            Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
+            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
+            Object gzipHandler = gzipHandlerClass.getConstructor().newInstance();
+            // use defaults, should include all except certain excludes:
+            // gzipHandlerClass.getMethod("setIncludedMimeTypes", String[].class).invoke(gzipHandler, new Object[] { new String[] {"text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript"} });
+            serverClass.getMethod("insertHandler", handlerWrapperClass).invoke(server, gzipHandler);
+
             // Log getMinThreads, getMaxThreads
             Object threadPool = serverClass.getMethod("getThreadPool").invoke(server);
             sizedThreadPoolClass.getMethod("setMaxThreads", int.class).invoke(threadPool, threads);
@@ -189,6 +197,7 @@ public class MoquiStart {
             serverClass.getMethod("join").invoke(server);
 
             /* The classpath dependent code we are running:
+
             Server server = new Server(8080);
 
             // WebApp
@@ -210,12 +219,60 @@ public class MoquiStart {
             ServerContainer wsContainer = org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer.configureContext(webapp);
             webapp.setAttribute("javax.websocket.server.ServerContainer", wsContainer);
 
+            // GzipHandler
+            GzipHandler gzipHandler = new GzipHandler();
+            // gzipHandler.setIncludedMimeTypes("text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript");
+            server.insertHandler(gzipHandler);
+
             // Start things up!
             server.start();
             // The use of server.join() the will make the current thread join and
             // wait until the server is done executing.
             // See http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#join()
             server.join();
+
+            // Possible code to handle HTTPS, HTTP/2 (h2, h2c):
+
+            // see https://webtide.com/introduction-to-http2-in-jetty/
+            // see https://www.eclipse.org/jetty/documentation/9.3.x/http2.html
+            // org.mortbay.jetty.alpn:alpn-boot:8.1.9.v20160720
+            // http2-common, http2-hpack, http2-server
+
+            // try the Jetty HTTP client instead of Apache?
+            // see https://www.eclipse.org/jetty/documentation/9.3.x/http-client.html
+            // http2-client, http2-http-client-transport
+
+            Server server = new Server();
+            HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
+            httpConfig.setSecureScheme("https");
+            httpConfig.setSecurePort(8443);
+            HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
+            httpsConfig.addCustomizer(new SecureRequestCustomizer());
+
+            SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
+            sslContextFactory.setKeyStoreResource(org.eclipse.jetty.util.resource.Resource.newClassPathResource("keystore"));
+            sslContextFactory.setKeyStorePassword("kStorePassword");
+            sslContextFactory.setKeyManagerPassword("kMgrPassword");
+            sslContextFactory.setCipherComparator(org.eclipse.jetty.http2.HTTP2Cipher.COMPARATOR);
+
+            HttpConnectionFactory http1 = new HttpConnectionFactory(httpConfig);
+
+            HTTP2ServerConnectionFactory http2 = new org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory(httpsConfig);
+            NegotiatingServerConnectionFactory.checkProtocolNegotiationAvailable();
+            ALPNServerConnectionFactory alpn = new org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory();
+            alpn.setDefaultProtocol("h2");
+            SslConnectionFactory ssl = new org.eclipse.jetty.server?.SslConnectionFactory(sslContextFactory,alpn.getProtocol());
+
+            HTTP2CServerConnectionFactory http2c = new org.eclipse.jetty.http2.server.HTTP2CServerConnectionFactory(httpsConfig);
+
+            ServerConnector httpsConnector = new org.eclipse.jetty.server.ServerConnector(server, ssl, alpn, http2, http1 );
+            httpsConnector.setPort(8443);
+            server.addConnector(httpsConnector);
+
+            ServerConnector httpConnector = new org.eclipse.jetty.server.ServerConnector(server, http1, http2c);
+            httpConnector.setPort(8080);
+            server.addConnector(httpConnector);
+
             */
         } catch (Exception e) {
             System.out.println("Error loading or running Jetty embedded server with args [" + argMap + "]: " + e.toString());
@@ -287,6 +344,7 @@ public class MoquiStart {
             this.callObject = callObject;
             this.moquiStart = moquiStart;
         }
+        @Override
         public void run() {
             // run this first, ie shutdown the container before closing jarFiles to avoid errors with classes missing
             if (callMethod != null) {

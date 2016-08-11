@@ -133,7 +133,7 @@ class ScheduledJobRunner implements Runnable {
                         // create a job run and lock it
                         serviceJobRun = efi.makeValue("moqui.service.job.ServiceJobRun")
                                 .set("jobName", jobName).setSequencedIdPrimary().create()
-                        jobRunId = (String) serviceJobRun.get("jobRunId")
+                        jobRunId = (String) serviceJobRun.getNoCheckSimple("jobRunId")
 
                         if (serviceJobRunLock == null) {
                             serviceJobRunLock = efi.makeValue("moqui.service.job.ServiceJobRunLock")

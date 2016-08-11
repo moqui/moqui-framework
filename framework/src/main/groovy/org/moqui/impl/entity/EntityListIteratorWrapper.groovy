@@ -198,9 +198,6 @@ class EntityListIteratorWrapper implements EntityListIterator {
     }
 
     @Override
-    Iterator<EntityValue> iterator() { return this }
-
-    @Override
     void remove() {
         throw new IllegalArgumentException("EntityListIteratorWrapper.remove() not currently supported")
         // TODO implement this

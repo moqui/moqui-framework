@@ -141,10 +141,10 @@ class WebFacadeImpl implements WebFacade {
 
             for (FileItem item in items) {
                 if (item.isFormField()) {
-                    multiPartParameters.put(item.getFieldName(), item.getString("UTF-8"))
+                    addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
                 } else {
                     // put the FileItem itself in the Map to be used by the application code
-                    multiPartParameters.put(item.getFieldName(), item)
+                    addValueToMultipartParameterMap(item.getFieldName(), item)
                     fileUploadList.add(item)
 
                     /* Stuff to do with the FileItem:
@@ -181,6 +181,22 @@ class WebFacadeImpl implements WebFacade {
             sessionToken = Base64.encodeBase64URLSafeString(randomBytes)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
+        }
+    }
+
+    /** Apache Commons FileUpload does not support string array so when using multiple select and there's a duplicate
+     * fieldName convert value to an array list when fieldName is already in multipart parameters. */
+    private void addValueToMultipartParameterMap(String key, Object value) {
+        Object previousValue = multiPartParameters.put(key, value)
+        if (previousValue != null) {
+            List<Object> valueList = new ArrayList<>()
+            valueList.add(value)
+            multiPartParameters.put(key, valueList)
+            if(previousValue instanceof Collection) {
+                valueList.addAll((Collection) previousValue)
+            } else {
+                valueList.add(previousValue)
+            }
         }
     }
 
@@ -352,7 +368,7 @@ class WebFacadeImpl implements WebFacade {
 
         ContextStack cs = new ContextStack(false)
         if (savedParameters != null) cs.push(savedParameters)
-        if (multiPartParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(multiPartParameters))
+        if (multiPartParameters != null) cs.push(multiPartParameters)
         if (jsonParameters != null) cs.push(jsonParameters)
         if (declaredPathParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(declaredPathParameters))
 
@@ -360,7 +376,8 @@ class WebFacadeImpl implements WebFacade {
         Map<String, Object> reqParmMap = StupidWebUtilities.simplifyRequestParameters(request)
         if (reqParmMap.size() > 0) cs.push(reqParmMap)
 
-        Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getPathInfo())
+        // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
+        Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getRequestURI())
         if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0) cs.push(pathInfoParameterMap)
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
 

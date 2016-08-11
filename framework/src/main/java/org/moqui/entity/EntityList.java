@@ -127,6 +127,7 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
      *
      * @return Iterator&lt;EntityValue&gt; to iterate over internal list.
      */
+    @Override
     Iterator<EntityValue> iterator();
 
     /** Get a list of Map (not EntityValue) objects. If dependentLevels is greater than zero includes nested dependents
