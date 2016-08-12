@@ -18,7 +18,6 @@ import org.moqui.BaseException;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
-import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
@@ -30,7 +29,9 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class EntityJavaUtil {
@@ -551,5 +552,55 @@ public class EntityJavaUtil {
 
         @Override
         public String toString() { return fieldInfo.name + ':' + value; }
+    }
+
+    public static class QueryStatsInfo {
+        private String entityName;
+        private String sql;
+        private long hitCount = 0, errorCount = 0;
+        private long minTimeNanos = Long.MAX_VALUE, maxTimeNanos = 0, totalTimeNanos = 0, totalSquaredTime = 0;
+        public QueryStatsInfo(String entityName, String sql) {
+            this.entityName = entityName;
+            this.sql = sql;
+        }
+        public void countHit(long runTimeNanos, boolean isError) {
+            hitCount++;
+            if (isError) errorCount++;
+            // we have a first hit problem here too, so ignore the first if much greater than second
+            if (hitCount == 2 && totalTimeNanos > runTimeNanos*3) {
+                minTimeNanos = runTimeNanos;
+                maxTimeNanos = runTimeNanos;
+                totalTimeNanos = runTimeNanos * 2;
+                totalSquaredTime = (runTimeNanos * runTimeNanos) + (runTimeNanos * runTimeNanos);
+            } else {
+                if (runTimeNanos < minTimeNanos) minTimeNanos = runTimeNanos;
+                if (runTimeNanos > maxTimeNanos) maxTimeNanos = runTimeNanos;
+                totalTimeNanos += runTimeNanos;
+                totalSquaredTime += runTimeNanos * runTimeNanos;
+            }
+        }
+        public String getEntityName() { return entityName; }
+        public String getSql() { return sql; }
+        public long getHitCount() { return hitCount; }
+        public long getErrorCount() { return errorCount; }
+        public long getMinTimeNanos() { return minTimeNanos; }
+        public long getMaxTimeNanos() { return maxTimeNanos; }
+        public long getTotalTimeNanos() { return totalTimeNanos; }
+        public long getTotalSquaredTime() { return totalSquaredTime; }
+        public double getAverage() { return hitCount > 0 ? totalTimeNanos / hitCount : 0; }
+        public double getStdDev() {
+            if (hitCount < 2) return 0;
+            return Math.sqrt(Math.abs(totalSquaredTime - ((totalTimeNanos * totalTimeNanos) / hitCount)) / (hitCount - 1L));
+        }
+        final static long nanosDivisor = 1000;
+        public Map<String, Object> makeDisplayMap() {
+            Map<String, Object> dm = new HashMap<>();
+            dm.put("entityName", entityName); dm.put("sql", sql);
+            dm.put("hitCount", hitCount); dm.put("errorCount", errorCount);
+            dm.put("minTime", new BigDecimal(minTimeNanos/nanosDivisor)); dm.put("maxTime", new BigDecimal(maxTimeNanos/nanosDivisor));
+            dm.put("totalTime", new BigDecimal(totalTimeNanos/nanosDivisor)); dm.put("totalSquaredTime", new BigDecimal(totalSquaredTime/nanosDivisor));
+            dm.put("average", new BigDecimal(getAverage()/nanosDivisor)); dm.put("stdDev", new BigDecimal(getStdDev()/nanosDivisor));
+            return dm;
+        }
     }
 }

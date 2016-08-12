@@ -1155,8 +1155,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         void incrementHitCount() { hitCount++ }
         void incrementSlowHitCount() { slowHitCount++ }
         void addRunningTime(double runningTime) {
-            totalTimeMillis = totalTimeMillis + runningTime
-            totalSquaredTime = totalSquaredTime + (runningTime * runningTime)
+            totalTimeMillis += runningTime
+            totalSquaredTime += runningTime * runningTime
         }
 
         // NOTE: ArtifactHitBin always created in DEFAULT tenant since data is aggregated across all tenants, mostly used to monitor performance

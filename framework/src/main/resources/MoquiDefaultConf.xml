@@ -258,7 +258,7 @@
     </service-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
-            distributed-cache-invalidate="false" dci-topic-factory=""
+            distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
             crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="">
         <!-- NOTE: no crypt-pass attribute by default, must specify in your conf file! -->
         <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
