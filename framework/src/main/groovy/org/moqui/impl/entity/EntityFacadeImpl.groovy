@@ -1712,4 +1712,5 @@ class EntityFacadeImpl implements EntityFacade {
         if (orderByField) StupidUtilities.orderMapList(qsl, [orderByField])
         return qsl
     }
+    void clearQueryStats() { queryStatsInfoMap.clear() }
 }
