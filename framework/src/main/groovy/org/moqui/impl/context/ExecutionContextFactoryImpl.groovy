@@ -48,8 +48,10 @@ import javax.servlet.ServletContext
 import javax.websocket.server.ServerContainer
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -94,11 +96,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected String skipStatsCond
     protected Integer hitBinLengthMillis
     // protected Map<String, Boolean> artifactPersistHitByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
     // protected Map<String, Boolean> artifactPersistBinByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    final Map<String, ConcurrentLinkedQueue<ArtifactHitInfo>> deferredHitInfoQueueByTenant =
+            [DEFAULT:new ConcurrentLinkedQueue<ArtifactHitInfo>()]
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
@@ -128,6 +132,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess")
     final ExecutorService workerPool
+    /** An executor for the scheduled job runner */
+    final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -420,6 +426,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (notificationTopicFactory)
             notificationMessageTopic = (SimpleTopic<NotificationMessageImpl>) getTool(notificationTopicFactory, SimpleTopic.class)
 
+        // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
+        DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
+        scheduledExecutor.scheduleAtFixedRate(dhif, 10, 5, TimeUnit.SECONDS)
+
         // Warm cache on start if configured to do so
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
     }
@@ -539,6 +549,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         } finally { if (enableAuthz) aefi.enableAuthz() }
         logger.info("ArtifactHitBins stored")
+
+        // shutdown scheduled executor pool
+        try {
+            scheduledExecutor.shutdown()
+            logger.info("Scheduled executor pool shut down")
+        } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
 
         // shutdown worker pool
         try {
@@ -1111,8 +1127,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             'moqui.entity.view.DbViewEntity', 'moqui.entity.view.DbViewEntityMember',
             'moqui.entity.view.DbViewEntityKeyMap', 'moqui.entity.view.DbViewEntityAlias'])
 
-    @CompileStatic
-
     void countArtifactHit(ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
               Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
@@ -1150,19 +1164,92 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         //     (could also be done by checking for ArtifactHit/etc of course)
         // Always save slow hits above userImpactMinMillis regardless of settings
         if (!isEntity && ((isSlowHit && runningTimeMillis > ContextJavaUtil.userImpactMinMillis) || artifactPersistHit(artifactTypeEnum))) {
-            // TODO
             ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
                     startTime, runningTimeMillis, parameters, outputSize)
-            EntityValue ahp = ahi.makeAhiValue(this)
-            // NOTE: async service scheduling is slow enough that it is faster to just create the record now
-            // eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
-            // have an authorize-skip=create on the entity so don't need to disable authz here
-            eci.runInWorkerThread({
-                ArtifactExecutionFacadeImpl aefi = getEci().getArtifactExecutionImpl()
-                boolean enableAuthz = !aefi.disableAuthz()
-                try { ahp.setSequencedIdPrimary().create() }
-                finally { if (enableAuthz) aefi.enableAuthz() }
-            })
+            getDeferredHitInfoQueue(eci.tenantId).add(ahi)
+        }
+    }
+
+    ConcurrentLinkedQueue<ArtifactHitInfo> getDeferredHitInfoQueue(String tenantId) {
+        ConcurrentLinkedQueue<ArtifactHitInfo> queue = deferredHitInfoQueueByTenant.get(tenantId)
+        if (queue == null) {
+            synchronized (deferredHitInfoQueueByTenant) {
+                queue = deferredHitInfoQueueByTenant.get(tenantId)
+                if (queue == null) {
+                    queue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
+                    deferredHitInfoQueueByTenant.put(tenantId, queue)
+                }
+            }
+        }
+        return queue
+    }
+    static class DeferredHitInfoFlush implements Runnable {
+        // max creates per chunk, one transaction per chunk (unless error)
+        final static int maxCreates = 1000
+        final ExecutionContextFactoryImpl ecfi
+        DeferredHitInfoFlush(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi }
+        @Override
+        synchronized void run() {
+            ExecutionContextImpl eci = ecfi.getEci()
+            eci.artifactExecution.disableAuthz()
+            try {
+                for (String tenantId in ecfi.deferredHitInfoQueueByTenant.keySet()) {
+                    try {
+                        ConcurrentLinkedQueue<ArtifactHitInfo> queue = ecfi.deferredHitInfoQueueByTenant.get(tenantId)
+                        if (queue == null) continue
+                        // split into maxCreates chunks, repeat based on initial size (may be added to while running)
+                        int remainingCreates = queue.size()
+                        if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
+                        while (remainingCreates > 0) {
+                            flushQueue(tenantId, queue)
+                            remainingCreates -= maxCreates
+                        }
+                    } catch (Throwable t) {
+                        logger.error("Error saving ArtifactHits in tenant ${tenantId}", t)
+                    }
+                }
+            } finally {
+                // no need, we're destroying the eci: if (!authzDisabled) eci.artifactExecution.enableAuthz()
+                eci.destroy()
+            }
+        }
+
+        void flushQueue(String tenantId, ConcurrentLinkedQueue<ArtifactHitInfo> queue) {
+            int queueSizeBefore = queue.size()
+            ExecutionContextFactoryImpl localEcfi = ecfi
+            ArrayList<ArtifactHitInfo> createList = new ArrayList<>(maxCreates)
+            int createCount = 0
+            while (createCount < maxCreates) {
+                ArtifactHitInfo ahi = queue.poll()
+                if (ahi == null) break
+                createCount++
+                createList.add(ahi)
+            }
+            int retryCount = 5
+            while (retryCount > 0) {
+                try {
+                    int createListSize = createList.size()
+                    if (createListSize == 0) break
+                    long startTime = System.currentTimeMillis()
+                    ecfi.transactionFacade.runUseOrBegin(60, "Error saving ArtifactHits in tenant ${tenantId}", {
+                        for (int i = 0; i < createListSize; i++) {
+                            ArtifactHitInfo ahi = (ArtifactHitInfo) createList.get(i)
+                            try {
+                                EntityValue ahValue = ahi.makeAhiValue(localEcfi)
+                                ahValue.setSequencedIdPrimary()
+                                ahValue.create()
+                            } catch (Throwable t) {
+                                createList.remove(i)
+                                throw t
+                            }
+                        }
+                    })
+                    logger.info("Created ${createListSize} ArtifactHit records in ${System.currentTimeMillis() - startTime}ms")
+                    break
+                } catch (Throwable t) {
+                    logger.error("Error saving ArtifactHits in tenant ${tenantId}, retrying (${retryCount})", t)
+                }
+            }
         }
     }
 

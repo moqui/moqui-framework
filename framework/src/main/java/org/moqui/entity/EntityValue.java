@@ -155,13 +155,11 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
     EntityValue cloneValue();
 
     /** Creates a record for this entity value.
-     *
      * @return reference to this for convenience
      */
     EntityValue create() throws EntityException;
 
     /** Creates a record for this entity value, or updates the record if one exists that matches the primary key.
-     *
      * @return reference to this for convenience
      */
     EntityValue createOrUpdate() throws EntityException;
@@ -169,13 +167,11 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
     EntityValue store() throws EntityException;
 
     /** Updates the record that matches the primary key.
-     *
      * @return reference to this for convenience
      */
     EntityValue update() throws EntityException;
 
     /** Deletes the record that matches the primary key.
-     *
      * @return reference to this for convenience
      */
     EntityValue delete() throws EntityException;
