@@ -26,12 +26,13 @@ import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidClassLoader
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
+import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
+import org.moqui.impl.context.ContextJavaUtil.ArtifactStatsInfo
+import org.moqui.impl.context.ContextJavaUtil.ArtifactHitInfo
 import org.moqui.impl.entity.EntityFacadeImpl
-import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.webapp.NotificationWebSocketListener
@@ -60,6 +61,7 @@ import java.util.zip.ZipInputStream
 @CompileStatic
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
     
     private boolean destroyed = false
     
@@ -1108,74 +1110,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             'moqui.entity.document.DataDocumentCondition', 'moqui.entity.feed.DataFeedAndDocument',
             'moqui.entity.view.DbViewEntity', 'moqui.entity.view.DbViewEntityMember',
             'moqui.entity.view.DbViewEntityKeyMap', 'moqui.entity.view.DbViewEntityAlias'])
-    protected final long checkSlowThreshold = 20L
-    protected final double userImpactMinMillis = 200
 
     @CompileStatic
-    static class ArtifactStatsInfo {
-        // put this here so we only have to do one Map lookup per countArtifactHit call
-        ArtifactBinInfo curHitBin = null
-        long hitCount = 0L
-        long slowHitCount = 0L
-        double totalTimeMillis = 0
-        double totalSquaredTime = 0
-        double getAverage() { return hitCount > 0 ? totalTimeMillis / hitCount : 0 }
-        double getStdDev() {
-            if (hitCount < 2) return 0
-            return Math.sqrt(Math.abs(totalSquaredTime - ((totalTimeMillis*totalTimeMillis) / hitCount)) / (hitCount - 1L))
-        }
-        void incrementHitCount() { hitCount++ }
-        void incrementSlowHitCount() { slowHitCount++ }
-        void addRunningTime(double runningTime) {
-            totalTimeMillis = totalTimeMillis + runningTime
-            totalSquaredTime = totalSquaredTime + (runningTime * runningTime)
-        }
-    }
-    @CompileStatic
-    static class ArtifactBinInfo {
-        ArtifactExecutionInfo.ArtifactType artifactTypeEnum
-        String artifactSubType
-        String artifactName
-        long startTime
 
-        long hitCount = 0L
-        long slowHitCount = 0L
-        double totalTimeMillis = 0
-        double totalSquaredTime = 0
-        double minTimeMillis = Long.MAX_VALUE
-        double maxTimeMillis = 0
-
-        ArtifactBinInfo(ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName, long startTime) {
-            this.artifactTypeEnum = artifactTypeEnum
-            this.artifactSubType = artifactSubType
-            this.artifactName = artifactName
-            this.startTime = startTime
-        }
-
-        void incrementHitCount() { hitCount++ }
-        void incrementSlowHitCount() { slowHitCount++ }
-        void addRunningTime(double runningTime) {
-            totalTimeMillis += runningTime
-            totalSquaredTime += runningTime * runningTime
-        }
-
-        // NOTE: ArtifactHitBin always created in DEFAULT tenant since data is aggregated across all tenants, mostly used to monitor performance
-        EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
-            Map<String, Object> ahb = [artifactType:artifactTypeEnum.name(), artifactSubType:artifactSubType,
-                                       artifactName:artifactName, binStartDateTime:new Timestamp(startTime), binEndDateTime:binEndDateTime,
-                                       hitCount:hitCount, totalTimeMillis:new BigDecimal(totalTimeMillis),
-                                       totalSquaredTime:new BigDecimal(totalSquaredTime), minTimeMillis:new BigDecimal(minTimeMillis),
-                                       maxTimeMillis:new BigDecimal(maxTimeMillis), slowHitCount:slowHitCount] as Map<String, Object>
-            ahb.serverIpAddress = ecfi.localhostAddress?.getHostAddress() ?: "127.0.0.1"
-            ahb.serverHostName = ecfi.localhostAddress?.getHostName() ?: "localhost"
-            EntityValue ahbValue = ecfi.getEntityFacade("DEFAULT").makeValue("moqui.server.ArtifactHitBin")
-            ahbValue.setAll(ahb)
-            return ahbValue
-        }
-    }
-
-    void countArtifactHit(ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName, Map<String, Object> parameters,
-                          long startTime, double runningTimeMillis, Long outputSize) {
+    void countArtifactHit(ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
+              Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
         // don't count the ones this calls
         if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return
@@ -1187,115 +1126,34 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         boolean isSlowHit = false
         if (artifactPersistBin(artifactTypeEnum)) {
-            String binKey = new StringBuilder(200).append(artifactTypeEnum.name()).append('.').append(artifactSubType).append(':').append(artifactName).toString()
+            String binKey = new StringBuilder(200).append(artifactTypeEnum.name()).append(artifactSubType).append(artifactName).toString()
             ArtifactStatsInfo statsInfo = (ArtifactStatsInfo) artifactStatsInfoByType.get(binKey)
             if (statsInfo == null) {
                 // consider seeding this from the DB using ArtifactHitReport to get all past data, or maybe not to better handle different servers/etc over time, etc
-                statsInfo = new ArtifactStatsInfo()
+                statsInfo = new ArtifactStatsInfo(artifactTypeEnum, artifactSubType, artifactName)
                 artifactStatsInfoByType.put(binKey, statsInfo)
             }
 
-            ArtifactBinInfo abi = statsInfo.curHitBin
-            if (abi == null) {
-                abi = new ArtifactBinInfo(artifactTypeEnum, artifactSubType, artifactName, startTime)
-                statsInfo.curHitBin = abi
-            }
-
             // has the current bin expired since the last hit record?
-            long binStartTime = abi.startTime
-            if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
-                if (logger.isTraceEnabled()) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(abi.startTime)}] bin length ${hitBinLengthMillis/1000} seconds")
-                advanceArtifactHitBin(eci, statsInfo, artifactTypeEnum, artifactSubType, artifactName, startTime, hitBinLengthMillis)
-                abi = statsInfo.curHitBin
-            }
-
-            // handle current hit bin
-            abi.incrementHitCount()
-            // do something funny with these so we get a better avg and std dev, leave out the first result (count 2nd
-            //     twice) if first hit is more than 2x the second because the first hit is almost always MUCH slower
-            if (abi.hitCount == 2L && abi.totalTimeMillis > (runningTimeMillis * 2)) {
-                abi.setTotalTimeMillis(runningTimeMillis * 2)
-                abi.setTotalSquaredTime(runningTimeMillis * runningTimeMillis * 2)
-            } else {
-                abi.addRunningTime(runningTimeMillis)
-            }
-            if (runningTimeMillis < abi.minTimeMillis) abi.setMinTimeMillis(runningTimeMillis)
-            if (runningTimeMillis > abi.maxTimeMillis) abi.setMaxTimeMillis(runningTimeMillis)
-
-            // handle stats since start
-            statsInfo.incrementHitCount()
-            long statsHitCount = statsInfo.hitCount
-            if (statsHitCount == 2L && (statsInfo.totalTimeMillis) > (runningTimeMillis * 2) ) {
-                statsInfo.setTotalTimeMillis(runningTimeMillis * 2)
-                statsInfo.setTotalSquaredTime(runningTimeMillis * runningTimeMillis * 2)
-            } else {
-                statsInfo.addRunningTime(runningTimeMillis)
-            }
-            // check for slow hits
-            if (statsHitCount > checkSlowThreshold) {
-                // calc new average and standard deviation
-                double average = statsInfo.getAverage()
-                double stdDev = statsInfo.getStdDev()
-
-                // if runningTime is more than 2.6 std devs from the avg, count it and possibly log it
-                // using 2.6 standard deviations because 2 would give us around 5% of hits (normal distro), shooting for more like 1%
-                double slowTime = average + (stdDev * 2.6)
-                if (slowTime != 0 && runningTimeMillis > slowTime) {
-                    if (runningTimeMillis > userImpactMinMillis)
-                        logger.warn("Slow hit to ${binKey} running time ${runningTimeMillis} is greater than average [${average}] plus 2 standard deviations [${stdDev}]")
-                    abi.incrementSlowHitCount()
-                    statsInfo.incrementSlowHitCount()
-                    isSlowHit = true
+            if (statsInfo.curHitBin != null) {
+                long binStartTime = statsInfo.curHitBin.startTime
+                if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
+                    if (isTraceEnabled) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(binStartTime)}] bin length ${hitBinLengthMillis/1000} seconds")
+                    advanceArtifactHitBin(eci, statsInfo, startTime, hitBinLengthMillis)
                 }
             }
+
+            // handle stats since start
+            isSlowHit = statsInfo.countHit(startTime, runningTimeMillis)
         }
         // NOTE: never save individual hits for entity artifact hits, way too heavy and also avoids self-reference
         //     (could also be done by checking for ArtifactHit/etc of course)
         // Always save slow hits above userImpactMinMillis regardless of settings
-        if (!isEntity && ((isSlowHit && runningTimeMillis > userImpactMinMillis) || artifactPersistHit(artifactTypeEnum))) {
-            // NOTE: ArtifactHit saved in current tenant, ArtifactHitBin saved in DEFAULT tenant
-            EntityValueBase ahp = (EntityValueBase) eci.entity.makeValue("moqui.server.ArtifactHit")
-            ahp.putNoCheck("visitId", eci.user.visitId)
-            ahp.putNoCheck("userId", eci.user.userId)
-            ahp.putNoCheck("isSlowHit", isSlowHit ? 'Y' : 'N')
-            ahp.putNoCheck("artifactType", artifactTypeEnum.name())
-            ahp.putNoCheck("artifactSubType", artifactSubType)
-            ahp.putNoCheck("artifactName", artifactName)
-            ahp.putNoCheck("startDateTime", new Timestamp(startTime))
-            ahp.putNoCheck("runningTimeMillis", runningTimeMillis)
-
-            if (parameters != null && parameters.size() > 0) {
-                StringBuilder ps = new StringBuilder()
-                for (Map.Entry<String, Object> pme in parameters.entrySet()) {
-                    if (StupidJavaUtilities.isEmpty(pme.value)) continue
-                    if (pme.key?.contains("password")) continue
-                    if (ps.length() > 0) ps.append(",")
-                    ps.append(pme.key).append("=").append(pme.value)
-                }
-                if (ps.length() > 255) ps.delete(255, ps.length())
-                ahp.putNoCheck("parameterString", ps.toString())
-            }
-            if (outputSize != null) ahp.putNoCheck("outputSize", outputSize)
-            if (eci.getMessage().hasError()) {
-                ahp.putNoCheck("wasError", "Y")
-                StringBuilder errorMessage = new StringBuilder()
-                for (String curErr in eci.message.errors) errorMessage.append(curErr).append(";")
-                if (errorMessage.length() > 255) errorMessage.delete(255, errorMessage.length())
-                ahp.putNoCheck("errorMessage", errorMessage.toString())
-            } else {
-                ahp.putNoCheck("wasError", "N")
-            }
-            if (eci.web != null) {
-                String fullUrl = eci.web.getRequestUrl()
-                fullUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl.toString()
-                ahp.putNoCheck("requestUrl", fullUrl)
-                String referrer = eci.web.request.getHeader("Referrer")
-                if (referrer != null && referrer.length() > 0) ahp.putNoCheck("referrerUrl", referrer)
-            }
-
-            ahp.putNoCheck("serverIpAddress", localhostAddress != null ? localhostAddress.getHostAddress() : "127.0.0.1")
-            ahp.putNoCheck("serverHostName", localhostAddress != null ? localhostAddress.getHostName() : "localhost")
-
+        if (!isEntity && ((isSlowHit && runningTimeMillis > ContextJavaUtil.userImpactMinMillis) || artifactPersistHit(artifactTypeEnum))) {
+            // TODO
+            ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
+                    startTime, runningTimeMillis, parameters, outputSize)
+            EntityValue ahp = ahi.makeAhiValue(this)
             // NOTE: async service scheduling is slow enough that it is faster to just create the record now
             // eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
             // have an authorize-skip=create on the entity so don't need to disable authz here
@@ -1309,11 +1167,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected synchronized void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
-            ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
             long startTime, int hitBinLengthMillis) {
         ArtifactBinInfo abi = statsInfo.curHitBin
         if (abi == null) {
-            statsInfo.curHitBin = new ArtifactBinInfo(artifactTypeEnum, artifactSubType, artifactName, startTime)
+            statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
             return
         }
 
@@ -1330,7 +1187,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             finally { if (enableAuthz) aefi.enableAuthz() }
         })
 
-        statsInfo.curHitBin = new ArtifactBinInfo(artifactTypeEnum, artifactSubType, artifactName, startTime)
+        statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
     }
 
     // ========== Configuration File Merging Methods ==========

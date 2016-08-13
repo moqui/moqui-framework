@@ -566,18 +566,10 @@ public class EntityJavaUtil {
         public void countHit(long runTimeNanos, boolean isError) {
             hitCount++;
             if (isError) errorCount++;
-            // we have a first hit problem here too, so ignore the first if much greater than second
-            if (hitCount == 2 && totalTimeNanos > runTimeNanos*3) {
-                minTimeNanos = runTimeNanos;
-                maxTimeNanos = runTimeNanos;
-                totalTimeNanos = runTimeNanos * 2;
-                totalSquaredTime = (runTimeNanos * runTimeNanos) + (runTimeNanos * runTimeNanos);
-            } else {
-                if (runTimeNanos < minTimeNanos) minTimeNanos = runTimeNanos;
-                if (runTimeNanos > maxTimeNanos) maxTimeNanos = runTimeNanos;
-                totalTimeNanos += runTimeNanos;
-                totalSquaredTime += runTimeNanos * runTimeNanos;
-            }
+            if (runTimeNanos < minTimeNanos) minTimeNanos = runTimeNanos;
+            if (runTimeNanos > maxTimeNanos) maxTimeNanos = runTimeNanos;
+            totalTimeNanos += runTimeNanos;
+            totalSquaredTime += runTimeNanos * runTimeNanos;
         }
         public String getEntityName() { return entityName; }
         public String getSql() { return sql; }
