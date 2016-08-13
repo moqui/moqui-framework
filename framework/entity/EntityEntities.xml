@@ -21,7 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="EntityAuditLog" package="moqui.entity" use="transactional" authorize-skip="create" cache="never">
         <field name="auditHistorySeqId" type="id" is-pk="true"/>
         <field name="changedEntityName" type="text-medium"/>
-        <field name="changedFieldName" type="text-medium"/>
+        <field name="changedFieldName" type="text-short"/>
         <field name="pkPrimaryValue" type="text-medium"/>
         <field name="pkSecondaryValue" type="text-medium"/>
         <field name="pkRestCombinedValue" type="text-medium"/>
@@ -31,6 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="changedByUserId" type="text-medium"/>
         <field name="changedInVisitId" type="text-medium"/>
         <field name="artifactStack" type="text-long"/>
+        <!-- index for common query looking for changes to a certain field on a certain entity -->
         <index name="ENTAUDLOG_FLD1PK"><index-field name="changedEntityName"/><index-field name="changedFieldName"/>
             <index-field name="pkPrimaryValue"/></index>
     </entity>
