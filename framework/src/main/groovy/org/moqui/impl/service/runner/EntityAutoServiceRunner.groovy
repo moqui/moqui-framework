@@ -320,7 +320,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
         EntityValue lookedUpValue = preLookedUpValue ?:
                 efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
-        // this is much slower, and we don't need to do the query: sfi.getEcfi().getEntityFacade().find(ed.entityName).condition(parameters).useCache(false).forUpdate(true).one()
+        // this is much slower, and we don't need to do the query: sfi.getEcfi().getEntityFacade().find(ed.entityName).condition(parameters).useCache(false).one()
         if (lookedUpValue == null) {
             throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
         }
@@ -329,7 +329,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             // do the actual query so we'll have the current statusId
             Map<String, Object> pkParms = ed.getPrimaryKeys(parameters)
             lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName())
-                    .condition(pkParms).useCache(false).forUpdate(true).one()
+                    .condition(pkParms).useCache(false).one()
             if (lookedUpValue == null) {
                 throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
             }
@@ -383,7 +383,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         if (parameters.containsKey("statusId") && ed.isField("statusId")) {
             // do the actual query so we'll have the current statusId
             lookedUpValue = efi.find(ed.getFullEntityName())
-                    .condition(newEntityValue).useCache(false).forUpdate(true).one()
+                    .condition(newEntityValue).useCache(false).one()
             if (lookedUpValue != null) {
                 checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
             } else {
