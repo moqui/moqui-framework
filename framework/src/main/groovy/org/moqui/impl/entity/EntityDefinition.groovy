@@ -1803,22 +1803,22 @@ public class EntityDefinition {
     }
 
     Cache<EntityCondition, EntityValueBase> internalCacheOne = null
-    Cache<EntityCondition, List<EntityCondition>> internalCacheOneRa = null
-    Cache<EntityCondition, List<EntityCache.ViewRaKey>> getCacheOneViewRa = null
+    Cache<EntityCondition, Set<EntityCondition>> internalCacheOneRa = null
+    Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheOneViewRa = null
     Cache<EntityCondition, EntityListImpl> internalCacheList = null
-    Cache<EntityCondition, List<EntityCondition>> internalCacheListRa = null
-    Cache<EntityCondition, List<EntityCache.ViewRaKey>> internalCacheListViewRa = null
+    Cache<EntityCondition, Set<EntityCondition>> internalCacheListRa = null
+    Cache<EntityCondition, Set<EntityCache.ViewRaKey>> internalCacheListViewRa = null
     Cache<EntityCondition, Long> internalCacheCount = null
 
     Cache<EntityCondition, EntityValueBase> getCacheOne(EntityCache ec) {
         if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheOne
     }
-    Cache<EntityCondition, List<EntityCondition>> getCacheOneRa(EntityCache ec) {
+    Cache<EntityCondition, Set<EntityCondition>> getCacheOneRa(EntityCache ec) {
         if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheOneRa
     }
-    Cache<EntityCondition, List<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
+    Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
         if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName), efi.tenantId)
         return getCacheOneViewRa
     }
@@ -1827,11 +1827,11 @@ public class EntityDefinition {
         if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheList
     }
-    Cache<EntityCondition, List<EntityCondition>> getCacheListRa(EntityCache ec) {
+    Cache<EntityCondition, Set<EntityCondition>> getCacheListRa(EntityCache ec) {
         if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheListRa
     }
-    Cache<EntityCondition, List<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
+    Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
         if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheListViewRa
     }
