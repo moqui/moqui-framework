@@ -192,7 +192,9 @@ sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDir)
 check.dependsOn.remove(test)
 
 test {
+    dependsOn cleanTest
     include '**/*MoquiSuite.class'
+
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevTestConf.xml'
     systemProperty 'moqui.init.static', 'true'
