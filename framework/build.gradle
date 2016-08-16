@@ -191,23 +191,8 @@ sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDir)
 // by default the Java plugin runs test on build, change to not do that (only run test if explicit task)
 check.dependsOn.remove(test)
 
-task nonScreenTests(type: Test) {
-    exclude '**/*ScreenRenderTests.class'
-    systemProperty 'moqui.runtime', '../runtime'
-    systemProperty 'moqui.conf', 'conf/MoquiDevTestConf.xml'
-    systemProperty 'moqui.init.static', 'true'
-
-    testLogging.showStandardStreams = true; testLogging.showExceptions = true
-
-    classpath += files(sourceSets.main.output.classesDir); classpath += files(projectDir.absolutePath)
-    // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up
-    classpath = classpath.filter { it.exists() }
-
-    beforeTest { descriptor -> logger.lifecycle("Running test: ${descriptor}") }
-}
 test {
-    dependsOn nonScreenTests
-    include '**/*ScreenRenderTests.class'
+    include '**/*MoquiSuite.class'
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevTestConf.xml'
     systemProperty 'moqui.init.static', 'true'
