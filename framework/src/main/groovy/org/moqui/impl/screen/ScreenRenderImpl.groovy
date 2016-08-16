@@ -1290,7 +1290,7 @@ class ScreenRenderImpl implements ScreenRender {
         return value
     }
 
-    ListOrderedMap getFieldOptions(FtlNodeWrapper widgetNodeWrapper) {
+    LinkedHashMap<String, String> getFieldOptions(FtlNodeWrapper widgetNodeWrapper) {
         return ScreenForm.getFieldOptions(widgetNodeWrapper.getMNode(), ec)
     }
 
