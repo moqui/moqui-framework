@@ -1244,7 +1244,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                             }
                         }
                     })
-                    logger.info("Created ${createListSize} ArtifactHit records in ${System.currentTimeMillis() - startTime}ms")
+                    if (isTraceEnabled) logger.trace("Created ${createListSize} ArtifactHit records in ${System.currentTimeMillis() - startTime}ms")
                     break
                 } catch (Throwable t) {
                     logger.error("Error saving ArtifactHits in tenant ${tenantId}, retrying (${retryCount})", t)
