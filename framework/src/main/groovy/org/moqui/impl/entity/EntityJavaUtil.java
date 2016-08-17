@@ -18,6 +18,7 @@ import org.moqui.BaseException;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
+import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
@@ -29,6 +30,8 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
+import java.util.HashSet;
+import java.util.Set;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
@@ -489,13 +492,14 @@ public class EntityJavaUtil {
     /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT,
      * though initialized in the EntityDefinition.makeFieldInfo() method. */
     public static class FieldInfo {
-        public Object ed = null;
+        public EntityDefinition ed = null;
         public MNode fieldNode = null;
         public String entityName = null;
         public String name = null;
         public String type = null;
         public String columnName = null;
-        public String fullColumnName = null;
+        private String fullColumnName = null;
+        private String expandColumnName = null;
         public String defaultStr = null;
         public String javaType = null;
         public String enableAuditLog = null;
@@ -507,7 +511,22 @@ public class EntityJavaUtil {
         public boolean enableLocalization = false;
         public boolean isUserField = false;
         public boolean createOnly = false;
+        public Set<String> entityAliasUsedSet = new HashSet<>();
+
         public FieldInfo() { /* do nothing, see EntityDefinition.makeFieldInfo() */ }
+
+        public void setFullColumnName(String fcn) {
+            if (fcn == null) {
+                fullColumnName = columnName;
+            } else {
+                if (fcn.contains("${")) expandColumnName = fcn;
+                else fullColumnName = fcn;
+            }
+        }
+        public String getFullColumnName() {
+            if (fullColumnName != null) return fullColumnName;
+            return ed.efi.ecfi.getResourceFacade().expand(expandColumnName, "", null, false);
+        }
     }
 
     public static class EntityConditionParameter {

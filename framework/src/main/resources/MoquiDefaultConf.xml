@@ -53,6 +53,7 @@
         <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList"/>
 
         <cache name="service.location" tenants-share="true" value-type="org.moqui.impl.service.ServiceDefinition"/>
+        <cache name="service.rest.api" tenants-share="true" value-type="org.moqui.impl.service.RestApi$ResourceNode"/>
         <cache name="kie.component.releaseId" tenants-share="true" value-type="org.kie.api.builder.ReleaseId"/>
         <cache name="kie.session.component" tenants-share="true" value-type="String"/>
 
@@ -375,10 +376,7 @@
         * DB2:
         * to support LIMIT and OFFSET: "db2set DB2_COMPATIBILITY_VECTOR=MYS" (and if already running: db2stop then db2start)
         * default page size of 4k not adequate, use something like: "create database moqui pagesize 32 k"
-
-        * NOTE: with default-isolation-level="ReadCommitted locks (like FOR UPDATE) are not kept for entire transaction,
-        * this causes concurrency issues; under default-isolation-level=RepeatableRead it fixes that but currently
-        * causes deadlock issues; see the AssetReservationMultipleThreads tests
+        * the database name in the example is 'moqui' instead of 'MoquiDEFAULT' because names are limits to 8 bytes
 
         <datasource group-name="transactional" database-conf-name="db2" schema-name="DB2INST1" startup-add-missing="true" runtime-add-missing="false">
             <inline-jdbc><xa-properties user="db2inst1" password="db2inst1" serverName="localhost" portNumber="50000"
@@ -388,11 +386,12 @@
             <inline-jdbc jdbc-uri="jdbc:db2://localhost:50000/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="db2" join-style="ansi" offset-style="limit" default-isolation-level="ReadCommitted"
-                  use-schema-for-all="true" use-indexes-unique="false" use-pk-constraint-names="false" fk-style="name_fk"
-                  default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
-                  default-jdbc-driver="com.ibm.db2.jcc.DB2Driver"
-                  default-xa-ds-class="com.ibm.db2.jcc.DB2XADataSource">
+        <database name="db2" join-style="ansi" offset-style="limit"
+                default-isolation-level="ReadCommitted" for-update="FOR UPDATE WITH RS"
+                use-schema-for-all="true" use-indexes-unique="false" use-pk-constraint-names="false" fk-style="name_fk"
+                default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
+                default-jdbc-driver="com.ibm.db2.jcc.DB2Driver"
+                default-xa-ds-class="com.ibm.db2.jcc.DB2XADataSource">
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
@@ -400,11 +399,12 @@
             <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
         </database>
-        <database name="db2i" join-style="ansi" offset-style="limit" default-isolation-level="ReadCommitted"
-                  use-schema-for-all="true" use-indexes-unique-where-not-null="true"
-                  default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
-                  default-jdbc-driver="com.ibm.as400.access.AS400JDBCDriver"
-                  default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource">
+        <database name="db2i" join-style="ansi" offset-style="limit"
+                default-isolation-level="ReadCommitted"  for-update="FOR UPDATE WITH RS"
+                use-schema-for-all="true" use-indexes-unique-where-not-null="true"
+                default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
+                default-jdbc-driver="com.ibm.as400.access.AS400JDBCDriver"
+                default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource">
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(30,12)"/>

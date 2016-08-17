@@ -143,7 +143,7 @@ public class EntityListImpl implements EntityList {
             EntityValue value = valueList.get(valueIndex);
             boolean matches = true;
             for (int i = 0; i < fieldsSize; i++) {
-                Object curValue = value.get(names[i]);
+                Object curValue = value.getNoCheckSimple(names[i]);
                 Object compValue = values[i];
                 if (curValue == null) {
                     matches = compValue == null;

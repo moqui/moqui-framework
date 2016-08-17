@@ -442,13 +442,14 @@ class ScreenDefinition {
         String requireAuthentication = screenNode.attribute('require-authentication')
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
-        sri.ec.artifactExecutionImpl.pushInternal(aei, isTargetScreen ? (!requireAuthentication || requireAuthentication == "true") : false)
+        sri.ec.artifactExecutionImpl.pushInternal(aei, isTargetScreen ?
+                (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)
 
         boolean loggedInAnonymous = false
-        if (requireAuthentication == "anonymous-all") {
+        if ("anonymous-all".equals(requireAuthentication)) {
             sri.ec.artifactExecution.setAnonymousAuthorizedAll()
             loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
-        } else if (requireAuthentication == "anonymous-view") {
+        } else if ("anonymous-view".equals(requireAuthentication)) {
             sri.ec.artifactExecution.setAnonymousAuthorizedView()
             loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
         }
@@ -539,7 +540,7 @@ class ScreenDefinition {
                 }
             }
             if (value == null) value = ec.context.getByString(name)
-            if (value == null && ec.web) value = ec.web.parameters.get(name)
+            if (value == null && ec.web != null) value = ec.web.parameters.get(name)
             return value
         }
     }

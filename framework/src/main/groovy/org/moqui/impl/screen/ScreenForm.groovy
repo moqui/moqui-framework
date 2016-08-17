@@ -1123,7 +1123,7 @@ class ScreenForm {
         String getUserActiveFormConfigId(ExecutionContext ec) {
             EntityValue fcu = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUser")
                     .condition("userId", ec.user.userId).condition("formLocation", location).useCache(true).one()
-            if (fcu != null) return fcu.get("formConfigId")
+            if (fcu != null) return (String) fcu.getNoCheckSimple("formConfigId")
 
             // Maybe not do this at all and let it be a future thing where the user selects an active one from options available through groups
             EntityList fcugvList = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUserGroupView")
@@ -1131,7 +1131,7 @@ class ScreenForm {
                     .condition("formLocation", location).useCache(true).list()
             if (fcugvList.size() > 0) {
                 // FUTURE: somehow make a better choice than just the first? see note above too...
-                return fcugvList.get(0).get("formConfigId")
+                return (String) fcugvList.get(0).getNoCheckSimple("formConfigId")
             }
 
             return null
@@ -1208,13 +1208,13 @@ class ScreenForm {
             ArrayList<FtlNodeWrapper> colFieldNodes = null
             for (int ci = 0; ci < fcfListSize; ci++) {
                 EntityValue fcfValue = (EntityValue) formConfigFieldList.get(ci)
-                int columnIndex = fcfValue.get("positionIndex") as int
+                int columnIndex = fcfValue.getNoCheckSimple("positionIndex") as int
                 if (columnIndex > curColIndex) {
                     if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
                     curColIndex = columnIndex
                     colFieldNodes = new ArrayList<>()
                 }
-                String fieldName = (String) fcfValue.get("fieldName")
+                String fieldName = (String) fcfValue.getNoCheckSimple("fieldName")
                 MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
                 if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${location}")
                 // skip hidden fields, they are handled separately

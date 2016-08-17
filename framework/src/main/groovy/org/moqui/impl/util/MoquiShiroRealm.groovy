@@ -75,24 +75,24 @@ class MoquiShiroRealm implements Realm {
 
         // check for disabled account before checking password (otherwise even after disable could determine if
         //    password is correct or not
-        if (newUserAccount.disabled == "Y") {
-            if (newUserAccount.disabledDateTime != null) {
+        if ("Y".equals(newUserAccount.getNoCheckSimple("disabled"))) {
+            if (newUserAccount.getNoCheckSimple("disabledDateTime") != null) {
                 // account temporarily disabled (probably due to excessive attempts
                 Integer disabledMinutes = eci.ecfi.confXmlRoot.first("user-facade").first("login").attribute("disable-minutes") as Integer ?: 30I
                 Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes.intValue()*60I*1000I))
                 if (reEnableTime > eci.user.nowTimestamp) {
                     // only blow up if the re-enable time is not passed
                     eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
-                            .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
+                            .parameter("userId", newUserAccount.userId).requireNewTransaction(true).call()
                     throw new ExcessiveAttemptsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} in tenant ${tenantId} because account is disabled and will not be re-enabled until ${reEnableTime} [DISTMP].',
-                    '',[newUserAccount:newUserAccount,tenantId:eci.tenantId,reEnableTime:reEnableTime]))
+                            '', [newUserAccount:newUserAccount, tenantId:eci.tenantId, reEnableTime:reEnableTime]))
                 }
             } else {
                 // account permanently disabled
                 eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
                         .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                 throw new DisabledAccountException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} in tenant ${tenantId} because account is disabled and is not schedule to be automatically re-enabled [DISPRM].',
-                '',[newUserAccount:newUserAccount,tenantId:eci.tenantId]))
+                        '', [newUserAccount:newUserAccount, tenantId:eci.tenantId]))
             }
         }
 
@@ -101,45 +101,47 @@ class MoquiShiroRealm implements Realm {
 
     static void loginPostPassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
         // the password did match, but check a few additional things
-        if (newUserAccount.requirePasswordChange == "Y") {
+        if ("Y".equals(newUserAccount.getNoCheckSimple("requirePasswordChange"))) {
             // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
             throw new CredentialsException(eci.resource.expand('Authenticate failed for user [${newUserAccount.username}] because account requires password change [PWDCHG].','',[newUserAccount:newUserAccount]))
         }
         // check time since password was last changed, if it has been too long (user-facade.password.@change-weeks default 12) then fail
-        if (newUserAccount.passwordSetDate) {
+        if (newUserAccount.getNoCheckSimple("passwordSetDate") != null) {
             int changeWeeks = (eci.ecfi.confXmlRoot.first("user-facade").first("password").attribute("change-weeks") ?: 12) as int
             if (changeWeeks > 0) {
                 int wksSinceChange = ((eci.user.nowTimestamp.time - newUserAccount.getTimestamp("passwordSetDate").time) / (7*24*60*60*1000)).intValue()
                 if (wksSinceChange > changeWeeks) {
                     // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
                     throw new ExpiredCredentialsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} in tenant ${tenantId} because password was changed ${wksSinceChange} weeks ago and must be changed every ${changeWeeks} weeks [PWDTIM].',
-                    '',[newUserAccount:newUserAccount,tenantId:eci.tenantId,wksSinceChange:wksSinceChange,changeWeeks:changeWeeks]))
+                            '', [newUserAccount:newUserAccount, tenantId:eci.tenantId, wksSinceChange:wksSinceChange, changeWeeks:changeWeeks]))
                 }
             }
         }
 
         // no more auth failures? record the various account state updates, hasLoggedOut=N
-        if (newUserAccount.successiveFailedLogins || newUserAccount.disabled == "Y" ||
-                newUserAccount.disabledDateTime != null || newUserAccount.hasLoggedOut == "Y") {
-            newUserAccount.set("successiveFailedLogins", 0)
-            newUserAccount.set("disabled", "N")
-            newUserAccount.set("disabledDateTime", null)
-            newUserAccount.set("hasLoggedOut", "N")
+        if (newUserAccount.getNoCheckSimple("successiveFailedLogins") || "Y".equals(newUserAccount.getNoCheckSimple("disabled")) ||
+                newUserAccount.getNoCheckSimple("disabledDateTime") != null || "Y".equals(newUserAccount.getNoCheckSimple("hasLoggedOut"))) {
+            boolean enableAuthz = !eci.getArtifactExecutionImpl().disableAuthz()
             try {
-                newUserAccount.update()
+                EntityValue nuaClone = newUserAccount.cloneValue()
+                nuaClone.set("successiveFailedLogins", 0)
+                nuaClone.set("disabled", "N")
+                nuaClone.set("disabledDateTime", null)
+                nuaClone.set("hasLoggedOut", "N")
+                nuaClone.update()
             } catch (Exception e) {
                 logger.warn("Error resetting UserAccount login status", e)
-            }
+            } finally { if (enableAuthz) eci.getArtifactExecutionImpl().enableAuthz() }
         }
 
         // update visit if no user in visit yet
         EntityValue visit = eci.user.visit
-        if (visit) {
-            if (!visit.userId) {
-                eci.service.sync().name("update", "moqui.server.Visit")
-                        .parameters((Map<String, Object>) [visitId:visit.visitId, userId:newUserAccount.userId]).disableAuthz().call()
+        if (visit != null) {
+            if (!visit.getNoCheckSimple("userId")) {
+                eci.service.sync().name("update", "moqui.server.Visit").parameter("visitId", visit.visitId)
+                        .parameter("userId", newUserAccount.userId).disableAuthz().call()
             }
-            if (!visit.clientIpCountryGeoId && !visit.clientIpTimeZone) {
+            if (!visit.getNoCheckSimple("clientIpCountryGeoId") && !visit.getNoCheckSimple("clientIpTimeZone")) {
                 MNode ssNode = eci.ecfi.confXmlRoot.first("server-stats")
                 if (ssNode.attribute("visit-ip-info-on-login") != "false") {
                     eci.service.async().name("org.moqui.impl.ServerServices.get#VisitClientIpData")

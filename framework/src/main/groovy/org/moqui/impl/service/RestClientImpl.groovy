@@ -18,35 +18,24 @@ import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import groovy.xml.XmlUtil
 
-import org.apache.http.Header
-import org.apache.http.HttpEntity
-import org.apache.http.HttpHost
-import org.apache.http.NameValuePair
-import org.apache.http.auth.AuthScope
-import org.apache.http.auth.UsernamePasswordCredentials
-import org.apache.http.client.AuthCache
-import org.apache.http.client.CredentialsProvider
-import org.apache.http.client.HttpResponseException
-import org.apache.http.client.methods.CloseableHttpResponse
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase
-import org.apache.http.client.methods.HttpUriRequest
-import org.apache.http.client.methods.RequestBuilder
-import org.apache.http.client.protocol.HttpClientContext
-import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
-import org.apache.http.impl.auth.BasicScheme
-import org.apache.http.impl.client.*
-import org.apache.http.message.BasicNameValuePair
-import org.apache.http.util.EntityUtils
-
+import org.eclipse.jetty.client.HttpClient
+import org.eclipse.jetty.client.HttpResponseException
+import org.eclipse.jetty.client.api.ContentResponse
+import org.eclipse.jetty.client.api.Request
+import org.eclipse.jetty.client.util.BasicAuthentication
+import org.eclipse.jetty.client.util.StringContentProvider
+import org.eclipse.jetty.http.HttpField
+import org.eclipse.jetty.http.HttpHeader
 import org.moqui.BaseException
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.StupidJavaUtilities.KeyValueString
 import org.moqui.service.RestClient
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 
 @CompileStatic
 class RestClientImpl implements RestClient {
@@ -57,10 +46,10 @@ class RestClientImpl implements RestClient {
 
     protected URI uri = null
     protected String method = 'GET', contentType = 'application/json'
-    protected Charset charset = Charset.forName('UTF-8')
+    protected Charset charset = StandardCharsets.UTF_8
 
     protected String bodyText = null
-    protected List<NameValuePair> headerList = [], bodyParameterList = []
+    protected List<KeyValueString> headerList = [], bodyParameterList = []
 
     protected String username = null, password = null
 
@@ -88,11 +77,11 @@ class RestClientImpl implements RestClient {
     @Override
     RestClient addHeaders(Map<String, String> headers) {
         for (Map.Entry<String, String> entry in headers.entrySet())
-            headerList.add(new BasicNameValuePair(entry.key, entry.value))
+            headerList.add(new KeyValueString(entry.key, entry.value))
         return this
     }
     @Override
-    RestClient addHeader(String name, String value) { headerList.add(new BasicNameValuePair(name, value)); return this }
+    RestClient addHeader(String name, String value) { headerList.add(new KeyValueString(name, value)); return this }
     @Override
     RestClient basicAuth(String username, String password) { this.username = username; this.password = password; return this }
 
@@ -123,12 +112,12 @@ class RestClientImpl implements RestClient {
     @Override
     RestClient addBodyParameters(Map<String, String> formFields) {
         for (Map.Entry<String, String> entry in formFields.entrySet())
-            bodyParameterList.add(new BasicNameValuePair(entry.key, entry.value))
+            bodyParameterList.add(new KeyValueString(entry.key, entry.value))
         return this
     }
     @Override
     RestClient addBodyParameter(String name, String value) {
-        bodyParameterList.add(new BasicNameValuePair(name, value))
+        bodyParameterList.add(new KeyValueString(name, value))
         return this
     }
 
@@ -136,47 +125,41 @@ class RestClientImpl implements RestClient {
     RestClient.RestResponse call() {
         if (uri == null) throw new IllegalStateException("No URI set in RestClient")
 
-        RequestBuilder rb = RequestBuilder.create(method)
+        ContentResponse response = null
 
-        // set basic fields, common across all methods
-        rb.setUri(uri)
-        rb.setCharset(charset)
-
-        // add headers and parameters
-        for (NameValuePair nvp in headerList) rb.addHeader(nvp.name, nvp.value)
-        for (NameValuePair nvp in bodyParameterList) rb.addParameter(nvp)
-
-        HttpUriRequest httpUriRequest = rb.build()
-
-        HttpClientBuilder httpClientBuilder = HttpClients.custom()
-        HttpHost target = new HttpHost(uri.host, uri.port, uri.scheme)
-        if (username) {
-            CredentialsProvider credsProvider = new BasicCredentialsProvider()
-            credsProvider.setCredentials(new AuthScope(target.getHostName(), target.getPort()),
-                    new UsernamePasswordCredentials(username, password))
-            httpClientBuilder.setDefaultCredentialsProvider(credsProvider)
-        }
-        CloseableHttpClient httpClient = httpClientBuilder.build()
+        HttpClient httpClient = new HttpClient()
+        httpClient.start()
 
         try {
+            Request request = httpClient.newRequest(uri)
+            request.method(method)
+            // set charset on request?
+
+            // add headers and parameters
+            for (KeyValueString nvp in headerList) request.header(nvp.key, nvp.value)
+            for (KeyValueString nvp in bodyParameterList) request.param(nvp.key, nvp.value)
+            // authc
+            if (username) httpClient.getAuthenticationStore().addAuthentication(
+                    new BasicAuthentication(uri, null, username, password))
+
             if (bodyText) {
-                if (httpUriRequest instanceof HttpEntityEnclosingRequestBase) {
-                    StringEntity requestEntity = new StringEntity(bodyText, ContentType.create(contentType, "UTF-8"))
-                    httpUriRequest.setEntity(requestEntity)
-                    httpUriRequest.setHeader("Content-Type", contentType)
-                } else {
-                    throw new IllegalStateException("Tried to set body text on unsupported method ${method}")
-                }
+                request.content(new StringContentProvider(contentType, bodyText, charset), contentType)
+                request.header(HttpHeader.CONTENT_TYPE, contentType)
             }
+            request.accept(contentType)
 
-            HttpClientContext localContext = HttpClientContext.create()
+            if (logger.isTraceEnabled()) logger.trace("RestClient request ${request.getMethod()} ${request.getURI()} Headers: ${request.getHeaders()}")
 
-            if (username) {
-                // Generate BASIC scheme object and add it to the local auth cache
-                AuthCache authCache = new BasicAuthCache()
-                authCache.put(target, new BasicScheme())
-                localContext.setAuthCache(authCache)
-            }
+            response = request.send()
+        } finally {
+            httpClient.stop()
+        }
+
+        return new RestResponseImpl(this, response)
+
+        /*
+
+        try {
 
             logger.info("RestClient request '${httpUriRequest.getRequestLine()}' Headers: ${httpUriRequest.getAllHeaders()}")
 
@@ -189,38 +172,39 @@ class RestClientImpl implements RestClient {
         } finally {
             httpClient.close()
         }
+        */
     }
 
     static class RestResponseImpl implements RestClient.RestResponse {
         protected RestClientImpl rci
+        protected ContentResponse response
         protected byte[] bytes = null
-        protected Map<String, List<String>> headers = [:]
+        protected Map<String, ArrayList<String>> headers = [:]
         protected int statusCode
         protected String reasonPhrase
 
-        RestResponseImpl(RestClientImpl rci, CloseableHttpResponse response) {
+        RestResponseImpl(RestClientImpl rci, ContentResponse response) {
             this.rci = rci
 
-            statusCode = response.getStatusLine().getStatusCode()
-            reasonPhrase = response.getStatusLine().getReasonPhrase()
+            statusCode = response.getStatus()
+            reasonPhrase = response.getReason()
 
             // get headers
-            for (Header hdr in response.getAllHeaders()) {
+            for (HttpField hdr in response.getHeaders()) {
                 String name = hdr.getName()
-                List<String> curList = headers.get(name)
-                if (curList == null) { curList = []; headers.put(name, curList) }
-                curList.add(hdr.getValue())
+                ArrayList<String> curList = headers.get(name)
+                if (curList == null) { curList = new ArrayList<>(); headers.put(name, curList) }
+                curList.addAll(Arrays.asList(hdr.getValues()))
             }
 
             // get the response body
-            HttpEntity entity = response.getEntity()
-            bytes = EntityUtils.toByteArray(entity)
+            bytes = response.getContent()
         }
 
         RestClient.RestResponse checkError() {
             if (statusCode < 200 || statusCode >= 300) {
                 logger.info("Error ${statusCode} (${reasonPhrase}) in response to ${rci.method} to ${rci.uri.toASCIIString()}, response text:\n${text()}")
-                throw new HttpResponseException(statusCode, reasonPhrase)
+                throw new HttpResponseException("Error ${statusCode} (${reasonPhrase}) in response to ${rci.method} to ${rci.uri.toASCIIString()}", response)
             }
             return this
         }
@@ -252,7 +236,7 @@ class RestClientImpl implements RestClient {
         byte[] bytes() { return bytes }
 
         @Override
-        Map<String, List<String>> headers() { return headers }
+        Map<String, ArrayList<String>> headers() { return headers }
 
         @Override
         String headerFirst(String name) {

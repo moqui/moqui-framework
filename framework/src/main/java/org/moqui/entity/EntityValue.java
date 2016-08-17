@@ -58,6 +58,11 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      */
     Object get(String name);
 
+    /** Get simple fields only (no localization, no relationship) and don't check to see if it is a valid field; mostly
+     * for performance reasons and for well tested code with known field names. If it is not a valid field name will
+     * just return null and not throw an error, ie doesn't check for valid field names. */
+    Object getNoCheckSimple(String name);
+
     /** Returns true if the entity contains all of the primary key fields. */
     boolean containsPrimaryKey();
 

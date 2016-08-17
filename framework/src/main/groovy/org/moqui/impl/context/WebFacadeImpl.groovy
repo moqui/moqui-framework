@@ -184,21 +184,18 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    /**
-     * commons fileupload not support string array, when use multiple select, there's duplicate fieldName,
-     * convert value to an array list when fieldName already in multipart parameters.
-     * @param key
-     * @param value
-     */
-    private <T> void addValueToMultipartParameterMap(String key, T value) {
-        Object previouseValue = multiPartParameters.put(key, value)
-        if (previouseValue !=null) {
-            List<T> values = new ArrayList<>()
-            values.add((T) multiPartParameters.put(key, values))
-            if(previouseValue instanceof Collection) {
-                values.addAll((Collection)previouseValue)
+    /** Apache Commons FileUpload does not support string array so when using multiple select and there's a duplicate
+     * fieldName convert value to an array list when fieldName is already in multipart parameters. */
+    private void addValueToMultipartParameterMap(String key, Object value) {
+        Object previousValue = multiPartParameters.put(key, value)
+        if (previousValue != null) {
+            List<Object> valueList = new ArrayList<>()
+            valueList.add(value)
+            multiPartParameters.put(key, valueList)
+            if(previousValue instanceof Collection) {
+                valueList.addAll((Collection) previousValue)
             } else {
-                values.add((T) previouseValue)
+                valueList.add(previousValue)
             }
         }
     }
