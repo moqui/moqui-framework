@@ -63,14 +63,14 @@ class EntityDataFeed {
         return documentList
     }
 
-    List<Map> getFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
+    ArrayList<Map> getFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         EntityList dataFeedDocumentList = efi.find("moqui.entity.feed.DataFeedDocument")
                 .condition("dataFeedId", dataFeedId).useCache(true).list()
 
-        List<Map> fullDocumentList = []
+        ArrayList<Map> fullDocumentList = new ArrayList<>()
         for (EntityValue dataFeedDocument in dataFeedDocumentList) {
             String dataDocumentId = dataFeedDocument.dataDocumentId
-            List<Map> curDocList = efi.getDataDocuments(dataDocumentId, null, fromUpdateStamp, thruUpdatedStamp)
+            ArrayList<Map> curDocList = efi.getDataDocuments(dataDocumentId, null, fromUpdateStamp, thruUpdatedStamp)
             fullDocumentList.addAll(curDocList)
         }
         return fullDocumentList

@@ -337,6 +337,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         int coreSize = (toolsNode.attribute("worker-pool-core") ?: "4") as int
         int maxSize = (toolsNode.attribute("worker-pool-max") ?: "16") as int
+        int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2
+        if (availableProcessorsSize > maxSize) {
+            logger.info("Setting worker pool size to ${availableProcessorsSize} based on available processors * 2")
+            maxSize = availableProcessorsSize
+        }
         long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
 
         logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
