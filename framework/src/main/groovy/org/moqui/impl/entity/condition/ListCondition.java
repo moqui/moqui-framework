@@ -72,17 +72,17 @@ public class ListCondition implements EntityConditionImplBase {
 
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb) {
-        if (conditionList == null || conditionList.size() == 0) return;
+        if (conditionListSize == 0) return;
 
         StringBuilder sql = eqb.getSqlTopLevel();
         String joinOpString = EntityConditionFactoryImpl.getJoinOperatorString(this.operator);
-        sql.append('(');
+        if (conditionListSize > 1) sql.append('(');
         for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (i > 0) sql.append(' ').append(joinOpString).append(' ');
             condition.makeSqlWhere(eqb);
         }
-        sql.append(')');
+        if (conditionListSize > 1) sql.append(')');
     }
 
     @Override
