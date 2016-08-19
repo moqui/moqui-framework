@@ -37,6 +37,7 @@ import java.sql.*
 @CompileStatic
 class TransactionFacadeImpl implements TransactionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionFacadeImpl.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
     protected final ExecutionContextFactoryImpl ecfi
 
@@ -121,7 +122,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     Long getCurrentTransactionStartTime() {
         TxStackInfo txStackInfo = getTxStackInfo()
         Long time = txStackInfo != null ? (Long) txStackInfo.transactionBeginStartTime : (Long) null
-        if (time == null && logger.isTraceEnabled()) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
+        if (time == null && isTraceEnabled) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
         return time
     }
 
@@ -555,11 +556,13 @@ class TransactionFacadeImpl implements TransactionFacade {
     void initTransactionCache() {
         TxStackInfo txStackInfo = getTxStackInfo()
         if (useTransactionCache && txStackInfo.txCache == null) {
-            if (logger.isInfoEnabled()) {
+            if (isTraceEnabled) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
-                for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append("\n").append(infoAei)
-                logger.info(infoString.toString())
+                for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append(infoAei.getName())
+                logger.trace(infoString.toString())
+            } else if (logger.isInfoEnabled()) {
+                logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
             }
 
             TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
