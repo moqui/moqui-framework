@@ -22,7 +22,8 @@ import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityFindBase
 import org.moqui.impl.entity.EntityListImpl
 import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.entity.EntityValueImpl
+import org.moqui.impl.entity.EntityJavaUtil.WriteMode
+import org.moqui.impl.entity.EntityJavaUtil.EntityWriteInfo
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -40,24 +41,26 @@ import java.sql.Connection
 @CompileStatic
 class TransactionCache implements Synchronization {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionCache.class)
-    public enum WriteMode { CREATE, UPDATE, DELETE }
 
     protected ExecutionContextFactoryImpl ecfi
-
     protected Transaction tx = null
+    private boolean readOnly
 
-    protected Map<Map, EntityValueBase> readOneCache = [:]
-    protected Map<String, Map<EntityCondition, EntityListImpl>> readListCache = [:]
+    private Map<Map, EntityValueBase> readOneCache = [:]
+    private Map<String, Map<EntityCondition, EntityListImpl>> readListCache = [:]
 
-    protected Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
-    protected Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
-    protected LinkedList<EntityWriteInfo> writeInfoList = new LinkedList<EntityWriteInfo>()
-    protected LinkedHashMap<String, Map<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<String, Map<Map, EntityValueBase>>()
+    private Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
+    private Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
+    private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50)
+    private LinkedHashMap<String, Map<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<String, Map<Map, EntityValueBase>>()
 
-    TransactionCache(ExecutionContextFactoryImpl ecfi, Transaction tx) {
+    TransactionCache(ExecutionContextFactoryImpl ecfi, Transaction tx, boolean readOnly) {
         this.ecfi = ecfi
         this.tx = tx
+        this.readOnly = readOnly
     }
+
+    boolean isReadOnly() { return readOnly }
 
     Map<Map, EntityValueBase> getCreateByEntityMap(String entityName) {
         Map createMap = createByEntityRef.get(entityName)
@@ -94,17 +97,19 @@ class TransactionCache implements Synchronization {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return false
 
-        // if create info already exists blow up
-        EntityWriteInfo currentEwi = lastWriteInfoMap.get(key)
-        if (readOneCache.get(key) != null)
-            throw new EntityException("Tried to create a value that already exists in database, entity [${evb.getEntityName()}], PK ${evb.getPrimaryKeys()}")
-        if (currentEwi != null && currentEwi.writeMode != WriteMode.DELETE)
-            throw new EntityException("Tried to create a value that already exists in write cache, entity [${evb.getEntityName()}], PK ${evb.getPrimaryKeys()}")
+        if (!readOnly) {
+            // if create info already exists blow up
+            EntityWriteInfo currentEwi = lastWriteInfoMap.get(key)
+            if (readOneCache.get(key) != null)
+                throw new EntityException("Tried to create a value that already exists in database, entity ${evb.getEntityName()}, PK ${evb.getPrimaryKeys()}")
+            if (currentEwi != null && currentEwi.writeMode != WriteMode.DELETE)
+                throw new EntityException("Tried to create a value that already exists in write cache, entity ${evb.getEntityName()}, PK ${evb.getPrimaryKeys()}")
 
-        EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.CREATE)
-        addWriteInfo(key, newEwi)
-        if (currentEwi == null || currentEwi.writeMode != WriteMode.DELETE) {
-            getCreateByEntityMap(evb.getEntityName()).put(evb.getPrimaryKeys(), evb)
+            EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.CREATE)
+            addWriteInfo(key, newEwi)
+            if (currentEwi == null || currentEwi.writeMode != WriteMode.DELETE) {
+                getCreateByEntityMap(evb.getEntityName()).put(evb.getPrimaryKeys(), evb)
+            }
         }
 
         // add to readCache after so we don't think it already exists
@@ -117,7 +122,7 @@ class TransactionCache implements Synchronization {
             }
         }
 
-        return true
+        return !readOnly
     }
     boolean update(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb)
@@ -133,29 +138,15 @@ class TransactionCache implements Synchronization {
                 EntityValueBase dbEvb = (EntityValueBase) evb.cloneValue()
                 dbEvb.refresh()
                 dbEvb.setFields(evb, true, null, false)
-                evb = dbEvb
                 logger.warn("====== tx cache update not from db\nevb: ${evb}\ndbEvb: ${dbEvb}")
+                evb = dbEvb
             }
         }
 
-        EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.UPDATE)
-        addWriteInfo(key, newEwi)
-
-        /* The old approach, no longer needed with transaction log style writeInfoList:
-        // if is in as create or update that value (but stay in current write mode), if delete blow up, otherwise add as update
-        EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key)
-        if (currentEwi != null) {
-            if (currentEwi.writeMode == WriteMode.CREATE || currentEwi.writeMode == WriteMode.UPDATE) {
-                // NOTE: if new value sets a field with an FK to a field created already in this TX create another
-                //  update record (how to do with key strategy!?! maybe add a dummy Map entry...) to avoid FK issues
-                currentEwi.evb.setFields(evb, true, null, false)
-                evb = currentEwi.evb
-            } else {
-                throw new EntityException("Tried to update a value that has been deleted, entity [${evb.getEntityName()}], PK ${evb.getPrimaryKeys()}")
-            }
-        } else {
+        if (!readOnly) {
+            EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.UPDATE)
+            addWriteInfo(key, newEwi)
         }
-        */
 
         // add to readCache
         readOneCache.put(key, evb)
@@ -179,31 +170,16 @@ class TransactionCache implements Synchronization {
             }
         }
 
-        return true
+        return !readOnly
     }
     boolean delete(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return false
 
-        EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
-        addWriteInfo(key, newEwi)
-
-        /* The old approach, no longer needed with transaction log style writeInfoList:
-        // if in current create remove from write list, if update change to delete, otherwise add as delete
-        EntityWriteInfo currentEwi = (EntityWriteInfo) writeInfoList.get(key)
-        if (currentEwi != null) {
-            if (currentEwi.writeMode == WriteMode.CREATE) {
-                writeInfoList.remove(key)
-            } else if (currentEwi.writeMode == WriteMode.UPDATE) {
-                currentEwi.writeMode = WriteMode.DELETE
-            } else {
-                // already deleted, throw an exception
-                throw new EntityException("Tried to delete a value that already exists, entity [${evb.getEntityName()}], PK ${evb.getPrimaryKeys()}")
-            }
-        } else {
-            writeInfoList.put(key, new EntityWriteInfo(evb, WriteMode.DELETE))
+        if (!readOnly) {
+            EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
+            addWriteInfo(key, newEwi)
         }
-        */
 
         // remove from readCache if needed
         readOneCache.remove(key)
@@ -221,7 +197,7 @@ class TransactionCache implements Synchronization {
             }
         }
 
-        return true
+        return !readOnly
     }
     boolean refresh(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb)
@@ -242,17 +218,13 @@ class TransactionCache implements Synchronization {
     }
 
     boolean isTxCreate(EntityValueBase evb) {
+        if (readOnly || writeInfoList.size() == 0) return false
         Map<String, Object> key = makeKey(evb)
         if (key == null) return false
         return isTxCreate(key)
     }
-    /*boolean isTxCreate(String entityName, Map<String, Object> pkMap) {
-        Map key = pkMap
-        if (!key) return false
-        key.put("_entityName", entityName)
-        return isTxCreate(key)
-    }*/
     protected boolean isTxCreate(Map key) {
+        if (readOnly || writeInfoList.size() == 0) return false
         EntityWriteInfo currentEwi = firstWriteInfoMap.get(key)
         if (currentEwi == null) return false
         return currentEwi.writeMode == WriteMode.CREATE
@@ -263,9 +235,12 @@ class TransactionCache implements Synchronization {
         Map<String, Object> key = makeKeyFind(efb)
         if (key == null) return null
 
-        // if this has been deleted return a DeletedEntityValue instance so caller knows it was deleted and doesn't look in the DB for another record
-        EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key)
-        if (currentEwi != null && currentEwi.writeMode == WriteMode.DELETE) return new DeletedEntityValue(efb.getEntityDef(), ecfi.getEntityFacade())
+        if (!readOnly) {
+            // if this has been deleted return a DeletedEntityValue instance so caller knows it was deleted and doesn't look in the DB for another record
+            EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key)
+            if (currentEwi != null && currentEwi.writeMode == WriteMode.DELETE)
+                return new EntityValueBase.DeletedEntityValue(efb.getEntityDef(), ecfi.getEntityFacade())
+        }
 
         // cloneValue() so that updates aren't in the read cache until an update is done
         EntityValueBase evb = (EntityValueBase) readOneCache.get(key)?.cloneValue()
@@ -377,45 +352,64 @@ class TransactionCache implements Synchronization {
     List<EntityValueBase> getCreatedValueList(String entityName, EntityCondition ec) {
         List<EntityValueBase> valueList = []
         Map<Map, EntityValueBase> createMap = getCreateByEntityMap(entityName)
-        if (!createMap) return valueList
+        if (createMap == null || createMap.size() == 0) return valueList
         for (EntityValueBase evb in createMap.values()) if (ec.mapMatches(evb)) valueList.add(evb)
         return valueList
     }
 
-    void flushCache() {
-        Map<String, Connection> connectionByGroup = [:]
+    void makeReadOnly() {
+        if (readOnly) return
+        flushCache(false)
+        readOnly = true
+    }
+
+    void flushCache(boolean clearRead) {
+        Map<String, Connection> connectionByGroup = new HashMap<>()
         try {
-            ExecutionContextImpl eci = ecfi.getEci()
-            EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
+            int writeInfoListSize = writeInfoList.size()
+            if (writeInfoListSize > 0) {
+                ExecutionContextImpl eci = ecfi.getEci()
+                EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
 
-            long startTime = System.currentTimeMillis()
-            int createCount = 0
-            int updateCount = 0
-            int deleteCount = 0
-            /*for (EntityWriteInfo ewi in writeInfoList) {
-                logger.warn("===== TX Cache value to ${ewi.writeMode} ${ewi.evb.getEntityName()}: \n${ewi.evb}")
-            }*/
-            for (EntityWriteInfo ewi in writeInfoList) {
-                String groupName = ewi.evb.getEntityDefinition().getEntityGroupName()
-                Connection con = connectionByGroup.get(groupName)
-                if (con == null) {
-                    con = efi.getConnection(groupName)
-                    connectionByGroup.put(groupName, con)
-                }
+                long startTime = System.currentTimeMillis()
+                int createCount = 0
+                int updateCount = 0
+                int deleteCount = 0
+                // for (EntityWriteInfo ewi in writeInfoList) logger.warn("===== TX Cache value to ${ewi.writeMode} ${ewi.evb.getEntityName()}: \n${ewi.evb}")
+                if (readOnly && writeInfoListSize > 0) logger.warn("Read only TX cache has ${writeInfoListSize} values to write")
+                for (int i = 0; i < writeInfoListSize; i++) {
+                    EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
+                    String groupName = ewi.evb.getEntityDefinition().getEntityGroupName()
+                    Connection con = connectionByGroup.get(groupName)
+                    if (con == null) {
+                        con = efi.getConnection(groupName)
+                        connectionByGroup.put(groupName, con)
+                    }
 
-                if (ewi.writeMode == WriteMode.CREATE) {
-                    ewi.evb.basicCreate(con, eci)
-                    createCount++
-                } else if (ewi.writeMode == WriteMode.UPDATE) {
-                    ewi.evb.basicUpdate(con, eci)
-                    updateCount++
-                } else {
-                    ewi.evb.basicDelete(con, eci)
-                    deleteCount++
+                    if (ewi.writeMode == WriteMode.CREATE) {
+                        ewi.evb.basicCreate(con, eci)
+                        createCount++
+                    } else if (ewi.writeMode == WriteMode.UPDATE) {
+                        ewi.evb.basicUpdate(con, eci)
+                        updateCount++
+                    } else {
+                        ewi.evb.basicDelete(con, eci)
+                        deleteCount++
+                    }
                 }
+                if (logger.isInfoEnabled()) logger.info("Flushed TransactionCache in ${System.currentTimeMillis() - startTime}ms: ${createCount} creates, ${updateCount} updates, ${deleteCount} deletes, ${readOneCache.size()} read entries, ${readListCache.size()} entities with list cache")
             }
 
-            if (logger.infoEnabled) logger.info("Wrote from TransactionCache in ${System.currentTimeMillis() - startTime}ms: ${createCount} creates, ${updateCount} updates, ${deleteCount} deletes, ${readOneCache.size()} read entries, ${readListCache.size()} entities with list cache")
+            writeInfoList.clear()
+            firstWriteInfoMap.clear()
+            lastWriteInfoMap.clear()
+            createByEntityRef.clear()
+            if (clearRead) {
+                readOneCache.clear()
+                readListCache.clear()
+                // set to readOnly to avoid any other write through
+                readOnly = true
+            }
         } catch (Throwable t) {
             logger.error("Error writing values from TransactionCache: ${t.toString()}", t)
             throw new XAException("Error writing values from TransactionCache: + ${t.toString()}")
@@ -425,26 +419,8 @@ class TransactionCache implements Synchronization {
         }
     }
 
-
     @Override
-    void beforeCompletion() { flushCache() }
-
+    void beforeCompletion() { flushCache(true) }
     @Override
     void afterCompletion(int i) { }
-
-    static class EntityWriteInfo {
-        WriteMode writeMode
-        EntityValueBase evb
-        Map<String, Object> pkMap
-        EntityWriteInfo(EntityValueBase evb, WriteMode writeMode) {
-            // clone value so that create/update/delete stays the same no matter what happens after
-            this.evb = (EntityValueBase) evb.cloneValue()
-            this.writeMode = writeMode
-            this.pkMap = evb.getPrimaryKeys()
-        }
-    }
-
-    static class DeletedEntityValue extends EntityValueImpl {
-        DeletedEntityValue(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip) }
-    }
 }

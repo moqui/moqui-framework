@@ -20,9 +20,16 @@ import org.moqui.impl.entity.EntityValueBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.transaction.Synchronization;
+import javax.transaction.Transaction;
+import javax.transaction.xa.XAResource;
 import java.math.BigDecimal;
-import java.sql.Timestamp;
+import java.sql.*;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.Executor;
 
 public class ContextJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(ContextJavaUtil.class);
@@ -212,5 +219,179 @@ public class ContextJavaUtil {
 
             return ahp;
         }
+    }
+
+    static class RollbackInfo {
+        public String causeMessage;
+        /** A rollback is often done because of another error, this represents that error. */
+        public Throwable causeThrowable;
+        /** This is for a stack trace for where the rollback was actually called to help track it down more easily. */
+        public Exception rollbackLocation;
+
+        public RollbackInfo(String causeMessage, Throwable causeThrowable, Exception rollbackLocation) {
+            this.causeMessage = causeMessage;
+            this.causeThrowable = causeThrowable;
+            this.rollbackLocation = rollbackLocation;
+        }
+    }
+
+    static class TxStackInfo {
+        public Exception transactionBegin = null;
+        public Long transactionBeginStartTime = null;
+        public RollbackInfo rollbackOnlyInfo = null;
+
+        public Transaction suspendedTx = null;
+        public Exception suspendedTxLocation = null;
+
+        protected Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>();
+        protected Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>();
+        protected Map<String, ConnectionWrapper> txConByGroup = new HashMap<>();
+        public TransactionCache txCache = null;
+
+        public Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap; }
+        public Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap; }
+        public Map<String, ConnectionWrapper> getTxConByGroup() { return txConByGroup; }
+
+
+        public void clearCurrent() {
+            rollbackOnlyInfo = null;
+            transactionBegin = null;
+            transactionBeginStartTime = null;
+            activeXaResourceMap.clear();
+            activeSynchronizationMap.clear();
+            txCache = null;
+            // this should already be done, but make sure
+            closeTxConnections();
+        }
+
+        public void closeTxConnections() {
+            for (ConnectionWrapper con: txConByGroup.values()) {
+                try {
+                    if (con != null && !con.isClosed()) con.closeInternal();
+                } catch (Throwable t) {
+                    logger.error("Error closing connection for tenant/group ${entry.key}", t);
+                }
+            }
+            txConByGroup.clear();
+        }
+    }
+
+    /** A simple delegating wrapper for java.sql.Connection.
+     *
+     * The close() method does nothing, only closed when closeInternal() called by TransactionFacade on commit,
+     * rollback, or destroy (when transactions are also cleaned up as a last resort).
+     *
+     * Connections are attached to 3 things: entity group, tenant, and transaction.
+     */
+    public static class ConnectionWrapper implements Connection {
+        protected Connection con;
+        protected TransactionFacadeImpl tfi;
+        protected String tenantId, groupName;
+
+        public ConnectionWrapper(Connection con, TransactionFacadeImpl tfi, String tenantId, String groupName) {
+            this.con = con;
+            this.tfi = tfi;
+            this.tenantId = tenantId;
+            this.groupName = groupName;
+        }
+
+        public String getTenantId() { return tenantId; }
+        public String getGroupName() { return groupName; }
+
+        public void closeInternal() throws SQLException {
+            con.close();
+        }
+
+        @Override public Statement createStatement() throws SQLException { return con.createStatement(); }
+        @Override public PreparedStatement prepareStatement(String sql) throws SQLException { return con.prepareStatement(sql); }
+        @Override public CallableStatement prepareCall(String sql) throws SQLException { return con.prepareCall(sql); }
+        @Override public String nativeSQL(String sql) throws SQLException { return con.nativeSQL(sql); }
+        @Override public void setAutoCommit(boolean autoCommit) throws SQLException { con.setAutoCommit(autoCommit); }
+        @Override public boolean getAutoCommit() throws SQLException { return con.getAutoCommit(); }
+        @Override public void commit() throws SQLException { con.commit(); }
+        @Override public void rollback() throws SQLException { con.rollback(); }
+
+        @Override
+        public void close() throws SQLException {
+            // do nothing! see closeInternal
+        }
+
+        @Override public boolean isClosed() throws SQLException { return con.isClosed(); }
+        @Override public DatabaseMetaData getMetaData() throws SQLException { return con.getMetaData(); }
+        @Override public void setReadOnly(boolean readOnly) throws SQLException { con.setReadOnly(readOnly); }
+        @Override public boolean isReadOnly() throws SQLException { return con.isReadOnly(); }
+        @Override public void setCatalog(String catalog) throws SQLException { con.setCatalog(catalog); }
+        @Override public String getCatalog() throws SQLException { return con.getCatalog(); }
+        @Override public void setTransactionIsolation(int level) throws SQLException { con.setTransactionIsolation(level); }
+        @Override public int getTransactionIsolation() throws SQLException { return con.getTransactionIsolation(); }
+        @Override public SQLWarning getWarnings() throws SQLException { return con.getWarnings(); }
+        @Override public void clearWarnings() throws SQLException { con.clearWarnings(); }
+
+        @Override public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
+            return con.createStatement(resultSetType, resultSetConcurrency); }
+        @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+            return con.prepareStatement(sql, resultSetType, resultSetConcurrency); }
+        @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+            return con.prepareCall(sql, resultSetType, resultSetConcurrency); }
+
+        @Override public Map<String, Class<?>> getTypeMap() throws SQLException { return con.getTypeMap(); }
+        @Override public void setTypeMap(Map<String, Class<?>> map) throws SQLException { con.setTypeMap(map); }
+        @Override public void setHoldability(int holdability) throws SQLException { con.setHoldability(holdability); }
+        @Override public int getHoldability() throws SQLException { return con.getHoldability(); }
+        @Override public Savepoint setSavepoint() throws SQLException { return con.setSavepoint(); }
+        @Override public Savepoint setSavepoint(String name) throws SQLException { return con.setSavepoint(name); }
+        @Override public void rollback(Savepoint savepoint) throws SQLException { con.rollback(savepoint); }
+        @Override public void releaseSavepoint(Savepoint savepoint) throws SQLException { con.releaseSavepoint(savepoint); }
+
+        @Override public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+            return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability); }
+        @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+            return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
+        @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+            return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
+        @Override public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
+            return con.prepareStatement(sql, autoGeneratedKeys); }
+        @Override public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
+            return con.prepareStatement(sql, columnIndexes); }
+        @Override public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
+            return con.prepareStatement(sql, columnNames); }
+
+        @Override public Clob createClob() throws SQLException { return con.createClob(); }
+        @Override public Blob createBlob() throws SQLException { return con.createBlob(); }
+        @Override public NClob createNClob() throws SQLException { return con.createNClob(); }
+        @Override public SQLXML createSQLXML() throws SQLException { return con.createSQLXML(); }
+        @Override public boolean isValid(int timeout) throws SQLException { return con.isValid(timeout); }
+        @Override public void setClientInfo(String name, String value) throws SQLClientInfoException { con.setClientInfo(name, value); }
+        @Override public void setClientInfo(Properties properties) throws SQLClientInfoException { con.setClientInfo(properties); }
+        @Override public String getClientInfo(String name) throws SQLException { return con.getClientInfo(name); }
+        @Override public Properties getClientInfo() throws SQLException { return con.getClientInfo(); }
+        @Override public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
+            return con.createArrayOf(typeName, elements); }
+        @Override public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
+            return con.createStruct(typeName, attributes); }
+
+        @Override public void setSchema(String schema) throws SQLException { con.setSchema(schema); }
+        @Override public String getSchema() throws SQLException { return con.getSchema(); }
+
+        @Override public void abort(Executor executor) throws SQLException { con.abort(executor); }
+        @Override public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
+            con.setNetworkTimeout(executor, milliseconds); }
+        @Override public int getNetworkTimeout() throws SQLException { return con.getNetworkTimeout(); }
+
+        @Override public <T> T unwrap(Class<T> iface) throws SQLException { return con.unwrap(iface); }
+        @Override public boolean isWrapperFor(Class<?> iface) throws SQLException { return con.isWrapperFor(iface); }
+
+        // Object overrides
+        @Override public int hashCode() { return con.hashCode(); }
+        @Override public boolean equals(Object obj) { return con.equals(obj); }
+        @Override public String toString() {
+            return new StringBuilder().append("Tenant: ").append(tenantId).append(", Group: ").append(groupName)
+                    .append(", Con: ").append(con.toString()).toString();
+        }
+        /* these don't work, don't think we need them anyway:
+        protected Object clone() throws CloneNotSupportedException {
+            return new ConnectionWrapper((Connection) con.clone(), tfi, tenantId, groupName) }
+        protected void finalize() throws Throwable { con.finalize() }
+        */
     }
 }

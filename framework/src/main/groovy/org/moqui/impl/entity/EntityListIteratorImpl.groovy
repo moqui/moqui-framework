@@ -16,6 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.TransactionCache
+import org.moqui.impl.entity.EntityJavaUtil.WriteMode
 
 import java.sql.Connection
 import java.sql.ResultSet
@@ -208,9 +209,9 @@ class EntityListIteratorImpl implements EntityListIterator {
             if (rs.next()) {
                 EntityValueBase evb = currentEntityValueBase()
                 if (txCache != null) {
-                    TransactionCache.WriteMode writeMode = txCache.checkUpdateValue(evb)
+                    WriteMode writeMode = txCache.checkUpdateValue(evb)
                     // if deleted skip this value
-                    if (writeMode == TransactionCache.WriteMode.DELETE) return next()
+                    if (writeMode == WriteMode.DELETE) return next()
                 }
                 return evb
             } else {
@@ -232,9 +233,9 @@ class EntityListIteratorImpl implements EntityListIterator {
             if (rs.previous()) {
                 EntityValueBase evb = (EntityValueBase) currentEntityValue()
                 if (txCache != null) {
-                    TransactionCache.WriteMode writeMode = txCache.checkUpdateValue(evb)
+                    WriteMode writeMode = txCache.checkUpdateValue(evb)
                     // if deleted skip this value
-                    if (writeMode == TransactionCache.WriteMode.DELETE) return this.previous()
+                    if (writeMode == WriteMode.DELETE) return this.previous()
                 }
                 return evb
             } else {

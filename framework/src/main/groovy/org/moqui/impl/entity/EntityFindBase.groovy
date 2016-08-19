@@ -848,33 +848,42 @@ abstract class EntityFindBase implements EntityFind {
         // call the abstract method
         EntityValueBase newEntityValue = (EntityValueBase) null
         if (txcValue != null) {
-            if (txcValue instanceof TransactionCache.DeletedEntityValue) {
+            if (txcValue instanceof EntityValueBase.DeletedEntityValue) {
                 // is deleted value, so leave newEntityValue as null
                 // put in cache as null since this was deleted
                 if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
-                //     anyway, but ignore the result
-                // we could try to merge the TX cache value and the latest DB value, but for now opt for the TX cache
-                //     value over the DB value
+                //     anyway, but ignore the result unless it's a read only tx cache
                 if (forUpdate && !txCache.isTxCreate(txcValue)) {
                     EntityValueBase fuDbValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
-                    // if txcValue has been modified (fields in dbValueMap) see if those match what is coming from DB
-                    Map<String, Object> txDbValueMap = txcValue.getDbValueMap()
-                    Map<String, Object> fuDbValueMap = fuDbValue.getValueMap()
-                    if (txDbValueMap != null && txDbValueMap.size() > 0 &&
-                            !StupidUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
-                        StringBuilder fieldDiffBuilder = new StringBuilder()
-                        for (Map.Entry<String, Object> entry in txDbValueMap.entrySet()) {
-                            Object compareObj = txDbValueMap.get(entry.getKey())
-                            Object baseObj = fuDbValueMap.get(entry.getKey())
-                            if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
-                                    .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
+                    if (txCache.isReadOnly()) {
+                        // is read only tx cache so use the value from the DB
+                        newEntityValue = fuDbValue
+                        // tell the tx cache about the new value
+                        txCache.update(fuDbValue)
+                    } else {
+                        // we could try to merge the TX cache value and the latest DB value, but for now opt for the
+                        //     TX cache value over the DB value
+                        // if txcValue has been modified (fields in dbValueMap) see if those match what is coming from DB
+                        Map<String, Object> txDbValueMap = txcValue.getDbValueMap()
+                        Map<String, Object> fuDbValueMap = fuDbValue.getValueMap()
+                        if (txDbValueMap != null && txDbValueMap.size() > 0 &&
+                                !StupidUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
+                            StringBuilder fieldDiffBuilder = new StringBuilder()
+                            for (Map.Entry<String, Object> entry in txDbValueMap.entrySet()) {
+                                Object compareObj = txDbValueMap.get(entry.getKey())
+                                Object baseObj = fuDbValueMap.get(entry.getKey())
+                                if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
+                                        .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
+                            }
+                            logger.info("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
                         }
-                        logger.info("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
+                        newEntityValue = txcValue
                     }
+                } else {
+                    newEntityValue = txcValue
                 }
-                newEntityValue = txcValue
                 // put it in whether null or not (already know cacheHit is null)
                 if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
             }

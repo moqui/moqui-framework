@@ -15,6 +15,7 @@ significant changes.
 ### Non Backward Compatible Changes
 
 - Java JDK 8 now required (Java 7 no longer supported)
+- Now requires Servlet Container supporting the Servlet 3.1 specification
 - No longer using Winstone embedded web server (now using Jetty)
 - Entity Definitions
   - XSDs updated for these changes, though old attributes still supported
@@ -237,6 +238,12 @@ significant changes.
   thread with an ExecutionContext like the current (tenant, user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
+- Transaction Facade
+  - The write-through transaction cache now supports a read only mode
+  - Added service.@no-tx-cache attribute which flushes and disables write
+    through transaction cache for the rest of the transaction
+  - Added TransactionFacade.flushAndDisableTransactionCache() method to
+    flush and disable the write through cache, like service.@no-tx-cache
 - Entity Facade
   - In view-entity.alias.complex-alias the expression attribute is now
     expanded so context fields may be inserted or other Groovy expressions

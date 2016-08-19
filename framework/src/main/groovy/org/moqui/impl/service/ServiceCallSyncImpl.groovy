@@ -304,7 +304,11 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = beginTransactionIfNeeded ?
                     tf.begin(transactionTimeout != null ? transactionTimeout : sd.getTxTimeout()) : false
-            if (useTransactionCache != null ? useTransactionCache.booleanValue() : sd.getTxUseCache()) tf.initTransactionCache()
+            if (sd.getNoTxCache()) {
+                tf.flushAndDisableTransactionCache()
+            } else {
+                if (useTransactionCache != null ? useTransactionCache.booleanValue() : sd.getTxUseCache()) tf.initTransactionCache()
+            }
             try {
                 // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
                 if (sd.internalHasSemaphore) checkAddSemaphore(sfi.ecfi, currentParameters)

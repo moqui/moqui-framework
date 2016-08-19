@@ -606,4 +606,17 @@ public class EntityJavaUtil {
             return dm;
         }
     }
+
+    public enum WriteMode { CREATE, UPDATE, DELETE }
+    public static class EntityWriteInfo {
+        public WriteMode writeMode;
+        public EntityValueBase evb;
+        public Map<String, Object> pkMap;
+        public EntityWriteInfo(EntityValueBase evb, WriteMode writeMode) {
+            // clone value so that create/update/delete stays the same no matter what happens after
+            this.evb = (EntityValueBase) evb.cloneValue();
+            this.writeMode = writeMode;
+            this.pkMap = evb.getPrimaryKeys();
+        }
+    }
 }

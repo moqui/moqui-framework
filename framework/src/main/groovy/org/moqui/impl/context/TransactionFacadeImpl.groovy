@@ -18,6 +18,9 @@ import org.moqui.BaseException
 import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.context.TransactionInternal
+import org.moqui.impl.context.ContextJavaUtil.ConnectionWrapper
+import org.moqui.impl.context.ContextJavaUtil.RollbackInfo
+import org.moqui.impl.context.ContextJavaUtil.TxStackInfo
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -30,7 +33,6 @@ import javax.transaction.*
 import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
 import java.sql.*
-import java.util.concurrent.Executor
 
 @CompileStatic
 class TransactionFacadeImpl implements TransactionFacade {
@@ -565,7 +567,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             Transaction tx = tm.getTransaction()
             if (tx == null) throw new XAException(XAException.XAER_NOTA)
 
-            TransactionCache txCache = new TransactionCache(this.ecfi, tx)
+            TransactionCache txCache = new TransactionCache(this.ecfi, tx, false)
             txStackInfo.txCache = txCache
             registerSynchronization(txCache)
         }
@@ -573,6 +575,16 @@ class TransactionFacadeImpl implements TransactionFacade {
     @Override
     boolean isTransactionCacheActive() { return getTxStackInfo().txCache != null }
     TransactionCache getTransactionCache() { return getTxStackInfo().txCache }
+    @Override
+    void flushAndDisableTransactionCache() {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        if (txStackInfo.txCache != null) {
+            txStackInfo.txCache.makeReadOnly()
+            // would be safer to flush and remove it completely, but trying just switching to read only mode
+            // txStackInfo.txCache.flushCache(true)
+            // txStackInfo.txCache = null
+        }
+    }
 
     Connection getTxConnection(String tenantId, String groupName) {
         if (!useConnectionStash) return null
@@ -614,63 +626,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         return newCw
     }
 
-    @CompileStatic
-    static class RollbackInfo {
-        String causeMessage
-        /** A rollback is often done because of another error, this represents that error. */
-        Throwable causeThrowable
-        /** This is for a stack trace for where the rollback was actually called to help track it down more easily. */
-        Exception rollbackLocation
-
-        RollbackInfo(String causeMessage, Throwable causeThrowable, Exception rollbackLocation) {
-            this.causeMessage = causeMessage
-            this.causeThrowable = causeThrowable
-            this.rollbackLocation = rollbackLocation
-        }
-    }
-
-    @CompileStatic
-    static class TxStackInfo {
-        Exception transactionBegin = (Exception) null
-        Long transactionBeginStartTime = (Long) null
-        RollbackInfo rollbackOnlyInfo = (RollbackInfo) null
-
-        Transaction suspendedTx = (Transaction) null
-        Exception suspendedTxLocation = (Exception) null
-
-        protected Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>()
-        protected Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>()
-        protected Map<String, ConnectionWrapper> txConByGroup = new HashMap<>()
-        TransactionCache txCache = (TransactionCache) null
-
-        Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap }
-        Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap }
-        Map<String, ConnectionWrapper> getTxConByGroup() { return txConByGroup }
-
-
-        void clearCurrent() {
-            rollbackOnlyInfo = (RollbackInfo) null
-            transactionBegin = (Exception) null
-            transactionBeginStartTime = (Long) null
-            activeXaResourceMap.clear()
-            activeSynchronizationMap.clear()
-            txCache = (TransactionCache) null
-            // this should already be done, but make sure
-            closeTxConnections()
-        }
-
-        void closeTxConnections() {
-            for (Map.Entry<String, ConnectionWrapper> entry in txConByGroup.entrySet()) {
-                try {
-                    ConnectionWrapper con = entry.value
-                    if (con != null && !con.isClosed()) con.closeInternal()
-                } catch (Throwable t) {
-                    logger.error("Error closing connection for tenant/group ${entry.key}", t)
-                }
-            }
-            txConByGroup.clear()
-        }
-    }
 
     // ========== Initialize/Populate Methods ==========
 
@@ -703,124 +658,5 @@ class TransactionFacadeImpl implements TransactionFacade {
 
         if (!this.ut) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
         if (!this.tm) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
-    }
-
-    /** A simple delegating wrapper for java.sql.Connection.
-     *
-     * The close() method does nothing, only closed when closeInternal() called by TransactionFacade on commit,
-     * rollback, or destroy (when transactions are also cleaned up as a last resort).
-     *
-     * Connections are attached to 3 things: entity group, tenant, and transaction.
-     */
-    static class ConnectionWrapper implements Connection {
-        protected Connection con
-        protected TransactionFacadeImpl tfi
-        protected String tenantId, groupName
-
-        ConnectionWrapper(Connection con, TransactionFacadeImpl tfi, String tenantId, String groupName) {
-            this.con = con
-            this.tfi = tfi
-            this.tenantId = tenantId
-            this.groupName = groupName
-        }
-
-        String getTenantId() { return tenantId }
-        String getGroupName() { return groupName }
-
-        void closeInternal() {
-            con.close()
-        }
-
-
-        Statement createStatement() throws SQLException { return con.createStatement() }
-        PreparedStatement prepareStatement(String sql) throws SQLException { return con.prepareStatement(sql) }
-        CallableStatement prepareCall(String sql) throws SQLException { return con.prepareCall(sql) }
-        String nativeSQL(String sql) throws SQLException { return con.nativeSQL(sql) }
-        void setAutoCommit(boolean autoCommit) throws SQLException { con.setAutoCommit(autoCommit) }
-        boolean getAutoCommit() throws SQLException { return con.getAutoCommit() }
-        void commit() throws SQLException { con.commit() }
-        void rollback() throws SQLException { con.rollback() }
-
-        void close() throws SQLException {
-            // do nothing! see closeInternal
-        }
-
-        boolean isClosed() throws SQLException { return con.isClosed() }
-        DatabaseMetaData getMetaData() throws SQLException { return con.getMetaData() }
-        void setReadOnly(boolean readOnly) throws SQLException { con.setReadOnly(readOnly) }
-        boolean isReadOnly() throws SQLException { return con.isReadOnly() }
-        void setCatalog(String catalog) throws SQLException { con.setCatalog(catalog) }
-        String getCatalog() throws SQLException { return con.getCatalog() }
-        void setTransactionIsolation(int level) throws SQLException { con.setTransactionIsolation(level) }
-        int getTransactionIsolation() throws SQLException { return con.getTransactionIsolation() }
-        SQLWarning getWarnings() throws SQLException { return con.getWarnings() }
-        void clearWarnings() throws SQLException { con.clearWarnings() }
-
-        Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.createStatement(resultSetType, resultSetConcurrency) }
-        PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency) }
-        CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.prepareCall(sql, resultSetType, resultSetConcurrency) }
-
-        Map<String, Class<?>> getTypeMap() throws SQLException { return con.getTypeMap() }
-        void setTypeMap(Map<String, Class<?>> map) throws SQLException { con.setTypeMap(map) }
-        void setHoldability(int holdability) throws SQLException { con.setHoldability(holdability) }
-        int getHoldability() throws SQLException { return con.getHoldability() }
-        Savepoint setSavepoint() throws SQLException { return con.setSavepoint() }
-        Savepoint setSavepoint(String name) throws SQLException { return con.setSavepoint(name) }
-        void rollback(Savepoint savepoint) throws SQLException { con.rollback(savepoint) }
-        void releaseSavepoint(Savepoint savepoint) throws SQLException { con.releaseSavepoint(savepoint) }
-
-        Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability) }
-        PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability) }
-        CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability) }
-        PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-            return con.prepareStatement(sql, autoGeneratedKeys) }
-        PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-            return con.prepareStatement(sql, columnIndexes) }
-        PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-            return con.prepareStatement(sql, columnNames) }
-
-        Clob createClob() throws SQLException { return con.createClob() }
-        Blob createBlob() throws SQLException { return con.createBlob() }
-        NClob createNClob() throws SQLException { return con.createNClob() }
-        SQLXML createSQLXML() throws SQLException { return con.createSQLXML() }
-        boolean isValid(int timeout) throws SQLException { return con.isValid(timeout) }
-        void setClientInfo(String name, String value) throws SQLClientInfoException { con.setClientInfo(name, value) }
-        void setClientInfo(Properties properties) throws SQLClientInfoException { con.setClientInfo(properties) }
-        String getClientInfo(String name) throws SQLException { return con.getClientInfo(name) }
-        Properties getClientInfo() throws SQLException { return con.getClientInfo() }
-        Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-            return con.createArrayOf(typeName, elements) }
-        Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-            return con.createStruct(typeName, attributes) }
-
-        void setSchema(String schema) throws SQLException { con.setSchema(schema) }
-        String getSchema() throws SQLException { return con.getSchema() }
-
-        void abort(Executor executor) throws SQLException { con.abort(executor) }
-        void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-            con.setNetworkTimeout(executor, milliseconds) }
-        int getNetworkTimeout() throws SQLException { return con.getNetworkTimeout() }
-
-        def <T> T unwrap(Class<T> iface) throws SQLException { return con.unwrap(iface) }
-        boolean isWrapperFor(Class<?> iface) throws SQLException { return con.isWrapperFor(iface) }
-
-        // Object overrides
-        int hashCode() { return con.hashCode() }
-        boolean equals(Object obj) { return con.equals(obj) }
-        String toString() {
-            return new StringBuilder().append("Tenant: ").append(tenantId).append(", Group: ").append(groupName)
-                    .append(", Con: ").append(con.toString()).toString()
-        }
-        /* these don't work, don't think we need them anyway:
-        protected Object clone() throws CloneNotSupportedException {
-            return new ConnectionWrapper((Connection) con.clone(), tfi, tenantId, groupName) }
-        protected void finalize() throws Throwable { con.finalize() }
-        */
     }
 }

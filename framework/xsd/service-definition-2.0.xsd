@@ -113,6 +113,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Defaults to true. Set to false to not validate input parameters, and
                     not automatically remove unspecified parameters.</xs:documentation></xs:annotation>
             </xs:attribute>
+
             <xs:attribute name="transaction" default="use-or-begin" type="transaction-options"/>
             <xs:attribute name="transaction-timeout" type="xs:int">
                 <xs:annotation><xs:documentation>
@@ -121,6 +122,9 @@ along with this software (see the LICENSE.md file). If not, see
                     use-or-begin or cache and there is no other transaction already in place).
                 </xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="no-tx-cache" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true and a TransactionCache is active flush and remove it before calling the service.</xs:documentation></xs:annotation></xs:attribute>
+
             <!-- not supported by Atomikos/etc right now, consider for later:
             <xs:attribute name="transaction-isolation" type="isolation-level" use="optional">
                 <xs:annotation><xs:documentation>
