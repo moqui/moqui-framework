@@ -1699,7 +1699,7 @@ class EntityFacadeImpl implements EntityFacade {
             qsi = new EntityJavaUtil.QueryStatsInfo(ed.getFullEntityName(), sql)
             queryStatsInfoMap.put(sql, qsi)
         }
-        qsi.countHit(queryTime, isError)
+        qsi.countHit(this, queryTime, isError)
     }
     ArrayList<Map<String, Object>> getQueryStatsList(String orderByField, String entityFilter, String sqlFilter) {
         ArrayList<Map<String, Object>> qsl = new ArrayList<>(queryStatsInfoMap.size())

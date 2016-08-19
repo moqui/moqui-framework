@@ -15,6 +15,7 @@ package org.moqui.impl.entity;
 
 import org.apache.commons.codec.binary.Base64;
 import org.moqui.BaseException;
+import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
@@ -559,17 +560,26 @@ public class EntityJavaUtil {
         private String sql;
         private long hitCount = 0, errorCount = 0;
         private long minTimeNanos = Long.MAX_VALUE, maxTimeNanos = 0, totalTimeNanos = 0, totalSquaredTime = 0;
+        private Map<String, Integer> artifactCounts = new HashMap<>();
         public QueryStatsInfo(String entityName, String sql) {
             this.entityName = entityName;
             this.sql = sql;
         }
-        public void countHit(long runTimeNanos, boolean isError) {
+        public void countHit(EntityFacadeImpl efi, long runTimeNanos, boolean isError) {
             hitCount++;
             if (isError) errorCount++;
             if (runTimeNanos < minTimeNanos) minTimeNanos = runTimeNanos;
             if (runTimeNanos > maxTimeNanos) maxTimeNanos = runTimeNanos;
             totalTimeNanos += runTimeNanos;
             totalSquaredTime += runTimeNanos * runTimeNanos;
+            // this gets much more expensive, consider commenting in the future
+            ArtifactExecutionInfo aei = efi.getEcfi().getEci().getArtifactExecutionImpl().peek();
+            if (aei != null) aei = aei.getParent();
+            if (aei != null) {
+                String artifactName = aei.getName();
+                Integer artifactCount = artifactCounts.get(artifactName);
+                artifactCounts.put(artifactName, artifactCount != null ? artifactCount + 1 : 1);
+            }
         }
         public String getEntityName() { return entityName; }
         public String getSql() { return sql; }
@@ -592,6 +602,7 @@ public class EntityJavaUtil {
             dm.put("minTime", new BigDecimal(minTimeNanos/nanosDivisor)); dm.put("maxTime", new BigDecimal(maxTimeNanos/nanosDivisor));
             dm.put("totalTime", new BigDecimal(totalTimeNanos/nanosDivisor)); dm.put("totalSquaredTime", new BigDecimal(totalSquaredTime/nanosDivisor));
             dm.put("average", new BigDecimal(getAverage()/nanosDivisor)); dm.put("stdDev", new BigDecimal(getStdDev()/nanosDivisor));
+            dm.put("artifactCounts", new HashMap<>(artifactCounts));
             return dm;
         }
     }

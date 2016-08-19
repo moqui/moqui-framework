@@ -865,8 +865,7 @@ public class EntityDefinition {
         return fieldInfo.isSimple
     }
 
-    boolean containsPrimaryKey(Map fields) {
-        // low level code, avoid Groovy booleanUnbox
+    boolean containsPrimaryKey(Map<String, Object> fields) {
         if (fields == null || fields.size() == 0) return false
         ArrayList<String> fieldNameList = this.getPkFieldNames()
         int size = fieldNameList.size()
@@ -877,7 +876,7 @@ public class EntityDefinition {
         }
         return true
     }
-    Map<String, Object> getPrimaryKeys(Map fields) {
+    Map<String, Object> getPrimaryKeys(Map<String, Object> fields) {
         Map<String, Object> pks = new HashMap()
         ArrayList<String> fieldNameList = this.getPkFieldNames()
         int size = fieldNameList.size()
