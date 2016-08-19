@@ -751,10 +751,42 @@ abstract class EntityFindBase implements EntityFind {
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-one", true)
 
+        boolean hasEmptyPk = false
+        boolean hasFullPk = true
+        if (singleCondField != null && ed.isPkField(singleCondField) && StupidJavaUtilities.isEmpty(singleCondValue)) {
+            hasEmptyPk = true; hasFullPk = false; }
+        ArrayList<String> pkNameList = ed.getPkFieldNames()
+        int pkSize = pkNameList.size()
+        int samSize = simpleAndMap != null ? simpleAndMap.size() : 0
+        if (hasFullPk && samSize > 1) {
+            for (int i = 0; i < pkSize; i++) {
+                String fieldName = pkNameList.get(i)
+                Object fieldValue = simpleAndMap.get(fieldName)
+                if (StupidJavaUtilities.isEmpty(fieldValue)) {
+                    if (simpleAndMap.containsKey(fieldName)) hasEmptyPk = true
+                    hasFullPk = false
+                    break
+                }
+            }
+        }
         // if over-constrained (anything in addition to a full PK), just use the full PK
         // NOTE: only do this if there is more than one field in the condition, ie optimize for common case of find by single PK field
-        if (simpleAndMap != null && simpleAndMap.size() > 1 && ed.containsPrimaryKey(simpleAndMap))
-            simpleAndMap = ed.getPrimaryKeys(simpleAndMap)
+        if (hasFullPk && samSize > 0) {
+            Map<String, Object> pks = new HashMap()
+            if (singleCondField != null) {
+                // this shouldn't generally happen, added to simpleAndMap internally on the fly when needed, but just in case
+                pks.put(singleCondField, singleCondValue)
+                singleCondField = (String) null; singleCondValue = null;
+            }
+            for (int i = 0; i < pkSize; i++) {
+                String fieldName = pkNameList.get(i)
+                pks.put(fieldName, simpleAndMap.get(fieldName))
+            }
+            simpleAndMap = pks
+        }
+
+        // if any PK fields are null, for whatever reason in calling code, the result is null so no need to send to DB or cache or anything
+        if (hasEmptyPk) return (EntityValue) null
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         ec.artifactExecutionImpl.filterFindForUser(this)
