@@ -119,7 +119,7 @@ class EntityDataDocument {
         return valuesWritten
     }
 
-    List<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
+    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
                                Timestamp thruUpdatedStamp) {
         ExecutionContextImpl eci = efi.getEcfi().getEci()
 
@@ -252,7 +252,7 @@ class EntityDataDocument {
         }
 
         // make the actual list and return it
-        List<Map> documentMapList = []
+        ArrayList<Map> documentMapList = new ArrayList<>(documentMapMap.size())
         for (Map.Entry<String, Map> documentMapEntry in documentMapMap.entrySet()) {
             Map docMap = documentMapEntry.getValue()
             // call the manualDataServiceName service for each document

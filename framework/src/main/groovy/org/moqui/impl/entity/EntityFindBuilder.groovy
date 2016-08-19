@@ -473,15 +473,15 @@ class EntityFindBuilder extends EntityQueryBuilder {
     @Override
     PreparedStatement makePreparedStatement() {
         if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
-        String sql = sqlTopLevelInternal.toString()
+        finalSql = sqlTopLevelInternal.toString()
         // if (this.mainEntityDefinition.entityName.equals("Foo")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
-        if (logger.isDebugEnabled()) logger.debug("making find PreparedStatement for SQL: ${sql}")
+        if (isTraceEnabled) logger.trace("making find PreparedStatement for SQL: ${finalSql}")
         try {
-            ps = connection.prepareStatement(sql, entityFindBase.resultSetType, entityFindBase.resultSetConcurrency)
+            ps = connection.prepareStatement(finalSql, entityFindBase.resultSetType, entityFindBase.resultSetConcurrency)
             if (entityFindBase.maxRows > 0) ps.setMaxRows(entityFindBase.maxRows)
             if (entityFindBase.fetchSize > 0) ps.setFetchSize(entityFindBase.fetchSize)
         } catch (SQLException e) {
-            handleSqlException(e, sql)
+            handleSqlException(e, finalSql)
         }
         return ps
     }

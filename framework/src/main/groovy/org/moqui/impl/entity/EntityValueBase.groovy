@@ -1564,4 +1564,18 @@ abstract class EntityValueBase implements EntityValue {
         return retVal
     }
     abstract boolean refreshExtended()
+
+
+    public static class DeletedEntityValue extends EntityValueBase {
+        public DeletedEntityValue(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip); }
+        @Override EntityValue cloneValue() { return this }
+        @Override EntityValue cloneDbValue(boolean getOld) { return this }
+        @Override void createExtended(ArrayList<FieldInfo> fieldInfoList, Connection con) {
+            throw new UnsupportedOperationException("Not implemented on DeletedEntityValue") }
+        @Override void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
+            throw new UnsupportedOperationException("Not implemented on DeletedEntityValue") }
+        @Override void deleteExtended(Connection con) {
+            throw new UnsupportedOperationException("Not implemented on DeletedEntityValue") }
+        @Override boolean refreshExtended() { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue") }
+    }
 }

@@ -145,7 +145,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="GEOA"/>
         <alias-all entity-alias="GEOFR"><exclude field="geoId"/></alias-all>
     </view-entity>
-    <entity entity-name="GeoPoint" package="moqui.basic" use="configuration" short-alias="geoPoints">
+    <entity entity-name="GeoPoint" package="moqui.basic" use="configuration" short-alias="geoPoints" cache="true">
         <field name="geoPointId" type="id" is-pk="true"/>
         <field name="geoPointTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>

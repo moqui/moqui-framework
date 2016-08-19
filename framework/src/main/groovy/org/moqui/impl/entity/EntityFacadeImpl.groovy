@@ -34,6 +34,7 @@ import javax.sql.DataSource
 import javax.sql.XADataSource
 import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
@@ -74,6 +75,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected final Locale databaseLocale
     protected final Calendar databaseTzLcCalendar
     protected final String sequencedIdPrefix
+    boolean queryStats = false
 
     protected EntityDbMeta dbMeta = null
     protected final EntityCache entityCache
@@ -90,6 +92,7 @@ class EntityFacadeImpl implements EntityFacade {
         MNode entityFacadeNode = getEntityFacadeNode()
         defaultGroupName = entityFacadeNode.attribute("default-group-name")
         sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
+        queryStats = entityFacadeNode.attribute("query-stats") == "true"
 
         TimeZone theTimeZone = null
         if (entityFacadeNode.attribute("database-time-zone")) {
@@ -1386,13 +1389,13 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    List<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
+    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
                                 Timestamp thruUpdatedStamp) {
         return entityDataDocument.getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp)
     }
 
     @Override
-    List<Map> getDataFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
+    ArrayList<Map> getDataFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         return entityDataFeed.getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdatedStamp)
     }
 
@@ -1688,4 +1691,27 @@ class EntityFacadeImpl implements EntityFacade {
         if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")
         return typeInt
     }
+
+    final Map<String, EntityJavaUtil.QueryStatsInfo> queryStatsInfoMap = new HashMap<>()
+    void saveQueryStats(EntityDefinition ed, String sql, long queryTime, boolean isError) {
+        EntityJavaUtil.QueryStatsInfo qsi = queryStatsInfoMap.get(sql)
+        if (qsi == null) {
+            qsi = new EntityJavaUtil.QueryStatsInfo(ed.getFullEntityName(), sql)
+            queryStatsInfoMap.put(sql, qsi)
+        }
+        qsi.countHit(this, queryTime, isError)
+    }
+    ArrayList<Map<String, Object>> getQueryStatsList(String orderByField, String entityFilter, String sqlFilter) {
+        ArrayList<Map<String, Object>> qsl = new ArrayList<>(queryStatsInfoMap.size())
+        boolean hasEntityFilter = entityFilter != null && entityFilter.length() > 0
+        boolean hasSqlFilter = sqlFilter != null && sqlFilter.length() > 0
+        for (EntityJavaUtil.QueryStatsInfo qsi in queryStatsInfoMap.values()) {
+            if (hasEntityFilter && !qsi.entityName.matches("(?i).*" + entityFilter + ".*")) continue
+            if (hasSqlFilter && !qsi.sql.matches("(?i).*" + sqlFilter + ".*")) continue
+            qsl.add(qsi.makeDisplayMap())
+        }
+        if (orderByField) StupidUtilities.orderMapList(qsl, [orderByField])
+        return qsl
+    }
+    void clearQueryStats() { queryStatsInfoMap.clear() }
 }

@@ -751,10 +751,42 @@ abstract class EntityFindBase implements EntityFind {
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-one", true)
 
+        boolean hasEmptyPk = false
+        boolean hasFullPk = true
+        if (singleCondField != null && ed.isPkField(singleCondField) && StupidJavaUtilities.isEmpty(singleCondValue)) {
+            hasEmptyPk = true; hasFullPk = false; }
+        ArrayList<String> pkNameList = ed.getPkFieldNames()
+        int pkSize = pkNameList.size()
+        int samSize = simpleAndMap != null ? simpleAndMap.size() : 0
+        if (hasFullPk && samSize > 1) {
+            for (int i = 0; i < pkSize; i++) {
+                String fieldName = pkNameList.get(i)
+                Object fieldValue = simpleAndMap.get(fieldName)
+                if (StupidJavaUtilities.isEmpty(fieldValue)) {
+                    if (simpleAndMap.containsKey(fieldName)) hasEmptyPk = true
+                    hasFullPk = false
+                    break
+                }
+            }
+        }
         // if over-constrained (anything in addition to a full PK), just use the full PK
         // NOTE: only do this if there is more than one field in the condition, ie optimize for common case of find by single PK field
-        if (simpleAndMap != null && simpleAndMap.size() > 1 && ed.containsPrimaryKey(simpleAndMap))
-            simpleAndMap = ed.getPrimaryKeys(simpleAndMap)
+        if (hasFullPk && samSize > 0) {
+            Map<String, Object> pks = new HashMap()
+            if (singleCondField != null) {
+                // this shouldn't generally happen, added to simpleAndMap internally on the fly when needed, but just in case
+                pks.put(singleCondField, singleCondValue)
+                singleCondField = (String) null; singleCondValue = null;
+            }
+            for (int i = 0; i < pkSize; i++) {
+                String fieldName = pkNameList.get(i)
+                pks.put(fieldName, simpleAndMap.get(fieldName))
+            }
+            simpleAndMap = pks
+        }
+
+        // if any PK fields are null, for whatever reason in calling code, the result is null so no need to send to DB or cache or anything
+        if (hasEmptyPk) return (EntityValue) null
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         ec.artifactExecutionImpl.filterFindForUser(this)
@@ -816,33 +848,42 @@ abstract class EntityFindBase implements EntityFind {
         // call the abstract method
         EntityValueBase newEntityValue = (EntityValueBase) null
         if (txcValue != null) {
-            if (txcValue instanceof TransactionCache.DeletedEntityValue) {
+            if (txcValue instanceof EntityValueBase.DeletedEntityValue) {
                 // is deleted value, so leave newEntityValue as null
                 // put in cache as null since this was deleted
                 if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, null, entityOneCache)
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
-                //     anyway, but ignore the result
-                // we could try to merge the TX cache value and the latest DB value, but for now opt for the TX cache
-                //     value over the DB value
+                //     anyway, but ignore the result unless it's a read only tx cache
                 if (forUpdate && !txCache.isTxCreate(txcValue)) {
                     EntityValueBase fuDbValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoList, fieldOptionsList)
-                    // if txcValue has been modified (fields in dbValueMap) see if those match what is coming from DB
-                    Map<String, Object> txDbValueMap = txcValue.getDbValueMap()
-                    Map<String, Object> fuDbValueMap = fuDbValue.getValueMap()
-                    if (txDbValueMap != null && txDbValueMap.size() > 0 &&
-                            !StupidUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
-                        StringBuilder fieldDiffBuilder = new StringBuilder()
-                        for (Map.Entry<String, Object> entry in txDbValueMap.entrySet()) {
-                            Object compareObj = txDbValueMap.get(entry.getKey())
-                            Object baseObj = fuDbValueMap.get(entry.getKey())
-                            if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
-                                    .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
+                    if (txCache.isReadOnly()) {
+                        // is read only tx cache so use the value from the DB
+                        newEntityValue = fuDbValue
+                        // tell the tx cache about the new value
+                        txCache.update(fuDbValue)
+                    } else {
+                        // we could try to merge the TX cache value and the latest DB value, but for now opt for the
+                        //     TX cache value over the DB value
+                        // if txcValue has been modified (fields in dbValueMap) see if those match what is coming from DB
+                        Map<String, Object> txDbValueMap = txcValue.getDbValueMap()
+                        Map<String, Object> fuDbValueMap = fuDbValue.getValueMap()
+                        if (txDbValueMap != null && txDbValueMap.size() > 0 &&
+                                !StupidUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
+                            StringBuilder fieldDiffBuilder = new StringBuilder()
+                            for (Map.Entry<String, Object> entry in txDbValueMap.entrySet()) {
+                                Object compareObj = txDbValueMap.get(entry.getKey())
+                                Object baseObj = fuDbValueMap.get(entry.getKey())
+                                if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
+                                        .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
+                            }
+                            logger.info("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
                         }
-                        logger.info("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
+                        newEntityValue = txcValue
                     }
+                } else {
+                    newEntityValue = txcValue
                 }
-                newEntityValue = txcValue
                 // put it in whether null or not (already know cacheHit is null)
                 if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
             }

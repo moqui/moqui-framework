@@ -15,10 +15,10 @@ package org.moqui.impl.entity;
 
 import org.apache.commons.codec.binary.Base64;
 import org.moqui.BaseException;
+import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
-import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
@@ -30,7 +30,9 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class EntityJavaUtil {
@@ -551,5 +553,70 @@ public class EntityJavaUtil {
 
         @Override
         public String toString() { return fieldInfo.name + ':' + value; }
+    }
+
+    public static class QueryStatsInfo {
+        private String entityName;
+        private String sql;
+        private long hitCount = 0, errorCount = 0;
+        private long minTimeNanos = Long.MAX_VALUE, maxTimeNanos = 0, totalTimeNanos = 0, totalSquaredTime = 0;
+        private Map<String, Integer> artifactCounts = new HashMap<>();
+        public QueryStatsInfo(String entityName, String sql) {
+            this.entityName = entityName;
+            this.sql = sql;
+        }
+        public void countHit(EntityFacadeImpl efi, long runTimeNanos, boolean isError) {
+            hitCount++;
+            if (isError) errorCount++;
+            if (runTimeNanos < minTimeNanos) minTimeNanos = runTimeNanos;
+            if (runTimeNanos > maxTimeNanos) maxTimeNanos = runTimeNanos;
+            totalTimeNanos += runTimeNanos;
+            totalSquaredTime += runTimeNanos * runTimeNanos;
+            // this gets much more expensive, consider commenting in the future
+            ArtifactExecutionInfo aei = efi.getEcfi().getEci().getArtifactExecutionImpl().peek();
+            if (aei != null) aei = aei.getParent();
+            if (aei != null) {
+                String artifactName = aei.getName();
+                Integer artifactCount = artifactCounts.get(artifactName);
+                artifactCounts.put(artifactName, artifactCount != null ? artifactCount + 1 : 1);
+            }
+        }
+        public String getEntityName() { return entityName; }
+        public String getSql() { return sql; }
+        public long getHitCount() { return hitCount; }
+        public long getErrorCount() { return errorCount; }
+        public long getMinTimeNanos() { return minTimeNanos; }
+        public long getMaxTimeNanos() { return maxTimeNanos; }
+        public long getTotalTimeNanos() { return totalTimeNanos; }
+        public long getTotalSquaredTime() { return totalSquaredTime; }
+        public double getAverage() { return hitCount > 0 ? totalTimeNanos / hitCount : 0; }
+        public double getStdDev() {
+            if (hitCount < 2) return 0;
+            return Math.sqrt(Math.abs(totalSquaredTime - ((totalTimeNanos * totalTimeNanos) / hitCount)) / (hitCount - 1L));
+        }
+        final static long nanosDivisor = 1000;
+        public Map<String, Object> makeDisplayMap() {
+            Map<String, Object> dm = new HashMap<>();
+            dm.put("entityName", entityName); dm.put("sql", sql);
+            dm.put("hitCount", hitCount); dm.put("errorCount", errorCount);
+            dm.put("minTime", new BigDecimal(minTimeNanos/nanosDivisor)); dm.put("maxTime", new BigDecimal(maxTimeNanos/nanosDivisor));
+            dm.put("totalTime", new BigDecimal(totalTimeNanos/nanosDivisor)); dm.put("totalSquaredTime", new BigDecimal(totalSquaredTime/nanosDivisor));
+            dm.put("average", new BigDecimal(getAverage()/nanosDivisor)); dm.put("stdDev", new BigDecimal(getStdDev()/nanosDivisor));
+            dm.put("artifactCounts", new HashMap<>(artifactCounts));
+            return dm;
+        }
+    }
+
+    public enum WriteMode { CREATE, UPDATE, DELETE }
+    public static class EntityWriteInfo {
+        public WriteMode writeMode;
+        public EntityValueBase evb;
+        public Map<String, Object> pkMap;
+        public EntityWriteInfo(EntityValueBase evb, WriteMode writeMode) {
+            // clone value so that create/update/delete stays the same no matter what happens after
+            this.evb = (EntityValueBase) evb.cloneValue();
+            this.writeMode = writeMode;
+            this.pkMap = evb.getPrimaryKeys();
+        }
     }
 }

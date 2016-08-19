@@ -56,6 +56,7 @@ class ServiceDefinition {
     protected boolean internalTxIgnore
     protected boolean internalTxForceNew
     protected boolean internalTxUseCache
+    protected boolean internalNoTxCache
     protected Integer internalTransactionTimeout
     protected boolean internalValidate
     protected boolean internalHasSemaphore
@@ -149,6 +150,7 @@ class ServiceDefinition {
         internalTxIgnore = (serviceNode.attribute("transaction") == "ignore")
         internalTxForceNew = (serviceNode.attribute("transaction") == "force-new" || serviceNode.attribute("transaction") == "force-cache")
         internalTxUseCache = (serviceNode.attribute("transaction") == "cache" || serviceNode.attribute("transaction") == "force-cache")
+        internalNoTxCache = serviceNode.attribute("no-tx-cache") == "true"
         if (serviceNode.attribute("transaction-timeout")) {
             internalTransactionTimeout = serviceNode.attribute("transaction-timeout") as Integer
         } else {
@@ -243,6 +245,7 @@ class ServiceDefinition {
     boolean getTxIgnore() { return internalTxIgnore }
     boolean getTxForceNew() { return internalTxForceNew }
     boolean getTxUseCache() { return internalTxUseCache }
+    boolean getNoTxCache() { return internalNoTxCache }
     Integer getTxTimeout() { return internalTransactionTimeout }
 
     static String getPathFromName(String serviceName) {

@@ -32,16 +32,16 @@
                 key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
 
         <cache name="entity.record.one_ra." max-elements="40000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
         <cache name="entity.record.one_view_ra." max-elements="40000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
         <cache name="entity.record.one_bf" max-elements="1000" eviction-strategy="least-frequently-used"
                 value-type="Set"/>
 
         <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
         <cache name="entity.record.list_view_ra." max-elements="20000" eviction-strategy="least-frequently-used"
-                key-type="org.moqui.entity.EntityCondition" value-type="List"/>
+                key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
 
         <!-- Framework configuration and artifact caches -->
         <!-- NOTE: Production mode by default - No expiration of conf and impl artifacts. -->
@@ -258,7 +258,7 @@
     </service-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
-            distributed-cache-invalidate="false" dci-topic-factory=""
+            distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
             crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="">
         <!-- NOTE: no crypt-pass attribute by default, must specify in your conf file! -->
         <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source

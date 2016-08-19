@@ -155,10 +155,11 @@ public class CacheFacadeImpl implements CacheFacade {
     List<Map<String, Object>> getAllCachesInfo(String orderByField, String filterRegexp) {
         String tenantId = ecfi.getEci().getTenantId()
         String tenantPrefix = tenantId + "__"
+        boolean hasFilterRegexp = filterRegexp != null && filterRegexp.length() > 0
         List<Map<String, Object>> ci = new LinkedList()
         for (String cn in localCacheMap.keySet()) {
             if (tenantId != "DEFAULT" && !cn.startsWith(tenantPrefix)) continue
-            if (filterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue
+            if (hasFilterRegexp && !cn.matches("(?i).*" + filterRegexp + ".*")) continue
             Cache co = getCache(cn)
             /* TODO: somehow support external cache stats like Hazelcast, through some sort of Moqui interface or maybe the JMX bean?
                NOTE: this isn't all that important because we don't have a good use case for distributed caches

@@ -41,17 +41,21 @@ class ScheduledJobRunner implements Runnable {
     private final CronParser parser = new CronParser(cronDefinition)
     private final Map<String, ExecutionTime> executionTimeByExpression = new HashMap<>()
     private long lastExecuteTime = 0
+    private int executeCount = 0, totalJobsRun = 0, lastJobsActive = 0, lastJobsPaused = 0
 
     ScheduledJobRunner(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
     }
 
     long getLastExecuteTime() { lastExecuteTime }
+    int getExecuteCount() { executeCount }
+    int getTotalJobsRun() { totalJobsRun }
+    int getLastJobsActive() { lastJobsActive }
+    int getLastJobsPaused() { lastJobsPaused }
 
     @Override
     synchronized void run() {
         DateTime now = DateTime.now()
-        lastExecuteTime = now.getMillis()
         Timestamp nowTimestamp = new Timestamp(now.getMillis())
         int jobsRun = 0
         int jobsActive = 0
@@ -180,6 +184,13 @@ class ScheduledJobRunner implements Runnable {
             // no need, we're destroying the eci: if (!authzDisabled) eci.artifactExecution.enableAuthz()
             eci.destroy()
         }
+
+        // update job runner stats
+        lastExecuteTime = now.getMillis()
+        executeCount++
+        totalJobsRun += jobsRun
+        lastJobsActive = jobsActive
+        lastJobsPaused = jobsPaused
 
         if (jobsRun > 0) {
             logger.info("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused}, tenants: ${allEntityFacades.size()})")

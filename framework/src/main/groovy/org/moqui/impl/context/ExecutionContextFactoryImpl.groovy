@@ -26,12 +26,13 @@ import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidClassLoader
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
+import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
+import org.moqui.impl.context.ContextJavaUtil.ArtifactStatsInfo
+import org.moqui.impl.context.ContextJavaUtil.ArtifactHitInfo
 import org.moqui.impl.entity.EntityFacadeImpl
-import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.webapp.NotificationWebSocketListener
@@ -47,8 +48,10 @@ import javax.servlet.ServletContext
 import javax.websocket.server.ServerContainer
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -60,6 +63,7 @@ import java.util.zip.ZipInputStream
 @CompileStatic
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
     
     private boolean destroyed = false
     
@@ -92,11 +96,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected String skipStatsCond
     protected Integer hitBinLengthMillis
     // protected Map<String, Boolean> artifactPersistHitByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
     // protected Map<String, Boolean> artifactPersistBinByTypeAndSub = new HashMap<>()
-    protected Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
+    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+    final Map<String, ConcurrentLinkedQueue<ArtifactHitInfo>> deferredHitInfoQueueByTenant =
+            [DEFAULT:new ConcurrentLinkedQueue<ArtifactHitInfo>()]
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
@@ -126,6 +132,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess")
     final ExecutorService workerPool
+    /** An executor for the scheduled job runner */
+    final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -333,6 +341,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         int coreSize = (toolsNode.attribute("worker-pool-core") ?: "4") as int
         int maxSize = (toolsNode.attribute("worker-pool-max") ?: "16") as int
+        int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2
+        if (availableProcessorsSize > maxSize) {
+            logger.info("Setting worker pool size to ${availableProcessorsSize} based on available processors * 2")
+            maxSize = availableProcessorsSize
+        }
         long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
 
         logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
@@ -421,6 +434,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         String notificationTopicFactory = confXmlRoot.first("tools").attribute("notification-topic-factory")
         if (notificationTopicFactory)
             notificationMessageTopic = (SimpleTopic<NotificationMessageImpl>) getTool(notificationTopicFactory, SimpleTopic.class)
+
+        // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
+        DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
+        scheduledExecutor.scheduleAtFixedRate(dhif, 10, 5, TimeUnit.SECONDS)
 
         // Warm cache on start if configured to do so
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
@@ -541,6 +558,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         } finally { if (enableAuthz) aefi.enableAuthz() }
         logger.info("ArtifactHitBins stored")
+
+        // shutdown scheduled executor pool
+        try {
+            scheduledExecutor.shutdown()
+            logger.info("Scheduled executor pool shut down")
+        } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
 
         // shutdown worker pool
         try {
@@ -1112,74 +1135,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             'moqui.entity.document.DataDocumentCondition', 'moqui.entity.feed.DataFeedAndDocument',
             'moqui.entity.view.DbViewEntity', 'moqui.entity.view.DbViewEntityMember',
             'moqui.entity.view.DbViewEntityKeyMap', 'moqui.entity.view.DbViewEntityAlias'])
-    protected final long checkSlowThreshold = 20L
-    protected final double userImpactMinMillis = 200
 
-    @CompileStatic
-    static class ArtifactStatsInfo {
-        // put this here so we only have to do one Map lookup per countArtifactHit call
-        ArtifactBinInfo curHitBin = null
-        long hitCount = 0L
-        long slowHitCount = 0L
-        double totalTimeMillis = 0
-        double totalSquaredTime = 0
-        double getAverage() { return hitCount > 0 ? totalTimeMillis / hitCount : 0 }
-        double getStdDev() {
-            if (hitCount < 2) return 0
-            return Math.sqrt(Math.abs(totalSquaredTime - ((totalTimeMillis*totalTimeMillis) / hitCount)) / (hitCount - 1L))
-        }
-        void incrementHitCount() { hitCount++ }
-        void incrementSlowHitCount() { slowHitCount++ }
-        void addRunningTime(double runningTime) {
-            totalTimeMillis = totalTimeMillis + runningTime
-            totalSquaredTime = totalSquaredTime + (runningTime * runningTime)
-        }
-    }
-    @CompileStatic
-    static class ArtifactBinInfo {
-        ArtifactExecutionInfo.ArtifactType artifactTypeEnum
-        String artifactSubType
-        String artifactName
-        long startTime
-
-        long hitCount = 0L
-        long slowHitCount = 0L
-        double totalTimeMillis = 0
-        double totalSquaredTime = 0
-        double minTimeMillis = Long.MAX_VALUE
-        double maxTimeMillis = 0
-
-        ArtifactBinInfo(ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName, long startTime) {
-            this.artifactTypeEnum = artifactTypeEnum
-            this.artifactSubType = artifactSubType
-            this.artifactName = artifactName
-            this.startTime = startTime
-        }
-
-        void incrementHitCount() { hitCount++ }
-        void incrementSlowHitCount() { slowHitCount++ }
-        void addRunningTime(double runningTime) {
-            totalTimeMillis = totalTimeMillis + runningTime
-            totalSquaredTime = totalSquaredTime + (runningTime * runningTime)
-        }
-
-        // NOTE: ArtifactHitBin always created in DEFAULT tenant since data is aggregated across all tenants, mostly used to monitor performance
-        EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
-            Map<String, Object> ahb = [artifactType:artifactTypeEnum.name(), artifactSubType:artifactSubType,
-                                       artifactName:artifactName, binStartDateTime:new Timestamp(startTime), binEndDateTime:binEndDateTime,
-                                       hitCount:hitCount, totalTimeMillis:new BigDecimal(totalTimeMillis),
-                                       totalSquaredTime:new BigDecimal(totalSquaredTime), minTimeMillis:new BigDecimal(minTimeMillis),
-                                       maxTimeMillis:new BigDecimal(maxTimeMillis), slowHitCount:slowHitCount] as Map<String, Object>
-            ahb.serverIpAddress = ecfi.localhostAddress?.getHostAddress() ?: "127.0.0.1"
-            ahb.serverHostName = ecfi.localhostAddress?.getHostName() ?: "localhost"
-            EntityValue ahbValue = ecfi.getEntityFacade("DEFAULT").makeValue("moqui.server.ArtifactHitBin")
-            ahbValue.setAll(ahb)
-            return ahbValue
-        }
-    }
-
-    void countArtifactHit(ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName, Map<String, Object> parameters,
-                          long startTime, double runningTimeMillis, Long outputSize) {
+    void countArtifactHit(ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
+              Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
         // don't count the ones this calls
         if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return
@@ -1191,133 +1149,124 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         boolean isSlowHit = false
         if (artifactPersistBin(artifactTypeEnum)) {
-            String binKey = new StringBuilder(200).append(artifactTypeEnum.name()).append('.').append(artifactSubType).append(':').append(artifactName).toString()
+            String binKey = new StringBuilder(200).append(artifactTypeEnum.name()).append(artifactSubType).append(artifactName).toString()
             ArtifactStatsInfo statsInfo = (ArtifactStatsInfo) artifactStatsInfoByType.get(binKey)
             if (statsInfo == null) {
                 // consider seeding this from the DB using ArtifactHitReport to get all past data, or maybe not to better handle different servers/etc over time, etc
-                statsInfo = new ArtifactStatsInfo()
+                statsInfo = new ArtifactStatsInfo(artifactTypeEnum, artifactSubType, artifactName)
                 artifactStatsInfoByType.put(binKey, statsInfo)
             }
 
-            ArtifactBinInfo abi = statsInfo.curHitBin
-            if (abi == null) {
-                abi = new ArtifactBinInfo(artifactTypeEnum, artifactSubType, artifactName, startTime)
-                statsInfo.curHitBin = abi
-            }
-
             // has the current bin expired since the last hit record?
-            long binStartTime = abi.startTime
-            if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
-                if (logger.isTraceEnabled()) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(abi.startTime)}] bin length ${hitBinLengthMillis/1000} seconds")
-                advanceArtifactHitBin(eci, statsInfo, artifactTypeEnum, artifactSubType, artifactName, startTime, hitBinLengthMillis)
-                abi = statsInfo.curHitBin
-            }
-
-            // handle current hit bin
-            abi.incrementHitCount()
-            // do something funny with these so we get a better avg and std dev, leave out the first result (count 2nd
-            //     twice) if first hit is more than 2x the second because the first hit is almost always MUCH slower
-            if (abi.hitCount == 2L && abi.totalTimeMillis > (runningTimeMillis * 2)) {
-                abi.setTotalTimeMillis(runningTimeMillis * 2)
-                abi.setTotalSquaredTime(runningTimeMillis * runningTimeMillis * 2)
-            } else {
-                abi.addRunningTime(runningTimeMillis)
-            }
-            if (runningTimeMillis < abi.minTimeMillis) abi.setMinTimeMillis(runningTimeMillis)
-            if (runningTimeMillis > abi.maxTimeMillis) abi.setMaxTimeMillis(runningTimeMillis)
-
-            // handle stats since start
-            statsInfo.incrementHitCount()
-            long statsHitCount = statsInfo.hitCount
-            if (statsHitCount == 2L && (statsInfo.totalTimeMillis) > (runningTimeMillis * 2) ) {
-                statsInfo.setTotalTimeMillis(runningTimeMillis * 2)
-                statsInfo.setTotalSquaredTime(runningTimeMillis * runningTimeMillis * 2)
-            } else {
-                statsInfo.addRunningTime(runningTimeMillis)
-            }
-            // check for slow hits
-            if (statsHitCount > checkSlowThreshold) {
-                // calc new average and standard deviation
-                double average = statsInfo.getAverage()
-                double stdDev = statsInfo.getStdDev()
-
-                // if runningTime is more than 2.6 std devs from the avg, count it and possibly log it
-                // using 2.6 standard deviations because 2 would give us around 5% of hits (normal distro), shooting for more like 1%
-                double slowTime = average + (stdDev * 2.6)
-                if (slowTime != 0 && runningTimeMillis > slowTime) {
-                    if (runningTimeMillis > userImpactMinMillis)
-                        logger.warn("Slow hit to ${binKey} running time ${runningTimeMillis} is greater than average [${average}] plus 2 standard deviations [${stdDev}]")
-                    abi.incrementSlowHitCount()
-                    statsInfo.incrementSlowHitCount()
-                    isSlowHit = true
+            if (statsInfo.curHitBin != null) {
+                long binStartTime = statsInfo.curHitBin.startTime
+                if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
+                    if (isTraceEnabled) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(binStartTime)}] bin length ${hitBinLengthMillis/1000} seconds")
+                    advanceArtifactHitBin(eci, statsInfo, startTime, hitBinLengthMillis)
                 }
             }
+
+            // handle stats since start
+            isSlowHit = statsInfo.countHit(startTime, runningTimeMillis)
         }
         // NOTE: never save individual hits for entity artifact hits, way too heavy and also avoids self-reference
         //     (could also be done by checking for ArtifactHit/etc of course)
         // Always save slow hits above userImpactMinMillis regardless of settings
-        if (!isEntity && ((isSlowHit && runningTimeMillis > userImpactMinMillis) || artifactPersistHit(artifactTypeEnum))) {
-            // NOTE: ArtifactHit saved in current tenant, ArtifactHitBin saved in DEFAULT tenant
-            EntityValueBase ahp = (EntityValueBase) eci.entity.makeValue("moqui.server.ArtifactHit")
-            ahp.putNoCheck("visitId", eci.user.visitId)
-            ahp.putNoCheck("userId", eci.user.userId)
-            ahp.putNoCheck("isSlowHit", isSlowHit ? 'Y' : 'N')
-            ahp.putNoCheck("artifactType", artifactTypeEnum.name())
-            ahp.putNoCheck("artifactSubType", artifactSubType)
-            ahp.putNoCheck("artifactName", artifactName)
-            ahp.putNoCheck("startDateTime", new Timestamp(startTime))
-            ahp.putNoCheck("runningTimeMillis", runningTimeMillis)
+        if (!isEntity && ((isSlowHit && runningTimeMillis > ContextJavaUtil.userImpactMinMillis) || artifactPersistHit(artifactTypeEnum))) {
+            ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
+                    startTime, runningTimeMillis, parameters, outputSize)
+            getDeferredHitInfoQueue(eci.tenantId).add(ahi)
+        }
+    }
 
-            if (parameters != null && parameters.size() > 0) {
-                StringBuilder ps = new StringBuilder()
-                for (Map.Entry<String, Object> pme in parameters.entrySet()) {
-                    if (StupidJavaUtilities.isEmpty(pme.value)) continue
-                    if (pme.key?.contains("password")) continue
-                    if (ps.length() > 0) ps.append(",")
-                    ps.append(pme.key).append("=").append(pme.value)
+    ConcurrentLinkedQueue<ArtifactHitInfo> getDeferredHitInfoQueue(String tenantId) {
+        ConcurrentLinkedQueue<ArtifactHitInfo> queue = deferredHitInfoQueueByTenant.get(tenantId)
+        if (queue == null) {
+            synchronized (deferredHitInfoQueueByTenant) {
+                queue = deferredHitInfoQueueByTenant.get(tenantId)
+                if (queue == null) {
+                    queue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
+                    deferredHitInfoQueueByTenant.put(tenantId, queue)
                 }
-                if (ps.length() > 255) ps.delete(255, ps.length())
-                ahp.putNoCheck("parameterString", ps.toString())
             }
-            if (outputSize != null) ahp.putNoCheck("outputSize", outputSize)
-            if (eci.getMessage().hasError()) {
-                ahp.putNoCheck("wasError", "Y")
-                StringBuilder errorMessage = new StringBuilder()
-                for (String curErr in eci.message.errors) errorMessage.append(curErr).append(";")
-                if (errorMessage.length() > 255) errorMessage.delete(255, errorMessage.length())
-                ahp.putNoCheck("errorMessage", errorMessage.toString())
-            } else {
-                ahp.putNoCheck("wasError", "N")
+        }
+        return queue
+    }
+    static class DeferredHitInfoFlush implements Runnable {
+        // max creates per chunk, one transaction per chunk (unless error)
+        final static int maxCreates = 1000
+        final ExecutionContextFactoryImpl ecfi
+        DeferredHitInfoFlush(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi }
+        @Override
+        synchronized void run() {
+            ExecutionContextImpl eci = ecfi.getEci()
+            eci.artifactExecution.disableAuthz()
+            try {
+                for (String tenantId in ecfi.deferredHitInfoQueueByTenant.keySet()) {
+                    try {
+                        ConcurrentLinkedQueue<ArtifactHitInfo> queue = ecfi.deferredHitInfoQueueByTenant.get(tenantId)
+                        if (queue == null) continue
+                        // split into maxCreates chunks, repeat based on initial size (may be added to while running)
+                        int remainingCreates = queue.size()
+                        if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
+                        while (remainingCreates > 0) {
+                            flushQueue(tenantId, queue)
+                            remainingCreates -= maxCreates
+                        }
+                    } catch (Throwable t) {
+                        logger.error("Error saving ArtifactHits in tenant ${tenantId}", t)
+                    }
+                }
+            } finally {
+                // no need, we're destroying the eci: if (!authzDisabled) eci.artifactExecution.enableAuthz()
+                eci.destroy()
             }
-            if (eci.web != null) {
-                String fullUrl = eci.web.getRequestUrl()
-                fullUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl.toString()
-                ahp.putNoCheck("requestUrl", fullUrl)
-                String referrer = eci.web.request.getHeader("Referrer")
-                if (referrer != null && referrer.length() > 0) ahp.putNoCheck("referrerUrl", referrer)
-            }
+        }
 
-            ahp.putNoCheck("serverIpAddress", localhostAddress != null ? localhostAddress.getHostAddress() : "127.0.0.1")
-            ahp.putNoCheck("serverHostName", localhostAddress != null ? localhostAddress.getHostName() : "localhost")
-
-            // NOTE: async service scheduling is slow enough that it is faster to just create the record now
-            // eci.service.async().name("create", "moqui.server.ArtifactHit").parameters(ahp).call()
-            // have an authorize-skip=create on the entity so don't need to disable authz here
-            eci.runInWorkerThread({
-                ArtifactExecutionFacadeImpl aefi = getEci().getArtifactExecutionImpl()
-                boolean enableAuthz = !aefi.disableAuthz()
-                try { ahp.setSequencedIdPrimary().create() }
-                finally { if (enableAuthz) aefi.enableAuthz() }
-            })
+        void flushQueue(String tenantId, ConcurrentLinkedQueue<ArtifactHitInfo> queue) {
+            int queueSizeBefore = queue.size()
+            ExecutionContextFactoryImpl localEcfi = ecfi
+            ArrayList<ArtifactHitInfo> createList = new ArrayList<>(maxCreates)
+            int createCount = 0
+            while (createCount < maxCreates) {
+                ArtifactHitInfo ahi = queue.poll()
+                if (ahi == null) break
+                createCount++
+                createList.add(ahi)
+            }
+            int retryCount = 5
+            while (retryCount > 0) {
+                try {
+                    int createListSize = createList.size()
+                    if (createListSize == 0) break
+                    long startTime = System.currentTimeMillis()
+                    ecfi.transactionFacade.runUseOrBegin(60, "Error saving ArtifactHits in tenant ${tenantId}", {
+                        for (int i = 0; i < createListSize; i++) {
+                            ArtifactHitInfo ahi = (ArtifactHitInfo) createList.get(i)
+                            try {
+                                EntityValue ahValue = ahi.makeAhiValue(localEcfi)
+                                ahValue.setSequencedIdPrimary()
+                                ahValue.create()
+                            } catch (Throwable t) {
+                                createList.remove(i)
+                                throw t
+                            }
+                        }
+                    })
+                    if (isTraceEnabled) logger.trace("Created ${createListSize} ArtifactHit records in ${System.currentTimeMillis() - startTime}ms")
+                    break
+                } catch (Throwable t) {
+                    logger.error("Error saving ArtifactHits in tenant ${tenantId}, retrying (${retryCount})", t)
+                }
+            }
         }
     }
 
     protected synchronized void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
-            ArtifactExecutionInfo.ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
             long startTime, int hitBinLengthMillis) {
         ArtifactBinInfo abi = statsInfo.curHitBin
         if (abi == null) {
-            statsInfo.curHitBin = new ArtifactBinInfo(artifactTypeEnum, artifactSubType, artifactName, startTime)
+            statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
             return
         }
 
@@ -1334,7 +1283,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             finally { if (enableAuthz) aefi.enableAuthz() }
         })
 
-        statsInfo.curHitBin = new ArtifactBinInfo(artifactTypeEnum, artifactSubType, artifactName, startTime)
+        statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
     }
 
     // ========== Configuration File Merging Methods ==========

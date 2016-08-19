@@ -45,11 +45,11 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     protected boolean ignoreTransaction = false
     protected boolean requireNewTransaction = false
     protected boolean separateThread = false
-    protected boolean useTransactionCache = false
+    protected Boolean useTransactionCache = (Boolean) null
     /* not supported by Atomikos/etc right now, consider for later: protected int transactionIsolation = -1 */
+    protected Integer transactionTimeout = (Integer) null
 
     protected boolean ignorePreviousError = false
-
     protected boolean multi = false
     protected boolean disableAuthz = false
 
@@ -74,21 +74,19 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
     @Override
     ServiceCallSync ignoreTransaction(boolean it) { this.ignoreTransaction = it; return this }
-
     @Override
     ServiceCallSync requireNewTransaction(boolean rnt) { this.requireNewTransaction = rnt; return this }
     @Override
     ServiceCallSync separateThread(boolean st) { this.separateThread = st; return this }
-
     @Override
     ServiceCallSync useTransactionCache(boolean utc) { this.useTransactionCache = utc; return this }
+    @Override
+    ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this }
 
     @Override
     ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this }
-
     @Override
     ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this }
-
     @Override
     ServiceCallSync disableAuthz() { disableAuthz = true; return this }
 
@@ -304,8 +302,13 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             }
 
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
-            boolean beganTransaction = beginTransactionIfNeeded ? tf.begin(sd.getTxTimeout()) : false
-            if (useTransactionCache || sd.getTxUseCache()) tf.initTransactionCache()
+            boolean beganTransaction = beginTransactionIfNeeded ?
+                    tf.begin(transactionTimeout != null ? transactionTimeout : sd.getTxTimeout()) : false
+            if (sd.getNoTxCache()) {
+                tf.flushAndDisableTransactionCache()
+            } else {
+                if (useTransactionCache != null ? useTransactionCache.booleanValue() : sd.getTxUseCache()) tf.initTransactionCache()
+            }
             try {
                 // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
                 if (sd.internalHasSemaphore) checkAddSemaphore(sfi.ecfi, currentParameters)

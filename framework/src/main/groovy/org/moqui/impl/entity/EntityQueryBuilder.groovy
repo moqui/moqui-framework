@@ -39,11 +39,12 @@ class EntityQueryBuilder {
     protected final static Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
-    protected EntityFacadeImpl efi
-    EntityDefinition mainEntityDefinition
+    protected final EntityFacadeImpl efi
+    final EntityDefinition mainEntityDefinition
     // init the StringBuilder fairly large to avoid having to grow the buffer
     protected final static int sqlInitSize = 500
     protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize)
+    protected String finalSql = (String) null
     protected final static int parametersInitSize = 10
     protected ArrayList<EntityJavaUtil.EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
 
@@ -78,38 +79,55 @@ class EntityQueryBuilder {
 
     PreparedStatement makePreparedStatement() {
         if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place")
-        String sql = sqlTopLevelInternal.toString()
+        finalSql = sqlTopLevelInternal.toString()
         // if (this.mainEntityDefinition.getFullEntityName().contains("foo")) logger.warn("========= making crud PreparedStatement for SQL: ${sql}")
-        if (logger.isDebugEnabled()) logger.debug("making crud PreparedStatement for SQL: ${sql}")
+        if (isTraceEnabled) logger.trace("making crud PreparedStatement for SQL: ${finalSql}")
         try {
-            ps = connection.prepareStatement(sql)
+            ps = connection.prepareStatement(finalSql)
         } catch (SQLException sqle) {
-            handleSqlException(sqle, sql)
+            handleSqlException(sqle, finalSql)
         }
         return ps
     }
 
     ResultSet executeQuery() throws EntityException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place")
+        boolean isError = false
+        boolean queryStats = efi.queryStats
+        long queryTime = 0
         try {
             long timeBefore = isTraceEnabled ? System.currentTimeMillis() : 0L
+            long beforeQuery = queryStats ? System.nanoTime() : 0
             rs = ps.executeQuery()
+            if (queryStats) queryTime = System.nanoTime() - beforeQuery
             if (isTraceEnabled) logger.trace("Executed query with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds")
             return rs
         } catch (SQLException sqle) {
+            isError = true
             throw new EntityException("Error in query for:" + sqlTopLevelInternal, sqle)
+        } finally {
+            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError)
         }
     }
 
     public int executeUpdate() throws EntityException {
         if (this.ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place")
+        boolean isError = false
+        boolean queryStats = efi.queryStats
+        long queryTime = 0
         try {
             long timeBefore = isTraceEnabled ? System.currentTimeMillis() : 0L
+            long beforeQuery = queryStats ? System.nanoTime() : 0
             int rows = ps.executeUpdate()
+            if (queryStats) queryTime = System.nanoTime() - beforeQuery
+
             if (isTraceEnabled) logger.trace("Executed update with SQL [${sqlTopLevelInternal.toString()}] and parameters [${parameters}] in [${(System.currentTimeMillis() - timeBefore)/1000}] seconds changing [${rows}] rows")
             return rows
         } catch (SQLException sqle) {
+            isError = true
             throw new EntityException("Error in update for:" + sqlTopLevelInternal, sqle)
+        } finally {
+            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError)
         }
     }
 

@@ -43,6 +43,8 @@ public interface ServiceCallSync extends ServiceCall {
      * @return Reference to this for convenience.
      */
     ServiceCallSync requireNewTransaction(boolean requireNewTransaction);
+    /** Override the transaction-timeout attribute in the service definition, only used if a transaction is begun in this service call. */
+    ServiceCallSync transactionTimeout(int timeout);
 
     /** Run service in a separate thread and wait for result. This is an alternative to requireNewTransaction that
      * avoids suspend and resume of the current transaction. This is also different from an async service call.

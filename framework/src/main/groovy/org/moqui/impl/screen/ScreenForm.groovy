@@ -15,7 +15,6 @@ package org.moqui.impl.screen
 
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
-import org.apache.commons.collections.map.ListOrderedMap
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
@@ -887,9 +886,9 @@ class ScreenForm {
         }
     }
 
-    static ListOrderedMap getFieldOptions(MNode widgetNode, ExecutionContext ec) {
+    static LinkedHashMap<String, String> getFieldOptions(MNode widgetNode, ExecutionContext ec) {
         MNode fieldNode = widgetNode.parent.parent
-        ListOrderedMap options = new ListOrderedMap()
+        LinkedHashMap<String, String> options = new LinkedHashMap<>()
         for (MNode childNode in widgetNode.children) {
             if (childNode.name == "entity-options") {
                 MNode entityFindNode = childNode.first("entity-find")
@@ -930,7 +929,8 @@ class ScreenForm {
                         if (listOption instanceof Map) {
                             addFieldOption(options, fieldNode, childNode, (Map) listOption, ec)
                         } else {
-                            options.put(listOption, listOption)
+                            String loString = StupidJavaUtilities.toPlainString(listOption)
+                            if (loString != null) options.put(loString, loString)
                             // addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
                         }
                     }
@@ -944,9 +944,9 @@ class ScreenForm {
         return options
     }
 
-    static void addFieldOption(ListOrderedMap options, MNode fieldNode, MNode childNode, Map listOption,
+    static void addFieldOption(LinkedHashMap<String, String> options, MNode fieldNode, MNode childNode, Map listOption,
                                ExecutionContext ec) {
-        EntityValueBase listOptionEvb = listOption instanceof EntityValueImpl ? listOption : null
+        EntityValueBase listOptionEvb = listOption instanceof EntityValueBase ? listOption : null
         if (listOptionEvb != null) {
             ec.context.push(listOptionEvb.getMap())
         } else {
@@ -954,23 +954,23 @@ class ScreenForm {
         }
         try {
             String key = null
-            String keyAttr = (String) childNode.attribute('key')
+            String keyAttr = childNode.attribute('key')
             if (keyAttr != null && keyAttr.length() > 0) {
                 key = ec.resource.expand(keyAttr, null)
                 // we just did a string expand, if it evaluates to a literal "null" then there was no value
                 if (key == "null") key = null
             } else if (listOptionEvb != null) {
                 String keyFieldName = listOptionEvb.getEntityDefinition().getPkFieldNames().get(0)
-                if (keyFieldName) key = ec.context.getByString(keyFieldName)
+                if (keyFieldName != null && keyFieldName.length() > 0) key = ec.context.getByString(keyFieldName)
             }
             if (key == null) key = ec.context.getByString(fieldNode.attribute('name'))
             if (key == null) return
 
             String text = childNode.attribute('text')
             if (text == null || text.length() == 0) {
-                if ((listOptionEvb == null || listOptionEvb.getEntityDefinition().isField("description"))
-                        && listOption["description"]) {
-                    options.put(key, listOption["description"])
+                if (listOptionEvb == null || listOptionEvb.getEntityDefinition().isField("description")) {
+                    Object desc = listOption.get("description")
+                    options.put(key, desc != null ? (String) desc : key)
                 } else {
                     options.put(key, key)
                 }

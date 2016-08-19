@@ -84,7 +84,7 @@ class EntityFindImpl extends EntityFindBase {
             efb.makePreparedStatement()
             efb.setPreparedStatementValues()
 
-            String condSql = whereCondition.toString()
+            String condSql = isTraceEnabled ? whereCondition.toString() : (String) null
             ResultSet rs = efb.executeQuery()
             if (rs.next()) {
                 boolean checkUserFields = entityDef.allowUserField
