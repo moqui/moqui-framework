@@ -45,7 +45,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     protected boolean ignoreTransaction = false
     protected boolean requireNewTransaction = false
     protected boolean separateThread = false
-    protected boolean useTransactionCache = false
+    protected Boolean useTransactionCache = (Boolean) null
     /* not supported by Atomikos/etc right now, consider for later: protected int transactionIsolation = -1 */
     protected Integer transactionTimeout = (Integer) null
 
@@ -304,7 +304,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = beginTransactionIfNeeded ?
                     tf.begin(transactionTimeout != null ? transactionTimeout : sd.getTxTimeout()) : false
-            if (useTransactionCache || sd.getTxUseCache()) tf.initTransactionCache()
+            if (useTransactionCache != null ? useTransactionCache.booleanValue() : sd.getTxUseCache()) tf.initTransactionCache()
             try {
                 // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
                 if (sd.internalHasSemaphore) checkAddSemaphore(sfi.ecfi, currentParameters)
