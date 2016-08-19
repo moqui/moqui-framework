@@ -150,7 +150,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // if there is a system property use that, otherwise from the properties file
         runtimePath = System.getProperty("moqui.runtime")
-        if (!runtimePath) runtimePath = moquiInitProperties.getProperty("moqui.runtime")
+        if (!runtimePath) {
+            runtimePath = moquiInitProperties.getProperty("moqui.runtime")
+            // if there was no system property set one, make sure at least something is always set for conf files/etc
+            if (runtimePath) System.setProperty("moqui.runtime", runtimePath)
+        }
         if (!runtimePath) throw new IllegalArgumentException("No moqui.runtime property found in MoquiInit.properties or in a system property (with: -Dmoqui.runtime=... on the command line)")
         if (runtimePath.endsWith("/")) runtimePath = runtimePath.substring(0, runtimePath.length()-1)
 
