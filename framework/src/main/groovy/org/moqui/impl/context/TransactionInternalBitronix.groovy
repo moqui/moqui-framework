@@ -113,6 +113,7 @@ class TransactionInternalBitronix implements TransactionInternal {
         // pds.setShareTransactionConnections(false) // don't share connections in the ACCESSIBLE, needed?
         // pds.setIgnoreRecoveryFailures(false) // something to consider for XA recovery errors, quarantines by default
 
+        pds.setEnableJdbc4ConnectionTest(true) // use faster jdbc4 connection test
         // default is 0, disabled PreparedStatement cache (cache size per Connection)
         // NOTE: make this configurable? value too high or low?
         pds.setPreparedStatementCacheSize(100)
