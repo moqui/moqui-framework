@@ -217,7 +217,7 @@ class EntityDbMeta {
                 if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
             }
 
-            if (fieldNode.attribute("is-pk") == "true") {
+            if (fieldNode.attribute("is-pk") == "true" || fieldNode.attribute("not-null") == "true") {
                 if (databaseNode.attribute("always-use-constraint-keyword") == "true") sql.append(" CONSTRAINT")
                 sql.append(" NOT NULL")
             }

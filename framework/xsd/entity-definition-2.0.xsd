@@ -191,6 +191,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="column-name" type="xs:string"/>
             <xs:attribute name="type" type="field-type-options" use="required"/>
             <xs:attribute name="is-pk" default="false" type="boolean"/>
+            <xs:attribute name="not-null" default="false" type="boolean"/>
             <xs:attribute name="encrypt" default="false" type="boolean"/>
             <xs:attribute name="enable-audit-log" default="false" type="audit-log-options">
                 <xs:annotation><xs:documentation>
