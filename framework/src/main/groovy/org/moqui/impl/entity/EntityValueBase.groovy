@@ -352,6 +352,24 @@ abstract class EntityValueBase implements EntityValue {
         internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMap)
         return new HashMap<String, Object>(internalPkMap)
     }
+    boolean primaryKeyMatches(EntityValueBase evb) {
+        if (evb == null) return false
+        Map<String, Object> evbValue = evb.getValueMap()
+        ArrayList<String> pkFields = getEntityDefinition().getPkFieldNames()
+        int pkFieldsSize = pkFields.size()
+        boolean allMatch = true
+        for (int i = 0; i < pkFieldsSize; i++) {
+            String pkField = (String) pkFields.get(i)
+            Object thisValue = valueMap.get(pkField)
+            Object thatValue = evbValue.get(pkField)
+            if (thisValue == null) {
+                if (thatValue != null) { allMatch = false; break }
+            } else {
+                if (!thisValue.equals(thatValue)) { allMatch = false; break }
+            }
+        }
+        return allMatch
+    }
 
     @Override
     EntityValue set(String name, Object value) {
@@ -1257,6 +1275,7 @@ abstract class EntityValueBase implements EntityValue {
         EntityFacadeImpl efi = getEntityFacadeImpl()
         ExecutionContextFactoryImpl ecfi = efi.getEcfi()
         ExecutionContextImpl ec = ecfi.getEci()
+        TransactionCache curTxCache = getTxCache(ecfi)
         boolean optimisticLock = ed.optimisticLock()
         boolean hasFieldDefaults = ed.hasFieldDefaults()
         boolean needsAuditLog = ed.needsAuditLog()
@@ -1343,7 +1362,6 @@ abstract class EntityValueBase implements EntityValue {
             if (curDataFeed) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMap, originalValues)
 
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
-            TransactionCache curTxCache = getTxCache(ecfi)
             if (curTxCache == null || !curTxCache.update(this)) {
                 // no TX cache update, etc: ready to do actual update
                 this.basicUpdate(pkFieldList, nonPkFieldList, (Connection) null, ec)

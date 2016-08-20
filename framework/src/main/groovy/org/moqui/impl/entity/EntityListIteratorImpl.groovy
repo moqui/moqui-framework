@@ -136,7 +136,7 @@ class EntityListIteratorImpl implements EntityListIterator {
         boolean checkUserFields = entityDefinition.allowUserField
         for (int i = 0; i < fieldInfoListSize; i++) {
             EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fieldInfoList.get(i)
-            if (checkUserFields && fi.isUserField) continue
+            if (fi.isUserField && !checkUserFields) continue
             EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
         }
 

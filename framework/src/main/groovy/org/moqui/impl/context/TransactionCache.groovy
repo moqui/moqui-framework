@@ -43,7 +43,6 @@ class TransactionCache implements Synchronization {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionCache.class)
 
     protected ExecutionContextFactoryImpl ecfi
-    protected Transaction tx = null
     private boolean readOnly
 
     private Map<Map, EntityValueBase> readOneCache = [:]
@@ -54,13 +53,18 @@ class TransactionCache implements Synchronization {
     private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50)
     private LinkedHashMap<String, Map<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<String, Map<Map, EntityValueBase>>()
 
-    TransactionCache(ExecutionContextFactoryImpl ecfi, Transaction tx, boolean readOnly) {
+    TransactionCache(ExecutionContextFactoryImpl ecfi, boolean readOnly) {
         this.ecfi = ecfi
-        this.tx = tx
         this.readOnly = readOnly
     }
 
     boolean isReadOnly() { return readOnly }
+    void makeReadOnly() {
+        if (readOnly) return
+        flushCache(false)
+        readOnly = true
+    }
+    void makeWriteThrough() { readOnly = false }
 
     Map<Map, EntityValueBase> getCreateByEntityMap(String entityName) {
         Map createMap = createByEntityRef.get(entityName)
@@ -128,29 +132,41 @@ class TransactionCache implements Synchronization {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return false
 
-        // with writeInfoList as plain list approach no need to look for existing create or update, just add to the list
-        if (!evb.getIsFromDb()) {
-            EntityValueBase cacheEvb = readOneCache.get(key)
-            if (cacheEvb != null) {
-                cacheEvb.setFields(evb, true, null, false)
-                evb = cacheEvb
-            } else {
-                EntityValueBase dbEvb = (EntityValueBase) evb.cloneValue()
-                dbEvb.refresh()
-                dbEvb.setFields(evb, true, null, false)
-                logger.warn("====== tx cache update not from db\nevb: ${evb}\ndbEvb: ${dbEvb}")
-                evb = dbEvb
-            }
-        }
-
         if (!readOnly) {
+            // with writeInfoList as plain list approach no need to look for existing create or update, just add to the list
+            if (!evb.getIsFromDb()) {
+                EntityValueBase cacheEvb = readOneCache.get(key)
+                if (cacheEvb != null) {
+                    cacheEvb.setFields(evb, true, null, false)
+                    evb = cacheEvb
+                } else {
+                    EntityValueBase dbEvb = (EntityValueBase) evb.cloneValue()
+                    dbEvb.refresh()
+                    dbEvb.setFields(evb, true, null, false)
+                    logger.warn("====== tx cache update not from db\nevb: ${evb}\ndbEvb: ${dbEvb}")
+                    evb = dbEvb
+                }
+            }
+
             EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.UPDATE)
             addWriteInfo(key, newEwi)
         }
 
         // add to readCache
-        readOneCache.put(key, evb)
+        if (evb.getIsFromDb()) {
+            readOneCache.put(key, evb)
+        } else {
+            // not from DB, may have partial values so find existing and put all from valueMap
+            EntityValueBase existingEv = readOneCache.get(key)
+            if (existingEv != null) {
+                existingEv.putAll(evb)
+            } else {
+                // NOTE: should put a not from DB value if not read only? if read only definitely no
+                if (!readOnly) readOneCache.put(key, evb)
+            }
+        }
 
+        // NOTE: issue here if the evb is partial, not full from DB/cache, and doesn't have field value that would match; solve higher up by getting full value?
         // update any matching list cache entries, add to list cache if not there (though generally should be, depending on the condition)
         Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName())
         if (entityListCache != null) {
@@ -158,8 +174,11 @@ class TransactionCache implements Synchronization {
                 if (entry.getKey().mapMatches(evb)) {
                     // find an existing entry and update it
                     boolean foundEntry = false
-                    for (EntityValue existingEv in entry.getValue()) {
-                        if (evb.getPrimaryKeys() == existingEv.getPrimaryKeys()) {
+                    EntityListImpl eli = entry.getValue()
+                    int eliSize = eli.size()
+                    for (int i = 0; i < eliSize; i++) {
+                        EntityValueBase existingEv = (EntityValueBase) eli.get(i)
+                        if (evb.primaryKeyMatches(existingEv)) {
                             existingEv.putAll(evb)
                             foundEntry = true
                         }
@@ -323,6 +342,7 @@ class TransactionCache implements Synchronization {
         return entityListCache
     }
     void listPut(EntityDefinition ed, EntityCondition whereCondition, EntityListImpl eli) {
+        if (eli.isFromCache()) return
         Map<EntityCondition, EntityListImpl> entityListCache = getEntityListCache(ed.getFullEntityName())
         // don't need to do much else here; list will already have values created/updated/deleted in this TX Cache
         entityListCache.put(whereCondition, (EntityListImpl) eli.cloneList())
@@ -355,12 +375,6 @@ class TransactionCache implements Synchronization {
         if (createMap == null || createMap.size() == 0) return valueList
         for (EntityValueBase evb in createMap.values()) if (ec.mapMatches(evb)) valueList.add(evb)
         return valueList
-    }
-
-    void makeReadOnly() {
-        if (readOnly) return
-        flushCache(false)
-        readOnly = true
     }
 
     void flushCache(boolean clearRead) {

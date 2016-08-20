@@ -183,7 +183,7 @@ class EntityCache {
     void clearCacheForValue(EntityValueBase evb, boolean isCreate) {
         if (evb == null) return
         EntityDefinition ed = evb.getEntityDefinition()
-        if ('never'.equals(ed.getUseCache())) return
+        if (ed.neverCache()) return
 
         // String entityName = evb.getEntityName()
         // if (!entityName.startsWith("moqui.")) logger.info("========== ========== ========== clearCacheForValue ${entityName}")

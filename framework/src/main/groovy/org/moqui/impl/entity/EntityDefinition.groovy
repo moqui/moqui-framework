@@ -83,6 +83,7 @@ public class EntityDefinition {
     protected Boolean needsAuditLogVal = null
     protected Boolean needsEncryptVal = null
     protected String useCache
+    protected final boolean neverCache
     protected String sequencePrimaryPrefix = ""
     protected long sequencePrimaryStagger = 1
     protected long sequenceBankSize = EntityFacadeImpl.defaultBankSize
@@ -147,6 +148,7 @@ public class EntityDefinition {
 
         // NOTE: see code in initFields that may set this to never if any member-entity is set to cache=never
         useCache = internalEntityNode.attribute('cache') ?: 'false'
+        neverCache = "never".equals(useCache)
 
         tableNameAttr = internalEntityNode.attribute("table-name")
         if (tableNameAttr == null || tableNameAttr.length() == 0) tableNameAttr = camelCaseToUnderscored(internalEntityName)
@@ -323,6 +325,7 @@ public class EntityDefinition {
         return needsEncryptVal.booleanValue()
     }
     String getUseCache() { return useCache }
+    boolean neverCache() { return neverCache }
 
     boolean getSequencePrimaryUseUuid() { return sequencePrimaryUseUuid }
 

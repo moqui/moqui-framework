@@ -54,10 +54,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        initTransactionInternal()
-    }
 
-    void initTransactionInternal() {
         MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade")
         if (transactionFacadeNode.hasChild("transaction-jndi")) {
             this.populateTransactionObjectsJndi()
@@ -87,6 +84,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         // destroy internal if applicable; nothing for JNDI
         if (transactionInternal != null) transactionInternal.destroy()
 
+        txStackInfoCurThread.remove()
         txStackInfoListThread.remove()
     }
 
@@ -340,6 +338,14 @@ class TransactionFacadeImpl implements TransactionFacade {
             txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
 
+            if (txStackInfo.txCache != null) logger.warn("Begin TX, tx cache is not null!")
+            /* FUTURE: this is an interesting possibility, always use tx cache in read only mode, but currently causes issues (needs more work with cache clear, etc)
+            if (useTransactionCache) {
+                txStackInfo.txCache = new TransactionCache(ecfi, true)
+                registerSynchronization(txStackInfo.txCache)
+            }
+            */
+
             return true
         } catch (NotSupportedException e) {
             throw new TransactionException("Could not begin transaction (could be a nesting problem)", e)
@@ -554,8 +560,9 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void initTransactionCache() {
+        if (!useTransactionCache) return
         TxStackInfo txStackInfo = getTxStackInfo()
-        if (useTransactionCache && txStackInfo.txCache == null) {
+        if (txStackInfo.txCache == null) {
             if (isTraceEnabled) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
@@ -565,18 +572,22 @@ class TransactionFacadeImpl implements TransactionFacade {
                 logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
             }
 
-            TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
             if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
-            Transaction tx = tm.getTransaction()
-            if (tx == null) throw new XAException(XAException.XAER_NOTA)
 
-            TransactionCache txCache = new TransactionCache(this.ecfi, tx, false)
+            TransactionCache txCache = new TransactionCache(this.ecfi, false)
             txStackInfo.txCache = txCache
             registerSynchronization(txCache)
+        } else if (txStackInfo.txCache.isReadOnly()) {
+            logger.info("Making TX cache write through in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
+            txStackInfo.txCache.makeWriteThrough()
+            // doing on read only init: registerSynchronization(txStackInfo.txCache)
         }
     }
     @Override
-    boolean isTransactionCacheActive() { return getTxStackInfo().txCache != null }
+    boolean isTransactionCacheActive() {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        return txStackInfo.txCache != null && !txStackInfo.txCache.isReadOnly()
+    }
     TransactionCache getTransactionCache() { return getTxStackInfo().txCache }
     @Override
     void flushAndDisableTransactionCache() {

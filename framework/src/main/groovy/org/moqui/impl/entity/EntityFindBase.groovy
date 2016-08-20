@@ -1017,6 +1017,7 @@ abstract class EntityFindBase implements EntityFind {
         EntityListImpl txcEli = txCache != null ? txCache.listGet(ed, whereCondition, orderByExpanded) : (EntityListImpl) null
 
         // NOTE: don't cache if there is a having condition, for now just support where
+        // NOTE: could avoid caching lists if it is a filtered find, but mostly by org so reusable: && !filteredFind
         boolean doEntityCache = shouldCache() && whereCondition != null
         Cache<EntityCondition, EntityListImpl> entityListCache = doEntityCache ?
                 ed.getCacheList(efi.getEntityCache()) : (Cache<EntityCondition, EntityListImpl>) null
@@ -1094,7 +1095,8 @@ abstract class EntityFindBase implements EntityFind {
                 el = (EntityListImpl) eli.getCompleteList(true)
             }
 
-            if (txCache != null && ftsSize == 0) txCache.listPut(ed, whereCondition, el)
+            // don't put in tx cache if it is going in list cache
+            if (txCache != null && !doEntityCache && ftsSize == 0) txCache.listPut(ed, whereCondition, el)
             if (doEntityCache) efi.getEntityCache().putInListCache(ed, el, whereCondition, entityListCache)
 
             // if (ed.getFullEntityName().contains("OrderItem")) logger.warn("======== Got OrderItem from DATABASE ${el.size()} results where: ${whereCondition}")
