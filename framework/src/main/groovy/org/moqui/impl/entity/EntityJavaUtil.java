@@ -14,16 +14,23 @@
 package org.moqui.impl.entity;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 import org.moqui.BaseException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
+import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.PBEParameterSpec;
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
 import java.io.*;
@@ -37,6 +44,7 @@ import java.util.Set;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
     public static Object convertFromString(String value, FieldInfo fi, L10nFacade l10n) {
         Object outValue;
@@ -148,8 +156,63 @@ public class EntityJavaUtil {
         return outValue;
     }
 
+    private static final int saltBytes = 8;
+    public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
+        MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
+        String pwStr = entityFacadeNode.attribute("crypt-pass");
+        if (pwStr == null || pwStr.length() == 0)
+            throw new IllegalArgumentException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
+
+        String saltStr = entityFacadeNode.attribute("crypt-salt");
+        byte[] salt = (saltStr != null && saltStr.length() > 0 ? saltStr : "default1").getBytes();
+        if (salt.length > saltBytes) {
+            byte[] trimmed = new byte[saltBytes];
+            System.arraycopy(salt, 0, trimmed, 0, saltBytes);
+            salt = trimmed;
+        }
+        if (salt.length < saltBytes) {
+            byte[] newSalt = new byte[saltBytes];
+            for (int i = 0; i < saltBytes; i++) {
+                if (i < salt.length) newSalt[i] = salt[i];
+                else newSalt[i] = 0x45;
+            }
+            salt = newSalt;
+        }
+        String iterStr = entityFacadeNode.attribute("crypt-iter");
+        int count = iterStr != null && iterStr.length() > 0 ? Integer.valueOf(iterStr) : 10;
+        char[] pass = pwStr.toCharArray();
+
+
+        String algo = entityFacadeNode.attribute("crypt-algo");
+        if (algo == null || algo.length() == 0) algo = "PBEWithMD5AndDES";
+
+        // logger.info("TOREMOVE salt [${salt}] count [${count}] pass [${pass}] algo [${algo}]")
+        PBEParameterSpec pbeParamSpec = new PBEParameterSpec(salt, count);
+        PBEKeySpec pbeKeySpec = new PBEKeySpec(pass);
+        try {
+            SecretKeyFactory keyFac = SecretKeyFactory.getInstance(algo);
+            SecretKey pbeKey = keyFac.generateSecret(pbeKeySpec);
+
+            Cipher pbeCipher = Cipher.getInstance(algo);
+            int mode = encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE;
+            pbeCipher.init(mode, pbeKey, pbeParamSpec);
+
+            byte[] inBytes;
+            if (encrypt) {
+                inBytes = value.getBytes();
+            } else {
+                inBytes = Hex.decodeHex(value.toCharArray());
+            }
+            byte[] outBytes = pbeCipher.doFinal(inBytes);
+            return encrypt ? Hex.encodeHexString(outBytes) : new String(outBytes);
+        } catch (Exception e) {
+            throw new EntityException("Encryption error", e);
+        }
+    }
+
     @SuppressWarnings("ThrowFromFinallyBlock")
-    public static Object getResultSetValue(ResultSet rs, int index, FieldInfo fi, EntityFacade efi) throws EntityException {
+    public static void getResultSetValue(ResultSet rs, int index, FieldInfo fi, HashMap<String, Object> valueMap,
+                                           EntityFacadeImpl efi) throws EntityException {
         if (fi.typeValue == -1) throw new EntityException("No typeValue found for " + fi.entityName + "." + fi.name);
 
         Object value = null;
@@ -264,7 +327,65 @@ public class EntityJavaUtil {
             throw new EntityException("SQL Exception while getting value for field: [" + fi.name + "] (" + index + ")", sqle);
         }
 
-        return value;
+        // if field is to be encrypted, do it now
+        if (value != null && fi.encrypt) {
+            if (fi.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + fi.name + " of entity " + fi.entityName);
+            String original = value.toString();
+            try {
+                value = enDeCrypt(original, false, efi);
+            } catch (Exception e) {
+                logger.error("Error decrypting field [${fieldInfo.name}] of entity [${entityName}]", e);
+            }
+        }
+
+        valueMap.put(fi.name, value);
+    }
+
+    private static final boolean checkPreparedStatementValueType = false;
+    static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fieldInfo,
+                                          EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
+        String javaType = fieldInfo.javaType;
+        int typeValue = fieldInfo.typeValue;
+        if (value != null) {
+            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, javaType)) {
+                // this is only an info level message because under normal operation for most JDBC
+                // drivers this will be okay, but if not then the JDBC driver will throw an exception
+                // and when lower debug levels are on this should help give more info on what happened
+                String fieldClassName = value.getClass().getName();
+                if (value instanceof byte[]) {
+                    fieldClassName = "byte[]";
+                } else if (value instanceof char[]) {
+                    fieldClassName = "char[]";
+                }
+
+                if (isTraceEnabled) logger.trace("Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
+                        " is " + fieldClassName + ", was expecting " + javaType + " this may " +
+                        "indicate an error in the configuration or in the class, and may result " +
+                        "in an SQL-Java data conversion error. Will use the real field type: " +
+                        fieldClassName + ", not the definition.");
+                javaType = fieldClassName;
+                typeValue = EntityFacadeImpl.getJavaTypeInt(javaType);
+            }
+
+            // if field is to be encrypted, do it now
+            if (fieldInfo.encrypt) {
+                if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + fieldInfo.name + " of entity " + fieldInfo.entityName);
+                String original = value.toString();
+                value = enDeCrypt(original, true, efi);
+            }
+        }
+
+        boolean useBinaryTypeForBlob = false;
+        if (typeValue == 11 || typeValue == 12) {
+            useBinaryTypeForBlob = ("true".equals(efi.getDatabaseNode(ed.getEntityGroupName()).attribute("use-binary-type-for-blob")));
+        }
+        try {
+            EntityJavaUtil.setPreparedStatementValue(ps, index, value, fieldInfo, useBinaryTypeForBlob, efi);
+        } catch (EntityException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new EntityException("Error setting prepared statement field " + fieldInfo.name + " of entity " + fieldInfo.entityName, e);
+        }
     }
 
     public static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fi,
@@ -547,8 +668,7 @@ public class EntityJavaUtil {
         public Object getValue() { return value; }
 
         public void setPreparedStatementValue(int index) throws EntityException {
-            EntityQueryBuilder.setPreparedStatementValue(eqb.ps, index, value, fieldInfo,
-                    this.eqb.getMainEntityDefinition(), this.eqb.efi);
+            eqb.setPreparedStatementValue(index, value, fieldInfo);
         }
 
         @Override
@@ -583,14 +703,14 @@ public class EntityJavaUtil {
         }
         public String getEntityName() { return entityName; }
         public String getSql() { return sql; }
-        public long getHitCount() { return hitCount; }
+        // public long getHitCount() { return hitCount; }
         public long getErrorCount() { return errorCount; }
-        public long getMinTimeNanos() { return minTimeNanos; }
-        public long getMaxTimeNanos() { return maxTimeNanos; }
-        public long getTotalTimeNanos() { return totalTimeNanos; }
-        public long getTotalSquaredTime() { return totalSquaredTime; }
-        public double getAverage() { return hitCount > 0 ? totalTimeNanos / hitCount : 0; }
-        public double getStdDev() {
+        // public long getMinTimeNanos() { return minTimeNanos; }
+        // public long getMaxTimeNanos() { return maxTimeNanos; }
+        // public long getTotalTimeNanos() { return totalTimeNanos; }
+        // public long getTotalSquaredTime() { return totalSquaredTime; }
+        double getAverage() { return hitCount > 0 ? totalTimeNanos / hitCount : 0; }
+        double getStdDev() {
             if (hitCount < 2) return 0;
             return Math.sqrt(Math.abs(totalSquaredTime - ((totalTimeNanos * totalTimeNanos) / hitCount)) / (hitCount - 1L));
         }
@@ -611,7 +731,7 @@ public class EntityJavaUtil {
     public static class EntityWriteInfo {
         public WriteMode writeMode;
         public EntityValueBase evb;
-        public Map<String, Object> pkMap;
+        Map<String, Object> pkMap;
         public EntityWriteInfo(EntityValueBase evb, WriteMode writeMode) {
             // clone value so that create/update/delete stays the same no matter what happens after
             this.evb = (EntityValueBase) evb.cloneValue();

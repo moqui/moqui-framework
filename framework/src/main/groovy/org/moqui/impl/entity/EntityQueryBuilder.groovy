@@ -171,7 +171,7 @@ class EntityQueryBuilder {
     */
 
     void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
-        setPreparedStatementValue(this.ps, index, value, fieldInfo, this.mainEntityDefinition, this.efi)
+        EntityJavaUtil.setPreparedStatementValue(this.ps, index, value, fieldInfo, this.mainEntityDefinition, this.efi)
     }
 
     void setPreparedStatementValues() {
@@ -184,108 +184,40 @@ class EntityQueryBuilder {
         }
     }
 
-    static void getResultSetValue(ResultSet rs, int index, FieldInfo fieldInfo, Map<String, Object> valueMap,
-                                  String entityName, EntityFacadeImpl efi) throws EntityException {
-        String fieldName = fieldInfo.name
-        Object value = EntityJavaUtil.getResultSetValue(rs, index, fieldInfo, efi)
-
-        // if field is to be encrypted, do it now
-        if (value != null && fieldInfo.encrypt) {
-            if (fieldInfo.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldName}] of entity [${entityName}]")
-            String original = value.toString()
-            try {
-                value = enDeCrypt(original, false, efi)
-            } catch (Exception e) {
-                logger.error("Error decrypting field [${fieldName}] of entity [${entityName}]", e)
+    void makeSqlSelectFields(ArrayList<FieldInfo> fieldInfoList, ArrayList<EntityJavaUtil.FieldOrderOptions> fieldOptionsList) {
+        boolean checkUserFields = mainEntityDefinition.allowUserField
+        int size = fieldInfoList.size()
+        if (size > 0) {
+            if (fieldOptionsList == null && mainEntityDefinition.getAllFieldInfoList().size() == size) {
+                String allFieldsSelect = mainEntityDefinition.allFieldsSqlSelect
+                if (allFieldsSelect != null) {
+                    sqlTopLevelInternal.append(mainEntityDefinition.allFieldsSqlSelect)
+                    return
+                }
             }
-        }
 
-        valueMap.put(fieldName, value)
-    }
+            for (int i = 0; i < size; i++) {
+                FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
+                if (fi.isUserField && !checkUserFields) continue
 
-    public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
-        MNode entityFacadeNode = efi.ecfi.confXmlRoot.first("entity-facade")
-        String pwStr = entityFacadeNode.attribute("crypt-pass")
-        if (!pwStr) throw new IllegalArgumentException("No entity-facade.@crypt-pass setting found, NOT doing encryption")
+                if (i > 0) sqlTopLevelInternal.append(", ")
 
-        byte[] salt = (entityFacadeNode.attribute("crypt-salt") ?: "default1").getBytes()
-        if (salt.length > 8) salt = salt[0..7]
-        if (salt.length < 8) {
-            byte[] newSalt = new byte[8]
-            for (int i = 0; i < 8; i++) {
-                if (i < salt.length) newSalt[i] = salt[i]
-                else (newSalt[i] = 0x45 as byte)
-            }
-        }
-        int count = (entityFacadeNode.attribute("crypt-iter") as Integer) ?: 10
-        char[] pass = pwStr.toCharArray()
-
-        String algo = entityFacadeNode.attribute("crypt-algo") ?: "PBEWithMD5AndDES"
-
-        // logger.info("TOREMOVE salt [${salt}] count [${count}] pass [${pass}] algo [${algo}]")
-        PBEParameterSpec pbeParamSpec = new PBEParameterSpec(salt, count)
-        PBEKeySpec pbeKeySpec = new PBEKeySpec(pass)
-        SecretKeyFactory keyFac = SecretKeyFactory.getInstance(algo)
-        SecretKey pbeKey = keyFac.generateSecret(pbeKeySpec)
-
-        Cipher pbeCipher = Cipher.getInstance(algo)
-        int mode = encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE
-        pbeCipher.init(mode, pbeKey, pbeParamSpec)
-
-        byte[] inBytes
-        if (encrypt) {
-            inBytes = value.getBytes()
-        } else {
-            inBytes = Hex.decodeHex(value.toCharArray())
-        }
-        byte[] outBytes = pbeCipher.doFinal(inBytes)
-        return encrypt ? Hex.encodeHexString(outBytes) : new String(outBytes)
-    }
-
-    static final boolean checkPreparedStatementValueType = false
-    static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fieldInfo,
-                                          EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
-        String javaType = fieldInfo.javaType
-        int typeValue = fieldInfo.typeValue
-        if (value != null) {
-            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, javaType)) {
-                // this is only an info level message because under normal operation for most JDBC
-                // drivers this will be okay, but if not then the JDBC driver will throw an exception
-                // and when lower debug levels are on this should help give more info on what happened
-                String fieldClassName = value.getClass().getName()
-                if (value instanceof byte[]) {
-                    fieldClassName = "byte[]"
-                } else if (value instanceof char[]) {
-                    fieldClassName = "char[]"
+                boolean appendCloseParen = false
+                if (fieldOptionsList != null) {
+                    EntityJavaUtil.FieldOrderOptions foo = (EntityJavaUtil.FieldOrderOptions) fieldOptionsList.get(i)
+                    if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1) {
+                        sqlTopLevelInternal.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
+                        appendCloseParen = true
+                    }
                 }
 
-                if (isTraceEnabled) logger.trace((String) "Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
-                        " is " + fieldClassName + ", was expecting " + javaType + " this may " +
-                        "indicate an error in the configuration or in the class, and may result " +
-                        "in an SQL-Java data conversion error. Will use the real field type: " +
-                        fieldClassName + ", not the definition.")
-                javaType = fieldClassName
-                typeValue = EntityFacadeImpl.getJavaTypeInt(javaType)
-            }
+                sqlTopLevelInternal.append(fi.fullColumnName)
 
-            // if field is to be encrypted, do it now
-            if (fieldInfo.encrypt) {
-                if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field [${fieldInfo.name}] of entity [${ed.getFullEntityName()}]")
-                String original = value as String
-                value = enDeCrypt(original, true, efi)
+                if (appendCloseParen) sqlTopLevelInternal.append(")")
             }
-        }
-
-        boolean useBinaryTypeForBlob = false
-        if (typeValue == 11 || typeValue == 12) {
-            useBinaryTypeForBlob = ("true" == efi.getDatabaseNode(ed.getEntityGroupName()).attribute('use-binary-type-for-blob'))
-        }
-        try {
-            EntityJavaUtil.setPreparedStatementValue(ps, index, value, fieldInfo, useBinaryTypeForBlob, efi)
-        } catch (EntityException e) {
-            throw e
-        } catch (Exception e) {
-            throw new EntityException("Error setting prepared statement field [${fieldInfo.name}] of entity [${ed.getFullEntityName()}]", e)
+        } else {
+            sqlTopLevelInternal.append("*")
         }
     }
+
 }

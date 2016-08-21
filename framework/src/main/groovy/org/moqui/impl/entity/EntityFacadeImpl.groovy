@@ -34,8 +34,6 @@ import javax.sql.DataSource
 import javax.sql.XADataSource
 import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
@@ -49,7 +47,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     protected final EntityConditionFactoryImpl entityConditionFactory
 
-    protected final Map<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new HashMap()
+    protected final HashMap<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new HashMap()
 
     /** Cache with entity name as the key and an EntityDefinition as the value; clear this cache to reload entity def */
     final Cache<String, EntityDefinition> entityDefinitionCache
@@ -58,18 +56,18 @@ class EntityFacadeImpl implements EntityFacade {
     final Cache<String, Map<String, List<String>>> entityLocationSingleCache
     static final String entityLocSingleEntryName = "ALL_ENTITIES"
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
-    final Map<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
+    final HashMap<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
 
     /** Sequence name (often entity name) plus tenantId is the key and the value is an array of 2 Longs the first is the next
      * available value and the second is the highest value reserved/cached in the bank. */
     final Cache<String, long[]> entitySequenceBankCache
-    protected final ConcurrentMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
+    protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
     protected final Lock locationLoadLock = new ReentrantLock()
 
-    protected final Map<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
-    protected final Map<String, String> entityGroupNameMap = new HashMap<>()
-    protected final Map<String, MNode> databaseNodeByGroupName = new HashMap<>()
-    protected final Map<String, MNode> datasourceNodeByGroupName = new HashMap<>()
+    protected final HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
+    protected final HashMap<String, String> entityGroupNameMap = new HashMap<>()
+    protected final HashMap<String, MNode> databaseNodeByGroupName = new HashMap<>()
+    protected final HashMap<String, MNode> datasourceNodeByGroupName = new HashMap<>()
     protected final String defaultGroupName
     protected final TimeZone databaseTimeZone
     protected final Locale databaseLocale
@@ -1373,7 +1371,7 @@ class EntityFacadeImpl implements EntityFacade {
             int paramIndex = 1
             for (Object parameterValue in sqlParameterList) {
                 EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fiList.get(paramIndex - 1)
-                EntityQueryBuilder.setPreparedStatementValue(ps, paramIndex, parameterValue, fi, ed, this)
+                EntityJavaUtil.setPreparedStatementValue(ps, paramIndex, parameterValue, fi, ed, this)
                 paramIndex++
             }
             // do the actual query
@@ -1381,7 +1379,7 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiList, this)
+            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiList, this, null)
             return eli
         } catch (SQLException e) {
             throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)

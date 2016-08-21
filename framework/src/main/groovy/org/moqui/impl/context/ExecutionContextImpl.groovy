@@ -213,7 +213,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     boolean getSkipStats() {
         if (skipStats != null) return skipStats.booleanValue()
-        skipStats = ecfi.getSkipStats()
+        String skipStatsCond = ecfi.skipStatsCond
+        skipStats = skipStatsCond ? ecfi.resourceFacade.condition(skipStatsCond, null, [pathInfo:webFacade?.request?.pathInfo]) : false
         return skipStats.booleanValue()
     }
 

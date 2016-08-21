@@ -53,7 +53,7 @@ class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = getEntityDef()
 
         // table doesn't exist, just return null
-        if (!efi.getEntityDbMeta().tableExists(ed)) return (EntityValueBase) null
+        if (!ed.tableExistsDbMetaOnly()) return (EntityValueBase) null
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 
@@ -89,18 +89,17 @@ class EntityFindImpl extends EntityFindBase {
             if (rs.next()) {
                 boolean checkUserFields = entityDef.allowUserField
                 newEntityValue = new EntityValueImpl(entityDef, efi)
-                Map<String, Object> valueMap = newEntityValue.getValueMap()
-                String entityName = ed.getFullEntityName()
+                HashMap<String, Object> valueMap = newEntityValue.getValueMap()
                 int size = fieldInfoList.size()
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
                     if (checkUserFields && fi.isUserField) continue
-                    EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
+                    EntityJavaUtil.getResultSetValue(rs, i + 1, fi, valueMap, efi)
                 }
             } else {
-                if (isTraceEnabled) logger.trace("Result set was empty for find on entity [${entityName}] with condition [${condSql}]")
+                if (isTraceEnabled) logger.trace("Result set was empty for find on entity ${entityName} with condition ${condSql}")
             }
-            if (isTraceEnabled && rs.next()) logger.trace("Found more than one result for condition [${condSql}] on entity [${entityDef.getFullEntityName()}]")
+            if (isTraceEnabled && rs.next()) logger.trace("Found more than one result for condition ${condSql} on entity ${entityName}")
         } catch (SQLException e) {
             throw new EntityException("Error finding value", e)
         } finally {
@@ -117,7 +116,7 @@ class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = this.getEntityDef()
 
         // table doesn't exist, just return empty ELI
-        if (!efi.getEntityDbMeta().tableExists(ed)) return new EntityListIteratorWrapper([], ed, fieldsToSelect, efi)
+        if (!ed.tableExistsDbMetaOnly()) return new EntityListIteratorWrapper([], ed, fieldsToSelect, efi)
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
         if (getDistinct()) efb.makeDistinct()
@@ -160,7 +159,7 @@ class EntityFindImpl extends EntityFindBase {
             efb.setPreparedStatementValues()
 
             ResultSet rs = efb.executeQuery()
-            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoList, efi)
+            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoList, efi, txCache)
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll()
         } catch (EntityException e) {
@@ -180,7 +179,7 @@ class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = getEntityDef()
 
         // table doesn't exist, just return 0
-        if (!efi.getEntityDbMeta().tableExists(ed)) return 0
+        if (!ed.tableExistsDbMetaOnly()) return 0
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this)
 

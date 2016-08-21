@@ -39,9 +39,7 @@ public class ConditionField implements Externalizable {
         return ed.getColumnName(fieldName, false);
     }
 
-    public EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) {
-        return ed.getFieldInfo(fieldName);
-    }
+    public EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) { return ed.getFieldInfo(fieldName); }
 
     @Override
     public String toString() { return fieldName; }

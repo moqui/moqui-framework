@@ -54,7 +54,7 @@ abstract class EntityValueBase implements EntityValue {
     protected String tenantId
     // make this private so that Groovy funniness won't try to set it with something like value.entityName = "foo"
     private String entityName
-    private final Map<String, Object> valueMap = new HashMap<>()
+    private final HashMap<String, Object> valueMap = new HashMap<>()
 
     protected transient EntityFacadeImpl efiTransient = (EntityFacadeImpl) null
     protected transient TransactionCache txCacheInternal = (TransactionCache) null
@@ -113,7 +113,7 @@ abstract class EntityValueBase implements EntityValue {
     }
 
     // NOTE: this is no longer protected so that external add-on code can set original values from a datasource
-    Map<String, Object> getValueMap() { return valueMap }
+    HashMap<String, Object> getValueMap() { return valueMap }
     protected Map<String, Object> getDbValueMap() { return dbValueMap }
     protected void setDbValueMap(Map<String, Object> map) { dbValueMap = map; isFromDb = true }
     // protected Map<String, Object> getOldDbValueMap() { return oldDbValueMap }

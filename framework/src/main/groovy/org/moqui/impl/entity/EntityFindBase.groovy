@@ -826,6 +826,7 @@ abstract class EntityFindBase implements EntityFind {
         } else {
             fieldInfoList = new ArrayList<>(ftsSize)
             fieldOptionsList = new ArrayList<>(ftsSize)
+            boolean hasFieldOptions = false
             for (int i = 0; i < ftsSize; i++) {
                 String fieldName = (String) localFts.get(i)
                 FieldInfo fi = ed.getFieldInfo(fieldName)
@@ -836,11 +837,13 @@ abstract class EntityFindBase implements EntityFind {
 
                     fieldInfoList.add(fi)
                     fieldOptionsList.add(foo)
+                    hasFieldOptions = true
                 } else {
                     fieldInfoList.add(fi)
                     fieldOptionsList.add(null)
                 }
             }
+            if (!hasFieldOptions) fieldOptionsList = (ArrayList<FieldOrderOptions>) null
         }
 
         // if (ed.getEntityName() == "Asset") logger.warn("=========== find one of Asset ${this.simpleAndMap.get('assetId')}", new Exception("Location"))

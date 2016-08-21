@@ -96,10 +96,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected String skipStatsCond
     protected Integer hitBinLengthMillis
     // protected Map<String, Boolean> artifactPersistHitByTypeAndSub = new HashMap<>()
-    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
+    protected final EnumMap<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistHitByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
     // protected Map<String, Boolean> artifactPersistBinByTypeAndSub = new HashMap<>()
-    protected final Map<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
+    protected final EnumMap<ArtifactExecutionInfo.ArtifactType, Boolean> artifactPersistBinByTypeEnum =
             new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
     final Map<String, ConcurrentLinkedQueue<ArtifactHitInfo>> deferredHitInfoQueueByTenant =
             [DEFAULT:new ConcurrentLinkedQueue<ArtifactHitInfo>()]
@@ -1049,8 +1049,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Server Stat Tracking ==========
     boolean getSkipStats() {
         // NOTE: the results of this condition eval can't be cached because the expression can use any data in the ec
-        ExecutionContextImpl eci = getEci()
-        return skipStatsCond ? eci.resource.condition(skipStatsCond, null, [pathInfo:eci.web?.request?.pathInfo]) : false
+        return skipStatsCond != null && skipStatsCond.length() > 0 ? getEci().getSkipStats() : false
     }
 
     protected boolean artifactPersistHit(ArtifactExecutionInfo.ArtifactType artifactTypeEnum) {
@@ -1141,9 +1140,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
         // don't count the ones this calls
         if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return
-        ExecutionContextImpl eci = getEci()
         // for screen, transition, screen-content check skip stats expression
-        if ((ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum) ||
+        if (!isEntity && (ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum) ||
                 ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT.is(artifactTypeEnum) ||
                 ArtifactExecutionInfo.AT_XML_SCREEN_TRANS.is(artifactTypeEnum)) && eci.getSkipStats()) return
 
@@ -1162,7 +1160,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 long binStartTime = statsInfo.curHitBin.startTime
                 if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
                     if (isTraceEnabled) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(binStartTime)}] bin length ${hitBinLengthMillis/1000} seconds")
-                    advanceArtifactHitBin(eci, statsInfo, startTime, hitBinLengthMillis)
+                    advanceArtifactHitBin(getEci(), statsInfo, startTime, hitBinLengthMillis)
                 }
             }
 
@@ -1173,6 +1171,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         //     (could also be done by checking for ArtifactHit/etc of course)
         // Always save slow hits above userImpactMinMillis regardless of settings
         if (!isEntity && ((isSlowHit && runningTimeMillis > ContextJavaUtil.userImpactMinMillis) || artifactPersistHit(artifactTypeEnum))) {
+            ExecutionContextImpl eci = getEci()
             ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
                     startTime, runningTimeMillis, parameters, outputSize)
             getDeferredHitInfoQueue(eci.tenantId).add(ahi)

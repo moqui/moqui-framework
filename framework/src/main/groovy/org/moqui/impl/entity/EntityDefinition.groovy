@@ -56,15 +56,16 @@ public class EntityDefinition {
     protected String schemaNameVal
     protected String fullTableNameVal
 
-    protected final Map<String, MNode> fieldNodeMap = new HashMap<String, MNode>()
-    protected final Map<String, FieldInfo> fieldInfoMap = new HashMap<String, FieldInfo>()
+    protected final HashMap<String, MNode> fieldNodeMap = new HashMap<>()
+    protected final HashMap<String, FieldInfo> fieldInfoMap = new HashMap<>()
     // small lists, but very frequently accessed
-    protected final ArrayList<String> pkFieldNameList = new ArrayList<String>()
-    protected final ArrayList<String> nonPkFieldNameList = new ArrayList<String>()
-    protected final ArrayList<String> allFieldNameList = new ArrayList<String>()
-    protected final ArrayList<FieldInfo> pkFieldInfoList = new ArrayList<FieldInfo>()
-    protected final ArrayList<FieldInfo> nonPkFieldInfoList = new ArrayList<FieldInfo>()
-    protected final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<FieldInfo>()
+    protected final ArrayList<String> pkFieldNameList = new ArrayList<>()
+    protected final ArrayList<String> nonPkFieldNameList = new ArrayList<>()
+    protected final ArrayList<String> allFieldNameList = new ArrayList<>()
+    protected final ArrayList<FieldInfo> pkFieldInfoList = new ArrayList<>()
+    protected final ArrayList<FieldInfo> nonPkFieldInfoList = new ArrayList<>()
+    protected final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<>()
+    protected final String allFieldsSqlSelect
     protected Boolean hasUserFields = null
     protected boolean allowUserField = false
     protected Map<String, Map<String, String>> mePkFieldToAliasNameMapMap = null
@@ -94,6 +95,7 @@ public class EntityDefinition {
     protected final boolean authorizeSkipTrueVal
     protected final boolean authorizeSkipCreateVal
     protected final boolean authorizeSkipViewVal
+    protected boolean tableExistVerified = false
 
     protected List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
@@ -143,6 +145,18 @@ public class EntityDefinition {
         hasFunctionAliasVal = isView && internalEntityNode.children("alias").find({ it.attribute("function") })
 
         for (int i = 0; i < allFieldInfoList.size(); i++) if (allFieldInfoList.get(i).createOnly) createOnlyFields = true
+        if (isView) {
+            allFieldsSqlSelect = (String) null
+        } else {
+            StringBuilder sb = new StringBuilder()
+            for (int i = 0; i < allFieldInfoList.size(); i++) {
+                FieldInfo fi = (FieldInfo) allFieldInfoList.get(i)
+                if (fi.isUserField) continue
+                if (i > 0) sb.append(", ")
+                sb.append(fi.fullColumnName)
+            }
+            allFieldsSqlSelect = sb.toString()
+        }
 
         optimisticLockVal = "true".equals(internalEntityNode.attribute('optimistic-lock'))
 
@@ -270,6 +284,11 @@ public class EntityDefinition {
 
     String getEntityGroupName() { return groupName }
     EntityDatasourceFactory getDatasourceFactory() { return datasourceFactory }
+    boolean tableExistsDbMetaOnly() {
+        if (tableExistVerified) return true
+        tableExistVerified = efi.getEntityDbMeta().tableExists(this)
+        return tableExistVerified
+    }
 
     String getDefaultDescriptionField() {
         List<String> nonPkFields = getFieldNames(false, true, false)

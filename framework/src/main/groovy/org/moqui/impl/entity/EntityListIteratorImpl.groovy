@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.entity.EntityJavaUtil.WriteMode
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 
 import java.sql.Connection
 import java.sql.ResultSet
@@ -41,7 +42,7 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected final ResultSet rs
 
     protected final EntityDefinition entityDefinition
-    protected final ArrayList<EntityJavaUtil.FieldInfo> fieldInfoList
+    protected final FieldInfo[] fieldInfoArray
     protected final int fieldInfoListSize
     protected EntityCondition queryCondition = (EntityCondition) null
     protected List<String> orderByFields = (List<String>) null
@@ -52,14 +53,15 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected boolean closed = false
 
     EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition,
-                           ArrayList<EntityJavaUtil.FieldInfo> fieldInfoList, EntityFacadeImpl efi) {
+                           ArrayList<FieldInfo> fieldInfoList, EntityFacadeImpl efi, TransactionCache txCache) {
         this.efi = efi
         this.con = con
         this.rs = rs
         this.entityDefinition = entityDefinition
-        this.fieldInfoList = fieldInfoList
         fieldInfoListSize = fieldInfoList.size()
-        this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache()
+        fieldInfoArray = new FieldInfo[fieldInfoListSize]
+        for (int i = 0; i < fieldInfoListSize; i++) fieldInfoArray[i] = (FieldInfo) fieldInfoList.get(i)
+        this.txCache = txCache
     }
 
     void setQueryCondition(EntityCondition ec) { this.queryCondition = ec }
@@ -131,13 +133,12 @@ class EntityListIteratorImpl implements EntityListIterator {
     EntityValue currentEntityValue() { return currentEntityValueBase() }
     EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi)
-        Map<String, Object> valueMap = newEntityValue.getValueMap()
-        String entityName = entityDefinition.getFullEntityName()
+        HashMap<String, Object> valueMap = newEntityValue.getValueMap()
         boolean checkUserFields = entityDefinition.allowUserField
         for (int i = 0; i < fieldInfoListSize; i++) {
-            EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fieldInfoList.get(i)
+            FieldInfo fi = (FieldInfo) fieldInfoArray[i]
             if (fi.isUserField && !checkUserFields) continue
-            EntityQueryBuilder.getResultSetValue(rs, i+1, fi, valueMap, entityName, efi)
+            EntityJavaUtil.getResultSetValue(rs, i+1, fi, valueMap, efi)
         }
 
         this.haveMadeValue = true

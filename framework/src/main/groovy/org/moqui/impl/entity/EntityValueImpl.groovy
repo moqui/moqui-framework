@@ -196,27 +196,18 @@ class EntityValueImpl extends EntityValueBase {
         EntityFacadeImpl efi = getEntityFacadeImpl()
 
         // table doesn't exist, just return null
-        if (!efi.getEntityDbMeta().tableExists(ed)) return null
+        if (!ed.tableExistsDbMetaOnly()) return null
 
         // NOTE: this simple approach may not work for view-entities, but not restricting for now
 
         ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
-        ArrayList<FieldInfo> nonPkFieldList = ed.getNonPkFieldInfoList()
+        ArrayList<FieldInfo> allFieldList = ed.getAllFieldInfoList()
         // NOTE: even if there are no non-pk fields do a refresh in order to see if the record exists or not
 
         EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
         StringBuilder sql = eqb.getSqlTopLevel()
         sql.append("SELECT ")
-        if (nonPkFieldList) {
-            int size = nonPkFieldList.size()
-            for (int i = 0; i < size; i++) {
-                FieldInfo fi = (FieldInfo) nonPkFieldList.get(i)
-                if (i > 0) sql.append(", ")
-                sql.append(fi.fullColumnName)
-            }
-        } else {
-            sql.append("*")
-        }
+        eqb.makeSqlSelectFields(allFieldList, null)
 
         sql.append(" FROM ").append(ed.getFullTableName()).append(" WHERE ")
 
@@ -241,12 +232,11 @@ class EntityValueImpl extends EntityValueBase {
 
             ResultSet rs = eqb.executeQuery()
             if (rs.next()) {
-                Map<String, Object> valueMap = getValueMap()
-                String entityName = ed.getFullEntityName()
-                int nonPkSize = nonPkFieldList.size()
+                HashMap<String, Object> valueMap = getValueMap()
+                int nonPkSize = allFieldList.size()
                 for (int j = 0; j < nonPkSize; j++) {
-                    FieldInfo fi = (FieldInfo) nonPkFieldList.get(j)
-                    EntityQueryBuilder.getResultSetValue(rs, j + 1, fi, valueMap, entityName, efi)
+                    FieldInfo fi = (FieldInfo) allFieldList.get(j)
+                    EntityJavaUtil.getResultSetValue(rs, j + 1, fi, valueMap, efi)
                 }
                 retVal = true
                 setSyncedWithDb()

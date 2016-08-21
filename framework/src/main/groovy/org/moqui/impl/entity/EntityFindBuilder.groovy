@@ -113,34 +113,6 @@ class EntityFindBuilder extends EntityQueryBuilder {
         if (mainEntityDefinition.hasFunctionAlias()) { sqlTopLevelInternal.append(") TEMP_NAME") }
     }
 
-    void makeSqlSelectFields(ArrayList<FieldInfo> fieldInfoList, ArrayList<FieldOrderOptions> fieldOptionsList) {
-        boolean checkUserFields = mainEntityDefinition.allowUserField
-        int size = fieldInfoList.size()
-        if (size > 0) {
-            for (int i = 0; i < size; i++) {
-                FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
-                if (checkUserFields && fi.isUserField) continue
-
-                if (i > 0) sqlTopLevelInternal.append(", ")
-
-                boolean appendCloseParen = false
-                if (fieldOptionsList != null) {
-                    FieldOrderOptions foo = (FieldOrderOptions) fieldOptionsList.get(i)
-                    if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1) {
-                        sqlTopLevelInternal.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
-                        appendCloseParen = true
-                    }
-                }
-
-                sqlTopLevelInternal.append(fi.fullColumnName)
-
-                if (appendCloseParen) sqlTopLevelInternal.append(")")
-            }
-        } else {
-            sqlTopLevelInternal.append("*")
-        }
-    }
-
     void expandJoinFromAlias(MNode entityNode, String searchEntityAlias, Set<String> entityAliasUsedSet, Set<String> entityAliasesJoinedInSet) {
         // first see if it needs expanding
         if (entityAliasesJoinedInSet.contains(searchEntityAlias)) return
@@ -478,8 +450,10 @@ class EntityFindBuilder extends EntityQueryBuilder {
         if (isTraceEnabled) logger.trace("making find PreparedStatement for SQL: ${finalSql}")
         try {
             ps = connection.prepareStatement(finalSql, entityFindBase.resultSetType, entityFindBase.resultSetConcurrency)
-            if (entityFindBase.maxRows > 0) ps.setMaxRows(entityFindBase.maxRows)
-            if (entityFindBase.fetchSize > 0) ps.setFetchSize(entityFindBase.fetchSize)
+            Integer maxRows = entityFindBase.maxRows
+            Integer fetchSize = entityFindBase.fetchSize
+            if (maxRows != null && maxRows.intValue() > 0) ps.setMaxRows(maxRows)
+            if (fetchSize != null && fetchSize.intValue() > 0) ps.setFetchSize(fetchSize)
         } catch (SQLException e) {
             handleSqlException(e, finalSql)
         }
