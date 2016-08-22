@@ -202,17 +202,6 @@ abstract class EntityFindBase implements EntityFind {
                 if (basicCond.getRhs() != null) this.condition(basicCond.getRhs())
                 return this
             }
-        } else if (condClass == MapCondition.class) {
-            MapCondition mc = (MapCondition) condition
-            if (mc.getJoinOperator() == EntityCondition.AND) {
-                if (mc.getComparisonOperator() == EntityCondition.EQUALS && !mc.getIgnoreCase()) {
-                    // simple AND Map, just add it
-                    return this.condition(mc.fieldMap)
-                } else {
-                    // call back into this to break down the condition
-                    return this.condition(mc.makeCondition())
-                }
-            }
         }
 
         if (whereEntityCondition != null) {
@@ -303,15 +292,6 @@ abstract class EntityFindBase implements EntityFind {
                         return new ListCondition(condList, EntityCondition.AND)
                     } else {
                         condList.add(listCond)
-                        return new ListCondition(condList, EntityCondition.AND)
-                    }
-                } else if (whereEntCondClass == MapCondition.class) {
-                    MapCondition mapCond = (MapCondition) whereEntityCondition
-                    if (mapCond.getJoinOperator() == EntityCondition.AND) {
-                        mapCond.addToConditionList(condList)
-                        return new ListCondition(condList, EntityCondition.AND)
-                    } else {
-                        condList.add(mapCond)
                         return new ListCondition(condList, EntityCondition.AND)
                     }
                 } else if (whereEntCondClass == FieldValueCondition.class || whereEntCondClass == DateCondition.class ||

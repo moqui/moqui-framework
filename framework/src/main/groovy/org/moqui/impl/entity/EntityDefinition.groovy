@@ -87,7 +87,7 @@ public class EntityDefinition {
     protected boolean createOnlyFields = false
     protected final boolean optimisticLockVal
     protected Boolean needsAuditLogVal = null
-    // protected Boolean needsEncryptVal = null
+    protected Boolean needsEncryptVal = null
     protected String useCache
     protected final boolean neverCache
     protected String sequencePrimaryPrefix = ""
@@ -348,7 +348,7 @@ public class EntityDefinition {
         needsAuditLogVal = tempVal
         return tempVal
     }
-    /* not used any more
+    // used in EntityDetail screen
     boolean needsEncrypt() {
         if (needsEncryptVal != null) return needsEncryptVal.booleanValue()
         needsEncryptVal = false
@@ -363,7 +363,6 @@ public class EntityDefinition {
 
         return needsEncryptVal.booleanValue()
     }
-    */
     String getUseCache() { return useCache }
     boolean neverCache() { return neverCache }
 
@@ -730,13 +729,12 @@ public class EntityDefinition {
             ancestorEntities.removeFirst()
         }
 
-        /* not currently used
+        // used in EntityDetail screen
         TreeSet<String> getAllDescendants() {
             TreeSet<String> allSet = new TreeSet()
             populateAllDescendants(allSet)
             return allSet
         }
-        */
         protected void populateAllDescendants(TreeSet<String> allSet) {
             allSet.addAll(descendants)
             for (EntityDependents edp in dependentEntities.values()) edp.populateAllDescendants(allSet)
