@@ -22,6 +22,7 @@ import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.L10nFacadeImpl;
+import org.moqui.impl.entity.condition.ConditionField;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -619,6 +620,7 @@ public class EntityJavaUtil {
         public MNode fieldNode = null;
         public String entityName = null;
         public String name = null;
+        public ConditionField conditionField = null;
         public String type = null;
         public String columnName = null;
         private String fullColumnName = null;

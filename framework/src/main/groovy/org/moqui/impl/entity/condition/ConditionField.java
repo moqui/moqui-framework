@@ -15,16 +15,15 @@ package org.moqui.impl.entity.condition;
 
 import org.moqui.BaseException;
 import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.entity.EntityJavaUtil;
 
 import java.io.*;
-import java.util.concurrent.locks.Condition;
 
 public class ConditionField implements Externalizable {
     private static final Class thisClass = ConditionField.class;
     String fieldName;
     private int curHashCode;
+    private EntityJavaUtil.FieldInfo fieldInfo = null;
 
     public ConditionField() { }
     public ConditionField(String fieldName) {
@@ -32,14 +31,23 @@ public class ConditionField implements Externalizable {
         this.fieldName = fieldName.intern();
         curHashCode = this.fieldName.hashCode();
     }
-
-    public String getFieldName() { return fieldName; }
-
-    public String getColumnName(EntityDefinition ed) {
-        return ed.getColumnName(fieldName, false);
+    public ConditionField(EntityJavaUtil.FieldInfo fi) {
+        if (fi == null) throw new BaseException("FieldInfo required");
+        fieldInfo = fi;
+        // fi.name is interned in makeFieldInfo()
+        fieldName = fi.name;
+        curHashCode = fieldName.hashCode();
     }
 
-    public EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) { return ed.getFieldInfo(fieldName); }
+    public String getFieldName() { return fieldName; }
+    public String getColumnName(EntityDefinition ed) {
+        if (fieldInfo != null) return fieldInfo.getFullColumnName();
+        return ed.getColumnName(fieldName, false);
+    }
+    public EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) {
+        if (fieldInfo != null) return fieldInfo;
+        return ed.getFieldInfo(fieldName);
+    }
 
     @Override
     public String toString() { return fieldName; }
@@ -49,7 +57,10 @@ public class ConditionField implements Externalizable {
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || o.getClass() != thisClass) return false;
+        if (o == null) return false;
+        // because of reuse from EntityDefinition this may be the same object, so check that first
+        if (this == o) return true;
+        if (o.getClass() != thisClass) return false;
         ConditionField that = (ConditionField) o;
         // intern'ed String to use == operator
         return fieldName == that.fieldName;

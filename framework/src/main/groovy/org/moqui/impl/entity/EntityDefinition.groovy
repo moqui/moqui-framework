@@ -87,7 +87,7 @@ public class EntityDefinition {
     protected boolean createOnlyFields = false
     protected final boolean optimisticLockVal
     protected Boolean needsAuditLogVal = null
-    protected Boolean needsEncryptVal = null
+    // protected Boolean needsEncryptVal = null
     protected String useCache
     protected final boolean neverCache
     protected String sequencePrimaryPrefix = ""
@@ -348,6 +348,7 @@ public class EntityDefinition {
         needsAuditLogVal = tempVal
         return tempVal
     }
+    /* not used any more
     boolean needsEncrypt() {
         if (needsEncryptVal != null) return needsEncryptVal.booleanValue()
         needsEncryptVal = false
@@ -362,6 +363,7 @@ public class EntityDefinition {
 
         return needsEncryptVal.booleanValue()
     }
+    */
     String getUseCache() { return useCache }
     boolean neverCache() { return neverCache }
 
@@ -406,7 +408,7 @@ public class EntityDefinition {
         return fi
     }
     ArrayList<FieldInfo> getPkFieldInfoList() { return pkFieldInfoList }
-    ArrayList<FieldInfo> getNonPkFieldInfoList() { return nonPkFieldInfoList }
+    // ArrayList<FieldInfo> getNonPkFieldInfoList() { return nonPkFieldInfoList }
     ArrayList<FieldInfo> getAllFieldInfoList() { return allFieldInfoList }
     FieldInfo[] getPkFieldInfoArray() { return pkFieldInfoArray }
     FieldInfo[] getNonPkFieldInfoArray() { return nonPkFieldInfoArray }
@@ -421,6 +423,8 @@ public class EntityDefinition {
         fi.fieldNode = fieldNode
         Map<String, String> fnAttrs = fieldNode.attributes
         fi.name = fnAttrs.get('name')
+        if (fi.name != null) fi.name = fi.name.intern()
+        fi.conditionField = new ConditionField(fi)
         fi.entityName = ed.getFullEntityName()
         fi.type = fnAttrs.get('type')
         fi.columnName = fnAttrs.get('column-name') ?: camelCaseToUnderscored(fi.name)
@@ -686,6 +690,7 @@ public class EntityDefinition {
         }
     }
 
+    // NOTE: used in the DataEdit screen
     EntityDependents getDependentsTree() {
         EntityDependents edp = new EntityDependents(this, null, null)
         return edp
@@ -725,11 +730,13 @@ public class EntityDefinition {
             ancestorEntities.removeFirst()
         }
 
+        /* not currently used
         TreeSet<String> getAllDescendants() {
             TreeSet<String> allSet = new TreeSet()
             populateAllDescendants(allSet)
             return allSet
         }
+        */
         protected void populateAllDescendants(TreeSet<String> allSet) {
             allSet.addAll(descendants)
             for (EntityDependents edp in dependentEntities.values()) edp.populateAllDescendants(allSet)
@@ -751,7 +758,7 @@ public class EntityDefinition {
                 RelationshipInfo relInfo = relationshipInfos.get(entry.getKey())
                 builder.append(indent).append(relInfo.relationshipName).append(' ').append(relInfo.keyMap).append('\n')
                 if (level < 8 && !entitiesVisited.contains(entry.getValue().entityName)) {
-                    entry.getValue().buildString(builder, level+1, entitiesVisited)
+                    entry.getValue().buildString(builder, level + 1I, entitiesVisited)
                     entitiesVisited.add(entry.getValue().entityName)
                 } else if (entitiesVisited.contains(entry.getValue().entityName)) {
                     builder.append(indent).append(indentBase).append('Dependants already displayed\n')
@@ -1798,25 +1805,31 @@ public class EntityDefinition {
             EntityConditionImplBase cond;
             ConditionField field
             EntityDefinition condEd;
-            if (econdition.attribute("entity-alias")) {
-                MNode memberEntity = memberEntityAliasMap.get(econdition.attribute("entity-alias"))
-                if (!memberEntity) throw new EntityException("The entity-alias [${econdition.attribute("entity-alias")}] was not found in view-entity [${this.internalEntityName}]")
+            String entityAliasAttr = econdition.attribute("entity-alias")
+            if (entityAliasAttr) {
+                MNode memberEntity = memberEntityAliasMap.get(entityAliasAttr)
+                if (!memberEntity) throw new EntityException("The entity-alias [${entityAliasAttr}] was not found in view-entity [${this.internalEntityName}]")
                 EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                field = new ConditionAlias(econdition.attribute("entity-alias"), econdition.attribute("field-name"), aliasEntityDef)
+                field = new ConditionAlias(entityAliasAttr, econdition.attribute("field-name"), aliasEntityDef)
                 condEd = aliasEntityDef;
             } else {
-                field = new ConditionField(econdition.attribute("field-name"))
+                FieldInfo fi = getFieldInfo(econdition.attribute("field-name"))
+                if (fi == null) throw new EntityException("Field ${econdition.attribute("field-name")} not found in entity ${fullEntityName}")
+                field = fi.conditionField
                 condEd = this;
             }
-            if (econdition.attribute("to-field-name") != null) {
+            String toFieldNameAttr = econdition.attribute("to-field-name")
+            if (toFieldNameAttr != null) {
                 ConditionField toField
                 if (econdition.attribute("to-entity-alias")) {
                     MNode memberEntity = memberEntityAliasMap.get(econdition.attribute("to-entity-alias"))
                     if (!memberEntity) throw new EntityException("The entity-alias [${econdition.attribute("to-entity-alias")}] was not found in view-entity [${this.internalEntityName}]")
                     EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                    toField = new ConditionAlias(econdition.attribute("to-entity-alias"), econdition.attribute("to-field-name"), aliasEntityDef)
+                    toField = new ConditionAlias(econdition.attribute("to-entity-alias"), toFieldNameAttr, aliasEntityDef)
                 } else {
-                    toField = new ConditionField(econdition.attribute("to-field-name"))
+                    FieldInfo fi = getFieldInfo(toFieldNameAttr)
+                    if (fi == null) throw new EntityException("Field ${toFieldNameAttr} not found in entity ${fullEntityName}")
+                    toField = fi.conditionField
                 }
                 cond = new FieldToFieldCondition(field, EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), toField)
             } else {

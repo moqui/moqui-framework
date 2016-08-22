@@ -50,7 +50,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     EntityCondition makeCondition(EntityCondition lhs, JoinOperator operator, EntityCondition rhs) {
         return makeConditionImpl((EntityConditionImplBase) lhs, operator, (EntityConditionImplBase) rhs)
     }
-    EntityConditionImplBase makeConditionImpl(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
+    static EntityConditionImplBase makeConditionImpl(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
         if (lhs != null) {
             if (rhs != null) {
                 // we have both lhs and rhs
@@ -238,10 +238,12 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                         MNode aliasNode = (MNode) aliases.get(k)
                         // could be same as field name, but not if aliased with different name
                         String aliasName = aliasNode.attribute("name")
-                        condList.add(new FieldValueCondition(new ConditionField(aliasName), compOp, value))
+                        ConditionField cf = findEd != null ? findEd.getFieldInfo(aliasName).conditionField : new ConditionField(aliasName)
+                        condList.add(new FieldValueCondition(cf, compOp, value))
                     }
                 } else {
-                    condList.add(new FieldValueCondition(new ConditionField(fieldName), compOp, value))
+                    ConditionField cf = findEd != null ? findEd.getFieldInfo(fieldName).conditionField : new ConditionField(fieldName)
+                    condList.add(new FieldValueCondition(cf, compOp, value))
                 }
 
             }

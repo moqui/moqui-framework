@@ -80,14 +80,9 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                 valueDone = true;
             }
         } else {
-            int typeValue = -1;
-            if (ignoreCase) {
-                typeValue = fi != null? fi.typeValue : 1;
-                if (typeValue == 1) sql.append("UPPER(");
-            }
-
+            if (ignoreCase && fi.typeValue == 1) sql.append("UPPER(");
             sql.append(field.getColumnName(mainEd));
-            if (ignoreCase && typeValue == 1) sql.append(')');
+            if (ignoreCase && fi.typeValue == 1) sql.append(')');
             sql.append(' ');
 
             if (value == null) {
@@ -186,11 +181,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         FieldValueCondition that = (FieldValueCondition) o;
         if (!field.equals(that.field)) return false;
         if (value != null) {
-            if (that.value == null) {
-                return false;
-            } else {
-                if (!value.equals(that.value)) return false;
-            }
+            if (!value.equals(that.value)) return false;
         } else {
             if (that.value != null) return false;
         }

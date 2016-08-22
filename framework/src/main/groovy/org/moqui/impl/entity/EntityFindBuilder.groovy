@@ -161,8 +161,8 @@ class EntityFindBuilder extends EntityQueryBuilder {
             Set<String> fieldUsedSet = new HashSet<String>()
             EntityConditionImplBase viewWhere = localEntityDefinition.makeViewWhereCondition()
             if (viewWhere != null) viewWhere.getAllAliases(entityAliasUsedSet, fieldUsedSet)
-            if (entityFindBase.whereEntityCondition != null)
-                entityFindBase.whereEntityConditionInternal.getAllAliases(entityAliasUsedSet, fieldUsedSet)
+            EntityConditionImplBase whereEntityCondition = entityFindBase.getWhereEntityConditionInternal(localEntityDefinition)
+            if (whereEntityCondition != null) whereEntityCondition.getAllAliases(entityAliasUsedSet, fieldUsedSet)
             if (entityFindBase.havingEntityCondition != null)
                 ((EntityConditionImplBase) entityFindBase.havingEntityCondition).getAllAliases(entityAliasUsedSet, fieldUsedSet)
 

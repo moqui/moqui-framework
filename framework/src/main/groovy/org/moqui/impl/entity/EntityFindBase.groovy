@@ -268,15 +268,16 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     @Override
-    EntityCondition getWhereEntityCondition() { return getWhereEntityConditionInternal() }
-    EntityConditionImplBase getWhereEntityConditionInternal() {
+    EntityCondition getWhereEntityCondition() { return getWhereEntityConditionInternal(getEntityDef()) }
+    EntityConditionImplBase getWhereEntityConditionInternal(EntityDefinition localEd) {
         boolean wecNull = (whereEntityCondition == null)
         int samSize = simpleAndMap != null ? simpleAndMap.size() : 0
 
         EntityConditionImplBase singleCond = (EntityConditionImplBase) null
         if (singleCondField != null) {
             if (samSize > 0) logger.warn("simpleAndMap size ${samSize} and singleCondField not null!")
-            singleCond = new FieldValueCondition(new ConditionField(singleCondField), EntityCondition.EQUALS, singleCondValue)
+            ConditionField cf = localEd != null ? localEd.getFieldInfo(singleCondField).conditionField : new ConditionField(singleCondField)
+            singleCond = new FieldValueCondition(cf, EntityCondition.EQUALS, singleCondValue)
         }
         // special case, frequent operation: find by single key
         if (singleCond != null && wecNull && samSize == 0) return singleCond
@@ -287,8 +288,10 @@ abstract class EntityFindBase implements EntityFind {
 
         if (samSize > 0) {
             // create a ListCondition from the Map to allow for combination (simplification) with other conditions
-            for (Map.Entry<String, Object> samEntry in simpleAndMap.entrySet())
-                condList.add(new FieldValueCondition(new ConditionField((String) samEntry.key), EntityCondition.EQUALS, samEntry.value))
+            for (Map.Entry<String, Object> samEntry in simpleAndMap.entrySet()) {
+                ConditionField cf = localEd != null ? localEd.getFieldInfo((String) samEntry.key).conditionField : new ConditionField((String) samEntry.key)
+                condList.add(new FieldValueCondition(cf, EntityCondition.EQUALS, samEntry.value))
+            }
         }
         if (condList.size() > 0) {
             if (!wecNull) {
@@ -799,7 +802,7 @@ abstract class EntityFindBase implements EntityFind {
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         ec.artifactExecutionImpl.filterFindForUser(this)
 
-        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal()
+        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
 
         // no condition means no condition/parameter set, so return null for find.one()
         if (whereCondition == null) return (EntityValue) null
@@ -1023,7 +1026,7 @@ abstract class EntityFindBase implements EntityFind {
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         ec.artifactExecutionImpl.filterFindForUser(this)
 
-        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal()
+        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
 
         // try the txCache first, more recent than general cache (and for update general cache entries will be cleared anyway)
         EntityListImpl txcEli = txCache != null ? txCache.listGet(ed, whereCondition, orderByExpanded) : (EntityListImpl) null
@@ -1241,7 +1244,7 @@ abstract class EntityFindBase implements EntityFind {
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         aefi.filterFindForUser(this)
 
-        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal()
+        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
         EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
         whereCondition = (EntityConditionImplBase) efi.getConditionFactory()
                 .makeCondition(whereCondition, EntityCondition.AND, viewWhere)
@@ -1310,7 +1313,7 @@ abstract class EntityFindBase implements EntityFind {
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         aefi.filterFindForUser(this)
 
-        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal()
+        EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
         // NOTE: don't cache if there is a having condition, for now just support where
         boolean doCache = !this.havingEntityCondition && this.shouldCache()
         Cache<EntityCondition, Long> entityCountCache = doCache ?
