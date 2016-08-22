@@ -685,9 +685,8 @@ abstract class EntityFindBase implements EntityFind {
         if (havingEntityCondition != null) return false
         if (limit != null || offset != null) return false
         boolean useCacheLocal = useCache != null ? useCache.booleanValue() : false
-        if (!useCacheLocal) return false
-        String entityCache = this.getEntityDef().getUseCache()
-        return (useCacheLocal && !"never".equals(entityCache)) || "true".equals(entityCache)
+        EntityDefinition ed = getEntityDef()
+        return (useCacheLocal && !ed.neverCache()) || "true".equals(ed.getUseCache())
     }
 
     @Override
