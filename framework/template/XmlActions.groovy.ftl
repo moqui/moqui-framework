@@ -191,15 +191,15 @@ return;
 </#macro>
 <#-- =================== entity-find sub-elements =================== -->
 <#macro "date-filter">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeConditionDate("${.node["@from-field-name"]!("fromDate")}", "${.node["@thru-field-name"]!("thruDate")}", <#if .node["@valid-date"]?has_content>${.node["@valid-date"]} as java.sql.Timestamp<#else>null</#if>, ${.node["@ignore-if-empty"]!("false")})</#macro>
-<#macro "econdition">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeActionConditionDirect("${.node["@field-name"]}", "${.node["@operator"]?default("equals")}", ${.node["@from"]?default(.node["@field-name"])}, <#if .node["@value"]?has_content>"${.node["@value"]}"<#else>null</#if>, <#if .node["@to-field-name"]?has_content>"${.node["@to-field-name"]}"<#else>null</#if>, ${.node["@ignore-case"]!"false"}, ${.node["@ignore-if-empty"]!"false"}, ${.node["@or-null"]!"false"}, "${.node["@ignore"]!"false"}")</#macro>
+<#macro "econdition">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeActionConditionDirect("${.node["@field-name"]}", "${.node["@operator"]!"equals"}", ${.node["@from"]?default(.node["@field-name"])}, <#if .node["@value"]?has_content>"${.node["@value"]}"<#else>null</#if>, <#if .node["@to-field-name"]?has_content>"${.node["@to-field-name"]}"<#else>null</#if>, ${.node["@ignore-case"]!"false"}, ${.node["@ignore-if-empty"]!"false"}, ${.node["@or-null"]!"false"}, "${.node["@ignore"]!"false"}")</#macro>
 <#macro "econditions">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeCondition([<#list .node?children as subCond><#visit subCond/><#if subCond_has_next>, </#if></#list>], org.moqui.impl.entity.EntityConditionFactoryImpl.getJoinOperator("${.node["@combine"]!"and"}"))</#macro>
 <#macro "econdition-object">${.node["@field"]}</#macro>
 
 <#-- =================== entity other elements =================== -->
 
-<#macro "entity-find-related-one">    ${.node["@to-value-field"]} = ${.node["@value-field"]}?.findRelatedOne("${.node["@relationship-name"]}", ${.node["@cache"]?default("null")}, ${.node["@for-update"]?default("null")})
+<#macro "entity-find-related-one">    ${.node["@to-value-field"]} = ${.node["@value-field"]}?.findRelatedOne("${.node["@relationship-name"]}", ${.node["@cache"]!"null"}, ${.node["@for-update"]!"null"})
 </#macro>
-<#macro "entity-find-related">    ${.node["@list"]} = ${.node["@value-field"]}?.findRelated("${.node["@relationship-name"]}", ${.node["@map"]?default("null")}, ${.node["@order-by-list"]?default("null")}, ${.node["@cache"]?default("null")}, ${.node["@for-update"]?default("null")})
+<#macro "entity-find-related">    ${.node["@list"]} = ${.node["@value-field"]}?.findRelated("${.node["@relationship-name"]}", ${.node["@map"]!"null"}, ${.node["@order-by-list"]!"null"}, ${.node["@cache"]!"null"}, ${.node["@for-update"]!"null"})
 </#macro>
 
 <#macro "entity-make-value">    ${.node["@value-field"]} = ec.entity.makeValue("${.node["@entity-name"]}")<#if .node["@map"]?has_content>
@@ -216,7 +216,7 @@ return;
 <#macro "entity-delete-by-condition">    ec.entity.find("${.node["@entity-name"]}")
             <#list .node["date-filter"] as df>.condition(<#visit df/>)</#list><#list .node["econdition"] as ec>.condition(<#visit ec/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>.deleteAll()
 </#macro>
-<#macro "entity-set">    ${.node["@value-field"]}.setFields(${.node["@map"]?default("context")}, ${.node["@set-if-empty"]?default("false")}, ${.node["@prefix"]?default("null")}, <#if .node["@include"]?has_content && .node["@include"] == "pk">true<#elseif .node["@include"]?has_content && .node["@include"] == "nonpk"/>false<#else>null</#if>)
+<#macro "entity-set">    ${.node["@value-field"]}.setFields(${.node["@map"]!"context"}, ${.node["@set-if-empty"]!"false"}, ${.node["@prefix"]!"null"}, <#if .node["@include"]?has_content && .node["@include"] == "pk">true<#elseif .node["@include"]?has_content && .node["@include"] == "nonpk"/>false<#else>null</#if>)
 </#macro>
 
 <#macro break>    break
