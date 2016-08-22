@@ -187,7 +187,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
                 if (txCache != null) {
                     EntityJavaUtil.WriteMode writeMode = txCache.checkUpdateValue(evb);
                     // if deleted skip this value
-                    if (writeMode.equals(EntityJavaUtil.WriteMode.DELETE)) return next();
+                    if (writeMode == EntityJavaUtil.WriteMode.DELETE) return next();
                 }
 
                 return evb;
@@ -210,7 +210,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
                 if (txCache != null) {
                     EntityJavaUtil.WriteMode writeMode = txCache.checkUpdateValue(evb);
                     // if deleted skip this value
-                    if (writeMode.equals(EntityJavaUtil.WriteMode.DELETE)) return this.previous();
+                    if (writeMode == EntityJavaUtil.WriteMode.DELETE) return this.previous();
                 }
                 return evb;
             } else {
