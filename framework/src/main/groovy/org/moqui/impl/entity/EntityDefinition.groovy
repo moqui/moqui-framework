@@ -15,6 +15,7 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityDatasourceFactory
+import org.moqui.entity.EntityFind
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
@@ -47,6 +48,7 @@ public class EntityDefinition {
 
     protected final EntityFacadeImpl efi
     protected final EntityDatasourceFactory datasourceFactory
+    protected final boolean isEntityDatasourceFactoryImpl
     protected final String internalEntityName
     protected final String fullEntityName
     protected final String shortAlias
@@ -127,6 +129,7 @@ public class EntityDefinition {
             groupName = internalEntityNode.attribute("group") ?: internalEntityNode.attribute("group-name") ?: efi.getDefaultGroupName()
         }
         datasourceFactory = efi.getDatasourceFactory(groupName)
+        isEntityDatasourceFactoryImpl = datasourceFactory instanceof EntityDatasourceFactoryImpl
 
         this.sequencePrimaryPrefix = internalEntityNode.attribute("sequence-primary-prefix") ?: ""
         if (internalEntityNode.attribute("sequence-primary-stagger"))
@@ -1882,6 +1885,22 @@ public class EntityDefinition {
     Cache<EntityCondition, Long> getCacheCount(EntityCache ec) {
         if (internalCacheCount == null) internalCacheCount = ec.cfi.getCache(ec.countKeyBase.concat(fullEntityName), efi.tenantId)
         return internalCacheCount
+    }
+
+    // these methods used by EntityFacadeImpl to avoid redundant lookups of entity info
+    EntityFind makeEntityFind() {
+        if (isEntityDatasourceFactoryImpl) {
+            return new EntityFindImpl(efi, this)
+        } else {
+            return datasourceFactory.makeEntityFind(fullEntityName)
+        }
+    }
+    EntityValue makeEntityValue() {
+        if (isEntityDatasourceFactoryImpl) {
+            return new EntityValueImpl(this, efi)
+        } else {
+            return datasourceFactory.makeEntityValue(fullEntityName)
+        }
     }
 
     @Override

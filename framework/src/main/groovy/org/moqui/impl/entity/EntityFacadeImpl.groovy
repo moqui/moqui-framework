@@ -452,7 +452,7 @@ class EntityFacadeImpl implements EntityFacade {
             // look for view-entity definitions in the database (moqui.entity.view.DbViewEntity)
             if (entityLocationCache.get("moqui.entity.view.DbViewEntity")) {
                 int numDbViewEntities = 0
-                for (EntityValue dbViewEntity in makeFind("moqui.entity.view.DbViewEntity").list()) {
+                for (EntityValue dbViewEntity in find("moqui.entity.view.DbViewEntity").list()) {
                     if (dbViewEntity.packageName) {
                         List<String> pkgList = (List<String>) entityLocationCache.get((String) dbViewEntity.packageName + "." + dbViewEntity.dbViewEntityName)
                         if (pkgList == null) {
@@ -617,7 +617,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         // If this is a moqui.entity.view.DbViewEntity, handle that in a special way (generate the Nodes from the DB records)
         if (entityLocationList.contains("_DB_VIEW_ENTITY_")) {
-            EntityValue dbViewEntity = makeFind("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", entityName).one()
+            EntityValue dbViewEntity = find("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", entityName).one()
             if (dbViewEntity == null) {
                 logger.warn("Could not find DbViewEntity with name ${entityName}")
                 return null
@@ -626,7 +626,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (dbViewEntity.cache == "Y") dbViewNode.attributes.put("cache", "true")
             else if (dbViewEntity.cache == "N") dbViewNode.attributes.put("cache", "false")
 
-            EntityList memberList = makeFind("moqui.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list()
+            EntityList memberList = find("moqui.entity.view.DbViewEntityMember").condition("dbViewEntityName", entityName).list()
             for (EntityValue dbViewEntityMember in memberList) {
                 MNode memberEntity = dbViewNode.append("member-entity",
                         ["entity-alias":dbViewEntityMember.getString("entityAlias"), "entity-name":dbViewEntityMember.getString("entityName")])
@@ -635,7 +635,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (dbViewEntityMember.joinOptional == "Y") memberEntity.attributes.put("join-optional", "true")
                 }
 
-                EntityList dbViewEntityKeyMapList = makeFind("moqui.entity.view.DbViewEntityKeyMap")
+                EntityList dbViewEntityKeyMapList = find("moqui.entity.view.DbViewEntityKeyMap")
                         .condition(["dbViewEntityName":entityName, "joinFromAlias":dbViewEntityMember.joinFromAlias,
                             "entityAlias":dbViewEntityMember.getString("entityAlias")])
                         .list()
@@ -645,7 +645,7 @@ class EntityFacadeImpl implements EntityFacade {
                         keyMapNode.attributes.put("related", (String) dbViewEntityKeyMap.relatedFieldName)
                 }
             }
-            for (EntityValue dbViewEntityAlias in makeFind("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
+            for (EntityValue dbViewEntityAlias in find("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", entityName).list()) {
                 MNode aliasNode = dbViewNode.append("alias",
                         ["name":(String) dbViewEntityAlias.fieldAlias, "entity-alias":(String) dbViewEntityAlias.entityAlias])
                 if (dbViewEntityAlias.fieldName) aliasNode.attributes.put("field", (String) dbViewEntityAlias.fieldName)
@@ -1045,7 +1045,7 @@ class EntityFacadeImpl implements EntityFacade {
         // make sure reverse-one many relationships exist
         createAllAutoReverseManyRelationships()
 
-        EntityValue dbViewEntity = dbViewEntityName ? makeFind("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null
+        EntityValue dbViewEntity = dbViewEntityName ? find("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", dbViewEntityName).one() : null
 
         ArrayList<Map<String, Object>> efl = new ArrayList<>()
         EntityDefinition ed = null
@@ -1058,7 +1058,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             boolean inDbView = false
             String functionName = null
-            EntityValue aliasVal = makeFind("moqui.entity.view.DbViewEntityAlias")
+            EntityValue aliasVal = find("moqui.entity.view.DbViewEntityAlias")
                 .condition([dbViewEntityName:dbViewEntityName, entityAlias:"MASTER", fieldName:fn] as Map<String, Object>).one()
             if (aliasVal) {
                 inDbView = true
@@ -1078,7 +1078,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (red == null) continue
 
             EntityValue dbViewEntityMember = null
-            if (dbViewEntity) dbViewEntityMember = makeFind("moqui.entity.view.DbViewEntityMember")
+            if (dbViewEntity) dbViewEntityMember = find("moqui.entity.view.DbViewEntityMember")
                     .condition([dbViewEntityName:dbViewEntityName, entityName:red.getFullEntityName()] as Map<String, Object>).one()
 
             for (String fn in red.getAllFieldNames()) {
@@ -1086,7 +1086,7 @@ class EntityFacadeImpl implements EntityFacade {
                 boolean inDbView = false
                 String functionName = null
                 if (dbViewEntityMember) {
-                    EntityValue aliasVal = makeFind("moqui.entity.view.DbViewEntityAlias")
+                    EntityValue aliasVal = find("moqui.entity.view.DbViewEntityAlias")
                         .condition([dbViewEntityName:dbViewEntityName, entityAlias:dbViewEntityMember.entityAlias, fieldName:fn]).one()
                     if (aliasVal) {
                         inDbView = true
@@ -1152,20 +1152,20 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     EntityValue makeValue(String entityName) {
-        if (entityName == null || entityName.length() == 0)
-            throw new EntityException("No entityName passed to EntityFacade.makeValue")
-        EntityDatasourceFactory edf = getDatasourceFactory(getEntityGroupName(entityName))
-        return edf.makeEntityValue(entityName)
+        // don't check entityName empty, getEntityDefinition() does it
+        EntityDefinition ed = getEntityDefinition(entityName)
+        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
+        return ed.makeEntityValue()
     }
 
     @Override
     EntityFind makeFind(String entityName) { return find(entityName) }
     @Override
     EntityFind find(String entityName) {
-        if (entityName == null || entityName.length() == 0)
-            throw new EntityException("No entityName passed to EntityFacade.makeFind")
-        EntityDatasourceFactory edf = getDatasourceFactory(getEntityGroupName(entityName))
-        return edf.makeEntityFind(entityName)
+        // don't check entityName empty, getEntityDefinition() does it
+        EntityDefinition ed = getEntityDefinition(entityName)
+        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
+        return ed.makeEntityFind()
     }
 
     final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
@@ -1480,7 +1480,7 @@ class EntityFacadeImpl implements EntityFacade {
                     ArtifactExecutionFacadeImpl aefi = ecfi.getEci().getArtifactExecutionImpl()
                     boolean enableAuthz = !aefi.disableAuthz()
                     try {
-                        EntityValue svi = makeFind("moqui.entity.SequenceValueItem").condition("seqName", seqName)
+                        EntityValue svi = find("moqui.entity.SequenceValueItem").condition("seqName", seqName)
                                 .useCache(false).forUpdate(true).one()
                         if (svi == null) {
                             svi = makeValue("moqui.entity.SequenceValueItem")

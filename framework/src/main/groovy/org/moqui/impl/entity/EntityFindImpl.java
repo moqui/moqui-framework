@@ -33,10 +33,14 @@ public class EntityFindImpl extends EntityFindBase {
     public EntityFindImpl(EntityFacadeImpl efi, String entityName) {
         super(efi, entityName);
     }
+    public EntityFindImpl(EntityFacadeImpl efi, EntityDefinition ed) {
+        super(efi, ed);
+    }
 
     @Override
     public EntityDynamicView makeEntityDynamicView() {
         if (this.dynamicView != null) return this.dynamicView;
+        this.entityDef = null;
         this.dynamicView = new EntityDynamicViewImpl(this);
         return this.dynamicView;
     }

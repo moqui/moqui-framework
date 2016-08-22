@@ -231,9 +231,10 @@ class EntityDataDocument {
                     // add Map for primary entity
                     Map primaryEntityMap = [:]
                     for (Map.Entry fieldTreeEntry in fieldTree.entrySet()) {
-                        if (fieldTreeEntry.getValue() instanceof String) {
+                        Object entryValue = fieldTreeEntry.getValue()
+                        if (entryValue instanceof String) {
                             if (fieldTreeEntry.getKey() == "_ALIAS") continue
-                            String fieldName = fieldTreeEntry.getValue()
+                            String fieldName = (String) entryValue
                             Object value = ev.get(fieldName)
                             if (value) primaryEntityMap.put(fieldName, value)
                         }

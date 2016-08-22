@@ -55,8 +55,7 @@ abstract class EntityFindBase implements EntityFind {
 
     protected EntityConditionImplBase havingEntityCondition = (EntityConditionImplBase) null
 
-    // always initialize this as it's always used in finds (even if populated with default of all fields)
-    protected ArrayList<String> fieldsToSelect = new ArrayList<>()
+    protected ArrayList<String> fieldsToSelect = (ArrayList<String>) null
     protected ArrayList<String> orderByFields = (ArrayList<String>) null
 
     protected Boolean useCache = (Boolean) null
@@ -77,8 +76,15 @@ abstract class EntityFindBase implements EntityFind {
         this.efi = efi
         this.entityName = entityName
         TransactionFacadeImpl tfi = efi.getEcfi().getTransactionFacade()
-        this.txCache = tfi.getTransactionCache()
+        txCache = tfi.getTransactionCache()
         // if (!tfi.isTransactionInPlace()) logger.warn("No transaction in place, creating find for entity ${entityName}")
+    }
+    EntityFindBase(EntityFacadeImpl efi, EntityDefinition ed) {
+        this.efi = efi
+        entityName = ed.getFullEntityName()
+        entityDef = ed
+        TransactionFacadeImpl tfi = efi.getEcfi().getTransactionFacade()
+        txCache = tfi.getTransactionCache()
     }
 
     EntityFacadeImpl getEfi() { return efi }
@@ -560,26 +566,27 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityFind selectField(String fieldToSelect) {
         if (fieldToSelect == null || fieldToSelect.length() == 0) return this
+        if (fieldsToSelect == null) fieldsToSelect = new ArrayList<>()
         if (fieldToSelect.contains(",")) {
             for (String ftsPart in fieldToSelect.split(",")) {
                 String selectName = ftsPart.trim()
-                if (getEntityDef().isField(selectName)) this.fieldsToSelect.add(selectName)
+                if (getEntityDef().isField(selectName)) fieldsToSelect.add(selectName)
             }
         } else {
-            if (getEntityDef().isField(fieldToSelect)) this.fieldsToSelect.add(fieldToSelect)
+            if (getEntityDef().isField(fieldToSelect)) fieldsToSelect.add(fieldToSelect)
         }
         return this
     }
 
     @Override
-    EntityFind selectFields(Collection<String> fieldsToSelect) {
-        if (!fieldsToSelect) return this
-        for (String fieldToSelect in fieldsToSelect) selectField(fieldToSelect)
+    EntityFind selectFields(Collection<String> selectFields) {
+        if (!selectFields) return this
+        for (String fieldToSelect in selectFields) selectField(fieldToSelect)
         return this
     }
 
     @Override
-    List<String> getSelectFields() { return this.fieldsToSelect ? this.fieldsToSelect : null }
+    List<String> getSelectFields() { return fieldsToSelect }
 
     @Override
     EntityFind orderBy(String orderByFieldName) {
@@ -694,9 +701,10 @@ abstract class EntityFindBase implements EntityFind {
         if (dynamicView != null) return false
         if (havingEntityCondition != null) return false
         if (limit != null || offset != null) return false
-        if (useCache != null && Boolean.FALSE.equals(useCache)) return false
+        boolean useCacheLocal = useCache != null ? useCache.booleanValue() : false
+        if (!useCacheLocal) return false
         String entityCache = this.getEntityDef().getUseCache()
-        return ((Boolean.TRUE.equals(useCache) && !"never".equals(entityCache)) || "true".equals(entityCache))
+        return (useCacheLocal && !"never".equals(entityCache)) || "true".equals(entityCache)
     }
 
     @Override
@@ -816,9 +824,8 @@ abstract class EntityFindBase implements EntityFind {
         EntityValueBase cacheHit = (EntityValueBase) null
         if (doCache && txcValue == null && !forUpdate) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
 
-        // we always want fieldsToSelect populated so that we know the order of the results coming back
-        ArrayList<String> localFts = fieldsToSelect
-        int ftsSize = localFts.size()
+        // we always want fieldInfoArray populated so that we know the order of the results coming back
+        int ftsSize = fieldsToSelect != null ? fieldsToSelect.size() : 0
         FieldInfo[] fieldInfoArray
         FieldOrderOptions[] fieldOptionsArray = (FieldOrderOptions[]) null
         if (ftsSize == 0 || (txCache != null && txcValue == null) || (doCache && cacheHit == null)) {
@@ -829,7 +836,7 @@ abstract class EntityFindBase implements EntityFind {
             boolean hasFieldOptions = false
             int fieldInfoArrayIndex = 0
             for (int i = 0; i < ftsSize; i++) {
-                String fieldName = (String) localFts.get(i)
+                String fieldName = (String) fieldsToSelect.get(i)
                 FieldInfo fi = ed.getFieldInfo(fieldName)
                 if (fi == null) {
                     FieldOrderOptions foo = new FieldOrderOptions(fieldName)
@@ -1037,20 +1044,19 @@ abstract class EntityFindBase implements EntityFind {
         } else if (cacheList != null) {
             el = cacheList
         } else {
-            ArrayList<String> localFts = fieldsToSelect
             // order by fields need to be selected (at least on some databases, Derby is one of them)
             int orderByExpandedSize = orderByExpanded.size()
-            if (getDistinct() && localFts.size() > 0 && orderByExpandedSize > 0) {
+            if (getDistinct() && fieldsToSelect != null && fieldsToSelect.size() > 0 && orderByExpandedSize > 0) {
                 for (int i = 0; i < orderByExpandedSize; i++) {
                     String orderByField = (String) orderByExpanded.get(i)
                     //EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByField)
                     //localFts.add(foo.fieldName)
-                    localFts.add(orderByField)
+                    fieldsToSelect.add(orderByField)
                 }
             }
 
-            // we always want fieldsToSelect populated so that we know the order of the results coming back
-            int ftsSize = localFts.size()
+            // we always want fieldInfoArray populated so that we know the order of the results coming back
+            int ftsSize = fieldsToSelect != null ? fieldsToSelect.size() : 0
             FieldInfo[] fieldInfoArray
             FieldOrderOptions[] fieldOptionsArray = (FieldOrderOptions[]) null
             if (ftsSize == 0 || doEntityCache) {
@@ -1061,7 +1067,7 @@ abstract class EntityFindBase implements EntityFind {
                 boolean hasFieldOptions = false
                 int fieldInfoArrayIndex = 0
                 for (int i = 0; i < ftsSize; i++) {
-                    String fieldName = (String) localFts.get(i)
+                    String fieldName = (String) fieldsToSelect.get(i)
                     FieldInfo fi = (FieldInfo) ed.getFieldInfo(fieldName)
                     if (fi == null) {
                         FieldOrderOptions foo = new FieldOrderOptions(fieldName)
@@ -1190,18 +1196,17 @@ abstract class EntityFindBase implements EntityFind {
             if (entityConditionNode.attribute('distinct') == "true") this.distinct(true)
         }
 
-        ArrayList<String> localFts = fieldsToSelect
         // order by fields need to be selected (at least on some databases, Derby is one of them)
-        if (getDistinct() && localFts.size() > 0 && orderByExpanded.size() > 0) {
+        if (getDistinct() && fieldsToSelect != null && fieldsToSelect.size() > 0 && orderByExpanded.size() > 0) {
             for (String orderByField in orderByExpanded) {
                 //EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByField)
                 //fieldsToSelect.add(foo.fieldName)
-                localFts.add(orderByField)
+                fieldsToSelect.add(orderByField)
             }
         }
 
-        // we always want fieldsToSelect populated so that we know the order of the results coming back
-        int ftsSize = localFts.size()
+        // we always want fieldInfoArray populated so that we know the order of the results coming back
+        int ftsSize = fieldsToSelect != null ? fieldsToSelect.size() : 0
         FieldInfo[] fieldInfoArray
         FieldOrderOptions[] fieldOptionsArray = (FieldOrderOptions[]) null
         if (ftsSize == 0) {
@@ -1212,7 +1217,7 @@ abstract class EntityFindBase implements EntityFind {
             boolean hasFieldOptions = false
             int fieldInfoArrayIndex = 0
             for (int i = 0; i < ftsSize; i++) {
-                String fieldName = (String) localFts.get(i)
+                String fieldName = (String) fieldsToSelect.get(i)
                 FieldInfo fi = ed.getFieldInfo(fieldName)
                 if (fi == null) {
                     FieldOrderOptions foo = new FieldOrderOptions(fieldName)
@@ -1317,9 +1322,8 @@ abstract class EntityFindBase implements EntityFind {
         if (cacheCount != null) {
             count = cacheCount
         } else {
-            ArrayList<String> localFts = fieldsToSelect
             // select all pk and nonpk fields to match what list() or iterator() would do
-            int ftsSize = localFts.size()
+            int ftsSize = fieldsToSelect != null ? fieldsToSelect.size() : 0
             FieldInfo[] fieldInfoArray
             FieldOrderOptions[] fieldOptionsArray = (FieldOrderOptions[]) null
             if (ftsSize == 0) {
@@ -1330,7 +1334,7 @@ abstract class EntityFindBase implements EntityFind {
                 boolean hasFieldOptions = false
                 int fieldInfoArrayIndex = 0
                 for (int i = 0; i < ftsSize; i++) {
-                    String fieldName = (String) localFts.get(i)
+                    String fieldName = (String) fieldsToSelect.get(i)
                     FieldInfo fi = ed.getFieldInfo(fieldName)
                     if (fi == null) {
                         FieldOrderOptions foo = new FieldOrderOptions(fieldName)
