@@ -54,7 +54,7 @@ class EntityValueImpl extends EntityValueBase {
     }
 
     @Override
-    void createExtended(ArrayList<FieldInfo> fieldInfoList, Connection con) {
+    void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl efi = getEntityFacadeImpl()
 
@@ -66,17 +66,15 @@ class EntityValueImpl extends EntityValueBase {
             sql.append("INSERT INTO ").append(ed.getFullTableName())
 
             sql.append(" (")
-            boolean isFirstField = true
             StringBuilder values = new StringBuilder()
 
-            int size = fieldInfoList.size()
+            int size = fieldInfoArray.length
             for (int i = 0; i < size; i++) {
                 // explicit cast to avoid Groovy castToType
-                FieldInfo fieldInfo = (FieldInfo) fieldInfoList.get(i)
-                fieldInfoList.add(fieldInfo)
-                if (isFirstField) {
-                    isFirstField = false
-                } else {
+                FieldInfo fieldInfo = (FieldInfo) fieldInfoArray[i]
+                if (fieldInfo == null) break
+                // TODO: why was it doing this? fieldInfoList.add(fieldInfo)
+                if (i > 0) {
                     sql.append(", ")
                     values.append(", ")
                 }
@@ -91,9 +89,10 @@ class EntityValueImpl extends EntityValueBase {
                 if (con != null) eqb.useConnection(con) else eqb.makeConnection()
                 eqb.makePreparedStatement()
                 for (int i = 0; i < size; i++) {
-                    FieldInfo fieldInfo = (FieldInfo) fieldInfoList.get(i)
+                    FieldInfo fieldInfo = (FieldInfo) fieldInfoArray[i]
+                    if (fieldInfo == null) break
                     String fieldName = fieldInfo.name
-                    eqb.setPreparedStatementValue(i+1I, getValueMap().get(fieldName), fieldInfo)
+                    eqb.setPreparedStatementValue(i+1I, valueMapInternal.get(fieldName), fieldInfo)
                 }
 
                 // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} in tenant ${efi.tenantId} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
@@ -108,7 +107,7 @@ class EntityValueImpl extends EntityValueBase {
     }
 
     @Override
-    void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
+    void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl efi = getEntityFacadeImpl()
 
@@ -116,23 +115,26 @@ class EntityValueImpl extends EntityValueBase {
             throw new EntityException("Update not yet implemented for view-entity")
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
+            ArrayList<EntityConditionParameter> parameters = eqb.getParameters()
             StringBuilder sql = eqb.getSqlTopLevel()
             sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ")
 
-            int size = nonPkFieldList.size()
+            int size = nonPkFieldArray.length
             for (int i = 0; i < size; i++) {
-                FieldInfo fieldInfo = (FieldInfo) nonPkFieldList.get(i)
+                FieldInfo fieldInfo = (FieldInfo) nonPkFieldArray[i]
+                if (fieldInfo == null) break
                 if (i > 0) sql.append(", ")
                 sql.append(fieldInfo.fullColumnName).append("=?")
-                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
+                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb))
             }
             sql.append(" WHERE ")
-            int sizePk = pkFieldList.size()
+            int sizePk = pkFieldArray.length
             for (int i = 0; i < sizePk; i++) {
-                FieldInfo fieldInfo = (FieldInfo) pkFieldList.get(i)
+                FieldInfo fieldInfo = (FieldInfo) pkFieldArray[i]
+                if (fieldInfo == null) break
                 if (i > 0) sql.append(" AND ")
                 sql.append(fieldInfo.fullColumnName).append("=?")
-                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
+                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb))
             }
 
             try {
@@ -163,16 +165,18 @@ class EntityValueImpl extends EntityValueBase {
             throw new EntityException("Delete not implemented for view-entity")
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
+            ArrayList<EntityConditionParameter> parameters = eqb.getParameters()
             StringBuilder sql = eqb.getSqlTopLevel()
             sql.append("DELETE FROM ").append(ed.getFullTableName()).append(" WHERE ")
 
-            ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
-            int sizePk = pkFieldList.size()
+            FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray()
+            int sizePk = pkFieldArray.length
             for (int i = 0; i < sizePk; i++) {
-                FieldInfo fieldInfo = (FieldInfo) pkFieldList.get(i)
+                FieldInfo fieldInfo = (FieldInfo) pkFieldArray[i]
+                if (fieldInfo == null) break
                 if (i > 0) sql.append(" AND ")
                 sql.append(fieldInfo.fullColumnName).append("=?")
-                eqb.getParameters().add(new EntityConditionParameter(fieldInfo, getValueMap().get(fieldInfo.name), eqb))
+                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb))
             }
 
             try {
@@ -200,23 +204,24 @@ class EntityValueImpl extends EntityValueBase {
 
         // NOTE: this simple approach may not work for view-entities, but not restricting for now
 
-        ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
-        ArrayList<FieldInfo> allFieldList = ed.getAllFieldInfoList()
+        FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray()
+        FieldInfo[] allFieldArray = ed.getAllFieldInfoArray()
         // NOTE: even if there are no non-pk fields do a refresh in order to see if the record exists or not
 
         EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)
+        ArrayList<EntityConditionParameter> parameters = eqb.getParameters()
         StringBuilder sql = eqb.getSqlTopLevel()
         sql.append("SELECT ")
-        eqb.makeSqlSelectFields(allFieldList, null)
+        eqb.makeSqlSelectFields(allFieldArray, null)
 
         sql.append(" FROM ").append(ed.getFullTableName()).append(" WHERE ")
 
-        int sizePk = pkFieldList.size()
+        int sizePk = pkFieldArray.length
         for (int i = 0; i < sizePk; i++) {
-            FieldInfo fi = (FieldInfo) pkFieldList.get(i)
+            FieldInfo fi = (FieldInfo) pkFieldArray[i]
             if (i > 0) sql.append(" AND ")
             sql.append(fi.fullColumnName).append("=?")
-            eqb.getParameters().add(new EntityConditionParameter(fi, this.getValueMap().get(fi.name), eqb))
+            parameters.add(new EntityConditionParameter(fi, valueMapInternal.get(fi.name), eqb))
         }
 
         boolean retVal = false
@@ -232,10 +237,10 @@ class EntityValueImpl extends EntityValueBase {
 
             ResultSet rs = eqb.executeQuery()
             if (rs.next()) {
-                HashMap<String, Object> valueMap = getValueMap()
-                int nonPkSize = allFieldList.size()
+                HashMap<String, Object> valueMap = valueMapInternal
+                int nonPkSize = allFieldArray.length
                 for (int j = 0; j < nonPkSize; j++) {
-                    FieldInfo fi = (FieldInfo) allFieldList.get(j)
+                    FieldInfo fi = (FieldInfo) allFieldArray[j]
                     EntityJavaUtil.getResultSetValue(rs, j + 1, fi, valueMap, efi)
                 }
                 retVal = true

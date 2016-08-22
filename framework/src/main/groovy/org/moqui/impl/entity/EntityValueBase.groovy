@@ -54,7 +54,7 @@ abstract class EntityValueBase implements EntityValue {
     protected String tenantId
     // make this private so that Groovy funniness won't try to set it with something like value.entityName = "foo"
     private String entityName
-    private final HashMap<String, Object> valueMap = new HashMap<>()
+    protected final HashMap<String, Object> valueMapInternal = new HashMap<>()
 
     protected transient EntityFacadeImpl efiTransient = (EntityFacadeImpl) null
     protected transient TransactionCache txCacheInternal = (TransactionCache) null
@@ -89,13 +89,13 @@ abstract class EntityValueBase implements EntityValue {
         // NOTE2: in Groovy this results in castToType() overhead anyway, so for now use writeUTF/readUTF as other serialization might be more efficient
         out.writeUTF(entityName)
         out.writeUTF(tenantId)
-        out.writeObject(valueMap)
+        out.writeObject(valueMapInternal)
     }
     @Override
     void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         entityName = objectInput.readUTF()
         tenantId = objectInput.readUTF()
-        valueMap.putAll((Map<String, Object>) objectInput.readObject())
+        valueMapInternal.putAll((Map<String, Object>) objectInput.readObject())
     }
 
     EntityFacadeImpl getEntityFacadeImpl() {
@@ -113,7 +113,7 @@ abstract class EntityValueBase implements EntityValue {
     }
 
     // NOTE: this is no longer protected so that external add-on code can set original values from a datasource
-    HashMap<String, Object> getValueMap() { return valueMap }
+    HashMap<String, Object> getValueMap() { return valueMapInternal }
     protected Map<String, Object> getDbValueMap() { return dbValueMap }
     protected void setDbValueMap(Map<String, Object> map) { dbValueMap = map; isFromDb = true }
     // protected Map<String, Object> getOldDbValueMap() { return oldDbValueMap }
@@ -132,11 +132,11 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     boolean isFieldModified(String name) {
-        return dbValueMap != null && dbValueMap.containsKey(name) && dbValueMap.get(name) != valueMap.get(name)
+        return dbValueMap != null && dbValueMap.containsKey(name) && dbValueMap.get(name) != valueMapInternal.get(name)
     }
 
     @Override
-    boolean isFieldSet(String name) { return valueMap.containsKey(name) }
+    boolean isFieldSet(String name) { return valueMapInternal.containsKey(name) }
 
     @Override
     boolean isMutable() { return mutable }
@@ -187,13 +187,13 @@ abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = fieldInfo.ed
         String name = fieldInfo.name
         // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
-        if (fieldInfo.isSimple) return valueMap.get(name)
+        if (fieldInfo.isSimple) return valueMapInternal.get(name)
 
         // if enabled use moqui.basic.LocalizedEntityField for any localized fields
         if (fieldInfo.enableLocalization) {
             String localeStr = getEntityFacadeImpl().ecfi.getExecutionContext().getUser().getLocale()?.toString()
             if (localeStr != null) {
-                Object internalValue = valueMap.get(name)
+                Object internalValue = valueMapInternal.get(name)
 
                 boolean knownNoLocalized = false
                 if (localizedByLocaleByField == null) {
@@ -327,15 +327,15 @@ abstract class EntityValueBase implements EntityValue {
             }
         }
 
-        return valueMap.get(name)
+        return valueMapInternal.get(name)
     }
 
     @Override
-    Object getNoCheckSimple(String name) { return valueMap.get(name) }
+    Object getNoCheckSimple(String name) { return valueMapInternal.get(name) }
 
     @Override
     Object getOriginalDbValue(String name) {
-        return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMap.get(name)
+        return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMapInternal.get(name)
     }
     Object getOldDbValue(String name) {
         if (oldDbValueMap != null && oldDbValueMap.containsKey(name)) return oldDbValueMap.get(name)
@@ -344,12 +344,12 @@ abstract class EntityValueBase implements EntityValue {
 
 
     @Override
-    boolean containsPrimaryKey() { return this.getEntityDefinition().containsPrimaryKey(valueMap) }
+    boolean containsPrimaryKey() { return this.getEntityDefinition().containsPrimaryKey(valueMapInternal) }
 
     @Override
     Map<String, Object> getPrimaryKeys() {
         if (internalPkMap != null) return new HashMap<String, Object>(internalPkMap)
-        internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMap)
+        internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMapInternal)
         return new HashMap<String, Object>(internalPkMap)
     }
     boolean primaryKeyMatches(EntityValueBase evb) {
@@ -360,7 +360,7 @@ abstract class EntityValueBase implements EntityValue {
         boolean allMatch = true
         for (int i = 0; i < pkFieldsSize; i++) {
             String pkField = (String) pkFields.get(i)
-            Object thisValue = valueMap.get(pkField)
+            Object thisValue = valueMapInternal.get(pkField)
             Object thatValue = evbValue.get(pkField)
             if (thisValue == null) {
                 if (thatValue != null) { allMatch = false; break }
@@ -469,7 +469,7 @@ abstract class EntityValueBase implements EntityValue {
         String entityPrefix = (String) null
         String rawPrefix = ed.sequencePrimaryPrefix
         if (rawPrefix != null && rawPrefix.length() > 0)
-            entityPrefix = localEfi.getEcfi().getResourceFacade().expand(rawPrefix, null, valueMap)
+            entityPrefix = localEfi.getEcfi().getResourceFacade().expand(rawPrefix, null, valueMapInternal)
         String sequenceValue = localEfi.sequencedIdPrimaryEd(ed)
 
         putNoCheck((String) pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue)
@@ -554,7 +554,7 @@ abstract class EntityValueBase implements EntityValue {
     }
 
     protected int compareFields(EntityValue that, String name) {
-        Comparable thisVal = (Comparable) this.valueMap.get(name)
+        Comparable thisVal = (Comparable) this.valueMapInternal.get(name)
         Object thatVal = that.get(name)
         // NOTE: nulls go earlier in the list
         if (thisVal == null) {
@@ -568,7 +568,7 @@ abstract class EntityValueBase implements EntityValue {
     boolean mapMatches(Map<String, Object> theMap) {
         boolean matches = true
         for (Map.Entry entry in theMap.entrySet())
-            if (entry.getValue() != this.valueMap.get(entry.getKey())) { matches = false; break }
+            if (entry.getValue() != this.valueMapInternal.get(entry.getKey())) { matches = false; break }
         return matches
     }
 
@@ -576,7 +576,7 @@ abstract class EntityValueBase implements EntityValue {
     EntityValue createOrUpdate() {
         boolean pkModified = false
         if (isFromDb) {
-            pkModified = (getEntityDefinition().getPrimaryKeys(this.valueMap) == getEntityDefinition().getPrimaryKeys(this.dbValueMap))
+            pkModified = (getEntityDefinition().getPrimaryKeys(this.valueMapInternal) == getEntityDefinition().getPrimaryKeys(this.dbValueMap))
         } else {
             // make sure PK fields with defaults are filled in BEFORE doing the refresh to see if it exists
             checkSetFieldDefaults(getEntityDefinition(), getEntityFacadeImpl().getEcfi().getExecutionContext(), true)
@@ -609,7 +609,7 @@ abstract class EntityValueBase implements EntityValue {
                 String fieldName = fieldInfo.name
 
                 // is there a new value? if not continue
-                if (!this.valueMap.containsKey(fieldName)) continue
+                if (!this.valueMapInternal.containsKey(fieldName)) continue
 
                 Object value = get(fieldName)
                 Object oldValue = oldValues?.get(fieldName)
@@ -671,7 +671,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<String, Object>()
-        for (Map.Entry<String, String> entry in keyMap.entrySet()) condMap.put(entry.getValue(), valueMap.get(entry.getKey()))
+        for (Map.Entry<String, String> entry in keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()))
         if (byAndFields != null && byAndFields.size() > 0) condMap.putAll(byAndFields)
 
         EntityFind find = getEntityFacadeImpl().find(relatedEntityName)
@@ -693,7 +693,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map condMap = new HashMap()
-        for (Map.Entry entry in keyMap.entrySet()) condMap.put(entry.getValue(), valueMap.get(entry.getKey()))
+        for (Map.Entry entry in keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()))
 
         // logger.warn("========== findRelatedOne ${relInfo.relationshipName} keyMap=${keyMap}, condMap=${condMap}")
 
@@ -723,7 +723,7 @@ abstract class EntityValueBase implements EntityValue {
 
                     // make a Map where the key is the related entity's field name, and the value is the value from this entity
                     for (Map.Entry entry in keyMap.entrySet())
-                        newValue.set((String) entry.getValue(), valueMap.get(entry.getKey()))
+                        newValue.set((String) entry.getValue(), valueMapInternal.get(entry.getKey()))
 
                     if (newValue.containsPrimaryKey()) newValue.create()
                 } else {
@@ -901,7 +901,7 @@ abstract class EntityValueBase implements EntityValue {
     }
 
     protected Map<String, Object> internalPlainValueMap(int dependentLevels, Set<String> parentPkFields) {
-        Map<String, Object> vMap = StupidUtilities.removeNullsFromMap(new HashMap(valueMap))
+        Map<String, Object> vMap = StupidUtilities.removeNullsFromMap(new HashMap(valueMapInternal))
         if (parentPkFields != null) for (String pkField in parentPkFields) vMap.remove(pkField)
         EntityDefinition ed = getEntityDefinition()
         vMap.put('_entity', ed.getShortAlias() ?: ed.getFullEntityName())
@@ -943,7 +943,7 @@ abstract class EntityValueBase implements EntityValue {
     }
 
     protected Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields) {
-        Map<String, Object> vMap = StupidUtilities.removeNullsFromMap(new HashMap(valueMap))
+        Map<String, Object> vMap = StupidUtilities.removeNullsFromMap(new HashMap(valueMapInternal))
         if (parentPkFields != null) for (String pkField in parentPkFields) vMap.remove(pkField)
         EntityDefinition ed = getEntityDefinition()
         vMap.put('_entity', ed.getShortAlias() ?: ed.getFullEntityName())
@@ -986,13 +986,13 @@ abstract class EntityValueBase implements EntityValue {
     // ========== Map Interface Methods ==========
 
     @Override
-    int size() { return valueMap.size() }
+    int size() { return valueMapInternal.size() }
 
     @Override
-    boolean isEmpty() { return valueMap.isEmpty() }
+    boolean isEmpty() { return valueMapInternal.isEmpty() }
 
     @Override
-    boolean containsKey(Object o) { return o instanceof CharSequence ? valueMap.containsKey(o.toString()) : false }
+    boolean containsKey(Object o) { return o instanceof CharSequence ? valueMapInternal.containsKey(o.toString()) : false }
 
     @Override
     boolean containsValue(Object o) { return values().contains(o) }
@@ -1018,7 +1018,7 @@ abstract class EntityValueBase implements EntityValue {
         if (!mutable) throw new EntityException("Cannot set field [${name}], this entity value is not mutable (it is read-only)")
         Object curValue = null
         if (isFromDb) {
-            curValue = valueMap.get(name)
+            curValue = valueMapInternal.get(name)
             if (curValue != value) {
                 modified = true
                 if (curValue != null) {
@@ -1029,14 +1029,14 @@ abstract class EntityValueBase implements EntityValue {
         } else {
             modified = true
         }
-        valueMap.put(name, value)
+        valueMapInternal.put(name, value)
         return curValue
     }
 
     @Override
     Object remove(Object o) {
-        if (valueMap.containsKey(o)) modified = true
-        return valueMap.remove(o)
+        if (valueMapInternal.containsKey(o)) modified = true
+        return valueMapInternal.remove(o)
     }
 
     @Override
@@ -1047,7 +1047,7 @@ abstract class EntityValueBase implements EntityValue {
     }
 
     @Override
-    void clear() { valueMap.clear() }
+    void clear() { valueMapInternal.clear() }
 
     @Override
     Set<String> keySet() {
@@ -1114,11 +1114,11 @@ abstract class EntityValueBase implements EntityValue {
     @Override
     public int hashCode() {
         // NOTE: consider caching the hash code in the future for performance
-        return entityName.hashCode() + valueMap.hashCode()
+        return entityName.hashCode() + valueMapInternal.hashCode()
     }
 
     @Override
-    String toString() { return "[${entityName}: ${valueMap}]" }
+    String toString() { return "[${entityName}: ${valueMapInternal}]" }
 
     @Override
     public Object clone() { return this.cloneValue() }
@@ -1155,17 +1155,17 @@ abstract class EntityValueBase implements EntityValue {
     }
     protected void checkSetDefault(String fieldName, String defaultStr, ExecutionContext ec) {
         Object curVal = null
-        if (valueMap.containsKey(fieldName)) {
-            curVal = valueMap.get(fieldName)
+        if (valueMapInternal.containsKey(fieldName)) {
+            curVal = valueMapInternal.get(fieldName)
         } else if (dbValueMap != null) {
             curVal = dbValueMap.get(fieldName)
         }
         if (StupidJavaUtilities.isEmpty(curVal)) {
             if (dbValueMap != null) ec.getContext().push(dbValueMap)
-            ec.getContext().push(valueMap)
+            ec.getContext().push(valueMapInternal)
             try {
                 Object newVal = ec.getResource().expression(defaultStr, "")
-                if (newVal != null) valueMap.put(fieldName, newVal)
+                if (newVal != null) valueMapInternal.put(fieldName, newVal)
             } finally {
                 ec.getContext().pop()
             }
@@ -1189,12 +1189,12 @@ abstract class EntityValueBase implements EntityValue {
 
         // set lastUpdatedStamp
         Long lastUpdatedLong = ecfi.getTransactionFacade().getCurrentTransactionStartTime() ?: System.currentTimeMillis()
-        if (ed.isField("lastUpdatedStamp") && valueMap.get("lastUpdatedStamp") == null)
-            this.set("lastUpdatedStamp", new Timestamp(lastUpdatedLong))
+        if (ed.isField("lastUpdatedStamp") && valueMapInternal.get("lastUpdatedStamp") == null)
+            valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong))
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE).setParameters(valueMap)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE).setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipCreate())
 
         try {
@@ -1202,7 +1202,7 @@ abstract class EntityValueBase implements EntityValue {
             efi.runEecaRules(ed.getFullEntityName(), this, "create", true)
 
             // do this before the db change so modified flag isn't cleared
-            if (doDataFeed()) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMap, null)
+            if (doDataFeed()) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMapInternal, null)
 
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
             TransactionCache curTxCache = getTxCache(ecfi)
@@ -1227,20 +1227,24 @@ abstract class EntityValueBase implements EntityValue {
     }
     void basicCreate(Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
-        ArrayList<FieldInfo> fieldList = new ArrayList<FieldInfo>()
-        ArrayList<FieldInfo> allFieldList = ed.getAllFieldInfoList()
-        int size = allFieldList.size()
+        FieldInfo[] allFieldArray = ed.getAllFieldInfoArray()
+        FieldInfo[] fieldArray = new FieldInfo[allFieldArray.length]
+        int size = allFieldArray.length
+        int fieldArrayIndex = 0
         for (int i = 0; i < size; i++) {
-            FieldInfo fi = (FieldInfo) allFieldList.get(i)
-            if (valueMap.containsKey(fi.name)) fieldList.add(fi)
+            FieldInfo fi = (FieldInfo) allFieldArray[i]
+            if (valueMapInternal.containsKey(fi.name)) {
+                fieldArray[fieldArrayIndex] = fi
+                fieldArrayIndex++
+            }
         }
 
-        basicCreate(fieldList, con, ec)
+        basicCreate(fieldArray, con, ec)
     }
-    void basicCreate(ArrayList<FieldInfo> fieldInfoList, Connection con, ExecutionContextImpl ec) {
+    void basicCreate(FieldInfo[] fieldInfoArray, Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
 
-        this.createExtended(fieldInfoList, con)
+        this.createExtended(fieldInfoArray, con)
 
         // create records for the UserFields
         ListOrderedSet userFieldNameList = ed.getUserFieldNames()
@@ -1264,8 +1268,9 @@ abstract class EntityValueBase implements EntityValue {
             }
         }
     }
-    /** This method should create a corresponding record in the datasource. */
-    abstract void createExtended(ArrayList<FieldInfo> fieldInfoList, Connection con)
+    /** This method should create a corresponding record in the datasource. NOTE: fieldInfoArray may have null values
+     * after valid ones, the length is not the actual number of fields. */
+    abstract void createExtended(FieldInfo[] fieldInfoArray, Connection con)
 
     @Override
     EntityValue update() {
@@ -1311,31 +1316,33 @@ abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE).setParameters(valueMap)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE).setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue())
 
         try {
             // run EECA before rules
             efi.runEecaRules(ed.getFullEntityName(), this, "update", true)
 
-            ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
-            ArrayList<FieldInfo> nonPkFieldList = new ArrayList<FieldInfo>()
+            FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray()
             Set<String> nonPkFieldNameSet = new HashSet<>()
-            ArrayList<FieldInfo> allNonPkFieldList = ed.getNonPkFieldInfoList()
+            FieldInfo[] allNonPkFieldArray = ed.getNonPkFieldInfoArray()
+            FieldInfo[] nonPkFieldArray = new FieldInfo[allNonPkFieldArray.length]
             List<String> changedCreateOnlyFields = []
-            int size = allNonPkFieldList.size()
+            int size = allNonPkFieldArray.length
+            int nonPkFieldArrayIndex = 0
             for (int i = 0; i < size; i++) {
-                FieldInfo fieldInfo = (FieldInfo) allNonPkFieldList.get(i)
+                FieldInfo fieldInfo = (FieldInfo) allNonPkFieldArray[i]
                 String fieldName = fieldInfo.name
-                if (valueMap.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
-                        valueMap.get(fieldName) != dbValueMap.get(fieldName))) {
-                    nonPkFieldList.add(fieldInfo)
+                if (valueMapInternal.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
+                        valueMapInternal.get(fieldName) != dbValueMap.get(fieldName))) {
+                    nonPkFieldArray[nonPkFieldArrayIndex] = fieldInfo
+                    nonPkFieldArrayIndex++
                     nonPkFieldNameSet.add(fieldName)
                     if (createOnlyAny && fieldInfo.createOnly) changedCreateOnlyFields.add(fieldName)
                 }
             }
             // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
-            if (nonPkFieldList.size() == 0) {
+            if (nonPkFieldArrayIndex == 0) {
                 if (logger.isTraceEnabled()) logger.trace((String) "Not doing update on entity with no populated non-PK fields; entity=" + this.toString())
                 return this
             }
@@ -1346,25 +1353,28 @@ abstract class EntityValueBase implements EntityValue {
             }
 
             // check optimistic lock with lastUpdatedStamp; if optimisticLock() dbValueMap will have latest from DB
-            if (optimisticLock && valueMap.get("lastUpdatedStamp") != dbValueMap.get("lastUpdatedStamp")) {
-                throw new EntityException("This record was updated by someone else at [${valueMap.get("lastUpdatedStamp")}] which was after the version you loaded at [${dbValueMap.get("lastUpdatedStamp")}]. Not updating to avoid overwriting data.")
+            if (optimisticLock && valueMapInternal.get("lastUpdatedStamp") != dbValueMap.get("lastUpdatedStamp")) {
+                throw new EntityException("This record was updated by someone else at [${valueMapInternal.get("lastUpdatedStamp")}] which was after the version you loaded at [${dbValueMap.get("lastUpdatedStamp")}]. Not updating to avoid overwriting data.")
             }
 
             // set lastUpdatedStamp
             FieldInfo lastUpdatedStampInfo = ed.getFieldInfo("lastUpdatedStamp")
             if (lastUpdatedStampInfo != null) {
                 long lastUpdatedLong = ecfi.getTransactionFacade().getCurrentTransactionStartTime() ?: System.currentTimeMillis()
-                this.set("lastUpdatedStamp", new Timestamp(lastUpdatedLong))
-                if (!nonPkFieldNameSet.contains("lastUpdatedStamp")) nonPkFieldList.add(lastUpdatedStampInfo)
+                valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong))
+                if (!nonPkFieldNameSet.contains("lastUpdatedStamp")) {
+                    nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo
+                    nonPkFieldArrayIndex++
+                }
             }
 
             // do this before the db change so modified flag isn't cleared
-            if (curDataFeed) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMap, originalValues)
+            if (curDataFeed) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMapInternal, originalValues)
 
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
             if (curTxCache == null || !curTxCache.update(this)) {
                 // no TX cache update, etc: ready to do actual update
-                this.basicUpdate(pkFieldList, nonPkFieldList, (Connection) null, ec)
+                this.basicUpdate(pkFieldArray, nonPkFieldArray, (Connection) null, ec)
             }
 
             // clear the entity cache
@@ -1392,26 +1402,27 @@ abstract class EntityValueBase implements EntityValue {
         if (dbValueMap) for (Object val in dbValueMap.values()) if (val != null) { dbValueMapFromDb = true; break }
         */
 
-        ArrayList<FieldInfo> pkFieldList = ed.getPkFieldInfoList()
-        ArrayList<FieldInfo> nonPkFieldList = new ArrayList<FieldInfo>()
-        ArrayList<FieldInfo> allNonPkFieldList = ed.getNonPkFieldInfoList()
-        int size = allNonPkFieldList.size()
+        FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray()
+        FieldInfo[] allNonPkFieldArray = ed.getNonPkFieldInfoArray()
+        FieldInfo[] nonPkFieldArray = new FieldInfo[allNonPkFieldArray.length]
+        int size = allNonPkFieldArray.length
+        int nonPkFieldArrayIndex = 0
         for (int i = 0; i < size; i++) {
-            FieldInfo fi = (FieldInfo) allNonPkFieldList.get(i)
+            FieldInfo fi = (FieldInfo) allNonPkFieldArray[i]
             String fieldName = fi.name
-            if (valueMap.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
-                    valueMap.get(fieldName) != dbValueMap.get(fieldName))) {
-                nonPkFieldList.add(fi)
+            if (valueMapInternal.containsKey(fieldName) && (dbValueMap == null || !dbValueMap.containsKey(fieldName) ||
+                    valueMapInternal.get(fieldName) != dbValueMap.get(fieldName))) {
+                nonPkFieldArray[nonPkFieldArrayIndex] = fi
+                nonPkFieldArrayIndex++
             }
         }
-
-        basicUpdate(pkFieldList, nonPkFieldList, con, ec)
+        basicUpdate(pkFieldArray, nonPkFieldArray, con, ec)
     }
-    void basicUpdate(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con, ExecutionContextImpl ec) {
+    void basicUpdate(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDefinition()
 
         // call abstract method
-        this.updateExtended(pkFieldList, nonPkFieldList, con)
+        this.updateExtended(pkFieldArray, nonPkFieldArray, con)
 
         // create or update records for the UserFields
         ListOrderedSet userFieldNameList = ed.getUserFieldNames()
@@ -1430,8 +1441,8 @@ abstract class EntityValueBase implements EntityValue {
 
                 for (String ufName in userFieldNameList) {
                     // if the field hasn't been updated, skip it
-                    if (!(valueMap.containsKey(ufName) && (dbValueMap == null || !dbValueMap.containsKey(ufName) ||
-                            valueMap.get(ufName) != dbValueMap?.get(ufName)))) {
+                    if (!(valueMapInternal.containsKey(ufName) && (dbValueMap == null || !dbValueMap.containsKey(ufName) ||
+                            valueMapInternal.get(ufName) != dbValueMap?.get(ufName)))) {
                         continue
                     }
 
@@ -1458,7 +1469,9 @@ abstract class EntityValueBase implements EntityValue {
             }
         }
     }
-    abstract void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con)
+    /** This method should update the corresponding record in the datasource. NOTE: fieldInfoArray may have null values
+     * after valid ones, the length is not the actual number of fields. */
+    abstract void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con)
 
     @Override
     EntityValue delete() {
@@ -1477,7 +1490,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE).setParameters(valueMap)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE).setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue())
 
         try {
@@ -1550,7 +1563,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("refresh").setParameters(valueMap)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("refresh").setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipView())
 
         boolean retVal = false
@@ -1588,9 +1601,9 @@ abstract class EntityValueBase implements EntityValue {
         public DeletedEntityValue(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip); }
         @Override EntityValue cloneValue() { return this }
         @Override EntityValue cloneDbValue(boolean getOld) { return this }
-        @Override void createExtended(ArrayList<FieldInfo> fieldInfoList, Connection con) {
+        @Override void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
             throw new UnsupportedOperationException("Not implemented on DeletedEntityValue") }
-        @Override void updateExtended(ArrayList<FieldInfo> pkFieldList, ArrayList<FieldInfo> nonPkFieldList, Connection con) {
+        @Override void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
             throw new UnsupportedOperationException("Not implemented on DeletedEntityValue") }
         @Override void deleteExtended(Connection con) {
             throw new UnsupportedOperationException("Not implemented on DeletedEntityValue") }

@@ -14,22 +14,15 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.entity.EntityException
+import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
-import org.moqui.util.MNode
+import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
 
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.SQLException
-
-import javax.crypto.Cipher
-import javax.crypto.SecretKey
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.PBEParameterSpec
-import javax.crypto.spec.PBEKeySpec
-import org.apache.commons.codec.binary.Hex
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -45,8 +38,8 @@ class EntityQueryBuilder {
     protected final static int sqlInitSize = 500
     protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize)
     protected String finalSql = (String) null
-    protected final static int parametersInitSize = 10
-    protected ArrayList<EntityJavaUtil.EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
+    protected final static int parametersInitSize = 20
+    protected ArrayList<EntityConditionParameter> parameters = new ArrayList(parametersInitSize)
 
     protected PreparedStatement ps = (PreparedStatement) null
     protected ResultSet rs = (ResultSet) null
@@ -64,7 +57,7 @@ class EntityQueryBuilder {
     StringBuilder getSqlTopLevel() { return sqlTopLevelInternal }
 
     /** returns List of EntityConditionParameter meant to be added to */
-    ArrayList<EntityJavaUtil.EntityConditionParameter> getParameters() { return parameters }
+    ArrayList<EntityConditionParameter> getParameters() { return parameters }
 
     Connection makeConnection() {
         connection = efi.getConnection(mainEntityDefinition.getEntityGroupName())
@@ -176,19 +169,19 @@ class EntityQueryBuilder {
 
     void setPreparedStatementValues() {
         // set all of the values from the SQL building in efb
-        ArrayList<EntityJavaUtil.EntityConditionParameter> parms = parameters
+        ArrayList<EntityConditionParameter> parms = parameters
         int size = parms.size()
         for (int i = 0; i < size; i++) {
-            EntityJavaUtil.EntityConditionParameter entityConditionParam = (EntityJavaUtil.EntityConditionParameter) parms.get(i)
+            EntityConditionParameter entityConditionParam = (EntityConditionParameter) parms.get(i)
             entityConditionParam.setPreparedStatementValue(i + 1)
         }
     }
 
-    void makeSqlSelectFields(ArrayList<FieldInfo> fieldInfoList, ArrayList<EntityJavaUtil.FieldOrderOptions> fieldOptionsList) {
+    void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
         boolean checkUserFields = mainEntityDefinition.allowUserField
-        int size = fieldInfoList.size()
+        int size = fieldInfoArray.length
         if (size > 0) {
-            if (fieldOptionsList == null && mainEntityDefinition.getAllFieldInfoList().size() == size) {
+            if (fieldOptionsArray == null && mainEntityDefinition.getAllFieldInfoList().size() == size) {
                 String allFieldsSelect = mainEntityDefinition.allFieldsSqlSelect
                 if (allFieldsSelect != null) {
                     sqlTopLevelInternal.append(mainEntityDefinition.allFieldsSqlSelect)
@@ -197,14 +190,15 @@ class EntityQueryBuilder {
             }
 
             for (int i = 0; i < size; i++) {
-                FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
+                FieldInfo fi = (FieldInfo) fieldInfoArray[i]
+                if (fi == null) break
                 if (fi.isUserField && !checkUserFields) continue
 
                 if (i > 0) sqlTopLevelInternal.append(", ")
 
                 boolean appendCloseParen = false
-                if (fieldOptionsList != null) {
-                    EntityJavaUtil.FieldOrderOptions foo = (EntityJavaUtil.FieldOrderOptions) fieldOptionsList.get(i)
+                if (fieldOptionsArray != null) {
+                    FieldOrderOptions foo = (FieldOrderOptions) fieldOptionsArray[i]
                     if (foo != null && foo.caseUpperLower != null && fi.typeValue == 1) {
                         sqlTopLevelInternal.append(foo.caseUpperLower ? "UPPER(" : "LOWER(")
                         appendCloseParen = true

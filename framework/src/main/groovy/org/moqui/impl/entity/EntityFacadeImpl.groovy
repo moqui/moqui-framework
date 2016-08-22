@@ -23,6 +23,7 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.util.MNode
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
@@ -1358,11 +1359,13 @@ class EntityFacadeImpl implements EntityFacade {
         Connection con = getConnection(getEntityGroupName(entityName))
         PreparedStatement ps
         try {
-            ArrayList<EntityJavaUtil.FieldInfo> fiList = new ArrayList<>()
+            FieldInfo[] fiArray = new FieldInfo[fieldList.size()]
+            int fiArrayIndex = 0
             for (String fieldName in fieldList) {
-                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+                FieldInfo fi = ed.getFieldInfo(fieldName)
                 if (fi == null) throw new IllegalArgumentException("Field ${fieldName} not found for entity ${entityName}")
-                fiList.add(fi)
+                fiArray[fiArrayIndex] = fi
+                fiArrayIndex++
             }
 
             // create the PreparedStatement
@@ -1370,7 +1373,7 @@ class EntityFacadeImpl implements EntityFacade {
             // set the parameter values
             int paramIndex = 1
             for (Object parameterValue in sqlParameterList) {
-                EntityJavaUtil.FieldInfo fi = (EntityJavaUtil.FieldInfo) fiList.get(paramIndex - 1)
+                FieldInfo fi = (FieldInfo) fiArray[paramIndex - 1]
                 EntityJavaUtil.setPreparedStatementValue(ps, paramIndex, parameterValue, fi, ed, this)
                 paramIndex++
             }
@@ -1379,7 +1382,7 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiList, this, null)
+            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiArray, this, null)
             return eli
         } catch (SQLException e) {
             throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)

@@ -65,6 +65,9 @@ public class EntityDefinition {
     protected final ArrayList<FieldInfo> pkFieldInfoList = new ArrayList<>()
     protected final ArrayList<FieldInfo> nonPkFieldInfoList = new ArrayList<>()
     protected final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<>()
+    protected final FieldInfo[] pkFieldInfoArray
+    protected final FieldInfo[] nonPkFieldInfoArray
+    protected final FieldInfo[] allFieldInfoArray
     protected final String allFieldsSqlSelect
     protected Boolean hasUserFields = null
     protected boolean allowUserField = false
@@ -144,7 +147,20 @@ public class EntityDefinition {
 
         hasFunctionAliasVal = isView && internalEntityNode.children("alias").find({ it.attribute("function") })
 
-        for (int i = 0; i < allFieldInfoList.size(); i++) if (allFieldInfoList.get(i).createOnly) createOnlyFields = true
+        // init the FieldInfo arrays and see if we have create only fields
+        int allFieldInfoSize = allFieldInfoList.size()
+        allFieldInfoArray = new FieldInfo[allFieldInfoSize]
+        for (int i = 0; i < allFieldInfoSize; i++) {
+            FieldInfo fi = (FieldInfo) allFieldInfoList.get(i)
+            allFieldInfoArray[i] = fi
+            if (fi.createOnly) createOnlyFields = true
+        }
+        pkFieldInfoArray = new FieldInfo[pkFieldInfoList.size()]
+        pkFieldInfoList.toArray(pkFieldInfoArray)
+        nonPkFieldInfoArray = new FieldInfo[nonPkFieldInfoList.size()]
+        nonPkFieldInfoList.toArray(nonPkFieldInfoArray)
+
+        // init allFieldsSqlSelect
         if (isView) {
             allFieldsSqlSelect = (String) null
         } else {
@@ -389,6 +405,9 @@ public class EntityDefinition {
     ArrayList<FieldInfo> getPkFieldInfoList() { return pkFieldInfoList }
     ArrayList<FieldInfo> getNonPkFieldInfoList() { return nonPkFieldInfoList }
     ArrayList<FieldInfo> getAllFieldInfoList() { return allFieldInfoList }
+    FieldInfo[] getPkFieldInfoArray() { return pkFieldInfoArray }
+    FieldInfo[] getNonPkFieldInfoArray() { return nonPkFieldInfoArray }
+    FieldInfo[] getAllFieldInfoArray() { return allFieldInfoArray }
 
     /** Make a EntityJavaUtil.FieldInfo object, is in Java for most efficient access (values used a LOT), init here for
      * access to all EntityDefinition and other info */
@@ -1527,11 +1546,14 @@ public class EntityDefinition {
 
     Map cloneMapRemoveFields(Map theMap, Boolean pks) {
         Map newMap = new LinkedHashMap(theMap)
-        ArrayList<String> fieldNameList = (pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames())
-        int size = fieldNameList.size()
+        //ArrayList<String> fieldNameList = (pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames())
+        FieldInfo[] fieldInfoArray = pks == null ? getAllFieldInfoArray() :
+                (pks == Boolean.TRUE ? getPkFieldInfoArray() : getNonPkFieldInfoArray())
+        int size = fieldInfoArray.length
         for (int i = 0; i < size; i++) {
-            String fieldName = fieldNameList.get(i)
-            if (newMap.containsKey(fieldName)) newMap.remove(fieldName)
+            String fieldName = fieldInfoArray[i]
+            // no need to check before remove: if (newMap.containsKey(fieldName))
+            newMap.remove(fieldName)
         }
         return newMap
     }
@@ -1598,13 +1620,13 @@ public class EntityDefinition {
         ExecutionContextImpl eci = efi.ecfi.getEci()
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
-        // ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
-        ArrayList<FieldInfo> fieldInfoList = pks == null ? getAllFieldInfoList() :
-                (pks == Boolean.TRUE ? getPkFieldInfoList() : getNonPkFieldInfoList())
+        // was: ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
+        FieldInfo[] fieldInfoArray = pks == null ? getAllFieldInfoArray() :
+                (pks == Boolean.TRUE ? getPkFieldInfoArray() : getNonPkFieldInfoArray())
         // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
-        int size = fieldInfoList.size()
+        int size = fieldInfoArray.length
         for (int i = 0; i < size; i++) {
-            FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
+            FieldInfo fi = (FieldInfo) fieldInfoArray[i]
             String fieldName = fi.name
 
             Object value = srcIsEntityValueBase? evb.getValueMap().get(fieldName) : src.get(fieldName)

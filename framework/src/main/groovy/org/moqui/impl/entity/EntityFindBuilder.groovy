@@ -71,7 +71,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
     void makeDistinct() { sqlTopLevelInternal.append("DISTINCT ") }
 
-    void makeCountFunction(ArrayList<FieldInfo> fieldInfoList) {
+    void makeCountFunction(FieldInfo[] fieldInfoArray) {
         ArrayList<MNode> entityConditionList = this.mainEntityDefinition.getEntityNode().children("entity-condition")
         MNode entityConditionNode = entityConditionList ? entityConditionList.get(0) : null
         boolean isDistinct = this.entityFindBase.getDistinct() || (this.mainEntityDefinition.isViewEntity() &&
@@ -89,15 +89,16 @@ class EntityFindBuilder extends EntityQueryBuilder {
              * some cases it seems to cause the "COUNT(DISTINCT " to appear twice, causing an attempt to try to count
              * a count (function="count-distinct", distinct=true in find options)
              */
-            if (fieldInfoList.size() > 0) {
+            if (fieldInfoArray.length > 0) {
                 // TODO: possible to do all fields selected, or only one in SQL? if do all col names here it will blow up...
-                MNode aliasNode = fieldInfoList.get(0).fieldNode
+                FieldInfo fi = (FieldInfo) fieldInfoArray[0]
+                MNode aliasNode = fi.fieldNode
                 if (aliasNode != null && aliasNode.attribute('function')) {
                     // if the field has a function already we don't want to count just it, would be meaningless
                     sqlTopLevelInternal.append("COUNT(DISTINCT *) ")
                 } else {
                     sqlTopLevelInternal.append("COUNT(DISTINCT ")
-                    sqlTopLevelInternal.append(fieldInfoList.get(0).fullColumnName)
+                    sqlTopLevelInternal.append(fi.fullColumnName)
                     sqlTopLevelInternal.append(")")
                 }
             } else {
@@ -132,10 +133,10 @@ class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    void makeSqlFromClause(ArrayList<FieldInfo> fieldInfoList) {
-        makeSqlFromClause(mainEntityDefinition, fieldInfoList, sqlTopLevelInternal, null)
+    void makeSqlFromClause(FieldInfo[] fieldInfoArray) {
+        makeSqlFromClause(mainEntityDefinition, fieldInfoArray, sqlTopLevelInternal, null)
     }
-    void makeSqlFromClause(EntityDefinition localEntityDefinition, ArrayList<FieldInfo> fieldInfoList,
+    void makeSqlFromClause(EntityDefinition localEntityDefinition, FieldInfo[] fieldInfoArray,
                            StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ")
 
@@ -165,8 +166,9 @@ class EntityFindBuilder extends EntityQueryBuilder {
             if (entityFindBase.havingEntityCondition != null)
                 ((EntityConditionImplBase) entityFindBase.havingEntityCondition).getAllAliases(entityAliasUsedSet, fieldUsedSet)
 
-            for (int i = 0; i < fieldInfoList.size(); i++) {
-                FieldInfo fi = (FieldInfo) fieldInfoList.get(i)
+            for (int i = 0; i < fieldInfoArray.length; i++) {
+                FieldInfo fi = (FieldInfo) fieldInfoArray[i]
+                if (fi == null) break
                 if (!fi.isUserField) fieldUsedSet.add(fi.name)
             }
 
@@ -240,7 +242,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
                 if (isFirst) {
                     // first link, add link entity for this one only, for others add related link entity
-                    makeSqlViewTableName(linkEntityDefinition, fieldInfoList, localBuilder)
+                    makeSqlViewTableName(linkEntityDefinition, fieldInfoArray, localBuilder)
                     localBuilder.append(" ").append(joinFromAlias)
 
                     joinedAliasSet.add(joinFromAlias)
@@ -262,7 +264,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                     localBuilder.append(" INNER JOIN ")
                 }
 
-                makeSqlViewTableName(relatedLinkEntityDefinition, fieldInfoList, localBuilder)
+                makeSqlViewTableName(relatedLinkEntityDefinition, fieldInfoArray, localBuilder)
                 localBuilder.append(" ").append(entityAlias).append(" ON ")
 
                 ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map")
@@ -322,7 +324,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
                 EntityDefinition fromEntityDefinition = efi.getEntityDefinition(memberEntity.attribute('entity-name'))
                 if (fromEmpty) fromEmpty = false else localBuilder.append(", ")
-                makeSqlViewTableName(fromEntityDefinition, fieldInfoList, localBuilder)
+                makeSqlViewTableName(fromEntityDefinition, fieldInfoArray, localBuilder)
                 localBuilder.append(" ").append(memberEntityAlias)
             }
         } else {
@@ -333,7 +335,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
     /* void makeSqlViewTableName(StringBuilder localBuilder) {
         makeSqlViewTableName(this.mainEntityDefinition, localBuilder)
     } */
-    void makeSqlViewTableName(EntityDefinition localEntityDefinition, ArrayList<FieldInfo> fieldInfoList, StringBuilder localBuilder) {
+    void makeSqlViewTableName(EntityDefinition localEntityDefinition, FieldInfo[] fieldInfoArray, StringBuilder localBuilder) {
         if (localEntityDefinition.isViewEntity()) {
             localBuilder.append("(SELECT ")
 
@@ -352,7 +354,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 //localBuilder.append(sanitizeColumnName(localEntityDefinition.getColumnName((String) aliasNode.attribute('name'), false)))
             }
 
-            makeSqlFromClause(localEntityDefinition, fieldInfoList, localBuilder, additionalFieldsUsed)
+            makeSqlFromClause(localEntityDefinition, fieldInfoArray, localBuilder, additionalFieldsUsed)
 
 
             StringBuilder gbClause = new StringBuilder()
@@ -380,7 +382,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
         sqlTopLevelInternal.append(" WHERE ")
     }
 
-    void makeGroupByClause(ArrayList<FieldInfo> fieldInfoList) {
+    void makeGroupByClause(FieldInfo[] fieldInfoArray) {
         if (this.mainEntityDefinition.isViewEntity()) {
             StringBuilder gbClause = new StringBuilder()
             if (this.mainEntityDefinition.hasFunctionAlias()) {
@@ -389,7 +391,10 @@ class EntityFindBuilder extends EntityQueryBuilder {
                     if (!aliasNode.attribute('function')) {
                         String aliasName = aliasNode.attribute('name')
                         boolean foundField = false
-                        for (int i = 0; i < fieldInfoList.size(); i++) if (fieldInfoList.get(i).name == aliasName) foundField = true
+                        for (int i = 0; i < fieldInfoArray.length; i++) {
+                            FieldInfo fi = (FieldInfo) fieldInfoArray[i]
+                            if (fi != null && fi.name.equals(aliasName)) foundField = true
+                        }
                         if (foundField) {
                             if (gbClause) gbClause.append(", ")
                             gbClause.append(this.mainEntityDefinition.getColumnName((String) aliasNode.attribute('name'), false))

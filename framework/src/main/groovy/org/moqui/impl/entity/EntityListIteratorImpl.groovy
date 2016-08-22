@@ -53,14 +53,13 @@ class EntityListIteratorImpl implements EntityListIterator {
     protected boolean closed = false
 
     EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition,
-                           ArrayList<FieldInfo> fieldInfoList, EntityFacadeImpl efi, TransactionCache txCache) {
+                           FieldInfo[] fieldInfoArray, EntityFacadeImpl efi, TransactionCache txCache) {
         this.efi = efi
         this.con = con
         this.rs = rs
         this.entityDefinition = entityDefinition
-        fieldInfoListSize = fieldInfoList.size()
-        fieldInfoArray = new FieldInfo[fieldInfoListSize]
-        for (int i = 0; i < fieldInfoListSize; i++) fieldInfoArray[i] = (FieldInfo) fieldInfoList.get(i)
+        fieldInfoListSize = fieldInfoArray.length
+        this.fieldInfoArray = fieldInfoArray
         this.txCache = txCache
     }
 
@@ -137,6 +136,7 @@ class EntityListIteratorImpl implements EntityListIterator {
         boolean checkUserFields = entityDefinition.allowUserField
         for (int i = 0; i < fieldInfoListSize; i++) {
             FieldInfo fi = (FieldInfo) fieldInfoArray[i]
+            if (fi == null) break
             if (fi.isUserField && !checkUserFields) continue
             EntityJavaUtil.getResultSetValue(rs, i+1, fi, valueMap, efi)
         }
