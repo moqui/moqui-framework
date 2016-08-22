@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity;
 
-import groovy.transform.CompileStatic;
 import org.moqui.entity.EntityDynamicView;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityListIterator;
@@ -30,7 +29,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-@CompileStatic
 public class EntityFindImpl extends EntityFindBase {
     public EntityFindImpl(EntityFacadeImpl efi, String entityName) {
         super(efi, entityName);
@@ -103,7 +101,9 @@ public class EntityFindImpl extends EntityFindBase {
         } catch (SQLException e) {
             throw new EntityException("Error finding value", e);
         } finally {
-            efb.closeAll();
+            try { efb.closeAll(); }
+            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                throw new EntityException("Error finding value", sqle); }
         }
 
 
@@ -167,10 +167,14 @@ public class EntityFindImpl extends EntityFindBase {
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll();
         } catch (EntityException e) {
-            efb.closeAll();
+            try { efb.closeAll(); }
+            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                throw new EntityException("Error in find", sqle); }
             throw e;
         } catch (Throwable t) {
-            efb.closeAll();
+            try { efb.closeAll(); }
+            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                throw new EntityException("Error finding value", sqle); }
             throw new EntityException("Error in find", t);
         }
 
@@ -227,7 +231,9 @@ public class EntityFindImpl extends EntityFindBase {
         } catch (SQLException e) {
             throw new EntityException("Error finding count", e);
         } finally {
-            efb.closeAll();
+            try { efb.closeAll(); }
+            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                throw new EntityException("Error finding value", sqle); }
         }
 
 

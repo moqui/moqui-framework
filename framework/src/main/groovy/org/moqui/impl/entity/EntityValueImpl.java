@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -103,9 +104,11 @@ public class EntityValueImpl extends EntityValueBase {
                 eqb.executeUpdate();
                 setSyncedWithDb();
             } catch (Exception e) {
-                throw new EntityException("Error in create of [" + this.toString() + "]", e);
+                throw new EntityException("Error in create of " + this.toString(), e);
             } finally {
-                eqb.closeAll();
+                try { eqb.closeAll(); }
+                catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                    throw new EntityException("Error in create of " + this.toString(), sqle); }
             }
 
         }
@@ -165,7 +168,9 @@ public class EntityValueImpl extends EntityValueBase {
                 } catch (Exception txe) { logger.warn("Error getting transaction name: " + txe.toString()); }
                 throw new EntityException("Error in update of " + this.toString() + " in tenant " + efi.getTenantId() + " tx " + txName + " con " + eqb.connection.toString(), e);
             } finally {
-                eqb.closeAll();
+                try { eqb.closeAll(); }
+                catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                    throw new EntityException("Error in update of " + this.toString(), sqle); }
             }
 
         }
@@ -205,11 +210,13 @@ public class EntityValueImpl extends EntityValueBase {
                 eqb.makePreparedStatement();
                 eqb.setPreparedStatementValues();
                 if (eqb.executeUpdate() == 0)
-                    logger.info("Tried to delete a value that does not exist [" + this.toString() + "]");
+                    logger.info("Tried to delete a value that does not exist " + this.toString());
             } catch (Exception e) {
-                throw new EntityException("Error in delete of [" + this.toString() + "]", e);
+                throw new EntityException("Error in delete of " + this.toString(), e);
             } finally {
-                eqb.closeAll();
+                try { eqb.closeAll(); }
+                catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                    throw new EntityException("Error in delete of " + this.toString(), sqle); }
             }
 
         }
@@ -276,9 +283,11 @@ public class EntityValueImpl extends EntityValueBase {
             }
 
         } catch (Exception e) {
-            throw new EntityException("Error in refresh of [" + this.toString() + "]", e);
+            throw new EntityException("Error in refresh of " + this.toString(), e);
         } finally {
-            eqb.closeAll();
+            try { eqb.closeAll(); }
+            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
+                throw new EntityException("Error in refresh of " + this.toString(), sqle); }
         }
 
 
