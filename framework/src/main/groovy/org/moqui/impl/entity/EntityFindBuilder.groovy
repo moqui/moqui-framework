@@ -280,7 +280,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
 
                     localBuilder.append(joinFromAlias).append(".")
                     // NOTE: sanitizeColumnName caused issues elsewhere, eliminate here too since we're not using AS clauses
-                    localBuilder.append(linkEntityDefinition.getColumnName(keyMap.attribute('field-name'), false))
+                    localBuilder.append(linkEntityDefinition.getColumnName(keyMap.attribute('field-name')))
                     // localBuilder.append(sanitizeColumnName(linkEntityDefinition.getColumnName((String) keyMap.attribute('field-name'), false)))
 
                     localBuilder.append(" = ")
@@ -294,7 +294,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                     }
                     localBuilder.append(entityAlias)
                     localBuilder.append(".")
-                    localBuilder.append(relatedLinkEntityDefinition.getColumnName(relatedFieldName, false))
+                    localBuilder.append(relatedLinkEntityDefinition.getColumnName(relatedFieldName))
                     // NOTE: sanitizeColumnName here breaks the generated SQL, in the case of a view within a view we want EAO.EAI.COL_NAME...
                     // localBuilder.append(sanitizeColumnName(relatedLinkEntityDefinition.getColumnName(relatedFieldName, false)))
                 }
@@ -348,7 +348,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 localFieldsToSelect.add((String) aliasNode.attribute('name'))
                 additionalFieldsUsed.add((String) aliasNode.attribute('field') ?: (String) aliasNode.attribute('name'))
                 if (isFirst) isFirst = false else localBuilder.append(", ")
-                localBuilder.append(localEntityDefinition.getColumnName((String) aliasNode.attribute('name'), true))
+                localBuilder.append(localEntityDefinition.getColumnName((String) aliasNode.attribute('name')))
                 // TODO: are the next two lines really needed? have removed AS stuff elsewhere since it is not commonly used and not needed
                 //localBuilder.append(" AS ")
                 //localBuilder.append(sanitizeColumnName(localEntityDefinition.getColumnName((String) aliasNode.attribute('name'), false)))
@@ -363,7 +363,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
                 for (MNode aliasNode in localEntityDefinition.getEntityNode().children("alias")) {
                     if (localFieldsToSelect.contains(aliasNode.attribute('name')) && !aliasNode.attribute('function')) {
                         if (gbClause) gbClause.append(", ")
-                        gbClause.append(localEntityDefinition.getColumnName((String) aliasNode.attribute('name'), false))
+                        gbClause.append(localEntityDefinition.getColumnName((String) aliasNode.attribute('name')))
                     }
                 }
             }
@@ -383,29 +383,31 @@ class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     void makeGroupByClause(FieldInfo[] fieldInfoArray) {
-        if (this.mainEntityDefinition.isViewEntity()) {
-            StringBuilder gbClause = new StringBuilder()
-            if (this.mainEntityDefinition.hasFunctionAlias()) {
-                // do a different approach to GROUP BY: add all fields that are selected and don't have a function
-                for (MNode aliasNode in this.mainEntityDefinition.getEntityNode().children("alias")) {
-                    if (!aliasNode.attribute('function')) {
-                        String aliasName = aliasNode.attribute('name')
-                        boolean foundField = false
-                        for (int i = 0; i < fieldInfoArray.length; i++) {
-                            FieldInfo fi = (FieldInfo) fieldInfoArray[i]
-                            if (fi != null && fi.name.equals(aliasName)) foundField = true
+        if (!this.mainEntityDefinition.isViewEntity()) return
+        StringBuilder gbClause = new StringBuilder()
+        if (this.mainEntityDefinition.hasFunctionAlias()) {
+            // do a different approach to GROUP BY: add all fields that are selected and don't have a function
+            for (MNode aliasNode in this.mainEntityDefinition.getEntityNode().children("alias")) {
+                if (!aliasNode.attribute('function')) {
+                    String aliasName = aliasNode.attribute('name')
+                    FieldInfo foundFi = (FieldInfo) null
+                    for (int i = 0; i < fieldInfoArray.length; i++) {
+                        FieldInfo fi = (FieldInfo) fieldInfoArray[i]
+                        if (fi != null && fi.name.equals(aliasName)) {
+                            foundFi = fi
+                            break
                         }
-                        if (foundField) {
-                            if (gbClause) gbClause.append(", ")
-                            gbClause.append(this.mainEntityDefinition.getColumnName((String) aliasNode.attribute('name'), false))
-                        }
+                    }
+                    if (foundFi != null) {
+                        if (gbClause) gbClause.append(", ")
+                        gbClause.append(foundFi.getFullColumnName())
                     }
                 }
             }
-            if (gbClause) {
-                sqlTopLevelInternal.append(" GROUP BY ")
-                sqlTopLevelInternal.append(gbClause.toString())
-            }
+        }
+        if (gbClause) {
+            sqlTopLevelInternal.append(" GROUP BY ")
+            sqlTopLevelInternal.append(gbClause.toString())
         }
     }
 

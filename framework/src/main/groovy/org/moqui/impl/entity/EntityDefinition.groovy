@@ -784,7 +784,7 @@ public class EntityDefinition {
         return prettyName.toString()
     }
 
-    String getColumnName(String fieldName, boolean includeFunctionAndComplex) {
+    String getColumnName(String fieldName) {
         FieldInfo fieldInfo = this.getFieldInfo(fieldName)
         if (fieldInfo == null) {
             throw new EntityException("Invalid field-name [${fieldName}] for the [${this.getFullEntityName()}] entity")
@@ -796,7 +796,7 @@ public class EntityDefinition {
         MNode memberEntity = memberEntityAliasMap.get(entityAlias)
         if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias [${entityAlias}] in view-entity [${getFullEntityName()}]")
         EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-        return memberEd.getColumnName(fieldName, false)
+        return memberEd.getColumnName(fieldName)
     }
 
     protected String makeFullColumnName(MNode fieldNode) {

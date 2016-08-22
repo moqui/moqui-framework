@@ -60,7 +60,7 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         // NOTE: this could have issues with view-entities as member entities where they have functions/etc; we may
         // have to pass the prefix in to have it added inside functions/etc
         colName.append(entityAlias).append('.');
-        colName.append(getAliasEntityDef(ed).getColumnName(fieldName, false));
+        colName.append(getAliasEntityDef(ed).getColumnName(fieldName));
         return colName.toString();
     }
 

@@ -14,11 +14,10 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
+import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.util.MNode
 
-import java.sql.SQLException
 import java.sql.Connection
 import java.sql.Statement
 import java.sql.DatabaseMetaData
@@ -53,7 +52,6 @@ class EntityDbMeta {
         // entityTablesChecked = efi.ecfi.cacheFacade.getCache("entity.${efi.tenantId}.tables.checked")
     }
 
-    @CompileStatic
     void checkTableRuntime(EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
         Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
@@ -87,7 +85,6 @@ class EntityDbMeta {
         }
     }
 
-    @CompileStatic
     void forceCheckTableRuntime(EntityDefinition ed) {
         entityTablesChecked.remove(ed.getFullEntityName())
         checkTableRuntime(ed)
@@ -101,7 +98,6 @@ class EntityDbMeta {
         }
     }
 
-    @CompileStatic
     synchronized void internalCheckTable(EntityDefinition ed, boolean startup) {
         // if it's in this table we've already checked it
         if (entityTablesChecked.containsKey(ed.getFullEntityName())) return
@@ -130,7 +126,6 @@ class EntityDbMeta {
         if (logger.isTraceEnabled()) logger.trace("Checked table for entity [${ed.getFullEntityName()}] in ${(System.currentTimeMillis()-startTime)/1000} seconds")
     }
 
-    @CompileStatic
     boolean tableExists(EntityDefinition ed) {
         Boolean exists = entityTablesExist.get(ed.getFullEntityName())
         if (exists != null) return exists.booleanValue()
@@ -205,12 +200,14 @@ class EntityDbMeta {
 
         StringBuilder sql = new StringBuilder("CREATE TABLE ").append(ed.getFullTableName()).append(" (")
 
-        for (String fieldName in ed.getFieldNames(true, true, false)) {
-            MNode fieldNode = ed.getFieldNode(fieldName)
-            String sqlType = efi.getFieldSqlType(fieldNode.attribute("type"), ed)
-            String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
+        FieldInfo[] allFieldInfoArray = ed.getAllFieldInfoArray()
+        for (int i = 0; i < allFieldInfoArray.length; i++) {
+            FieldInfo fi = (FieldInfo) allFieldInfoArray[i]
+            MNode fieldNode = fi.fieldNode
+            String sqlType = efi.getFieldSqlType(fi.type, ed)
+            String javaType = fi.javaType
 
-            sql.append(ed.getColumnName(fieldName, false)).append(" ").append(sqlType)
+            sql.append(fi.getFullColumnName()).append(" ").append(sqlType)
 
             if ("String" == javaType || "java.lang.String" == javaType) {
                 if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
@@ -233,10 +230,12 @@ class EntityDbMeta {
             sql.append(pkName)
         }
         sql.append(" PRIMARY KEY (")
-        boolean isFirstPk = true
-        for (String pkName in ed.getPkFieldNames()) {
-            if (isFirstPk) isFirstPk = false else sql.append(", ")
-            sql.append(ed.getColumnName(pkName, false))
+
+        FieldInfo[] pkFieldInfoArray = ed.getPkFieldInfoArray()
+        for (int i = 0; i < pkFieldInfoArray.length; i++) {
+            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+            if (i > 0) sql.append(", ")
+            sql.append(fi.getFullColumnName())
         }
         sql.append("))")
 
@@ -275,7 +274,7 @@ class EntityDbMeta {
             while (colSet1.next()) {
                 String colName = colSet1.getString("COLUMN_NAME")
                 for (String fn in fnSet) {
-                    String fieldColName = ed.getColumnName(fn, false)
+                    String fieldColName = ed.getColumnName(fn)
                     if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
                         fnSet.remove(fn)
                         break
@@ -293,7 +292,7 @@ class EntityDbMeta {
                 while (colSet2.next()) {
                     String colName = colSet2.getString("COLUMN_NAME")
                     for (String fn in fnSet) {
-                        String fieldColName = ed.getColumnName(fn, false)
+                        String fieldColName = ed.getColumnName(fn)
                         if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
                             fnSet.remove(fn)
                             break
@@ -333,7 +332,7 @@ class EntityDbMeta {
         String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
 
         StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName())
-        String colName = ed.getColumnName(fieldName, false)
+        String colName = ed.getColumnName(fieldName)
         // NOTE: if any databases need "ADD COLUMN" instead of just "ADD", change this to try both or based on config
         sql.append(" ADD ").append(colName).append(" ").append(sqlType)
 
@@ -372,7 +371,7 @@ class EntityDbMeta {
             boolean isFirst = true
             for (MNode indexFieldNode in indexNode.children("index-field")) {
                 if (isFirst) isFirst = false else sql.append(", ")
-                sql.append(ed.getColumnName(indexFieldNode.attribute("name"), false))
+                sql.append(ed.getColumnName(indexFieldNode.attribute("name")))
             }
             sql.append(")")
 
@@ -433,7 +432,7 @@ class EntityDbMeta {
             boolean isFirst = true
             for (String fieldName in keyMap.keySet()) {
                 if (isFirst) isFirst = false else sql.append(", ")
-                sql.append(ed.getColumnName(fieldName, false))
+                sql.append(ed.getColumnName(fieldName))
             }
             sql.append(")")
 
@@ -476,7 +475,7 @@ class EntityDbMeta {
                 String fkCol = ikSet1.getString("FKCOLUMN_NAME")
                 fkColsFound.add(fkCol)
                 for (String fn in fieldNames) {
-                    String fnColName = ed.getColumnName(fn, false)
+                    String fnColName = ed.getColumnName(fn)
                     if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
                         fieldNames.remove(fn)
                         break
@@ -493,7 +492,7 @@ class EntityDbMeta {
                     String fkCol = ikSet2.getString("FKCOLUMN_NAME")
                     fkColsFound.add(fkCol)
                     for (String fn in fieldNames) {
-                        String fnColName = ed.getColumnName(fn, false)
+                        String fnColName = ed.getColumnName(fn)
                         if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
                             fieldNames.remove(fn)
                             break
@@ -579,7 +578,7 @@ class EntityDbMeta {
                 boolean isFirst = true
                 for (String fieldName in keyMapKeys) {
                     if (isFirst) isFirst = false else sql.append(", ")
-                    sql.append(ed.getColumnName(fieldName, false))
+                    sql.append(ed.getColumnName(fieldName))
                 }
                 sql.append(")")
             } else {
@@ -589,7 +588,7 @@ class EntityDbMeta {
                 boolean isFirst = true
                 for (String fieldName in keyMapKeys) {
                     if (isFirst) isFirst = false else sql.append(", ")
-                    sql.append(ed.getColumnName(fieldName, false))
+                    sql.append(ed.getColumnName(fieldName))
                 }
                 sql.append(")");
             }
@@ -597,7 +596,7 @@ class EntityDbMeta {
             boolean isFirst = true
             for (String keyName in keyMapKeys) {
                 if (isFirst) isFirst = false else sql.append(", ")
-                sql.append(relEd.getColumnName((String) keyMap.get(keyName), false))
+                sql.append(relEd.getColumnName((String) keyMap.get(keyName)))
             }
             sql.append(")")
             if (databaseNode.attribute("use-fk-initially-deferred") == "true") {
