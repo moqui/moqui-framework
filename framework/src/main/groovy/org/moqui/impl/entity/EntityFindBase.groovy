@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
@@ -685,9 +686,8 @@ abstract class EntityFindBase implements EntityFind {
         if (havingEntityCondition != null) return false
         if (limit != null || offset != null) return false
         boolean useCacheLocal = useCache != null ? useCache.booleanValue() : false
-        if (!useCacheLocal) return false
-        String entityCache = this.getEntityDef().getUseCache()
-        return (useCacheLocal && !"never".equals(entityCache)) || "true".equals(entityCache)
+        EntityDefinition ed = getEntityDef()
+        return (useCacheLocal && !ed.neverCache()) || "true".equals(ed.getUseCache())
     }
 
     @Override
