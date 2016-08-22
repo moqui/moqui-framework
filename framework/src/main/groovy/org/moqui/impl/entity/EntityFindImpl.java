@@ -118,7 +118,7 @@ public class EntityFindImpl extends EntityFindBase {
 
         // table doesn't exist, just return empty ELI
         if (!ed.tableExistsDbMetaOnly())
-            return new EntityListIteratorWrapper(new ArrayList<EntityValue>(), ed, fieldsToSelect, getEfi());
+            return new EntityListIteratorWrapper(new ArrayList<EntityValue>(), ed, getEfi());
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
         if (getDistinct()) efb.makeDistinct();
