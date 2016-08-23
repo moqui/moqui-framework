@@ -247,6 +247,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     int getStatus() {
+        if (ut == null) return Status.STATUS_NO_TRANSACTION
         try {
             return ut.getStatus()
         } catch (SystemException e) {

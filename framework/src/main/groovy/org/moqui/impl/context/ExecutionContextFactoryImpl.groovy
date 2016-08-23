@@ -595,6 +595,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         activeContext.remove()
     }
+    @Override
+    boolean isDestroyed() { return destroyed }
 
     @Override
     protected void finalize() throws Throwable {
@@ -714,7 +716,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         efi = new EntityFacadeImpl(this, tenantId)
         this.entityFacadeByTenantMap.put(tenantId, efi)
-        logger.info("Moqui EntityFacadeImpl for Tenant ${tenantId} Initialized")
+        logger.info("Entity Facade for tenant ${tenantId} initialized")
         return efi
     }
 
