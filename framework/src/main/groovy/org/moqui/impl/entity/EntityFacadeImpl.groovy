@@ -773,11 +773,17 @@ class EntityFacadeImpl implements EntityFacade {
             try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
             if (ed == null) continue
+            String edEntityName = ed.entityName
+            String edFullEntityName = ed.fullEntityName
             List<String> pkSet = ed.getPkFieldNames()
-            for (MNode relNode in ed.entityNode.children("relationship")) {
+            ArrayList<MNode> relationshipList = ed.entityNode.children("relationship")
+            int relationshipListSize = relationshipList.size()
+            for (int rlIndex = 0; rlIndex < relationshipListSize; rlIndex++) {
+                MNode relNode = (MNode) relationshipList.get(rlIndex)
                 // don't create reverse for auto reference relationships
-                if (relNode.attribute('is-auto-reverse') == "true") continue
-                String relatedEntityName = (String) relNode.attribute("related") ?: relNode.attribute("related-entity-name")
+                if ("true".equals(relNode.attribute("is-auto-reverse"))) continue
+                String relatedEntityName = relNode.attribute("related")
+                if (relatedEntityName == null || relatedEntityName.length() == 0) relatedEntityName = relNode.attribute("related-entity-name")
                 // don't create reverse relationships coming back to the same entity, since it will have the same title
                 //     it would create multiple relationships with the same name
                 if (entityName == relatedEntityName) continue
@@ -797,14 +803,27 @@ class EntityFacadeImpl implements EntityFacade {
                 List<String> reversePkSet = reverseEd.getPkFieldNames()
                 String relType = reversePkSet.equals(pkSet) ? "one-nofk" : "many"
                 String title = relNode.attribute('title')
+                boolean hasTitle = title != null && title.length() > 0
 
                 // does a relationship coming back already exist?
-                MNode reverseRelNode = reverseEd.entityNode.children("relationship").find( {
-                        String itRelated = it.attribute('related') ?: it.attribute('related-entity-name')
-                        return (itRelated == ed.entityName || itRelated == ed.fullEntityName) &&
-                            ((!title && !it.attribute('title')) || it.attribute('title') == title); } )
+                boolean foundReverse = false
+                ArrayList<MNode> reverseRelList = reverseEd.entityNode.children("relationship")
+                int reverseRelListSize = reverseRelList.size()
+                for (int i = 0; i < reverseRelListSize; i++) {
+                    MNode reverseRelNode = (MNode) reverseRelList.get(i)
+                    String related = reverseRelNode.attribute("related")
+                    if (related == null || related.length() == 0) related = reverseRelNode.attribute("related-entity-name")
+                    if (!edEntityName.equals(related) && !edFullEntityName.equals(related)) continue
+                    String reverseTitle = reverseRelNode.attribute("title")
+                    if (hasTitle) {
+                        if (!title.equals(reverseTitle)) continue
+                    } else {
+                        if (reverseTitle != null && reverseTitle.length() > 0) continue
+                    }
+                    foundReverse = true
+                }
                 // NOTE: removed "it."@type" == relType && ", if there is already any relationship coming back don't create the reverse
-                if (reverseRelNode != null) {
+                if (foundReverse) {
                     // NOTE DEJ 20150314 Just track auto-reverse, not one-reverse
                     // make sure has is-one-reverse="true"
                     // reverseRelNode.attributes().put("is-one-reverse", "true")
@@ -812,14 +831,14 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 // track the fact that the related entity has others pointing back to it, unless original relationship is type many (doesn't qualify)
-                if (!ed.isViewEntity() && relNode.attribute("type") != "many") reverseEd.entityNode.attributes.put("has-dependents", "true")
+                if (!ed.isViewEntity() && !"many".equals(relNode.attribute("type"))) reverseEd.entityNode.attributes.put("has-dependents", "true")
 
                 // create a new reverse-many relationship
                 Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd)
 
                 MNode newRelNode = reverseEd.entityNode.append("relationship",
-                        ["related":ed.fullEntityName, "type":relType, "is-auto-reverse":"true", "mutable":"true"])
-                if (relNode.attribute('title')) newRelNode.attributes.title = title
+                        ["related":edFullEntityName, "type":relType, "is-auto-reverse":"true", "mutable":"true"])
+                if (hasTitle) newRelNode.attributes.put("title", title)
                 for (Map.Entry<String, String> keyEntry in keyMap) {
                     // add a key-map with the reverse fields
                     newRelNode.append("key-map", ["field-name":keyEntry.value, "related":keyEntry.key])
