@@ -108,8 +108,8 @@ public class MNode {
     private final String nodeName;
     private final Map<String, String> attributeMap = new LinkedHashMap<>();
     private MNode parentNode = null;
-    private final ArrayList<MNode> childList = new ArrayList<>();
-    private final Map<String, ArrayList<MNode>> childrenByName = new HashMap<>();
+    private ArrayList<MNode> childList = null;
+    private HashMap<String, ArrayList<MNode>> childrenByName = null;
     private String childText = null;
     protected long lastModified = 0;
     private boolean systemExpandAttributes = false;
@@ -145,7 +145,10 @@ public class MNode {
         nodeName = name;
         if (attributes != null) attributeMap.putAll(attributes);
         parentNode = parent;
-        if (children != null) childList.addAll(children);
+        if (children != null && children.size() > 0) {
+            childList = new ArrayList<>();
+            childList.addAll(children);
+        }
         if (text != null && text.trim().length() > 0) childText = text;
     }
     public MNode(String name, Map<String, String> attributes) {
@@ -176,8 +179,13 @@ public class MNode {
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
 
     public MNode getParent() { return parentNode; }
-    public ArrayList<MNode> getChildren() { return childList; }
+    public ArrayList<MNode> getChildren() {
+        if (childList == null) childList = new ArrayList<>();
+        return childList;
+    }
     public ArrayList<MNode> children(String name) {
+        if (childList == null) childList = new ArrayList<>();
+        if (childrenByName == null) childrenByName = new HashMap<>();
         if (name == null) return childList;
         ArrayList<MNode> curList = childrenByName.get(name);
         if (curList != null) return curList;
@@ -193,6 +201,7 @@ public class MNode {
     }
     public ArrayList<MNode> children(Closure<Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
+        if (childList == null) return curList;
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
@@ -201,9 +210,12 @@ public class MNode {
         return curList;
     }
     public boolean hasChild(String name) {
+        if (childList == null) return false;
         if (name == null) return false;
-        ArrayList<MNode> curList = childrenByName.get(name);
-        if (curList != null && curList.size() > 0) return true;
+        if (childrenByName != null) {
+            ArrayList<MNode> curList = childrenByName.get(name);
+            if (curList != null && curList.size() > 0) return true;
+        }
 
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
@@ -217,7 +229,11 @@ public class MNode {
 
     public Map<String, ArrayList<MNode>> getChildrenByName() {
         Map<String, ArrayList<MNode>> allByName = new HashMap<>();
+        if (childList == null) return allByName;
         int childListSize = childList.size();
+        if (childListSize == 0) return allByName;
+        if (childrenByName == null) childrenByName = new HashMap<>();
+
         ArrayList<String> newChildNames = new ArrayList<>();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
@@ -255,6 +271,8 @@ public class MNode {
         return nodes;
     }
     private void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
+        if (childList == null) return;
+
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
             MNode curChild = childList.get(i);
@@ -265,6 +283,23 @@ public class MNode {
             curChild.descendantsInternal(names, nodes);
         }
     }
+    public ArrayList<MNode> descendants(String name) {
+        ArrayList<MNode> nodes = new ArrayList<>();
+        descendantsInternal(name, nodes);
+        return nodes;
+    }
+    private void descendantsInternal(String name, ArrayList<MNode> nodes) {
+        if (childList == null) return;
+
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (name == null || name.equals(curChild.nodeName)) {
+                nodes.add(curChild);
+            }
+            curChild.descendantsInternal(name, nodes);
+        }
+    }
 
     public ArrayList<MNode> depthFirst(Closure<Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
@@ -272,6 +307,8 @@ public class MNode {
         return curList;
     }
     private void depthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
+        if (childList == null) return;
+
         int childListSize = childList.size();
         // all grand-children first
         for (int i = 0; i < childListSize; i++) {
@@ -290,6 +327,8 @@ public class MNode {
         return curList;
     }
     private void breadthFirstInternal(Closure<Boolean> condition, ArrayList<MNode> curList) {
+        if (childList == null) return;
+
         int childListSize = childList.size();
         // direct children first
         for (int i = 0; i < childListSize; i++) {
@@ -304,9 +343,13 @@ public class MNode {
     }
 
     /** Get the first child node */
-    public MNode first() { return childList.size() > 0 ? childList.get(0) : null; }
+    public MNode first() {
+        if (childList == null) return null;
+        return childList.size() > 0 ? childList.get(0) : null;
+    }
     /** Get the first child node with the given name */
     public MNode first(String name) {
+        if (childList == null) return null;
         if (name == null) return first();
 
         ArrayList<MNode> nameChildren = children(name);
@@ -323,6 +366,7 @@ public class MNode {
         */
     }
     public MNode first(Closure<Boolean> condition) {
+        if (childList == null) return null;
         if (condition == null) return first();
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
@@ -332,6 +376,7 @@ public class MNode {
         return null;
     }
     public int firstIndex(Closure<Boolean> condition) {
+        if (childList == null) return -1;
         if (condition == null) return childList.size() - 1;
         int childListSize = childList.size();
         for (int i = 0; i < childListSize; i++) {
@@ -345,10 +390,15 @@ public class MNode {
 
     public MNode deepCopy(MNode parent) {
         MNode newNode = new MNode(nodeName, attributeMap, parent, null, childText);
-        int childListSize = childList.size();
-        for (int i = 0; i < childListSize; i++) {
-            MNode curChild = childList.get(i);
-            newNode.childList.add(curChild.deepCopy(newNode));
+        if (childList != null) {
+            int childListSize = childList.size();
+            if (childListSize > 0) {
+                newNode.childList = new ArrayList<>();
+                for (int i = 0; i < childListSize; i++) {
+                    MNode curChild = childList.get(i);
+                    newNode.childList.add(curChild.deepCopy(newNode));
+                }
+            }
         }
         // if ("entity".equals(nodeName)) logger.info("Original MNode:\n" + this.toString() + "\n Clone MNode:\n" + newNode.toString());
         return newNode;
@@ -357,39 +407,42 @@ public class MNode {
     /* ========== Child Modify Methods ========== */
 
     public void append(MNode child) {
-        childrenByName.remove(child.nodeName);
+        if (childrenByName != null) childrenByName.remove(child.nodeName);
+        if (childList == null) childList = new ArrayList<>();
         childList.add(child);
         child.parentNode = this;
     }
     public MNode append(Node child) {
         MNode newNode = new MNode(child);
-        childrenByName.remove(newNode.nodeName);
-        childList.add(newNode);
-        newNode.parentNode = this;
+        append(newNode);
         return newNode;
     }
     public MNode append(String name, Map<String, String> attributes, List<MNode> children, String text) {
-        childrenByName.remove(name);
         MNode newNode = new MNode(name, attributes, this, children, text);
-        childList.add(newNode);
+        append(newNode);
         return newNode;
     }
     public MNode append(String name, Map<String, String> attributes) {
-        childrenByName.remove(name);
         MNode newNode = new MNode(name, attributes, this, null, null);
-        childList.add(newNode);
+        append(newNode);
         return newNode;
     }
     public MNode replace(int index, String name, Map<String, String> attributes) {
-        childrenByName.remove(name);
+        if (childList == null || childList.size() < index)
+            throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
         MNode newNode = new MNode(name, attributes, this, null, null);
         childList.set(index, newNode);
         return newNode;
     }
 
-    public void remove(int index) { childList.remove(index); }
+    public void remove(int index) {
+        if (childList == null || childList.size() < index)
+            throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
+        childList.remove(index);
+    }
     public boolean remove(String name) {
-        childrenByName.remove(name);
+        if (childrenByName != null) childrenByName.remove(name);
+        if (childList == null) return false;
         boolean removed = false;
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
@@ -403,11 +456,12 @@ public class MNode {
         return removed;
     }
     public boolean remove(Closure<Boolean> condition) {
+        if (childList == null) return false;
         boolean removed = false;
         for (int i = 0; i < childList.size(); ) {
             MNode curChild = childList.get(i);
             if (condition.call(curChild)) {
-                childrenByName.remove(curChild.nodeName);
+                if (childrenByName != null) childrenByName.remove(curChild.nodeName);
                 childList.remove(i);
                 removed = true;
             } else {
@@ -426,33 +480,38 @@ public class MNode {
      */
     public void mergeSingleChild(MNode overrideNode, String childNodeName) {
         MNode childOverrideNode = overrideNode.first(childNodeName);
-        if (childOverrideNode != null) {
-            MNode childBaseNode = first(childNodeName);
-            if (childBaseNode != null) {
-                childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
-                if (childOverrideNode.childList.size() > 0) {
+        if (childOverrideNode == null) return;
+
+        MNode childBaseNode = first(childNodeName);
+        if (childBaseNode != null) {
+            childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
+            if (childOverrideNode.childList != null && childOverrideNode.childList.size() > 0) {
+                if (childBaseNode.childList != null) {
                     childBaseNode.childList.clear();
-                    ArrayList<MNode> conChildList = childOverrideNode.childList;
-                    int conChildListSize = conChildList.size();
-                    for (int i = 0; i < conChildListSize; i++) {
-                        MNode grandchild = conChildList.get(i);
-                        childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
-                    }
+                } else {
+                    childBaseNode.childList = new ArrayList<>();
                 }
-            } else {
-                childList.add(childOverrideNode.deepCopy(this));
+                ArrayList<MNode> conChildList = childOverrideNode.childList;
+                int conChildListSize = conChildList.size();
+                for (int i = 0; i < conChildListSize; i++) {
+                    MNode grandchild = conChildList.get(i);
+                    childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
+                }
             }
+        } else {
+            if (childList == null) childList = new ArrayList<>();
+            childList.add(childOverrideNode.deepCopy(this));
         }
     }
 
     public void mergeChildWithChildKey(MNode overrideNode, String childName, String grandchildName, String keyAttributeName, Closure grandchildMerger) {
-        MNode baseChildNode = first(childName);
         MNode overrideChildNode = overrideNode.first(childName);
         if (overrideChildNode == null) return;
-
+        MNode baseChildNode = first(childName);
         if (baseChildNode != null) {
             baseChildNode.mergeNodeWithChildKey(overrideChildNode, grandchildName, keyAttributeName, grandchildMerger);
         } else {
+            if (childList == null) childList = new ArrayList<>();
             childList.add(overrideChildNode.deepCopy(this));
         }
     }
@@ -477,6 +536,7 @@ public class MNode {
         if (overrideNode == null) throw new IllegalArgumentException("No overrideNode specified in call to mergeChildrenByKey");
         if (childNodesName == null || childNodesName.length() == 0) throw new IllegalArgumentException("No childNodesName specified in call to mergeChildrenByKey");
 
+        if (childList == null) childList = new ArrayList<>();
         ArrayList<MNode> overrideChildren = overrideNode.children(childNodesName);
         int overrideChildrenSize = overrideChildren.size();
         for (int curOc = 0; curOc < overrideChildrenSize; curOc++) {
@@ -502,9 +562,13 @@ public class MNode {
                     childMerger.call(childBaseNode, childOverrideNode);
                 } else {
                     // do the default child merge: remove current nodes children and replace with a copy of the override node's children
-                    childBaseNode.childList.clear();
+                    if (childBaseNode.childList != null) {
+                        childBaseNode.childList.clear();
+                    } else {
+                        childBaseNode.childList = new ArrayList<>();
+                    }
                     ArrayList<MNode> conChildList = childOverrideNode.childList;
-                    int conChildListSize = conChildList.size();
+                    int conChildListSize = conChildList != null ? conChildList.size() : 0;
                     for (int i = 0; i < conChildListSize; i++) {
                         MNode grandchild = conChildList.get(i);
                         childBaseNode.childList.add(grandchild.deepCopy(childBaseNode));
@@ -531,10 +595,10 @@ public class MNode {
         sb.append('<').append(nodeName);
         for (Map.Entry<String, String> entry : attributeMap.entrySet())
             sb.append(' ').append(entry.getKey()).append("=\"").append(entry.getValue()).append("\"");
-        if ((childText != null && childText.length() > 0) || childList.size() > 0) {
+        if ((childText != null && childText.length() > 0) || (childList != null && childList.size() > 0)) {
             sb.append(">");
             if (childText != null) sb.append("<![CDATA[").append(childText).append("]]>");
-            if (childList.size() > 0) {
+            if (childList != null && childList.size() > 0) {
                 for (MNode child : childList) {
                     sb.append('\n');
                     child.addToSb(sb, level + 1);
