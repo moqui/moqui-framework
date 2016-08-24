@@ -91,13 +91,14 @@ dependencies {
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
 
     // cron-utils
-    compile 'com.cronutils:cron-utils:4.1.1' // Apache 2.0
+    compile 'com.cronutils:cron-utils:5.0.0' // Apache 2.0
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
     providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
 
-    // Guava (big but used cron-utils, ElasticSearch, by OWASP Java HTML Sanitizer, may use internally in framework too)
+    // Guava (big but used by ElasticSearch, OWASP Java HTML Sanitizer, may use internally in framework too)
+    // NOTE: may no longer be used by ElasticSearch, no longer used by cron-utils, just OWASP Java HTML Sanitizer?
     compile 'com.google.guava:guava:19.0' // Apache 2.0
 
     // Java Specifications
@@ -121,9 +122,10 @@ dependencies {
     compile 'org.eclipse.jetty:jetty-client:9.3.11.v20160721' // Apache 2.0
 
     // javax.mail
-    compile 'com.sun.mail:javax.mail:1.5.5' // CDDL
+    compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
 
     // Joda
+    // TODO: cron-utils no longer depends on this, change Moqui/Mantle code using it to Java 8 java.time and remove
     compile 'joda-time:joda-time:2.9.4' // Apache 2.0
     compile 'org.joda:joda-convert:1.8.1' // Apache 2.0
 
