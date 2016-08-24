@@ -681,13 +681,17 @@ abstract class EntityFindBase implements EntityFind {
         return entityDef
     }
 
-    public boolean shouldCache() {
+    boolean shouldCache() {
         if (dynamicView != null) return false
         if (havingEntityCondition != null) return false
         if (limit != null || offset != null) return false
-        boolean useCacheLocal = useCache != null ? useCache.booleanValue() : false
-        EntityDefinition ed = getEntityDef()
-        return (useCacheLocal && !ed.neverCache()) || "true".equals(ed.getUseCache())
+        if (useCache != null) {
+            boolean useCacheLocal = useCache.booleanValue()
+            if (!useCacheLocal) return false
+            return !getEntityDef().neverCache()
+        } else {
+            return "true".equals(getEntityDef().getUseCache())
+        }
     }
 
     @Override
