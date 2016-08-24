@@ -1707,26 +1707,52 @@ public class EntityDefinition {
 
     protected void expandAliasAlls() {
         if (!isViewEntity()) return
-        for (MNode aliasAll in this.internalEntityNode.children("alias-all")) {
-            MNode memberEntity = memberEntityAliasMap.get(aliasAll.attribute("entity-alias"))
+        Set<String> existingAliasNames = new HashSet<>()
+        ArrayList<MNode> aliasList = internalEntityNode.children("alias")
+        int aliasListSize = aliasList.size()
+        for (int i = 0; i < aliasListSize; i++) {
+            MNode aliasNode = (MNode) aliasList.get(i)
+            existingAliasNames.add(aliasNode.attribute("name"))
+        }
+
+        ArrayList<MNode> aliasAllList = internalEntityNode.children("alias-all")
+        ArrayList<MNode> memberEntityList = internalEntityNode.children("member-entity")
+        int memberEntityListSize = memberEntityList.size()
+        for (int aInd = 0; aInd < aliasAllList.size(); aInd++) {
+            MNode aliasAll = (MNode) aliasAllList.get(aInd)
+            String aliasAllEntityAlias = aliasAll.attribute("entity-alias")
+            MNode memberEntity = memberEntityAliasMap.get(aliasAllEntityAlias)
             if (memberEntity == null) {
-                logger.error("In view-entity ${getFullEntityName()} in alias-all with entity-alias [${aliasAll.attribute("entity-alias")}], member-entity with same entity-alias not found, ignoring")
+                logger.error("In view-entity ${getFullEntityName()} in alias-all with entity-alias [${aliasAllEntityAlias}], member-entity with same entity-alias not found, ignoring")
                 continue
             }
 
-            EntityDefinition aliasedEntityDefinition = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
+            EntityDefinition aliasedEntityDefinition = efi.getEntityDefinition(memberEntity.attribute("entity-name"))
             if (aliasedEntityDefinition == null) {
-                logger.error("Entity [${memberEntity.attribute("entity-name")}] referred to in member-entity with entity-alias [${aliasAll.attribute("entity-alias")}] not found, ignoring")
+                logger.error("Entity [${memberEntity.attribute("entity-name")}] referred to in member-entity with entity-alias [${aliasAllEntityAlias}] not found, ignoring")
                 continue
             }
 
-            for (MNode fieldNode in aliasedEntityDefinition.getFieldNodes(true, true, false)) {
+            FieldInfo[] aliasFieldInfos = aliasedEntityDefinition.getAllFieldInfoArray()
+            for (int i = 0; i < aliasFieldInfos.length; i++) {
+                FieldInfo fi = (FieldInfo) aliasFieldInfos[i]
+                String aliasName = fi.name
                 // never auto-alias these
-                if (fieldNode.attribute("name") == "lastUpdatedStamp") continue
+                if ("lastUpdatedStamp".equals(aliasName)) continue
                 // if specified as excluded, leave it out
-                if (aliasAll.children("exclude").find({ it.attribute("field") == fieldNode.attribute("name")})) continue
+                ArrayList<MNode> excludeList = aliasAll.children("exclude")
+                int excludeListSize = excludeList.size()
+                boolean foundExclude = false
+                for (int j = 0; j < excludeListSize; j++) {
+                    MNode excludeNode = (MNode) excludeList.get(j)
+                    if (aliasName.equals(excludeNode.attribute("field"))) {
+                        foundExclude = true
+                        break
+                    }
+                }
+                if (foundExclude) continue
 
-                String aliasName = fieldNode.attribute("name")
+
                 if (aliasAll.attribute("prefix")) {
                     StringBuilder newAliasName = new StringBuilder(aliasAll.attribute("prefix"))
                     newAliasName.append(Character.toUpperCase(aliasName.charAt(0)))
@@ -1734,23 +1760,24 @@ public class EntityDefinition {
                     aliasName = newAliasName.toString()
                 }
 
-                MNode existingAliasNode = this.internalEntityNode.children('alias').find({ it.attribute("name") == aliasName })
-                if (existingAliasNode) {
+                // see if there is already an alias with this name
+                if (existingAliasNames.contains(aliasName)) {
                     //log differently if this is part of a member-entity view link key-map because that is a common case when a field will be auto-expanded multiple times
                     boolean isInViewLink = false
-                    for (MNode viewMeNode in this.internalEntityNode.children("member-entity")) {
+                    for (int j = 0; j < memberEntityListSize; j++) {
+                        MNode viewMeNode = (MNode) memberEntityList.get(j)
                         boolean isRel = false
-                        if (viewMeNode.attribute("entity-alias") == aliasAll.attribute("entity-alias")) {
+                        if (viewMeNode.attribute("entity-alias") == aliasAllEntityAlias) {
                             isRel = true
-                        } else if (viewMeNode.attribute("join-from-alias") != aliasAll.attribute("entity-alias")) {
+                        } else if (viewMeNode.attribute("join-from-alias") != aliasAllEntityAlias) {
                             // not the rel-entity-alias or the entity-alias, so move along
                             continue;
                         }
                         for (MNode keyMap in viewMeNode.children("key-map")) {
-                            if (!isRel && keyMap.attribute("field-name") == fieldNode.attribute("name")) {
+                            if (!isRel && keyMap.attribute("field-name") == fi.name) {
                                 isInViewLink = true
                                 break
-                            } else if (isRel && ((keyMap.attribute("related") ?: keyMap.attribute("related-field-name") ?: keyMap.attribute("field-name"))) == fieldNode.attribute("name")) {
+                            } else if (isRel && ((keyMap.attribute("related") ?: keyMap.attribute("related-field-name") ?: keyMap.attribute("field-name"))) == fi.name) {
                                 isInViewLink = true
                                 break
                             }
@@ -1758,22 +1785,23 @@ public class EntityDefinition {
                         if (isInViewLink) break
                     }
 
+                    MNode existingAliasNode = internalEntityNode.children('alias').find({ aliasName.equals(it.attribute("name")) })
                     // already exists... probably an override, but log just in case
                     String warnMsg = "Throwing out field alias in view entity " + this.getFullEntityName() +
                             " because one already exists with the alias name [" + aliasName + "] and field name [" +
                             memberEntity.attribute("entity-alias") + "(" + aliasedEntityDefinition.getFullEntityName() + ")." +
-                            fieldNode.attribute("name") + "], existing field name is [" + existingAliasNode.attribute("entity-alias") + "." +
+                            fi.name + "], existing field name is [" + existingAliasNode.attribute("entity-alias") + "." +
                             existingAliasNode.attribute("field") + "]"
-                    if (isInViewLink) {if (logger.isTraceEnabled()) logger.trace(warnMsg)} else {logger.info(warnMsg)}
+                    if (isInViewLink) { if (logger.isTraceEnabled()) logger.trace(warnMsg) } else { logger.info(warnMsg) }
 
                     // ship adding the new alias
                     continue
                 }
 
+                existingAliasNames.add(aliasName)
                 MNode newAlias = this.internalEntityNode.append("alias",
-                        [name:aliasName, field:fieldNode.attribute("name"), "entity-alias":aliasAll.attribute("entity-alias"),
-                        "is-from-alias-all":"true"])
-                if (fieldNode.hasChild("description")) newAlias.append(fieldNode.first("description"))
+                        [name:aliasName, field:fi.name, "entity-alias":aliasAllEntityAlias, "is-from-alias-all":"true"])
+                if (fi.fieldNode.hasChild("description")) newAlias.append(fi.fieldNode.first("description"))
             }
         }
     }

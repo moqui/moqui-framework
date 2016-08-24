@@ -143,7 +143,7 @@ public class StupidClassLoader extends ClassLoader {
         byte[] jeBytes = null;
         try {
             long lSize = je.getSize();
-            if (lSize <= 0  ||  lSize >= Integer.MAX_VALUE) {
+            if (lSize <= 0 || lSize >= Integer.MAX_VALUE) {
                 throw new IllegalArgumentException("Size [" + lSize + "] not valid for jar entry [" + je + "]");
             }
             jeBytes = new byte[(int)lSize];
@@ -384,7 +384,7 @@ public class StupidClassLoader extends ClassLoader {
         }
 
         Class<?> c = null;
-        String classFileName = className.replace('.', '/') + ".class";
+        String classFileName = className.replace('.', '/').concat(".class");
 
         int classesDirectoryListSize = classesDirectoryList.size();
         for (int i = 0; i < classesDirectoryListSize; i++) {

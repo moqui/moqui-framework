@@ -183,6 +183,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
         }
 
+        // sleep here to attach profiler before init: sleep(60000)
+
         // initialize all configuration, get various conf files merged and load components
         MNode runtimeConfXmlRoot = MNode.parse(confFile)
         MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)

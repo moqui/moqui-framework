@@ -554,17 +554,10 @@ class EntityFacadeImpl implements EntityFacade {
             if (lastModified > loadedTime) existingNode = null
         }
         if (existingNode == null) {
-            InputStream entityStream = entityRr.openStream()
-            if (entityStream == null) throw new BaseException("Could not open stream to entity file at [${entityRr.location}]")
-            try {
-                Node entityRootNode = new XmlParser().parse(entityStream)
-                MNode entityRoot = new MNode(entityRootNode)
-                entityRoot.attributes.put("_loadedTime", entityRr.getLastModified() as String)
-                entityFileRootMap.put(entityRr.getLocation(), entityRoot)
-                return entityRoot
-            } finally {
-                entityStream.close()
-            }
+            MNode entityRoot = MNode.parse(entityRr)
+            entityRoot.attributes.put("_loadedTime", entityRr.getLastModified() as String)
+            entityFileRootMap.put(entityRr.getLocation(), entityRoot)
+            return entityRoot
         } else {
             return existingNode
         }
