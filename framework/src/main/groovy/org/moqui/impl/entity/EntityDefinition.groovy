@@ -184,7 +184,7 @@ public class EntityDefinition {
         neverCache = "never".equals(useCache)
 
         tableNameAttr = internalEntityNode.attribute("table-name")
-        if (tableNameAttr == null || tableNameAttr.length() == 0) tableNameAttr = camelCaseToUnderscored(internalEntityName)
+        if (tableNameAttr == null || tableNameAttr.length() == 0) tableNameAttr = EntityJavaUtil.camelCaseToUnderscored(internalEntityName)
         schemaNameVal = efi.getDatasourceNode(getEntityGroupName())?.attribute("schema-name")
         if (schemaNameVal != null && schemaNameVal.length() == 0) schemaNameVal = null
         if (efi.getDatabaseNode(getEntityGroupName())?.attribute("use-schemas") != "false") {
@@ -251,7 +251,7 @@ public class EntityDefinition {
                 aliasByField.add(aliasNode)
             }
             for (MNode aliasNode in internalEntityNode.children("alias")) {
-                FieldInfo fi = makeFieldInfo(this, aliasNode)
+                FieldInfo fi = new FieldInfo(this, aliasNode)
                 addFieldInfo(fi)
             }
 
@@ -265,7 +265,7 @@ public class EntityDefinition {
             if (internalEntityNode.attribute("allow-user-field") == "true") allowUserField = true
 
             for (MNode fieldNode in this.internalEntityNode.children("field")) {
-                FieldInfo fi = makeFieldInfo(this, fieldNode)
+                FieldInfo fi = new FieldInfo(this, fieldNode)
                 addFieldInfo(fi)
             }
         }
@@ -402,7 +402,7 @@ public class EntityDefinition {
         if (fi != null) return fi
         MNode fieldNode = getFieldNode(fieldName)
         if (fieldNode == null) return null
-        fi = makeFieldInfo(this, fieldNode)
+        fi = new FieldInfo(this, fieldNode)
         fieldInfoMap.put(fieldName, fi)
         return fi
     }
@@ -412,57 +412,6 @@ public class EntityDefinition {
     FieldInfo[] getPkFieldInfoArray() { return pkFieldInfoArray }
     FieldInfo[] getNonPkFieldInfoArray() { return nonPkFieldInfoArray }
     FieldInfo[] getAllFieldInfoArray() { return allFieldInfoArray }
-
-    /** Make a EntityJavaUtil.FieldInfo object, is in Java for most efficient access (values used a LOT), init here for
-     * access to all EntityDefinition and other info */
-    static FieldInfo makeFieldInfo(EntityDefinition ed, MNode fieldNode) {
-        FieldInfo fi = new FieldInfo()
-
-        fi.ed = ed
-        fi.fieldNode = fieldNode
-        Map<String, String> fnAttrs = fieldNode.attributes
-        fi.name = fnAttrs.get('name')
-        if (fi.name != null) fi.name = fi.name.intern()
-        fi.conditionField = new ConditionField(fi)
-        fi.entityName = ed.getFullEntityName()
-        fi.type = fnAttrs.get('type')
-        fi.columnName = fnAttrs.get('column-name') ?: camelCaseToUnderscored(fi.name)
-        fi.defaultStr = fnAttrs.get('default')
-        if (!fi.type && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get('function')) {
-            // this is probably a calculated value, just default to number-decimal
-            fi.type = 'number-decimal'
-        }
-        if (fi.type) {
-            fi.javaType = ed.efi.getFieldJavaType(fi.type, ed) ?: 'String'
-            fi.typeValue = EntityFacadeImpl.getJavaTypeInt(fi.javaType)
-            fi.isTextVeryLong = "text-very-long".equals(fi.type)
-        } else {
-            throw new EntityException("No type specified or found for field ${fi.name} on entity ${ed.getFullEntityName()}")
-        }
-        fi.isPk = 'true'.equals(fnAttrs.get('is-pk'))
-        fi.encrypt = 'true'.equals(fnAttrs.get('encrypt'))
-        fi.enableLocalization = 'true'.equals(fnAttrs.get('enable-localization'))
-        fi.isUserField = 'true'.equals(fnAttrs.get('is-user-field'))
-        fi.isSimple = !fi.enableLocalization && !fi.isUserField
-        fi.createOnly = fnAttrs.get('create-only') ? 'true'.equals(fnAttrs.get('create-only')) : ed.createOnly()
-        fi.enableAuditLog = fieldNode.attribute('enable-audit-log') ?: ed.internalEntityNode.attribute('enable-audit-log')
-
-        fi.setFullColumnName(ed.makeFullColumnName(fieldNode))
-        if (ed.isViewEntity()) {
-            String entityAlias = fieldNode.attribute('entity-alias')
-            if (entityAlias != null && entityAlias.length() > 0) fi.entityAliasUsedSet.add(entityAlias)
-
-            ArrayList<MNode> cafList = fieldNode.depthFirst({ MNode it -> "complex-alias-field".equals(it.name) })
-            int cafListSize = cafList.size()
-            for (int i = 0; i < cafListSize; i++) {
-                MNode cafNode = (MNode) cafList.get(i)
-                String cafEntityAlias = cafNode.attribute('entity-alias')
-                if (cafEntityAlias != null && cafEntityAlias.length() > 0) fi.entityAliasUsedSet.add(cafEntityAlias)
-            }
-        }
-
-        return fi
-    }
 
     protected MNode makeUserFieldNode(EntityValue userField) {
         String fieldType = (String) userField.fieldType ?: "text-long"
@@ -1951,27 +1900,5 @@ public class EntityDefinition {
         EntityDefinition that = (EntityDefinition) o
         if (!this.fullEntityName.equals(that.fullEntityName)) return false
         return true
-    }
-
-    protected static Map<String, String> camelToUnderscoreMap = new HashMap()
-    @CompileStatic
-    static String camelCaseToUnderscored(String camelCase) {
-        if (camelCase == null || camelCase.length() == 0) return ""
-        String usv = camelToUnderscoreMap.get(camelCase)
-        if (usv != null) return usv
-
-        StringBuilder underscored = new StringBuilder()
-        underscored.append(Character.toUpperCase(camelCase.charAt(0)))
-        int inPos = 1
-        while (inPos < camelCase.length()) {
-            char curChar = camelCase.charAt(inPos)
-            if (Character.isUpperCase(curChar)) underscored.append('_')
-            underscored.append(Character.toUpperCase(curChar))
-            inPos++
-        }
-
-        usv = underscored.toString()
-        camelToUnderscoreMap.put(camelCase, usv)
-        return usv
     }
 }
