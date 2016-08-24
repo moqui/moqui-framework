@@ -453,9 +453,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
     private void initClassLoader() {
+        long startTime = System.currentTimeMillis();
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         stupidClassLoader = new StupidClassLoader(pcl)
         groovyClassLoader = new GroovyClassLoader(stupidClassLoader)
+
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
@@ -498,6 +500,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         stupidClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(groovyClassLoader)
+
+        logger.info("Initialized ClassLoader in ${System.currentTimeMillis() - startTime}ms")
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */

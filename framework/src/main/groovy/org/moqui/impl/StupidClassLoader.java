@@ -79,6 +79,16 @@ public class StupidClassLoader extends ClassLoader {
 
     private final ArrayList<JarFile> jarFileList = new ArrayList<>();
     private final ArrayList<File> classesDirectoryList = new ArrayList<>();
+
+    private final HashMap<String, File> knownClassFiles = new HashMap<>();
+    private final HashMap<String, JarEntryInfo> knownClassJarEntries = new HashMap<>();
+    private static class JarEntryInfo {
+        JarEntry entry;
+        JarFile file;
+        JarEntryInfo(JarEntry je, JarFile jf) { entry = je; file = jf; }
+    }
+
+
     // This Map contains either a Class or a ClassNotFoundException, cached for fast access because Groovy hits a LOT of
     //     weird invalid class names resulting in expensive new ClassNotFoundException instances
     private final ConcurrentHashMap<String, Class> classCache = new ConcurrentHashMap<>();
@@ -100,15 +110,19 @@ public class StupidClassLoader extends ClassLoader {
 
     private static final Map<String, String> jarByClass = new HashMap<>();
     public void addJarFile(JarFile jf) {
-        if (checkJars) {
-            String jfName = jf.getName();
-            Enumeration<JarEntry> jeEnum = jf.entries();
-            while (jeEnum.hasMoreElements()) {
-                JarEntry je = jeEnum.nextElement();
-                if (je.isDirectory()) continue;
-                String jeName = je.getName();
-                if (!jeName.endsWith(".class")) continue;
-                String className = jeName.substring(0, jeName.length() - 6).replace('/', '.');
+        jarFileList.add(jf);
+
+        String jfName = jf.getName();
+        Enumeration<JarEntry> jeEnum = jf.entries();
+        while (jeEnum.hasMoreElements()) {
+            JarEntry je = jeEnum.nextElement();
+            if (je.isDirectory()) continue;
+            String jeName = je.getName();
+            if (!jeName.endsWith(".class")) continue;
+            String className = jeName.substring(0, jeName.length() - 6).replace('/', '.');
+            knownClassJarEntries.put(className, new JarEntryInfo(je, jf));
+
+            if (checkJars) {
                 try {
                     getParent().loadClass(className);
                     System.out.println("Class " + className + " in jar " + jfName + " already loaded from parent ClassLoader");
@@ -120,7 +134,6 @@ public class StupidClassLoader extends ClassLoader {
                 }
             }
         }
-        jarFileList.add(jf);
     }
     //List<JarFile> getJarFileList() { return jarFileList; }
     //Map<String, Class> getClassCache() { return classCache; }
@@ -130,6 +143,21 @@ public class StupidClassLoader extends ClassLoader {
         if (!classesDir.exists()) throw new IllegalArgumentException("Classes directory [" + classesDir + "] does not exist.");
         if (!classesDir.isDirectory()) throw new IllegalArgumentException("Classes directory [" + classesDir + "] is not a directory.");
         classesDirectoryList.add(classesDir);
+        findClassFiles("", classesDir);
+    }
+    private void findClassFiles(String pathSoFar, File dir) {
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        String pathSoFarDot = pathSoFar.concat(".");
+        for (int i = 0; i < children.length; i++) {
+            File child = children[i];
+            String fileName = child.getName();
+            if (child.isDirectory()) {
+                findClassFiles(pathSoFarDot.concat(fileName), child);
+            } else if (fileName.endsWith(".class")) {
+                knownClassFiles.put(pathSoFarDot.concat(fileName.substring(0, fileName.length() - 6)), child);
+            }
+        }
     }
 
     public void clearNotFoundInfo() {
@@ -143,10 +171,9 @@ public class StupidClassLoader extends ClassLoader {
         byte[] jeBytes = null;
         try {
             long lSize = je.getSize();
-            if (lSize <= 0 || lSize >= Integer.MAX_VALUE) {
+            if (lSize <= 0 || lSize >= Integer.MAX_VALUE)
                 throw new IllegalArgumentException("Size [" + lSize + "] not valid for jar entry [" + je + "]");
-            }
-            jeBytes = new byte[(int)lSize];
+            jeBytes = new byte[(int) lSize];
             InputStream is = jarFile.getInputStream(je);
             dis = new DataInputStream(is);
             dis.readFully(jeBytes);
@@ -313,7 +340,8 @@ public class StupidClassLoader extends ClassLoader {
 
     // private static final ArrayList<String> ignoreSuffixes = new ArrayList<>(Arrays.asList("Customizer", "BeanInfo"));
     // private static final int ignoreSuffixesSize = ignoreSuffixes.size();
-    private synchronized Class<?> loadClassInternal(String className, boolean resolve) throws ClassNotFoundException {
+    // TODO: does this need synchronized? slows it down...
+    private Class<?> loadClassInternal(String className, boolean resolve) throws ClassNotFoundException {
         /* This may not be a good idea, Groovy looks for all sorts of bogus class name but there may be a reason so not doing this or looking for other patterns:
         for (int i = 0; i < ignoreSuffixesSize; i++) {
             String ignoreSuffix = ignoreSuffixes.get(i);
@@ -342,7 +370,25 @@ public class StupidClassLoader extends ClassLoader {
 
             if (c == null) {
                 try {
-                    c = findJarClass(className);
+                    File classFile = knownClassFiles.get(className);
+                    if (classFile != null) {
+                        c = makeClass(className, classFile);
+                    }
+                    if (c == null) {
+                        JarEntryInfo jei = knownClassJarEntries.get(className);
+                        if (jei != null) {
+                            definePackage(className, jei.file);
+                            byte[] jeBytes = getJarEntryBytes(jei.file, jei.entry);
+                            if (jeBytes == null) {
+                                System.out.println("Could not get bytes for entry " + jei.entry.getName() + " in jar" + jei.file.getName());
+                            } else {
+                                c = defineClass(className, jeBytes, 0, jeBytes.length, pd);
+                            }
+                        }
+                    }
+
+                    // old approach search through all class dirs and jars:
+                    // c = findJarClass(className);
                 } catch (Exception e) {
                     System.out.println("Error loading class [" + className + "] from additional jars: " + e.toString());
                     e.printStackTrace();
@@ -375,6 +421,20 @@ public class StupidClassLoader extends ClassLoader {
         }
     }
 
+    private Class<?> makeClass(String className, File classFile) {
+        try {
+            byte[] jeBytes = getFileBytes(classFile);
+            if (jeBytes == null) {
+                System.out.println("Could not get bytes for " + classFile);
+                return null;
+            }
+            return defineClass(className, jeBytes, 0, jeBytes.length, pd);
+        } catch (Exception e) {
+            System.out.println("Error reading class file " + classFile + ": " + e.toString());
+            return null;
+        }
+    }
+
     private Class<?> findJarClass(String className) throws IOException, ClassFormatError, ClassNotFoundException {
         Class cachedClass = classCache.get(className);
         if (cachedClass != null) return cachedClass;
@@ -390,19 +450,9 @@ public class StupidClassLoader extends ClassLoader {
         for (int i = 0; i < classesDirectoryListSize; i++) {
             File classesDir = classesDirectoryList.get(i);
             File testFile = new File(classesDir.getAbsolutePath() + "/" + classFileName);
-            try {
-                if (testFile.exists() && testFile.isFile()) {
-                    byte[] jeBytes = getFileBytes(testFile);
-                    if (jeBytes == null) {
-                        System.out.println("Could not get bytes for [" + testFile + "] in [" + classesDir + "]");
-                        continue;
-                    }
-                    // System.out.println("Class [" + classFileName + "] FOUND in jarFile [" + jarFile.getName() + "], size is " + jeBytes.length);
-                    c = defineClass(className, jeBytes, 0, jeBytes.length, pd);
-                    break;
-                }
-            } catch (MalformedURLException e) {
-                System.out.println("Error making URL for [" + classFileName + "] in classes directory [" + classesDir + "]: " + e.toString());
+            if (testFile.exists() && testFile.isFile()) {
+                c = makeClass(className, testFile);
+                if (c != null) break;
             }
         }
 
