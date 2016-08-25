@@ -48,6 +48,7 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <Logger name="atomikos" level="warn"/>
         <Logger name="com.atomikos" level="warn"/>
         <Logger name="bitronix" level="warn"/>
+        <Logger name="cz.vutbr" level="warn"/><!-- cssbox -->
 
         <!-- show Groovy generated from XML Actions:
         <Logger name="org.moqui.impl.actions.XmlAction" level="debug"/> -->
