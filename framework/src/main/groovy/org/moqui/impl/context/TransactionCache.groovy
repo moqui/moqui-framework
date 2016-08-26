@@ -399,18 +399,18 @@ class TransactionCache implements Synchronization {
                         connectionByGroup.put(groupName, con)
                     }
 
-                    if (ewi.writeMode == WriteMode.CREATE) {
+                    if (ewi.writeMode.is(WriteMode.CREATE)) {
                         ewi.evb.basicCreate(con, eci)
                         createCount++
-                    } else if (ewi.writeMode == WriteMode.UPDATE) {
-                        ewi.evb.basicUpdate(con, eci)
-                        updateCount++
-                    } else {
+                    } else if (ewi.writeMode.is(WriteMode.DELETE)) {
                         ewi.evb.basicDelete(con, eci)
                         deleteCount++
+                    } else {
+                        ewi.evb.basicUpdate(con, eci)
+                        updateCount++
                     }
                 }
-                if (logger.isInfoEnabled()) logger.info("Flushed TransactionCache in ${System.currentTimeMillis() - startTime}ms: ${createCount} creates, ${updateCount} updates, ${deleteCount} deletes, ${readOneCache.size()} read entries, ${readListCache.size()} entities with list cache")
+                if (logger.isDebugEnabled()) logger.debug("Flushed TransactionCache in ${System.currentTimeMillis() - startTime}ms: ${createCount} creates, ${updateCount} updates, ${deleteCount} deletes, ${readOneCache.size()} read entries, ${readListCache.size()} entities with list cache")
             }
 
             writeInfoList.clear()
