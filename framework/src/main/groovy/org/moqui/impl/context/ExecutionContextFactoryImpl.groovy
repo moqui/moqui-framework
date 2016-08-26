@@ -183,6 +183,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             throw new IllegalArgumentException("The moqui.conf path [${confFullPath}] was not found.")
         }
 
+        // sleep here to attach profiler before init: sleep(30000)
+
         // initialize all configuration, get various conf files merged and load components
         MNode runtimeConfXmlRoot = MNode.parse(confFile)
         MNode baseConfigNode = initBaseConfig(runtimeConfXmlRoot)
@@ -451,9 +453,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
     private void initClassLoader() {
+        long startTime = System.currentTimeMillis();
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         stupidClassLoader = new StupidClassLoader(pcl)
         groovyClassLoader = new GroovyClassLoader(stupidClassLoader)
+
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
@@ -496,6 +500,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         stupidClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(groovyClassLoader)
+
+        logger.info("Initialized ClassLoader in ${System.currentTimeMillis() - startTime}ms")
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
@@ -595,6 +601,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         activeContext.remove()
     }
+    @Override
+    boolean isDestroyed() { return destroyed }
 
     @Override
     protected void finalize() throws Throwable {
@@ -714,7 +722,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         efi = new EntityFacadeImpl(this, tenantId)
         this.entityFacadeByTenantMap.put(tenantId, efi)
-        logger.info("Moqui EntityFacadeImpl for Tenant ${tenantId} Initialized")
+        logger.info("Entity Facade for tenant ${tenantId} initialized")
         return efi
     }
 

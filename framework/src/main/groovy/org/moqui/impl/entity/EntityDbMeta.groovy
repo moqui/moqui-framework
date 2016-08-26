@@ -115,8 +115,9 @@ class EntityDbMeta {
             createForeignKeys(ed, false)
         } else {
             // table exists, see if it is missing any columns
-            List<String> mcs = getMissingColumns(ed)
-            if (mcs) for (String fieldName in mcs) addColumn(ed, fieldName)
+            ArrayList<FieldInfo> mcs = getMissingColumns(ed)
+            int mcsSize = mcs.size()
+            for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i))
             // create foreign keys after checking each to see if it already exists
             if (startup || datasourceNode?.attribute('runtime-add-fks') == "true") createForeignKeys(ed, true)
         }
@@ -182,8 +183,9 @@ class EntityDbMeta {
 
         if (dbResult && !ed.isViewEntity()) {
             // on the first check also make sure all columns/etc exist; we'll do this even on read/exist check otherwise query will blow up when doesn't exist
-            List<String> mcs = getMissingColumns(ed)
-            if (mcs) for (String fieldName in mcs) addColumn(ed, fieldName)
+            ArrayList<FieldInfo> mcs = getMissingColumns(ed)
+            int mcsSize = mcs.size()
+            for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i))
         }
         // don't remember the result for view-entities, get if from member-entities... if we remember it we have to set
         //     it for all view-entities when a member-entity is created
@@ -207,7 +209,7 @@ class EntityDbMeta {
             String sqlType = efi.getFieldSqlType(fi.type, ed)
             String javaType = fi.javaType
 
-            sql.append(fi.getFullColumnName()).append(" ").append(sqlType)
+            sql.append(fi.columnName).append(" ").append(sqlType)
 
             if ("String" == javaType || "java.lang.String" == javaType) {
                 if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))
@@ -251,8 +253,8 @@ class EntityDbMeta {
         if (logger.infoEnabled) logger.info("Created table ${ed.getFullTableName()} for entity ${ed.getFullEntityName()} in group ${groupName}")
     }
 
-    List<String> getMissingColumns(EntityDefinition ed) {
-        if (ed.isViewEntity()) return new ArrayList<String>()
+    ArrayList<FieldInfo> getMissingColumns(EntityDefinition ed) {
+        if (ed.isViewEntity()) return new ArrayList<FieldInfo>()
 
         String groupName = ed.getEntityGroupName()
         Connection con = null
@@ -264,51 +266,53 @@ class EntityDbMeta {
             DatabaseMetaData dbData = con.getMetaData()
             // con.setAutoCommit(false)
 
-            List<String> fnSet = new ArrayList(ed.getFieldNames(true, true, false))
-            int fieldCount = fnSet.size()
+            ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.getAllFieldInfoList())
+            int fieldCount = fieldInfos.size()
             colSet1 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
             if (colSet1.isClosed()) {
                 logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
-                return new ArrayList<String>()
+                return new ArrayList<FieldInfo>()
             }
             while (colSet1.next()) {
                 String colName = colSet1.getString("COLUMN_NAME")
-                for (String fn in fnSet) {
-                    String fieldColName = ed.getColumnName(fn)
-                    if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
-                        fnSet.remove(fn)
+                int fieldInfosSize = fieldInfos.size()
+                for (int i = 0; i < fieldInfosSize; i++) {
+                    FieldInfo fi = (FieldInfo) fieldInfos.get(i)
+                    if (fi.columnName == colName || fi.columnName.toLowerCase() == colName) {
+                        fieldInfos.remove(i)
                         break
                     }
                 }
             }
 
-            if (fnSet.size() == fieldCount) {
+            if (fieldInfos.size() == fieldCount) {
                 // try lower case table name
                 colSet2 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
                 if (colSet2.isClosed()) {
                     logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
-                    return new ArrayList<String>()
+                    return new ArrayList<FieldInfo>()
                 }
                 while (colSet2.next()) {
                     String colName = colSet2.getString("COLUMN_NAME")
-                    for (String fn in fnSet) {
-                        String fieldColName = ed.getColumnName(fn)
-                        if (fieldColName == colName || fieldColName.toLowerCase() == colName) {
-                            fnSet.remove(fn)
+                    int fieldInfosSize = fieldInfos.size()
+                    for (int i = 0; i < fieldInfosSize; i++) {
+                        FieldInfo fi = (FieldInfo) fieldInfos.get(i)
+                        if (fi.columnName == colName || fi.columnName.toLowerCase() == colName) {
+                            fieldInfos.remove(i)
                             break
                         }
                     }
                 }
 
-                if (fnSet.size() == fieldCount) {
+                if (fieldInfos.size() == fieldCount) {
                     logger.warn("Could not find any columns to match fields for entity ${ed.getFullEntityName()}")
-                    return null
+                    return new ArrayList<FieldInfo>()
                 }
             }
-            return fnSet
+            return fieldInfos
         } catch (Exception e) {
             logger.error("Exception checking for missing columns in table ${ed.getTableName()}", e)
-            return new ArrayList<String>()
+            return new ArrayList<FieldInfo>()
         } finally {
             if (colSet1 != null && !colSet1.isClosed()) colSet1.close()
             if (colSet2 != null && !colSet2.isClosed()) colSet2.close()
@@ -317,14 +321,14 @@ class EntityDbMeta {
         }
     }
 
-    void addColumn(EntityDefinition ed, String fieldName) {
+    void addColumn(EntityDefinition ed, FieldInfo fi) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot add column")
         if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot add column for a view entity")
 
         String groupName = ed.getEntityGroupName()
         MNode databaseNode = efi.getDatabaseNode(groupName)
 
-        MNode fieldNode = ed.getFieldNode(fieldName)
+        MNode fieldNode = fi.fieldNode
 
         if (fieldNode.attribute("is-user-field") == "true") throw new IllegalArgumentException("Cannot add column for a UserField")
 
@@ -332,7 +336,7 @@ class EntityDbMeta {
         String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
 
         StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName())
-        String colName = ed.getColumnName(fieldName)
+        String colName = fi.columnName
         // NOTE: if any databases need "ADD COLUMN" instead of just "ADD", change this to try both or based on config
         sql.append(" ADD ").append(colName).append(" ").append(sqlType)
 
@@ -342,7 +346,7 @@ class EntityDbMeta {
         }
 
         runSqlUpdate(sql, groupName)
-        if (logger.infoEnabled) logger.info("Added column ${colName} to table ${ed.tableName} for field ${fieldName} of entity ${ed.getFullEntityName()} in group ${groupName}")
+        if (logger.infoEnabled) logger.info("Added column ${colName} to table ${ed.tableName} for field ${fi.name} of entity ${ed.getFullEntityName()} in group ${groupName}")
     }
 
     void createIndexes(EntityDefinition ed) {

@@ -74,7 +74,17 @@ public class CacheFacadeImpl implements CacheFacade {
         return distCacheManagerInternal
     }
 
-    void destroy() { }
+    void destroy() {
+        if (localCacheManagerInternal != null) {
+            for (String cacheName in localCacheManagerInternal.getCacheNames())
+                localCacheManagerInternal.destroyCache(cacheName)
+        }
+        localCacheMap.clear()
+        if (distCacheManagerInternal != null) {
+            for (String cacheName in distCacheManagerInternal.getCacheNames())
+                distCacheManagerInternal.destroyCache(cacheName)
+        }
+    }
 
     protected String getFullName(String cacheName, String tenantId) {
         if (cacheName == null) return null

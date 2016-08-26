@@ -247,6 +247,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     int getStatus() {
+        if (ut == null) return Status.STATUS_NO_TRANSACTION
         try {
             return ut.getStatus()
         } catch (SystemException e) {
@@ -568,8 +569,8 @@ class TransactionFacadeImpl implements TransactionFacade {
                 infoString.append("Initializing TX cache at:")
                 for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append(infoAei.getName())
                 logger.trace(infoString.toString())
-            } else if (logger.isInfoEnabled()) {
-                logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
+            // } else if (logger.isInfoEnabled()) {
+            //     logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
             }
 
             if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
@@ -578,7 +579,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             txStackInfo.txCache = txCache
             registerSynchronization(txCache)
         } else if (txStackInfo.txCache.isReadOnly()) {
-            logger.info("Making TX cache write through in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
+            if (isTraceEnabled) logger.trace("Making TX cache write through in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
             txStackInfo.txCache.makeWriteThrough()
             // doing on read only init: registerSynchronization(txStackInfo.txCache)
         }

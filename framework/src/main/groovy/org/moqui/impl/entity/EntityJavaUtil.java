@@ -38,10 +38,8 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.sql.Date;
+import java.util.*;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
@@ -616,42 +614,117 @@ public class EntityJavaUtil {
     /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT,
      * though initialized in the EntityDefinition.makeFieldInfo() method. */
     public static class FieldInfo {
-        public EntityDefinition ed = null;
-        public MNode fieldNode = null;
-        public String entityName = null;
-        public String name = null;
-        public ConditionField conditionField = null;
-        public String type = null;
-        public String columnName = null;
-        private String fullColumnName = null;
-        private String expandColumnName = null;
-        public String defaultStr = null;
-        public String javaType = null;
-        public String enableAuditLog = null;
-        public int typeValue = -1;
-        public boolean isTextVeryLong = false;
-        public boolean isPk = false;
-        public boolean encrypt = false;
-        public boolean isSimple = false;
-        public boolean enableLocalization = false;
-        public boolean isUserField = false;
-        public boolean createOnly = false;
-        public Set<String> entityAliasUsedSet = new HashSet<>();
+        public final EntityDefinition ed;
+        public final MNode fieldNode;
+        public final String entityName;
+        public final String name;
+        public final ConditionField conditionField;
+        public final String type;
+        public final String columnName;
+        private final String fullColumnName;
+        private final String expandColumnName;
+        public final String defaultStr;
+        public final String javaType;
+        public final String enableAuditLog;
+        public final int typeValue;
+        public final boolean isTextVeryLong;
+        public final boolean isPk;
+        public final boolean encrypt;
+        public final boolean isSimple;
+        public final boolean enableLocalization;
+        public final boolean isUserField;
+        public final boolean createOnly;
+        public final Set<String> entityAliasUsedSet = new HashSet<>();
 
-        public FieldInfo() { /* do nothing, see EntityDefinition.makeFieldInfo() */ }
+        public FieldInfo(EntityDefinition ed, MNode fieldNode) {
+            this.ed = ed;
+            this.fieldNode = fieldNode;
+            entityName = ed.getFullEntityName();
 
-        public void setFullColumnName(String fcn) {
+            Map<String, String> fnAttrs = fieldNode.getAttributes();
+            String nameAttr = fnAttrs.get("name");
+            if (nameAttr == null) throw new EntityException("No name attribute specified for field in entity " + entityName);
+            name = nameAttr.intern();
+            conditionField = new ConditionField(this);
+            String columnNameAttr = fnAttrs.get("column-name");
+            columnName = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr : camelCaseToUnderscored(name);
+            defaultStr = fnAttrs.get("default");
+
+            String typeAttr = fnAttrs.get("type");
+            if ((typeAttr == null || typeAttr.length() == 0) && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get("function") != null) {
+                // this is probably a calculated value, just default to number-decimal
+                typeAttr = "number-decimal";
+            }
+            type = typeAttr;
+            if (type != null && type.length() > 0) {
+                String fieldJavaType = ed.efi.getFieldJavaType(type, ed);
+                javaType =  fieldJavaType != null ? fieldJavaType : "String";
+                typeValue = EntityFacadeImpl.getJavaTypeInt(javaType);
+                isTextVeryLong = "text-very-long".equals(type);
+            } else {
+                throw new EntityException("No type specified or found for field " + name + " on entity " + entityName);
+            }
+            isPk = "true".equals(fnAttrs.get("is-pk"));
+            encrypt = "true".equals(fnAttrs.get("encrypt"));
+            enableLocalization = "true".equals(fnAttrs.get("enable-localization"));
+            isUserField = "true".equals(fnAttrs.get("is-user-field"));
+            isSimple = !enableLocalization && !isUserField;
+            String createOnlyAttr = fnAttrs.get("create-only");
+            createOnly = createOnlyAttr != null && createOnlyAttr.length() > 0 ? "true".equals(fnAttrs.get("create-only")) : ed.createOnly();
+            String enableAuditLogAttr = fieldNode.attribute("enable-audit-log");
+            enableAuditLog = enableAuditLogAttr != null ? enableAuditLogAttr : ed.internalEntityNode.attribute("enable-audit-log");
+
+            String fcn = ed.makeFullColumnName(fieldNode);
             if (fcn == null) {
                 fullColumnName = columnName;
+                expandColumnName = null;
             } else {
-                if (fcn.contains("${")) expandColumnName = fcn;
-                else fullColumnName = fcn;
+                if (fcn.contains("${")) {
+                    expandColumnName = fcn;
+                    fullColumnName = null;
+                } else {
+                    fullColumnName = fcn;
+                    expandColumnName = null;
+                }
+            }
+
+            if (ed.isViewEntity()) {
+                String entityAlias = fieldNode.attribute("entity-alias");
+                if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias);
+                ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
+                int cafListSize = cafList.size();
+                for (int i = 0; i < cafListSize; i++) {
+                    MNode cafNode = cafList.get(i);
+                    String cafEntityAlias = cafNode.attribute("entity-alias");
+                    if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias);
+                }
             }
         }
+
         public String getFullColumnName() {
             if (fullColumnName != null) return fullColumnName;
             return ed.efi.ecfi.getResourceFacade().expand(expandColumnName, "", null, false);
         }
+    }
+    private static Map<String, String> camelToUnderscoreMap = new HashMap<>();
+    public static String camelCaseToUnderscored(String camelCase) {
+        if (camelCase == null || camelCase.length() == 0) return "";
+        String usv = camelToUnderscoreMap.get(camelCase);
+        if (usv != null) return usv;
+
+        StringBuilder underscored = new StringBuilder();
+        underscored.append(Character.toUpperCase(camelCase.charAt(0)));
+        int inPos = 1;
+        while (inPos < camelCase.length()) {
+            char curChar = camelCase.charAt(inPos);
+            if (Character.isUpperCase(curChar)) underscored.append('_');
+            underscored.append(Character.toUpperCase(curChar));
+            inPos++;
+        }
+
+        usv = underscored.toString();
+        camelToUnderscoreMap.put(camelCase, usv);
+        return usv;
     }
 
     public static class EntityConditionParameter {
