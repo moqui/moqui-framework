@@ -14,7 +14,6 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
@@ -389,8 +388,8 @@ abstract class EntityFindBase implements EntityFind {
 
         // if there is a pageNoLimit clear out the limit regardless of other settings
         if (inputFieldsMap?.get("pageNoLimit") == "true" || inputFieldsMap?.get("pageNoLimit") == true) {
-            this.offset = null
-            this.limit = null
+            offset = null
+            limit = null
         }
 
         return this
@@ -616,19 +615,19 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityFind distinct(boolean distinct) { this.distinct = distinct; return this }
     @Override
-    boolean getDistinct() { return this.distinct }
+    boolean getDistinct() { return distinct }
 
     @Override
     EntityFind offset(Integer offset) { this.offset = offset; return this }
     @Override
     EntityFind offset(int pageIndex, int pageSize) { offset(pageIndex * pageSize) }
     @Override
-    Integer getOffset() { return this.offset }
+    Integer getOffset() { return offset }
 
     @Override
     EntityFind limit(Integer limit) { this.limit = limit; return this }
     @Override
-    Integer getLimit() { return this.limit }
+    Integer getLimit() { return limit }
 
     @Override
     int getPageIndex() { return offset == null ? 0 : (offset/getPageSize()).intValue() }
