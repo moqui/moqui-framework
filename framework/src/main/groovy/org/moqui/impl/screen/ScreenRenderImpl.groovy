@@ -118,21 +118,7 @@ class ScreenRenderImpl implements ScreenRender {
     @Override
     ScreenRender rootScreen(String rsLocation) { rootScreenLocation = rsLocation; return this }
 
-    ScreenRender rootScreenFromHost(String host) {
-        MNode webappNode = sfi.getWebappNode(webappName)
-        MNode wildcardHost = (MNode) null
-        for (MNode rootScreenNode in webappNode.children("root-screen")) {
-            String hostAttr = rootScreenNode.attribute("host")
-            if (".*".equals(hostAttr)) {
-                // remember wildcard host, default to it if no other matches (just in case put earlier in the list than others)
-                wildcardHost = rootScreenNode
-            } else if (host.matches(hostAttr)) {
-                return rootScreen(rootScreenNode.attribute("location"))
-            }
-        }
-        if (wildcardHost != null) return rootScreen(wildcardHost.attribute("location"))
-        throw new BaseException("Could not find root screen for host: ${host}")
-    }
+    ScreenRender rootScreenFromHost(String host) { return rootScreen(sfi.rootScreenFromHost(host, webappName)) }
 
     @Override
     ScreenRender screenPath(List<String> screenNameList) { originalScreenPathNameList.addAll(screenNameList); return this }
@@ -165,12 +151,12 @@ class ScreenRenderImpl implements ScreenRender {
         this.response = response
         // NOTE: don't get the writer at this point, we don't yet know if we're writing text or binary
         if (webappName == null || webappName.length() == 0)
-            webappName(request.session.servletContext.getInitParameter("moqui-name"))
+            webappName(request.servletContext.getInitParameter("moqui-name"))
         if (webappName != null && webappName.length() > 0 && (rootScreenLocation == null || rootScreenLocation.length() == 0))
             rootScreenFromHost(request.getServerName())
         if (originalScreenPathNameList == null || originalScreenPathNameList.size() == 0) {
             String pathInfo = request.getPathInfo()
-            if (pathInfo != null) screenPath(pathInfo.split("/") as List)
+            if (pathInfo != null) screenPath(Arrays.asList(pathInfo.split("/")))
         }
         // now render
         internalRender()

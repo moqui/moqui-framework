@@ -20,6 +20,7 @@ import org.joda.time.MutableDateTime
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
 
@@ -131,10 +132,12 @@ class UserFacadeImpl implements UserFacade {
         this.visitId = session.getAttribute("moqui.visitId")
         if (!this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.getEcfi().getServerStatsNode()
+            ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.getEcfi().getScreenFacade(), request)
+            boolean isJustContent = sui.fileResourceRef != null
 
             // handle visitorId and cookie
-            String cookieVisitorId = null
-            if (serverStatsNode.attribute('visitor-enabled') != "false") {
+            String cookieVisitorId = (String) null
+            if (!isJustContent && !"false".equals(serverStatsNode.attribute('visitor-enabled'))) {
                 Cookie[] cookies = request.getCookies()
                 if (cookies != null) {
                     for (int i = 0; i < cookies.length; i++) {
@@ -168,7 +171,7 @@ class UserFacadeImpl implements UserFacade {
                 }
             }
 
-            if (serverStatsNode.attribute('visit-enabled') != "false") {
+            if (!isJustContent && !"false".equals(serverStatsNode.attribute('visit-enabled'))) {
                 // create and persist Visit
                 String contextPath = session.getServletContext().getContextPath()
                 String webappId = contextPath.length() > 1 ? contextPath.substring(1) : "ROOT"
