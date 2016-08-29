@@ -112,7 +112,7 @@ along with this software (see the LICENSE.md file). If not, see
                 ec.getUser().loginAnonymousIfNoUser()
                 ec.getArtifactExecution().disableAuthz()
                 ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl("loadData",
-                        ArtifactExecutionInfoImpl.AT_OTHER, ArtifactExecutionInfoImpl.AUTHZA_ALL)
+                        ArtifactExecutionInfoImpl.AT_OTHER, ArtifactExecutionInfoImpl.AUTHZA_ALL, null)
                 ec.getArtifactExecution().push(aei, false)
                 ec.getArtifactExecution().setAnonymousAuthorizedAll()
 
