@@ -400,13 +400,13 @@ class TransactionCache implements Synchronization {
                     }
 
                     if (ewi.writeMode.is(WriteMode.CREATE)) {
-                        ewi.evb.basicCreate(con, eci)
+                        ewi.evb.basicCreate(con)
                         createCount++
                     } else if (ewi.writeMode.is(WriteMode.DELETE)) {
-                        ewi.evb.basicDelete(con, eci)
+                        ewi.evb.deleteExtended(con)
                         deleteCount++
                     } else {
-                        ewi.evb.basicUpdate(con, eci)
+                        ewi.evb.basicUpdate(con)
                         updateCount++
                     }
                 }

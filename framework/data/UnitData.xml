@@ -216,7 +216,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="AREA_ha_m2" uomId="AREA_ha" toUomId="AREA_m2" conversionFactor="10000"/>
     <moqui.basic.UomConversion uomConversionId="AREA_ha_A" uomId="AREA_ha" toUomId="AREA_A" conversionFactor="2.471"/>
     <moqui.basic.UomConversion uomConversionId="AREA_cm2_mm2" uomId="AREA_cm2" toUomId="AREA_mm2" conversionFactor="100"/>
-    <moqui.basic.UomConversion uomConversionId="AREA_cm2_in2" uomId="AREA_cm2" toUomId="AREA_in2" conversionFactor=".155"/>
+    <moqui.basic.UomConversion uomConversionId="AREA_cm2_in2" uomId="AREA_cm2" toUomId="AREA_in2" conversionFactor="0.155"/>
     <moqui.basic.UomConversion uomConversionId="AREA_ft2_in2" uomId="AREA_ft2" toUomId="AREA_in2" conversionFactor="144"/>
     <moqui.basic.UomConversion uomConversionId="AREA_km2_m2" uomId="AREA_km2" toUomId="AREA_m2" conversionFactor="1000000"/>
     <moqui.basic.UomConversion uomConversionId="AREA_m2_cm2" uomId="AREA_m2" toUomId="AREA_cm2" conversionFactor="10000"/>

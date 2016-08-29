@@ -242,7 +242,7 @@ class ScreenUrlInfo {
         for (int i = 0; i < screenPathDefListSize; i++) {
             ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(),
-                    ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
+                    ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, null)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 

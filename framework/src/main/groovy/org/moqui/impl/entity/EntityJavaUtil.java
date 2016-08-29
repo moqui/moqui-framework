@@ -632,7 +632,6 @@ public class EntityJavaUtil {
         public final boolean encrypt;
         public final boolean isSimple;
         public final boolean enableLocalization;
-        public final boolean isUserField;
         public final boolean createOnly;
         public final Set<String> entityAliasUsedSet = new HashSet<>();
 
@@ -667,8 +666,7 @@ public class EntityJavaUtil {
             isPk = "true".equals(fnAttrs.get("is-pk"));
             encrypt = "true".equals(fnAttrs.get("encrypt"));
             enableLocalization = "true".equals(fnAttrs.get("enable-localization"));
-            isUserField = "true".equals(fnAttrs.get("is-user-field"));
-            isSimple = !enableLocalization && !isUserField;
+            isSimple = !enableLocalization;
             String createOnlyAttr = fnAttrs.get("create-only");
             createOnly = createOnlyAttr != null && createOnlyAttr.length() > 0 ? "true".equals(fnAttrs.get("create-only")) : ed.createOnly();
             String enableAuditLogAttr = fieldNode.attribute("enable-audit-log");

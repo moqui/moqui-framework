@@ -220,7 +220,7 @@ along with this software (see the LICENSE.md file). If not, see
                 // ec.logger.warn("======== recordThreshold=${recordThreshold}, splitThruLong=${splitThruLong}, maxSyncLong=${maxSyncLong}, beforeMaxSync=${splitThruLong <= maxSyncLong}, entityIncludeList=${entityIncludeList}")
                 while (recordCount < recordThreshold && splitThruLong <= maxSyncLong) {
                     for (Map entryMap in entityIncludeList) {
-                        EntityFind find = ec.entity.makeFind((String) entryMap.entityName)
+                        EntityFind find = ec.entity.find((String) entryMap.entityName)
                         find.condition("lastUpdatedStamp", EntityCondition.GREATER_THAN, new Timestamp(splitFromLong))
                         find.condition("lastUpdatedStamp", EntityCondition.LESS_THAN_EQUAL_TO, new Timestamp(splitThruLong))
 

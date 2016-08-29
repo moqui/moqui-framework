@@ -89,7 +89,8 @@ class ServiceCallImpl implements ServiceCall {
 
         // always do an authz before scheduling the job
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(),
-                ArtifactExecutionInfo.AT_SERVICE, ServiceDefinition.getVerbAuthzActionEnum(verb))
+                ArtifactExecutionInfo.AT_SERVICE, ServiceDefinition.getVerbAuthzActionEnum(verb), null)
+        aei.setTrackArtifactHit(false)
         eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
         // pop immediately, just did the push to to an authz
         eci.getArtifactExecution().pop(aei)

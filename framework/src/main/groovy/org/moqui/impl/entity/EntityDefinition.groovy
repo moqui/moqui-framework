@@ -23,8 +23,6 @@ import org.moqui.impl.entity.condition.ConditionAlias
 import javax.cache.Cache
 import java.sql.Timestamp
 
-import org.apache.commons.collections.set.ListOrderedSet
-
 import org.moqui.BaseException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.JoinOperator
@@ -71,8 +69,6 @@ public class EntityDefinition {
     protected final FieldInfo[] nonPkFieldInfoArray
     protected final FieldInfo[] allFieldInfoArray
     protected final String allFieldsSqlSelect
-    protected Boolean hasUserFields = null
-    protected boolean allowUserField = false
     protected Map<String, Map<String, String>> mePkFieldToAliasNameMapMap = null
     protected Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null
     protected Map<String, MNode> memberEntityAliasMap = null
@@ -170,7 +166,6 @@ public class EntityDefinition {
             StringBuilder sb = new StringBuilder()
             for (int i = 0; i < allFieldInfoList.size(); i++) {
                 FieldInfo fi = (FieldInfo) allFieldInfoList.get(i)
-                if (fi.isUserField) continue
                 if (i > 0) sb.append(", ")
                 sb.append(fi.fullColumnName)
             }
@@ -262,7 +257,6 @@ public class EntityDefinition {
                 // automatically add the lastUpdatedStamp field
                 internalEntityNode.append("field", [name:"lastUpdatedStamp", type:"date-time"])
             }
-            if (internalEntityNode.attribute("allow-user-field") == "true") allowUserField = true
 
             for (MNode fieldNode in this.internalEntityNode.children("field")) {
                 FieldInfo fi = new FieldInfo(this, fieldNode)
@@ -310,7 +304,7 @@ public class EntityDefinition {
     }
 
     String getDefaultDescriptionField() {
-        List<String> nonPkFields = getFieldNames(false, true, false)
+        ArrayList<String> nonPkFields = getNonPkFieldNames()
         // find the first *Name
         for (String fn in nonPkFields)
             if (fn.endsWith("Name")) return fn
@@ -352,15 +346,9 @@ public class EntityDefinition {
     boolean needsEncrypt() {
         if (needsEncryptVal != null) return needsEncryptVal.booleanValue()
         needsEncryptVal = false
-        for (MNode fieldNode in getFieldNodes(true, true, false)) {
+        for (MNode fieldNode in getFieldNodes(true, true)) {
             if (fieldNode.attribute('encrypt') == "true") needsEncryptVal = true
         }
-        if (needsEncryptVal) return true
-
-        for (MNode fieldNode in getFieldNodes(false, false, true)) {
-            if (fieldNode.attribute('encrypt') == "true") needsEncryptVal = true
-        }
-
         return needsEncryptVal.booleanValue()
     }
     String getUseCache() { return useCache }
@@ -368,33 +356,7 @@ public class EntityDefinition {
 
     boolean getSequencePrimaryUseUuid() { return sequencePrimaryUseUuid }
 
-    MNode getFieldNode(String fieldName) {
-        MNode fn = (MNode) fieldNodeMap.get(fieldName)
-        if (fn != null) return fn
-
-        if (allowUserField && !this.isViewEntity() && !fieldName.contains('.')) {
-            // if fieldName has a dot it is likely a relationship name, so don't look for UserField
-
-            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                EntityList userFieldList = efi.find("moqui.entity.UserField").condition("entityName", getFullEntityName()).useCache(true).list()
-                if (userFieldList) {
-                    Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                    for (EntityValue userField in userFieldList) {
-                        if (userField.fieldName != fieldName) continue
-                        if (userGroupIdSet.contains(userField.userGroupId)) {
-                            fn = makeUserFieldNode(userField)
-                            break
-                        }
-                    }
-                }
-            } finally {
-                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
-            }
-        }
-
-        return fn
-    }
+    MNode getFieldNode(String fieldName) { return (MNode) fieldNodeMap.get(fieldName) }
 
     FieldInfo getFieldInfo(String fieldName) {
         // the FieldInfo cast here looks funny, but avoids Groovy using a slow castToType call
@@ -412,22 +374,6 @@ public class EntityDefinition {
     FieldInfo[] getPkFieldInfoArray() { return pkFieldInfoArray }
     FieldInfo[] getNonPkFieldInfoArray() { return nonPkFieldInfoArray }
     FieldInfo[] getAllFieldInfoArray() { return allFieldInfoArray }
-
-    protected MNode makeUserFieldNode(EntityValue userField) {
-        String fieldType = (String) userField.fieldType ?: "text-long"
-        if (fieldType == "text-very-long" || fieldType == "binary-very-long")
-            throw new EntityException("UserField for entityName ${getFullEntityName()}, fieldName ${userField.fieldName} and userGroupId ${userField.userGroupId} has a fieldType that is not allowed: ${fieldType}")
-
-        MNode fieldNode = new MNode("field", [name: (String) userField.fieldName, type: fieldType, "is-user-field": "true"])
-
-        fieldNode.attributes.put("user-group-id", (String) userField.userGroupId)
-        if (userField.enableAuditLog == "Y") fieldNode.attributes.put("enable-audit-log", "true")
-        if (userField.enableAuditLog == "U") fieldNode.attributes.put("enable-audit-log", "update")
-        if (userField.enableLocalization == "Y") fieldNode.attributes.put("enable-localization", "true")
-        if (userField.encrypt == "Y") fieldNode.attributes.put("encrypt", "true")
-
-        return fieldNode
-    }
 
     static Map<String, String> getRelationshipExpandedKeyMapInternal(MNode relationship, EntityDefinition relEd) {
         Map<String, String> eKeyMap = [:]
@@ -885,12 +831,12 @@ public class EntityDefinition {
         return pks
     }
 
-    ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk, boolean includeUserFields) {
+    ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk) {
         ArrayList<String> baseList
         // common case, do it fast
         if (includePk) {
             if (includeNonPk) {
-                baseList = getAllFieldNames(false)
+                baseList = getAllFieldNames()
             } else {
                 baseList = getPkFieldNames()
             }
@@ -902,68 +848,12 @@ public class EntityDefinition {
                 baseList = new ArrayList<String>()
             }
         }
-        if (!includeUserFields) return baseList
-
-        ListOrderedSet userFieldNames = getUserFieldNames()
-        if (userFieldNames != null && userFieldNames.size() > 0) {
-            List<String> returnList = new ArrayList<String>()
-            returnList.addAll(baseList)
-            returnList.addAll(userFieldNames.asList())
-            return returnList
-        } else {
-            return baseList
-        }
-    }
-    protected ListOrderedSet getFieldNamesInternal(boolean includePk, boolean includeNonPk) {
-        ListOrderedSet nameSet = new ListOrderedSet()
-        String nodeName = this.isViewEntity() ? "alias" : "field"
-        for (MNode node in this.internalEntityNode.children(nodeName)) {
-            if ((includePk && 'true'.equals(node.attribute('is-pk'))) || (includeNonPk && !'true'.equals(node.attribute('is-pk')))) {
-                nameSet.add(node.attribute('name'))
-            }
-        }
-        return nameSet
-    }
-    protected ListOrderedSet getUserFieldNames() {
-        ListOrderedSet userFieldNames = null
-        if (allowUserField && !this.isViewEntity() && (hasUserFields == null || hasUserFields == Boolean.TRUE)) {
-            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                EntityList userFieldList = efi.find("moqui.entity.UserField").condition("entityName", getFullEntityName()).useCache(true).list()
-                if (userFieldList) {
-                    hasUserFields = true
-                    userFieldNames = new ListOrderedSet()
-
-                    Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                    for (EntityValue userField in userFieldList) {
-                        if (userGroupIdSet.contains(userField.getNoCheckSimple('userGroupId'))) userFieldNames.add((String) userField.getNoCheckSimple('fieldName'))
-                    }
-                } else {
-                    hasUserFields = false
-                }
-            } finally {
-                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
-            }
-        }
-        return userFieldNames
+        return baseList
     }
 
     ArrayList<String> getPkFieldNames() { return pkFieldNameList }
     ArrayList<String> getNonPkFieldNames() { return nonPkFieldNameList }
-    ArrayList<String> getAllFieldNames() { return getAllFieldNames(true) }
-    ArrayList<String> getAllFieldNames(boolean includeUserFields) {
-        if (!includeUserFields) return allFieldNameList
-
-        ListOrderedSet userFieldNames = getUserFieldNames()
-        if (userFieldNames != null && userFieldNames.size() > 0) {
-            List<String> returnList = new ArrayList<>(allFieldNameList.size() + userFieldNames.size())
-            returnList.addAll(allFieldNameList)
-            returnList.addAll(userFieldNames.asList())
-            return returnList
-        } else {
-            return allFieldNameList
-        }
-    }
+    ArrayList<String> getAllFieldNames() { return allFieldNameList }
 
     Map<String, String> pkFieldDefaults = null
     Map<String, String> nonPkFieldDefaults = null
@@ -971,7 +861,7 @@ public class EntityDefinition {
     Map<String, String> getPkFieldDefaults() {
         if (pkFieldDefaults == null) {
             Map<String, String> newDefaults = [:]
-            for (MNode fieldNode in getFieldNodes(true, false, false)) {
+            for (MNode fieldNode in getFieldNodes(true, false)) {
                 String defaultStr = fieldNode.attribute('default')
                 if (!defaultStr) continue
                 newDefaults.put(fieldNode.attribute('name'), defaultStr)
@@ -983,7 +873,7 @@ public class EntityDefinition {
     Map<String, String> getNonPkFieldDefaults() {
         if (nonPkFieldDefaults == null) {
             Map<String, String> newDefaults = [:]
-            for (MNode fieldNode in getFieldNodes(false, true, false)) {
+            for (MNode fieldNode in getFieldNodes(false, true)) {
                 String defaultStr = fieldNode.attribute('default')
                 if (!defaultStr) continue
                 newDefaults.put(fieldNode.attribute('name'), defaultStr)
@@ -993,428 +883,14 @@ public class EntityDefinition {
         return nonPkFieldDefaults
     }
 
-    static final Map<String, String> fieldTypeJsonMap = [
-            "id":"string", "id-long":"string", "text-indicator":"string", "text-short":"string", "text-medium":"string",
-            "text-long":"string", "text-very-long":"string", "date-time":"string", "time":"string",
-            "date":"string", "number-integer":"number", "number-float":"number",
-            "number-decimal":"number", "currency-amount":"number", "currency-precise":"number",
-            "binary-very-long":"string" ] // NOTE: binary-very-long may need hyper-schema stuff
-    static final Map<String, String> fieldTypeJsonFormatMap = [
-            "date-time":"date-time", "date":"date", "number-integer":"int64", "number-float":"double",
-            "number-decimal":"", "currency-amount":"", "currency-precise":"", "binary-very-long":"" ]
-    static final Map jsonPaginationProperties =
-            [pageIndex:[type:'number', format:'int32', description:'Page number to return, starting with zero'],
-             pageSize:[type:'number', format:'int32', description:'Number of records per page (default 100)'],
-             orderByField:[type:'string', description:'Field name to order by (or comma separated names)'],
-             pageNoLimit:[type:'string', description:'If true don\'t limit page size (no pagination)'],
-             dependentLevels:[type:'number', format:'int32', description:'Levels of dependent child records to include']
-            ]
-    static final Map jsonPaginationParameters = [type:'object', properties: jsonPaginationProperties]
-    static final Map jsonCountParameters = [type:'object', properties: [count:[type:'number', format:'int64', description:'Count of results']]]
-    static final List<Map> swaggerPaginationParameters =
-            [[name:'pageIndex', in:'query', required:false, type:'number', format:'int32', description:'Page number to return, starting with zero'],
-             [name:'pageSize', in:'query', required:false, type:'number', format:'int32', description:'Number of records per page (default 100)'],
-             [name:'orderByField', in:'query', required:false, type:'string', description:'Field name to order by (or comma separated names)'],
-             [name:'pageNoLimit', in:'query', required:false, type:'string', description:'If true don\'t limit page size (no pagination)'],
-             [name:'dependentLevels', in:'query', required:false, type:'number', format:'int32', description:'Levels of dependent child records to include']
-            ] as List<Map>
-
-    List<String> getFieldEnums(FieldInfo fi) {
-        // populate enum values for Enumeration and StatusItem
-        // find first relationship that has this field as the only key map and is not a many relationship
-        RelationshipInfo oneRelInfo = null
-        List<RelationshipInfo> allRelInfoList = getRelationshipsInfo(false)
-        for (RelationshipInfo relInfo in allRelInfoList) {
-            Map km = relInfo.keyMap
-            if (km.size() == 1 && km.containsKey(fi.name) && relInfo.type == "one" && relInfo.relNode.attribute("is-auto-reverse") != "true") {
-                oneRelInfo = relInfo
-                break;
-            }
-        }
-        if (oneRelInfo != null && oneRelInfo.title) {
-            if (oneRelInfo.relatedEd.getFullEntityName() == 'moqui.basic.Enumeration') {
-                EntityList enumList = efi.find("moqui.basic.Enumeration").condition("enumTypeId", oneRelInfo.title)
-                        .orderBy("sequenceNum,enumId").disableAuthz().list()
-                if (enumList) {
-                    List<String> enumIdList = []
-                    for (EntityValue ev in enumList) enumIdList.add((String) ev.enumId)
-                    return enumIdList
-                }
-            } else if (oneRelInfo.relatedEd.getFullEntityName() == 'moqui.basic.StatusItem') {
-                EntityList statusList = efi.find("moqui.basic.StatusItem").condition("statusTypeId", oneRelInfo.title)
-                        .orderBy("sequenceNum,statusId").disableAuthz().list()
-                if (statusList) {
-                    List<String> statusIdList = []
-                    for (EntityValue ev in statusList) statusIdList.add((String) ev.statusId)
-                    return statusIdList
-                }
-            }
-        }
-        return null
-    }
-
-    Map getJsonSchema(boolean pkOnly, boolean standalone, Map<String, Object> definitionsMap, String schemaUri, String linkPrefix,
-                      String schemaLinkPrefix, boolean nestRelationships, String masterName, MasterDetail masterDetail) {
-        String name = getShortAlias() ?: getFullEntityName()
-        String prettyName = getPrettyName(null, null)
-        String refName = name
-        if (masterName) {
-            refName = "${name}.${masterName}"
-            prettyName = prettyName + " (Master: ${masterName})"
-        }
-        if (pkOnly) {
-            name = name + ".PK"
-            refName = refName + ".PK"
-        }
-
-        Map<String, Object> properties = [:]
-        properties.put('_entity', [type:'string', default:name])
-        // NOTE: Swagger validation doesn't like the id field, was: id:refName
-        Map<String, Object> schema = [title:prettyName, type:'object', properties:properties] as Map<String, Object>
-
-        // add all fields
-        ArrayList<String> allFields = pkOnly ? getPkFieldNames() : getAllFieldNames(true)
-        for (int i = 0; i < allFields.size(); i++) {
-            FieldInfo fi = getFieldInfo(allFields.get(i))
-            Map<String, Object> propMap = [:]
-            propMap.put('type', fieldTypeJsonMap.get(fi.type))
-            String format = fieldTypeJsonFormatMap.get(fi.type)
-            if (format) propMap.put('format', format)
-            properties.put(fi.name, propMap)
-
-            List enumList = getFieldEnums(fi)
-            if (enumList) propMap.put('enum', enumList)
-        }
-
-
-        // put current schema in Map before nesting for relationships, avoid infinite recursion with entity rel loops
-        if (standalone && definitionsMap == null) {
-            definitionsMap = [:]
-            definitionsMap.put('paginationParameters', jsonPaginationParameters)
-        }
-        if (definitionsMap != null && !definitionsMap.containsKey(name))
-            definitionsMap.put(refName, schema)
-
-        if (!pkOnly && (masterName || masterDetail != null)) {
-            // add only relationships from master definition or detail
-            List<MasterDetail> detailList
-            if (masterName) {
-                MasterDefinition masterDef = getMasterDefinition(masterName)
-                if (masterDef == null) throw new IllegalArgumentException("Master name ${masterName} not valid for entity ${getFullEntityName()}")
-                detailList = masterDef.detailList
-            } else {
-                detailList = masterDetail.getDetailList()
-            }
-            for (MasterDetail childMasterDetail in detailList) {
-                RelationshipInfo relInfo = childMasterDetail.relInfo
-                String relationshipName = relInfo.relationshipName
-                String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
-                if (pkOnly) relatedRefName = relatedRefName + ".PK"
-
-                // recurse, let it put itself in the definitionsMap
-                // linkPrefix and schemaLinkPrefix are null so that no links are added for master dependents
-                if (definitionsMap != null && !definitionsMap.containsKey(relatedRefName))
-                    relInfo.relatedEd.getJsonSchema(pkOnly, false, definitionsMap, schemaUri, null, null, false, null, childMasterDetail)
-
-                if (relInfo.type == "many") {
-                    properties.put(entryName, [type:'array', items:['$ref':('#/definitions/' + relatedRefName)]])
-                } else {
-                    properties.put(entryName, ['$ref':('#/definitions/' + relatedRefName)])
-                }
-            }
-        } else if (!pkOnly && nestRelationships) {
-            // add all relationships, nest
-            List<RelationshipInfo> relInfoList = getRelationshipsInfo(true)
-            for (RelationshipInfo relInfo in relInfoList) {
-                String relationshipName = relInfo.relationshipName
-                String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
-                if (pkOnly) relatedRefName = relatedRefName + ".PK"
-
-                // recurse, let it put itself in the definitionsMap
-                if (definitionsMap != null && !definitionsMap.containsKey(relatedRefName))
-                    relInfo.relatedEd.getJsonSchema(pkOnly, false, definitionsMap, schemaUri, linkPrefix, schemaLinkPrefix, nestRelationships, null, null)
-
-                if (relInfo.type == "many") {
-                    properties.put(entryName, [type:'array', items:['$ref':('#/definitions/' + relatedRefName)]])
-                } else {
-                    properties.put(entryName, ['$ref':('#/definitions/' + relatedRefName)])
-                }
-            }
-        }
-
-        // add links (for Entity REST API)
-        if (linkPrefix || schemaLinkPrefix) {
-            List<String> pkNameList = getPkFieldNames()
-            StringBuilder idSb = new StringBuilder()
-            for (String pkName in pkNameList) idSb.append('/{').append(pkName).append('}')
-            String idString = idSb.toString()
-
-            List linkList
-            if (linkPrefix) {
-                linkList = [
-                    [rel:'self', method:'GET', href:"${linkPrefix}/${refName}${idString}", title:"Get single ${prettyName}",
-                        targetSchema:['$ref':"#/definitions/${name}"]],
-                    [rel:'instances', method:'GET', href:"${linkPrefix}/${refName}", title:"Get list of ${prettyName}",
-                        schema:[allOf:[['$ref':'#/definitions/paginationParameters'], ['$ref':"#/definitions/${name}"]]],
-                        targetSchema:[type:'array', items:['$ref':"#/definitions/${name}"]]],
-                    [rel:'create', method:'POST', href:"${linkPrefix}/${refName}", title:"Create ${prettyName}",
-                        schema:['$ref':"#/definitions/${name}"]],
-                    [rel:'update', method:'PATCH', href:"${linkPrefix}/${refName}${idString}", title:"Update ${prettyName}",
-                        schema:['$ref':"#/definitions/${name}"]],
-                    [rel:'store', method:'PUT', href:"${linkPrefix}/${refName}${idString}", title:"Create or Update ${prettyName}",
-                        schema:['$ref':"#/definitions/${name}"]],
-                    [rel:'destroy', method:'DELETE', href:"${linkPrefix}/${refName}${idString}", title:"Delete ${prettyName}",
-                        schema:['$ref':"#/definitions/${name}"]]
-                ]
-            } else {
-                linkList = []
-            }
-            if (schemaLinkPrefix) linkList.add([rel:'describedBy', method:'GET', href:"${schemaLinkPrefix}/${refName}", title:"Get schema for ${prettyName}"])
-
-            schema.put('links', linkList)
-        }
-
-        if (standalone) {
-            return ['$schema':'http://json-schema.org/draft-04/hyper-schema#', id:"${schemaUri}/${refName}",
-                    '$ref':"#/definitions/${name}", definitions:definitionsMap]
-        } else {
-            return schema
-        }
-    }
-
-    static final Map ramlPaginationParameters = [
-             pageIndex:[type:'number', description:'Page number to return, starting with zero'],
-             pageSize:[type:'number', default:100, description:'Number of records per page (default 100)'],
-             orderByField:[type:'string', description:'Field name to order by (or comma separated names)'],
-             pageNoLimit:[type:'string', description:'If true don\'t limit page size (no pagination)'],
-             dependentLevels:[type:'number', description:'Levels of dependent child records to include']
-            ]
-    static final Map<String, String> fieldTypeRamlMap = [
-            "id":"string", "id-long":"string", "text-indicator":"string", "text-short":"string", "text-medium":"string",
-            "text-long":"string", "text-very-long":"string", "date-time":"date", "time":"string",
-            "date":"string", "number-integer":"integer", "number-float":"number",
-            "number-decimal":"number", "currency-amount":"number", "currency-precise":"number",
-            "binary-very-long":"string" ] // NOTE: binary-very-long may need hyper-schema stuff
-
-    Map<String, Object> getRamlFieldMap(FieldInfo fi) {
-        Map<String, Object> propMap = [:]
-        String description = fi.fieldNode.first("description")?.text
-        if (description) propMap.put("description", description)
-        propMap.put('type', fieldTypeRamlMap.get(fi.type))
-
-        List enumList = getFieldEnums(fi)
-        if (enumList) propMap.put('enum', enumList)
-        return propMap
-    }
-
-    Map<String, Object> getRamlTypeMap(boolean pkOnly, Map<String, Object> typesMap, String masterName, MasterDetail masterDetail) {
-        String name = getShortAlias() ?: getFullEntityName()
-        String prettyName = getPrettyName(null, null)
-        String refName = name
-        if (masterName) {
-            refName = "${name}.${masterName}"
-            prettyName = prettyName + " (Master: ${masterName})"
-        }
-
-        Map properties = [:]
-        Map<String, Object> typeMap = [displayName:prettyName, type:'object', properties:properties] as Map<String, Object>
-
-        if (typesMap != null && !typesMap.containsKey(name)) typesMap.put(refName, typeMap)
-
-        // add field properties
-        ArrayList<String> allFields = pkOnly ? getPkFieldNames() : getAllFieldNames(true)
-        for (int i = 0; i < allFields.size(); i++) {
-            FieldInfo fi = getFieldInfo(allFields.get(i))
-            properties.put(fi.name, getRamlFieldMap(fi))
-        }
-
-        // for master add related properties
-        if (!pkOnly && (masterName || masterDetail != null)) {
-            // add only relationships from master definition or detail
-            List<MasterDetail> detailList
-            if (masterName) {
-                MasterDefinition masterDef = getMasterDefinition(masterName)
-                if (masterDef == null) throw new IllegalArgumentException("Master name ${masterName} not valid for entity ${getFullEntityName()}")
-                detailList = masterDef.detailList
-            } else {
-                detailList = masterDetail.getDetailList()
-            }
-            for (MasterDetail childMasterDetail in detailList) {
-                RelationshipInfo relInfo = childMasterDetail.relInfo
-                String relationshipName = relInfo.relationshipName
-                String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
-
-                // recurse, let it put itself in the definitionsMap
-                if (typesMap != null && !typesMap.containsKey(relatedRefName))
-                    relInfo.relatedEd.getRamlTypeMap(pkOnly, typesMap, null, childMasterDetail)
-
-                if (relInfo.type == "many") {
-                    // properties.put(entryName, [type:'array', items:relatedRefName])
-                    properties.put(entryName, [type:(relatedRefName + '[]')])
-                } else {
-                    properties.put(entryName, [type:relatedRefName])
-                }
-            }
-        }
-
-        return typeMap
-    }
-
-    Map getRamlApi(String masterName) {
-        String name = getShortAlias() ?: getFullEntityName()
-        if (masterName) name = "${name}/${masterName}"
-        String prettyName = getPrettyName(null, null)
-
-        Map<String, Object> ramlMap = [:]
-
-        // setup field info
-        Map qpMap = [:]
-        ArrayList<String> allFields = getAllFieldNames(true)
-        for (int i = 0; i < allFields.size(); i++) {
-            FieldInfo fi = getFieldInfo(allFields.get(i))
-            qpMap.put(fi.name, getRamlFieldMap(fi))
-        }
-
-        // get list
-        // TODO: make body array of schema
-        ramlMap.put('get', [is:['paged'], description:"Get list of ${prettyName}".toString(), queryParameters:qpMap,
-                            responses:[200:[body:['application/json': [schema:name]]]]])
-        // create
-        ramlMap.put('post', [description:"Create ${prettyName}".toString(), body:['application/json': [schema:name]]])
-
-        // under IDs for single record operations
-        List<String> pkNameList = getPkFieldNames()
-        Map recordMap = ramlMap
-        for (String pkName in pkNameList) {
-            Map childMap = [:]
-            recordMap.put('/{' + pkName + '}', childMap)
-            recordMap = childMap
-        }
-
-        // get single
-        recordMap.put('get', [description:"Get single ${prettyName}".toString(),
-                            responses:[200:[body:['application/json': [schema:name]]]]])
-        // update
-        recordMap.put('patch', [description:"Update ${prettyName}".toString(), body:['application/json': [schema:name]]])
-        // store
-        recordMap.put('put', [description:"Create or Update ${prettyName}".toString(), body:['application/json': [schema:name]]])
-        // delete
-        recordMap.put('delete', [description:"Delete ${prettyName}".toString()])
-
-        return ramlMap
-    }
-
-    void addToSwaggerMap(Map<String, Object> swaggerMap, String masterName) {
-        EntityDefinition ed = efi.getEntityDefinition(entityName)
-        if (ed == null) throw new IllegalArgumentException("Entity ${entityName} not found")
-        // Node entityNode = ed.getEntityNode()
-
-        Map definitionsMap = ((Map) swaggerMap.definitions)
-        String refDefName = ed.getShortAlias() ?: ed.getFullEntityName()
-        if (masterName) refDefName = refDefName + "." + masterName
-        String refDefNamePk = refDefName + ".PK"
-
-        String entityDescription = ed.getEntityNode().first("description")?.text
-
-        // add responses
-        Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
-                         "404":[description:"Value Not Found"], "429":[description:"Too Many Requests (tarpit)"],
-                         "500":[description:"General Error"]]
-
-        // entity path (no ID)
-        String entityPath = "/" + (ed.getShortAlias() ?: ed.getFullEntityName())
-        if (masterName) entityPath = entityPath + "/" + masterName
-        Map<String, Map<String, Object>> entityResourceMap = [:]
-        ((Map) swaggerMap.paths).put(entityPath, entityResourceMap)
-
-        // get - list
-        List<Map> listParameters = []
-        listParameters.addAll(swaggerPaginationParameters)
-        for (String fieldName in getAllFieldNames(false)) {
-            FieldInfo fi = ed.getFieldInfo(fieldName)
-            listParameters.add([name:fieldName, in:'query', required:false, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
-                                format:(fieldTypeJsonFormatMap.get(fi.type) ?: ""),
-                                description:fi.fieldNode.first("description")?.text])
-        }
-        Map listResponses = ["200":[description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]]]
-        listResponses.putAll(responses)
-        entityResourceMap.put("get", [summary:("Get ${ed.getFullEntityName()}".toString()), description:entityDescription,
-                parameters:listParameters, security:[[basicAuth:[]]], responses:listResponses])
-
-        // post - create
-        Map createResponses = ["200":[description:'Success', schema:['$ref':"#/definitions/${refDefNamePk}".toString()]]]
-        createResponses.putAll(responses)
-        entityResourceMap.put("post", [summary:("Create ${ed.getFullEntityName()}".toString()), description:entityDescription,
-                parameters:[name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${refDefName}".toString()]],
-                security:[[basicAuth:[]]], responses:createResponses])
-
-        // entity plus ID path
-        StringBuilder entityIdPathSb = new StringBuilder(entityPath)
-        List<Map> parameters = []
-        for (String pkName in getPkFieldNames()) {
-            entityIdPathSb.append("/{").append(pkName).append("}")
-
-            FieldInfo fi = ed.getFieldInfo(pkName)
-            parameters.add([name:pkName, in:'path', required:true, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
-                            description:fi.fieldNode.first("description")?.text])
-        }
-        String entityIdPath = entityIdPathSb.toString()
-        Map<String, Map<String, Object>> entityIdResourceMap = [:]
-        ((Map) swaggerMap.paths).put(entityIdPath, entityIdResourceMap)
-
-        // under id: get - one
-        Map oneResponses = ["200":[name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]]]
-        oneResponses.putAll(responses)
-        entityIdResourceMap.put("get", [summary:("Create ${ed.getFullEntityName()}".toString()),
-                description:entityDescription, security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:oneResponses])
-
-        // under id: patch - update
-        List<Map> updateParameters = new LinkedList<Map>(parameters)
-        updateParameters.add([name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]])
-        entityIdResourceMap.put("patch", [summary:("Update ${ed.getFullEntityName()}".toString()),
-                description:entityDescription, security:[[basicAuth:[]], [api_key:[]]], parameters:updateParameters, responses:responses])
-
-        // under id: put - store
-        entityIdResourceMap.put("put", [summary:("Create or Update ${ed.getFullEntityName()}".toString()),
-                description:entityDescription, security:[[basicAuth:[]], [api_key:[]]], parameters:updateParameters, responses:responses])
-
-        // under id: delete - delete
-        entityIdResourceMap.put("delete", [summary:("Delete ${ed.getFullEntityName()}".toString()),
-                description:entityDescription, security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:responses])
-
-        // add a definition for entity fields
-        definitionsMap.put(refDefName, ed.getJsonSchema(false, false, definitionsMap, null, null, null, false, masterName, null))
-        definitionsMap.put(refDefNamePk, ed.getJsonSchema(true, false, null, null, null, null, false, masterName, null))
-    }
-
-    List<MNode> getFieldNodes(boolean includePk, boolean includeNonPk, boolean includeUserFields) {
+    // TODO: can eliminate this?
+    List<MNode> getFieldNodes(boolean includePk, boolean includeNonPk) {
         // NOTE: this is not necessarily the fastest way to do this, if it becomes a performance problem replace it with a local List of field Nodes
         List<MNode> nodeList = new ArrayList<MNode>()
         String nodeName = this.isViewEntity() ? "alias" : "field"
         for (MNode node in this.internalEntityNode.children(nodeName)) {
             if ((includePk && node.attribute("is-pk") == "true") || (includeNonPk && node.attribute("is-pk") != "true")) {
                 nodeList.add(node)
-            }
-        }
-
-        if (includeUserFields && allowUserField && !this.isViewEntity()) {
-            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                EntityList userFieldList = efi.find("moqui.entity.UserField").condition("entityName", getFullEntityName()).useCache(true).list()
-                if (userFieldList) {
-                    Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                    for (EntityValue userField in userFieldList) {
-                        if (userGroupIdSet.contains(userField.userGroupId)) {
-                            nodeList.add(makeUserFieldNode(userField))
-                            break
-                        }
-                    }
-                }
-            } finally {
-                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
             }
         }
 
@@ -1525,11 +1001,13 @@ public class EntityDefinition {
         boolean hasNamePrefix = namePrefix != null && namePrefix.length() > 0
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
-        ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
+        FieldInfo[] fieldInfoArray = pks == null ? getAllFieldInfoArray() :
+                (pks == Boolean.TRUE ? getPkFieldInfoArray() : getNonPkFieldInfoArray())
         // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
-        int size = fieldNameList.size()
+        int size = fieldInfoArray.length
         for (int i = 0; i < size; i++) {
-            String fieldName = (String) fieldNameList.get(i)
+            FieldInfo fi = (FieldInfo) fieldInfoArray[i]
+            String fieldName = fi.name
             String sourceFieldName
             if (hasNamePrefix) {
                 sourceFieldName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1)
@@ -1551,7 +1029,7 @@ public class EntityDefinition {
                 if (!isEmpty) {
                     if (isCharSequence) {
                         try {
-                            Object converted = convertFieldString(fieldName, value.toString(), eci)
+                            Object converted = convertFieldInfoString(fi, value.toString(), eci)
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted) else dest.put(fieldName, converted)
                         } catch (BaseException be) {
                             eci.message.addValidationError(null, fieldName, null, be.getMessage(), be)
@@ -1577,7 +1055,6 @@ public class EntityDefinition {
         ExecutionContextImpl eci = efi.ecfi.getEci()
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
-        // was: ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
         FieldInfo[] fieldInfoArray = pks == null ? getAllFieldInfoArray() :
                 (pks == Boolean.TRUE ? getPkFieldInfoArray() : getNonPkFieldInfoArray())
         // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone

@@ -178,7 +178,7 @@ class ScreenForm {
                 } else if (ecfi.getServiceFacade().isEntityAutoPattern(singleServiceName)) {
                     String entityName = ServiceDefinition.getNounFromName(singleServiceName)
                     EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
-                    List<String> fieldNames = ed.getAllFieldNames(false)
+                    ArrayList<String> fieldNames = ed.getAllFieldNames()
                     for (MNode fieldNode in newFormNode.children("field")) {
                         // if the field matches an in-parameter name and does not already have a validate-entity, then set it
                         if (fieldNames.contains(fieldNode.attribute("name")) && !fieldNode.attribute("validate-entity")) {
@@ -525,7 +525,7 @@ class ScreenForm {
     }
 
     void addEntityFields(EntityDefinition ed, String include, String fieldType, String serviceVerb, MNode baseFormNode) {
-        for (String fieldName in ed.getFieldNames(include == "all" || include == "pk", include == "all" || include == "nonpk", include == "all" || include == "nonpk")) {
+        for (String fieldName in ed.getFieldNames(include == "all" || include == "pk", include == "all" || include == "nonpk")) {
             String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
             if (baseFormNode.name == "form-list" && efType in ['text-long', 'text-very-long', 'binary-very-long']) continue
 

@@ -191,7 +191,7 @@ class ServiceDefinition {
         String requiredStr = autoParameters.attribute("required") ?: "false"
         String allowHtmlStr = autoParameters.attribute("allow-html") ?: "none"
         for (String fieldName in ed.getFieldNames(includeStr == "all" || includeStr == "pk",
-                includeStr == "all" || includeStr == "nonpk", includeStr == "all" || includeStr == "nonpk")) {
+                includeStr == "all" || includeStr == "nonpk")) {
             if (fieldsToExclude.contains(fieldName)) continue
 
             String javaType = sfi.ecfi.entityFacade.getFieldJavaType(ed.getFieldInfo(fieldName).type, ed)
@@ -204,9 +204,9 @@ class ServiceDefinition {
     void mergeParameter(MNode parametersNode, MNode overrideParameterNode, EntityDefinition ed) {
         MNode baseParameterNode = mergeParameter(parametersNode, overrideParameterNode.attribute("name"),
                 overrideParameterNode.attributes)
-        // merge description, subtype, ParameterValidations
+        // merge description, ParameterValidations
         for (MNode childNode in overrideParameterNode.children) {
-            if (childNode.name == "description" || childNode.name == "subtype") {
+            if (childNode.name == "description") {
                 if (baseParameterNode.hasChild(childNode.name)) baseParameterNode.remove(childNode.name)
             }
             if (childNode.name == "auto-parameters") {
@@ -233,6 +233,7 @@ class ServiceDefinition {
         return baseParameterNode
     }
 
+    ServiceFacadeImpl getServiceFacade() { return sfi }
     MNode getServiceNode() { return serviceNode }
 
     String getServiceName() { return (path ? path + "." : "") + verb + (noun ? "#" + noun : "") }
@@ -267,6 +268,7 @@ class ServiceDefinition {
         return serviceName.substring(serviceName.lastIndexOf("#") + 1)
     }
 
+    /* no longer used, TODO remove:
     static final Map<String, String> verbAuthzActionIdMap = [create:'AUTHZA_CREATE', update:'AUTHZA_UPDATE',
             store:'AUTHZA_UPDATE', delete:'AUTHZA_DELETE', view:'AUTHZA_VIEW', find:'AUTHZA_VIEW']
     static String getVerbAuthzActionId(String theVerb) {
@@ -275,6 +277,7 @@ class ServiceDefinition {
         if (authzAction == null) authzAction = 'AUTHZA_ALL'
         return authzAction
     }
+    */
     static final Map<String, ArtifactExecutionInfo.AuthzAction> verbAuthzActionEnumMap = [
             create:ArtifactExecutionInfo.AUTHZA_CREATE, update:ArtifactExecutionInfo.AUTHZA_UPDATE,
             store :ArtifactExecutionInfo.AUTHZA_UPDATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
@@ -329,7 +332,6 @@ class ServiceDefinition {
             }
 
             Object parameterValue = parameters.get(parameterName)
-            String type = parameterInfo.type
 
             // set the default if applicable
             boolean parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue)
@@ -382,10 +384,6 @@ class ServiceDefinition {
                             eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}','',[parameterValue:parameterValue,valNode:valNode, t:t]), null)
                         }
                     }
-
-                    // TODO: consider deprecating the subtype feature, very old and nested parameters much better
-                    if (parameterInfo.subtypeNodeList != null)
-                        checkSubtype(parameterName, parameterInfo.parameterNode, parameterValue, eci)
                 }
 
                 // now check parameter sub-elements
@@ -621,339 +619,10 @@ class ServiceDefinition {
         return true
     }
 
-    protected void checkSubtype(String parameterName, MNode typeParentNode, Object value, ExecutionContextImpl eci) {
-        if (typeParentNode.hasChild("subtype")) {
-            if (value instanceof Collection) {
-                // just check the first value in the list
-                if (((Collection) value).size() > 0) {
-                    String subType = typeParentNode.first("subtype").attribute("type")
-                    Object subValue = ((Collection) value).iterator().next()
-                    if (!StupidJavaUtilities.isInstanceOf(subValue, subType)) {
-                        eci.message.addError(eci.resource.expand('Parameter [${parameterName}] passed to service [${serviceName}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]','',[parameterName:parameterName,serviceName:getServiceName(),subValue:subValue,subType:subType]))
-                    } else {
-                        // try the next level down
-                        checkSubtype(parameterName, typeParentNode.first("subtype"), subValue, eci)
-                    }
-                }
-            } else if (value instanceof Map) {
-                // for each subtype element check its name/type
-                Map mapVal = (Map) value
-                for (MNode stNode in typeParentNode.children("subtype")) {
-                    String subName = stNode.attribute("name")
-                    String subType = stNode.attribute("type")
-                    if (!subName || !subType) continue
-
-                    Object subValue = mapVal.get(subName)
-                    if (!subValue) continue
-                    if (!StupidJavaUtilities.isInstanceOf(subValue, subType)) {
-                        eci.message.addError(eci.resource.expand('Parameter [${parameterName}] passed to service [${serviceName}] had a subtype [${subValue.class.name}], expecting subtype [${subType}]','',[parameterName:parameterName,serviceName:getServiceName(),subValue:subValue,subType:subType]))
-                    } else {
-                        // try the next level down
-                        checkSubtype(parameterName, stNode, subValue, eci)
-                    }
-                }
-            }
-        }
-    }
-
     static final Map<String, Long> creditCardTypeMap =
             [visa:CreditCardValidator.VISA, mastercard:CreditCardValidator.MASTERCARD,
                     amex:CreditCardValidator.AMEX, discover:CreditCardValidator.DISCOVER,
                     dinersclub:CreditCardValidator.DINERS]
     static final long allCreditCards = CreditCardValidator.VISA + CreditCardValidator.MASTERCARD +
             CreditCardValidator.AMEX + CreditCardValidator.DISCOVER + CreditCardValidator.DINERS
-    // NOTE: removed with updated for Validator 1.4.0: enroute, jcb, solo, switch, visaelectron
-
-    /* These are no longer needed, but keeping for reference:
-    static class CreditCardVisa implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            return (((cc.length() == 16) || (cc.length() == 13)) && (cc.substring(0, 1).equals("4")))
-        }
-    }
-    static class CreditCardMastercard implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            int firstDigit = Integer.parseInt(cc.substring(0, 1))
-            int secondDigit = Integer.parseInt(cc.substring(1, 2))
-            return ((cc.length() == 16) && (firstDigit == 5) && ((secondDigit >= 1) && (secondDigit <= 5)))
-        }
-    }
-    static class CreditCardAmex implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            int firstDigit = Integer.parseInt(cc.substring(0, 1))
-            int secondDigit = Integer.parseInt(cc.substring(1, 2))
-            return ((cc.length() == 15) && (firstDigit == 3) && ((secondDigit == 4) || (secondDigit == 7)))
-        }
-    }
-    static class CreditCardDiscover implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            String first4digs = cc.substring(0, 4)
-            return ((cc.length() == 16) && (first4digs.equals("6011")))
-        }
-    }
-    static class CreditCardEnroute implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            String first4digs = cc.substring(0, 4)
-            return ((cc.length() == 15) && (first4digs.equals("2014") || first4digs.equals("2149")))
-        }
-    }
-    static class CreditCardJcb implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            String first4digs = cc.substring(0, 4)
-            return ((cc.length() == 16) &&
-                (first4digs.equals("3088") || first4digs.equals("3096") || first4digs.equals("3112") ||
-                    first4digs.equals("3158") || first4digs.equals("3337") || first4digs.equals("3528")))
-        }
-    }
-    static class CreditCardSolo implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            String first4digs = cc.substring(0, 4)
-            String first2digs = cc.substring(0, 2)
-            return (((cc.length() == 16) || (cc.length() == 18) || (cc.length() == 19)) &&
-                    (first2digs.equals("63") || first4digs.equals("6767")))
-        }
-    }
-    static class CreditCardSwitch implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            String first4digs = cc.substring(0, 4)
-            String first6digs = cc.substring(0, 6)
-            return (((cc.length() == 16) || (cc.length() == 18) || (cc.length() == 19)) &&
-                (first4digs.equals("4903") || first4digs.equals("4905") || first4digs.equals("4911") ||
-                    first4digs.equals("4936") || first6digs.equals("564182") || first6digs.equals("633110") ||
-                    first4digs.equals("6333") || first4digs.equals("6759")))
-        }
-    }
-    static class CreditCardDinersClub implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            int firstDigit = Integer.parseInt(cc.substring(0, 1))
-            int secondDigit = Integer.parseInt(cc.substring(1, 2))
-            return ((cc.length() == 14) && (firstDigit == 3) && ((secondDigit == 0) || (secondDigit == 6) || (secondDigit == 8)))
-        }
-    }
-    static class CreditCardVisaElectron implements CreditCardValidator.CreditCardType {
-        boolean matches(String cc) {
-            String first6digs = cc.substring(0, 6)
-            String first4digs = cc.substring(0, 4)
-            return ((cc.length() == 16) &&
-                (first6digs.equals("417500") || first4digs.equals("4917") || first4digs.equals("4913") ||
-                    first4digs.equals("4508") || first4digs.equals("4844") || first4digs.equals("4027")))
-        }
-    }
-    */
-
-    /* old code that hasn't been maintained and isn't being used, but might be useful at some point:
-    protected void checkParameterNode(String namePrefix, Map<String, Object> rootParameters, MNode nodeValue,
-                                      Map<String, ParameterInfo> parameterInfoMap, boolean validate, ExecutionContextImpl eci) {
-        // NOTE: don't worry about extra attributes or sub-Nodes... let them through
-
-        // go through attributes of Node, validate each that corresponds to a parameter def
-        for (Map.Entry<String, String> attrEntry in nodeValue.attributes.entrySet()) {
-            String parameterName = attrEntry.getKey()
-            ParameterInfo parameterInfo = parameterInfoMap.get(parameterName)
-            if (parameterInfo == null) {
-                // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
-                continue
-            }
-
-            Object parameterValue = nodeValue.attribute(parameterName)
-
-            // NOTE: required check is done later, now just validating the parameters seen
-            // NOTE: no type conversion for Node attributes, they are always String
-
-            // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
-            Object converted = ServiceJavaUtil.checkConvertType(parameterInfo, namePrefix, parameterName, parameterValue, rootParameters, eci)
-            if (validate && converted != null) validateParameterHtml(parameterInfo, namePrefix, parameterName, converted, eci)
-            if (validate) validateParameter(parameterInfo, parameterName, converted, eci)
-
-
-            // NOTE: no sub-nodes here, it's an attribute, so ignore child parameter elements
-        }
-
-        // go through sub-Nodes and if corresponds to
-        // - Node parameter, checkParameterNode
-        // - otherwise, check type/etc
-        // TODO - parameter with type Map, convert to Map? ...checkParameterMap; converting to Map would kill multiple values, or they could be put in a List, though that pattern is a bit annoying...
-        for (MNode childNode in nodeValue.children) {
-            String parameterName = childNode.name
-            ParameterInfo parameterInfo = parameterInfoMap.get(parameterName)
-            if (parameterInfo == null) {
-                // NOTE: consider complaining here to not allow additional attributes, that could be annoying though so for now do not...
-                continue
-            }
-
-            if (parameterInfo.type == "MNode" || parameterInfo.type == "org.moqui.util.MNode") {
-                // recurse back into this method
-                checkParameterNode("${namePrefix}${parameterName}.", rootParameters, childNode, parameterInfo.childParameterInfoMap, validate, eci)
-            } else {
-                Object parameterValue = StupidUtilities.nodeText(childNode)
-
-                // NOTE: required check is done later, now just validating the parameters seen
-                // NOTE: no type conversion for Node attributes, they are always String
-
-                if (validate) validateParameterHtml(parameterInfo, namePrefix, parameterName, parameterValue, eci)
-
-                // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
-                Object converted = ServiceJavaUtil.checkConvertType(parameterInfo, namePrefix, parameterName, parameterValue, rootParameters, eci)
-                if (validate) validateParameter(parameterInfo, parameterName, converted, eci)
-            }
-        }
-
-        // if there is text() under this node, use the _VALUE parameter node to validate
-        ParameterInfo textValueInfo = parameterInfoMap.get("_VALUE")
-        if (textValueInfo != null) {
-            String parameterValue = nodeValue.text
-            if (!parameterValue) {
-                if (validate && textValueInfo.required) {
-                    eci.message.addError("${namePrefix}_VALUE cannot be empty (service ${getServiceName()})")
-                }
-            } else {
-                if (validate) validateParameterHtml(textValueInfo, namePrefix, "_VALUE", parameterValue, eci)
-
-                // NOTE: only use the converted value for validation, attributes must be strings so can't put it back there
-                Object converted = ServiceJavaUtil.checkConvertType(textValueInfo, namePrefix, "_VALUE", parameterValue, rootParameters, eci)
-                if (validate) validateParameter(textValueInfo, "_VALUE", converted, eci)
-            }
-        }
-
-        // check for missing parameters (no attribute or sub-Node) that are required
-        for (ParameterInfo parameterInfo in parameterInfoMap.values()) {
-            // skip _VALUE, checked above
-            if (parameterInfo.name == "_VALUE") continue
-
-            if (parameterInfo.required) {
-                String parameterName = parameterInfo.name
-                boolean valueFound = false
-                if (nodeValue.attribute(parameterName)) {
-                    valueFound = true
-                } else {
-                    for (MNode childNode in nodeValue.children) {
-                        if (childNode.text) {
-                            valueFound = true
-                            break
-                        }
-                    }
-                }
-
-                if (validate && !valueFound) eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), "Field cannot be empty", null)
-            }
-        }
-    }
-    */
-
-    Map<String, Object> getJsonSchemaMapIn() {
-        // add a definition for service in parameters
-        List<String> requiredParms = []
-        Map<String, Object> properties = [:]
-        Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
-        for (String parmName in getInParameterNames()) {
-            MNode parmNode = getInParameter(parmName)
-            if (parmNode.attribute("required") == "true") requiredParms.add(parmName)
-            properties.put(parmName, getJsonSchemaPropMap(parmNode))
-        }
-        if (requiredParms) defMap.put("required", requiredParms)
-        return defMap
-    }
-    Map<String, Object> getJsonSchemaMapOut() {
-        List<String> requiredParms = []
-        Map<String, Object> properties = [:]
-        Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
-        for (String parmName in getOutParameterNames()) {
-            MNode parmNode = getOutParameter(parmName)
-            if (parmNode.attribute("required") == "true") requiredParms.add(parmName)
-            properties.put(parmName, getJsonSchemaPropMap(parmNode))
-        }
-        if (requiredParms) defMap.put("required", requiredParms)
-        return defMap
-    }
-    protected Map<String, Object> getJsonSchemaPropMap(MNode parmNode) {
-        String objectType = (String) parmNode?.attribute('type')
-        String jsonType = RestApi.getJsonType(objectType)
-        Map<String, Object> propMap = [type:jsonType] as Map<String, Object>
-        String format = RestApi.getJsonFormat(objectType)
-        if (format) propMap.put("format", format)
-        String description = parmNode.first("description")?.text
-        if (description) propMap.put("description", description)
-        if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))
-        if (parmNode.attribute("default")) propMap.put("default", "{${parmNode.attribute("default")}}".toString())
-
-        List<MNode> childList = parmNode.children("parameter")
-        if (jsonType == 'array') {
-            if (childList) {
-                propMap.put("items", getJsonSchemaPropMap(childList[0]))
-            } else {
-                logger.warn("Parameter ${parmNode.attribute('name')} of service ${getServiceName()} is an array type but has no child parameter (should have one, name ignored), may cause error in Swagger, etc")
-            }
-        } else if (jsonType == 'object') {
-            if (childList) {
-                Map properties = [:]
-                propMap.put("properties", properties)
-                for (MNode childNode in childList) {
-                    properties.put(childNode.attribute("name"), getJsonSchemaPropMap(childNode))
-                }
-            } else {
-                // Swagger UI is okay with empty maps (works, just less detail), so don't warn about this
-                // logger.warn("Parameter ${parmNode.attribute('name')} of service ${getServiceName()} is an object type but has no child parameters, may cause error in Swagger, etc")
-            }
-        } else {
-            addParameterEnums(parmNode, propMap)
-        }
-
-        return propMap
-    }
-
-    void addParameterEnums(MNode parmNode, Map<String, Object> propMap) {
-        String entityName = parmNode.attribute("entity-name")
-        String fieldName = parmNode.attribute("field-name")
-        if (entityName && fieldName) {
-            EntityDefinition ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(entityName)
-            if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${getServiceName()}")
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
-            if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${getServiceName()}")
-            List enumList = ed.getFieldEnums(fi)
-            if (enumList) propMap.put('enum', enumList)
-        }
-    }
-
-    Map<String, Object> getRamlMapIn() {
-        Map<String, Object> properties = [:]
-        Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
-        for (String parmName in getInParameterNames()) {
-            MNode parmNode = getInParameter(parmName)
-            properties.put(parmName, getRamlPropMap(parmNode))
-        }
-        return defMap
-    }
-    Map<String, Object> getRamlMapOut() {
-        Map<String, Object> properties = [:]
-        Map<String, Object> defMap = [type:'object', properties:properties] as Map<String, Object>
-        for (String parmName in getOutParameterNames()) {
-            MNode parmNode = getOutParameter(parmName)
-            properties.put(parmName, getRamlPropMap(parmNode))
-        }
-        return defMap
-    }
-    protected static Map<String, Object> getRamlPropMap(MNode parmNode) {
-        String objectType = parmNode?.attribute('type')
-        String ramlType = RestApi.getRamlType(objectType)
-        Map<String, Object> propMap = [type:ramlType] as Map<String, Object>
-        String description = parmNode.first("description")?.text
-        if (description) propMap.put("description", description)
-        if (parmNode.attribute("required") == "true") propMap.put("required", true)
-        if (parmNode.attribute("default-value")) propMap.put("default", (String) parmNode.attribute("default-value"))
-        if (parmNode.attribute("default")) propMap.put("default", "{${parmNode.attribute("default")}}".toString())
-
-        List<MNode> childList = parmNode.children("parameter")
-        if (childList) {
-            if (ramlType == 'array') {
-                propMap.put("items", getRamlPropMap(childList[0]))
-            } else if (ramlType == 'object') {
-                Map properties = [:]
-                propMap.put("properties", properties)
-                for (MNode childNode in childList) {
-                    properties.put(childNode.attribute("name"), getRamlPropMap(childNode))
-                }
-            }
-        }
-
-        return propMap
-    }
 }

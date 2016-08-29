@@ -169,7 +169,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
             for (int i = 0; i < fieldInfoArray.length; i++) {
                 FieldInfo fi = (FieldInfo) fieldInfoArray[i]
                 if (fi == null) break
-                if (!fi.isUserField) fieldUsedSet.add(fi.name)
+                fieldUsedSet.add(fi.name)
             }
 
             ArrayList<String> orderByFields = entityFindBase.orderByFields

@@ -26,6 +26,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.impl.util.RestSchemaUtil
 import org.moqui.jcache.MCache
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -90,6 +91,7 @@ class RestApi {
         logger.info("Loaded REST API files, ${rootResourceCache.size()} roots, in ${System.currentTimeMillis() - startTime}ms")
     }
 
+    /** Used in tools dashboard screen */
     List<ResourceNode> getFreshRootResources() {
         loadRootResourceNode(null)
         List<ResourceNode> rootList = new ArrayList<>()
@@ -118,7 +120,7 @@ class RestApi {
                                        'X-Page-Max-Index':[type:'integer', description:"Highest page index given page size and count of results"],
                                        'X-Page-Range-Low':[type:'integer', description:"Index of first result in page"],
                                        'X-Page-Range-High':[type:'integer', description:"Index of last result in page"]] as Map<String, Object>
-        rootMap.put('traits', [[paged:[queryParameters:EntityDefinition.ramlPaginationParameters, headers:headers]],
+        rootMap.put('traits', [[paged:[queryParameters:RestSchemaUtil.ramlPaginationParameters, headers:headers]],
             [service:[responses:[401:[description:"Authentication required"], 403:[description:"Access Forbidden (no authz)"],
                                  429:[description:"Too Many Requests (tarpit)"], 500:[description:"General Error"]]]],
             [entity:[responses:[401:[description:"Authentication required"], 403:[description:"Access Forbidden (no authz)"],
@@ -261,7 +263,7 @@ class RestApi {
                 if (method in ['post', 'put', 'patch']) {
                     parameters.add([name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${sd.getServiceName()}.In".toString()]])
                     // add a definition for service in parameters
-                    definitionsMap.put("${sd.getServiceName()}.In".toString(), sd.getJsonSchemaMapIn())
+                    definitionsMap.put("${sd.getServiceName()}.In".toString(), RestSchemaUtil.getJsonSchemaMapIn(sd))
                 } else {
                     for (String parmName in remainingInParmNames) {
                         MNode parmNode = sd.getInParameter(parmName)
@@ -274,7 +276,7 @@ class RestApi {
                                 type:jsonType, format:getJsonFormat(javaType),
                                 description:parmNode.first("description")?.text] as Map<String, Object>
                         parameters.add(propMap)
-                        sd.addParameterEnums(parmNode, propMap)
+                        RestSchemaUtil.addParameterEnums(sd, parmNode, propMap)
                     }
 
                 }
@@ -285,7 +287,7 @@ class RestApi {
                              "429":[description:"Too Many Requests (tarpit)"], "500":[description:"General Error"]]
             if (sd.getOutParameterNames().size() > 0) {
                 responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.getServiceName()}.Out".toString()]])
-                definitionsMap.put("${sd.getServiceName()}.Out".toString(), sd.getJsonSchemaMapOut())
+                definitionsMap.put("${sd.getServiceName()}.Out".toString(), RestSchemaUtil.getJsonSchemaMapOut(sd))
             }
 
             Map curMap = [:]
@@ -310,12 +312,12 @@ class RestApi {
             if (remainingInParmNames) {
                 ramlMap.put("body", ['application/json': [type:"${sd.getServiceName()}.In".toString()]])
                 // add a definition for service in parameters
-                typesMap.put("${sd.getServiceName()}.In".toString(), sd.getRamlMapIn())
+                typesMap.put("${sd.getServiceName()}.In".toString(), RestSchemaUtil.getRamlMapIn(sd))
             }
 
             if (sd.getOutParameterNames().size() > 0) {
                 ramlMap.put("responses", [200:[body:['application/json': [type:"${sd.getServiceName()}.Out".toString()]]]])
-                typesMap.put("${sd.getServiceName()}.Out".toString(), sd.getRamlMapOut())
+                typesMap.put("${sd.getServiceName()}.Out".toString(), RestSchemaUtil.getRamlMapOut(sd))
             }
 
             return ramlMap
@@ -411,7 +413,7 @@ class RestApi {
             for (String pathParm in pathNode.pathParameters) {
                 EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(pathParm)
                 if (fi == null) throw new IllegalArgumentException("No field found for path parameter ${pathParm} in entity ${ed.getFullEntityName()}")
-                parameters.add([name:pathParm, in:'path', required:true, type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
+                parameters.add([name:pathParm, in:'path', required:true, type:(RestSchemaUtil.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 description:fi.fieldNode.first("description")?.text])
                 remainingPkFields.remove(pathParm)
             }
@@ -428,30 +430,30 @@ class RestApi {
                     for (String fieldName in remainingPkFields) {
                         EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
                         Map<String, Object> fieldMap = [name:fieldName, in:'query', required:false,
-                                type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
-                                format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
+                                type:(RestSchemaUtil.fieldTypeJsonMap.get(fi.type) ?: "string"),
+                                format:(RestSchemaUtil.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
                                 description:fi.fieldNode.first("description")?.text] as Map<String, Object>
                         parameters.add(fieldMap)
-                        List enumList = ed.getFieldEnums(fi)
+                        List enumList = RestSchemaUtil.getFieldEnums(ed, fi)
                         if (enumList) fieldMap.put('enum', enumList)
                     }
                 }
                 responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${refDefName}".toString()]])
             } else if (operation == 'list') {
-                parameters.addAll(EntityDefinition.swaggerPaginationParameters)
-                for (String fieldName in ed.getAllFieldNames(false)) {
+                parameters.addAll(RestSchemaUtil.swaggerPaginationParameters)
+                for (String fieldName in ed.getAllFieldNames()) {
                     if (fieldName in pathNode.pathParameters) continue
                     EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
                     parameters.add([name:fieldName, in:'query', required:false,
-                                        type:(EntityDefinition.fieldTypeJsonMap.get(fi.type) ?: "string"),
-                                        format:(EntityDefinition.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
+                                        type:(RestSchemaUtil.fieldTypeJsonMap.get(fi.type) ?: "string"),
+                                        format:(RestSchemaUtil.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
                                         description:fi.fieldNode.first("description")?.text])
                 }
                 // parameters.add([name:'body', in:'body', required:false, schema:[allOf:[['$ref':'#/definitions/paginationParameters'], ['$ref':"#/definitions/${refDefName}"]]]])
                 responses.put("200", [description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]])
             } else if (operation == 'count') {
                 parameters.add([name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]])
-                responses.put("200", [description:'Success', schema:EntityDefinition.jsonCountParameters])
+                responses.put("200", [description:'Success', schema:RestSchemaUtil.jsonCountParameters])
             } else if (operation in ['create', 'update', 'store']) {
                 parameters.add([name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]])
                 responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${refDefNamePk}".toString()]])
@@ -473,8 +475,8 @@ class RestApi {
             resourceMap.put(method, curMap)
 
             // add a definition for entity fields
-            if (addEntityDef) definitionsMap.put(refDefName, ed.getJsonSchema(false, false, definitionsMap, null, null, null, false, masterName, null))
-            if (addPkDef) definitionsMap.put(refDefNamePk, ed.getJsonSchema(true, false, null, null, null, null, false, masterName, null))
+            if (addEntityDef) definitionsMap.put(refDefName, RestSchemaUtil.getJsonSchema(ed, false, false, definitionsMap, null, null, null, false, masterName, null))
+            if (addPkDef) definitionsMap.put(refDefNamePk, RestSchemaUtil.getJsonSchema(ed, true, false, null, null, null, null, false, masterName, null))
         }
 
         Map<String, Object> getRamlMap(Map<String, Object> typesMap) {
@@ -496,13 +498,13 @@ class RestApi {
             Map pkQpMap = [:]
             for (int i = 0; i < remainingPkFields.size(); i++) {
                 EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(remainingPkFields.get(i))
-                pkQpMap.put(fi.name, ed.getRamlFieldMap(fi))
+                pkQpMap.put(fi.name, RestSchemaUtil.getRamlFieldMap(ed, fi))
             }
             Map allQpMap = [:]
-            ArrayList<String> allFields = ed.getAllFieldNames(true)
+            ArrayList<String> allFields = ed.getAllFieldNames()
             for (int i = 0; i < allFields.size(); i++) {
                 EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
-                allQpMap.put(fi.name, ed.getRamlFieldMap(fi))
+                allQpMap.put(fi.name, RestSchemaUtil.getRamlFieldMap(ed, fi))
             }
 
             boolean addEntityDef = true
@@ -516,7 +518,7 @@ class RestApi {
                 ramlMap.put("responses", [200:[body:['application/json': [type:"array", items:refDefName]]]])
             } else if (operation == 'count') {
                 ramlMap = [is:['entity'], displayName:"Count ${prettyName}".toString(), body:['application/json': [type:refDefName]]] as Map<String, Object>
-                ramlMap.put("responses", [200:[body:['application/json': EntityDefinition.jsonCountParameters]]])
+                ramlMap.put("responses", [200:[body:['application/json': RestSchemaUtil.jsonCountParameters]]])
             } else if (operation  == 'create') {
                 ramlMap = [is:['entity'], displayName:"Create ${prettyName}".toString(), body:['application/json': [type:refDefName]]] as Map<String, Object>
                 if (pkQpMap) ramlMap.put("responses", [200:[body:['application/json': [type:'object', properties:pkQpMap]]]])
@@ -530,7 +532,7 @@ class RestApi {
                 if (pkQpMap) ramlMap.put('queryParameters', pkQpMap)
                 addEntityDef = false
             }
-            if (addEntityDef) ed.getRamlTypeMap(false, typesMap, masterName, null)
+            if (addEntityDef) RestSchemaUtil.getRamlTypeMap(ed, false, typesMap, masterName, null)
 
             return ramlMap
         }
@@ -621,7 +623,9 @@ class RestApi {
 
             // push onto artifact stack, check authz
             String curPath = getFullPathName([])
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, ArtifactExecutionInfo.AT_REST_PATH, getActionFromMethod(ec))
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, ArtifactExecutionInfo.AT_REST_PATH, getActionFromMethod(ec), null)
+            // for now don't track/count artifact hits for REST path
+            aei.setTrackArtifactHit(false)
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
             ec.artifactExecutionImpl.pushInternal(aei, !moreInPath ?
                     (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)

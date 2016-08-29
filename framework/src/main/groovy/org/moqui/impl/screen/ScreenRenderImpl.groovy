@@ -193,7 +193,7 @@ class ScreenRenderImpl implements ScreenRender {
         // for these authz is not required, as long as something authorizes on the way to the transition, or
         // the transition itself, it's fine
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
-                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, null)
         ec.getArtifactExecutionImpl().pushInternal(aei, false)
 
         boolean loggedInAnonymous = false
@@ -590,7 +590,7 @@ class ScreenRenderImpl implements ScreenRender {
         MNode screenNode = sd.getScreenNode()
         String requireAuthentication = screenNode.attribute('require-authentication')
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
-                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType)
         ec.artifactExecutionImpl.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
@@ -618,8 +618,6 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     void doActualRender() {
-        long screenStartTime = System.currentTimeMillis()
-        long startTimeNanos = System.nanoTime()
         boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(null) : false
         try {
             // make sure this (sri) is in the context before running actions
@@ -666,7 +664,7 @@ class ScreenRenderImpl implements ScreenRender {
                     }
 
                     ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location,
-                            ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
+                            ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType)
                     ec.artifactExecutionImpl.pushInternal(aei, false)
                     aeiList.add(aei)
                 }
@@ -727,13 +725,6 @@ class ScreenRenderImpl implements ScreenRender {
             WebFacade webFacade = ec.getWeb()
             // if we began a tx commit it
             if (beganTransaction && sfi.ecfi.transactionFacade.isTransactionInPlace()) sfi.ecfi.transactionFacade.commit()
-            // track the screen artifact hit
-            if (screenUrlInfo.targetScreen.screenNode.attribute('track-artifact-hit') != "false") {
-                sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN, this.outputContentType,
-                        screenUrlInfo.screenRenderDefList.last().getLocation(),
-                        (webFacade != null ? webFacade.requestParameters : null), screenStartTime,
-                        (System.nanoTime() - startTimeNanos)/1E6, null)
-            }
             // save the screen history
             if (webFacade != null && webFacade instanceof WebFacadeImpl) {
                 ((WebFacadeImpl) webFacade).saveScreenHistory(screenUrlInstance)

@@ -27,6 +27,24 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 
 public class EntityQueryBuilder {
+    protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
+    protected static final boolean isTraceEnabled = logger.isTraceEnabled();
+
+    protected final EntityFacadeImpl efi;
+    private final EntityDefinition mainEntityDefinition;
+
+    private static final int sqlInitSize = 500;
+    protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize);
+    protected String finalSql = (String) null;
+
+    private static final int parametersInitSize = 20;
+    protected ArrayList<EntityConditionParameter> parameters = new ArrayList<EntityJavaUtil.EntityConditionParameter>(parametersInitSize);
+
+    protected PreparedStatement ps = (PreparedStatement) null;
+    private ResultSet rs = (ResultSet) null;
+    protected Connection connection = (Connection) null;
+    private boolean externalConnection = false;
+
     public EntityQueryBuilder(EntityDefinition entityDefinition, EntityFacadeImpl efi) {
         this.mainEntityDefinition = entityDefinition;
         this.efi = efi;
@@ -114,9 +132,7 @@ public class EntityQueryBuilder {
 
     }
 
-    /**
-     * NOTE: this should be called in a finally clause to make sure things are closed
-     */
+    /** NOTE: this should be called in a finally clause to make sure things are closed */
     public void closeAll() throws SQLException {
         if (ps != null) {
             ps.close();
@@ -135,9 +151,7 @@ public class EntityQueryBuilder {
 
     }
 
-    /**
-     * For when closing to be done in other places, like a EntityListIteratorImpl
-     */
+    /** For when closing to be done in other places, like a EntityListIteratorImpl */
     public void releaseAll() {
         ps = null;
         rs = null;
@@ -171,7 +185,6 @@ public class EntityQueryBuilder {
     }
 
     public void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
-        boolean checkUserFields = mainEntityDefinition.allowUserField;
         int size = fieldInfoArray.length;
         if (size > 0) {
             if (fieldOptionsArray == null && mainEntityDefinition.getAllFieldInfoList().size() == size) {
@@ -188,8 +201,6 @@ public class EntityQueryBuilder {
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 if (fi == null) break;
-                if (fi.isUserField && !checkUserFields) continue;
-
                 if (i > 0) sqlTopLevelInternal.append(", ");
 
                 boolean appendCloseParen = false;
@@ -217,18 +228,4 @@ public class EntityQueryBuilder {
     public final EntityDefinition getMainEntityDefinition() {
         return mainEntityDefinition;
     }
-
-    protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
-    protected static final boolean isTraceEnabled = logger.isTraceEnabled();
-    protected final EntityFacadeImpl efi;
-    private final EntityDefinition mainEntityDefinition;
-    protected static final int sqlInitSize = 500;
-    protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize);
-    protected String finalSql = (String) null;
-    protected static final int parametersInitSize = 20;
-    protected ArrayList<EntityConditionParameter> parameters = new ArrayList<EntityJavaUtil.EntityConditionParameter>(parametersInitSize);
-    protected PreparedStatement ps = (PreparedStatement) null;
-    protected ResultSet rs = (ResultSet) null;
-    protected Connection connection = (Connection) null;
-    protected boolean externalConnection = false;
 }

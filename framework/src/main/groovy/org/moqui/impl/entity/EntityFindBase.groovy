@@ -715,7 +715,7 @@ abstract class EntityFindBase implements EntityFind {
             EntityDefinition ed = getEntityDef()
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("one")
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
             // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
             aefi.pushInternal(aei, !ed.authorizeSkipView())
 
@@ -732,8 +732,6 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityValue oneInternal(ExecutionContextImpl ec) throws EntityException {
         if (this.dynamicView != null) throw new IllegalArgumentException("Dynamic View not supported for 'one' find.")
 
-        long startTime = System.currentTimeMillis()
-        long startTimeNanos = System.nanoTime()
         EntityDefinition ed = getEntityDef()
         MNode entityNode = ed.getEntityNode()
 
@@ -893,8 +891,6 @@ abstract class EntityFindBase implements EntityFind {
             this.resultSetType(ResultSet.TYPE_FORWARD_ONLY)
             this.resultSetConcurrency(ResultSet.CONCUR_READ_ONLY)
 
-            // TODO: this will not handle query conditions on UserFields, it will blow up in fact
-
             newEntityValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoArray, fieldOptionsArray)
 
             // it didn't come from the txCache so put it there
@@ -908,10 +904,6 @@ abstract class EntityFindBase implements EntityFind {
 
         // final ECA trigger
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), newEntityValue, "find-one", false)
-        // count the artifact hit
-        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "one", ed.getFullEntityName(), simpleAndMap,
-                startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, newEntityValue != null ? 1L : 0L)
 
         return newEntityValue
     }
@@ -945,7 +937,7 @@ abstract class EntityFindBase implements EntityFind {
             EntityDefinition ed = getEntityDef()
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("one")
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
             aefi.pushInternal(aei, !ed.authorizeSkipView())
 
             try {
@@ -970,16 +962,18 @@ abstract class EntityFindBase implements EntityFind {
             EntityDefinition ed = getEntityDef()
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("list")
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
             aefi.pushInternal(aei, !ed.authorizeSkipView())
-            try { return listInternal(ec) } finally { aefi.pop(aei) }
+            try {
+                return listInternal(ec)
+            } finally {
+                aefi.pop(aei)
+            }
         } finally {
             if (enableAuthz) aefi.enableAuthz()
         }
     }
     protected EntityList listInternal(ExecutionContextImpl ec) throws EntityException {
-        long startTime = System.currentTimeMillis()
-        long startTimeNanos = System.nanoTime()
         EntityDefinition ed = getEntityDef()
         MNode entityNode = ed.getEntityNode()
 
@@ -1072,8 +1066,6 @@ abstract class EntityFindBase implements EntityFind {
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
             }
 
-            // TODO: this will not handle query conditions on UserFields, it will blow up in fact
-
             EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
             EntityConditionImplBase queryWhereCondition = (EntityConditionImplBase) efi.getConditionFactoryImpl()
                     .makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
@@ -1107,10 +1099,6 @@ abstract class EntityFindBase implements EntityFind {
 
         // run the final rules
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-list", false)
-        // count the artifact hit
-        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "list", ed.getFullEntityName(), simpleAndMap,
-                startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, el != null ? (long) el.size() : 0L)
 
         return el
     }
@@ -1124,7 +1112,7 @@ abstract class EntityFindBase implements EntityFind {
             EntityDefinition ed = getEntityDef()
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("list")
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
             aefi.pushInternal(aei, !ed.authorizeSkipView())
             try {
                 EntityList el = listInternal(ec)
@@ -1149,8 +1137,6 @@ abstract class EntityFindBase implements EntityFind {
         }
     }
     protected EntityListIterator iteratorInternal(ExecutionContextImpl ec) throws EntityException {
-        long startTime = System.currentTimeMillis()
-        long startTimeNanos = System.nanoTime()
         EntityDefinition ed = getEntityDef()
         MNode entityNode = ed.getEntityNode()
         ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
@@ -1162,7 +1148,7 @@ abstract class EntityFindBase implements EntityFind {
             throw new EntityException("Cannot do find for view-entity with name [${entityName}] because it has no member entities or no aliased fields.")
 
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("iterator")
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "iterator")
         aefi.pushInternal(aei, !ed.authorizeSkipView())
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
@@ -1222,8 +1208,6 @@ abstract class EntityFindBase implements EntityFind {
             if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
         }
 
-        // TODO: this will not handle query conditions on UserFields, it will blow up in fact
-
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         aefi.filterFindForUser(this)
 
@@ -1253,11 +1237,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", false)
-        // count the artifact hit
-        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "iterator", ed.getFullEntityName(), simpleAndMap,
-                startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, null)
-        // pop the ArtifactExecutionInfo
+        // pop the ArtifactExecutionInfo, also counts artifact hit
         aefi.pop(aei)
 
         return eli
@@ -1278,8 +1258,6 @@ abstract class EntityFindBase implements EntityFind {
         }
     }
     protected long countInternal(ExecutionContextImpl ec) throws EntityException {
-        long startTime = System.currentTimeMillis()
-        long startTimeNanos = System.nanoTime()
         EntityDefinition ed = getEntityDef()
         ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
 
@@ -1287,7 +1265,7 @@ abstract class EntityFindBase implements EntityFind {
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("count")
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
         aefi.pushInternal(aei, !ed.authorizeSkipView())
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
@@ -1339,8 +1317,6 @@ abstract class EntityFindBase implements EntityFind {
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
             }
 
-            // TODO: this will not handle query conditions on UserFields, it will blow up in fact
-
             MNode entityConditionNode = ed.getEntityConditionNode()
             if (entityConditionNode != null) if ("true".equals(entityConditionNode.attribute('distinct'))) this.distinct(true)
 
@@ -1360,11 +1336,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", false)
-        // count the artifact hit
-        // NOTE: passing simpleAndMap doesn't handle singleCondField, but not worth the overhead
-        efi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "count", ed.getFullEntityName(), simpleAndMap,
-                startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, count)
-        // pop the ArtifactExecutionInfo
+        // pop the ArtifactExecutionInfo, also counts artifact hit
         aefi.pop(aei)
 
         return count

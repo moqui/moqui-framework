@@ -307,7 +307,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     final static Set<String> cachedCountEntities = new HashSet<>(["moqui.basic.EnumerationType"])
-    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.UserField", "moqui.entity.document.DataDocument",
+    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.document.DataDocument",
         "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
         "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
         "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
@@ -1170,8 +1170,6 @@ class EntityFacadeImpl implements EntityFacade {
         return ed.makeEntityValue()
     }
 
-    @Override
-    EntityFind makeFind(String entityName) { return find(entityName) }
     @Override
     EntityFind find(String entityName) {
         // don't check entityName empty, getEntityDefinition() does it

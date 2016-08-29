@@ -118,11 +118,9 @@ public class EntityListIteratorImpl implements EntityListIterator {
     public EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
         HashMap<String, Object> valueMap = newEntityValue.getValueMap();
-        boolean checkUserFields = entityDefinition.allowUserField;
         for (int i = 0; i < fieldInfoListSize; i++) {
             FieldInfo fi = fieldInfoArray[i];
             if (fi == null) break;
-            if (fi.isUserField && !checkUserFields) continue;
             EntityJavaUtil.getResultSetValue(rs, i + 1, fi, valueMap, efi);
         }
         haveMadeValue = true;

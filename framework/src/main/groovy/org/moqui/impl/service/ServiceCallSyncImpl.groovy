@@ -185,9 +185,6 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
         if (traceEnabled) logger.trace("Calling service [${getServiceName()}] initial input: ${currentParameters}")
 
-        long callStartTime = System.currentTimeMillis()
-        long startTimeNanos = System.nanoTime()
-
         // get these before cleaning up the parameters otherwise will be removed
         String userId = (String) currentParameters.authUsername
         String password = (String) currentParameters.authPassword
@@ -199,6 +196,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         String tenantId = (String) currentParameters.authTenantId
 
         String serviceNameNoHash = getServiceNameNoHash()
+        String serviceType = sd != null ? sd.getServiceType() : "entity-implicit"
 
         // in-parameter validation
         sfi.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-validate")
@@ -235,7 +233,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         // NOTE: if no sd then requiresAuthz is false, ie let the authz get handled at the entity level (but still put
         //     the service on the stack)
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), ArtifactExecutionInfo.AT_SERVICE,
-                            ServiceDefinition.getVerbAuthzActionEnum(verb)).setParameters(currentParameters)
+                            ServiceDefinition.getVerbAuthzActionEnum(verb), serviceType).setParameters(currentParameters)
         eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
 
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
@@ -253,10 +251,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 try {
                     Map result = runImplicitEntityAuto(currentParameters, eci)
 
-                    double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
-                    if (traceEnabled) logger.trace("Finished call to service [${getServiceName()}] in ${(runningTimeMillis)/1000} seconds")
-                    sfi.getEcfi().countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, "entity-implicit", getServiceName(),
-                            currentParameters, callStartTime, runningTimeMillis, null)
+                    // double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
+                    // if (traceEnabled) logger.trace("Finished call to service [${getServiceName()}] in ${(runningTimeMillis)/1000} seconds")
 
                     return result
                 } finally {
@@ -271,7 +267,6 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             }
         }
 
-        String serviceType = sd.getServiceType()
         if ("interface".equals(serviceType)) {
             eci.artifactExecution.pop(aei)
             if (ignorePreviousError) eci.getMessage().popErrors()
@@ -386,16 +381,12 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             }
             if (loggedInAnonymous) ((UserFacadeImpl) eci.getUser()).logoutAnonymousOnly()
 
-            double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
-            sfi.getEcfi().countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, serviceType, getServiceName(),
-                    currentParameters, callStartTime, runningTimeMillis, null)
-
             // all done so pop the artifact info
             eci.getArtifactExecution().pop(aei)
             // restore error messages if needed
             if (ignorePreviousError) eci.getMessage().popErrors()
 
-            if (traceEnabled) logger.trace("Finished call to service [${getServiceName()}] in ${(runningTimeMillis)/1000} seconds" + (eci.getMessage().hasError() ? " with ${eci.getMessage().getErrors().size() + eci.getMessage().getValidationErrors().size()} error messages" : ", was successful"))
+            if (traceEnabled) logger.trace("Finished call to service ${getServiceName()}" + (eci.getMessage().hasError() ? " with ${eci.getMessage().getErrors().size() + eci.getMessage().getValidationErrors().size()} error messages" : ", was successful"))
         }
     }
 
