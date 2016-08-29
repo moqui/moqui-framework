@@ -49,9 +49,6 @@ public interface EntityFacade {
      * @return An EntityFind object.
      */
     EntityFind find(String entityName);
-    /** Same as the find() method, exists to support code using this older method name. */
-    @Deprecated
-    EntityFind makeFind(String entityName);
 
     /** Meant for processing entity REST requests, but useful more generally as a simple way to perform entity operations.
      *

@@ -1171,8 +1171,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
-    EntityFind makeFind(String entityName) { return find(entityName) }
-    @Override
     EntityFind find(String entityName) {
         // don't check entityName empty, getEntityDefinition() does it
         EntityDefinition ed = getEntityDefinition(entityName)
