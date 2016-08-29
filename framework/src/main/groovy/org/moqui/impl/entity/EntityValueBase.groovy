@@ -1151,8 +1151,6 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     EntityValue create() {
-        long startTimeNanos = System.nanoTime()
-        long startTime = System.currentTimeMillis()
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl efi = getEntityFacadeImpl()
         ExecutionContextFactoryImpl ecfi = efi.getEcfi()
@@ -1221,8 +1219,6 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     EntityValue update() {
-        long startTimeNanos = System.nanoTime()
-        long startTime = System.currentTimeMillis()
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl efi = getEntityFacadeImpl()
         ExecutionContextFactoryImpl ecfi = efi.getEcfi()
@@ -1311,7 +1307,7 @@ abstract class EntityValueBase implements EntityValue {
                 valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong))
                 if (!nonPkFieldNameSet.contains("lastUpdatedStamp")) {
                     nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo
-                    nonPkFieldArrayIndex++
+                    // never gets used after this point, but if ever does will need to: nonPkFieldArrayIndex++
                 }
             }
 
@@ -1368,8 +1364,6 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     EntityValue delete() {
-        long startTimeNanos = System.nanoTime()
-        long startTime = System.currentTimeMillis()
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl efi = getEntityFacadeImpl()
         ExecutionContextFactoryImpl ecfi = efi.getEcfi()
@@ -1413,8 +1407,6 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     boolean refresh() {
-        long startTimeNanos = System.nanoTime()
-        long startTime = System.currentTimeMillis()
         EntityDefinition ed = getEntityDefinition()
         EntityFacadeImpl efi = getEntityFacadeImpl()
         ExecutionContextFactoryImpl ecfi = efi.getEcfi()
