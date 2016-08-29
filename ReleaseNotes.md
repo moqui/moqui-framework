@@ -23,6 +23,7 @@ significant changes.
   - changed entity.@group-name to entity.@group
   - changed relationship.@related-entity-name to relationship.@related
   - changed key-map.@related-field-name to key-map.@related
+  - UserField no longer supported (UserField and UserFieldValue entities)
 - Service Job Scheduling
   - Quartz Scheduler has been removed, use new ServiceJob instead which
     supports more relevant options, is much cleaner and more manageable
