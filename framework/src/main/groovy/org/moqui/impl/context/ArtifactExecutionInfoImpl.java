@@ -147,7 +147,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     void setEndTime() { this.endTimeNanos = System.nanoTime(); }
     @Override
     public long getRunningTime() { return endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0; }
-    public double getRunningTimeMillisDouble() { return getRunningTime() / 1000.0; }
+    public double getRunningTimeMillisDouble() { return getRunningTime() / 1000000.0; }
     private void calcChildTime(boolean recurse) {
         childrenRunningTime = 0;
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) {
