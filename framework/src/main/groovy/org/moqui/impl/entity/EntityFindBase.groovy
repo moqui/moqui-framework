@@ -893,8 +893,6 @@ abstract class EntityFindBase implements EntityFind {
             this.resultSetType(ResultSet.TYPE_FORWARD_ONLY)
             this.resultSetConcurrency(ResultSet.CONCUR_READ_ONLY)
 
-            // TODO: this will not handle query conditions on UserFields, it will blow up in fact
-
             newEntityValue = oneExtended(getConditionForQuery(ed, whereCondition), fieldInfoArray, fieldOptionsArray)
 
             // it didn't come from the txCache so put it there
@@ -1072,8 +1070,6 @@ abstract class EntityFindBase implements EntityFind {
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
             }
 
-            // TODO: this will not handle query conditions on UserFields, it will blow up in fact
-
             EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
             EntityConditionImplBase queryWhereCondition = (EntityConditionImplBase) efi.getConditionFactoryImpl()
                     .makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
@@ -1222,8 +1218,6 @@ abstract class EntityFindBase implements EntityFind {
             if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
         }
 
-        // TODO: this will not handle query conditions on UserFields, it will blow up in fact
-
         // before combining conditions let ArtifactFacade add entity filters associated with authz
         aefi.filterFindForUser(this)
 
@@ -1338,8 +1332,6 @@ abstract class EntityFindBase implements EntityFind {
                 }
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
             }
-
-            // TODO: this will not handle query conditions on UserFields, it will blow up in fact
 
             MNode entityConditionNode = ed.getEntityConditionNode()
             if (entityConditionNode != null) if ("true".equals(entityConditionNode.attribute('distinct'))) this.distinct(true)

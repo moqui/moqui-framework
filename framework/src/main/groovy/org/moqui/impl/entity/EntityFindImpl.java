@@ -86,14 +86,12 @@ public class EntityFindImpl extends EntityFindBase {
             final String condSql = isTraceEnabled && whereCondition != null ? whereCondition.toString() : null;
             ResultSet rs = efb.executeQuery();
             if (rs.next()) {
-                boolean checkUserFields = getEntityDef().allowUserField;
                 newEntityValue = new EntityValueImpl(getEntityDef(), getEfi());
                 HashMap<String, Object> valueMap = newEntityValue.getValueMap();
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = fieldInfoArray[i];
                     if (fi == null) break;
-                    if (checkUserFields && fi.isUserField) continue;
                     EntityJavaUtil.getResultSetValue(rs, i + 1, fi, valueMap, getEfi());
                 }
 

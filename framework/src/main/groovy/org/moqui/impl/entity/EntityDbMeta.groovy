@@ -330,8 +330,6 @@ class EntityDbMeta {
 
         MNode fieldNode = fi.fieldNode
 
-        if (fieldNode.attribute("is-user-field") == "true") throw new IllegalArgumentException("Cannot add column for a UserField")
-
         String sqlType = efi.getFieldSqlType(fieldNode.attribute("type"), ed)
         String javaType = efi.getFieldJavaType(fieldNode.attribute("type"), ed)
 

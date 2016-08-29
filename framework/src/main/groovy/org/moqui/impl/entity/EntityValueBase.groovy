@@ -15,13 +15,11 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
-import org.apache.commons.collections.set.ListOrderedSet
 
 import org.moqui.Moqui
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
-import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
@@ -307,26 +305,6 @@ abstract class EntityValueBase implements EntityValue {
             }
         }
 
-        if (fieldInfo.isUserField) {
-            // get if from the UserFieldValue entity instead
-            Map<String, Object> parms = new HashMap<>()
-            parms.put('entityName', ed.getFullEntityName())
-            parms.put('fieldName', name)
-            addThreeFieldPkValues(parms)
-
-            EntityFacadeImpl efi = getEntityFacadeImpl()
-            ExecutionContextImpl eci = efi.ecfi.getEci()
-
-            Set<String> userGroupIdSet = eci.getUser().getUserGroupIdSet()
-            EntityList userFieldValueList = efi.find("moqui.entity.UserFieldValue")
-                    .condition("userGroupId", EntityCondition.IN, userGroupIdSet)
-                    .condition(parms).disableAuthz().list()
-            if (userFieldValueList) {
-                // do type conversion according to field type
-                return ed.convertFieldString(name, (String) userFieldValueList.get(0).valueText, eci)
-            }
-        }
-
         return valueMapInternal.get(name)
     }
 
@@ -542,7 +520,7 @@ abstract class EntityValueBase implements EntityValue {
             if (result != 0) return result
         }
         // then non-PK fields
-        ArrayList<String> nonPkFieldNames = getEntityDefinition().getFieldNames(false, true, true)
+        ArrayList<String> nonPkFieldNames = getEntityDefinition().getNonPkFieldNames()
         for (int i = 0; i < nonPkFieldNames.size(); i++) {
             String fieldName = (String) nonPkFieldNames.get(i)
             result = compareFields(that, fieldName)
@@ -745,7 +723,7 @@ abstract class EntityValueBase implements EntityValue {
                 return 0
             }
 
-            for (String nonpkFieldName in this.getEntityDefinition().getFieldNames(false, true, true)) {
+            for (String nonpkFieldName in this.getEntityDefinition().getNonPkFieldNames()) {
                 // skip the lastUpdatedStamp field
                 if (nonpkFieldName == "lastUpdatedStamp") continue
 
@@ -1068,7 +1046,6 @@ abstract class EntityValueBase implements EntityValue {
     @Override
     Set<Map.Entry<String, Object>> entrySet() {
         // everything needs to go through the get method, so iterate through the fields and get the values
-        List<String> allFieldNames = getEntityDefinition().getAllFieldNames()
         ArrayList<FieldInfo> allFieldInfos = getEntityDefinition().getAllFieldInfoList()
         Set<Map.Entry<String, Object>> entries = new HashSet()
         int allFieldInfosSize = allFieldInfos.size()
@@ -1206,7 +1183,7 @@ abstract class EntityValueBase implements EntityValue {
 
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
             TransactionCache curTxCache = getTxCache(ecfi)
-            if (curTxCache == null || !curTxCache.create(this)) this.basicCreate(null, ec)
+            if (curTxCache == null || !curTxCache.create(this)) this.basicCreate(null)
 
             // NOTE: cache clear is the same for create, update, delete; even on create need to clear one cache because it
             // might have a null value for a previous query attempt
@@ -1225,7 +1202,7 @@ abstract class EntityValueBase implements EntityValue {
 
         return this
     }
-    void basicCreate(Connection con, ExecutionContextImpl ec) {
+    void basicCreate(Connection con) {
         EntityDefinition ed = getEntityDefinition()
         FieldInfo[] allFieldArray = ed.getAllFieldInfoArray()
         FieldInfo[] fieldArray = new FieldInfo[allFieldArray.length]
@@ -1239,34 +1216,7 @@ abstract class EntityValueBase implements EntityValue {
             }
         }
 
-        basicCreate(fieldArray, con, ec)
-    }
-    void basicCreate(FieldInfo[] fieldInfoArray, Connection con, ExecutionContextImpl ec) {
-        EntityDefinition ed = getEntityDefinition()
-
-        this.createExtended(fieldInfoArray, con)
-
-        // create records for the UserFields
-        ListOrderedSet userFieldNameList = ed.getUserFieldNames()
-        if (userFieldNameList != null && userFieldNameList.size() > 0) {
-            EntityFacadeImpl efi = getEntityFacadeImpl()
-            boolean alreadyDisabled = ec.getArtifactExecutionImpl().disableAuthz()
-            try {
-                for (String userFieldName in userFieldNameList) {
-                    MNode userFieldNode = ed.getFieldNode(userFieldName)
-                    Object valueObj = this.getValueMap().get(userFieldName)
-                    if (valueObj == null) continue
-
-                    Map<String, Object> parms = [entityName: ed.getFullEntityName(), fieldName: userFieldName,
-                            userGroupId: userFieldNode.attribute('user-group-id'), valueText: valueObj as String] as Map<String, Object>
-                    addThreeFieldPkValues(parms)
-                    EntityValue newUserFieldValue = efi.makeValue("moqui.entity.UserFieldValue").setAll(parms)
-                    newUserFieldValue.setSequencedIdPrimary().create()
-                }
-            } finally {
-                if (!alreadyDisabled) ec.getArtifactExecutionImpl().enableAuthz()
-            }
-        }
+        createExtended(fieldArray, con)
     }
     /** This method should create a corresponding record in the datasource. NOTE: fieldInfoArray may have null values
      * after valid ones, the length is not the actual number of fields. */
@@ -1374,7 +1324,7 @@ abstract class EntityValueBase implements EntityValue {
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
             if (curTxCache == null || !curTxCache.update(this)) {
                 // no TX cache update, etc: ready to do actual update
-                this.basicUpdate(pkFieldArray, nonPkFieldArray, (Connection) null, ec)
+                updateExtended(pkFieldArray, nonPkFieldArray, (Connection) null)
             }
 
             // clear the entity cache
@@ -1393,7 +1343,7 @@ abstract class EntityValueBase implements EntityValue {
 
         return this
     }
-    void basicUpdate(Connection con, ExecutionContextImpl ec) {
+    void basicUpdate(Connection con) {
         EntityDefinition ed = getEntityDefinition()
 
         /* Shouldn't need this any more, was from a weird old issue:
@@ -1416,58 +1366,7 @@ abstract class EntityValueBase implements EntityValue {
                 nonPkFieldArrayIndex++
             }
         }
-        basicUpdate(pkFieldArray, nonPkFieldArray, con, ec)
-    }
-    void basicUpdate(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con, ExecutionContextImpl ec) {
-        EntityDefinition ed = getEntityDefinition()
-
-        // call abstract method
-        this.updateExtended(pkFieldArray, nonPkFieldArray, con)
-
-        // create or update records for the UserFields
-        ListOrderedSet userFieldNameList = ed.getUserFieldNames()
-        if (userFieldNameList != null && userFieldNameList.size() > 0) {
-            EntityFacadeImpl efi = getEntityFacadeImpl()
-            boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
-            try {
-                // get values for all fields in one query, for all groups the user is in
-                Map<String, Object> findParms = [:]
-                findParms.entityName = ed.getFullEntityName()
-                addThreeFieldPkValues(findParms)
-                Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                EntityList userFieldValueList = efi.find("moqui.entity.UserFieldValue")
-                        .condition("userGroupId", EntityCondition.IN, userGroupIdSet)
-                        .condition(findParms).list()
-
-                for (String ufName in userFieldNameList) {
-                    // if the field hasn't been updated, skip it
-                    if (!(valueMapInternal.containsKey(ufName) && (dbValueMap == null || !dbValueMap.containsKey(ufName) ||
-                            valueMapInternal.get(ufName) != dbValueMap?.get(ufName)))) {
-                        continue
-                    }
-
-                    List<EntityValue> fieldOnlyUserFieldValueList = []
-                    for (EntityValue efVal in userFieldValueList)
-                        if (efVal.fieldName == ufName) fieldOnlyUserFieldValueList.add(efVal)
-                    if (fieldOnlyUserFieldValueList) {
-                        for (EntityValue userFieldValue in fieldOnlyUserFieldValueList) {
-                            userFieldValue.valueText = this.getValueMap().get(ufName) as String
-                            userFieldValue.update()
-                        }
-                    } else {
-                        MNode userFieldNode = ed.getFieldNode(ufName)
-
-                        Map<String, Object> parms = [entityName: ed.getFullEntityName(), fieldName: ufName,
-                                userGroupId: userFieldNode.attribute('user-group-id'), valueText: this.getValueMap().get(ufName) as String] as Map<String, Object>
-                        addThreeFieldPkValues(parms)
-                        EntityValue newUserFieldValue = efi.makeValue("moqui.entity.UserFieldValue").setAll(parms)
-                        newUserFieldValue.setSequencedIdPrimary().create()
-                    }
-                }
-            } finally {
-                if (!alreadyDisabled) ec.getArtifactExecution().enableAuthz()
-            }
-        }
+        updateExtended(pkFieldArray, nonPkFieldArray, con)
     }
     /** This method should update the corresponding record in the datasource. NOTE: fieldInfoArray may have null values
      * after valid ones, the length is not the actual number of fields. */
@@ -1503,7 +1402,7 @@ abstract class EntityValueBase implements EntityValue {
 
             // if there is not a txCache or the txCache doesn't handle the delete, call the abstract method to delete the main record
             TransactionCache curTxCache = getTxCache(ecfi)
-            if (curTxCache == null || !curTxCache.delete(this)) this.basicDelete(null, ec)
+            if (curTxCache == null || !curTxCache.delete(this)) this.deleteExtended((Connection) null)
 
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false)
@@ -1518,30 +1417,6 @@ abstract class EntityValueBase implements EntityValue {
         }
 
         return this
-    }
-    void basicDelete(Connection con, ExecutionContextImpl ec) {
-        EntityDefinition ed = getEntityDefinition()
-
-        this.deleteExtended(con)
-
-        // delete records for the UserFields
-        ListOrderedSet userFieldNameList = ed.getUserFieldNames()
-        if (userFieldNameList != null && userFieldNameList.size() > 0) {
-            EntityFacadeImpl efi = getEntityFacadeImpl()
-            boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
-            try {
-                // get values for all fields in one query, for all groups the user is in
-                Map<String, Object> findParms = [:]
-                findParms.entityName = ed.getFullEntityName()
-                addThreeFieldPkValues(findParms)
-                Set<String> userGroupIdSet = ec.getUser().getUserGroupIdSet()
-                efi.find("moqui.entity.UserFieldValue")
-                        .condition("userGroupId", EntityCondition.IN, userGroupIdSet)
-                        .condition(findParms).deleteAll()
-            } finally {
-                if (!alreadyDisabled) ec.getArtifactExecution().enableAuthz()
-            }
-        }
     }
     abstract void deleteExtended(Connection con)
 
@@ -1579,8 +1454,6 @@ abstract class EntityValueBase implements EntityValue {
                 retVal = this.refreshExtended()
                 if (retVal && curTxCache != null) curTxCache.onePut(this)
             }
-
-            // NOTE: clear out UserFields
 
             // run EECA after rules
             efi.runEecaRules(ed.getFullEntityName(), this, "find-one", false)

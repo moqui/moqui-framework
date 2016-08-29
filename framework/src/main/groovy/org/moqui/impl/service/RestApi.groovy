@@ -90,6 +90,7 @@ class RestApi {
         logger.info("Loaded REST API files, ${rootResourceCache.size()} roots, in ${System.currentTimeMillis() - startTime}ms")
     }
 
+    /** Used in tools dashboard screen */
     List<ResourceNode> getFreshRootResources() {
         loadRootResourceNode(null)
         List<ResourceNode> rootList = new ArrayList<>()
@@ -439,7 +440,7 @@ class RestApi {
                 responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${refDefName}".toString()]])
             } else if (operation == 'list') {
                 parameters.addAll(EntityDefinition.swaggerPaginationParameters)
-                for (String fieldName in ed.getAllFieldNames(false)) {
+                for (String fieldName in ed.getAllFieldNames()) {
                     if (fieldName in pathNode.pathParameters) continue
                     EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
                     parameters.add([name:fieldName, in:'query', required:false,
@@ -499,7 +500,7 @@ class RestApi {
                 pkQpMap.put(fi.name, ed.getRamlFieldMap(fi))
             }
             Map allQpMap = [:]
-            ArrayList<String> allFields = ed.getAllFieldNames(true)
+            ArrayList<String> allFields = ed.getAllFieldNames()
             for (int i = 0; i < allFields.size(); i++) {
                 EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
                 allQpMap.put(fi.name, ed.getRamlFieldMap(fi))

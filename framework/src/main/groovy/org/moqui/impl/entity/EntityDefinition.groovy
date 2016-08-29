@@ -23,8 +23,6 @@ import org.moqui.impl.entity.condition.ConditionAlias
 import javax.cache.Cache
 import java.sql.Timestamp
 
-import org.apache.commons.collections.set.ListOrderedSet
-
 import org.moqui.BaseException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.JoinOperator
@@ -71,8 +69,6 @@ public class EntityDefinition {
     protected final FieldInfo[] nonPkFieldInfoArray
     protected final FieldInfo[] allFieldInfoArray
     protected final String allFieldsSqlSelect
-    protected Boolean hasUserFields = null
-    protected boolean allowUserField = false
     protected Map<String, Map<String, String>> mePkFieldToAliasNameMapMap = null
     protected Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null
     protected Map<String, MNode> memberEntityAliasMap = null
@@ -170,7 +166,6 @@ public class EntityDefinition {
             StringBuilder sb = new StringBuilder()
             for (int i = 0; i < allFieldInfoList.size(); i++) {
                 FieldInfo fi = (FieldInfo) allFieldInfoList.get(i)
-                if (fi.isUserField) continue
                 if (i > 0) sb.append(", ")
                 sb.append(fi.fullColumnName)
             }
@@ -262,7 +257,6 @@ public class EntityDefinition {
                 // automatically add the lastUpdatedStamp field
                 internalEntityNode.append("field", [name:"lastUpdatedStamp", type:"date-time"])
             }
-            if (internalEntityNode.attribute("allow-user-field") == "true") allowUserField = true
 
             for (MNode fieldNode in this.internalEntityNode.children("field")) {
                 FieldInfo fi = new FieldInfo(this, fieldNode)
@@ -310,7 +304,7 @@ public class EntityDefinition {
     }
 
     String getDefaultDescriptionField() {
-        List<String> nonPkFields = getFieldNames(false, true, false)
+        ArrayList<String> nonPkFields = getNonPkFieldNames()
         // find the first *Name
         for (String fn in nonPkFields)
             if (fn.endsWith("Name")) return fn
@@ -352,15 +346,9 @@ public class EntityDefinition {
     boolean needsEncrypt() {
         if (needsEncryptVal != null) return needsEncryptVal.booleanValue()
         needsEncryptVal = false
-        for (MNode fieldNode in getFieldNodes(true, true, false)) {
+        for (MNode fieldNode in getFieldNodes(true, true)) {
             if (fieldNode.attribute('encrypt') == "true") needsEncryptVal = true
         }
-        if (needsEncryptVal) return true
-
-        for (MNode fieldNode in getFieldNodes(false, false, true)) {
-            if (fieldNode.attribute('encrypt') == "true") needsEncryptVal = true
-        }
-
         return needsEncryptVal.booleanValue()
     }
     String getUseCache() { return useCache }
@@ -368,33 +356,7 @@ public class EntityDefinition {
 
     boolean getSequencePrimaryUseUuid() { return sequencePrimaryUseUuid }
 
-    MNode getFieldNode(String fieldName) {
-        MNode fn = (MNode) fieldNodeMap.get(fieldName)
-        if (fn != null) return fn
-
-        if (allowUserField && !this.isViewEntity() && !fieldName.contains('.')) {
-            // if fieldName has a dot it is likely a relationship name, so don't look for UserField
-
-            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                EntityList userFieldList = efi.find("moqui.entity.UserField").condition("entityName", getFullEntityName()).useCache(true).list()
-                if (userFieldList) {
-                    Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                    for (EntityValue userField in userFieldList) {
-                        if (userField.fieldName != fieldName) continue
-                        if (userGroupIdSet.contains(userField.userGroupId)) {
-                            fn = makeUserFieldNode(userField)
-                            break
-                        }
-                    }
-                }
-            } finally {
-                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
-            }
-        }
-
-        return fn
-    }
+    MNode getFieldNode(String fieldName) { return (MNode) fieldNodeMap.get(fieldName) }
 
     FieldInfo getFieldInfo(String fieldName) {
         // the FieldInfo cast here looks funny, but avoids Groovy using a slow castToType call
@@ -412,22 +374,6 @@ public class EntityDefinition {
     FieldInfo[] getPkFieldInfoArray() { return pkFieldInfoArray }
     FieldInfo[] getNonPkFieldInfoArray() { return nonPkFieldInfoArray }
     FieldInfo[] getAllFieldInfoArray() { return allFieldInfoArray }
-
-    protected MNode makeUserFieldNode(EntityValue userField) {
-        String fieldType = (String) userField.fieldType ?: "text-long"
-        if (fieldType == "text-very-long" || fieldType == "binary-very-long")
-            throw new EntityException("UserField for entityName ${getFullEntityName()}, fieldName ${userField.fieldName} and userGroupId ${userField.userGroupId} has a fieldType that is not allowed: ${fieldType}")
-
-        MNode fieldNode = new MNode("field", [name: (String) userField.fieldName, type: fieldType, "is-user-field": "true"])
-
-        fieldNode.attributes.put("user-group-id", (String) userField.userGroupId)
-        if (userField.enableAuditLog == "Y") fieldNode.attributes.put("enable-audit-log", "true")
-        if (userField.enableAuditLog == "U") fieldNode.attributes.put("enable-audit-log", "update")
-        if (userField.enableLocalization == "Y") fieldNode.attributes.put("enable-localization", "true")
-        if (userField.encrypt == "Y") fieldNode.attributes.put("encrypt", "true")
-
-        return fieldNode
-    }
 
     static Map<String, String> getRelationshipExpandedKeyMapInternal(MNode relationship, EntityDefinition relEd) {
         Map<String, String> eKeyMap = [:]
@@ -885,12 +831,12 @@ public class EntityDefinition {
         return pks
     }
 
-    ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk, boolean includeUserFields) {
+    ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk) {
         ArrayList<String> baseList
         // common case, do it fast
         if (includePk) {
             if (includeNonPk) {
-                baseList = getAllFieldNames(false)
+                baseList = getAllFieldNames()
             } else {
                 baseList = getPkFieldNames()
             }
@@ -902,68 +848,12 @@ public class EntityDefinition {
                 baseList = new ArrayList<String>()
             }
         }
-        if (!includeUserFields) return baseList
-
-        ListOrderedSet userFieldNames = getUserFieldNames()
-        if (userFieldNames != null && userFieldNames.size() > 0) {
-            List<String> returnList = new ArrayList<String>()
-            returnList.addAll(baseList)
-            returnList.addAll(userFieldNames.asList())
-            return returnList
-        } else {
-            return baseList
-        }
-    }
-    protected ListOrderedSet getFieldNamesInternal(boolean includePk, boolean includeNonPk) {
-        ListOrderedSet nameSet = new ListOrderedSet()
-        String nodeName = this.isViewEntity() ? "alias" : "field"
-        for (MNode node in this.internalEntityNode.children(nodeName)) {
-            if ((includePk && 'true'.equals(node.attribute('is-pk'))) || (includeNonPk && !'true'.equals(node.attribute('is-pk')))) {
-                nameSet.add(node.attribute('name'))
-            }
-        }
-        return nameSet
-    }
-    protected ListOrderedSet getUserFieldNames() {
-        ListOrderedSet userFieldNames = null
-        if (allowUserField && !this.isViewEntity() && (hasUserFields == null || hasUserFields == Boolean.TRUE)) {
-            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                EntityList userFieldList = efi.find("moqui.entity.UserField").condition("entityName", getFullEntityName()).useCache(true).list()
-                if (userFieldList) {
-                    hasUserFields = true
-                    userFieldNames = new ListOrderedSet()
-
-                    Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                    for (EntityValue userField in userFieldList) {
-                        if (userGroupIdSet.contains(userField.getNoCheckSimple('userGroupId'))) userFieldNames.add((String) userField.getNoCheckSimple('fieldName'))
-                    }
-                } else {
-                    hasUserFields = false
-                }
-            } finally {
-                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
-            }
-        }
-        return userFieldNames
+        return baseList
     }
 
     ArrayList<String> getPkFieldNames() { return pkFieldNameList }
     ArrayList<String> getNonPkFieldNames() { return nonPkFieldNameList }
-    ArrayList<String> getAllFieldNames() { return getAllFieldNames(true) }
-    ArrayList<String> getAllFieldNames(boolean includeUserFields) {
-        if (!includeUserFields) return allFieldNameList
-
-        ListOrderedSet userFieldNames = getUserFieldNames()
-        if (userFieldNames != null && userFieldNames.size() > 0) {
-            List<String> returnList = new ArrayList<>(allFieldNameList.size() + userFieldNames.size())
-            returnList.addAll(allFieldNameList)
-            returnList.addAll(userFieldNames.asList())
-            return returnList
-        } else {
-            return allFieldNameList
-        }
-    }
+    ArrayList<String> getAllFieldNames() { return allFieldNameList }
 
     Map<String, String> pkFieldDefaults = null
     Map<String, String> nonPkFieldDefaults = null
@@ -971,7 +861,7 @@ public class EntityDefinition {
     Map<String, String> getPkFieldDefaults() {
         if (pkFieldDefaults == null) {
             Map<String, String> newDefaults = [:]
-            for (MNode fieldNode in getFieldNodes(true, false, false)) {
+            for (MNode fieldNode in getFieldNodes(true, false)) {
                 String defaultStr = fieldNode.attribute('default')
                 if (!defaultStr) continue
                 newDefaults.put(fieldNode.attribute('name'), defaultStr)
@@ -983,7 +873,7 @@ public class EntityDefinition {
     Map<String, String> getNonPkFieldDefaults() {
         if (nonPkFieldDefaults == null) {
             Map<String, String> newDefaults = [:]
-            for (MNode fieldNode in getFieldNodes(false, true, false)) {
+            for (MNode fieldNode in getFieldNodes(false, true)) {
                 String defaultStr = fieldNode.attribute('default')
                 if (!defaultStr) continue
                 newDefaults.put(fieldNode.attribute('name'), defaultStr)
@@ -1073,7 +963,7 @@ public class EntityDefinition {
         Map<String, Object> schema = [title:prettyName, type:'object', properties:properties] as Map<String, Object>
 
         // add all fields
-        ArrayList<String> allFields = pkOnly ? getPkFieldNames() : getAllFieldNames(true)
+        ArrayList<String> allFields = pkOnly ? getPkFieldNames() : getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
             FieldInfo fi = getFieldInfo(allFields.get(i))
             Map<String, Object> propMap = [:]
@@ -1224,7 +1114,7 @@ public class EntityDefinition {
         if (typesMap != null && !typesMap.containsKey(name)) typesMap.put(refName, typeMap)
 
         // add field properties
-        ArrayList<String> allFields = pkOnly ? getPkFieldNames() : getAllFieldNames(true)
+        ArrayList<String> allFields = pkOnly ? getPkFieldNames() : getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
             FieldInfo fi = getFieldInfo(allFields.get(i))
             properties.put(fi.name, getRamlFieldMap(fi))
@@ -1272,7 +1162,7 @@ public class EntityDefinition {
 
         // setup field info
         Map qpMap = [:]
-        ArrayList<String> allFields = getAllFieldNames(true)
+        ArrayList<String> allFields = getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
             FieldInfo fi = getFieldInfo(allFields.get(i))
             qpMap.put(fi.name, getRamlFieldMap(fi))
@@ -1333,7 +1223,7 @@ public class EntityDefinition {
         // get - list
         List<Map> listParameters = []
         listParameters.addAll(swaggerPaginationParameters)
-        for (String fieldName in getAllFieldNames(false)) {
+        for (String fieldName in getAllFieldNames()) {
             FieldInfo fi = ed.getFieldInfo(fieldName)
             listParameters.add([name:fieldName, in:'query', required:false, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(fieldTypeJsonFormatMap.get(fi.type) ?: ""),
@@ -1390,31 +1280,14 @@ public class EntityDefinition {
         definitionsMap.put(refDefNamePk, ed.getJsonSchema(true, false, null, null, null, null, false, masterName, null))
     }
 
-    List<MNode> getFieldNodes(boolean includePk, boolean includeNonPk, boolean includeUserFields) {
+    // TODO: can eliminate this?
+    List<MNode> getFieldNodes(boolean includePk, boolean includeNonPk) {
         // NOTE: this is not necessarily the fastest way to do this, if it becomes a performance problem replace it with a local List of field Nodes
         List<MNode> nodeList = new ArrayList<MNode>()
         String nodeName = this.isViewEntity() ? "alias" : "field"
         for (MNode node in this.internalEntityNode.children(nodeName)) {
             if ((includePk && node.attribute("is-pk") == "true") || (includeNonPk && node.attribute("is-pk") != "true")) {
                 nodeList.add(node)
-            }
-        }
-
-        if (includeUserFields && allowUserField && !this.isViewEntity()) {
-            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
-            try {
-                EntityList userFieldList = efi.find("moqui.entity.UserField").condition("entityName", getFullEntityName()).useCache(true).list()
-                if (userFieldList) {
-                    Set<String> userGroupIdSet = efi.getEcfi().getExecutionContext().getUser().getUserGroupIdSet()
-                    for (EntityValue userField in userFieldList) {
-                        if (userGroupIdSet.contains(userField.userGroupId)) {
-                            nodeList.add(makeUserFieldNode(userField))
-                            break
-                        }
-                    }
-                }
-            } finally {
-                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
             }
         }
 
@@ -1525,11 +1398,13 @@ public class EntityDefinition {
         boolean hasNamePrefix = namePrefix != null && namePrefix.length() > 0
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
-        ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
+        FieldInfo[] fieldInfoArray = pks == null ? getAllFieldInfoArray() :
+                (pks == Boolean.TRUE ? getPkFieldInfoArray() : getNonPkFieldInfoArray())
         // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
-        int size = fieldNameList.size()
+        int size = fieldInfoArray.length
         for (int i = 0; i < size; i++) {
-            String fieldName = (String) fieldNameList.get(i)
+            FieldInfo fi = (FieldInfo) fieldInfoArray[i]
+            String fieldName = fi.name
             String sourceFieldName
             if (hasNamePrefix) {
                 sourceFieldName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1)
@@ -1551,7 +1426,7 @@ public class EntityDefinition {
                 if (!isEmpty) {
                     if (isCharSequence) {
                         try {
-                            Object converted = convertFieldString(fieldName, value.toString(), eci)
+                            Object converted = convertFieldInfoString(fi, value.toString(), eci)
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted) else dest.put(fieldName, converted)
                         } catch (BaseException be) {
                             eci.message.addValidationError(null, fieldName, null, be.getMessage(), be)
@@ -1577,7 +1452,6 @@ public class EntityDefinition {
         ExecutionContextImpl eci = efi.ecfi.getEci()
         boolean srcIsEntityValueBase = src instanceof EntityValueBase
         EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null
-        // was: ArrayList<String> fieldNameList = pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames()
         FieldInfo[] fieldInfoArray = pks == null ? getAllFieldInfoArray() :
                 (pks == Boolean.TRUE ? getPkFieldInfoArray() : getNonPkFieldInfoArray())
         // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
