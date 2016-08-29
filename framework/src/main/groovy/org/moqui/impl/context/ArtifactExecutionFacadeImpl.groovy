@@ -14,8 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.moqui.impl.entity.EntityValueBase
-import org.moqui.util.MNode
 
 import java.sql.Timestamp
 
@@ -24,15 +22,16 @@ import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionFacade
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ArtifactTarpitException
-import org.moqui.entity.EntityList
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityFindBase
-import org.moqui.entity.EntityCondition
+import org.moqui.util.MNode
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -66,7 +65,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     @Override
     ArtifactExecutionInfo push(String name, ArtifactExecutionInfo.ArtifactType typeEnum, ArtifactExecutionInfo.AuthzAction actionEnum, boolean requiresAuthz) {
-        ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum)
+        ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum, "")
         pushInternal(aeii, requiresAuthz)
         return aeii
     }
@@ -113,7 +112,12 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 logger.warn(popMessage, new BaseException("Pop Error Location"))
                 //throw new IllegalArgumentException(popMessage)
             }
+            // set end time
             lastAeii.setEndTime()
+            // count artifact hit (now done here instead of by each caller)
+            if (lastAeii.shouldCountArtifactHit())
+                eci.ecfi.countArtifactHit(lastAeii.typeEnum, lastAeii.actionDetail, lastAeii.nameInternal,
+                        lastAeii.parameters, lastAeii.startTimeMillis, lastAeii.getRunningTimeMillisDouble(), lastAeii.outputSize)
             return lastAeii
         } else {
             logger.warn("Tried to pop from an empty ArtifactExecutionInfo stack", new Exception("Bad pop location"))
@@ -221,7 +225,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         ArtifactExecutionInfo.AuthzAction actionEnum = ArtifactExecutionInfo.AuthzAction.valueOf(resourceAccess.substring(firstColon + 1, secondColon))
         String name = resourceAccess.substring(secondColon + 1)
 
-        return eci.artifactExecutionFacade.isPermitted(new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum),
+        return eci.artifactExecutionFacade.isPermitted(new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum, ""),
                 null, true, true, false)
     }
 
@@ -229,8 +233,8 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         boolean requiresAuthz, boolean countTarpit, boolean isAccess) {
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)
-        // right off record whether authz is required
-        aeii.setAuthorizationWasRequired(requiresAuthz)
+        // right off record whether authz is required and is access
+        aeii.setAuthzReqdAndIsAccess(requiresAuthz, isAccess)
 
         // never do this for entities when disableAuthz, as we might use any below and would cause infinite recursion
         // for performance reasons if this is an entity and no authz required don't bother looking at tarpit, checking for deny/etc

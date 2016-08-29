@@ -1171,7 +1171,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE).setParameters(valueMapInternal)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipCreate())
 
         try {
@@ -1192,11 +1192,8 @@ abstract class EntityValueBase implements EntityValue {
             handleAuditLog(false, null)
             // run EECA after rules
             efi.runEecaRules(ed.getFullEntityName(), this, "create", false)
-            // count the artifact hit
-            ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "create", ed.getFullEntityName(), getPrimaryKeys(),
-                    startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, 1L)
         } finally {
-            // pop the ArtifactExecutionInfo to clean it up
+            // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             ec.getArtifactExecution().pop(aei)
         }
 
@@ -1266,7 +1263,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE).setParameters(valueMapInternal)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue())
 
         try {
@@ -1333,11 +1330,8 @@ abstract class EntityValueBase implements EntityValue {
             if (needsAuditLog) handleAuditLog(true, originalValues)
             // run EECA after rules
             efi.runEecaRules(ed.getFullEntityName(), this, "update", false)
-            // count the artifact hit
-            ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "update", ed.getFullEntityName(), getPrimaryKeys(),
-                    startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, 1L)
         } finally {
-            // pop the ArtifactExecutionInfo to clean it up
+            // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             ec.getArtifactExecution().pop(aei)
         }
 
@@ -1389,7 +1383,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE).setParameters(valueMapInternal)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE, "delete").setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue())
 
         try {
@@ -1408,11 +1402,8 @@ abstract class EntityValueBase implements EntityValue {
             efi.getEntityCache().clearCacheForValue(this, false)
             // run EECA after rules
             efi.runEecaRules(ed.getFullEntityName(), this, "delete", false)
-            // count the artifact hit
-            ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "delete", ed.getFullEntityName(), getPrimaryKeys(),
-                    startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, 1L)
         } finally {
-            // pop the ArtifactExecutionInfo to clean it up
+            // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             ec.getArtifactExecution().pop(aei)
         }
 
@@ -1438,7 +1429,7 @@ abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW).setActionDetail("refresh").setParameters(valueMapInternal)
+                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "refresh").setParameters(valueMapInternal)
         ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipView())
 
         boolean retVal = false
@@ -1457,12 +1448,8 @@ abstract class EntityValueBase implements EntityValue {
 
             // run EECA after rules
             efi.runEecaRules(ed.getFullEntityName(), this, "find-one", false)
-            // count the artifact hit
-            ecfi.countArtifactHit(ArtifactExecutionInfo.AT_ENTITY, "refresh", ed.getFullEntityName(), getPrimaryKeys(),
-                    startTime, (System.nanoTime() - startTimeNanos)/1000000.0D, retVal ? 1L : 0L)
-
         } finally {
-            // pop the ArtifactExecutionInfo to clean it up
+            // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             ec.getArtifactExecution().pop(aei)
         }
         return retVal
