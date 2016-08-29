@@ -14,6 +14,7 @@
 package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ResourceReference
 import org.moqui.impl.StupidUtilities
@@ -162,21 +163,42 @@ class DbResourceReference extends BaseResourceReference {
         } else {
             // first make sure the directory exists that this is in
             List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
-            if (filenameList) filenameList.remove(filenameList.size()-1)
+            int filenameListSize = filenameList.size()
+            if (filenameListSize == 0) throw new BaseException("Cannot put file at empty location ${getPath()}")
+            String filename = filenameList.get(filenameList.size()-1)
+            // remove the current filename from the list, and find ID of parent directory for path
+            filenameList.remove(filenameList.size()-1)
             String parentResourceId = findDirectoryId(filenameList, true)
 
-            // now write the DbResource and DbResourceFile records
-            Map createDbrResult = ecf.service.sync().name("create", "moqui.resource.DbResource")
-                    .parameters([parentResourceId:parentResourceId, filename:getFileName(), isFile:"Y"]).call()
-            ecf.service.sync().name("create", "moqui.resource.DbResourceFile")
-                    .parameters([resourceId:createDbrResult.resourceId, mimeType:getContentType(), fileData:fileObj]).call()
-            // clear out the local reference to the old file record
-            resourceId = createDbrResult.resourceId
+            if (parentResourceId == null) throw new BaseException("Could not find directory to put new file in at ${filenameList}")
+
+            // lock the parentResourceId
+            ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", parentResourceId)
+                    .selectField("lastUpdatedStamp").forUpdate(true).one()
+            // do a query by name to see if it exists
+            EntityValue existingValue = ecf.entity.find("moqui.resource.DbResource")
+                    .condition("parentResourceId", parentResourceId).condition("filename", filename)
+                    .useCache(false).list().getFirst()
+            if (existingValue != null) {
+                resourceId = existingValue.resourceId
+                ecf.service.sync().name("update", "moqui.resource.DbResourceFile")
+                        .parameters([resourceId:resourceId, fileData:fileObj]).call()
+            } else {
+                // now write the DbResource and DbResourceFile records
+                Map createDbrResult = ecf.service.sync().name("create", "moqui.resource.DbResource")
+                        .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"Y"]).call()
+                ecf.service.sync().name("create", "moqui.resource.DbResourceFile")
+                        .parameters([resourceId:createDbrResult.resourceId, mimeType:getContentType(), fileData:fileObj]).call()
+                // clear out the local reference to the old file record
+                resourceId = createDbrResult.resourceId
+            }
         }
     }
     String findDirectoryId(List<String> pathList, boolean create) {
-        String parentResourceId = null
+        String finalParentResourceId = null
         if (pathList) {
+            String parentResourceId = null
+            boolean found = true
             for (String filename in pathList) {
                 if (filename == null || filename.length() == 0) continue
 
@@ -185,18 +207,36 @@ class DbResourceReference extends BaseResourceReference {
                         .useCache(true).list().getFirst()
                 if (directoryValue == null) {
                     if (create) {
-                        Map createResult = ecf.service.sync().name("create", "moqui.resource.DbResource")
-                                .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"N"]).call()
-                        parentResourceId = createResult.resourceId
-                        // logger.warn("=============== put text to ${location}, created dir ${filename}")
+                        // trying a create so lock the parent, then query again to make sure it doesn't exist
+                        ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", parentResourceId)
+                                .selectField("lastUpdatedStamp").forUpdate(true).one()
+                        directoryValue = ecf.entity.find("moqui.resource.DbResource")
+                                .condition("parentResourceId", parentResourceId).condition("filename", filename)
+                                .useCache(false).list().getFirst()
+                        if (directoryValue == null) {
+                            Map createResult = ecf.service.sync().name("create", "moqui.resource.DbResource")
+                                    .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"N"]).call()
+                            parentResourceId = createResult.resourceId
+                            // logger.warn("=============== put text to ${location}, created dir ${filename}")
+                        }
+                        // else fall through, handle below
+                    } else {
+                        found = false
+                        break
                     }
-                } else {
-                    parentResourceId = directoryValue.resourceId
-                    // logger.warn("=============== put text to ${location}, found existing dir ${filename}")
+                }
+                if (directoryValue != null) {
+                    if (directoryValue.isFile == "Y") {
+                        throw new BaseException("Tried to find a directory in a path but found file instead at ${filename} under DbResource ${parentResourceId}")
+                    } else {
+                        parentResourceId = directoryValue.resourceId
+                        // logger.warn("=============== put text to ${location}, found existing dir ${filename}")
+                    }
                 }
             }
+            if (found) finalParentResourceId = parentResourceId
         }
-        return parentResourceId
+        return finalParentResourceId
     }
 
     @Override
