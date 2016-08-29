@@ -99,6 +99,8 @@ significant changes.
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
+- Service parameter.subtype element removed, use the much more flexible 
+  nested parameter element
 - JCR and Apache Jackrabbit
   - The repository.@type, @location, and @conf-location attributes have
     been removed and the repository.parameter sub-element added for use
