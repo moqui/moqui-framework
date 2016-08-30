@@ -125,15 +125,15 @@ dependencies {
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
 
     // OWASP Java HTML Sanitizer
-    compile 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20160526.1' // New BSD & Apache 2.0
+    compile 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20160827.1' // New BSD & Apache 2.0
 
     // Pegdown (Markdown renderer)
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.3.0' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.3.0' // Apache 2.0
+    compile 'org.apache.shiro:shiro-core:1.3.1' // Apache 2.0
+    compile 'org.apache.shiro:shiro-web:1.3.1' // Apache 2.0
 
     // SLF4J, Log4J
     compile 'org.slf4j:slf4j-api:1.7.21'
