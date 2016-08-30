@@ -199,6 +199,34 @@ public class MNode {
         childrenByName.put(name, curList);
         return curList;
     }
+    public ArrayList<MNode> children(String name, String... attrNamesValues) {
+        int attrNvLength = attrNamesValues.length;
+        if (attrNvLength % 2 != 0) throw new IllegalArgumentException("Must pass an even number of attribute name/value strings");
+        ArrayList<MNode> fullList = children(name);
+        ArrayList<MNode> filteredList = new ArrayList<>();
+        int fullListSize = fullList.size();
+        for (int i = 0; i < fullListSize; i++) {
+            MNode node = fullList.get(i);
+            boolean allEqual = true;
+            for (int j = 0; j < attrNvLength; j += 2) {
+                String attrValue = node.attribute(attrNamesValues[j]);
+                String argValue = attrNamesValues[j+1];
+                if (attrValue == null) {
+                    if (argValue != null) {
+                        allEqual = false;
+                        break;
+                    }
+                } else {
+                    if (!attrValue.equals(argValue)) {
+                        allEqual = false;
+                        break;
+                    }
+                }
+            }
+            if (allEqual) filteredList.add(node);
+        }
+        return filteredList;
+    }
     public ArrayList<MNode> children(Closure<Boolean> condition) {
         ArrayList<MNode> curList = new ArrayList<>();
         if (childList == null) return curList;
@@ -364,6 +392,14 @@ public class MNode {
         }
         return null;
         */
+    }
+    public MNode first(String name, String... attrNamesValues) {
+        if (childList == null) return null;
+        if (name == null) return first();
+
+        ArrayList<MNode> nameChildren = children(name, attrNamesValues);
+        if (nameChildren.size() > 0) return nameChildren.get(0);
+        return null;
     }
     public MNode first(Closure<Boolean> condition) {
         if (childList == null) return null;
