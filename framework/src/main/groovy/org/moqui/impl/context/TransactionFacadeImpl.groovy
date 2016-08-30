@@ -111,6 +111,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (numSuspended > 0) logger.warn("Cleaned up [" + numSuspended + "] suspended transactions.")
         }
 
+        txStackInfoCurThread.remove()
         txStackInfoListThread.remove()
     }
 
