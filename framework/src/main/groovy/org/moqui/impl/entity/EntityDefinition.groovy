@@ -28,7 +28,6 @@ import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.JoinOperator
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
-import org.moqui.entity.EntityList
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
 import org.moqui.impl.entity.condition.ConditionField
@@ -687,7 +686,7 @@ public class EntityDefinition {
         return fieldInfo.getFullColumnName()
     }
 
-    protected String getBasicFieldColName(MNode entityNode, String entityAlias, String fieldName) {
+    protected String getBasicFieldColName(String entityAlias, String fieldName) {
         MNode memberEntity = memberEntityAliasMap.get(entityAlias)
         if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias [${entityAlias}] in view-entity [${getFullEntityName()}]")
         EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
@@ -737,8 +736,7 @@ public class EntityDefinition {
                 colNameBuilder.append(fieldNode.attribute('entity-alias')).append('.')
 
                 String memberFieldName = fieldNode.attribute('field') ?: fieldNode.attribute('name')
-                colNameBuilder.append(getBasicFieldColName(internalEntityNode,
-                        (String) fieldNode.attribute('entity-alias'), memberFieldName))
+                colNameBuilder.append(getBasicFieldColName(fieldNode.attribute('entity-alias'), memberFieldName))
             }
             if (hasFunction) colNameBuilder.append(')')
 
@@ -769,7 +767,7 @@ public class EntityDefinition {
                 buildComplexAliasName(childNode, colNameBuilder)
             } else if ("complex-alias-field".equals(childNode.name)) {
                 String entityAlias = childNode.attribute("entity-alias")
-                String basicColName = getBasicFieldColName(internalEntityNode, entityAlias, (String) childNode.attribute("field"))
+                String basicColName = getBasicFieldColName(entityAlias, childNode.attribute("field"))
                 String colName = entityAlias + "." + basicColName
                 String defaultValue = childNode.attribute("default-value")
                 String function = childNode.attribute("function")
@@ -802,11 +800,6 @@ public class EntityDefinition {
         FieldInfo fieldInfo = getFieldInfo(fieldName)
         if (fieldInfo == null) return false
         return fieldInfo.isPk
-    }
-    boolean isSimpleField(String fieldName) {
-        FieldInfo fieldInfo = getFieldInfo(fieldName)
-        if (fieldInfo == null) return false
-        return fieldInfo.isSimple
     }
 
     boolean containsPrimaryKey(Map<String, Object> fields) {
