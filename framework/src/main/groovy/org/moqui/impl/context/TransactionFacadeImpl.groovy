@@ -111,6 +111,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (numSuspended > 0) logger.warn("Cleaned up [" + numSuspended + "] suspended transactions.")
         }
 
+        txStackInfoCurThread.remove()
         txStackInfoListThread.remove()
     }
 
@@ -522,7 +523,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
         try {
             Transaction tx = tm.getTransaction()
-            if (tx) {
+            if (tx != null) {
                  tx.enlistResource(resource)
             } else {
                 logger.warn("Not enlisting XAResource: transaction was null", new Exception("Warning Location"))
@@ -547,7 +548,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
         try {
             Transaction tx = tm.getTransaction()
-            if (tx) {
+            if (tx != null) {
                  tx.registerSynchronization(sync)
             } else {
                 logger.warn("Not registering Synchronization: transaction was null", new Exception("Warning Location"))
@@ -653,7 +654,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
         try {
             InitialContext ic;
-            if (serverJndi) {
+            if (serverJndi != null) {
                 Hashtable<String, Object> h = new Hashtable<String, Object>()
                 h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi.attribute("initial-context-factory"))
                 h.put(Context.PROVIDER_URL, serverJndi.attribute("context-provider-url"))
@@ -671,7 +672,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             logger.error("Error while finding JNDI Transaction objects [${userTxJndiName}] and [${txMgrJndiName}] from server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].", ne)
         }
 
-        if (!this.ut) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
-        if (!this.tm) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
+        if (this.ut == null) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
+        if (this.tm == null) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
     }
 }

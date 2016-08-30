@@ -243,9 +243,9 @@ public class ContextJavaUtil {
         public Transaction suspendedTx = null;
         public Exception suspendedTxLocation = null;
 
-        protected Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>();
-        protected Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>();
-        protected Map<String, ConnectionWrapper> txConByGroup = new HashMap<>();
+        Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>();
+        Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>();
+        Map<String, ConnectionWrapper> txConByGroup = new HashMap<>();
         public TransactionCache txCache = null;
 
         public Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap; }
@@ -269,7 +269,7 @@ public class ContextJavaUtil {
                 try {
                     if (con != null && !con.isClosed()) con.closeInternal();
                 } catch (Throwable t) {
-                    logger.error("Error closing connection for tenant/group ${entry.key}", t);
+                    logger.error("Error closing connection for tenant " + con.getTenantId() + " group " + con.getGroupName(), t);
                 }
             }
             txConByGroup.clear();
@@ -285,8 +285,8 @@ public class ContextJavaUtil {
      */
     public static class ConnectionWrapper implements Connection {
         protected Connection con;
-        protected TransactionFacadeImpl tfi;
-        protected String tenantId, groupName;
+        TransactionFacadeImpl tfi;
+        String tenantId, groupName;
 
         public ConnectionWrapper(Connection con, TransactionFacadeImpl tfi, String tenantId, String groupName) {
             this.con = con;
@@ -383,10 +383,9 @@ public class ContextJavaUtil {
 
         // Object overrides
         @Override public int hashCode() { return con.hashCode(); }
-        @Override public boolean equals(Object obj) { return con.equals(obj); }
+        @Override public boolean equals(Object obj) { return obj instanceof Connection && con.equals(obj); }
         @Override public String toString() {
-            return new StringBuilder().append("Tenant: ").append(tenantId).append(", Group: ").append(groupName)
-                    .append(", Con: ").append(con.toString()).toString();
+            return "Tenant: " + tenantId + ", Group: " + groupName + ", Con: " + con.toString();
         }
         /* these don't work, don't think we need them anyway:
         protected Object clone() throws CloneNotSupportedException {
