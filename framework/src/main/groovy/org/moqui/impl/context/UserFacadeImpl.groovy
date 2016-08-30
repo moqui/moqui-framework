@@ -15,8 +15,6 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
-import org.joda.time.DateTimeZone
-import org.joda.time.MutableDateTime
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
@@ -291,14 +289,6 @@ class UserFacadeImpl implements UserFacade {
         return Calendar.getInstance(currentInfo.tzCache ?: TimeZone.getDefault(),
                 currentInfo.localeCache ?: (request ? request.getLocale() : Locale.getDefault()))
     }
-    MutableDateTime getDateTimeSafe(Long timeMillis) {
-        DateTimeZone dtz = DateTimeZone.forTimeZone(currentInfo.tzCache ?: TimeZone.getDefault())
-        long now
-        if (timeMillis != null) now = timeMillis
-        else now = ((Object) this.effectiveTime != null) ? this.effectiveTime.getTime() : System.currentTimeMillis()
-        return new MutableDateTime(now, dtz)
-    }
-
 
     @Override
     void setTimeZone(TimeZone tz) {

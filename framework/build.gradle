@@ -124,11 +124,6 @@ dependencies {
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
 
-    // Joda
-    // TODO: cron-utils no longer depends on this, change Moqui/Mantle code using it to Java 8 java.time and remove
-    compile 'joda-time:joda-time:2.9.4' // Apache 2.0
-    compile 'org.joda:joda-convert:1.8.1' // Apache 2.0
-
     // OWASP Java HTML Sanitizer
     compile 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20160526.1' // New BSD & Apache 2.0
 

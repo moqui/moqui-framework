@@ -139,6 +139,7 @@ class EntityFacadeImpl implements EntityFacade {
     EntityDataDocument getEntityDataDocument() { return entityDataDocument }
     String getDefaultGroupName() { return defaultGroupName }
 
+    // NOTE: used in scripts, etc
     TimeZone getDatabaseTimeZone() { return databaseTimeZone }
     Locale getDatabaseLocale() { return databaseLocale }
 

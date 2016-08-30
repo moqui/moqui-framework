@@ -48,6 +48,7 @@ class ScheduledJobRunner implements Runnable {
         this.ecfi = ecfi
     }
 
+    // NOTE: these are called in the service job screens
     long getLastExecuteTime() { lastExecuteTime }
     int getExecuteCount() { executeCount }
     int getTotalJobsRun() { totalJobsRun }
