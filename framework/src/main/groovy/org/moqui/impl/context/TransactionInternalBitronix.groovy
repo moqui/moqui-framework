@@ -61,10 +61,6 @@ class TransactionInternalBitronix implements TransactionInternal {
     @Override
     UserTransaction getUserTransaction() { return ut }
 
-    Properties getXaProperties() {
-
-    }
-
     @Override
     DataSource getDataSource(EntityFacade ef, MNode datasourceNode, String tenantId) {
         // NOTE: this is called during EFI init, so use the passed one and don't try to get from ECFI
