@@ -198,6 +198,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="saved-finds" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Enable saved finds (query parameters, order by).</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="show-csv-button" type="boolean" default="true">
+                <xs:annotation><xs:documentation>Show a button to export as CSV, if the pagination header is displayed</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="show-all-button" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Show a button to display all results (pageNoLimit=true), if the pagination header is displayed</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="dynamic" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal
                     definition will be built up each time it is used instead of only when first referred to.</xs:documentation></xs:annotation>
@@ -745,12 +751,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="key-field-name" type="xs:string"/>
             <xs:attribute name="use-cache" default="true" type="boolean"/>
             <xs:attribute name="text" type="xs:string" default="${description}"/>
+            <xs:attribute name="default-text" type="xs:string"><xs:annotation><xs:documentation>
+                Displayed if no record found.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="also-hidden" default="true" type="boolean"/>
-            <xs:attribute name="encode" default="true" type="boolean">
-                <xs:annotation><xs:documentation>
-                    If true text will be encoded so that it does not interfere with markup of the target output.
-                </xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="encode" default="true" type="boolean"><xs:annotation><xs:documentation>
+                If true text will be encoded so that it does not interfere with markup of the target output.</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="drop-down" substitutionGroup="SubFields">
