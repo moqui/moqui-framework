@@ -24,7 +24,7 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.*
-import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.util.FtlNodeWrapper

@@ -15,7 +15,6 @@ package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
-import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
@@ -23,6 +22,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
@@ -228,7 +228,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             if (otherFieldsToSkip.contains(entryName)) continue
 
             EntityDefinition subEd = null
-            EntityDefinition.RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
+            RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
             if (relInfo != null) {
                 if (!relInfo.mutable) {
                     if (logger.isTraceEnabled()) logger.trace("In create entity auto service found key [${entryName}] which is a non-mutable relationship of [${ed.getFullEntityName()}], skipping")
@@ -426,7 +426,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
             EntityDefinition subEd = null
             Map<String, Object> pkMap = null
-            EntityDefinition.RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
+            RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
             if (relInfo != null) {
                 if (!relInfo.mutable) {
                     if (logger.isTraceEnabled()) logger.trace("In store entity auto service found key [${entryName}] which is a non-mutable relationship of [${ed.getFullEntityName()}], skipping")

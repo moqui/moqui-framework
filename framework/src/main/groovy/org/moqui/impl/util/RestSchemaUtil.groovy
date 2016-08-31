@@ -23,9 +23,9 @@ import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityDefinition.MasterDefinition
 import org.moqui.impl.entity.EntityDefinition.MasterDetail
-import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.service.ServiceException
@@ -100,7 +100,7 @@ class RestSchemaUtil {
                 break;
             }
         }
-        if (oneRelInfo != null && oneRelInfo.title) {
+        if (oneRelInfo != null && oneRelInfo.title != null) {
             if (oneRelInfo.relatedEd.getFullEntityName() == 'moqui.basic.Enumeration') {
                 EntityList enumList = ed.efi.find("moqui.basic.Enumeration").condition("enumTypeId", oneRelInfo.title)
                         .orderBy("sequenceNum,enumId").disableAuthz().list()

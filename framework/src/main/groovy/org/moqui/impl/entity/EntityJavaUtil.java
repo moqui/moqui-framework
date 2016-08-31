@@ -20,6 +20,7 @@ import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
+import org.moqui.entity.EntityNotFoundException;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.impl.entity.condition.ConditionField;
@@ -38,7 +39,6 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
-import java.sql.Date;
 import java.util.*;
 
 public class EntityJavaUtil {
@@ -156,7 +156,7 @@ public class EntityJavaUtil {
     }
 
     private static final int saltBytes = 8;
-    public static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
+    private static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
         MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
         String pwStr = entityFacadeNode.attribute("crypt-pass");
         if (pwStr == null || pwStr.length() == 0)
@@ -210,7 +210,7 @@ public class EntityJavaUtil {
     }
 
     @SuppressWarnings("ThrowFromFinallyBlock")
-    public static void getResultSetValue(ResultSet rs, int index, FieldInfo fi, HashMap<String, Object> valueMap,
+    static void getResultSetValue(ResultSet rs, int index, FieldInfo fi, HashMap<String, Object> valueMap,
                                            EntityFacadeImpl efi) throws EntityException {
         if (fi.typeValue == -1) throw new EntityException("No typeValue found for " + fi.entityName + "." + fi.name);
 
@@ -343,10 +343,9 @@ public class EntityJavaUtil {
     private static final boolean checkPreparedStatementValueType = false;
     static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fieldInfo,
                                           EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
-        String javaType = fieldInfo.javaType;
         int typeValue = fieldInfo.typeValue;
         if (value != null) {
-            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, javaType)) {
+            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, fieldInfo.javaType)) {
                 // this is only an info level message because under normal operation for most JDBC
                 // drivers this will be okay, but if not then the JDBC driver will throw an exception
                 // and when lower debug levels are on this should help give more info on what happened
@@ -358,12 +357,11 @@ public class EntityJavaUtil {
                 }
 
                 if (isTraceEnabled) logger.trace("Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
-                        " is " + fieldClassName + ", was expecting " + javaType + " this may " +
+                        " is " + fieldClassName + ", was expecting " + fieldInfo.javaType + " this may " +
                         "indicate an error in the configuration or in the class, and may result " +
                         "in an SQL-Java data conversion error. Will use the real field type: " +
                         fieldClassName + ", not the definition.");
-                javaType = fieldClassName;
-                typeValue = EntityFacadeImpl.getJavaTypeInt(javaType);
+                typeValue = EntityFacadeImpl.getJavaTypeInt(fieldClassName);
             }
 
             // if field is to be encrypted, do it now
@@ -387,7 +385,7 @@ public class EntityJavaUtil {
         }
     }
 
-    public static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fi,
+    private static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fi,
                                                  boolean useBinaryTypeForBlob, EntityFacade efi) throws EntityException {
         try {
             // allow setting, and searching for, String values for all types; JDBC driver should handle this okay
@@ -627,9 +625,9 @@ public class EntityJavaUtil {
         public final String javaType;
         public final String enableAuditLog;
         public final int typeValue;
-        public final boolean isTextVeryLong;
+        final boolean isTextVeryLong;
         public final boolean isPk;
-        public final boolean encrypt;
+        final boolean encrypt;
         public final boolean isSimple;
         public final boolean enableLocalization;
         public final boolean createOnly;
@@ -704,6 +702,80 @@ public class EntityJavaUtil {
             return ed.efi.ecfi.getResourceFacade().expand(expandColumnName, "", null, false);
         }
     }
+    public static class RelationshipInfo {
+        public final String type;
+        public final boolean isTypeOne;
+        public final String title;
+        public final String relatedEntityName;
+        final EntityDefinition fromEd;
+        public final EntityDefinition relatedEd;
+        public final MNode relNode;
+
+        public final String relationshipName;
+        public final String shortAlias;
+        final String prettyName;
+        public final Map<String, String> keyMap;
+        public final boolean dependent;
+        public final boolean mutable;
+
+        RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
+            this.relNode = relNode;
+            this.fromEd = fromEd;
+            type = relNode.attribute("type");
+            isTypeOne = type.startsWith("one");
+            String titleAttr = relNode.attribute("title");
+            title = titleAttr != null && !titleAttr.isEmpty() ? titleAttr : null;
+            String relatedAttr = relNode.attribute("related");
+            if (relatedAttr == null || relatedAttr.isEmpty()) relatedAttr = relNode.attribute("related-entity-name");
+            relatedEd = efi.getEntityDefinition(relatedAttr);
+            if (relatedEd == null) throw new EntityNotFoundException("Invalid entity relationship, " + relatedAttr + " not found in definition for entity " + fromEd.getFullEntityName());
+            relatedEntityName = relatedEd.getFullEntityName();
+
+            relationshipName = (title != null ? title + '#' : "") + relatedEntityName;
+            String shortAliasAttr = relNode.attribute("short-alias");
+            shortAlias =  shortAliasAttr != null && !shortAliasAttr.isEmpty() ? shortAliasAttr : null;
+            prettyName = relatedEd.getPrettyName(title, fromEd.internalEntityName);
+            keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, relatedEd);
+            dependent = hasReverse();
+            String mutableAttr = relNode.attribute("mutable");
+            if (mutableAttr != null && !mutableAttr.isEmpty()) {
+                mutable = "true".equals(relNode.attribute("mutable"));
+            } else {
+                // by default type one not mutable, type many are mutable
+                mutable = !isTypeOne;
+            }
+        }
+
+        private boolean hasReverse() {
+            ArrayList<MNode> relatedRelList = relatedEd.internalEntityNode.children("relationship");
+            int relatedRelListSize = relatedRelList.size();
+            for (int i = 0; i < relatedRelListSize; i++) {
+                MNode reverseRelNode = relatedRelList.get(i);
+                String relatedAttr = reverseRelNode.attribute("related");
+                if (relatedAttr == null || relatedAttr.isEmpty()) relatedAttr = reverseRelNode.attribute("related-entity-name");
+                String typeAttr = reverseRelNode.attribute("type");
+                String titleAttr = reverseRelNode.attribute("title");
+                if ((fromEd.fullEntityName.equals(relatedAttr) || fromEd.internalEntityName.equals(relatedAttr)) &&
+                        ("one".equals(typeAttr) || "one-nofk".equals(typeAttr)) &&
+                        (title == null ? titleAttr == null || titleAttr.isEmpty() : title.equals(titleAttr))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        public Map<String, Object> getTargetParameterMap(Map valueSource) {
+            if (valueSource == null || valueSource.isEmpty()) return new LinkedHashMap<>();
+            Map<String, Object> targetParameterMap = new HashMap<>();
+            for (Map.Entry<String, String> keyEntry: keyMap.entrySet()) {
+                Object value = valueSource.get(keyEntry.getKey());
+                if (!StupidJavaUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
+            }
+            return targetParameterMap;
+        }
+        public String toString() { return relationshipName + (shortAlias != null ? " (" + shortAlias + ")" : "") +
+                ", type " + type + ", one? " + isTypeOne + ", dependent? " + dependent; }
+    }
+
     private static Map<String, String> camelToUnderscoreMap = new HashMap<>();
     public static String camelCaseToUnderscored(String camelCase) {
         if (camelCase == null || camelCase.length() == 0) return "";
@@ -740,7 +812,7 @@ public class EntityJavaUtil {
 
         public Object getValue() { return value; }
 
-        public void setPreparedStatementValue(int index) throws EntityException {
+        void setPreparedStatementValue(int index) throws EntityException {
             eqb.setPreparedStatementValue(index, value, fieldInfo);
         }
 
@@ -777,7 +849,7 @@ public class EntityJavaUtil {
         public String getEntityName() { return entityName; }
         public String getSql() { return sql; }
         // public long getHitCount() { return hitCount; }
-        public long getErrorCount() { return errorCount; }
+        // public long getErrorCount() { return errorCount; }
         // public long getMinTimeNanos() { return minTimeNanos; }
         // public long getMaxTimeNanos() { return maxTimeNanos; }
         // public long getTotalTimeNanos() { return totalTimeNanos; }

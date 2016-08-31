@@ -28,12 +28,12 @@ import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.JoinOperator
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
-import org.moqui.entity.EntityNotFoundException
 import org.moqui.impl.entity.condition.EntityConditionImplBase
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.FieldToFieldCondition
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 
 import org.slf4j.Logger
@@ -284,6 +284,7 @@ public class EntityDefinition {
     String getEntityName() { return internalEntityName }
     String getFullEntityName() { return fullEntityName }
     String getShortAlias() { return shortAlias }
+    String getShortOrFullEntityName() { return shortAlias != null ? shortAlias : fullEntityName }
     MNode getEntityNode() { return internalEntityNode }
 
     boolean isViewEntity() { return isView }
@@ -444,75 +445,6 @@ public class EntityDefinition {
         relationshipInfoList = infoList
     }
 
-    @CompileStatic
-    static class RelationshipInfo {
-        String type
-        boolean isTypeOne
-        String title
-        String relatedEntityName
-        EntityDefinition fromEd
-        EntityDefinition relatedEd
-        MNode relNode
-
-        String relationshipName
-        String shortAlias
-        String prettyName
-        Map<String, String> keyMap
-        boolean dependent
-        boolean mutable
-
-        RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
-            this.relNode = relNode
-            this.fromEd = fromEd
-            postInit(efi)
-        }
-
-        // getting weird runtime errors if this is CompileStatic
-        void postInit(EntityFacadeImpl efi) {
-            type = relNode.attribute('type')
-            isTypeOne = type.startsWith("one")
-            title = relNode.attribute('title') ?: ''
-            relatedEntityName = relNode.attribute('related') ?: relNode.attribute('related-entity-name')
-            relatedEd = efi.getEntityDefinition(relatedEntityName)
-            if (relatedEd == null) throw new EntityNotFoundException("Invalid entity relationship, ${relatedEntityName} not found in definition for entity ${fromEd.getFullEntityName()}")
-            relatedEntityName = relatedEd.getFullEntityName()
-
-            relationshipName = (title ? title + '#' : '') + relatedEntityName
-            shortAlias = relNode.attribute('short-alias') ?: ''
-            prettyName = relatedEd.getPrettyName(title, fromEd.internalEntityName)
-            keyMap = getRelationshipExpandedKeyMapInternal(relNode, relatedEd)
-            dependent = hasReverse()
-            String mutableAttr = relNode.attribute('mutable')
-            if (mutableAttr) {
-                mutable = relNode.attribute('mutable') == "true"
-            } else {
-                // by default type one not mutable, type many are mutable
-                mutable = !isTypeOne
-            }
-        }
-
-        private boolean hasReverse() {
-            MNode reverseRelNode = relatedEd.internalEntityNode.children("relationship").find(
-                    { String related = it.attribute("related") ?: it.attribute("related-entity-name");
-                      return ((related == fromEd.internalEntityName || related == fromEd.fullEntityName)
-                            && (it.attribute("type") == "one" || it.attribute("type") == "one-nofk")
-                            && ((!title && !it.attribute("title")) || it.attribute("title") == title)); })
-            return reverseRelNode != null
-        }
-
-        Map<String, Object> getTargetParameterMap(Map valueSource) {
-            if (!valueSource) return [:]
-            Map<String, Object> targetParameterMap = new HashMap<String, Object>()
-            for (Map.Entry<String, String> keyEntry in keyMap.entrySet()) {
-                Object value = valueSource.get(keyEntry.key)
-                if (!StupidJavaUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.value, value)
-            }
-            return targetParameterMap
-        }
-
-        String toString() { return "${relationshipName}${shortAlias ? ' (' + shortAlias + ')' : ''}, type ${type}, one? ${isTypeOne}, dependent? ${dependent}" }
-    }
-
     MasterDefinition getMasterDefinition(String name) {
         if (name == null || name.length() == 0) name = "default"
         if (masterDefinitionMap == null) makeMasterDefinitionMap()
@@ -640,7 +572,7 @@ public class EntityDefinition {
             buildString(builder, 0, entitiesVisited)
             return builder.toString()
         }
-        static final String indentBase = '- '
+        static final String indentBase = "- "
         void buildString(StringBuilder builder, int level, Set<String> entitiesVisited) {
             StringBuilder ib = new StringBuilder()
             for (int i = 0; i <= level; i++) ib.append(indentBase)
@@ -648,14 +580,14 @@ public class EntityDefinition {
 
             for (Map.Entry<String, EntityDependents> entry in dependentEntities) {
                 RelationshipInfo relInfo = relationshipInfos.get(entry.getKey())
-                builder.append(indent).append(relInfo.relationshipName).append(' ').append(relInfo.keyMap).append('\n')
+                builder.append(indent).append(relInfo.relationshipName).append(" ").append(relInfo.keyMap).append("\n")
                 if (level < 8 && !entitiesVisited.contains(entry.getValue().entityName)) {
                     entry.getValue().buildString(builder, level + 1I, entitiesVisited)
                     entitiesVisited.add(entry.getValue().entityName)
                 } else if (entitiesVisited.contains(entry.getValue().entityName)) {
-                    builder.append(indent).append(indentBase).append('Dependants already displayed\n')
+                    builder.append(indent).append(indentBase).append("Dependants already displayed\n")
                 } else if (level == 8) {
-                    builder.append(indent).append(indentBase).append('Reached level limit\n')
+                    builder.append(indent).append(indentBase).append("Reached level limit\n")
                 }
             }
         }
@@ -700,7 +632,7 @@ public class EntityDefinition {
 
             MNode caseNode = fieldNode.first("case")
             MNode complexAliasNode = fieldNode.first("complex-alias")
-            String function = fieldNode.attribute('function')
+            String function = fieldNode.attribute("function")
             boolean hasFunction = function != null && function.length() > 0
 
             if (hasFunction) colNameBuilder.append(getFunctionPrefix(function))
@@ -733,10 +665,10 @@ public class EntityDefinition {
                 buildComplexAliasName(fieldNode, colNameBuilder)
             } else {
                 // column name for view-entity (prefix with "${entity-alias}.")
-                colNameBuilder.append(fieldNode.attribute('entity-alias')).append('.')
+                colNameBuilder.append(fieldNode.attribute("entity-alias")).append('.')
 
-                String memberFieldName = fieldNode.attribute('field') ?: fieldNode.attribute('name')
-                colNameBuilder.append(getBasicFieldColName(fieldNode.attribute('entity-alias'), memberFieldName))
+                String memberFieldName = fieldNode.attribute("field") ?: fieldNode.attribute("name")
+                colNameBuilder.append(getBasicFieldColName(fieldNode.attribute("entity-alias"), memberFieldName))
             }
             if (hasFunction) colNameBuilder.append(')')
 
@@ -747,7 +679,7 @@ public class EntityDefinition {
     }
 
     protected void buildComplexAliasName(MNode parentNode, StringBuilder colNameBuilder) {
-        String expression = parentNode.attribute('expression')
+        String expression = parentNode.attribute("expression")
         // NOTE: this is expanded in FieldInfo.getFullColumnName() if needed
         if (expression != null && expression.length() > 0) colNameBuilder.append(expression)
 
@@ -855,9 +787,9 @@ public class EntityDefinition {
         if (pkFieldDefaults == null) {
             Map<String, String> newDefaults = [:]
             for (MNode fieldNode in getFieldNodes(true, false)) {
-                String defaultStr = fieldNode.attribute('default')
+                String defaultStr = fieldNode.attribute("default")
                 if (!defaultStr) continue
-                newDefaults.put(fieldNode.attribute('name'), defaultStr)
+                newDefaults.put(fieldNode.attribute("name"), defaultStr)
             }
             pkFieldDefaults = newDefaults
         }
@@ -867,9 +799,9 @@ public class EntityDefinition {
         if (nonPkFieldDefaults == null) {
             Map<String, String> newDefaults = [:]
             for (MNode fieldNode in getFieldNodes(false, true)) {
-                String defaultStr = fieldNode.attribute('default')
+                String defaultStr = fieldNode.attribute("default")
                 if (!defaultStr) continue
-                newDefaults.put(fieldNode.attribute('name'), defaultStr)
+                newDefaults.put(fieldNode.attribute("name"), defaultStr)
             }
             nonPkFieldDefaults = newDefaults
         }
@@ -1099,7 +1031,7 @@ public class EntityDefinition {
 
     static Object convertFieldInfoString(FieldInfo fi, String value, ExecutionContextImpl eci) {
         if (value == null) return null
-        if ('null'.equals(value)) return null
+        if ("null".equals(value)) return null
         return EntityJavaUtil.convertFromString(value, fi, eci.getL10nFacade())
     }
 
@@ -1204,7 +1136,7 @@ public class EntityDefinition {
                         if (isInViewLink) break
                     }
 
-                    MNode existingAliasNode = internalEntityNode.children('alias').find({ aliasName.equals(it.attribute("name")) })
+                    MNode existingAliasNode = internalEntityNode.children("alias").find({ aliasName.equals(it.attribute("name")) })
                     // already exists... probably an override, but log just in case
                     String warnMsg = "Throwing out field alias in view entity " + this.getFullEntityName() +
                             " because one already exists with the alias name [" + aliasName + "] and field name [" +
@@ -1285,22 +1217,24 @@ public class EntityDefinition {
                 Object condValueObj = condEd.convertFieldString(field.fieldName, condValue, eci);
                 cond = new FieldValueCondition(field, EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
             }
-            if (cond && econdition.attribute("ignore-case") == "true") cond.ignoreCase()
+            if (cond != null) {
+                if ("true".equals(econdition.attribute("ignore-case"))) cond.ignoreCase()
 
-            if (cond && econdition.attribute("or-null") == "true") {
-                cond = (EntityConditionImplBase) this.efi.conditionFactory.makeCondition(cond, JoinOperator.OR,
-                        new FieldValueCondition(field, EntityCondition.EQUALS, null))
+                if ("true".equals(econdition.attribute("or-null"))) {
+                    cond = (EntityConditionImplBase) this.efi.conditionFactory.makeCondition(cond, JoinOperator.OR,
+                            new FieldValueCondition(field, EntityCondition.EQUALS, null))
+                }
+
+                condList.add(cond)
             }
-
-            if (cond) condList.add(cond)
         }
         for (MNode econditions in conditionsParent.children("econditions")) {
             EntityConditionImplBase cond = this.makeViewListCondition(econditions)
             if (cond) condList.add(cond)
         }
-        if (!condList) return null
+        if (condList == null || condList.size() == 0) return null
         if (condList.size() == 1) return (EntityConditionImplBase) condList.get(0)
-        JoinOperator op = (conditionsParent.attribute("combine") == "or" ? JoinOperator.OR : JoinOperator.AND)
+        JoinOperator op = "or".equals(conditionsParent.attribute("combine")) ? JoinOperator.OR : JoinOperator.AND
         EntityConditionImplBase entityCondition = (EntityConditionImplBase) this.efi.conditionFactory.makeCondition(condList, op)
         // logger.info("============== In makeViewListCondition for entity [${entityName}] resulting entityCondition: ${entityCondition}")
         return entityCondition

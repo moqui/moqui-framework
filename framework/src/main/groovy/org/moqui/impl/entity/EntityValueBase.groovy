@@ -30,8 +30,8 @@ import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCache
-import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
+    import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -456,14 +456,17 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     EntityValue setSequencedIdSecondary() {
-        List<String> pkFields = getEntityDefinition().getPkFieldNames()
+        EntityDefinition ed = getEntityDefinition()
+        List<String> pkFields = ed.getPkFieldNames()
         if (pkFields.size() < 2) throw new EntityException("Cannot call setSequencedIdSecondary() on entity [${getEntityName()}], there are not at least 2 primary key fields.")
         // sequenced field will be the last pk
         String seqFieldName = pkFields.get(pkFields.size()-1)
-        int paddedLength  = (getEntityDefinition().entityNode.attribute('sequence-secondary-padded-length') as Integer) ?: 2
+        String paddedLengthStr = ed.entityNode.attribute('sequence-secondary-padded-length')
+        int paddedLength  = 2
+        if (paddedLengthStr != null && paddedLengthStr.length() > 0) paddedLength = Integer.valueOf(paddedLengthStr)
 
         this.remove(seqFieldName)
-        Map<String, Object> otherPkMap = [:]
+        Map<String, Object> otherPkMap = new LinkedHashMap<>()
         getEntityDefinition().setFields(this, otherPkMap, false, null, true)
 
         // temporarily disable authz for this, just doing lookup to get next value and to allow for a
@@ -756,8 +759,9 @@ abstract class EntityValueBase implements EntityValue {
 
     @Override
     Element makeXmlElement(Document document, String prefix) {
+        if (prefix == null) prefix = ""
         Element element = null
-        if (document != null) element = document.createElement((String) (prefix ?: "") + entityName)
+        if (document != null) element = document.createElement(prefix + entityName)
         if (!element) return null
 
         for (String fieldName in getEntityDefinition().getAllFieldNames()) {
@@ -780,28 +784,29 @@ abstract class EntityValueBase implements EntityValue {
     int writeXmlText(Writer pw, String prefix, int dependentLevels) {
         Map<String, Object> plainMap = getPlainValueMap(dependentLevels)
         EntityDefinition ed = getEntityDefinition()
-        return plainMapXmlWriter(pw, prefix, ed.getShortAlias() ?: ed.getFullEntityName(), plainMap, 1)
+        return plainMapXmlWriter(pw, prefix, ed.getShortOrFullEntityName(), plainMap, 1)
     }
 
     @Override
     int writeXmlTextMaster(Writer pw, String prefix, String masterName) {
         Map<String, Object> plainMap = getMasterValueMap(masterName)
         EntityDefinition ed = getEntityDefinition()
-        return plainMapXmlWriter(pw, prefix, ed.getShortAlias() ?: ed.getFullEntityName(), plainMap, 1)
+        return plainMapXmlWriter(pw, prefix, ed.getShortOrFullEntityName(), plainMap, 1)
     }
 
     // indent 4 spaces
     protected static final String indentString = "    "
     protected static int plainMapXmlWriter(Writer pw, String prefix, String objectName, Map<String, Object> plainMap, int level) {
+        if (prefix == null) prefix = ""
         // if a CDATA element is needed for a field it goes in this Map to be added at the end
         Map<String, String> cdataMap = [:]
         Map<String, Object> subPlainMap = [:]
-        String curEntity = objectName ?: (String) plainMap.get('_entity')
+        String curEntity = objectName != null && objectName.length() > 0 ? objectName : (String) plainMap.get('_entity')
 
         for (int i = 0; i < level; i++) pw.append(indentString)
         // mostly for relationship names, see opposite code in the EntityDataLoaderImpl.startElement
         if (curEntity.contains('#')) curEntity = curEntity.replace('#', '-')
-        pw.append('<').append(prefix ?: '').append(curEntity)
+        pw.append('<').append(prefix).append(curEntity)
 
         int valueCount = 1
         for (Map.Entry<String, Object> entry in plainMap.entrySet()) {
@@ -830,22 +835,22 @@ abstract class EntityValueBase implements EntityValue {
                 continue
             }
 
-            pw.append(' ').append(fieldName).append('="')
+            pw.append(' ').append(fieldName).append("=\"")
             pw.append(StupidUtilities.encodeForXmlAttribute(valueStr)).append('"')
         }
 
         if (cdataMap.size() == 0 && subPlainMap.size() == 0) {
             // self-close the entity element
-            pw.append('/>\n')
+            pw.append("/>\n")
         } else {
-            pw.append('>\n')
+            pw.append(">\n")
 
             // CDATA sub-elements
             for (Map.Entry<String, String> entry in cdataMap.entrySet()) {
                 pw.append(indentString).append(indentString)
                 pw.append('<').append(entry.getKey()).append('>')
-                pw.append('<![CDATA[').append(entry.getValue()).append(']]>')
-                pw.append('</').append(entry.getKey()).append('>\n');
+                pw.append("<![CDATA[").append(entry.getValue()).append("]]>")
+                pw.append("</").append(entry.getKey()).append(">\n")
             }
 
             // related/dependent sub-elements
@@ -867,7 +872,7 @@ abstract class EntityValueBase implements EntityValue {
 
             // close the entity element
             for (int i = 0; i < level; i++) pw.append(indentString)
-            pw.append('</').append(curEntity).append('>\n')
+            pw.append("</").append(curEntity).append(">\n")
         }
 
         return valueCount
@@ -882,7 +887,7 @@ abstract class EntityValueBase implements EntityValue {
         Map<String, Object> vMap = StupidUtilities.removeNullsFromMap(new HashMap(valueMapInternal))
         if (parentPkFields != null) for (String pkField in parentPkFields) vMap.remove(pkField)
         EntityDefinition ed = getEntityDefinition()
-        vMap.put('_entity', ed.getShortAlias() ?: ed.getFullEntityName())
+        vMap.put('_entity', ed.getShortOrFullEntityName())
 
         if (dependentLevels > 0) {
             Set<String> curPkFields = new HashSet(ed.getPkFieldNames())

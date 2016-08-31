@@ -24,6 +24,7 @@ import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
@@ -1083,7 +1084,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         // loop through all related entities and get their fields too
-        for (EntityDefinition.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             //[type:relNode."@type", title:(relNode."@title"?:""), relatedEntityName:relNode."@related-entity-name",
             //        keyMap:keyMap, targetParameterMap:targetParameterMap, prettyName:prettyName]
             EntityDefinition red = null
@@ -1227,7 +1228,7 @@ class EntityFacadeImpl implements EntityFacade {
         // if there is still more in the path the next should be a relationship name or alias
         while (localPath) {
             String relationshipName = localPath.remove(0)
-            EntityDefinition.RelationshipInfo relInfo = lastEd.getRelationshipInfoMap().get(relationshipName)
+            RelationshipInfo relInfo = lastEd.getRelationshipInfoMap().get(relationshipName)
             if (relInfo == null) throw new EntityNotFoundException("No relationship found with name or alias [${relationshipName}] on entity [${lastEd.getShortAlias()?:''}:${lastEd.getFullEntityName()}]")
 
             String relEntityName = relInfo.relatedEntityName
@@ -1328,7 +1329,7 @@ class EntityFacadeImpl implements EntityFacade {
         Map pkMap = newEntityValue.getPrimaryKeys()
 
         // check parameters Map for relationships
-        for (EntityDefinition.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             Object relParmObj = value.get(relInfo.shortAlias)
             String relKey = null
             if (relParmObj != null && !StupidJavaUtilities.isEmpty(relParmObj)) {

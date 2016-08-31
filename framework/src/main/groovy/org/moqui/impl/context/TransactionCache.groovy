@@ -20,6 +20,7 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityFindBase
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.EntityListImpl
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.entity.EntityJavaUtil.WriteMode
@@ -290,7 +291,7 @@ class TransactionCache implements Synchronization {
             if (whereCondition != null && whereCondition.populateMap(condMap)) {
                 boolean foundCreatedDependent = false
 
-                for (EntityDefinition.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+                for (EntityJavaUtil.RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
                     if (relInfo.type != "one") continue
                     // would be nice to skip this, but related-entity-name may not be full entity name
                     EntityDefinition relEd = relInfo.relatedEd

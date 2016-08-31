@@ -478,9 +478,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     // nested value/CDATA element
                     currentFieldName = elementName
                 } else if (checkEd.getRelationshipInfo(elementName) != null) {
-                    EntityDefinition.RelationshipInfo relInfo = checkEd.getRelationshipInfo(elementName)
+                    EntityJavaUtil.RelationshipInfo relInfo = checkEd.getRelationshipInfo(elementName)
                     Map curRelMap = getAttributesMap(attributes, relInfo.relatedEd)
-                    String relationshipName = relInfo.getRelationshipName()
+                    String relationshipName = relInfo.relationshipName
                     if (valueMapStack) {
                         Map prevValueMap = valueMapStack.get(0)
                         if (prevValueMap.containsKey(relationshipName)) {
