@@ -173,7 +173,7 @@ class DbResourceReference extends BaseResourceReference {
             if (parentResourceId == null) throw new BaseException("Could not find directory to put new file in at ${filenameList}")
 
             // lock the parentResourceId
-            ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", parentResourceId)
+            ecf.entity.find("moqui.resource.DbResource").condition("resourceId", parentResourceId)
                     .selectField("lastUpdatedStamp").forUpdate(true).one()
             // do a query by name to see if it exists
             EntityValue existingValue = ecf.entity.find("moqui.resource.DbResource")
@@ -208,7 +208,7 @@ class DbResourceReference extends BaseResourceReference {
                 if (directoryValue == null) {
                     if (create) {
                         // trying a create so lock the parent, then query again to make sure it doesn't exist
-                        ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", parentResourceId)
+                        ecf.entity.find("moqui.resource.DbResource").condition("resourceId", parentResourceId)
                                 .selectField("lastUpdatedStamp").forUpdate(true).one()
                         directoryValue = ecf.entity.find("moqui.resource.DbResource")
                                 .condition("parentResourceId", parentResourceId).condition("filename", filename)
