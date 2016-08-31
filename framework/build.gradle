@@ -61,7 +61,10 @@ groovydoc {
 
 dependencies {
     // Groovy
-    compile 'org.codehaus.groovy:groovy-all:2.4.7' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.7' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.7' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.4.7' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.4.7' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     providedCompile 'org.fusesource.jansi:jansi:1.13'
 
@@ -164,7 +167,8 @@ dependencies {
     // compile 'com.mangofactory:typescript4j:0.4.0'
 
     // ========== test dependencies ==========
-    testCompile 'org.spockframework:spock-core:1.0-groovy-2.4' // Apache 2.0
+    // spock-core depends on groovy-all but we are including selected groovy modules, so don't get its dependencies
+    testCompile module('org.spockframework:spock-core:1.0-groovy-2.4') // Apache 2.0
     testCompile 'junit:junit:4.12' // Apache 2.0
     testCompile 'org.hamcrest:hamcrest-core:1.3' // BSD 3-Clause
 
