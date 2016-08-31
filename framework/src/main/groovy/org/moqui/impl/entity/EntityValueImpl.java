@@ -17,7 +17,6 @@ import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo;
-import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -243,7 +242,7 @@ public class EntityValueImpl extends EntityValueBase {
         StringBuilder sql = eqb.getSqlTopLevel();
         sql.append("SELECT ");
         // NOTE: cast here is needed to resolve compile warning, even if there may be a IDE warning
-        eqb.makeSqlSelectFields(allFieldArray, (FieldOrderOptions[]) null);
+        eqb.makeSqlSelectFields(allFieldArray, null);
 
         sql.append(" FROM ").append(ed.getFullTableName()).append(" WHERE ");
 

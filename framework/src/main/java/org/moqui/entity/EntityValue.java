@@ -41,7 +41,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
 
     /** Gets a cloned, mutable Map with the field values that is independent of this value object. Can be augmented or
      * modified without modifying or being constrained by this entity value. */
-    Map getMap();
+    Map<String, Object> getMap();
 
     /** Get the named field.
      *
@@ -219,7 +219,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      */
     boolean checkFks(boolean insertDummy) throws EntityException;
 
-    long checkAgainstDatabase(List messages);
+    long checkAgainstDatabase(List<String> messages);
 
     /** Makes an XML Element object with an attribute for each field of the entity
      * @param document The XML Document that the new Element will be part of

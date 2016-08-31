@@ -14,8 +14,8 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 
 import java.sql.Connection
@@ -389,7 +389,7 @@ class EntityDbMeta {
             StringBuilder indexName = new StringBuilder()
             if (relInfo.relNode.attribute("fk-name")) indexName.append(relInfo.relNode.attribute("fk-name"))
             if (!indexName) {
-                String title = relInfo.title
+                String title = relInfo.title ?: ""
                 String entityName = ed.getEntityName()
 
                 int commonChars = 0
@@ -553,7 +553,7 @@ class EntityDbMeta {
             StringBuilder constraintName = new StringBuilder()
             if (relInfo.relNode.attribute("fk-name")) constraintName.append(relInfo.relNode.attribute("fk-name"))
             if (!constraintName) {
-                String title = relInfo.title
+                String title = relInfo.title ?: ""
                 int commonChars = 0
                 while (title.length() > commonChars && ed.entityName.length() > commonChars &&
                         title.charAt(commonChars) == ed.entityName.charAt(commonChars)) commonChars++

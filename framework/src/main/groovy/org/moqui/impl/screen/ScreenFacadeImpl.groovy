@@ -15,6 +15,7 @@ package org.moqui.impl.screen
 
 import freemarker.template.Template
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.context.ResourceReference
 import org.moqui.screen.ScreenFacade
 import org.moqui.screen.ScreenRender
@@ -298,6 +299,21 @@ public class ScreenFacadeImpl implements ScreenFacade {
         return themeIconByText
     }
     MNode getWebappNode(String webappName) { return webappNodeByName.get(webappName) as MNode }
+    String rootScreenFromHost(String host, String webappName) {
+        MNode webappNode = getWebappNode(webappName)
+        MNode wildcardHost = (MNode) null
+        for (MNode rootScreenNode in webappNode.children("root-screen")) {
+            String hostAttr = rootScreenNode.attribute("host")
+            if (".*".equals(hostAttr)) {
+                // remember wildcard host, default to it if no other matches (just in case put earlier in the list than others)
+                wildcardHost = rootScreenNode
+            } else if (host.matches(hostAttr)) {
+                return rootScreenNode.attribute("location")
+            }
+        }
+        if (wildcardHost != null) return wildcardHost.attribute("location")
+        throw new BaseException("Could not find root screen for host: ${host}")
+    }
 
     List<ScreenInfo> getScreenInfoList(String rootLocation, int levels) {
         ScreenInfo rootInfo = new ScreenInfo(getScreenDefinition(rootLocation), null, null, 0)

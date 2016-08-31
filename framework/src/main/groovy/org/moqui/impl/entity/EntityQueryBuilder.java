@@ -38,11 +38,11 @@ public class EntityQueryBuilder {
     protected String finalSql = (String) null;
 
     private static final int parametersInitSize = 20;
-    protected ArrayList<EntityConditionParameter> parameters = new ArrayList<EntityJavaUtil.EntityConditionParameter>(parametersInitSize);
+    protected ArrayList<EntityConditionParameter> parameters = new ArrayList<>(parametersInitSize);
 
-    protected PreparedStatement ps = (PreparedStatement) null;
-    private ResultSet rs = (ResultSet) null;
-    protected Connection connection = (Connection) null;
+    protected PreparedStatement ps = null;
+    private ResultSet rs = null;
+    protected Connection connection = null;
     private boolean externalConnection = false;
 
     public EntityQueryBuilder(EntityDefinition entityDefinition, EntityFacadeImpl efi) {
@@ -58,12 +58,12 @@ public class EntityQueryBuilder {
     /** returns List of EntityConditionParameter meant to be added to */
     public ArrayList<EntityConditionParameter> getParameters() { return parameters; }
 
-    public Connection makeConnection() {
+    Connection makeConnection() {
         connection = efi.getConnection(mainEntityDefinition.getEntityGroupName());
         return connection;
     }
 
-    public void useConnection(Connection c) {
+    void useConnection(Connection c) {
         connection = c;
         externalConnection = true;
     }
@@ -87,7 +87,7 @@ public class EntityQueryBuilder {
         return ps;
     }
 
-    public ResultSet executeQuery() throws EntityException {
+    ResultSet executeQuery() throws EntityException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
@@ -109,7 +109,7 @@ public class EntityQueryBuilder {
 
     }
 
-    public int executeUpdate() throws EntityException {
+    int executeUpdate() throws EntityException {
         if (this.ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
@@ -133,7 +133,7 @@ public class EntityQueryBuilder {
     }
 
     /** NOTE: this should be called in a finally clause to make sure things are closed */
-    public void closeAll() throws SQLException {
+    void closeAll() throws SQLException {
         if (ps != null) {
             ps.close();
             ps = null;
@@ -152,7 +152,7 @@ public class EntityQueryBuilder {
     }
 
     /** For when closing to be done in other places, like a EntityListIteratorImpl */
-    public void releaseAll() {
+    void releaseAll() {
         ps = null;
         rs = null;
         connection = null;
@@ -169,11 +169,11 @@ public class EntityQueryBuilder {
     }
     */
 
-    public void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
+    void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
         EntityJavaUtil.setPreparedStatementValue(this.ps, index, value, fieldInfo, this.mainEntityDefinition, this.efi);
     }
 
-    public void setPreparedStatementValues() {
+    void setPreparedStatementValues() {
         // set all of the values from the SQL building in efb
         ArrayList<EntityConditionParameter> parms = parameters;
         int size = parms.size();
@@ -184,7 +184,7 @@ public class EntityQueryBuilder {
 
     }
 
-    public void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
+    void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
         int size = fieldInfoArray.length;
         if (size > 0) {
             if (fieldOptionsArray == null && mainEntityDefinition.getAllFieldInfoList().size() == size) {
