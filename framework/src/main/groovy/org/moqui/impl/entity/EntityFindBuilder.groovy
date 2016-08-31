@@ -189,6 +189,7 @@ class EntityFindBuilder extends EntityQueryBuilder {
             // get a list of entity aliases used
             for (String fieldName in fieldUsedSet) {
                 FieldInfo fi = localEntityDefinition.getFieldInfo(fieldName)
+                if (fi == null) throw new EntityException("Could not find field ${fieldName} in entity ${localEntityDefinition.getFullEntityName()}")
                 entityAliasUsedSet.addAll(fi.entityAliasUsedSet)
             }
             // if (localEntityDefinition.getFullEntityName().contains("Example"))
