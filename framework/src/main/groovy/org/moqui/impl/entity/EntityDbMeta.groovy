@@ -38,11 +38,11 @@ class EntityDbMeta {
     static final boolean useTxForMetaData = false
 
     // this keeps track of when tables are checked and found to exist or are created
-    protected Map entityTablesChecked = new HashMap()
+    protected HashMap<String, Timestamp> entityTablesChecked = new HashMap<>()
     // a separate Map for tables checked to exist only (used in finds) so repeated checks are needed for unused entities
-    protected Map<String, Boolean> entityTablesExist = new HashMap<>()
+    protected HashMap<String, Boolean> entityTablesExist = new HashMap<>()
 
-    protected Map<String, Boolean> runtimeAddMissingMap = new HashMap<>()
+    protected HashMap<String, Boolean> runtimeAddMissingMap = new HashMap<>()
 
     protected EntityFacadeImpl efi
 
@@ -53,29 +53,33 @@ class EntityDbMeta {
     }
 
     void checkTableRuntime(EntityDefinition ed) {
-        String groupName = ed.getEntityGroupName()
+        EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
+        // most common case: not view entity and already checked
+        boolean alreadyChecked = entityTablesChecked.containsKey(entityInfo.fullEntityName)
+        if (alreadyChecked) return
+
+        String groupName = entityInfo.groupName
         Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
         if (runtimeAddMissing == null) {
             MNode datasourceNode = efi.getDatasourceNode(groupName)
-            runtimeAddMissing = datasourceNode?.attribute('runtime-add-missing') != "false"
+            runtimeAddMissing = datasourceNode == null || !"false".equals(datasourceNode.attribute("runtime-add-missing"))
             runtimeAddMissingMap.put(groupName, runtimeAddMissing)
         }
-        if (runtimeAddMissing == null || runtimeAddMissing == Boolean.FALSE) return
+        if (!runtimeAddMissing.booleanValue()) return
 
-        if (ed.isViewEntity()) {
+        if (entityInfo.isView) {
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
-                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute('entity-name'))
+                EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
                 checkTableRuntime(med)
             }
         } else {
-            // if it's in this table we've already checked it
-            if (entityTablesChecked.containsKey(ed.getFullEntityName())) return
-            // otherwise do the real check, in a synchronized method
+            // already looked above to see if this entity has been checked
+            // do the real check, in a synchronized method
             internalCheckTable(ed, false)
         }
     }
     void checkTableStartup(EntityDefinition ed) {
-        if (ed.isViewEntity()) {
+        if (ed.isViewEntity) {
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
                 EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
                 checkTableStartup(med)
@@ -138,7 +142,7 @@ class EntityDbMeta {
         if (exists != null) return exists.booleanValue()
 
         Boolean dbResult = null
-        if (ed.isViewEntity()) {
+        if (ed.isViewEntity) {
             boolean anyExist = false
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
                 EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
@@ -181,7 +185,7 @@ class EntityDbMeta {
 
         if (dbResult == null) throw new EntityException("No result checking if entity ${ed.getFullEntityName()} table exists")
 
-        if (dbResult && !ed.isViewEntity()) {
+        if (dbResult && !ed.isViewEntity) {
             // on the first check also make sure all columns/etc exist; we'll do this even on read/exist check otherwise query will blow up when doesn't exist
             ArrayList<FieldInfo> mcs = getMissingColumns(ed)
             int mcsSize = mcs.size()
@@ -189,20 +193,20 @@ class EntityDbMeta {
         }
         // don't remember the result for view-entities, get if from member-entities... if we remember it we have to set
         //     it for all view-entities when a member-entity is created
-        if (!ed.isViewEntity()) entityTablesExist.put(ed.getFullEntityName(), dbResult)
+        if (!ed.isViewEntity) entityTablesExist.put(ed.getFullEntityName(), dbResult)
         return dbResult
     }
 
     void createTable(EntityDefinition ed) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create table")
-        if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot create table for a view entity")
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create table for a view entity")
 
         String groupName = ed.getEntityGroupName()
         MNode databaseNode = efi.getDatabaseNode(groupName)
 
         StringBuilder sql = new StringBuilder("CREATE TABLE ").append(ed.getFullTableName()).append(" (")
 
-        FieldInfo[] allFieldInfoArray = ed.getAllFieldInfoArray()
+        FieldInfo[] allFieldInfoArray = ed.entityInfo.allFieldInfoArray
         for (int i = 0; i < allFieldInfoArray.length; i++) {
             FieldInfo fi = (FieldInfo) allFieldInfoArray[i]
             MNode fieldNode = fi.fieldNode
@@ -233,7 +237,7 @@ class EntityDbMeta {
         }
         sql.append(" PRIMARY KEY (")
 
-        FieldInfo[] pkFieldInfoArray = ed.getPkFieldInfoArray()
+        FieldInfo[] pkFieldInfoArray = ed.entityInfo.pkFieldInfoArray
         for (int i = 0; i < pkFieldInfoArray.length; i++) {
             FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
             if (i > 0) sql.append(", ")
@@ -254,7 +258,7 @@ class EntityDbMeta {
     }
 
     ArrayList<FieldInfo> getMissingColumns(EntityDefinition ed) {
-        if (ed.isViewEntity()) return new ArrayList<FieldInfo>()
+        if (ed.isViewEntity) return new ArrayList<FieldInfo>()
 
         String groupName = ed.getEntityGroupName()
         Connection con = null
@@ -266,7 +270,7 @@ class EntityDbMeta {
             DatabaseMetaData dbData = con.getMetaData()
             // con.setAutoCommit(false)
 
-            ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.getAllFieldInfoList())
+            ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.allFieldInfoList)
             int fieldCount = fieldInfos.size()
             colSet1 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
             if (colSet1.isClosed()) {
@@ -323,7 +327,7 @@ class EntityDbMeta {
 
     void addColumn(EntityDefinition ed, FieldInfo fi) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot add column")
-        if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot add column for a view entity")
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot add column for a view entity")
 
         String groupName = ed.getEntityGroupName()
         MNode databaseNode = efi.getDatabaseNode(groupName)
@@ -349,7 +353,7 @@ class EntityDbMeta {
 
     void createIndexes(EntityDefinition ed) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create indexes")
-        if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot create indexes for a view entity")
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create indexes for a view entity")
 
         String groupName = ed.getEntityGroupName()
         MNode databaseNode = efi.getDatabaseNode(groupName)
@@ -519,7 +523,7 @@ class EntityDbMeta {
 
     void createForeignKeys(EntityDefinition ed, boolean checkFkExists) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create foreign keys")
-        if (ed.isViewEntity()) throw new IllegalArgumentException("Cannot create foreign keys for a view entity")
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create foreign keys for a view entity")
 
         // NOTE: in order to get all FKs in place by the time they are used we will probably need to check all incoming
         //     FKs as well as outgoing because of entity use order, tables not rechecked after first hit, etc

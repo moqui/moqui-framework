@@ -54,7 +54,7 @@ public class CacheFacadeImpl implements CacheFacade {
     protected CacheManager localCacheManagerInternal = (CacheManager) null
     protected CacheManager distCacheManagerInternal = (CacheManager) null
 
-    protected final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
+    final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
     protected final Map<String, Boolean> cacheTenantsShare = new HashMap<String, Boolean>()
 
     CacheFacadeImpl(ExecutionContextFactoryImpl ecfi) {

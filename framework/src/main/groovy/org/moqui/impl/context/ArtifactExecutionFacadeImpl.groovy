@@ -560,7 +560,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     // see if there if any filter entities match the current entity or if it is a view then a member entity
                     Map<String, ArrayList<MNode>> memberFieldAliases = null
                     if (filterEntityName != findEd.fullEntityName) {
-                        if (findEd.isViewEntity()) {
+                        if (findEd.isViewEntity) {
                             memberFieldAliases = findEd.getMemberFieldAliases(filterEntityName)
                             if (memberFieldAliases == null) continue
                         } else {

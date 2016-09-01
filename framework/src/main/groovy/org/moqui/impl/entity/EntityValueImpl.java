@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class EntityValueImpl extends EntityValueBase {
+    protected static final Logger logger = LoggerFactory.getLogger(EntityValueImpl.class);
+
     /** Default constructor for deserialization ONLY. */
     public EntityValueImpl() { }
 
@@ -59,7 +61,7 @@ public class EntityValueImpl extends EntityValueBase {
         EntityDefinition ed = getEntityDefinition();
         EntityFacadeImpl efi = getEntityFacadeImpl();
 
-        if (ed.isViewEntity()) {
+        if (ed.isViewEntity) {
             throw new EntityException("Create not yet implemented for view-entity");
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
@@ -98,7 +100,6 @@ public class EntityValueImpl extends EntityValueBase {
                     eqb.setPreparedStatementValue(i + 1, valueMapInternal.get(fieldName), fieldInfo);
                 }
 
-
                 // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} in tenant ${efi.tenantId} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
                 eqb.executeUpdate();
                 setSyncedWithDb();
@@ -109,9 +110,7 @@ public class EntityValueImpl extends EntityValueBase {
                 catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
                     throw new EntityException("Error in create of " + this.toString(), sqle); }
             }
-
         }
-
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
@@ -120,7 +119,7 @@ public class EntityValueImpl extends EntityValueBase {
         EntityDefinition ed = getEntityDefinition();
         final EntityFacadeImpl efi = getEntityFacadeImpl();
 
-        if (ed.isViewEntity()) {
+        if (ed.isViewEntity) {
             throw new EntityException("Update not yet implemented for view-entity");
         } else {
             final EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
@@ -147,7 +146,6 @@ public class EntityValueImpl extends EntityValueBase {
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
             }
 
-
             try {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
 
@@ -171,9 +169,7 @@ public class EntityValueImpl extends EntityValueBase {
                 catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
                     throw new EntityException("Error in update of " + this.toString(), sqle); }
             }
-
         }
-
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
@@ -182,7 +178,7 @@ public class EntityValueImpl extends EntityValueBase {
         EntityDefinition ed = getEntityDefinition();
         EntityFacadeImpl efi = getEntityFacadeImpl();
 
-        if (ed.isViewEntity()) {
+        if (ed.isViewEntity) {
             throw new EntityException("Delete not implemented for view-entity");
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
@@ -190,7 +186,7 @@ public class EntityValueImpl extends EntityValueBase {
             StringBuilder sql = eqb.getSqlTopLevel();
             sql.append("DELETE FROM ").append(ed.getFullTableName()).append(" WHERE ");
 
-            FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray();
+            FieldInfo[] pkFieldArray = ed.entityInfo.pkFieldInfoArray;
             int sizePk = pkFieldArray.length;
             for (int i = 0; i < sizePk; i++) {
                 FieldInfo fieldInfo = pkFieldArray[i];
@@ -199,7 +195,6 @@ public class EntityValueImpl extends EntityValueBase {
                 sql.append(fieldInfo.getFullColumnName()).append("=?");
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
             }
-
 
             try {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
@@ -217,15 +212,14 @@ public class EntityValueImpl extends EntityValueBase {
                 catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
                     throw new EntityException("Error in delete of " + this.toString(), sqle); }
             }
-
         }
-
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
     public boolean refreshExtended() {
         EntityDefinition ed = getEntityDefinition();
+        EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         EntityFacadeImpl efi = getEntityFacadeImpl();
 
         // table doesn't exist, just return false
@@ -233,8 +227,8 @@ public class EntityValueImpl extends EntityValueBase {
 
         // NOTE: this simple approach may not work for view-entities, but not restricting for now
 
-        FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray();
-        FieldInfo[] allFieldArray = ed.getAllFieldInfoArray();
+        FieldInfo[] pkFieldArray = entityInfo.pkFieldInfoArray;
+        FieldInfo[] allFieldArray = entityInfo.allFieldInfoArray;
         // NOTE: even if there are no non-pk fields do a refresh in order to see if the record exists or not
 
         EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
@@ -254,13 +248,12 @@ public class EntityValueImpl extends EntityValueBase {
             parameters.add(new EntityConditionParameter(fi, valueMapInternal.get(fi.name), eqb));
         }
 
-
         boolean retVal = false;
         try {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity()) efi.getEntityDbMeta().checkTableRuntime(ed);
+            if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
             eqb.makeConnection();
             eqb.makePreparedStatement();
@@ -280,7 +273,6 @@ public class EntityValueImpl extends EntityValueBase {
                 if (logger.isTraceEnabled())
                     logger.trace("No record found in refresh for entity [" + getEntityName() + "] with values [" + String.valueOf(getValueMap()) + "]");
             }
-
         } catch (Exception e) {
             throw new EntityException("Error in refresh of " + this.toString(), e);
         } finally {
@@ -289,9 +281,6 @@ public class EntityValueImpl extends EntityValueBase {
                 throw new EntityException("Error in refresh of " + this.toString(), sqle); }
         }
 
-
         return retVal;
     }
-
-    protected static final Logger logger = LoggerFactory.getLogger(EntityValueImpl.class);
 }

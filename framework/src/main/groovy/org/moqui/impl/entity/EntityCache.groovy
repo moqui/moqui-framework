@@ -26,6 +26,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 @CompileStatic
 class EntityCache {
@@ -183,7 +184,7 @@ class EntityCache {
     void clearCacheForValue(EntityValueBase evb, boolean isCreate) {
         if (evb == null) return
         EntityDefinition ed = evb.getEntityDefinition()
-        if (ed.neverCache()) return
+        if (ed.entityInfo.neverCache) return
 
         // String entityName = evb.getEntityName()
         // if (!entityName.startsWith("moqui.")) logger.info("========== ========== ========== clearCacheForValue ${entityName}")
@@ -205,14 +206,17 @@ class EntityCache {
             // use getValueMap instead of getMap, faster and we don't want to cache localized values/etc
             Map evbMap = evb.getValueMap()
             // checked in clearCacheForValue(): if ('never'.equals(ed.getUseCache())) return
-            String fullEntityName = ed.getFullEntityName()
+            String fullEntityName = ed.entityInfo.fullEntityName
 
-            // init this as null, set below if needed (common case it isn't, will perform better
+            // init this as null, set below if needed (common case it isn't, will perform better)
             EntityCondition pkCondition = null
+
+            // NOTE: use to check if caches exist ONLY, don't use to actually get cache
+            ConcurrentMap<String, Cache> localCacheMap = cfi.localCacheMap
 
             // clear one cache
             String oneKey = oneKeyBase.concat(fullEntityName)
-            if (cfi.cacheExists(oneKey)) {
+            if (localCacheMap.containsKey(oneKey)) {
                 pkCondition = efi.getConditionFactory().makeCondition(evb.getPrimaryKeys())
 
                 Cache<EntityCondition, EntityValueBase> entityOneCache = ed.getCacheOne(this)
@@ -250,7 +254,7 @@ class EntityCache {
 
             // check the One View RA entries for this entity
             String oneViewRaKey = oneViewRaKeyBase.concat(fullEntityName)
-            if (cfi.cacheExists(oneViewRaKey)) {
+            if (localCacheMap.containsKey(oneViewRaKey)) {
                 if (pkCondition == null) pkCondition = efi.getConditionFactory().makeCondition(evb.getPrimaryKeys())
 
                 Cache<EntityCondition, Set<ViewRaKey>> oneViewRaCache = ed.getCacheOneViewRa(this)
@@ -270,7 +274,7 @@ class EntityCache {
 
             // clear list cache, use reverse-associative Map (also a Cache)
             String listKey = listKeyBase.concat(fullEntityName)
-            if (cfi.cacheExists(listKey)) {
+            if (localCacheMap.containsKey(listKey)) {
                 if (pkCondition == null) pkCondition = efi.getConditionFactory().makeCondition(evb.getPrimaryKeys())
 
                 Cache<EntityCondition, EntityListImpl> entityListCache = ed.getCacheList(this)
@@ -370,7 +374,7 @@ class EntityCache {
 
             // clear count cache (no RA because we only have a count to work with, just match by condition)
             String countKey = countKeyBase.concat(fullEntityName)
-            if (cfi.cacheExists(countKey)) {
+            if (localCacheMap.containsKey(countKey)) {
                 Cache<EntityCondition, Long> entityCountCache = ed.getCacheCount(this)
                 Iterator<Cache.Entry<EntityCondition, Long>> eccIterator = entityCountCache.iterator()
                 while (eccIterator.hasNext()) {
@@ -408,7 +412,7 @@ class EntityCache {
             }
 
             // if this is a view entity we need View RA entries for each member entity (that we have a PK for)
-            if (ed.isViewEntity()) {
+            if (ed.isViewEntity) {
                 // go through each member-entity
                 ArrayList<MNode> memberEntityList = ed.getEntityNode().children('member-entity')
                 int memberEntityListSize = memberEntityList.size()
@@ -450,7 +454,7 @@ class EntityCache {
 
     void registerCacheListRa(String entityName, EntityCondition ec, EntityList eli) {
         EntityDefinition ed = efi.getEntityDefinition(entityName)
-        if (ed.isViewEntity()) {
+        if (ed.isViewEntity) {
             // go through each member-entity
             ArrayList<MNode> memberEntityList = ed.getEntityNode().children('member-entity')
             int memberEntityListSize = memberEntityList.size()

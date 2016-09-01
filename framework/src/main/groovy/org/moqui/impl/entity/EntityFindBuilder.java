@@ -75,10 +75,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void makeCountFunction(EntityJavaUtil.FieldInfo[] fieldInfoArray) {
-        ArrayList<MNode> entityConditionList = this.getMainEntityDefinition().getEntityNode().children("entity-condition");
+        EntityDefinition localEd = getMainEntityDefinition();
+        ArrayList<MNode> entityConditionList = localEd.internalEntityNode.children("entity-condition");
         MNode entityConditionNode = entityConditionList != null && entityConditionList.size() > 0 ? entityConditionList.get(0) : null;
-        boolean isDistinct = this.entityFindBase.getDistinct() || (this.getMainEntityDefinition().isViewEntity() && entityConditionNode != null && "true".equals(entityConditionNode.attribute("distinct")));
-        boolean isGroupBy = this.getMainEntityDefinition().hasFunctionAlias();
+        boolean isDistinct = this.entityFindBase.getDistinct() || (localEd.isViewEntity && entityConditionNode != null && "true".equals(entityConditionNode.attribute("distinct")));
+        boolean isGroupBy = localEd.entityInfo.hasFunctionAlias;
 
         if (isGroupBy) sqlTopLevelInternal.append("COUNT(*) FROM (SELECT ");
 
@@ -112,9 +113,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void closeCountFunctionIfGroupBy() {
-        if (getMainEntityDefinition().hasFunctionAlias()) {
-            sqlTopLevelInternal.append(") TEMP_NAME");
-        }
+        if (getMainEntityDefinition().entityInfo.hasFunctionAlias) sqlTopLevelInternal.append(") TEMP_NAME");
     }
 
     public void expandJoinFromAlias(final MNode entityNode, final String searchEntityAlias, Set<String> entityAliasUsedSet, Set<String> entityAliasesJoinedInSet) {
@@ -146,7 +145,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                                   StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ");
 
-        if (localEntityDefinition.isViewEntity()) {
+        if (localEntityDefinition.isViewEntity) {
             final MNode entityNode = localEntityDefinition.getEntityNode();
             final MNode databaseNode = efi.getDatabaseNode(localEntityDefinition.getEntityGroupName());
             String jsAttr = databaseNode.attribute("join-style");
@@ -355,7 +354,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void makeSqlViewTableName(EntityDefinition localEntityDefinition, EntityJavaUtil.FieldInfo[] fieldInfoArray, StringBuilder localBuilder) {
-        if (localEntityDefinition.isViewEntity()) {
+        EntityJavaUtil.EntityInfo entityInfo = localEntityDefinition.entityInfo;
+        if (entityInfo.isView) {
             localBuilder.append("(SELECT ");
 
             boolean isFirst = true;
@@ -380,7 +380,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             makeSqlFromClause(localEntityDefinition, fieldInfoArray, localBuilder, additionalFieldsUsed);
 
             StringBuilder gbClause = new StringBuilder();
-            if (localEntityDefinition.hasFunctionAlias()) {
+            if (entityInfo.hasFunctionAlias) {
                 // do a different approach to GROUP BY: add all fields that are selected and don't have a function
                 for (MNode aliasNode : localEntityDefinition.getEntityNode().children("alias")) {
                     String nameAttr = aliasNode.attribute("name");
@@ -408,10 +408,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void makeGroupByClause(EntityJavaUtil.FieldInfo[] fieldInfoArray) {
-        if (!this.getMainEntityDefinition().isViewEntity()) return;
+        EntityJavaUtil.EntityInfo entityInfo = getMainEntityDefinition().entityInfo;
+        if (!entityInfo.isView) return;
 
         StringBuilder gbClause = new StringBuilder();
-        if (this.getMainEntityDefinition().hasFunctionAlias()) {
+        if (entityInfo.hasFunctionAlias) {
             // do a different approach to GROUP BY: add all fields that are selected and don't have a function
             for (MNode aliasNode : this.getMainEntityDefinition().getEntityNode().children("alias")) {
                 String functionAttr = aliasNode.attribute("function");

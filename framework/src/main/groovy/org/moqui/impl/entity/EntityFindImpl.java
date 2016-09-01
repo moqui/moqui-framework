@@ -16,7 +16,6 @@ package org.moqui.impl.entity;
 import org.moqui.entity.EntityDynamicView;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityListIterator;
-import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.impl.entity.EntityJavaUtil.FieldInfo;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
@@ -77,7 +76,7 @@ public class EntityFindImpl extends EntityFindBase {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity()) getEfi().getEntityDbMeta().checkTableRuntime(ed);
+            if (ed.isViewEntity) getEfi().getEntityDbMeta().checkTableRuntime(ed);
 
             efb.makeConnection();
             efb.makePreparedStatement();
@@ -158,7 +157,7 @@ public class EntityFindImpl extends EntityFindBase {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity()) getEfi().getEntityDbMeta().checkTableRuntime(ed);
+            if (ed.isViewEntity) getEfi().getEntityDbMeta().checkTableRuntime(ed);
 
             Connection con = efb.makeConnection();
             efb.makePreparedStatement();
@@ -222,7 +221,7 @@ public class EntityFindImpl extends EntityFindBase {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity()) getEfi().getEntityDbMeta().checkTableRuntime(ed);
+            if (ed.isViewEntity) getEfi().getEntityDbMeta().checkTableRuntime(ed);
 
             efb.makeConnection();
             efb.makePreparedStatement();

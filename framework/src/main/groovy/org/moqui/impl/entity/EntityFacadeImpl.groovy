@@ -301,7 +301,7 @@ class EntityFacadeImpl implements EntityFacade {
                     EntityDefinition ed = getEntityDefinition(entityName)
                     ed.getRelationshipInfoMap()
                     // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                    ed.datasourceFactory.checkTableExists(ed.getFullEntityName())
+                    ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
                 } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}", t) }
             }
         }
@@ -335,7 +335,7 @@ class EntityFacadeImpl implements EntityFacade {
                 EntityDefinition ed = getEntityDefinition(entityName)
                 ed.getRelationshipInfoMap()
                 // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                ed.datasourceFactory.checkTableExists(ed.getFullEntityName())
+                ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
 
                 if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
                 if (cachedListEntities.contains(entityName)) {
@@ -833,7 +833,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 // track the fact that the related entity has others pointing back to it, unless original relationship is type many (doesn't qualify)
-                if (!ed.isViewEntity() && !"many".equals(relNode.attribute("type"))) reverseEd.entityNode.attributes.put("has-dependents", "true")
+                if (!ed.isViewEntity && !"many".equals(relNode.attribute("type"))) reverseEd.entityNode.attributes.put("has-dependents", "true")
 
                 // create a new reverse-many relationship
                 Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd)
@@ -955,7 +955,7 @@ class EntityFacadeImpl implements EntityFacade {
         Set<String> nonViewNames = new TreeSet<>()
         for (String name in allNames) {
             EntityDefinition ed = getEntityDefinition(name)
-            if (ed != null && !ed.isViewEntity()) nonViewNames.add(name)
+            if (ed != null && !ed.isViewEntity) nonViewNames.add(name)
         }
         return nonViewNames
     }
@@ -965,7 +965,7 @@ class EntityFacadeImpl implements EntityFacade {
         for (String name in allNames) {
             EntityDefinition ed
             try { ed = getEntityDefinition(name) } catch (EntityException e) { continue }
-            if (ed != null && !ed.isViewEntity() && ed.masterDefinitionMap) masterNames.add(name)
+            if (ed != null && !ed.isViewEntity && ed.masterDefinitionMap) masterNames.add(name)
         }
         return masterNames
     }
@@ -974,7 +974,7 @@ class EntityFacadeImpl implements EntityFacade {
         Map<String, Map> entityInfoMap = [:]
         for (String entityName in getAllEntityNames()) {
             EntityDefinition ed = getEntityDefinition(entityName)
-            boolean isView = ed.isViewEntity()
+            boolean isView = ed.isViewEntity
             if (excludeViewEntities && isView) continue
             int lastDotIndex = 0
             for (int i = 0; i < levels; i++) lastDotIndex = entityName.indexOf(".", lastDotIndex+1)
@@ -1038,7 +1038,7 @@ class EntityFacadeImpl implements EntityFacade {
             EntityDefinition ed = null
             try { ed = getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
             if (ed == null) continue
-            if (excludeViewEntities && ed.isViewEntity()) continue
+            if (excludeViewEntities && ed.isViewEntity) continue
             if (excludeTenantCommon && ed.getEntityGroupName() == "tenantcommon") continue
 
             if (masterEntitiesOnly) {
@@ -1048,7 +1048,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
 
             eil.add([entityName:ed.entityName, "package":ed.entityNode.attribute("package"),
-                    isView:(ed.isViewEntity() ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
+                    isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 
         if (orderByField) StupidUtilities.orderMapList(eil, [orderByField])
@@ -1429,7 +1429,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (isEntityDefined(seqName)) {
                 EntityDefinition ed = getEntityDefinition(seqName)
                 String groupName = ed.getEntityGroupName()
-                if (ed.sequencePrimaryUseUuid ||
+                if (ed.entityInfo.sequencePrimaryUseUuid ||
                         getDatasourceNode(groupName)?.attribute('sequence-primary-use-uuid') == "true")
                     return UUID.randomUUID().toString()
             }
@@ -1444,15 +1444,16 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     String sequencedIdPrimaryEd(EntityDefinition ed) {
+        EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         try {
             // is the seqName an entityName?
-            if (ed.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
+            if (entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
             if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
         }
         // fall through to default to the db sequenced ID
-        return dbSequencedIdPrimary(ed.getFullEntityName(), ed.sequencePrimaryStagger, ed.sequenceBankSize)
+        return dbSequencedIdPrimary(ed.getFullEntityName(), entityInfo.sequencePrimaryStagger, entityInfo.sequenceBankSize)
     }
 
     protected final static long defaultBankSize = 50L

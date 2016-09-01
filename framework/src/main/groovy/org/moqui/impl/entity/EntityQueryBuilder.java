@@ -179,10 +179,10 @@ public class EntityQueryBuilder {
     void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
         int size = fieldInfoArray.length;
         if (size > 0) {
-            if (fieldOptionsArray == null && mainEntityDefinition.getAllFieldInfoList().size() == size) {
-                String allFieldsSelect = mainEntityDefinition.allFieldsSqlSelect;
+            if (fieldOptionsArray == null && mainEntityDefinition.entityInfo.allFieldInfoArray.length == size) {
+                String allFieldsSelect = mainEntityDefinition.entityInfo.allFieldsSqlSelect;
                 if (allFieldsSelect != null) {
-                    sqlTopLevelInternal.append(mainEntityDefinition.allFieldsSqlSelect);
+                    sqlTopLevelInternal.append(mainEntityDefinition.entityInfo.allFieldsSqlSelect);
                     return;
                 }
             }

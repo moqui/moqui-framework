@@ -18,6 +18,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.moqui.BaseException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.L10nFacade;
+import org.moqui.entity.EntityDatasourceFactory;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
 import org.moqui.entity.EntityNotFoundException;
@@ -609,8 +610,161 @@ public class EntityJavaUtil {
         }
     }
 
-    /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT,
-     * though initialized in the EntityDefinition.makeFieldInfo() method. */
+    public static class EntityInfo {
+        public final String internalEntityName, fullEntityName, shortAlias, groupName;
+        public final boolean isTenantcommon;
+        public final String tableName, schemaName, fullTableName;
+
+        public final EntityDatasourceFactory datasourceFactory;
+        public final boolean isEntityDatasourceFactoryImpl;
+        public final boolean isView, isDynamicView, isInvalidViewEntity;
+        public final boolean hasFunctionAlias;
+        public final boolean createOnly, createOnlyFields;
+        public final boolean optimisticLock, needsAuditLog, needsEncrypt;
+        public final String useCache;
+        public final boolean neverCache;
+        public final String sequencePrimaryPrefix;
+        public final long sequencePrimaryStagger, sequenceBankSize;
+        public final boolean sequencePrimaryUseUuid;
+
+        public final boolean hasFieldDefaults;
+        public final String authorizeSkipStr;
+        public final boolean authorizeSkipTrue;
+        public final boolean authorizeSkipCreate;
+        public final boolean authorizeSkipView;
+
+        public final FieldInfo[] pkFieldInfoArray, nonPkFieldInfoArray, allFieldInfoArray;
+        public final FieldInfo lastUpdatedStampInfo;
+        public final String allFieldsSqlSelect;
+        public final Map<String, String> pkFieldDefaults, nonPkFieldDefaults;
+
+
+        EntityInfo(EntityDefinition ed, boolean memberNeverCache) {
+            MNode internalEntityNode = ed.internalEntityNode;
+            EntityFacadeImpl efi = ed.efi;
+            ArrayList<FieldInfo> allFieldInfoList = ed.allFieldInfoList;
+
+            internalEntityName = internalEntityNode.attribute("entity-name");
+            String packageName = internalEntityNode.attribute("package");
+            if (packageName == null || packageName.isEmpty()) packageName = internalEntityNode.attribute("package-name");
+            fullEntityName = packageName + "." + internalEntityName;
+            String shortAliasAttr = internalEntityNode.attribute("short-alias");
+            shortAlias = shortAliasAttr != null && !shortAliasAttr.isEmpty() ? shortAliasAttr : null;
+
+            isView = ed.isViewEntity;
+            isDynamicView = ed.isDynamicView;
+            createOnly = "true".equals(internalEntityNode.attribute("create-only"));
+            isInvalidViewEntity = isView && (!internalEntityNode.hasChild("member-entity") || !internalEntityNode.hasChild("alias"));
+
+            groupName = ed.groupName;
+            isTenantcommon = "tenantcommon".equals(groupName);
+            datasourceFactory = efi.getDatasourceFactory(groupName);
+            isEntityDatasourceFactoryImpl = datasourceFactory instanceof EntityDatasourceFactoryImpl;
+            MNode datasourceNode = efi.getDatasourceNode(groupName);
+            MNode databaseNode = efi.getDatabaseNode(groupName);
+
+            String tableNameAttr = internalEntityNode.attribute("table-name");
+            if (tableNameAttr == null || tableNameAttr.isEmpty()) tableNameAttr = EntityJavaUtil.camelCaseToUnderscored(internalEntityName);
+            tableName = tableNameAttr;
+            String schemaNameAttr = datasourceNode != null ? datasourceNode.attribute("schema-name") : null;
+            if (schemaNameAttr != null && schemaNameAttr.length() == 0) schemaNameAttr = null;
+            schemaName = schemaNameAttr;
+            if (databaseNode == null || !"false".equals(databaseNode.attribute("use-schemas"))) {
+                fullTableName = schemaName != null ? schemaName + "." + tableNameAttr : tableNameAttr;
+            } else {
+                fullTableName = tableNameAttr;
+            }
+
+            String sppAttr = internalEntityNode.attribute("sequence-primary-prefix");
+            if (sppAttr == null) sppAttr = "";
+            sequencePrimaryPrefix = sppAttr;
+
+            String spsAttr = internalEntityNode.attribute("sequence-primary-stagger");
+            if (spsAttr != null && !spsAttr.isEmpty()) sequencePrimaryStagger = Long.parseLong(spsAttr);
+            else sequencePrimaryStagger = 1;
+
+            String sbsAttr = internalEntityNode.attribute("sequence-bank-size");
+            if (sbsAttr != null && !sbsAttr.isEmpty()) sequenceBankSize = Long.parseLong(sbsAttr);
+            else sequenceBankSize = EntityFacadeImpl.defaultBankSize;
+
+            sequencePrimaryUseUuid = "true".equals(internalEntityNode.attribute("sequence-primary-use-uuid")) ||
+                    (datasourceNode != null && "true".equals(datasourceNode.attribute("sequence-primary-use-uuid")));
+
+            optimisticLock = "true".equals(internalEntityNode.attribute("optimistic-lock"));
+
+            authorizeSkipStr = internalEntityNode.attribute("authorize-skip");
+            authorizeSkipTrue = "true".equals(authorizeSkipStr);
+            authorizeSkipCreate = authorizeSkipTrue || (authorizeSkipStr != null && authorizeSkipStr.contains("create"));
+            authorizeSkipView = authorizeSkipTrue || (authorizeSkipStr != null && authorizeSkipStr.contains("view"));
+
+            // NOTE: see code in initFields that may set this to never if any member-entity is set to cache=never
+            if (memberNeverCache) {
+                useCache = "never";
+                neverCache = true;
+            } else {
+                String cacheAttr = internalEntityNode.attribute("cache");
+                if (cacheAttr == null || cacheAttr.isEmpty()) cacheAttr = "false";
+                useCache = cacheAttr;
+                neverCache = "never".equals(useCache);
+            }
+
+            // init the FieldInfo arrays and see if we have create only fields, etc
+            int allFieldInfoSize = allFieldInfoList.size();
+            ArrayList<FieldInfo> pkFieldInfoList = new ArrayList<>();
+            ArrayList<FieldInfo> nonPkFieldInfoList = new ArrayList<>();
+            allFieldInfoArray = new FieldInfo[allFieldInfoSize];
+            boolean createOnlyFieldsTemp = false;
+            boolean needsAuditLogTemp = false;
+            boolean needsEncryptTemp = false;
+            boolean hasFunctionAliasTemp = false;
+            Map<String, String> pkFieldDefaultsTemp = new HashMap<>();
+            Map<String, String> nonPkFieldDefaultsTemp = new HashMap<>();
+            FieldInfo lastUpdatedTemp = null;
+            for (int i = 0; i < allFieldInfoSize; i++) {
+                FieldInfo fi = allFieldInfoList.get(i);
+                allFieldInfoArray[i] = fi;
+                if (fi.isPk) pkFieldInfoList.add(fi); else nonPkFieldInfoList.add(fi);
+                if (fi.createOnly) createOnlyFieldsTemp = true;
+                if ("true".equals(fi.enableAuditLog) || "update".equals(fi.enableAuditLog)) needsAuditLogTemp = true;
+                if ("true".equals(fi.fieldNode.attribute("encrypt"))) needsEncryptTemp = true;
+                String functionAttr = fi.fieldNode.attribute("function");
+                if (isView && functionAttr != null && !functionAttr.isEmpty()) hasFunctionAliasTemp = true;
+                String defaultStr = fi.fieldNode.attribute("default");
+                if (defaultStr != null && !defaultStr.isEmpty()) {
+                    if (fi.isPk) pkFieldDefaultsTemp.put(fi.name, defaultStr);
+                    else nonPkFieldDefaultsTemp.put(fi.name, defaultStr);
+                }
+                if ("lastUpdatedStamp".equals(fi.name)) lastUpdatedTemp = fi;
+            }
+            createOnlyFields = createOnlyFieldsTemp;
+            needsAuditLog = needsAuditLogTemp;
+            needsEncrypt = needsEncryptTemp;
+            hasFunctionAlias = hasFunctionAliasTemp;
+            hasFieldDefaults = pkFieldDefaultsTemp.size() > 0 || nonPkFieldDefaultsTemp.size() > 0;
+            pkFieldDefaults = pkFieldDefaultsTemp.size() > 0 ? pkFieldDefaultsTemp : null;
+            nonPkFieldDefaults = nonPkFieldDefaultsTemp.size() > 0 ? nonPkFieldDefaultsTemp : null;
+            lastUpdatedStampInfo = lastUpdatedTemp;
+
+            pkFieldInfoArray = new FieldInfo[pkFieldInfoList.size()];
+            pkFieldInfoList.toArray(pkFieldInfoArray);
+            nonPkFieldInfoArray = new FieldInfo[nonPkFieldInfoList.size()];
+            nonPkFieldInfoList.toArray(nonPkFieldInfoArray);
+
+            // init allFieldsSqlSelect
+            if (isView) {
+                allFieldsSqlSelect = null;
+            } else {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < allFieldInfoList.size(); i++) {
+                    FieldInfo fi = allFieldInfoList.get(i);
+                    if (i > 0) sb.append(", ");
+                    sb.append(fi.fullColumnName);
+                }
+                allFieldsSqlSelect = sb.toString();
+            }
+        }
+    }
+
     public static class FieldInfo {
         public final EntityDefinition ed;
         public final MNode fieldNode;
@@ -631,6 +785,7 @@ public class EntityJavaUtil {
         public final boolean isSimple;
         public final boolean enableLocalization;
         public final boolean createOnly;
+        public final boolean isLastUpdatedStamp;
         public final Set<String> entityAliasUsedSet = new HashSet<>();
 
         public FieldInfo(EntityDefinition ed, MNode fieldNode) {
@@ -666,7 +821,10 @@ public class EntityJavaUtil {
             enableLocalization = "true".equals(fnAttrs.get("enable-localization"));
             isSimple = !enableLocalization;
             String createOnlyAttr = fnAttrs.get("create-only");
-            createOnly = createOnlyAttr != null && createOnlyAttr.length() > 0 ? "true".equals(fnAttrs.get("create-only")) : ed.createOnly();
+            createOnly = createOnlyAttr != null && createOnlyAttr.length() > 0 ?
+                    "true".equals(fnAttrs.get("create-only")) :
+                    "true".equals(ed.internalEntityNode.attribute("create-only"));
+            isLastUpdatedStamp = "lastUpdatedStamp".equals(name);
             String enableAuditLogAttr = fieldNode.attribute("enable-audit-log");
             enableAuditLog = enableAuditLogAttr != null ? enableAuditLogAttr : ed.internalEntityNode.attribute("enable-audit-log");
 
@@ -684,7 +842,7 @@ public class EntityJavaUtil {
                 }
             }
 
-            if (ed.isViewEntity()) {
+            if (ed.isViewEntity) {
                 String entityAlias = fieldNode.attribute("entity-alias");
                 if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias);
                 ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
@@ -734,7 +892,7 @@ public class EntityJavaUtil {
             relationshipName = (title != null ? title + '#' : "") + relatedEntityName;
             String shortAliasAttr = relNode.attribute("short-alias");
             shortAlias =  shortAliasAttr != null && !shortAliasAttr.isEmpty() ? shortAliasAttr : null;
-            prettyName = relatedEd.getPrettyName(title, fromEd.internalEntityName);
+            prettyName = relatedEd.getPrettyName(title, fromEd.entityInfo.internalEntityName);
             keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, relatedEd);
             dependent = hasReverse();
             String mutableAttr = relNode.attribute("mutable");
@@ -755,7 +913,7 @@ public class EntityJavaUtil {
                 if (relatedAttr == null || relatedAttr.isEmpty()) relatedAttr = reverseRelNode.attribute("related-entity-name");
                 String typeAttr = reverseRelNode.attribute("type");
                 String titleAttr = reverseRelNode.attribute("title");
-                if ((fromEd.fullEntityName.equals(relatedAttr) || fromEd.internalEntityName.equals(relatedAttr)) &&
+                if ((fromEd.entityInfo.fullEntityName.equals(relatedAttr) || fromEd.entityInfo.internalEntityName.equals(relatedAttr)) &&
                         ("one".equals(typeAttr) || "one-nofk".equals(typeAttr)) &&
                         (title == null ? titleAttr == null || titleAttr.isEmpty() : title.equals(titleAttr))) {
                     return true;
