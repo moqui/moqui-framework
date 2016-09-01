@@ -28,7 +28,7 @@ import java.util.ArrayList;
 
 public class EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
-    protected static final boolean isTraceEnabled = logger.isTraceEnabled();
+    protected static final boolean isDebugEnabled = logger.isDebugEnabled();
 
     protected final EntityFacadeImpl efi;
     private final EntityDefinition mainEntityDefinition;
@@ -77,7 +77,7 @@ public class EntityQueryBuilder {
             throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
         finalSql = sqlTopLevelInternal.toString();
         // if (this.mainEntityDefinition.getFullEntityName().contains("foo")) logger.warn("========= making crud PreparedStatement for SQL: ${sql}")
-        if (isTraceEnabled) logger.trace("making crud PreparedStatement for SQL: " + finalSql);
+        if (isDebugEnabled) logger.debug("making crud PreparedStatement for SQL: " + finalSql);
         try {
             ps = connection.prepareStatement(finalSql);
         } catch (SQLException sqle) {
@@ -93,12 +93,11 @@ public class EntityQueryBuilder {
         boolean queryStats = efi.getQueryStats();
         long queryTime = 0;
         try {
-            final long timeBefore = isTraceEnabled ? System.currentTimeMillis() : 0L;
+            final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
             long beforeQuery = queryStats ? System.nanoTime() : 0;
             rs = ps.executeQuery();
             if (queryStats) queryTime = System.nanoTime() - beforeQuery;
-            if (isTraceEnabled)
-                logger.trace("Executed query with SQL [" + sqlTopLevelInternal.toString() + "] and parameters [" + String.valueOf(parameters) + "] in [" + String.valueOf((double) (System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
+            if (isDebugEnabled) logger.debug("Executed query with SQL [" + sqlTopLevelInternal.toString() + "] and parameters [" + String.valueOf(parameters) + "] in [" + String.valueOf((double) (System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
             return rs;
         } catch (SQLException sqle) {
             isError = true;
@@ -106,7 +105,6 @@ public class EntityQueryBuilder {
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
         }
-
     }
 
     int executeUpdate() throws EntityException {
@@ -115,13 +113,12 @@ public class EntityQueryBuilder {
         boolean queryStats = efi.getQueryStats();
         long queryTime = 0;
         try {
-            final long timeBefore = isTraceEnabled ? System.currentTimeMillis() : 0L;
+            final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
             long beforeQuery = queryStats ? System.nanoTime() : 0;
             final int rows = ps.executeUpdate();
             if (queryStats) queryTime = System.nanoTime() - beforeQuery;
 
-            if (isTraceEnabled)
-                logger.trace("Executed update with SQL [" + sqlTopLevelInternal.toString() + "] and parameters [" + String.valueOf(parameters) + "] in [" + String.valueOf((double) (System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" + String.valueOf(rows) + "] rows");
+            if (isDebugEnabled) logger.debug("Executed update with SQL [" + sqlTopLevelInternal.toString() + "] and parameters [" + String.valueOf(parameters) + "] in [" + String.valueOf((double) (System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" + String.valueOf(rows) + "] rows");
             return rows;
         } catch (SQLException sqle) {
             isError = true;
@@ -129,7 +126,6 @@ public class EntityQueryBuilder {
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
         }
-
     }
 
     /** NOTE: this should be called in a finally clause to make sure things are closed */
@@ -138,17 +134,14 @@ public class EntityQueryBuilder {
             ps.close();
             ps = null;
         }
-
         if (rs != null) {
             rs.close();
             rs = null;
         }
-
         if (connection != null && !externalConnection) {
             connection.close();
             connection = null;
         }
-
     }
 
     /** For when closing to be done in other places, like a EntityListIteratorImpl */
@@ -181,7 +174,6 @@ public class EntityQueryBuilder {
             EntityConditionParameter entityConditionParam = parms.get(i);
             entityConditionParam.setPreparedStatementValue(i + 1);
         }
-
     }
 
     void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
@@ -192,17 +184,13 @@ public class EntityQueryBuilder {
                 if (allFieldsSelect != null) {
                     sqlTopLevelInternal.append(mainEntityDefinition.allFieldsSqlSelect);
                     return;
-
                 }
-
             }
-
 
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 if (fi == null) break;
                 if (i > 0) sqlTopLevelInternal.append(", ");
-
                 boolean appendCloseParen = false;
                 if (fieldOptionsArray != null) {
                     FieldOrderOptions foo = fieldOptionsArray[i];
@@ -210,19 +198,14 @@ public class EntityQueryBuilder {
                         sqlTopLevelInternal.append(foo.getCaseUpperLower() ? "UPPER(" : "LOWER(");
                         appendCloseParen = true;
                     }
-
                 }
-
-
                 sqlTopLevelInternal.append(fi.getFullColumnName());
-
                 if (appendCloseParen) sqlTopLevelInternal.append(")");
             }
 
         } else {
             sqlTopLevelInternal.append("*");
         }
-
     }
 
     public final EntityDefinition getMainEntityDefinition() {

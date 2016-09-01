@@ -188,14 +188,11 @@ public abstract class EntityValueBase implements EntityValue {
                 } else {
                     return this.findRelated(name, null, null, null, null);
                 }
-
             } else {
                 // logger.warn("========== relInfo Map keys: ${ed.getRelationshipInfoMap().keySet()}, relInfoList: ${ed.getRelationshipsInfo(false)}")
                 throw new EntityException("The name [" + name + "] is not a valid field name or relationship name for entity [" + entityName + "]");
             }
-
         }
-
     }
 
     private Object getKnownField(EntityJavaUtil.FieldInfo fieldInfo) {
@@ -292,9 +289,7 @@ public abstract class EntityValueBase implements EntityValue {
                                 StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                 return localized;
                             }
-
                         }
-
                     }
 
                     // no luck? try getting a localized value from moqui.basic.LocalizedMessage
@@ -326,16 +321,13 @@ public abstract class EntityValueBase implements EntityValue {
                         return localized;
                     }
 
-
                     // we didn't find a localized value, remember that so we don't do the queries again (common case)
                     StupidUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
                     // logger.warn("======== field ${name}:${internalValue} remembering no localized, localizedByLocaleByField=${localizedByLocaleByField}")
                 }
 
-
                 return internalValue;
             }
-
         }
 
 
@@ -797,11 +789,8 @@ public abstract class EntityValueBase implements EntityValue {
                     } else {
                         if (!checkFieldValue.equals(dbFieldValue)) areSame = false;
                     }
-
-                    if (!areSame)
-                        messages.add("Field [" + getEntityName() + "." + nonpkFieldName + "] did not match; check (file) value [" + String.valueOf(checkFieldValue) + "], db value [" + String.valueOf(dbFieldValue) + "] for primary key [" + String.valueOf(getPrimaryKeys()) + "]");
+                    if (!areSame) messages.add("Field [" + getEntityName() + "." + nonpkFieldName + "] did not match; check (file) value [" + String.valueOf(checkFieldValue) + "], db value [" + String.valueOf(dbFieldValue) + "] for primary key [" + String.valueOf(getPrimaryKeys()) + "]");
                 }
-
                 fieldsChecked++;
             }
         } catch (EntityException e) {
@@ -978,11 +967,8 @@ public abstract class EntityValueBase implements EntityValue {
                         }
                         vMap.put(entryName, plainRelList);
                     }
-
                 }
-
             }
-
         }
 
         return vMap;
@@ -1287,14 +1273,12 @@ public abstract class EntityValueBase implements EntityValue {
             if (entityInfoList.size() == 0) curDataFeed = false;
         }
 
-
         // need actual DB values for various scenarios? get them here
         if (needsAuditLog || createOnlyAny || curDataFeed || optimisticLock || hasFieldDefaults) {
             EntityValueBase refreshedValue = (EntityValueBase) this.cloneValue();
             refreshedValue.refresh();
             this.setDbValueMap(refreshedValue.getValueMap());
         }
-
 
         // check/set defaults for non-pk fields, after getting dbValueMap
         if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, false);
@@ -1380,7 +1364,6 @@ public abstract class EntityValueBase implements EntityValue {
             ec.getArtifactExecution().pop(aei);
         }
 
-
         return this;
     }
 
@@ -1454,7 +1437,6 @@ public abstract class EntityValueBase implements EntityValue {
             ec.getArtifactExecution().pop(aei);
         }
 
-
         return this;
     }
 
@@ -1491,7 +1473,6 @@ public abstract class EntityValueBase implements EntityValue {
                 retVal = this.refreshExtended();
                 if (retVal && curTxCache != null) curTxCache.onePut(this);
             }
-
 
             // run EECA after rules
             efi.runEecaRules(ed.getFullEntityName(), this, "find-one", false);

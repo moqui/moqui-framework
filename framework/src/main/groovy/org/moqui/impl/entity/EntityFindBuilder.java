@@ -55,15 +55,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 if (offset != null) sqlTopLevelInternal.append(" OFFSET ").append(offset).append(" ROWS");
                 if (limit != null) sqlTopLevelInternal.append(" FETCH FIRST ").append(limit).append(" ROWS ONLY");
             }
-
             // do nothing here for offset-style=cursor, taken care of in EntityFindImpl
         }
-
     }
 
-    /**
-     * Adds FOR UPDATE, should be added to end of query
-     */
+    /** Adds FOR UPDATE, should be added to end of query */
     public void makeForUpdate() {
         MNode databaseNode = efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
         String forUpdateStr = databaseNode.attribute("for-update");
@@ -72,7 +68,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         } else {
             sqlTopLevelInternal.append(" FOR UPDATE");
         }
-
     }
 
     public void makeDistinct() {
@@ -85,10 +80,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         boolean isDistinct = this.entityFindBase.getDistinct() || (this.getMainEntityDefinition().isViewEntity() && entityConditionNode != null && "true".equals(entityConditionNode.attribute("distinct")));
         boolean isGroupBy = this.getMainEntityDefinition().hasFunctionAlias();
 
-        if (isGroupBy) {
-            sqlTopLevelInternal.append("COUNT(*) FROM (SELECT ");
-        }
-
+        if (isGroupBy) sqlTopLevelInternal.append("COUNT(*) FROM (SELECT ");
 
         if (isDistinct) {
             // old style, not sensitive to selecting limited columns: sql.append("DISTINCT COUNT(*) ")
@@ -110,23 +102,19 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     sqlTopLevelInternal.append(fi.getFullColumnName());
                     sqlTopLevelInternal.append(")");
                 }
-
             } else {
                 sqlTopLevelInternal.append("COUNT(DISTINCT *) ");
             }
-
         } else {
             // NOTE: on H2 COUNT(*) is faster than COUNT(1) (and perhaps other databases? docs hint may be faster in MySQL)
             sqlTopLevelInternal.append("COUNT(*) ");
         }
-
     }
 
     public void closeCountFunctionIfGroupBy() {
         if (getMainEntityDefinition().hasFunctionAlias()) {
             sqlTopLevelInternal.append(") TEMP_NAME");
         }
-
     }
 
     public void expandJoinFromAlias(final MNode entityNode, final String searchEntityAlias, Set<String> entityAliasUsedSet, Set<String> entityAliasesJoinedInSet) {
@@ -148,7 +136,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             // recurse to find member-entity with joinFromAlias, add in its joinFromAlias until one is found that is already in the set
             expandJoinFromAlias(entityNode, joinFromAlias, entityAliasUsedSet, entityAliasesJoinedInSet);
         }
-
     }
 
     public void makeSqlFromClause(EntityJavaUtil.FieldInfo[] fieldInfoArray) {
@@ -168,7 +155,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             if (!"ansi".equals(joinStyle) && !"ansi-no-parenthesis".equals(joinStyle)) {
                 throw new IllegalArgumentException("The join-style " + joinStyle + " is not supported, found on database " + databaseNode.attribute("name"));
             }
-
 
             boolean useParenthesis = ("ansi".equals(joinStyle));
 
@@ -192,7 +178,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 fieldUsedSet.add(fi.name);
             }
 
-
             ArrayList<String> orderByFields = entityFindBase.orderByFields;
             if (orderByFields != null) {
                 int orderByFieldsSize = orderByFields.size();
@@ -201,7 +186,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     EntityJavaUtil.FieldOrderOptions foo = new EntityJavaUtil.FieldOrderOptions(orderByField);
                     fieldUsedSet.add(foo.getFieldName());
                 }
-
             }
 
             // additional fields to look for, when this is a sub-select for a member-entity that is a view-entity
@@ -226,7 +210,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     memberEntityNode = curMeNode;
                     break;
                 }
-
             }
 
             String mainEntityAlias = memberEntityNode != null ? memberEntityNode.attribute("entity-alias") : null;
@@ -358,7 +341,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
                 // if entity alias not used don't join it in
                 if (!entityAliasUsedSet.contains(memberEntityAlias)) continue;
-
                 if (joinedAliasSet.contains(memberEntityAlias)) continue;
 
                 EntityDefinition fromEntityDefinition = efi.getEntityDefinition(memberEntity.attribute("entity-name"));
@@ -367,11 +349,9 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 makeSqlViewTableName(fromEntityDefinition, fieldInfoArray, localBuilder);
                 localBuilder.append(" ").append(memberEntityAlias);
             }
-
         } else {
             localBuilder.append(localEntityDefinition.getFullTableName());
         }
-
     }
 
     public void makeSqlViewTableName(EntityDefinition localEntityDefinition, EntityJavaUtil.FieldInfo[] fieldInfoArray, StringBuilder localBuilder) {
@@ -421,7 +401,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         } else {
             localBuilder.append(localEntityDefinition.getFullTableName());
         }
-
     }
 
     public void startWhereClause() {
@@ -468,12 +447,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         int obflSize = orderByFieldList.size();
         if (obflSize == 0) return;
 
-
         sqlTopLevelInternal.append(" ORDER BY ");
         for (int i = 0; i < obflSize; i++) {
             String fieldName = orderByFieldList.get(i);
             if (fieldName == null || fieldName.length() == 0) continue;
-
             if (i > 0) sqlTopLevelInternal.append(", ");
 
             // Parse the fieldName (can have other stuff in it, need to tear down to just the field name)
@@ -484,7 +461,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             if (fieldInfo == null) throw new EntityException("Making ORDER BY clause, could not find field " + fieldName + " in entity " + getMainEd().getFullEntityName());
             int typeValue = fieldInfo.typeValue;
 
-
             // now that it's all torn down, build it back up using the column name
             if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevelInternal.append(foo.getCaseUpperLower() ? "UPPER(" : "LOWER(");
             sqlTopLevelInternal.append(fieldInfo.getFullColumnName());
@@ -492,7 +468,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             sqlTopLevelInternal.append(foo.getDescending() ? " DESC" : " ASC");
             if (foo.getNullsFirstLast() != null) sqlTopLevelInternal.append(foo.getNullsFirstLast() ? " NULLS FIRST" : " NULLS LAST");
         }
-
     }
 
     @Override
@@ -501,7 +476,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
         finalSql = sqlTopLevelInternal.toString();
         // if (this.mainEntityDefinition.entityName.equals("Foo")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
-        if (isTraceEnabled) logger.trace("making find PreparedStatement for SQL: " + finalSql);
+        if (isDebugEnabled) logger.debug("making find PreparedStatement for SQL: " + finalSql);
         try {
             ps = connection.prepareStatement(finalSql, entityFindBase.getResultSetType(), entityFindBase.getResultSetConcurrency());
             Integer maxRows = entityFindBase.getMaxRows();
