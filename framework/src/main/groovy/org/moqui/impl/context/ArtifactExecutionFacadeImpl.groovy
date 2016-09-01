@@ -41,8 +41,8 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
     protected ExecutionContextImpl eci
-    protected Deque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
-    protected List<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
+    protected LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
+    protected LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
 
     // this is used by ScreenUrlInfo.isPermitted() which is called a lot, but that is transient so put here to have one per EC instance
     protected Map<String, Boolean> screenPermittedCache = null
@@ -103,7 +103,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     @Override
     ArtifactExecutionInfo pop(ArtifactExecutionInfo aei) {
-        if (this.artifactExecutionInfoStack.size() > 0) {
+        try {
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.removeFirst()
             // removed this for performance reasons, generally just checking the name is adequate
             // || aei.typeEnumId != lastAeii.typeEnumId || aei.actionEnumId != lastAeii.actionEnumId
@@ -119,8 +119,8 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 eci.ecfi.countArtifactHit(lastAeii.typeEnum, lastAeii.actionDetail, lastAeii.nameInternal,
                         lastAeii.parameters, lastAeii.startTimeMillis, lastAeii.getRunningTimeMillisDouble(), lastAeii.outputSize)
             return lastAeii
-        } else {
-            logger.warn("Tried to pop from an empty ArtifactExecutionInfo stack", new Exception("Bad pop location"))
+        } catch(NoSuchElementException e) {
+            logger.warn("Tried to pop from an empty ArtifactExecutionInfo stack", e)
             return null
         }
     }

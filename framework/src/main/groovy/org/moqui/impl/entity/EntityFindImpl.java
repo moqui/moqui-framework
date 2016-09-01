@@ -86,7 +86,7 @@ public class EntityFindImpl extends EntityFindBase {
             final String condSql = isTraceEnabled && whereCondition != null ? whereCondition.toString() : null;
             ResultSet rs = efb.executeQuery();
             if (rs.next()) {
-                newEntityValue = new EntityValueImpl(getEntityDef(), getEfi());
+                newEntityValue = new EntityValueImpl(ed, getEfi());
                 HashMap<String, Object> valueMap = newEntityValue.getValueMap();
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
@@ -120,7 +120,7 @@ public class EntityFindImpl extends EntityFindBase {
 
         // table doesn't exist, just return empty ELI
         if (!ed.tableExistsDbMetaOnly())
-            return new EntityListIteratorWrapper(new ArrayList<EntityValue>(), ed, getEfi());
+            return new EntityListIteratorWrapper(new ArrayList<>(), ed, getEfi());
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
         if (getDistinct()) efb.makeDistinct();

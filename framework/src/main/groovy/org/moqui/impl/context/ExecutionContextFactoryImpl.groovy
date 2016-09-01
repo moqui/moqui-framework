@@ -1068,7 +1068,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ph = 'true'.equals(artifactStats.attribute('persist-hit'))
             artifactPersistHitByTypeEnum.put(artifactTypeEnum, ph)
         }
-        return ph.booleanValue()
+        return Boolean.TRUE.is(ph)
 
         /* by sub-type no longer supported:
         String cacheKey = artifactTypeEnum.name() + artifactSubType
@@ -1085,10 +1085,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Boolean pb = (Boolean) artifactPersistBinByTypeEnum.get(artifactTypeEnum)
         if (pb == null) {
             MNode artifactStats = getArtifactStatsNode(artifactTypeEnum.name(), null)
-            pb = 'true'.equals(artifactStats.attribute('persist-bin'))
+            pb = "true".equals(artifactStats.attribute("persist-bin"))
             artifactPersistBinByTypeEnum.put(artifactTypeEnum, pb)
         }
-        return pb.booleanValue()
+        return Boolean.TRUE.is(pb)
 
         /* by sub-type no longer supported:
         String cacheKey = artifactTypeEnum.name().concat(artifactSubType)
