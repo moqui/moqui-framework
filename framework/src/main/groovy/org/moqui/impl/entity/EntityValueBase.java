@@ -385,9 +385,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue setAll(Map<String, Object> fields) {
-        if (!mutable)
-            throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
-        getEntityDefinition().setFieldsEv(fields, this, null);
+        if (!mutable) throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
+        getEntityDefinition().entityInfo.setFieldsEv(fields, this, null);
         return this;
     }
 
@@ -467,9 +466,9 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks) {
         if (!setIfEmpty && (namePrefix == null || namePrefix.length() == 0)) {
-            getEntityDefinition().setFields(fields, this, false, namePrefix, pks);
+            getEntityDefinition().entityInfo.setFields(fields, this, false, namePrefix, pks);
         } else {
-            getEntityDefinition().setFieldsEv(fields, this, pks);
+            getEntityDefinition().entityInfo.setFieldsEv(fields, this, pks);
         }
 
         return this;
@@ -505,7 +504,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         this.remove(seqFieldName);
         Map<String, Object> otherPkMap = new LinkedHashMap<>();
-        getEntityDefinition().setFields(this, otherPkMap, false, null, true);
+        getEntityDefinition().entityInfo.setFields(this, otherPkMap, false, null, true);
 
         // temporarily disable authz for this, just doing lookup to get next value and to allow for a
         //     authorize-skip="create" with authorize-skip of view too this is necessary

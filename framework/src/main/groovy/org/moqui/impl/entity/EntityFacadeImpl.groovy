@@ -1260,7 +1260,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (lastEd.containsPrimaryKey(parameters)) {
                 // if we have a full PK lookup by PK and return the single value
                 Map pkValues = [:]
-                lastEd.setFields(parameters, pkValues, false, null, true)
+                lastEd.entityInfo.setFields(parameters, pkValues, false, null, true)
 
                 if (masterName != null && masterName.length() > 0) {
                     Map resultMap = find(lastEd.getFullEntityName()).condition(pkValues).oneMaster(masterName)

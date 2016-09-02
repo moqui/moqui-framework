@@ -14,11 +14,13 @@
 package org.moqui.impl.entity;
 
 import org.apache.commons.codec.binary.Hex;
+import org.moqui.BaseException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityDatasourceFactory;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityNotFoundException;
 import org.moqui.impl.StupidJavaUtilities;
+import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
 
 import org.slf4j.Logger;
@@ -193,6 +195,8 @@ public class EntityJavaUtil {
     }
 
     public static class EntityInfo {
+        private final EntityDefinition ed;
+        private final EntityFacadeImpl efi;
         public final String internalEntityName, fullEntityName, shortAlias, groupName;
         public final boolean isTenantcommon;
         public final String tableName, schemaName, fullTableName;
@@ -222,6 +226,8 @@ public class EntityJavaUtil {
 
 
         EntityInfo(EntityDefinition ed, boolean memberNeverCache) {
+            this.ed = ed;
+            this.efi = ed.efi;
             MNode internalEntityNode = ed.internalEntityNode;
             EntityFacadeImpl efi = ed.efi;
             ArrayList<FieldInfo> allFieldInfoList = ed.allFieldInfoList;
@@ -343,6 +349,115 @@ public class EntityJavaUtil {
                     sb.append(fi.fullColumnNameInternal);
                 }
                 allFieldsSqlSelect = sb.toString();
+            }
+        }
+        void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks) {
+            if (src == null || dest == null) return;
+
+            ExecutionContextImpl eci = efi.ecfi.getEci();
+            boolean destIsEntityValueBase = dest instanceof EntityValueBase;
+            EntityValueBase destEvb = destIsEntityValueBase ? (EntityValueBase) dest : null;
+
+            boolean hasNamePrefix = namePrefix != null && namePrefix.length() > 0;
+            boolean srcIsEntityValueBase = src instanceof EntityValueBase;
+            EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
+            FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
+                    (pks == Boolean.TRUE ? pkFieldInfoArray : nonPkFieldInfoArray);
+            // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
+            int size = fieldInfoArray.length;
+            for (int i = 0; i < size; i++) {
+                FieldInfo fi = fieldInfoArray[i];
+                String fieldName = fi.name;
+                String sourceFieldName;
+                if (hasNamePrefix) {
+                    sourceFieldName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+                } else {
+                    sourceFieldName = fieldName;
+                }
+
+                Object value = srcIsEntityValueBase? evb.getValueMap().get(sourceFieldName) : src.get(sourceFieldName);
+                if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(sourceFieldName) : src.containsKey(sourceFieldName))) {
+                    boolean isCharSequence = false;
+                    boolean isEmpty = false;
+                    if (value == null) {
+                        isEmpty = true;
+                    } else if (value instanceof CharSequence) {
+                        isCharSequence = true;
+                        if (((CharSequence) value).length() == 0) isEmpty = true;
+                    }
+
+                    if (!isEmpty) {
+                        if (isCharSequence) {
+                            try {
+                                Object converted = fi.convertFromString(value.toString(), eci.getL10nFacade());
+                                if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted);
+                                else dest.put(fieldName, converted);
+                            } catch (BaseException be) {
+                                eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
+                            }
+                        } else {
+                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
+                            else dest.put(fieldName, value);
+                        }
+                    } else if (setIfEmpty && src.containsKey(sourceFieldName)) {
+                        // treat empty String as null, otherwise set as whatever null or empty type it is
+                        if (value != null && isCharSequence) {
+                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, null);
+                            else dest.put(fieldName, null);
+                        } else {
+                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
+                            else dest.put(fieldName, value);
+                        }
+                    }
+                }
+            }
+        }
+        void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
+            // like above with setIfEmpty=true, namePrefix=null, pks=null
+            if (src == null || dest == null) return;
+
+            ExecutionContextImpl eci = efi.ecfi.getEci();
+            boolean srcIsEntityValueBase = src instanceof EntityValueBase;
+            EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
+            FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
+                    (pks == Boolean.TRUE ? pkFieldInfoArray : nonPkFieldInfoArray);
+            // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
+            int size = fieldInfoArray.length;
+            for (int i = 0; i < size; i++) {
+                FieldInfo fi = fieldInfoArray[i];
+                String fieldName = fi.name;
+
+                Object value = srcIsEntityValueBase? evb.getValueMap().get(fieldName) : src.get(fieldName);
+                if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(fieldName) : src.containsKey(fieldName))) {
+                    boolean isCharSequence = false;
+                    boolean isEmpty = false;
+                    if (value == null) {
+                        isEmpty = true;
+                    } else if (value instanceof CharSequence) {
+                        isCharSequence = true;
+                        if (((CharSequence) value).length() == 0) isEmpty = true;
+                    }
+
+                    if (!isEmpty) {
+                        if (isCharSequence) {
+                            try {
+                                Object converted = fi.convertFromString(value.toString(), eci.getL10nFacade());
+                                dest.putNoCheck(fieldName, converted);
+                            } catch (BaseException be) {
+                                eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
+                            }
+                        } else {
+                            dest.putNoCheck(fieldName, value);
+                        }
+                    } else if (src.containsKey(fieldName)) {
+                        // treat empty String as null, otherwise set as whatever null or empty type it is
+                        if (value != null && isCharSequence) {
+                            dest.putNoCheck(fieldName, null);
+                        } else {
+                            dest.putNoCheck(fieldName, value);
+                        }
+                    }
+                }
             }
         }
     }

@@ -309,33 +309,33 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     boolean begin(Integer timeout) {
-        try {
-            int currentStatus = ut.getStatus()
-            // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
+        int currentStatus = ut.getStatus()
+        // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
 
+        if (currentStatus == Status.STATUS_ACTIVE) {
+            // don't begin, and return false so caller knows we didn't
+            return false
+        } else if (currentStatus == Status.STATUS_MARKED_ROLLBACK) {
             TxStackInfo txStackInfo = getTxStackInfo()
-            if (currentStatus == Status.STATUS_ACTIVE) {
-                // don't begin, and return false so caller knows we didn't
-                return false
-            } else if (currentStatus == Status.STATUS_MARKED_ROLLBACK) {
-                if (txStackInfo.transactionBegin != null) {
-                    logger.warn("Current transaction marked for rollback, so no transaction begun. This stack trace shows where the transaction began: ", txStackInfo.transactionBegin)
-                } else {
-                    logger.warn("Current transaction marked for rollback, so no transaction begun (NOTE: No stack trace to show where transaction began).")
-                }
-
-                if (txStackInfo.rollbackOnlyInfo != null) {
-                    logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
-                    throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
-                } else {
-                    return false
-                }
+            if (txStackInfo.transactionBegin != null) {
+                logger.warn("Current transaction marked for rollback, so no transaction begun. This stack trace shows where the transaction began: ", txStackInfo.transactionBegin)
+            } else {
+                logger.warn("Current transaction marked for rollback, so no transaction begun (NOTE: No stack trace to show where transaction began).")
             }
+            if (txStackInfo.rollbackOnlyInfo != null) {
+                logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
+            } else {
+                return false
+            }
+        }
 
+        try {
             // NOTE: Since JTA 1.1 setTransactionTimeout() is local to the thread, so this doesn't need to be synchronized.
-            if (timeout) ut.setTransactionTimeout(timeout)
+            if (timeout != null) ut.setTransactionTimeout(timeout)
             ut.begin()
 
+            TxStackInfo txStackInfo = getTxStackInfo()
             txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder")
             txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
@@ -355,7 +355,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             throw new TransactionException("Could not begin transaction", e)
         } finally {
             // make sure the timeout always gets reset to the default
-            if (timeout) ut.setTransactionTimeout(0)
+            if (timeout != null) ut.setTransactionTimeout(0)
         }
     }
 
