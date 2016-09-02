@@ -24,8 +24,8 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityDefinition.MasterDefinition
 import org.moqui.impl.entity.EntityDefinition.MasterDetail
 import org.moqui.impl.entity.EntityFacadeImpl
-import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
+import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.service.ServiceException
@@ -88,7 +88,7 @@ class RestSchemaUtil {
     // ========== Entity Definition Methods ==========
     // ===============================================
 
-    static List<String> getFieldEnums(EntityDefinition ed, EntityJavaUtil.FieldInfo fi) {
+    static List<String> getFieldEnums(EntityDefinition ed, FieldInfo fi) {
         // populate enum values for Enumeration and StatusItem
         // find first relationship that has this field as the only key map and is not a many relationship
         RelationshipInfo oneRelInfo = null
@@ -124,7 +124,7 @@ class RestSchemaUtil {
 
     static Map getJsonSchema(EntityDefinition ed, boolean pkOnly, boolean standalone, Map<String, Object> definitionsMap, String schemaUri, String linkPrefix,
                       String schemaLinkPrefix, boolean nestRelationships, String masterName, MasterDetail masterDetail) {
-        String name = ed.getShortAlias() ?: ed.getFullEntityName()
+        String name = ed.getShortOrFullEntityName()
         String prettyName = ed.getPrettyName(null, null)
         String refName = name
         if (masterName) {
@@ -144,7 +144,7 @@ class RestSchemaUtil {
         // add all fields
         ArrayList<String> allFields = pkOnly ? ed.getPkFieldNames() : ed.getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+            FieldInfo fi = ed.getFieldInfo(allFields.get(i))
             Map<String, Object> propMap = [:]
             propMap.put('type', fieldTypeJsonMap.get(fi.type))
             String format = fieldTypeJsonFormatMap.get(fi.type)
@@ -178,7 +178,7 @@ class RestSchemaUtil {
                 RelationshipInfo relInfo = childMasterDetail.relInfo
                 String relationshipName = relInfo.relationshipName
                 String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
+                String relatedRefName = relInfo.relatedEd.getShortOrFullEntityName()
                 if (pkOnly) relatedRefName = relatedRefName + ".PK"
 
                 // recurse, let it put itself in the definitionsMap
@@ -198,7 +198,7 @@ class RestSchemaUtil {
             for (RelationshipInfo relInfo in relInfoList) {
                 String relationshipName = relInfo.relationshipName
                 String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
+                String relatedRefName = relInfo.relatedEd.getShortOrFullEntityName()
                 if (pkOnly) relatedRefName = relatedRefName + ".PK"
 
                 // recurse, let it put itself in the definitionsMap
@@ -253,7 +253,7 @@ class RestSchemaUtil {
         }
     }
 
-    static Map<String, Object> getRamlFieldMap(EntityDefinition ed, EntityJavaUtil.FieldInfo fi) {
+    static Map<String, Object> getRamlFieldMap(EntityDefinition ed, FieldInfo fi) {
         Map<String, Object> propMap = [:]
         String description = fi.fieldNode.first("description")?.text
         if (description) propMap.put("description", description)
@@ -266,7 +266,7 @@ class RestSchemaUtil {
 
     static Map<String, Object> getRamlTypeMap(EntityDefinition ed, boolean pkOnly, Map<String, Object> typesMap,
                                               String masterName, MasterDetail masterDetail) {
-        String name = ed.getShortAlias() ?: ed.getFullEntityName()
+        String name = ed.getShortOrFullEntityName()
         String prettyName = ed.getPrettyName(null, null)
         String refName = name
         if (masterName) {
@@ -282,7 +282,7 @@ class RestSchemaUtil {
         // add field properties
         ArrayList<String> allFields = pkOnly ? ed.getPkFieldNames() : ed.getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+            FieldInfo fi = ed.getFieldInfo(allFields.get(i))
             properties.put(fi.name, getRamlFieldMap(ed, fi))
         }
 
@@ -301,7 +301,7 @@ class RestSchemaUtil {
                 RelationshipInfo relInfo = childMasterDetail.relInfo
                 String relationshipName = relInfo.relationshipName
                 String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
+                String relatedRefName = relInfo.relatedEd.getShortOrFullEntityName()
 
                 // recurse, let it put itself in the definitionsMap
                 if (typesMap != null && !typesMap.containsKey(relatedRefName))
@@ -320,7 +320,7 @@ class RestSchemaUtil {
     }
 
     static Map getRamlApi(EntityDefinition ed, String masterName) {
-        String name = ed.getShortAlias() ?: ed.getFullEntityName()
+        String name = ed.getShortOrFullEntityName()
         if (masterName) name = "${name}/${masterName}"
         String prettyName = ed.getPrettyName(null, null)
 
@@ -330,7 +330,7 @@ class RestSchemaUtil {
         Map qpMap = [:]
         ArrayList<String> allFields = ed.getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+            FieldInfo fi = ed.getFieldInfo(allFields.get(i))
             qpMap.put(fi.name, getRamlFieldMap(ed, fi))
         }
 
@@ -365,7 +365,7 @@ class RestSchemaUtil {
 
     static void addToSwaggerMap(EntityDefinition ed, Map<String, Object> swaggerMap, String masterName) {
         Map definitionsMap = ((Map) swaggerMap.definitions)
-        String refDefName = ed.getShortAlias() ?: ed.getFullEntityName()
+        String refDefName = ed.getShortOrFullEntityName()
         if (masterName) refDefName = refDefName + "." + masterName
         String refDefNamePk = refDefName + ".PK"
 
@@ -377,7 +377,7 @@ class RestSchemaUtil {
                          "500":[description:"General Error"]]
 
         // entity path (no ID)
-        String entityPath = "/" + (ed.getShortAlias() ?: ed.getFullEntityName())
+        String entityPath = "/" + (ed.getShortOrFullEntityName())
         if (masterName) entityPath = entityPath + "/" + masterName
         Map<String, Map<String, Object>> entityResourceMap = [:]
         ((Map) swaggerMap.paths).put(entityPath, entityResourceMap)
@@ -386,7 +386,7 @@ class RestSchemaUtil {
         List<Map> listParameters = []
         listParameters.addAll(swaggerPaginationParameters)
         for (String fieldName in ed.getAllFieldNames()) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+            FieldInfo fi = ed.getFieldInfo(fieldName)
             listParameters.add([name:fieldName, in:'query', required:false, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(fieldTypeJsonFormatMap.get(fi.type) ?: ""),
                                 description:fi.fieldNode.first("description")?.text])
@@ -409,7 +409,7 @@ class RestSchemaUtil {
         for (String pkName in ed.getPkFieldNames()) {
             entityIdPathSb.append("/{").append(pkName).append("}")
 
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(pkName)
+            FieldInfo fi = ed.getFieldInfo(pkName)
             parameters.add([name:pkName, in:'path', required:true, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
                             description:fi.fieldNode.first("description")?.text])
         }
@@ -487,7 +487,7 @@ class RestSchemaUtil {
             if (childList) {
                 propMap.put("items", getJsonSchemaPropMap(sd, childList[0]))
             } else {
-                logger.warn("Parameter ${parmNode.attribute('name')} of service ${sd.getServiceName()} is an array type but has no child parameter (should have one, name ignored), may cause error in Swagger, etc")
+                logger.warn("Parameter ${parmNode.attribute('name')} of service ${sd.serviceName} is an array type but has no child parameter (should have one, name ignored), may cause error in Swagger, etc")
             }
         } else if (jsonType == 'object') {
             if (childList) {
@@ -511,10 +511,10 @@ class RestSchemaUtil {
         String entityName = parmNode.attribute("entity-name")
         String fieldName = parmNode.attribute("field-name")
         if (entityName && fieldName) {
-            EntityDefinition ed = sd.getServiceFacade().getEcfi().getEntityFacade().getEntityDefinition(entityName)
-            if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${sd.getServiceName()}")
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
-            if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${sd.getServiceName()}")
+            EntityDefinition ed = sd.sfi.getEcfi().getEntityFacade().getEntityDefinition(entityName)
+            if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${sd.serviceName}")
+            FieldInfo fi = ed.getFieldInfo(fieldName)
+            if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${sd.serviceName}")
             List enumList = getFieldEnums(ed, fi)
             if (enumList) propMap.put('enum', enumList)
         }
@@ -598,7 +598,7 @@ class RestSchemaUtil {
             }
             for (String entityName in entityNameSet) {
                 EntityDefinition ed = efi.getEntityDefinition(entityName)
-                String refName = ed.getShortAlias() ?: ed.getFullEntityName()
+                String refName = ed.getShortOrFullEntityName()
                 if (getMaster) {
                     Map<String, MasterDefinition> masterDefMap = ed.getMasterDefinitionMap()
                     Map entityPathMap = [:]
@@ -694,7 +694,7 @@ class RestSchemaUtil {
         }
         for (String entityName in entityNameSet) {
             EntityDefinition ed = efi.getEntityDefinition(entityName)
-            String refName = ed.getShortAlias() ?: ed.getFullEntityName()
+            String refName = ed.getShortOrFullEntityName()
             if (getMaster) {
                 Set<String> masterNameSet = new LinkedHashSet<String>()
                 if (masterName) {

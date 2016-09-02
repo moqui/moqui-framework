@@ -30,6 +30,7 @@ import java.sql.Timestamp
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 @CompileStatic
@@ -59,7 +60,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             parameters.put((String) serviceJobParameter.parameterName, serviceJobParameter.parameterValue)
 
         // set the serviceName so rest of ServiceCallImpl works
-        setServiceName((String) serviceJob.serviceName)
+        serviceNameInternal((String) serviceJob.serviceName)
     }
 
     @Override
@@ -120,7 +121,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         return runFuture.get()
     }
     @Override
-    Map<String, Object> get(long timeout, java.util.concurrent.TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    Map<String, Object> get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
         if (runFuture == null) throw new IllegalStateException("Must call run() before using Future interface methods")
         return runFuture.get(timeout, unit)
     }

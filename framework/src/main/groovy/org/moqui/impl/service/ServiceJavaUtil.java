@@ -72,7 +72,7 @@ public class ServiceJavaUtil {
         public ParameterInfo(ServiceDefinition sd, MNode parameterNode) {
             this.sd = sd;
             this.parameterNode = parameterNode;
-            serviceName = sd.getServiceName();
+            serviceName = sd.serviceName;
 
             name = parameterNode.attribute("name");
             type = parameterNode.attribute("type");
@@ -257,7 +257,7 @@ public class ServiceJavaUtil {
             // use message instead of error, accept cleaned up HTML
             if (cleanChanges.size() > 0) {
                 for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
-                logger.info("Service parameter safe HTML messages for " + sd.getServiceName() + "." + parameterName + ": " + cleanChanges);
+                logger.info("Service parameter safe HTML messages for " + sd.serviceName + "." + parameterName + ": " + cleanChanges);
                 return cleanHtml;
             } else {
                 // nothing changed, return null
@@ -266,7 +266,7 @@ public class ServiceJavaUtil {
         } else {
             // check for "<"; this will protect against HTML/JavaScript injection
             if (indexOfLessThan >= 0) {
-                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
+                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.serviceName, eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
             }
             // nothing changed, return null
             return null;
@@ -283,14 +283,14 @@ public class ServiceJavaUtil {
         @Override
         public void discardedTag(@Nullable String context, String elementName) {
             messages.add(MessageFormat.format(eci.getL10n().localize("Removed HTML element {0} from field {1} in service {2}"),
-                    elementName, context, sd.getServiceName()));
+                    elementName, context, sd.serviceName));
         }
         @SuppressWarnings("NullableProblems")
         @Override
         public void discardedAttributes(@Nullable String context, String tagName, String... attributeNames) {
             for (String attrName: attributeNames)
                 messages.add(MessageFormat.format(eci.getL10n().localize("Removed attribute {0} from HTML element {1} from field {2} in service {3}"),
-                        attrName, tagName, context, sd.getServiceName()));
+                        attrName, tagName, context, sd.serviceName));
         }
     }
 }

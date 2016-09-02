@@ -121,7 +121,7 @@ class MoquiShiroRealm implements Realm {
         // no more auth failures? record the various account state updates, hasLoggedOut=N
         if (newUserAccount.getNoCheckSimple("successiveFailedLogins") || "Y".equals(newUserAccount.getNoCheckSimple("disabled")) ||
                 newUserAccount.getNoCheckSimple("disabledDateTime") != null || "Y".equals(newUserAccount.getNoCheckSimple("hasLoggedOut"))) {
-            boolean enableAuthz = !eci.getArtifactExecutionImpl().disableAuthz()
+            boolean enableAuthz = !eci.artifactExecutionFacade.disableAuthz()
             try {
                 EntityValue nuaClone = newUserAccount.cloneValue()
                 nuaClone.set("successiveFailedLogins", 0)
@@ -131,7 +131,7 @@ class MoquiShiroRealm implements Realm {
                 nuaClone.update()
             } catch (Exception e) {
                 logger.warn("Error resetting UserAccount login status", e)
-            } finally { if (enableAuthz) eci.getArtifactExecutionImpl().enableAuthz() }
+            } finally { if (enableAuthz) eci.artifactExecutionFacade.enableAuthz() }
         }
 
         // update visit if no user in visit yet

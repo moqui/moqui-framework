@@ -15,7 +15,6 @@ package org.moqui.impl.entity;
 
 import org.moqui.entity.*;
 import org.moqui.impl.context.TransactionCache;
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,7 +120,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         for (int i = 0; i < fieldInfoListSize; i++) {
             FieldInfo fi = fieldInfoArray[i];
             if (fi == null) break;
-            EntityJavaUtil.getResultSetValue(rs, i + 1, fi, valueMap, efi);
+            fi.getResultSetValue(rs, i + 1, valueMap, efi);
         }
         haveMadeValue = true;
 

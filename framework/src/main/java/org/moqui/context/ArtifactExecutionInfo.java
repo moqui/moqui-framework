@@ -53,8 +53,8 @@ public interface ArtifactExecutionInfo {
     AuthzType getAuthorizedAuthzType();
     AuthzAction getAuthorizedActionEnum();
     boolean isAuthorizationInheritable();
-    Boolean getAuthorizationWasRequired();
-    Boolean getAuthorizationWasGranted();
+    boolean getAuthorizationWasRequired();
+    boolean getAuthorizationWasGranted();
 
     long getRunningTime();
     BigDecimal getRunningTimeMillis();

@@ -15,7 +15,7 @@ package org.moqui.impl.entity.condition;
 
 import org.moqui.BaseException;
 import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.entity.EntityJavaUtil;
+import org.moqui.impl.entity.FieldInfo;
 
 import java.io.*;
 
@@ -23,7 +23,7 @@ public class ConditionField implements Externalizable {
     private static final Class thisClass = ConditionField.class;
     String fieldName;
     private int curHashCode;
-    private EntityJavaUtil.FieldInfo fieldInfo = null;
+    private FieldInfo fieldInfo = null;
 
     public ConditionField() { }
     public ConditionField(String fieldName) {
@@ -31,7 +31,7 @@ public class ConditionField implements Externalizable {
         this.fieldName = fieldName.intern();
         curHashCode = this.fieldName.hashCode();
     }
-    public ConditionField(EntityJavaUtil.FieldInfo fi) {
+    public ConditionField(FieldInfo fi) {
         if (fi == null) throw new BaseException("FieldInfo required");
         fieldInfo = fi;
         // fi.name is interned in makeFieldInfo()
@@ -44,7 +44,7 @@ public class ConditionField implements Externalizable {
         if (fieldInfo != null) return fieldInfo.getFullColumnName();
         return ed.getColumnName(fieldName);
     }
-    public EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) {
+    public FieldInfo getFieldInfo(EntityDefinition ed) {
         if (fieldInfo != null) return fieldInfo;
         return ed.getFieldInfo(fieldName);
     }

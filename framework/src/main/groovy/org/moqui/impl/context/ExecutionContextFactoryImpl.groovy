@@ -83,6 +83,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>()
 
     protected final Map<String, EntityFacadeImpl> entityFacadeByTenantMap = new HashMap<>()
+    public final EntityFacadeImpl defaultEntityFacade
     protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
 
@@ -207,7 +208,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Transaction Facade initialized")
         // always init the EntityFacade for tenantId DEFAULT
-        initEntityFacade("DEFAULT")
+        defaultEntityFacade = initEntityFacade("DEFAULT")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
@@ -258,7 +259,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Transaction Facade initialized")
         // always init the EntityFacade for tenantId DEFAULT
-        initEntityFacade("DEFAULT")
+        defaultEntityFacade = initEntityFacade("DEFAULT")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
@@ -412,7 +413,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // load entity defs
         logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
-        EntityFacadeImpl defaultEfi = getEntityFacade("DEFAULT")
+        EntityFacadeImpl defaultEfi = defaultEntityFacade
         defaultEfi.loadAllEntityLocations()
         List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
         // load/warm framework entities
@@ -1068,7 +1069,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ph = 'true'.equals(artifactStats.attribute('persist-hit'))
             artifactPersistHitByTypeEnum.put(artifactTypeEnum, ph)
         }
-        return ph.booleanValue()
+        return Boolean.TRUE.is(ph)
 
         /* by sub-type no longer supported:
         String cacheKey = artifactTypeEnum.name() + artifactSubType
@@ -1085,10 +1086,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Boolean pb = (Boolean) artifactPersistBinByTypeEnum.get(artifactTypeEnum)
         if (pb == null) {
             MNode artifactStats = getArtifactStatsNode(artifactTypeEnum.name(), null)
-            pb = 'true'.equals(artifactStats.attribute('persist-bin'))
+            pb = "true".equals(artifactStats.attribute("persist-bin"))
             artifactPersistBinByTypeEnum.put(artifactTypeEnum, pb)
         }
-        return pb.booleanValue()
+        return Boolean.TRUE.is(pb)
 
         /* by sub-type no longer supported:
         String cacheKey = artifactTypeEnum.name().concat(artifactSubType)

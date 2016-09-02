@@ -55,7 +55,7 @@ class EntityListIteratorWrapper implements EntityListIterator {
     @Override
     public void close() {
         if (this.closed) {
-            logger.warn("EntityListIterator for entity [" + this.entityDefinition.getEntityName() + "] is already closed, not closing again");
+            logger.warn("EntityListIterator for entity " + entityDefinition.fullEntityName + " is already closed, not closing again");
         } else {
             this.closed = true;
         }
@@ -216,7 +216,7 @@ class EntityListIteratorWrapper implements EntityListIterator {
     protected void finalize() throws Throwable {
         if (!closed) {
             this.close();
-            logger.error("EntityListIteratorWrapper not closed for entity [" + entityDefinition.getEntityName() + "], caught in finalize()");
+            logger.error("EntityListIteratorWrapper not closed for entity " + entityDefinition.fullEntityName + ", caught in finalize()");
         }
 
         super.finalize();

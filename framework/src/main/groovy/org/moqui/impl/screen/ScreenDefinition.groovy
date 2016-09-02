@@ -443,15 +443,15 @@ class ScreenDefinition {
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, sri.outputContentType)
         if ("false".equals(screenNode.attribute('track-artifact-hit'))) aei.setTrackArtifactHit(false)
-        sri.ec.artifactExecutionImpl.pushInternal(aei, isTargetScreen ?
+        sri.ec.artifactExecutionFacade.pushInternal(aei, isTargetScreen ?
                 (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)
 
         boolean loggedInAnonymous = false
         if ("anonymous-all".equals(requireAuthentication)) {
-            sri.ec.artifactExecution.setAnonymousAuthorizedAll()
+            sri.ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
             loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
         } else if ("anonymous-view".equals(requireAuthentication)) {
-            sri.ec.artifactExecution.setAnonymousAuthorizedView()
+            sri.ec.artifactExecutionFacade.setAnonymousAuthorizedView()
             loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
         }
 
@@ -460,7 +460,7 @@ class ScreenDefinition {
         try {
             rootSection.render(sri)
         } finally {
-            sri.ec.artifactExecution.pop(aei)
+            sri.ec.artifactExecutionFacade.pop(aei)
             if (loggedInAnonymous) ((UserFacadeImpl) sri.ec.getUser()).logoutAnonymousOnly()
         }
     }
@@ -673,15 +673,15 @@ class ScreenDefinition {
             String requireAuthentication = (String) parentScreen.screenNode.attribute('require-authentication')
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
                     ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, sri.outputContentType)
-            ec.getArtifactExecutionImpl().pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
+            ec.artifactExecutionFacade.pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
 
             boolean loggedInAnonymous = false
             if (requireAuthentication == "anonymous-all") {
-                ec.artifactExecution.setAnonymousAuthorizedAll()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             } else if (requireAuthentication == "anonymous-view") {
-                ec.artifactExecution.setAnonymousAuthorizedView()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             }
 
             try {
@@ -720,8 +720,8 @@ class ScreenDefinition {
 
                 // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally
                 // clause because if there is an error this will help us know how we got there
-                ec.getArtifactExecution().pop(aei)
-                if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+                ec.artifactExecutionFacade.pop(aei)
+                if (loggedInAnonymous) ec.userFacade.logoutAnonymousOnly()
             }
         }
     }

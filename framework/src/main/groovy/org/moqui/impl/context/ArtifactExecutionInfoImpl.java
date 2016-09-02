@@ -49,10 +49,10 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public AuthzType internalAuthorizedAuthzType = null;
     public AuthzAction internalAuthorizedActionEnum = null;
     public boolean internalAuthorizationInheritable = false;
-    private Boolean internalAuthzWasRequired = null;
-    private Boolean isAccess = null;
+    private boolean internalAuthzWasRequired = false;
+    private boolean isAccess = false;
     private boolean trackArtifactHit = true;
-    private Boolean internalAuthzWasGranted = null;
+    private boolean internalAuthzWasGranted = false;
     public ArtifactAuthzCheck internalAacv = null;
 
     //protected Exception createdLocation = null
@@ -112,15 +112,15 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.internalAuthorizationInheritable = isAuthorizationInheritable; }
 
     @Override
-    public Boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
+    public boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
     void setAuthzReqdAndIsAccess(boolean authzReqd, boolean isAccess) {
-        internalAuthzWasRequired = authzReqd ? Boolean.TRUE : Boolean.FALSE;
-        this.isAccess = isAccess ? Boolean.TRUE : Boolean.FALSE;
+        internalAuthzWasRequired = authzReqd;
+        this.isAccess = isAccess;
     }
     public void setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; }
     boolean shouldCountArtifactHit() { return trackArtifactHit && internalAuthzWasRequired && isAccess; }
     @Override
-    public Boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
+    public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
 
     ArtifactAuthzCheck getAacv() { return internalAacv; }
