@@ -15,7 +15,7 @@ package org.moqui.impl.entity.condition;
 
 import org.moqui.BaseException;
 import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.entity.EntityJavaUtil;
+import org.moqui.impl.entity.FieldInfo;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -64,7 +64,7 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         return colName.toString();
     }
 
-    public EntityJavaUtil.FieldInfo getFieldInfo(EntityDefinition ed) {
+    public FieldInfo getFieldInfo(EntityDefinition ed) {
         if (aliasEntityName != null) {
             return getAliasEntityDef(ed).getFieldInfo(fieldName);
         } else {

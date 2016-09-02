@@ -15,7 +15,6 @@ package org.moqui.impl.entity;
 
 import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -163,7 +162,7 @@ public class EntityQueryBuilder {
     */
 
     void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
-        EntityJavaUtil.setPreparedStatementValue(this.ps, index, value, fieldInfo, this.mainEntityDefinition, this.efi);
+        fieldInfo.setPreparedStatementValue(this.ps, index, value, this.mainEntityDefinition, this.efi);
     }
 
     void setPreparedStatementValues() {

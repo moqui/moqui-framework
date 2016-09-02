@@ -31,7 +31,6 @@ import org.moqui.impl.entity.condition.EntityConditionImplBase
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.FieldToFieldCondition
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 
@@ -66,12 +65,12 @@ public class EntityDefinition {
 
     protected boolean tableExistVerified = false
 
-    protected List<MNode> expandedRelationshipList = null
+    private List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
-    protected Map<String, RelationshipInfo> relationshipInfoMap = null
-    protected List<RelationshipInfo> relationshipInfoList = null
-    protected boolean hasReverseRelationships = false
-    protected Map<String, MasterDefinition> masterDefinitionMap = null
+    private Map<String, RelationshipInfo> relationshipInfoMap = null
+    private List<RelationshipInfo> relationshipInfoList = null
+    private boolean hasReverseRelationships = false
+    private Map<String, MasterDefinition> masterDefinitionMap = null
 
     EntityDefinition(EntityFacadeImpl efi, MNode entityNode) {
         this.efi = efi
@@ -577,6 +576,7 @@ public class EntityDefinition {
         }
         relationshipInfoList = infoList
     }
+    void setHasReverseRelationships() { hasReverseRelationships = true }
 
     MasterDefinition getMasterDefinition(String name) {
         if (name == null || name.length() == 0) name = "default"
@@ -588,6 +588,7 @@ public class EntityDefinition {
         return masterDefinitionMap
     }
     private synchronized void makeMasterDefinitionMap() {
+        if (masterDefinitionMap != null) return
         Map<String, MasterDefinition> defMap = [:]
         for (MNode masterNode in internalEntityNode.children("master")) {
             MasterDefinition curDef = new MasterDefinition(this, masterNode)
@@ -875,7 +876,7 @@ public class EntityDefinition {
                 if (!isEmpty) {
                     if (isCharSequence) {
                         try {
-                            Object converted = convertFieldInfoString(fi, value.toString(), eci)
+                            Object converted = fi.convertFromString(value.toString(), eci.getL10nFacade())
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted) else dest.put(fieldName, converted)
                         } catch (BaseException be) {
                             eci.message.addValidationError(null, fieldName, null, be.getMessage(), be)
@@ -923,7 +924,7 @@ public class EntityDefinition {
                 if (!isEmpty) {
                     if (isCharSequence) {
                         try {
-                            Object converted = convertFieldInfoString(fi, value.toString(), eci)
+                            Object converted = fi.convertFromString(value.toString(), eci.getL10nFacade())
                             dest.putNoCheck(fieldName, converted)
                         } catch (BaseException be) {
                             eci.message.addValidationError(null, fieldName, null, be.getMessage(), be)
@@ -947,21 +948,10 @@ public class EntityDefinition {
         if (value == null) return null
         FieldInfo fieldInfo = getFieldInfo(name)
         if (fieldInfo == null) throw new EntityException("The name [${name}] is not a valid field name for entity [${entityName}]")
-        return convertFieldInfoString(fieldInfo, value, eci)
+        return fieldInfo.convertFromString(value, eci.getL10nFacade())
     }
 
-    static Object convertFieldInfoString(FieldInfo fi, String value, ExecutionContextImpl eci) {
-        if (value == null) return null
-        if ("null".equals(value)) return null
-        return EntityJavaUtil.convertFromString(value, fi, eci.getL10nFacade())
-    }
-
-    String getFieldInfoString(FieldInfo fi, Object value) {
-        if (value == null) return null
-        return EntityJavaUtil.convertToString(value, fi, efi)
-    }
-
-    String getFieldStringForFile(FieldInfo fieldInfo, Object value) {
+    static String getFieldStringForFile(FieldInfo fieldInfo, Object value) {
         if (value == null) return null
 
         String outValue
@@ -971,7 +961,7 @@ public class EntityDefinition {
         } else if (value instanceof BigDecimal) {
             outValue = value.toPlainString()
         } else {
-            outValue = getFieldInfoString(fieldInfo, value)
+            outValue = fieldInfo.convertToString(value)
         }
 
         return outValue

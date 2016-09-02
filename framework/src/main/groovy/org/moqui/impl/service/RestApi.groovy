@@ -25,7 +25,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
-import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.util.RestSchemaUtil
 import org.moqui.jcache.MCache
 import org.moqui.util.MNode
@@ -411,7 +411,7 @@ class RestApi {
             List<Map> parameters = []
             ArrayList<String> remainingPkFields = new ArrayList<String>(ed.getPkFieldNames())
             for (String pathParm in pathNode.pathParameters) {
-                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(pathParm)
+                FieldInfo fi = ed.getFieldInfo(pathParm)
                 if (fi == null) throw new IllegalArgumentException("No field found for path parameter ${pathParm} in entity ${ed.getFullEntityName()}")
                 parameters.add([name:pathParm, in:'path', required:true, type:(RestSchemaUtil.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 description:fi.fieldNode.first("description")?.text])
@@ -428,7 +428,7 @@ class RestApi {
             if (operation  == 'one') {
                 if (remainingPkFields) {
                     for (String fieldName in remainingPkFields) {
-                        EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+                        FieldInfo fi = ed.getFieldInfo(fieldName)
                         Map<String, Object> fieldMap = [name:fieldName, in:'query', required:false,
                                 type:(RestSchemaUtil.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(RestSchemaUtil.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
@@ -443,7 +443,7 @@ class RestApi {
                 parameters.addAll(RestSchemaUtil.swaggerPaginationParameters)
                 for (String fieldName in ed.getAllFieldNames()) {
                     if (fieldName in pathNode.pathParameters) continue
-                    EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+                    FieldInfo fi = ed.getFieldInfo(fieldName)
                     parameters.add([name:fieldName, in:'query', required:false,
                                         type:(RestSchemaUtil.fieldTypeJsonMap.get(fi.type) ?: "string"),
                                         format:(RestSchemaUtil.fieldTypeJsonFormatMap.get(fi.type) ?: ""),
@@ -497,13 +497,13 @@ class RestApi {
             }
             Map pkQpMap = [:]
             for (int i = 0; i < remainingPkFields.size(); i++) {
-                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(remainingPkFields.get(i))
+                FieldInfo fi = ed.getFieldInfo(remainingPkFields.get(i))
                 pkQpMap.put(fi.name, RestSchemaUtil.getRamlFieldMap(ed, fi))
             }
             Map allQpMap = [:]
             ArrayList<String> allFields = ed.getAllFieldNames()
             for (int i = 0; i < allFields.size(); i++) {
-                EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+                FieldInfo fi = ed.getFieldInfo(allFields.get(i))
                 allQpMap.put(fi.name, RestSchemaUtil.getRamlFieldMap(ed, fi))
             }
 

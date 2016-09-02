@@ -14,7 +14,6 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 

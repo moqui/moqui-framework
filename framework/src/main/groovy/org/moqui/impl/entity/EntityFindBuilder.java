@@ -74,7 +74,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         sqlTopLevelInternal.append("DISTINCT ");
     }
 
-    public void makeCountFunction(EntityJavaUtil.FieldInfo[] fieldInfoArray) {
+    public void makeCountFunction(FieldInfo[] fieldInfoArray) {
         EntityDefinition localEd = getMainEntityDefinition();
         ArrayList<MNode> entityConditionList = localEd.internalEntityNode.children("entity-condition");
         MNode entityConditionNode = entityConditionList != null && entityConditionList.size() > 0 ? entityConditionList.get(0) : null;
@@ -92,7 +92,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
              */
             if (fieldInfoArray.length > 0) {
                 // TODO: possible to do all fields selected, or only one in SQL? if do all col names here it will blow up...
-                EntityJavaUtil.FieldInfo fi = fieldInfoArray[0];
+                FieldInfo fi = fieldInfoArray[0];
                 MNode aliasNode = fi.fieldNode;
                 String aliasFunction = aliasNode != null ? aliasNode.attribute("function") : null;
                 if (aliasFunction != null && aliasFunction.length() > 0) {
@@ -137,11 +137,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    public void makeSqlFromClause(EntityJavaUtil.FieldInfo[] fieldInfoArray) {
+    public void makeSqlFromClause(FieldInfo[] fieldInfoArray) {
         makeSqlFromClause(getMainEntityDefinition(), fieldInfoArray, sqlTopLevelInternal, null);
     }
 
-    public void makeSqlFromClause(final EntityDefinition localEntityDefinition, EntityJavaUtil.FieldInfo[] fieldInfoArray,
+    public void makeSqlFromClause(final EntityDefinition localEntityDefinition, FieldInfo[] fieldInfoArray,
                                   StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ");
 
@@ -172,7 +172,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 ((EntityConditionImplBase) entityFindBase.getHavingEntityCondition()).getAllAliases(entityAliasUsedSet, fieldUsedSet);
 
             for (int i = 0; i < fieldInfoArray.length; i++) {
-                EntityJavaUtil.FieldInfo fi = fieldInfoArray[i];
+                FieldInfo fi = fieldInfoArray[i];
                 if (fi == null) break;
                 fieldUsedSet.add(fi.name);
             }
@@ -191,7 +191,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             if (additionalFieldsUsed != null) fieldUsedSet.addAll(additionalFieldsUsed);
             // get a list of entity aliases used
             for (String fieldName : fieldUsedSet) {
-                EntityJavaUtil.FieldInfo fi = localEntityDefinition.getFieldInfo(fieldName);
+                FieldInfo fi = localEntityDefinition.getFieldInfo(fieldName);
                 if (fi == null)
                     throw new EntityException("Could not find field " + fieldName + " in entity " + localEntityDefinition.getFullEntityName());
                 entityAliasUsedSet.addAll(fi.entityAliasUsedSet);
@@ -353,7 +353,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    public void makeSqlViewTableName(EntityDefinition localEntityDefinition, EntityJavaUtil.FieldInfo[] fieldInfoArray, StringBuilder localBuilder) {
+    public void makeSqlViewTableName(EntityDefinition localEntityDefinition, FieldInfo[] fieldInfoArray, StringBuilder localBuilder) {
         EntityJavaUtil.EntityInfo entityInfo = localEntityDefinition.entityInfo;
         if (entityInfo.isView) {
             localBuilder.append("(SELECT ");
@@ -407,7 +407,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         sqlTopLevelInternal.append(" WHERE ");
     }
 
-    public void makeGroupByClause(EntityJavaUtil.FieldInfo[] fieldInfoArray) {
+    public void makeGroupByClause(FieldInfo[] fieldInfoArray) {
         EntityJavaUtil.EntityInfo entityInfo = getMainEntityDefinition().entityInfo;
         if (!entityInfo.isView) return;
 
@@ -418,9 +418,9 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 String functionAttr = aliasNode.attribute("function");
                 if (functionAttr == null || functionAttr.isEmpty()) {
                     String aliasName = aliasNode.attribute("name");
-                    EntityJavaUtil.FieldInfo foundFi = null;
+                    FieldInfo foundFi = null;
                     for (int i = 0; i < fieldInfoArray.length; i++) {
-                        EntityJavaUtil.FieldInfo fi = fieldInfoArray[i];
+                        FieldInfo fi = fieldInfoArray[i];
                         if (fi != null && fi.name.equals(aliasName)) {
                             foundFi = fi;
                             break;
@@ -458,7 +458,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             EntityJavaUtil.FieldOrderOptions foo = new EntityJavaUtil.FieldOrderOptions(fieldName);
             fieldName = foo.getFieldName();
 
-            EntityJavaUtil.FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName);
+            FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName);
             if (fieldInfo == null) throw new EntityException("Making ORDER BY clause, could not find field " + fieldName + " in entity " + getMainEd().getFullEntityName());
             int typeValue = fieldInfo.typeValue;
 

@@ -23,7 +23,6 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 import org.moqui.util.SystemBinding
@@ -854,7 +853,7 @@ class EntityFacadeImpl implements EntityFacade {
             EntityDefinition ed
             try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             if (ed == null) continue
-            ed.hasReverseRelationships = true
+            ed.setHasReverseRelationships()
         }
 
         if (logger.infoEnabled && relationshipsCreated > 0) logger.info("Created ${relationshipsCreated} automatic reverse relationships")
@@ -1386,7 +1385,7 @@ class EntityFacadeImpl implements EntityFacade {
             int paramIndex = 1
             for (Object parameterValue in sqlParameterList) {
                 FieldInfo fi = (FieldInfo) fiArray[paramIndex - 1]
-                EntityJavaUtil.setPreparedStatementValue(ps, paramIndex, parameterValue, fi, ed, this)
+                fi.setPreparedStatementValue(ps, paramIndex, parameterValue, ed, this)
                 paramIndex++
             }
             // do the actual query

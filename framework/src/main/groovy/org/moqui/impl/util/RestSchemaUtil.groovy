@@ -24,8 +24,8 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityDefinition.MasterDefinition
 import org.moqui.impl.entity.EntityDefinition.MasterDetail
 import org.moqui.impl.entity.EntityFacadeImpl
-import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
+import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.service.ServiceException
@@ -88,7 +88,7 @@ class RestSchemaUtil {
     // ========== Entity Definition Methods ==========
     // ===============================================
 
-    static List<String> getFieldEnums(EntityDefinition ed, EntityJavaUtil.FieldInfo fi) {
+    static List<String> getFieldEnums(EntityDefinition ed, FieldInfo fi) {
         // populate enum values for Enumeration and StatusItem
         // find first relationship that has this field as the only key map and is not a many relationship
         RelationshipInfo oneRelInfo = null
@@ -144,7 +144,7 @@ class RestSchemaUtil {
         // add all fields
         ArrayList<String> allFields = pkOnly ? ed.getPkFieldNames() : ed.getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+            FieldInfo fi = ed.getFieldInfo(allFields.get(i))
             Map<String, Object> propMap = [:]
             propMap.put('type', fieldTypeJsonMap.get(fi.type))
             String format = fieldTypeJsonFormatMap.get(fi.type)
@@ -253,7 +253,7 @@ class RestSchemaUtil {
         }
     }
 
-    static Map<String, Object> getRamlFieldMap(EntityDefinition ed, EntityJavaUtil.FieldInfo fi) {
+    static Map<String, Object> getRamlFieldMap(EntityDefinition ed, FieldInfo fi) {
         Map<String, Object> propMap = [:]
         String description = fi.fieldNode.first("description")?.text
         if (description) propMap.put("description", description)
@@ -282,7 +282,7 @@ class RestSchemaUtil {
         // add field properties
         ArrayList<String> allFields = pkOnly ? ed.getPkFieldNames() : ed.getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+            FieldInfo fi = ed.getFieldInfo(allFields.get(i))
             properties.put(fi.name, getRamlFieldMap(ed, fi))
         }
 
@@ -330,7 +330,7 @@ class RestSchemaUtil {
         Map qpMap = [:]
         ArrayList<String> allFields = ed.getAllFieldNames()
         for (int i = 0; i < allFields.size(); i++) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(allFields.get(i))
+            FieldInfo fi = ed.getFieldInfo(allFields.get(i))
             qpMap.put(fi.name, getRamlFieldMap(ed, fi))
         }
 
@@ -386,7 +386,7 @@ class RestSchemaUtil {
         List<Map> listParameters = []
         listParameters.addAll(swaggerPaginationParameters)
         for (String fieldName in ed.getAllFieldNames()) {
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+            FieldInfo fi = ed.getFieldInfo(fieldName)
             listParameters.add([name:fieldName, in:'query', required:false, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
                                 format:(fieldTypeJsonFormatMap.get(fi.type) ?: ""),
                                 description:fi.fieldNode.first("description")?.text])
@@ -409,7 +409,7 @@ class RestSchemaUtil {
         for (String pkName in ed.getPkFieldNames()) {
             entityIdPathSb.append("/{").append(pkName).append("}")
 
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(pkName)
+            FieldInfo fi = ed.getFieldInfo(pkName)
             parameters.add([name:pkName, in:'path', required:true, type:(fieldTypeJsonMap.get(fi.type) ?: "string"),
                             description:fi.fieldNode.first("description")?.text])
         }
@@ -513,7 +513,7 @@ class RestSchemaUtil {
         if (entityName && fieldName) {
             EntityDefinition ed = sd.getServiceFacade().getEcfi().getEntityFacade().getEntityDefinition(entityName)
             if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${sd.getServiceName()}")
-            EntityJavaUtil.FieldInfo fi = ed.getFieldInfo(fieldName)
+            FieldInfo fi = ed.getFieldInfo(fieldName)
             if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${sd.getServiceName()}")
             List enumList = getFieldEnums(ed, fi)
             if (enumList) propMap.put('enum', enumList)

@@ -16,8 +16,8 @@ package org.moqui.impl.entity;
 import org.moqui.entity.EntityDynamicView;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityListIterator;
+import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +76,7 @@ public class EntityFindImpl extends EntityFindBase {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity) getEfi().getEntityDbMeta().checkTableRuntime(ed);
+            if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
             efb.makeConnection();
             efb.makePreparedStatement();
@@ -85,13 +85,13 @@ public class EntityFindImpl extends EntityFindBase {
             final String condSql = isTraceEnabled && whereCondition != null ? whereCondition.toString() : null;
             ResultSet rs = efb.executeQuery();
             if (rs.next()) {
-                newEntityValue = new EntityValueImpl(ed, getEfi());
+                newEntityValue = new EntityValueImpl(ed, efi);
                 HashMap<String, Object> valueMap = newEntityValue.getValueMap();
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = fieldInfoArray[i];
                     if (fi == null) break;
-                    EntityJavaUtil.getResultSetValue(rs, i + 1, fi, valueMap, getEfi());
+                    fi.getResultSetValue(rs, i + 1, valueMap, efi);
                 }
 
             } else {
@@ -118,8 +118,7 @@ public class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = this.getEntityDef();
 
         // table doesn't exist, just return empty ELI
-        if (!ed.tableExistsDbMetaOnly())
-            return new EntityListIteratorWrapper(new ArrayList<>(), ed, getEfi());
+        if (!ed.tableExistsDbMetaOnly()) return new EntityListIteratorWrapper(new ArrayList<EntityValue>(), ed, efi);
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
         if (getDistinct()) efb.makeDistinct();
@@ -157,14 +156,14 @@ public class EntityFindImpl extends EntityFindBase {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity) getEfi().getEntityDbMeta().checkTableRuntime(ed);
+            if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
             Connection con = efb.makeConnection();
             efb.makePreparedStatement();
             efb.setPreparedStatementValues();
 
             ResultSet rs = efb.executeQuery();
-            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, getEfi(), txCache);
+            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, txCache);
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll();
         } catch (EntityException e) {
@@ -221,7 +220,7 @@ public class EntityFindImpl extends EntityFindBase {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity) getEfi().getEntityDbMeta().checkTableRuntime(ed);
+            if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
             efb.makeConnection();
             efb.makePreparedStatement();

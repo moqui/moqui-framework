@@ -27,7 +27,6 @@ import org.moqui.entity.EntityValue;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.context.*;
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -410,7 +409,7 @@ public abstract class EntityValueBase implements EntityValue {
         FieldInfo fieldInfo = ed.getFieldInfo(name);
 
         Object valueObj = getKnownField(fieldInfo);
-        return getEntityDefinition().getFieldInfoString(fieldInfo, valueObj);
+        return fieldInfo.convertToString(valueObj);
     }
     @Override
     public Timestamp getTimestamp(String name) { return DefaultGroovyMethods.asType(get(name), Timestamp.class); }
@@ -667,7 +666,8 @@ public abstract class EntityValueBase implements EntityValue {
         for (int i = 0; i < pkFieldList.size(); i++) {
             FieldInfo curFieldInfo = pkFieldList.get(i);
             if (i > 0) pkTextSb.append(",");
-            pkTextSb.append(curFieldInfo.name).append(":'").append(ed.getFieldStringForFile(curFieldInfo, getKnownField(curFieldInfo))).append("'");
+            pkTextSb.append(curFieldInfo.name).append(":'")
+                    .append(EntityDefinition.getFieldStringForFile(curFieldInfo, getKnownField(curFieldInfo))).append("'");
         }
         String pkText = pkTextSb.toString();
 
@@ -677,7 +677,8 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override
-    public EntityList findRelated(final String relationshipName, Map<String, Object> byAndFields, List<String> orderBy, Boolean useCache, Boolean forUpdate) {
+    public EntityList findRelated(final String relationshipName, Map<String, Object> byAndFields, List<String> orderBy,
+                                  Boolean useCache, Boolean forUpdate) {
         EntityJavaUtil.RelationshipInfo relInfo = getEntityDefinition().getRelationshipInfo(relationshipName);
         if (relInfo == null) throw new EntityException("Relationship " + relationshipName + " not found in entity " + entityName);
 

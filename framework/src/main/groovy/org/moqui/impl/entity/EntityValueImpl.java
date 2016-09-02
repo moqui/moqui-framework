@@ -16,7 +16,6 @@ package org.moqui.impl.entity;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -264,7 +263,7 @@ public class EntityValueImpl extends EntityValueBase {
                 int nonPkSize = allFieldArray.length;
                 for (int j = 0; j < nonPkSize; j++) {
                     FieldInfo fi = allFieldArray[j];
-                    EntityJavaUtil.getResultSetValue(rs, j + 1, fi, valueMapInternal, efi);
+                    fi.getResultSetValue(rs, j + 1, valueMapInternal, efi);
                 }
 
                 retVal = true;
