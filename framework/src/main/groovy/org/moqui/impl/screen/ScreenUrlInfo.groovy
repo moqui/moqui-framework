@@ -18,6 +18,7 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
+import org.moqui.context.WebFacade
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -37,6 +38,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
+import javax.servlet.http.HttpServletRequest
 
 @CompileStatic
 class ScreenUrlInfo {
@@ -137,6 +139,19 @@ class ScreenUrlInfo {
         return newSui
     }
 
+    static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, HttpServletRequest request) {
+        String webappName = request.servletContext.getInitParameter("moqui-name")
+        String rootScreenLocation = sfi.rootScreenFromHost(request.getServerName(), webappName)
+        ScreenDefinition rootScreenDef = sfi.getScreenDefinition(rootScreenLocation)
+        if (rootScreenDef == null) throw new BaseException("Could not find root screen at location ${rootScreenLocation}")
+
+        String pathInfo = request.getPathInfo()
+        ArrayList<String> screenPath = new ArrayList<>()
+        if (pathInfo != null) screenPath.addAll(Arrays.asList(pathInfo.split("/")))
+        return getScreenUrlInfo(sfi, rootScreenDef, rootScreenDef, screenPath, null, null)
+
+    }
+
     final static char slashChar = (char) '/'
     static String makeCacheKey(ScreenDefinition rootSd, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
                                String subscreenPath, Boolean lastStandalone) {
@@ -227,7 +242,7 @@ class ScreenUrlInfo {
         for (int i = 0; i < screenPathDefListSize; i++) {
             ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(),
-                    ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW)
+                    ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, null)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 

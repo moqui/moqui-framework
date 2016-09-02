@@ -1,9 +1,7 @@
 
-Moqui Framework Release Notes
+# Moqui Framework Release Notes
 
-===========================================================================
-Release 2.0.0 - TBD
-===========================================================================
+## Release 2.0.0 - TBD
 
 Moqui Framework 2.0.0 is a major new feature and bug fix release, with
 various non backward compatible API and other changes.
@@ -14,9 +12,10 @@ production in the near future (before this version is released) it is
 better to use the last released version (1.6.2) as 2.0.0 contains
 significant changes.
 
-Non Backward Compatible Changes
+### Non Backward Compatible Changes
 
-- Java JDK 8 now required for running executable WAR
+- Java JDK 8 now required (Java 7 no longer supported)
+- Now requires Servlet Container supporting the Servlet 3.1 specification
 - No longer using Winstone embedded web server (now using Jetty)
 - Entity Definitions
   - XSDs updated for these changes, though old attributes still supported
@@ -24,6 +23,7 @@ Non Backward Compatible Changes
   - changed entity.@group-name to entity.@group
   - changed relationship.@related-entity-name to relationship.@related
   - changed key-map.@related-field-name to key-map.@related
+  - UserField no longer supported (UserField and UserFieldValue entities)
 - Service Job Scheduling
   - Quartz Scheduler has been removed, use new ServiceJob instead which
     supports more relevant options, is much cleaner and more manageable
@@ -99,6 +99,8 @@ Non Backward Compatible Changes
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
+- Service parameter.subtype element removed, use the much more flexible 
+  nested parameter element
 - JCR and Apache Jackrabbit
   - The repository.@type, @location, and @conf-location attributes have
     been removed and the repository.parameter sub-element added for use
@@ -110,12 +112,13 @@ Non Backward Compatible Changes
   - AntiSamy replaced by OWASP Java HTML Sanitizer
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
-  - These methods were deprecated (usually by methods with shorter names)
+  - These methods were deprecated (by methods with shorter names)
     long ago and with other API changes now removing them
   - Removed getLocalizedMessage() and formatValue() from L10nFacade
   - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(),
     evaluateCondition(), evaluateContextField(), and evaluateStringExpand()
     from ResourceFacade
+  - Removed EntityFacade.makeFind()   
 - ArtifactHit and ArtifactHitBin now use same artifact type enum as
   ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and
@@ -124,10 +127,12 @@ Non Backward Compatible Changes
   never all that useful and is replaced by the ArtifactAuthzFilter and
   EntityFilter entities
 - The ContextStack class has moved to the org.moqui.util package
+- Replaced Apache HttpComponents client with jetty-client to get support
+  for HTTP/2, cleaner API, better async support and other options
 - When updating to this version recommend stopping all instances in a
   cluster before starting any instance with the new version
 
-New Features
+### New Features
 
 - Now using Jetty embedded for the executable WAR instead of Winstone
   - using Jetty 9 which requires Java 8
@@ -237,6 +242,12 @@ New Features
   thread with an ExecutionContext like the current (tenant, user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
+- Transaction Facade
+  - The write-through transaction cache now supports a read only mode
+  - Added service.@no-tx-cache attribute which flushes and disables write
+    through transaction cache for the rest of the transaction
+  - Added TransactionFacade.flushAndDisableTransactionCache() method to
+    flush and disable the write through cache, like service.@no-tx-cache
 - Entity Facade
   - In view-entity.alias.complex-alias the expression attribute is now
     expanded so context fields may be inserted or other Groovy expressions
@@ -260,7 +271,7 @@ New Features
     an artifact, not when simply checking to see if use is permitted (such
     as in menus, links, etc)
 
-Bug Fixes
+### Bug Fixes
 
 - Fixed issue with REST and other requests using various HTTP request
   methods that were not handled, MoquiServlet now uses the
@@ -288,9 +299,7 @@ Bug Fixes
   - Fixed attribute and child node wrapper caching in FtlNodeWrapper where
     in certain cases a false null would be returned
 
-===========================================================================
-Release 1.6.2 - 26 Mar 2016
-===========================================================================
+## Release 1.6.2 - 26 Mar 2016
 
 Moqui Framework 1.6.2 is a minor new feature and bug fix release.
 
@@ -300,7 +309,7 @@ multi-tenant handling (and security), optionally loading data on start if
 the DB is empty, more flexible handling of runtime Moqui Conf XML location,
 database support and transaction management, and so on.
 
-Non Backward Compatible Changes
+### Non Backward Compatible Changes
 
 - Entity field types are somewhat more strict for database operations; this
   is partly for performance reasons and partly to avoid database errors
@@ -312,7 +321,7 @@ Non Backward Compatible Changes
   TenantCountry entities; they aren't generally used and better not to have
   business settings in these restricted technical config entities
 
-New Features
+### New Features
 
 - Many performance improvements based on profiling; cached entities finds
   around 6x faster, non cached around 3x; screen rendering also faster
@@ -396,7 +405,7 @@ New Features
     that screen in a list and parameters for it, along with
     messages/errors/etc for client side routing between screens
 
-Bug Fixes
+### Bug Fixes
 
 - DB operations for sequenced IDs, service semaphores, and DB meta data are
   now run in a separate thread instead of tx suspend/resume as some
@@ -431,9 +440,7 @@ Bug Fixes
 - Fixed issues with ResourceReference operations and wiki page updates
 
 
-===========================================================================
-Release 1.6.1 - 24 Jan 2016
-===========================================================================
+## Release 1.6.1 - 24 Jan 2016
 
 Moqui Framework 1.6.1 is a minor new feature and bug fix release.
 
@@ -444,7 +451,7 @@ them in the framework/lib directory. Overall the result is a small
 foundation with additional libraries, components, etc added as needed using
 Gradle tasks.
 
-Build Changes
+### Build Changes
 
 - Gradle tasks to help handle runtime directory in a separate repository
   from Moqui Framework
@@ -466,7 +473,7 @@ Build Changes
 - If your component builds source or runs Spock tests changes will be
   needed, see the runtime/base-component/example/build.gradle file
 
-New Features
+### New Features
 
 - The makeCondition(Map) methods now support _comp entry for comparison
   operator, _join entry for join operator, and _list entry for a list of
@@ -474,7 +481,7 @@ New Features
 - In FieldValueCondition if the value is a collection and operator is
   EQUALS set to IN, or if NOT_EQUAL then NOT_IN
 
-Bug Fixes
+### Bug Fixes
 
 - Fixed issue with EntityFindBase.condition() where condition break down
   set ignore case to true
@@ -484,9 +491,7 @@ Bug Fixes
   instead of rendering the widgets (usually just resulting in more errors)
 
 
-===========================================================================
-Long Term To Do List - aka Informal Road Map
-===========================================================================
+## Long Term To Do List - aka Informal Road Map
 
 - Option for link element to only render if referenced transition/screen exists
 - Option for transition to only mount if all response URLs for screen paths exist
@@ -494,6 +499,7 @@ Long Term To Do List - aka Informal Road Map
   method to see if exists and show disabled link if it doesn't?
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
+- Support seek for faster pagination like jOOQ: https://blog.jooq.org/2013/10/26/faster-sql-paging-with-jooq-using-the-seek-method/
 
 - Improved Distributed Datasource Support
   - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical

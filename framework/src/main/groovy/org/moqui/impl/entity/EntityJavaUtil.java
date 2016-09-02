@@ -14,27 +14,36 @@
 package org.moqui.impl.entity;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 import org.moqui.BaseException;
+import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFacade;
-import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.entity.EntityNotFoundException;
+import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.L10nFacadeImpl;
+import org.moqui.impl.entity.condition.ConditionField;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.PBEParameterSpec;
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
 import java.io.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
     public static Object convertFromString(String value, FieldInfo fi, L10nFacade l10n) {
         Object outValue;
@@ -146,8 +155,63 @@ public class EntityJavaUtil {
         return outValue;
     }
 
+    private static final int saltBytes = 8;
+    private static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
+        MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
+        String pwStr = entityFacadeNode.attribute("crypt-pass");
+        if (pwStr == null || pwStr.length() == 0)
+            throw new IllegalArgumentException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
+
+        String saltStr = entityFacadeNode.attribute("crypt-salt");
+        byte[] salt = (saltStr != null && saltStr.length() > 0 ? saltStr : "default1").getBytes();
+        if (salt.length > saltBytes) {
+            byte[] trimmed = new byte[saltBytes];
+            System.arraycopy(salt, 0, trimmed, 0, saltBytes);
+            salt = trimmed;
+        }
+        if (salt.length < saltBytes) {
+            byte[] newSalt = new byte[saltBytes];
+            for (int i = 0; i < saltBytes; i++) {
+                if (i < salt.length) newSalt[i] = salt[i];
+                else newSalt[i] = 0x45;
+            }
+            salt = newSalt;
+        }
+        String iterStr = entityFacadeNode.attribute("crypt-iter");
+        int count = iterStr != null && iterStr.length() > 0 ? Integer.valueOf(iterStr) : 10;
+        char[] pass = pwStr.toCharArray();
+
+
+        String algo = entityFacadeNode.attribute("crypt-algo");
+        if (algo == null || algo.length() == 0) algo = "PBEWithMD5AndDES";
+
+        // logger.info("TOREMOVE salt [${salt}] count [${count}] pass [${pass}] algo [${algo}]")
+        PBEParameterSpec pbeParamSpec = new PBEParameterSpec(salt, count);
+        PBEKeySpec pbeKeySpec = new PBEKeySpec(pass);
+        try {
+            SecretKeyFactory keyFac = SecretKeyFactory.getInstance(algo);
+            SecretKey pbeKey = keyFac.generateSecret(pbeKeySpec);
+
+            Cipher pbeCipher = Cipher.getInstance(algo);
+            int mode = encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE;
+            pbeCipher.init(mode, pbeKey, pbeParamSpec);
+
+            byte[] inBytes;
+            if (encrypt) {
+                inBytes = value.getBytes();
+            } else {
+                inBytes = Hex.decodeHex(value.toCharArray());
+            }
+            byte[] outBytes = pbeCipher.doFinal(inBytes);
+            return encrypt ? Hex.encodeHexString(outBytes) : new String(outBytes);
+        } catch (Exception e) {
+            throw new EntityException("Encryption error", e);
+        }
+    }
+
     @SuppressWarnings("ThrowFromFinallyBlock")
-    public static Object getResultSetValue(ResultSet rs, int index, FieldInfo fi, EntityFacade efi) throws EntityException {
+    static void getResultSetValue(ResultSet rs, int index, FieldInfo fi, HashMap<String, Object> valueMap,
+                                           EntityFacadeImpl efi) throws EntityException {
         if (fi.typeValue == -1) throw new EntityException("No typeValue found for " + fi.entityName + "." + fi.name);
 
         Object value = null;
@@ -262,10 +326,66 @@ public class EntityJavaUtil {
             throw new EntityException("SQL Exception while getting value for field: [" + fi.name + "] (" + index + ")", sqle);
         }
 
-        return value;
+        // if field is to be encrypted, do it now
+        if (value != null && fi.encrypt) {
+            if (fi.typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + fi.name + " of entity " + fi.entityName);
+            String original = value.toString();
+            try {
+                value = enDeCrypt(original, false, efi);
+            } catch (Exception e) {
+                logger.error("Error decrypting field [${fieldInfo.name}] of entity [${entityName}]", e);
+            }
+        }
+
+        valueMap.put(fi.name, value);
     }
 
-    public static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fi,
+    private static final boolean checkPreparedStatementValueType = false;
+    static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fieldInfo,
+                                          EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
+        int typeValue = fieldInfo.typeValue;
+        if (value != null) {
+            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, fieldInfo.javaType)) {
+                // this is only an info level message because under normal operation for most JDBC
+                // drivers this will be okay, but if not then the JDBC driver will throw an exception
+                // and when lower debug levels are on this should help give more info on what happened
+                String fieldClassName = value.getClass().getName();
+                if (value instanceof byte[]) {
+                    fieldClassName = "byte[]";
+                } else if (value instanceof char[]) {
+                    fieldClassName = "char[]";
+                }
+
+                if (isTraceEnabled) logger.trace("Type of field " + ed.getFullEntityName() + "." + fieldInfo.name +
+                        " is " + fieldClassName + ", was expecting " + fieldInfo.javaType + " this may " +
+                        "indicate an error in the configuration or in the class, and may result " +
+                        "in an SQL-Java data conversion error. Will use the real field type: " +
+                        fieldClassName + ", not the definition.");
+                typeValue = EntityFacadeImpl.getJavaTypeInt(fieldClassName);
+            }
+
+            // if field is to be encrypted, do it now
+            if (fieldInfo.encrypt) {
+                if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + fieldInfo.name + " of entity " + fieldInfo.entityName);
+                String original = value.toString();
+                value = enDeCrypt(original, true, efi);
+            }
+        }
+
+        boolean useBinaryTypeForBlob = false;
+        if (typeValue == 11 || typeValue == 12) {
+            useBinaryTypeForBlob = ("true".equals(efi.getDatabaseNode(ed.getEntityGroupName()).attribute("use-binary-type-for-blob")));
+        }
+        try {
+            EntityJavaUtil.setPreparedStatementValue(ps, index, value, fieldInfo, useBinaryTypeForBlob, efi);
+        } catch (EntityException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new EntityException("Error setting prepared statement field " + fieldInfo.name + " of entity " + fieldInfo.entityName, e);
+        }
+    }
+
+    private static void setPreparedStatementValue(PreparedStatement ps, int index, Object value, FieldInfo fi,
                                                  boolean useBinaryTypeForBlob, EntityFacade efi) throws EntityException {
         try {
             // allow setting, and searching for, String values for all types; JDBC driver should handle this okay
@@ -492,41 +612,189 @@ public class EntityJavaUtil {
     /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT,
      * though initialized in the EntityDefinition.makeFieldInfo() method. */
     public static class FieldInfo {
-        public EntityDefinition ed = null;
-        public MNode fieldNode = null;
-        public String entityName = null;
-        public String name = null;
-        public String type = null;
-        public String columnName = null;
-        private String fullColumnName = null;
-        private String expandColumnName = null;
-        public String defaultStr = null;
-        public String javaType = null;
-        public String enableAuditLog = null;
-        public int typeValue = -1;
-        public boolean isTextVeryLong = false;
-        public boolean isPk = false;
-        public boolean encrypt = false;
-        public boolean isSimple = false;
-        public boolean enableLocalization = false;
-        public boolean isUserField = false;
-        public boolean createOnly = false;
-        public Set<String> entityAliasUsedSet = new HashSet<>();
+        public final EntityDefinition ed;
+        public final MNode fieldNode;
+        public final String entityName;
+        public final String name;
+        public final ConditionField conditionField;
+        public final String type;
+        public final String columnName;
+        private final String fullColumnName;
+        private final String expandColumnName;
+        public final String defaultStr;
+        public final String javaType;
+        public final String enableAuditLog;
+        public final int typeValue;
+        final boolean isTextVeryLong;
+        public final boolean isPk;
+        final boolean encrypt;
+        public final boolean isSimple;
+        public final boolean enableLocalization;
+        public final boolean createOnly;
+        public final Set<String> entityAliasUsedSet = new HashSet<>();
 
-        public FieldInfo() { /* do nothing, see EntityDefinition.makeFieldInfo() */ }
+        public FieldInfo(EntityDefinition ed, MNode fieldNode) {
+            this.ed = ed;
+            this.fieldNode = fieldNode;
+            entityName = ed.getFullEntityName();
 
-        public void setFullColumnName(String fcn) {
+            Map<String, String> fnAttrs = fieldNode.getAttributes();
+            String nameAttr = fnAttrs.get("name");
+            if (nameAttr == null) throw new EntityException("No name attribute specified for field in entity " + entityName);
+            name = nameAttr.intern();
+            conditionField = new ConditionField(this);
+            String columnNameAttr = fnAttrs.get("column-name");
+            columnName = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr : camelCaseToUnderscored(name);
+            defaultStr = fnAttrs.get("default");
+
+            String typeAttr = fnAttrs.get("type");
+            if ((typeAttr == null || typeAttr.length() == 0) && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get("function") != null) {
+                // this is probably a calculated value, just default to number-decimal
+                typeAttr = "number-decimal";
+            }
+            type = typeAttr;
+            if (type != null && type.length() > 0) {
+                String fieldJavaType = ed.efi.getFieldJavaType(type, ed);
+                javaType =  fieldJavaType != null ? fieldJavaType : "String";
+                typeValue = EntityFacadeImpl.getJavaTypeInt(javaType);
+                isTextVeryLong = "text-very-long".equals(type);
+            } else {
+                throw new EntityException("No type specified or found for field " + name + " on entity " + entityName);
+            }
+            isPk = "true".equals(fnAttrs.get("is-pk"));
+            encrypt = "true".equals(fnAttrs.get("encrypt"));
+            enableLocalization = "true".equals(fnAttrs.get("enable-localization"));
+            isSimple = !enableLocalization;
+            String createOnlyAttr = fnAttrs.get("create-only");
+            createOnly = createOnlyAttr != null && createOnlyAttr.length() > 0 ? "true".equals(fnAttrs.get("create-only")) : ed.createOnly();
+            String enableAuditLogAttr = fieldNode.attribute("enable-audit-log");
+            enableAuditLog = enableAuditLogAttr != null ? enableAuditLogAttr : ed.internalEntityNode.attribute("enable-audit-log");
+
+            String fcn = ed.makeFullColumnName(fieldNode);
             if (fcn == null) {
                 fullColumnName = columnName;
+                expandColumnName = null;
             } else {
-                if (fcn.contains("${")) expandColumnName = fcn;
-                else fullColumnName = fcn;
+                if (fcn.contains("${")) {
+                    expandColumnName = fcn;
+                    fullColumnName = null;
+                } else {
+                    fullColumnName = fcn;
+                    expandColumnName = null;
+                }
+            }
+
+            if (ed.isViewEntity()) {
+                String entityAlias = fieldNode.attribute("entity-alias");
+                if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias);
+                ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
+                int cafListSize = cafList.size();
+                for (int i = 0; i < cafListSize; i++) {
+                    MNode cafNode = cafList.get(i);
+                    String cafEntityAlias = cafNode.attribute("entity-alias");
+                    if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias);
+                }
             }
         }
+
         public String getFullColumnName() {
             if (fullColumnName != null) return fullColumnName;
             return ed.efi.ecfi.getResourceFacade().expand(expandColumnName, "", null, false);
         }
+    }
+    public static class RelationshipInfo {
+        public final String type;
+        public final boolean isTypeOne;
+        public final String title;
+        public final String relatedEntityName;
+        final EntityDefinition fromEd;
+        public final EntityDefinition relatedEd;
+        public final MNode relNode;
+
+        public final String relationshipName;
+        public final String shortAlias;
+        final String prettyName;
+        public final Map<String, String> keyMap;
+        public final boolean dependent;
+        public final boolean mutable;
+
+        RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
+            this.relNode = relNode;
+            this.fromEd = fromEd;
+            type = relNode.attribute("type");
+            isTypeOne = type.startsWith("one");
+            String titleAttr = relNode.attribute("title");
+            title = titleAttr != null && !titleAttr.isEmpty() ? titleAttr : null;
+            String relatedAttr = relNode.attribute("related");
+            if (relatedAttr == null || relatedAttr.isEmpty()) relatedAttr = relNode.attribute("related-entity-name");
+            relatedEd = efi.getEntityDefinition(relatedAttr);
+            if (relatedEd == null) throw new EntityNotFoundException("Invalid entity relationship, " + relatedAttr + " not found in definition for entity " + fromEd.getFullEntityName());
+            relatedEntityName = relatedEd.getFullEntityName();
+
+            relationshipName = (title != null ? title + '#' : "") + relatedEntityName;
+            String shortAliasAttr = relNode.attribute("short-alias");
+            shortAlias =  shortAliasAttr != null && !shortAliasAttr.isEmpty() ? shortAliasAttr : null;
+            prettyName = relatedEd.getPrettyName(title, fromEd.internalEntityName);
+            keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, relatedEd);
+            dependent = hasReverse();
+            String mutableAttr = relNode.attribute("mutable");
+            if (mutableAttr != null && !mutableAttr.isEmpty()) {
+                mutable = "true".equals(relNode.attribute("mutable"));
+            } else {
+                // by default type one not mutable, type many are mutable
+                mutable = !isTypeOne;
+            }
+        }
+
+        private boolean hasReverse() {
+            ArrayList<MNode> relatedRelList = relatedEd.internalEntityNode.children("relationship");
+            int relatedRelListSize = relatedRelList.size();
+            for (int i = 0; i < relatedRelListSize; i++) {
+                MNode reverseRelNode = relatedRelList.get(i);
+                String relatedAttr = reverseRelNode.attribute("related");
+                if (relatedAttr == null || relatedAttr.isEmpty()) relatedAttr = reverseRelNode.attribute("related-entity-name");
+                String typeAttr = reverseRelNode.attribute("type");
+                String titleAttr = reverseRelNode.attribute("title");
+                if ((fromEd.fullEntityName.equals(relatedAttr) || fromEd.internalEntityName.equals(relatedAttr)) &&
+                        ("one".equals(typeAttr) || "one-nofk".equals(typeAttr)) &&
+                        (title == null ? titleAttr == null || titleAttr.isEmpty() : title.equals(titleAttr))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        public Map<String, Object> getTargetParameterMap(Map valueSource) {
+            if (valueSource == null || valueSource.isEmpty()) return new LinkedHashMap<>();
+            Map<String, Object> targetParameterMap = new HashMap<>();
+            for (Map.Entry<String, String> keyEntry: keyMap.entrySet()) {
+                Object value = valueSource.get(keyEntry.getKey());
+                if (!StupidJavaUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
+            }
+            return targetParameterMap;
+        }
+        public String toString() { return relationshipName + (shortAlias != null ? " (" + shortAlias + ")" : "") +
+                ", type " + type + ", one? " + isTypeOne + ", dependent? " + dependent; }
+    }
+
+    private static Map<String, String> camelToUnderscoreMap = new HashMap<>();
+    public static String camelCaseToUnderscored(String camelCase) {
+        if (camelCase == null || camelCase.length() == 0) return "";
+        String usv = camelToUnderscoreMap.get(camelCase);
+        if (usv != null) return usv;
+
+        StringBuilder underscored = new StringBuilder();
+        underscored.append(Character.toUpperCase(camelCase.charAt(0)));
+        int inPos = 1;
+        while (inPos < camelCase.length()) {
+            char curChar = camelCase.charAt(inPos);
+            if (Character.isUpperCase(curChar)) underscored.append('_');
+            underscored.append(Character.toUpperCase(curChar));
+            inPos++;
+        }
+
+        usv = underscored.toString();
+        camelToUnderscoreMap.put(camelCase, usv);
+        return usv;
     }
 
     public static class EntityConditionParameter {
@@ -544,12 +812,76 @@ public class EntityJavaUtil {
 
         public Object getValue() { return value; }
 
-        public void setPreparedStatementValue(int index) throws EntityException {
-            EntityQueryBuilder.setPreparedStatementValue(eqb.ps, index, value, fieldInfo,
-                    this.eqb.getMainEntityDefinition(), this.eqb.efi);
+        void setPreparedStatementValue(int index) throws EntityException {
+            eqb.setPreparedStatementValue(index, value, fieldInfo);
         }
 
         @Override
         public String toString() { return fieldInfo.name + ':' + value; }
+    }
+
+    public static class QueryStatsInfo {
+        private String entityName;
+        private String sql;
+        private long hitCount = 0, errorCount = 0;
+        private long minTimeNanos = Long.MAX_VALUE, maxTimeNanos = 0, totalTimeNanos = 0, totalSquaredTime = 0;
+        private Map<String, Integer> artifactCounts = new HashMap<>();
+        public QueryStatsInfo(String entityName, String sql) {
+            this.entityName = entityName;
+            this.sql = sql;
+        }
+        public void countHit(EntityFacadeImpl efi, long runTimeNanos, boolean isError) {
+            hitCount++;
+            if (isError) errorCount++;
+            if (runTimeNanos < minTimeNanos) minTimeNanos = runTimeNanos;
+            if (runTimeNanos > maxTimeNanos) maxTimeNanos = runTimeNanos;
+            totalTimeNanos += runTimeNanos;
+            totalSquaredTime += runTimeNanos * runTimeNanos;
+            // this gets much more expensive, consider commenting in the future
+            ArtifactExecutionInfo aei = efi.getEcfi().getEci().getArtifactExecutionImpl().peek();
+            if (aei != null) aei = aei.getParent();
+            if (aei != null) {
+                String artifactName = aei.getName();
+                Integer artifactCount = artifactCounts.get(artifactName);
+                artifactCounts.put(artifactName, artifactCount != null ? artifactCount + 1 : 1);
+            }
+        }
+        public String getEntityName() { return entityName; }
+        public String getSql() { return sql; }
+        // public long getHitCount() { return hitCount; }
+        // public long getErrorCount() { return errorCount; }
+        // public long getMinTimeNanos() { return minTimeNanos; }
+        // public long getMaxTimeNanos() { return maxTimeNanos; }
+        // public long getTotalTimeNanos() { return totalTimeNanos; }
+        // public long getTotalSquaredTime() { return totalSquaredTime; }
+        double getAverage() { return hitCount > 0 ? totalTimeNanos / hitCount : 0; }
+        double getStdDev() {
+            if (hitCount < 2) return 0;
+            return Math.sqrt(Math.abs(totalSquaredTime - ((totalTimeNanos * totalTimeNanos) / hitCount)) / (hitCount - 1L));
+        }
+        final static long nanosDivisor = 1000;
+        public Map<String, Object> makeDisplayMap() {
+            Map<String, Object> dm = new HashMap<>();
+            dm.put("entityName", entityName); dm.put("sql", sql);
+            dm.put("hitCount", hitCount); dm.put("errorCount", errorCount);
+            dm.put("minTime", new BigDecimal(minTimeNanos/nanosDivisor)); dm.put("maxTime", new BigDecimal(maxTimeNanos/nanosDivisor));
+            dm.put("totalTime", new BigDecimal(totalTimeNanos/nanosDivisor)); dm.put("totalSquaredTime", new BigDecimal(totalSquaredTime/nanosDivisor));
+            dm.put("average", new BigDecimal(getAverage()/nanosDivisor)); dm.put("stdDev", new BigDecimal(getStdDev()/nanosDivisor));
+            dm.put("artifactCounts", new HashMap<>(artifactCounts));
+            return dm;
+        }
+    }
+
+    public enum WriteMode { CREATE, UPDATE, DELETE }
+    public static class EntityWriteInfo {
+        public WriteMode writeMode;
+        public EntityValueBase evb;
+        Map<String, Object> pkMap;
+        public EntityWriteInfo(EntityValueBase evb, WriteMode writeMode) {
+            // clone value so that create/update/delete stays the same no matter what happens after
+            this.evb = (EntityValueBase) evb.cloneValue();
+            this.writeMode = writeMode;
+            this.pkMap = evb.getPrimaryKeys();
+        }
     }
 }

@@ -36,6 +36,7 @@ public interface ExecutionContextFactory {
     void postInit();
     /** Destroy this ExecutionContextFactory and all resources it uses (all facades, tools, etc) */
     void destroy();
+    boolean isDestroyed();
 
     /** Get the path of the runtime directory */
     String getRuntimePath();

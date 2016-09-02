@@ -49,7 +49,7 @@ public class Moqui {
     }
 
     public static void dynamicInit(ExecutionContextFactory executionContextFactory) {
-        if (activeExecutionContextFactory == null) {
+        if (activeExecutionContextFactory == null || activeExecutionContextFactory.isDestroyed()) {
             activeExecutionContextFactory = executionContextFactory;
             activeExecutionContextFactory.postInit();
         } else {

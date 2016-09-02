@@ -408,7 +408,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="NotificationTopicUser" package="moqui.security.user" use="configuration" cache="true">
         <field name="topic" type="text-medium" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
-        <field name="receiveNotifications" type="text-indicator"/>
+        <field name="receiveNotifications" type="text-indicator"><description>If notification sent to user only actually notify if this is Y.</description></field>
+        <field name="allNotifications" type="text-indicator"><description>If Y user receives all notifications on topic even if not sent directly.</description></field>
         <relationship type="one-nofk" related="moqui.security.user.NotificationTopic"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>

@@ -67,7 +67,6 @@ public class ServiceJavaUtil {
         public ParameterAllowHtml allowHtml;
 
         public Map<String, ParameterInfo> childParameterInfoMap = new HashMap<>();
-        public List<MNode> subtypeNodeList = null;
         public List<MNode> validationNodeList = new ArrayList<>();
 
         public ParameterInfo(ServiceDefinition sd, MNode parameterNode) {
@@ -98,10 +97,9 @@ public class ServiceJavaUtil {
                 String name = childParmNode.attribute("name");
                 childParameterInfoMap.put(name, new ParameterInfo(sd, childParmNode));
             }
-            if (parameterNode.hasChild("subtype")) subtypeNodeList = parameterNode.children("subtype");
 
             for (MNode child: parameterNode.getChildren()) {
-                if ("description".equals(child.getName()) || "subtype".equals(child.getName()) || "parameter".equals(child.getName())) continue;
+                if ("description".equals(child.getName()) || "parameter".equals(child.getName())) continue;
                 validationNodeList.add(child);
             }
         }

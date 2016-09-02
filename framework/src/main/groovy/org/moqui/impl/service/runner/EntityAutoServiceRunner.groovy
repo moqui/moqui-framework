@@ -15,7 +15,6 @@ package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
-import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
@@ -23,6 +22,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
@@ -191,7 +191,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         } catch (Exception e) {
             if (e.getMessage().contains("primary key")) {
                 long[] bank = (long[]) efi.entitySequenceBankCache.get(ed.getFullEntityName())
-                EntityValue svi = efi.makeFind("moqui.entity.SequenceValueItem").condition("seqName", ed.getFullEntityName())
+                EntityValue svi = efi.find("moqui.entity.SequenceValueItem").condition("seqName", ed.getFullEntityName())
                         .useCache(false).disableAuthz().one()
                 logger.warn("Got PK violation, current bank is ${bank}, PK is ${newEntityValue.getPrimaryKeys()}, current SequenceValueItem: ${svi}")
             }
@@ -228,7 +228,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             if (otherFieldsToSkip.contains(entryName)) continue
 
             EntityDefinition subEd = null
-            EntityDefinition.RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
+            RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
             if (relInfo != null) {
                 if (!relInfo.mutable) {
                     if (logger.isTraceEnabled()) logger.trace("In create entity auto service found key [${entryName}] which is a non-mutable relationship of [${ed.getFullEntityName()}], skipping")
@@ -320,7 +320,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
         EntityValue lookedUpValue = preLookedUpValue ?:
                 efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
-        // this is much slower, and we don't need to do the query: sfi.getEcfi().getEntityFacade().find(ed.entityName).condition(parameters).useCache(false).forUpdate(true).one()
+        // this is much slower, and we don't need to do the query: sfi.getEcfi().getEntityFacade().find(ed.entityName).condition(parameters).useCache(false).one()
         if (lookedUpValue == null) {
             throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
         }
@@ -329,7 +329,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             // do the actual query so we'll have the current statusId
             Map<String, Object> pkParms = ed.getPrimaryKeys(parameters)
             lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName())
-                    .condition(pkParms).useCache(false).forUpdate(true).one()
+                    .condition(pkParms).useCache(false).one()
             if (lookedUpValue == null) {
                 throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
             }
@@ -383,7 +383,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         if (parameters.containsKey("statusId") && ed.isField("statusId")) {
             // do the actual query so we'll have the current statusId
             lookedUpValue = efi.find(ed.getFullEntityName())
-                    .condition(newEntityValue).useCache(false).forUpdate(true).one()
+                    .condition(newEntityValue).useCache(false).one()
             if (lookedUpValue != null) {
                 checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
             } else {
@@ -426,7 +426,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
             EntityDefinition subEd = null
             Map<String, Object> pkMap = null
-            EntityDefinition.RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
+            RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
             if (relInfo != null) {
                 if (!relInfo.mutable) {
                     if (logger.isTraceEnabled()) logger.trace("In store entity auto service found key [${entryName}] which is a non-mutable relationship of [${ed.getFullEntityName()}], skipping")

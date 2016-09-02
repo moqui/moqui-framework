@@ -19,7 +19,7 @@ import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 
 import javax.cache.Cache
 import javax.transaction.Status
@@ -63,14 +63,14 @@ class EntityDataFeed {
         return documentList
     }
 
-    List<Map> getFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
+    ArrayList<Map> getFeedDocuments(String dataFeedId, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         EntityList dataFeedDocumentList = efi.find("moqui.entity.feed.DataFeedDocument")
                 .condition("dataFeedId", dataFeedId).useCache(true).list()
 
-        List<Map> fullDocumentList = []
+        ArrayList<Map> fullDocumentList = new ArrayList<>()
         for (EntityValue dataFeedDocument in dataFeedDocumentList) {
             String dataDocumentId = dataFeedDocument.dataDocumentId
-            List<Map> curDocList = efi.getDataDocuments(dataDocumentId, null, fromUpdateStamp, thruUpdatedStamp)
+            ArrayList<Map> curDocList = efi.getDataDocuments(dataDocumentId, null, fromUpdateStamp, thruUpdatedStamp)
             fullDocumentList.addAll(curDocList)
         }
         return fullDocumentList

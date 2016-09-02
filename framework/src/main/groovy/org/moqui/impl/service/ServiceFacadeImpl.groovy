@@ -46,8 +46,6 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
 
-    /** An executor for the scheduled job runner */
-    private final ScheduledThreadPoolExecutor jobRunnerExecutor
     private final ScheduledJobRunner jobRunner
 
     /** Distributed ExecutorService for async services, etc */
@@ -94,12 +92,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         // setup service job runner
         long jobRunnerRate = (serviceFacadeNode.attribute("scheduled-job-check-time") ?: "60") as long
         if (jobRunnerRate > 0L) {
-            jobRunnerExecutor = new ScheduledThreadPoolExecutor(1)
             jobRunner = new ScheduledJobRunner(ecfi)
             // wait 60 seconds before first run to make sure all is loaded and we're past an initial activity burst
-            jobRunnerExecutor.scheduleAtFixedRate(jobRunner, 60, jobRunnerRate, TimeUnit.SECONDS)
+            ecfi.scheduledExecutor.scheduleAtFixedRate(jobRunner, 60, jobRunnerRate, TimeUnit.SECONDS)
         } else {
-            jobRunnerExecutor = null
             jobRunner = null
         }
     }
@@ -122,8 +118,6 @@ class ServiceFacadeImpl implements ServiceFacade {
     void destroy() {
         // destroy all service runners
         for (ServiceRunner sr in serviceRunners.values()) sr.destroy()
-        // shutdown the scheduled job runner executor
-        if (jobRunnerExecutor != null) jobRunnerExecutor.shutdown()
     }
 
     ExecutionContextFactoryImpl getEcfi() { ecfi }

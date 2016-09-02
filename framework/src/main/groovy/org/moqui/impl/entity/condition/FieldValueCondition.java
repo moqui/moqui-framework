@@ -14,6 +14,8 @@
 package org.moqui.impl.entity.condition;
 
 import org.moqui.entity.EntityCondition;
+import org.moqui.entity.EntityException;
+import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityJavaUtil;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
@@ -62,8 +64,12 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
 
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb) {
-        @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder") StringBuilder sql = eqb.getSqlTopLevel();
+        @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
+        StringBuilder sql = eqb.getSqlTopLevel();
         boolean valueDone = false;
+        EntityDefinition mainEd = eqb.getMainEd();
+        EntityJavaUtil.FieldInfo fi = field.getFieldInfo(mainEd);
+        if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + eqb.getMainEd().getFullEntityName());
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {
@@ -74,15 +80,9 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                 valueDone = true;
             }
         } else {
-            int typeValue = -1;
-            if (ignoreCase) {
-                EntityJavaUtil.FieldInfo fi = field.getFieldInfo(eqb.getMainEd());
-                typeValue = fi != null? fi.typeValue : 1;
-                if (typeValue == 1) sql.append("UPPER(");
-            }
-
-            sql.append(field.getColumnName(eqb.getMainEd()));
-            if (ignoreCase && typeValue == 1) sql.append(')');
+            if (ignoreCase && fi.typeValue == 1) sql.append("UPPER(");
+            sql.append(field.getColumnName(mainEd));
+            if (ignoreCase && fi.typeValue == 1) sql.append(')');
             sql.append(' ');
 
             if (value == null) {
@@ -113,13 +113,13 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                         if (isFirst) isFirst = false; else sql.append(", ");
                         sql.append("?");
                         if (ignoreCase && (curValue instanceof CharSequence)) curValue = curValue.toString().toUpperCase();
-                        eqb.getParameters().add(new EntityConditionParameter(field.getFieldInfo(eqb.getMainEntityDefinition()), curValue, eqb));
+                        eqb.getParameters().add(new EntityConditionParameter(fi, curValue, eqb));
                     }
                     sql.append(')');
                 } else {
                     if (ignoreCase && (value instanceof CharSequence)) value = value.toString().toUpperCase();
                     sql.append(" (?)");
-                    eqb.getParameters().add(new EntityConditionParameter(field.getFieldInfo(eqb.getMainEntityDefinition()), value, eqb));
+                    eqb.getParameters().add(new EntityConditionParameter(fi, value, eqb));
                 }
             } else if ((operator == BETWEEN || operator == NOT_BETWEEN) && value instanceof Collection &&
                     ((Collection) value).size() == 2) {
@@ -129,12 +129,12 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                 if (ignoreCase && (value1 instanceof CharSequence)) value1 = value1.toString().toUpperCase();
                 Object value2 = iterator.next();
                 if (ignoreCase && (value2 instanceof CharSequence)) value2 = value2.toString().toUpperCase();
-                eqb.getParameters().add(new EntityConditionParameter(field.getFieldInfo(eqb.getMainEntityDefinition()), value1, eqb));
-                eqb.getParameters().add(new EntityConditionParameter(field.getFieldInfo(eqb.getMainEntityDefinition()), value2, eqb));
+                eqb.getParameters().add(new EntityConditionParameter(fi, value1, eqb));
+                eqb.getParameters().add(new EntityConditionParameter(fi, value2, eqb));
             } else {
                 if (ignoreCase && (value instanceof CharSequence)) value = value.toString().toUpperCase();
                 sql.append(" ?");
-                eqb.getParameters().add(new EntityConditionParameter(field.getFieldInfo(eqb.getMainEntityDefinition()), value, eqb));
+                eqb.getParameters().add(new EntityConditionParameter(fi, value, eqb));
             }
         }
     }
@@ -181,11 +181,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         FieldValueCondition that = (FieldValueCondition) o;
         if (!field.equals(that.field)) return false;
         if (value != null) {
-            if (that.value == null) {
-                return false;
-            } else {
-                if (!value.equals(that.value)) return false;
-            }
+            if (!value.equals(that.value)) return false;
         } else {
             if (that.value != null) return false;
         }

@@ -45,11 +45,11 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     protected boolean ignoreTransaction = false
     protected boolean requireNewTransaction = false
     protected boolean separateThread = false
-    protected boolean useTransactionCache = false
+    protected Boolean useTransactionCache = (Boolean) null
     /* not supported by Atomikos/etc right now, consider for later: protected int transactionIsolation = -1 */
+    protected Integer transactionTimeout = (Integer) null
 
     protected boolean ignorePreviousError = false
-
     protected boolean multi = false
     protected boolean disableAuthz = false
 
@@ -74,21 +74,19 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
     @Override
     ServiceCallSync ignoreTransaction(boolean it) { this.ignoreTransaction = it; return this }
-
     @Override
     ServiceCallSync requireNewTransaction(boolean rnt) { this.requireNewTransaction = rnt; return this }
     @Override
     ServiceCallSync separateThread(boolean st) { this.separateThread = st; return this }
-
     @Override
     ServiceCallSync useTransactionCache(boolean utc) { this.useTransactionCache = utc; return this }
+    @Override
+    ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this }
 
     @Override
     ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this }
-
     @Override
     ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this }
-
     @Override
     ServiceCallSync disableAuthz() { disableAuthz = true; return this }
 
@@ -187,9 +185,6 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
         if (traceEnabled) logger.trace("Calling service [${getServiceName()}] initial input: ${currentParameters}")
 
-        long callStartTime = System.currentTimeMillis()
-        long startTimeNanos = System.nanoTime()
-
         // get these before cleaning up the parameters otherwise will be removed
         String userId = (String) currentParameters.authUsername
         String password = (String) currentParameters.authPassword
@@ -201,6 +196,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         String tenantId = (String) currentParameters.authTenantId
 
         String serviceNameNoHash = getServiceNameNoHash()
+        String serviceType = sd != null ? sd.getServiceType() : "entity-implicit"
 
         // in-parameter validation
         sfi.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-validate")
@@ -237,7 +233,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         // NOTE: if no sd then requiresAuthz is false, ie let the authz get handled at the entity level (but still put
         //     the service on the stack)
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), ArtifactExecutionInfo.AT_SERVICE,
-                            ServiceDefinition.getVerbAuthzActionEnum(verb)).setParameters(currentParameters)
+                            ServiceDefinition.getVerbAuthzActionEnum(verb), serviceType).setParameters(currentParameters)
         eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
 
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
@@ -255,10 +251,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 try {
                     Map result = runImplicitEntityAuto(currentParameters, eci)
 
-                    double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
-                    if (traceEnabled) logger.trace("Finished call to service [${getServiceName()}] in ${(runningTimeMillis)/1000} seconds")
-                    sfi.getEcfi().countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, "entity-implicit", getServiceName(),
-                            currentParameters, callStartTime, runningTimeMillis, null)
+                    // double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
+                    // if (traceEnabled) logger.trace("Finished call to service [${getServiceName()}] in ${(runningTimeMillis)/1000} seconds")
 
                     return result
                 } finally {
@@ -273,7 +267,6 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             }
         }
 
-        String serviceType = sd.getServiceType()
         if ("interface".equals(serviceType)) {
             eci.artifactExecution.pop(aei)
             if (ignorePreviousError) eci.getMessage().popErrors()
@@ -304,8 +297,13 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             }
 
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
-            boolean beganTransaction = beginTransactionIfNeeded ? tf.begin(sd.getTxTimeout()) : false
-            if (useTransactionCache || sd.getTxUseCache()) tf.initTransactionCache()
+            boolean beganTransaction = beginTransactionIfNeeded ?
+                    tf.begin(transactionTimeout != null ? transactionTimeout : sd.getTxTimeout()) : false
+            if (sd.getNoTxCache()) {
+                tf.flushAndDisableTransactionCache()
+            } else {
+                if (useTransactionCache != null ? useTransactionCache.booleanValue() : sd.getTxUseCache()) tf.initTransactionCache()
+            }
             try {
                 // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
                 if (sd.internalHasSemaphore) checkAddSemaphore(sfi.ecfi, currentParameters)
@@ -383,16 +381,12 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             }
             if (loggedInAnonymous) ((UserFacadeImpl) eci.getUser()).logoutAnonymousOnly()
 
-            double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
-            sfi.getEcfi().countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, serviceType, getServiceName(),
-                    currentParameters, callStartTime, runningTimeMillis, null)
-
             // all done so pop the artifact info
             eci.getArtifactExecution().pop(aei)
             // restore error messages if needed
             if (ignorePreviousError) eci.getMessage().popErrors()
 
-            if (traceEnabled) logger.trace("Finished call to service [${getServiceName()}] in ${(runningTimeMillis)/1000} seconds" + (eci.getMessage().hasError() ? " with ${eci.getMessage().getErrors().size() + eci.getMessage().getValidationErrors().size()} error messages" : ", was successful"))
+            if (traceEnabled) logger.trace("Finished call to service ${getServiceName()}" + (eci.getMessage().hasError() ? " with ${eci.getMessage().getErrors().size() + eci.getMessage().getValidationErrors().size()} error messages" : ", was successful"))
         }
     }
 

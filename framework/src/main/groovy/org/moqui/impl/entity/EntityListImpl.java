@@ -391,7 +391,11 @@ public class EntityListImpl implements EntityList {
 
     public EntityListImpl deepCloneList() {
         EntityListImpl newObj = new EntityListImpl(this.getEfi(), valueList.size());
-        for (EntityValue ev : valueList) newObj.valueList.add(ev.cloneValue());
+        int valueListSize = valueList.size();
+        for (int i = 0; i < valueListSize; i++) {
+            EntityValue ev = valueList.get(i);
+            newObj.valueList.add(ev.cloneValue());
+        }
         return newObj;
     }
 

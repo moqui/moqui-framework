@@ -15,11 +15,10 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
-import org.joda.time.DateTimeZone
-import org.joda.time.MutableDateTime
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
 
@@ -131,10 +130,12 @@ class UserFacadeImpl implements UserFacade {
         this.visitId = session.getAttribute("moqui.visitId")
         if (!this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.getEcfi().getServerStatsNode()
+            ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.getEcfi().getScreenFacade(), request)
+            boolean isJustContent = sui.fileResourceRef != null
 
             // handle visitorId and cookie
-            String cookieVisitorId = null
-            if (serverStatsNode.attribute('visitor-enabled') != "false") {
+            String cookieVisitorId = (String) null
+            if (!isJustContent && !"false".equals(serverStatsNode.attribute('visitor-enabled'))) {
                 Cookie[] cookies = request.getCookies()
                 if (cookies != null) {
                     for (int i = 0; i < cookies.length; i++) {
@@ -168,7 +169,7 @@ class UserFacadeImpl implements UserFacade {
                 }
             }
 
-            if (serverStatsNode.attribute('visit-enabled') != "false") {
+            if (!isJustContent && !"false".equals(serverStatsNode.attribute('visit-enabled'))) {
                 // create and persist Visit
                 String contextPath = session.getServletContext().getContextPath()
                 String webappId = contextPath.length() > 1 ? contextPath.substring(1) : "ROOT"
@@ -288,14 +289,6 @@ class UserFacadeImpl implements UserFacade {
         return Calendar.getInstance(currentInfo.tzCache ?: TimeZone.getDefault(),
                 currentInfo.localeCache ?: (request ? request.getLocale() : Locale.getDefault()))
     }
-    MutableDateTime getDateTimeSafe(Long timeMillis) {
-        DateTimeZone dtz = DateTimeZone.forTimeZone(currentInfo.tzCache ?: TimeZone.getDefault())
-        long now
-        if (timeMillis != null) now = timeMillis
-        else now = ((Object) this.effectiveTime != null) ? this.effectiveTime.getTime() : System.currentTimeMillis()
-        return new MutableDateTime(now, dtz)
-    }
-
 
     @Override
     void setTimeZone(TimeZone tz) {
@@ -575,7 +568,7 @@ class UserFacadeImpl implements UserFacade {
         long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
         eci.service.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
-                .disableAuthz().call()
+                .disableAuthz().requireNewTransaction(true).call()
 
         // clean out expired keys
         eci.entity.find("moqui.security.UserLoginKey").condition("userId", userId)

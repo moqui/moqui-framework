@@ -20,7 +20,6 @@ import com.cronutils.model.definition.CronDefinitionBuilder
 import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
 import groovy.transform.CompileStatic
-import org.joda.time.DateTime
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -31,6 +30,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
+import java.time.Instant
+import java.time.ZonedDateTime
 
 @CompileStatic
 class ScheduledJobRunner implements Runnable {
@@ -41,18 +42,24 @@ class ScheduledJobRunner implements Runnable {
     private final CronParser parser = new CronParser(cronDefinition)
     private final Map<String, ExecutionTime> executionTimeByExpression = new HashMap<>()
     private long lastExecuteTime = 0
+    private int executeCount = 0, totalJobsRun = 0, lastJobsActive = 0, lastJobsPaused = 0
 
     ScheduledJobRunner(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
     }
 
+    // NOTE: these are called in the service job screens
     long getLastExecuteTime() { lastExecuteTime }
+    int getExecuteCount() { executeCount }
+    int getTotalJobsRun() { totalJobsRun }
+    int getLastJobsActive() { lastJobsActive }
+    int getLastJobsPaused() { lastJobsPaused }
 
     @Override
     synchronized void run() {
-        DateTime now = DateTime.now()
-        lastExecuteTime = now.getMillis()
-        Timestamp nowTimestamp = new Timestamp(now.getMillis())
+        ZonedDateTime now = ZonedDateTime.now()
+        long nowMillis = now.toInstant().toEpochMilli()
+        Timestamp nowTimestamp = new Timestamp(nowMillis)
         int jobsRun = 0
         int jobsActive = 0
         int jobsPaused = 0
@@ -105,12 +112,13 @@ class ScheduledJobRunner implements Runnable {
                         serviceJobRunLock = efi.find("moqui.service.job.ServiceJobRunLock")
                                 .condition("jobName", jobName).forUpdate(true).one()
                         Timestamp lastRunTime = (Timestamp) serviceJobRunLock?.lastRunTime
-                        DateTime lastRunDt = (lastRunTime != (Timestamp) null) ? new DateTime(lastRunTime.getTime()) : null
+                        ZonedDateTime lastRunDt = (lastRunTime != (Timestamp) null) ?
+                                ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastRunTime.getTime()), now.getZone()) : null
                         if (serviceJobRunLock != null && serviceJobRunLock.jobRunId != null && lastRunDt != null) {
                             // for failure with no lock reset: run recovery, based on expireLockTime (default to 1440 minutes)
                             Long expireLockTime = (Long) serviceJob.expireLockTime
                             if (expireLockTime == null) expireLockTime = 1440L
-                            DateTime lockCheckTime = now.minusMinutes(expireLockTime.intValue())
+                            ZonedDateTime lockCheckTime = now.minusMinutes(expireLockTime.intValue())
                             if (lastRunDt.isBefore(lockCheckTime)) {
                                 // recover failed job without lock reset, run it if schedule says to
                                 logger.warn("Lock expired: found lock for job ${jobName} from ${lastRunDt}, more than ${expireLockTime} minutes old, ignoring lock")
@@ -124,7 +132,7 @@ class ScheduledJobRunner implements Runnable {
                         // calculate time it should have run last
                         String cronExpression = serviceJob.cronExpression
                         ExecutionTime executionTime = getExecutionTime(cronExpression)
-                        DateTime lastSchedule = executionTime.lastExecution(now)
+                        ZonedDateTime lastSchedule = executionTime.lastExecution(now)
                         if (lastRunDt != null) {
                             // if the time it should have run last is before the time it ran last don't run it
                             if (lastSchedule.isBefore(lastRunDt)) continue
@@ -180,6 +188,13 @@ class ScheduledJobRunner implements Runnable {
             // no need, we're destroying the eci: if (!authzDisabled) eci.artifactExecution.enableAuthz()
             eci.destroy()
         }
+
+        // update job runner stats
+        lastExecuteTime = nowMillis
+        executeCount++
+        totalJobsRun += jobsRun
+        lastJobsActive = jobsActive
+        lastJobsPaused = jobsPaused
 
         if (jobsRun > 0) {
             logger.info("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused}, tenants: ${allEntityFacades.size()})")

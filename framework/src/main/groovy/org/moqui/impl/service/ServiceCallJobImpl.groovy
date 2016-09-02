@@ -131,6 +131,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         String jobName, jobDescription, serviceName, topic, jobRunId
         Map<String, Object> parameters
         boolean clearLock
+        int transactionTimeout
 
         // default constructor for deserialization only!
         ServiceJobCallable() { }
@@ -144,6 +145,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             jobDescription = (String) serviceJob.description
             serviceName = (String) serviceJob.serviceName
             topic = (String) serviceJob.topic
+            transactionTimeout = (serviceJob.transactionTimeout ?: 1800) as int
             this.jobRunId = jobRunId
             this.clearLock = clearLock
             this.parameters = new HashMap<>(parameters)
@@ -160,9 +162,9 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             out.writeObject(topic) // might be null
             out.writeUTF(jobRunId) // never null
             out.writeBoolean(clearLock)
+            out.writeInt(transactionTimeout)
             out.writeObject(parameters)
         }
-
         @Override
         void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
             threadTenantId = objectInput.readUTF()
@@ -174,6 +176,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             topic = (String) objectInput.readObject()
             jobRunId = objectInput.readUTF()
             clearLock = objectInput.readBoolean()
+            transactionTimeout = objectInput.readInt()
             parameters = (Map<String, Object>) objectInput.readObject()
         }
 
@@ -201,7 +204,8 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                         .disableAuthz().call()
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> results = getEcfi().service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                Map<String, Object> results = getEcfi().service.sync().name(serviceName).parameters(parameters)
+                        .transactionTimeout(transactionTimeout).disableAuthz().call()
 
                 // set endTime, results, messages, errors on ServiceJobRun
                 String resultString = JsonOutput.toJson(results)

@@ -119,7 +119,7 @@ class EntityDataDocument {
         return valuesWritten
     }
 
-    List<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
+    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
                                Timestamp thruUpdatedStamp) {
         ExecutionContextImpl eci = efi.getEcfi().getEci()
 
@@ -231,9 +231,10 @@ class EntityDataDocument {
                     // add Map for primary entity
                     Map primaryEntityMap = [:]
                     for (Map.Entry fieldTreeEntry in fieldTree.entrySet()) {
-                        if (fieldTreeEntry.getValue() instanceof String) {
+                        Object entryValue = fieldTreeEntry.getValue()
+                        if (entryValue instanceof String) {
                             if (fieldTreeEntry.getKey() == "_ALIAS") continue
-                            String fieldName = fieldTreeEntry.getValue()
+                            String fieldName = (String) entryValue
                             Object value = ev.get(fieldName)
                             if (value) primaryEntityMap.put(fieldName, value)
                         }
@@ -252,7 +253,7 @@ class EntityDataDocument {
         }
 
         // make the actual list and return it
-        List<Map> documentMapList = []
+        ArrayList<Map> documentMapList = new ArrayList<>(documentMapMap.size())
         for (Map.Entry<String, Map> documentMapEntry in documentMapMap.entrySet()) {
             Map docMap = documentMapEntry.getValue()
             // call the manualDataServiceName service for each document
@@ -314,7 +315,7 @@ class EntityDataDocument {
                 String relationshipName = fieldTreeEntry.getKey()
                 Map fieldTreeChild = (Map) fieldTreeEntry.getValue()
 
-                EntityDefinition.RelationshipInfo relationshipInfo = parentEd.getRelationshipInfo(relationshipName)
+                EntityJavaUtil.RelationshipInfo relationshipInfo = parentEd.getRelationshipInfo(relationshipName)
                 String relDocumentAlias = relationshipAliasMap.get(relationshipName) ?: relationshipInfo.shortAlias ?: relationshipName
                 EntityDefinition relatedEd = relationshipInfo.relatedEd
                 boolean isOneRelationship = relationshipInfo.isTypeOne

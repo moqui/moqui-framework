@@ -111,6 +111,15 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
             }
         }
 
+        // add all users subscribed to all messages on the topic
+        EntityList allNotificationUsers = ef.find("moqui.security.user.NotificationTopicUser")
+                .condition("topic", topic).condition("allNotifications", "Y").useCache(true).list()
+        int allNotificationUsersSize = allNotificationUsers.size()
+        for (int i = 0; i < allNotificationUsersSize; i++) {
+            EntityValue allNotificationUser = (EntityValue) allNotificationUsers.get(i)
+            notifyUserIds.add((String) allNotificationUser.userId)
+        }
+
         return notifyUserIds
     }
     private boolean checkUserNotify(String userId, EntityFacade ef) {

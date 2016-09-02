@@ -193,7 +193,7 @@ class ExecutionContextImpl implements ExecutionContext {
         if (sessionTenantId) changeTenant(sessionTenantId)
 
         // now that we have the webFacade and tenantId in place we can do init UserFacade
-        ((UserFacadeImpl) getUser()).initFromHttpRequest(request, response)
+        userFacade.initFromHttpRequest(request, response)
 
         // for convenience (and more consistent code in screen actions, services, etc) add all requestParameters to the context
         context.putAll(webFacade.requestParameters)
@@ -213,7 +213,8 @@ class ExecutionContextImpl implements ExecutionContext {
 
     boolean getSkipStats() {
         if (skipStats != null) return skipStats.booleanValue()
-        skipStats = ecfi.getSkipStats()
+        String skipStatsCond = ecfi.skipStatsCond
+        skipStats = skipStatsCond ? ecfi.resourceFacade.condition(skipStatsCond, null, [pathInfo:webFacade?.request?.pathInfo]) : false
         return skipStats.booleanValue()
     }
 
