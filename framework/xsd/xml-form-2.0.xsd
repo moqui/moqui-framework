@@ -198,7 +198,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="saved-finds" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Enable saved finds (query parameters, order by).</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="show-csv-button" type="boolean" default="true">
+            <xs:attribute name="show-csv-button" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Show a button to export as CSV, if the pagination header is displayed</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="show-all-button" type="boolean" default="false">
