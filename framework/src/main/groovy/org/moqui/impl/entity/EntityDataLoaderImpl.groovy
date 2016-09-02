@@ -649,17 +649,17 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                             currentEntityDef = (EntityDefinition) null
                             entityOperation = (String) null
                         } catch (Exception e) {
-                            throw new SAXException("Error running service [${currentServiceDef.getServiceName()}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                            throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
                         }
                     }
                 } else if (currentServiceDef != null) {
                     try {
-                        ServiceCallSync currentScs = edli.sfi.sync().name(currentServiceDef.getServiceName()).parameters(valueMap)
+                        ServiceCallSync currentScs = edli.sfi.sync().name(currentServiceDef.serviceName).parameters(valueMap)
                         valueHandler.handleService(currentScs)
                         valuesRead++
                         currentServiceDef = (ServiceDefinition) null
                     } catch (Exception e) {
-                        throw new SAXException("Error running service [${currentServiceDef.getServiceName()}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                        throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
                     }
                 }
             }

@@ -246,7 +246,7 @@ class RestApi {
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
             ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(serviceName)
             if (sd == null) throw new IllegalArgumentException("Service ${serviceName} not found")
-            MNode serviceNode = sd.getServiceNode()
+            MNode serviceNode = sd.serviceNode
             Map definitionsMap = (Map) swaggerMap.definitions
 
             // add parameters, including path parameters
@@ -254,16 +254,16 @@ class RestApi {
             Set<String> remainingInParmNames = new LinkedHashSet<String>(sd.getInParameterNames())
             for (String pathParm in pathNode.pathParameters) {
                 MNode parmNode = sd.getInParameter(pathParm)
-                if (parmNode == null) throw new IllegalArgumentException("No in parameter found for path parameter ${pathParm} in service ${sd.getServiceName()}")
+                if (parmNode == null) throw new IllegalArgumentException("No in parameter found for path parameter ${pathParm} in service ${sd.serviceName}")
                 parameters.add([name:pathParm, in:'path', required:true, type:getJsonType((String) parmNode?.attribute('type')),
                                 description:parmNode.first("description")?.text])
                 remainingInParmNames.remove(pathParm)
             }
             if (remainingInParmNames) {
                 if (method in ['post', 'put', 'patch']) {
-                    parameters.add([name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${sd.getServiceName()}.In".toString()]])
+                    parameters.add([name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${sd.serviceName}.In".toString()]])
                     // add a definition for service in parameters
-                    definitionsMap.put("${sd.getServiceName()}.In".toString(), RestSchemaUtil.getJsonSchemaMapIn(sd))
+                    definitionsMap.put("${sd.serviceName}.In".toString(), RestSchemaUtil.getJsonSchemaMapIn(sd))
                 } else {
                     for (String parmName in remainingInParmNames) {
                         MNode parmNode = sd.getInParameter(parmName)
@@ -286,8 +286,8 @@ class RestApi {
             Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
                              "429":[description:"Too Many Requests (tarpit)"], "500":[description:"General Error"]]
             if (sd.getOutParameterNames().size() > 0) {
-                responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.getServiceName()}.Out".toString()]])
-                definitionsMap.put("${sd.getServiceName()}.Out".toString(), RestSchemaUtil.getJsonSchemaMapOut(sd))
+                responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.serviceName}.Out".toString()]])
+                definitionsMap.put("${sd.serviceName}.Out".toString(), RestSchemaUtil.getJsonSchemaMapOut(sd))
             }
 
             Map curMap = [:]
@@ -301,7 +301,7 @@ class RestApi {
         Map<String, Object> getRamlMap(Map<String, Object> typesMap) {
             ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(serviceName)
             if (sd == null) throw new IllegalArgumentException("Service ${serviceName} not found")
-            MNode serviceNode = sd.getServiceNode()
+            MNode serviceNode = sd.serviceNode
 
             Map<String, Object> ramlMap =  [is:['service'],
                     displayName:(serviceNode.attribute("displayName") ?: "${sd.verb} ${sd.noun}".toString())] as Map<String, Object>
@@ -310,14 +310,14 @@ class RestApi {
             Set<String> remainingInParmNames = new LinkedHashSet<String>(sd.getInParameterNames())
             for (String pathParm in pathNode.pathParameters) remainingInParmNames.remove(pathParm)
             if (remainingInParmNames) {
-                ramlMap.put("body", ['application/json': [type:"${sd.getServiceName()}.In".toString()]])
+                ramlMap.put("body", ['application/json': [type:"${sd.serviceName}.In".toString()]])
                 // add a definition for service in parameters
-                typesMap.put("${sd.getServiceName()}.In".toString(), RestSchemaUtil.getRamlMapIn(sd))
+                typesMap.put("${sd.serviceName}.In".toString(), RestSchemaUtil.getRamlMapIn(sd))
             }
 
             if (sd.getOutParameterNames().size() > 0) {
-                ramlMap.put("responses", [200:[body:['application/json': [type:"${sd.getServiceName()}.Out".toString()]]]])
-                typesMap.put("${sd.getServiceName()}.Out".toString(), RestSchemaUtil.getRamlMapOut(sd))
+                ramlMap.put("responses", [200:[body:['application/json': [type:"${sd.serviceName}.Out".toString()]]]])
+                typesMap.put("${sd.serviceName}.Out".toString(), RestSchemaUtil.getRamlMapOut(sd))
             }
 
             return ramlMap

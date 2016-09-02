@@ -58,17 +58,14 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     }
 
     @Override
-    ServiceCallSync name(String serviceName) { this.setServiceName(serviceName); return this }
-
+    ServiceCallSync name(String serviceName) { serviceNameInternal(serviceName); return this }
     @Override
-    ServiceCallSync name(String v, String n) { path = null; verb = v; noun = n; return this }
-
+    ServiceCallSync name(String v, String n) { serviceNameInternal(null, v, n); return this }
     @Override
-    ServiceCallSync name(String p, String v, String n) { path = p; verb = v; noun = n; return this }
+    ServiceCallSync name(String p, String v, String n) { serviceNameInternal(p, v, n); return this }
 
     @Override
     ServiceCallSync parameters(Map<String, ?> map) { if (map != null) { parameters.putAll(map) }; return this }
-
     @Override
     ServiceCallSync parameter(String name, Object value) { parameters.put(name, value); return this }
 
@@ -98,7 +95,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     @Override
     Map<String, Object> call() {
         ServiceDefinition sd = getServiceDefinition()
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
 
         boolean enableAuthz = disableAuthz ? !eci.getArtifactExecution().disableAuthz() : false
@@ -116,8 +113,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 boolean beganTransaction = eci.getTransaction().begin(null)
                 try {
                     for (int i = 0; ; i++) {
-                        if ((parameters.get("_useRowSubmit") == "true" || parameters.get("_useRowSubmit_" + i) == "true")
-                                && parameters.get("_rowSubmit_" + i) != "true") continue
+                        if (("true".equals(parameters.get("_useRowSubmit")) || "true".equals(parameters.get("_useRowSubmit_" + i)))
+                                && !"true".equals(parameters.get("_rowSubmit_" + i))) continue
                         Map<String, Object> currentParms = new HashMap()
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = (String) inParameterNames.get(paramIndex)
@@ -137,12 +134,12 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                         if (eci.getMessage().hasError()) break
                     }
                 } catch (Throwable t) {
-                    eci.getTransaction().rollback(beganTransaction, "Uncaught error running service [${sd.getServiceName()}] in multi mode", t)
+                    eci.getTransaction().rollback(beganTransaction, "Uncaught error running service [${sd.serviceName}] in multi mode", t)
                     throw t
                 } finally {
                     if (eci.getTransaction().isTransactionInPlace()) {
                         if (eci.getMessage().hasError()) {
-                            eci.getTransaction().rollback(beganTransaction, "Error message found running service [${sd.getServiceName()}] in multi mode", null)
+                            eci.getTransaction().rollback(beganTransaction, "Error message found running service [${sd.serviceName}] in multi mode", null)
                         } else {
                             eci.getTransaction().commit(beganTransaction)
                         }
@@ -196,7 +193,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         String tenantId = (String) currentParameters.authTenantId
 
         String serviceNameNoHash = getServiceNameNoHash()
-        String serviceType = sd != null ? sd.getServiceType() : "entity-implicit"
+        String serviceType = sd != null ? sd.serviceType : "entity-implicit"
 
         // in-parameter validation
         sfi.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-validate")
@@ -220,9 +217,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             // if user was not logged in we should already have an error message in place so just return
             if (!userLoggedIn) return (Map<String, Object>) null
         }
-        if (sd != null && sd.getAuthenticate() == "true" && !eci.getUser().getUsername() && !eci.getUserFacade().loggedInAnonymous) {
+        if (sd != null && "true".equals(sd.authenticate) && eci.getUser().getUsername() == null && !eci.getUserFacade().getLoggedInAnonymous()) {
             if (ignorePreviousError) eci.getMessage().popErrors()
-            throw new AuthenticationRequiredException("User must be logged in to call service ${getServiceName()}")
+            throw new AuthenticationRequiredException("User must be logged in to call service ${serviceName}")
         }
 
         // pre authentication and authorization SECA rules
@@ -234,20 +231,20 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         //     the service on the stack)
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(getServiceName(), ArtifactExecutionInfo.AT_SERVICE,
                             ServiceDefinition.getVerbAuthzActionEnum(verb), serviceType).setParameters(currentParameters)
-        eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && sd.getAuthenticate() == "true"))
+        eci.getArtifactExecutionImpl().pushInternal(aei, (sd != null && "true".equals(sd.authenticate)))
 
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
         boolean loggedInAnonymous = false
-        if (sd != null && sd.getAuthenticate() == "anonymous-all") {
+        if (sd != null && "anonymous-all".equals(sd.authenticate)) {
             eci.getArtifactExecution().setAnonymousAuthorizedAll()
             loggedInAnonymous = ((UserFacadeImpl) eci.getUser()).loginAnonymousIfNoUser()
-        } else if (sd != null && sd.getAuthenticate() == "anonymous-view") {
+        } else if (sd != null && "anonymous-view".equals(sd.authenticate)) {
             eci.getArtifactExecution().setAnonymousAuthorizedView()
             loggedInAnonymous = ((UserFacadeImpl) eci.getUser()).loginAnonymousIfNoUser()
         }
 
         if (sd == null) {
-            if (isEntityAutoPattern()) {
+            if (sfi.isEntityAutoPattern(path, verb, noun)) {
                 try {
                     Map result = runImplicitEntityAuto(currentParameters, eci)
 
@@ -283,8 +280,8 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         // start with the settings for the default: use-or-begin
         boolean pauseResumeIfNeeded = false
         boolean beginTransactionIfNeeded = true
-        if (ignoreTransaction || sd.getTxIgnore()) beginTransactionIfNeeded = false
-        if (requireNewTransaction || sd.getTxForceNew()) pauseResumeIfNeeded = true
+        if (ignoreTransaction || sd.txIgnore) beginTransactionIfNeeded = false
+        if (requireNewTransaction || sd.txForceNew) pauseResumeIfNeeded = true
 
         TransactionFacade tf = sfi.getEcfi().getTransactionFacade()
         boolean suspendedTransaction = false
@@ -298,15 +295,15 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
 
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = beginTransactionIfNeeded ?
-                    tf.begin(transactionTimeout != null ? transactionTimeout : sd.getTxTimeout()) : false
-            if (sd.getNoTxCache()) {
+                    tf.begin(transactionTimeout != null ? transactionTimeout : sd.txTimeout) : false
+            if (sd.noTxCache) {
                 tf.flushAndDisableTransactionCache()
             } else {
-                if (useTransactionCache != null ? useTransactionCache.booleanValue() : sd.getTxUseCache()) tf.initTransactionCache()
+                if (useTransactionCache != null ? useTransactionCache.booleanValue() : sd.txUseCache) tf.initTransactionCache()
             }
             try {
                 // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
-                if (sd.internalHasSemaphore) checkAddSemaphore(sfi.ecfi, currentParameters)
+                if (sd.hasSemaphore) checkAddSemaphore(sfi.ecfi, currentParameters)
 
                 sfi.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service")
 
@@ -348,7 +345,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 }
             } finally {
                 // clear the semaphore
-                if (sd.internalHasSemaphore) clearSemaphore(sfi.ecfi, currentParameters)
+                if (sd.hasSemaphore) clearSemaphore(sfi.ecfi, currentParameters)
 
                 try {
                     if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
@@ -391,9 +388,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     }
 
     protected void clearSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
-        if (!sd.internalHasSemaphore) return
+        if (!sd.hasSemaphore) return
 
-        String semParameter = sd.getServiceNode().attribute('semaphore-parameter')
+        String semParameter = sd.serviceNode.attribute('semaphore-parameter')
         String parameterValue = semParameter ? currentParameters.get(semParameter) as String ?: '_NULL_' : '_NA_'
 
         ExecutionContextImpl eci = ecfi.getEci()
@@ -409,9 +406,9 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     }
 
     protected void checkAddSemaphore(ExecutionContextFactoryImpl ecfi, Map<String, Object> currentParameters) {
-        if (!sd.internalHasSemaphore) return
+        if (!sd.hasSemaphore) return
 
-        MNode serviceNode = sd.getServiceNode()
+        MNode serviceNode = sd.serviceNode
         String semaphore = serviceNode.attribute('semaphore')
 
         String semParameter = serviceNode.attribute('semaphore-parameter')
@@ -469,11 +466,11 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     }
 
     protected Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ExecutionContextImpl eci) {
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi
         // NOTE: no authentication, assume not required for this; security settings can override this and require
         //     permissions, which will require authentication
         // done in calling method: sfi.runSecaRules(getServiceName(), currentParameters, null, "pre-auth")
 
-        String serviceNameNoHash = getServiceNameNoHash()
         sfi.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-validate")
 
         // start with the settings for the default: use-or-begin
@@ -482,7 +479,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
         if (ignoreTransaction) beginTransactionIfNeeded = false
         if (requireNewTransaction) pauseResumeIfNeeded = true
 
-        TransactionFacade tf = sfi.getEcfi().getTransactionFacade()
+        TransactionFacade tf = ecfi.getTransactionFacade()
         boolean suspendedTransaction = false
         Map<String, Object> result = new HashMap()
         try {
@@ -493,26 +490,29 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 sfi.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service")
 
                 try {
-                    EntityDefinition ed = sfi.getEcfi().getEntityFacade(eci.tenantId).getEntityDefinition(noun)
-                    switch (verb) {
-                        case "create": EntityAutoServiceRunner.createEntity(sfi, ed, currentParameters, result, null); break
-                        case "update": EntityAutoServiceRunner.updateEntity(sfi, ed, currentParameters, result, null, null); break
-                        case "delete": EntityAutoServiceRunner.deleteEntity(sfi, ed, currentParameters); break
-                        case "store": EntityAutoServiceRunner.storeEntity(sfi, ed, currentParameters, result, null); break
-                        // NOTE: no need to throw exception for other verbs, checked in advance when looking for valid service name by entity auto pattern
+                    EntityDefinition ed = ecfi.getEntityFacade(eci.tenantId).getEntityDefinition(noun)
+                    if ("create".equals(verb)) {
+                        EntityAutoServiceRunner.createEntity(sfi, ed, currentParameters, result, null)
+                    } else if ("update".equals(verb)) {
+                        EntityAutoServiceRunner.updateEntity(sfi, ed, currentParameters, result, null, null)
+                    } else if ("delete".equals(verb)) {
+                        EntityAutoServiceRunner.deleteEntity(sfi, ed, currentParameters)
+                    } else if ("store".equals(verb)) {
+                        EntityAutoServiceRunner.storeEntity(sfi, ed, currentParameters, result, null)
                     }
+                    // NOTE: no need to throw exception for other verbs, checked in advance when looking for valid service name by entity auto pattern
                 } finally {
                     sfi.registerTxSecaRules(serviceNameNoHash, currentParameters, result)
                 }
 
                 sfi.runSecaRules(serviceNameNoHash, currentParameters, result, "post-service")
             } catch (ArtifactAuthorizationException e) {
-                tf.rollback(beganTransaction, "Authorization error running service [${getServiceName()}] ", e)
+                tf.rollback(beganTransaction, "Authorization error running service ${getServiceName()}", e)
                 // this is a local call, pass certain exceptions through
                 throw e
             } catch (Throwable t) {
-                logger.error("Error running service [${getServiceName()}]", t)
-                tf.rollback(beganTransaction, "Error running service [${getServiceName()}] (Throwable)", t)
+                logger.error("Error running service ${getServiceName()}", t)
+                tf.rollback(beganTransaction, "Error running service ${getServiceName()} (Throwable)", t)
                 // add all exception messages to the error messages list
                 eci.getMessage().addError(t.getMessage())
                 Throwable parent = t.getCause()
@@ -524,7 +524,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
                 try {
                     if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
                 } catch (Throwable t) {
-                    logger.warn("Error committing transaction for entity-auto service [${getServiceName()}]", t)
+                    logger.warn("Error committing transaction for entity-auto service ${getServiceName()}", t)
                     // add all exception messages to the error messages list
                     eci.getMessage().addError(t.getMessage())
                     Throwable parent = t.getCause()

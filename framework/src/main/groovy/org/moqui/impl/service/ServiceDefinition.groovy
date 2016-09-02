@@ -18,14 +18,12 @@ import org.apache.commons.validator.routines.CreditCardValidator
 import org.apache.commons.validator.routines.EmailValidator
 import org.apache.commons.validator.routines.UrlValidator
 import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.service.ServiceJavaUtil.ParameterInfo
 import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
-import org.moqui.service.ServiceException
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -37,29 +35,39 @@ class ServiceDefinition {
     protected final static EmailValidator emailValidator = EmailValidator.getInstance()
     protected final static UrlValidator urlValidator = new UrlValidator(UrlValidator.ALLOW_ALL_SCHEMES)
 
-    protected ServiceFacadeImpl sfi
-    protected MNode serviceNode
-    protected MNode inParametersNode
-    protected MNode outParametersNode
-    Map<String, ParameterInfo> inParameterInfoMap = new LinkedHashMap<>()
-    Map<String, ParameterInfo> outParameterInfoMap = new LinkedHashMap<>()
-    ArrayList<String> inParameterNameList = new ArrayList<>()
-    ArrayList<String> outParameterNameList = new ArrayList<>()
+    static final Map<String, Long> creditCardTypeMap =
+            [visa:CreditCardValidator.VISA, mastercard:CreditCardValidator.MASTERCARD,
+                    amex:CreditCardValidator.AMEX, discover:CreditCardValidator.DISCOVER,
+                    dinersclub:CreditCardValidator.DINERS]
+    static final long allCreditCards = CreditCardValidator.VISA + CreditCardValidator.MASTERCARD +
+            CreditCardValidator.AMEX + CreditCardValidator.DISCOVER + CreditCardValidator.DINERS
 
-    protected String path = null
-    protected String verb = null
-    protected String noun = null
-    protected XmlAction xmlAction = null
+    public final ServiceFacadeImpl sfi
+    public final MNode serviceNode
+    public final MNode inParametersNode
+    public final MNode outParametersNode
+    final LinkedHashMap<String, ParameterInfo> inParameterInfoMap = new LinkedHashMap<>()
+    final LinkedHashMap<String, ParameterInfo> outParameterInfoMap = new LinkedHashMap<>()
+    final ArrayList<String> inParameterNameList = new ArrayList<>()
+    final ArrayList<String> outParameterNameList = new ArrayList<>()
 
-    protected String internalAuthenticate
-    protected String internalServiceType
-    protected boolean internalTxIgnore
-    protected boolean internalTxForceNew
-    protected boolean internalTxUseCache
-    protected boolean internalNoTxCache
-    protected Integer internalTransactionTimeout
-    protected boolean internalValidate
-    protected boolean internalHasSemaphore
+    public final String path
+    public final String verb
+    public final String noun
+    public final String serviceName
+    public final String serviceNameNoHash
+    public final String location, method
+    public final XmlAction xmlAction
+
+    public final String authenticate
+    public final String serviceType
+    public final boolean txIgnore
+    public final boolean txForceNew
+    public final boolean txUseCache
+    public final boolean noTxCache
+    public final Integer txTimeout
+    public final boolean validate
+    public final boolean hasSemaphore
 
     ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
         this.sfi = sfi
@@ -68,6 +76,11 @@ class ServiceDefinition {
         this.verb = serviceNode.attribute("verb")
         this.noun = serviceNode.attribute("noun")
 
+        serviceName = makeServiceName(path, verb, noun)
+        serviceNameNoHash = makeServiceNameNoHash(path, verb, noun)
+        location = serviceNode.attribute("location")
+        method = serviceNode.attribute("method")
+
         MNode inParameters = new MNode("in-parameters", null)
         MNode outParameters = new MNode("out-parameters", null)
 
@@ -75,21 +88,22 @@ class ServiceDefinition {
         if (serviceNode.hasChild("implements")) for (MNode implementsNode in serviceNode.children("implements")) {
             String implServiceName = implementsNode.attribute("service")
             String implRequired = implementsNode.attribute("required") // no default here, only used if has a value
+            if (implRequired != null && implRequired.isEmpty()) implRequired = (String) null
             ServiceDefinition sd = sfi.getServiceDefinition(implServiceName)
-            if (sd == null) throw new IllegalArgumentException("Service [${implServiceName}] not found, specified in service.implements in service [${getServiceName()}]")
+            if (sd == null) throw new IllegalArgumentException("Service [${implServiceName}] not found, specified in service.implements in service [${serviceName}]")
 
             // these are the first params to be set, so just deep copy them over
             if (sd.serviceNode.first("in-parameters")?.hasChild("parameter")) {
                 for (MNode parameter in sd.serviceNode.first("in-parameters").children("parameter")) {
                     MNode newParameter = parameter.deepCopy(null)
-                    if (implRequired) newParameter.attributes.put("required", implRequired)
+                    if (implRequired != null) newParameter.attributes.put("required", implRequired)
                     inParameters.append(newParameter)
                 }
             }
             if (sd.serviceNode.first("out-parameters")?.hasChild("parameter")) {
                 for (MNode parameter in sd.serviceNode.first("out-parameters").children("parameter")) {
                     MNode newParameter = parameter.deepCopy(null)
-                    if (implRequired) newParameter.attributes.put("required", implRequired)
+                    if (implRequired != null) newParameter.attributes.put("required", implRequired)
                     outParameters.append(newParameter)
                 }
             }
@@ -114,52 +128,37 @@ class ServiceDefinition {
             }
         }
 
-        /*
-        // expand auto-parameters in in-parameters and out-parameters
-        if (serviceNode."in-parameters"?.getAt(0)?."auto-parameters")
-            for (Node autoParameters in serviceNode."in-parameters"[0]."auto-parameters")
-                mergeAutoParameters(inParameters, autoParameters)
-        if (serviceNode."out-parameters"?.getAt(0)?."auto-parameters")
-            for (Node autoParameters in serviceNode."out-parameters"[0]."auto-parameters")
-                mergeAutoParameters(outParameters, autoParameters)
-
-        // merge in the explicitly defined parameter elements
-        if (serviceNode."in-parameters"?.getAt(0)?."parameter")
-            for (Node parameterNode in serviceNode."in-parameters"[0]."parameter")
-                mergeParameter(inParameters, parameterNode)
-        if (serviceNode."out-parameters"?.getAt(0)?."parameter")
-            for (Node parameterNode in serviceNode."out-parameters"[0]."parameter")
-                mergeParameter(outParameters, parameterNode)
-        */
-
         // replace the in-parameters and out-parameters Nodes for the service
         if (serviceNode.hasChild("in-parameters")) serviceNode.remove("in-parameters")
         serviceNode.append(inParameters)
         if (serviceNode.hasChild("out-parameters")) serviceNode.remove("out-parameters")
         serviceNode.append(outParameters)
 
-        if (logger.traceEnabled) logger.trace("After merge for service [${getServiceName()}] node is:\n${FtlNodeWrapper.prettyPrintNode(serviceNode)}")
+        if (logger.traceEnabled) logger.trace("After merge for service [${serviceName}] node is:\n${FtlNodeWrapper.prettyPrintNode(serviceNode)}")
 
         // if this is an inline service, get that now
         if (serviceNode.hasChild("actions")) {
-            xmlAction = new XmlAction(sfi.ecfi, serviceNode.first("actions"), getServiceName())
+            xmlAction = new XmlAction(sfi.ecfi, serviceNode.first("actions"), serviceName)
+        } else {
+            xmlAction = (XmlAction) null
         }
 
-        internalAuthenticate = serviceNode.attribute("authenticate") ?: "true"
-        internalServiceType = serviceNode.attribute("type") ?: "inline"
-        internalTxIgnore = (serviceNode.attribute("transaction") == "ignore")
-        internalTxForceNew = (serviceNode.attribute("transaction") == "force-new" || serviceNode.attribute("transaction") == "force-cache")
-        internalTxUseCache = (serviceNode.attribute("transaction") == "cache" || serviceNode.attribute("transaction") == "force-cache")
-        internalNoTxCache = serviceNode.attribute("no-tx-cache") == "true"
+        authenticate = serviceNode.attribute("authenticate") ?: "true"
+        serviceType = serviceNode.attribute("type") ?: "inline"
+        String transactionAttr = serviceNode.attribute("transaction")
+        txIgnore = "ignore".equals(transactionAttr)
+        txForceNew = "force-new".equals(transactionAttr) || "force-cache".equals(transactionAttr)
+        txUseCache = "cache".equals(transactionAttr) || "force-cache".equals(transactionAttr)
+        noTxCache = serviceNode.attribute("no-tx-cache") == "true"
         if (serviceNode.attribute("transaction-timeout")) {
-            internalTransactionTimeout = serviceNode.attribute("transaction-timeout") as Integer
+            txTimeout = serviceNode.attribute("transaction-timeout") as Integer
         } else {
-            internalTransactionTimeout = null
+            txTimeout = null
         }
         // validate defaults to true
-        internalValidate = serviceNode.attribute("validate") != "false"
+        validate = serviceNode.attribute("validate") != "false"
         String semaphore = serviceNode.attribute("semaphore")
-        internalHasSemaphore = semaphore != null && semaphore.length() > 0 && semaphore != "none"
+        hasSemaphore = semaphore != null && semaphore.length() > 0 && semaphore != "none"
 
         inParametersNode = serviceNode.first("in-parameters")
         outParametersNode = serviceNode.first("out-parameters")
@@ -178,9 +177,9 @@ class ServiceDefinition {
 
     void mergeAutoParameters(MNode parametersNode, MNode autoParameters) {
         String entityName = autoParameters.attribute("entity-name") ?: this.noun
-        if (!entityName) throw new IllegalArgumentException("Error in auto-parameters in service [${getServiceName()}], no auto-parameters.@entity-name and no service.@noun for a default")
+        if (!entityName) throw new IllegalArgumentException("Error in auto-parameters in service [${serviceName}], no auto-parameters.@entity-name and no service.@noun for a default")
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName)
-        if (ed == null) throw new IllegalArgumentException("Error in auto-parameters in service [${getServiceName()}], the entity-name or noun [${entityName}] is not a valid entity name")
+        if (ed == null) throw new IllegalArgumentException("Error in auto-parameters in service [${serviceName}], the entity-name or noun [${entityName}] is not a valid entity name")
 
         Set<String> fieldsToExclude = new HashSet<String>()
         for (MNode excludeNode in autoParameters.children("exclude")) {
@@ -233,10 +232,11 @@ class ServiceDefinition {
         return baseParameterNode
     }
 
+    /*
     ServiceFacadeImpl getServiceFacade() { return sfi }
     MNode getServiceNode() { return serviceNode }
 
-    String getServiceName() { return (path ? path + "." : "") + verb + (noun ? "#" + noun : "") }
+    String getServiceName() { return serviceName }
     String getPath() { return path }
     String getVerb() { return verb }
     String getNoun() { return noun }
@@ -248,6 +248,16 @@ class ServiceDefinition {
     boolean getTxUseCache() { return internalTxUseCache }
     boolean getNoTxCache() { return internalNoTxCache }
     Integer getTxTimeout() { return internalTransactionTimeout }
+
+    XmlAction getXmlAction() { return xmlAction }
+    */
+
+    static String makeServiceName(String path, String verb, String noun) {
+        return (path != null && !path.isEmpty() ? path + "." : "") + verb + (noun != null && !noun.isEmpty() ? "#" + noun : "")
+    }
+    static String makeServiceNameNoHash(String path, String verb, String noun) {
+        return (path != null && !path.isEmpty() ? path + "." : "") + verb + (noun != null ? noun : "")
+    }
 
     static String getPathFromName(String serviceName) {
         String p = serviceName
@@ -268,16 +278,6 @@ class ServiceDefinition {
         return serviceName.substring(serviceName.lastIndexOf("#") + 1)
     }
 
-    /* no longer used, TODO remove:
-    static final Map<String, String> verbAuthzActionIdMap = [create:'AUTHZA_CREATE', update:'AUTHZA_UPDATE',
-            store:'AUTHZA_UPDATE', delete:'AUTHZA_DELETE', view:'AUTHZA_VIEW', find:'AUTHZA_VIEW']
-    static String getVerbAuthzActionId(String theVerb) {
-        // default to require the "All" authz action, and for special verbs default to something more appropriate
-        String authzAction = verbAuthzActionIdMap.get(theVerb)
-        if (authzAction == null) authzAction = 'AUTHZA_ALL'
-        return authzAction
-    }
-    */
     static final Map<String, ArtifactExecutionInfo.AuthzAction> verbAuthzActionEnumMap = [
             create:ArtifactExecutionInfo.AUTHZA_CREATE, update:ArtifactExecutionInfo.AUTHZA_UPDATE,
             store :ArtifactExecutionInfo.AUTHZA_UPDATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
@@ -289,18 +289,18 @@ class ServiceDefinition {
         return authzAction
     }
 
-    String getLocation() {
-        // TODO: see if the location is an alias from the conf -> service-facade
-        return serviceNode.attribute('location')
+    MNode getInParameter(String name) {
+        ParameterInfo pi = (ParameterInfo) inParameterInfoMap.get(name)
+        if (pi == null) return null
+        return pi.parameterNode
     }
-    String getMethod() { return serviceNode.attribute('method') }
-
-    XmlAction getXmlAction() { return xmlAction }
-
-    MNode getInParameter(String name) { return inParametersNode != null ? inParametersNode.children("parameter").find({ it.attribute("name") == name }) : null }
     ArrayList<String> getInParameterNames() { return inParameterNameList }
 
-    MNode getOutParameter(String name) { return outParametersNode != null ? outParametersNode.children("parameter").find({ it.attribute("name" )== name }) : null }
+    MNode getOutParameter(String name) {
+        ParameterInfo pi = (ParameterInfo) outParameterInfoMap.get(name)
+        if (pi == null) return null
+        return pi.parameterNode
+    }
     ArrayList<String> getOutParameterNames() { return outParameterNameList }
 
     void convertValidateCleanParameters(Map<String, Object> parameters, ExecutionContextImpl eci) {
@@ -322,10 +322,10 @@ class ServiceDefinition {
             String parameterName = (String) parameterNameList.get(i)
             ParameterInfo parameterInfo = (ParameterInfo) parameterInfoMap.get(parameterName)
             if (parameterInfo == null) {
-                if (internalValidate) {
+                if (validate) {
                     parameters.remove(parameterName)
                     if (logger.isTraceEnabled() && parameterName != "ec")
-                        logger.trace("Parameter [${namePrefix}${parameterName}] was passed to service [${getServiceName()}] but is not defined as an in parameter, removing from parameters.")
+                        logger.trace("Parameter [${namePrefix}${parameterName}] was passed to service [${serviceName}] but is not defined as an in parameter, removing from parameters.")
                 }
                 // even if we are not validating, ie letting extra parameters fall through in this case, we don't want to do the type convert or anything
                 continue
@@ -351,8 +351,8 @@ class ServiceDefinition {
                     }
                 }
                 // if required and still empty (nothing from default), complain
-                if (internalValidate && parameterInfo.required && parameterIsEmpty)
-                    eci.message.addValidationError(null, "${namePrefix}${parameterName}", getServiceName(), eci.l10n.localize("Field cannot be empty"), null)
+                if (validate && parameterInfo.required && parameterIsEmpty)
+                    eci.message.addValidationError(null, "${namePrefix}${parameterName}", serviceName, eci.l10n.localize("Field cannot be empty"), null)
             }
 
             if (!parameterIsEmpty) {
@@ -365,7 +365,7 @@ class ServiceDefinition {
                     parameters.put(parameterName, parameterValue)
                 }
 
-                if (internalValidate) {
+                if (validate) {
                     Object htmlValidated = ServiceJavaUtil.validateParameterHtml(parameterInfo, this, namePrefix, parameterName, parameterValue, eci)
                     // put the final parameterValue back into the parameters Map
                     if (htmlValidated != null) {
@@ -381,7 +381,7 @@ class ServiceDefinition {
                             validateParameterSingle(valNode, parameterName, parameterValue, eci)
                         } catch (Throwable t) {
                             logger.error("Error in validation", t)
-                            eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}','',[parameterValue:parameterValue,valNode:valNode, t:t]), null)
+                            eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}','',[parameterValue:parameterValue,valNode:valNode, t:t]), null)
                         }
                     }
                 }
@@ -442,14 +442,14 @@ class ServiceDefinition {
             return !allPass
         case "matches":
             if (!(pv instanceof CharSequence)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is not a string, cannot do matches validation.','',[pv:pv]), null)
+                eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}) is not a string, cannot do matches validation.','',[pv:pv]), null)
                 return false
             }
             String pvString = pv.toString()
             String regexp = (String) valNode.attribute('regexp')
             if (regexp && !pvString.matches(regexp)) {
                 // a message attribute should always be there, but just in case we'll have a default
-                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand((valNode.attribute('message') ?: 'Value entered (${pv}) did not match expression: ${regexp}'),'',[pv:pv,regexp:regexp]), null)
+                eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand((valNode.attribute('message') ?: 'Value entered (${pv}) did not match expression: ${regexp}'),'',[pv:pv,regexp:regexp]), null)
                 return false
             }
             return true
@@ -461,12 +461,12 @@ class ServiceDefinition {
                 BigDecimal min = new BigDecimal(minStr)
                 if (valNode.attribute('min-include-equals') == "false") {
                     if (bdVal <= min) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is less than or equal to ${min} must be greater than.','',[pv:pv,min:min]), null)
+                        eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}) is less than or equal to ${min} must be greater than.','',[pv:pv,min:min]), null)
                         return false
                     }
                 } else {
                     if (bdVal < min) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is less than ${min} and must be greater than or equal to.','',[pv:pv,min:min]), null)
+                        eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}) is less than ${min} and must be greater than or equal to.','',[pv:pv,min:min]), null)
                         return false
                     }
                 }
@@ -476,12 +476,12 @@ class ServiceDefinition {
                 BigDecimal max = new BigDecimal(maxStr)
                 if (valNode.attribute('max-include-equals') == "true") {
                     if (bdVal > max) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is greater than ${max} and must be less than or equal to.','',[pv:pv,max:max]), null)
+                        eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}) is greater than ${max} and must be less than or equal to.','',[pv:pv,max:max]), null)
                         return false
                     }
                 } else {
                     if (bdVal >= max) {
-                        eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is greater than or equal to ${max} and must be less than.','',[pv:pv,max:max]), null)
+                        eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}) is greater than or equal to ${max} and must be less than.','',[pv:pv,max:max]), null)
                         return false
                     }
                 }
@@ -492,7 +492,7 @@ class ServiceDefinition {
                 new BigInteger(pv as String)
             } catch (NumberFormatException e) {
                 if (logger.isTraceEnabled()) logger.trace("Adding error message for NumberFormatException for BigInteger parse: ${e.toString()}")
-                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${pv}] is not a whole (integer) number.','',[pv:pv]), null)
+                eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value [${pv}] is not a whole (integer) number.','',[pv:pv]), null)
                 return false
             }
             return true
@@ -501,7 +501,7 @@ class ServiceDefinition {
                 new BigDecimal(pv as String)
             } catch (NumberFormatException e) {
                 if (logger.isTraceEnabled()) logger.trace("Adding error message for NumberFormatException for BigDecimal parse: ${e.toString()}")
-                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${pv}] is not a decimal number.','',[pv:pv]), null)
+                eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value [${pv}] is not a decimal number.','',[pv:pv]), null)
                 return false
             }
             return true
@@ -511,7 +511,7 @@ class ServiceDefinition {
             if (minStr) {
                 int min = minStr as int
                 if (str.length() < min) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}), length ${str.length()}, is shorter than ${minStr} characters.','',[pv:pv,str:str,minStr:minStr]), null)
+                    eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}), length ${str.length()}, is shorter than ${minStr} characters.','',[pv:pv,str:str,minStr:minStr]), null)
                     return false
                 }
             }
@@ -519,7 +519,7 @@ class ServiceDefinition {
             if (maxStr) {
                 int max = maxStr as int
                 if (str.length() > max) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}), length ${str.length()}, is longer than ${maxStr} characters.','',[pv:pv,str:str,maxStr:maxStr]), null)
+                    eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}), length ${str.length()}, is longer than ${maxStr} characters.','',[pv:pv,str:str,maxStr:maxStr]), null)
                     return false
                 }
             }
@@ -527,14 +527,14 @@ class ServiceDefinition {
         case "text-email":
             String str = pv as String
             if (!emailValidator.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid email address.','',[str:str]), null)
+                eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${str}) is not a valid email address.','',[str:str]), null)
                 return false
             }
             return true
         case "text-url":
             String str = pv as String
             if (!urlValidator.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid URL.','',[str:str]), null)
+                eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${str}) is not a valid URL.','',[str:str]), null)
                 return false
             }
             return true
@@ -542,7 +542,7 @@ class ServiceDefinition {
             String str = pv as String
             for (char c in str.getChars()) {
                 if (!Character.isLetter(c)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) must have only letters.','',[str:str]), null)
+                    eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${str}) must have only letters.','',[str:str]), null)
                     return false
                 }
             }
@@ -551,7 +551,7 @@ class ServiceDefinition {
             String str = pv as String
             for (char c in str.getChars()) {
                 if (!Character.isDigit(c)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value [${str}] must have only digits.','',[str:str]), null)
+                    eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value [${str}] must have only digits.','',[str:str]), null)
                     return false
                 }
             }
@@ -578,7 +578,7 @@ class ServiceDefinition {
                     compareCal = eci.l10n.parseDateTime(after, format)
                 }
                 if (cal && !cal.after(compareCal)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is before ${after}.','',[pv:pv,after:after]), null)
+                    eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}) is before ${after}.','',[pv:pv,after:after]), null)
                     return false
                 }
             }
@@ -593,7 +593,7 @@ class ServiceDefinition {
                     compareCal = eci.l10n.parseDateTime(before, format)
                 }
                 if (cal && !cal.before(compareCal)) {
-                    eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${pv}) is after ${before}.','',[pv:pv]), null)
+                    eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${pv}) is after ${before}.','',[pv:pv]), null)
                     return false
                 }
             }
@@ -610,7 +610,7 @@ class ServiceDefinition {
             CreditCardValidator ccv = new CreditCardValidator(creditCardTypes)
             String str = pv as String
             if (!ccv.isValid(str)) {
-                eci.message.addValidationError(null, parameterName, getServiceName(), eci.resource.expand('Value entered (${str}) is not a valid credit card number.','',[str:str]), null)
+                eci.message.addValidationError(null, parameterName, serviceName, eci.resource.expand('Value entered (${str}) is not a valid credit card number.','',[str:str]), null)
                 return false
             }
             return true
@@ -618,11 +618,4 @@ class ServiceDefinition {
         // shouldn't get here, but just in case
         return true
     }
-
-    static final Map<String, Long> creditCardTypeMap =
-            [visa:CreditCardValidator.VISA, mastercard:CreditCardValidator.MASTERCARD,
-                    amex:CreditCardValidator.AMEX, discover:CreditCardValidator.DISCOVER,
-                    dinersclub:CreditCardValidator.DINERS]
-    static final long allCreditCards = CreditCardValidator.VISA + CreditCardValidator.MASTERCARD +
-            CreditCardValidator.AMEX + CreditCardValidator.DISCOVER + CreditCardValidator.DINERS
 }

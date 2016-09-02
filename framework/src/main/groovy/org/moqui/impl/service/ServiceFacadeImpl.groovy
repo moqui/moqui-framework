@@ -36,7 +36,7 @@ import java.util.concurrent.*
 class ServiceFacadeImpl implements ServiceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceFacadeImpl.class)
 
-    protected final ExecutionContextFactoryImpl ecfi
+    public final ExecutionContextFactoryImpl ecfi
 
     protected final Cache<String, ServiceDefinition> serviceLocationCache
 

@@ -80,7 +80,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
             XmlRpcHttpRequestConfig config = (XmlRpcHttpRequestConfig) xmlRpcRequest.getConfig()
 
             ServiceDefinition sd = eci.ecfi.getServiceFacade().getServiceDefinition(xmlRpcRequest.getMethodName())
-            if (sd != null && sd.getAuthenticate() == "true") {
+            if (sd != null && "true".equals(sd.authenticate)) {
                 return eci.user.loginUser(config.getBasicUserName(), config.getBasicPassword(), null)
             } else {
                 return true

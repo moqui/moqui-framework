@@ -65,17 +65,17 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                 if (!sd.getInParameter(pkFieldName) || sd.getOutParameter(pkFieldName)) { allPksInOnly = false; break }
             }
 
-            if ("create" == sd.verb) {
+            if ("create".equals(sd.verb)) {
                 createEntity(sfi, ed, parameters, result, sd.getOutParameterNames())
-            } else if ("update" == sd.verb) {
+            } else if ("update".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
                 if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with update noun, not all pk fields have the mode IN")
                 updateEntity(sfi, ed, parameters, result, sd.getOutParameterNames(), null)
-            } else if ("delete" == sd.verb) {
+            } else if ("delete".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
                 if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with delete noun, not all pk fields have the mode IN")
                 deleteEntity(sfi, ed, parameters)
-            } else if ("store" == sd.verb) {
+            } else if ("store".equals(sd.verb)) {
                 storeEntity(sfi, ed, parameters, result, sd.getOutParameterNames())
             } else if ("update-expire" == sd.verb) {
                 // TODO
@@ -178,7 +178,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
     static void createRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
                                 Map<String, Object> result, ArrayList<String> outParamNames, Map<String, Object> parentPks) {
-        EntityValue newEntityValue = efi.makeValue(ed.getFullEntityName())
+        EntityValue newEntityValue = ed.makeEntityValue()
 
         checkFromDate(ed, parameters, result, ecfi)
 

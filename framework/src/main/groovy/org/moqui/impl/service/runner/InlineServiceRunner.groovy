@@ -49,7 +49,7 @@ public class InlineServiceRunner implements ServiceRunner {
             Map<String, Object> autoResult = new HashMap<>()
             cs.put("result", autoResult)
 
-            XmlAction xa = sd.getXmlAction()
+            XmlAction xa = sd.xmlAction
             Object result = xa.run(ec)
 
             if (result instanceof Map) {

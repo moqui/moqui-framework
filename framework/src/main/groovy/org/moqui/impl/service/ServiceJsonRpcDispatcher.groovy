@@ -90,7 +90,7 @@ public class ServiceJsonRpcDispatcher {
         Map result = null
         if (errorMessage == null) {
             try {
-                result = eci.service.sync().name(sd.getServiceName()).parameters((Map) paramsObj).call()
+                result = eci.service.sync().name(sd.serviceName).parameters((Map) paramsObj).call()
                 if (eci.getMessage().hasError()) {
                     logger.warn("Got errors in JSON-RPC call to service [${sd.serviceName}]: ${eci.message.errorsString}")
                     errorMessage = eci.message.errorsString
@@ -98,12 +98,12 @@ public class ServiceJsonRpcDispatcher {
                     errorCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR
                 }
             } catch (ArtifactAuthorizationException e) {
-                logger.error("Authz error calling service ${sd.getServiceName()} from JSON-RPC request: ${e.toString()}", e)
+                logger.error("Authz error calling service ${sd.serviceName} from JSON-RPC request: ${e.toString()}", e)
                 errorMessage = e.getMessage()
                 // could use whatever code here as long as it is not -32768 to -32000, this was chosen somewhat arbitrarily
                 errorCode = HttpServletResponse.SC_FORBIDDEN
             } catch (Exception e) {
-                logger.error("Error calling service ${sd.getServiceName()} from JSON-RPC request: ${e.toString()}", e)
+                logger.error("Error calling service ${sd.serviceName} from JSON-RPC request: ${e.toString()}", e)
                 errorMessage = e.getMessage()
                 // could use whatever code here as long as it is not -32768 to -32000, this was chosen somewhat arbitrarily
                 errorCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR
