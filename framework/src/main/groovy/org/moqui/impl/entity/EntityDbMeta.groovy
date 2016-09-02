@@ -387,36 +387,34 @@ class EntityDbMeta {
         if (databaseNode.attribute("use-foreign-key-indexes") == "false") return
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
-            String relatedEntityName = relInfo.relatedEntityName
+            String relatedEntityName = relInfo.relatedEd.entityInfo.internalEntityName
 
             StringBuilder indexName = new StringBuilder()
             if (relInfo.relNode.attribute("fk-name")) indexName.append(relInfo.relNode.attribute("fk-name"))
             if (!indexName) {
                 String title = relInfo.title ?: ""
-                String entityName = ed.getEntityName()
+                String edEntityName = ed.entityInfo.internalEntityName
+                int edEntityNameLength = edEntityName.length()
 
                 int commonChars = 0
-                while (title.length() > commonChars && entityName.length() > commonChars &&
-                        title.charAt(commonChars) == entityName.charAt(commonChars)) commonChars++
-
-                if (relatedEntityName.contains("."))
-                    relatedEntityName = relatedEntityName.substring(relatedEntityName.lastIndexOf(".") + 1)
+                while (title.length() > commonChars && edEntityNameLength > commonChars &&
+                        title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++
 
                 int relLength = relatedEntityName.length()
                 int relEndCommonChars = relatedEntityName.length() - 1
-                while (relEndCommonChars > 0 && entityName.length() > relEndCommonChars &&
-                        relatedEntityName.charAt(relEndCommonChars) == entityName.charAt(entityName.length() - (relLength - relEndCommonChars)))
+                while (relEndCommonChars > 0 && edEntityNameLength > relEndCommonChars &&
+                        relatedEntityName.charAt(relEndCommonChars) == edEntityName.charAt(edEntityNameLength - (relLength - relEndCommonChars)))
                     relEndCommonChars--
 
                 if (commonChars > 0) {
-                    indexName.append(ed.entityName)
+                    indexName.append(edEntityName)
                     for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) indexName.append(cc)
                     indexName.append(title.substring(commonChars))
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
                     if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
                         if (cc.isUpperCase()) indexName.append(cc)
                 } else {
-                    indexName.append(ed.entityName).append(title)
+                    indexName.append(edEntityName).append(title)
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
                     if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
                         if (cc.isUpperCase()) indexName.append(cc)
@@ -557,19 +555,17 @@ class EntityDbMeta {
             if (relInfo.relNode.attribute("fk-name")) constraintName.append(relInfo.relNode.attribute("fk-name"))
             if (!constraintName) {
                 String title = relInfo.title ?: ""
+                String edEntityName = ed.entityInfo.internalEntityName
                 int commonChars = 0
-                while (title.length() > commonChars && ed.entityName.length() > commonChars &&
-                        title.charAt(commonChars) == ed.entityName.charAt(commonChars)) commonChars++
-                // related-entity-name may have the entity's package in it; if so, remove it
-                String relatedEntityName = relInfo.relatedEntityName
-                if (relatedEntityName.contains("."))
-                    relatedEntityName = relatedEntityName.substring(relatedEntityName.lastIndexOf(".")+1)
+                while (title.length() > commonChars && edEntityName.length() > commonChars &&
+                        title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++
+                String relatedEntityName = relEd.entityInfo.internalEntityName
                 if (commonChars > 0) {
-                    constraintName.append(ed.entityName)
+                    constraintName.append(ed.entityInfo.internalEntityName)
                     for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) constraintName.append(cc)
                     constraintName.append(title.substring(commonChars)).append(relatedEntityName)
                 } else {
-                    constraintName.append(ed.entityName).append(title).append(relatedEntityName)
+                    constraintName.append(ed.entityInfo.internalEntityName).append(title).append(relatedEntityName)
                 }
                 // logger.warn("ed.getFullEntityName()=${ed.entityName}, title=${title}, commonChars=${commonChars}, constraintName=${constraintName}")
             }

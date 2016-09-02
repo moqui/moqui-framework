@@ -650,15 +650,15 @@ class EntityFacadeImpl implements EntityFacade {
             ed = new EntityDefinition(this, dbViewNode)
 
             // cache it under entityName, fullEntityName, and short-alias
-            String fullEntityName = ed.getFullEntityName()
+            String fullEntityName = ed.fullEntityName
             if (fullEntityName.startsWith("moqui.")) {
-                frameworkEntityDefinitions.put(ed.getEntityName(), ed)
-                frameworkEntityDefinitions.put(ed.getFullEntityName(), ed)
-                if (ed.getShortAlias()) frameworkEntityDefinitions.put(ed.getShortAlias(), ed)
+                frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed)
+                frameworkEntityDefinitions.put(fullEntityName, ed)
+                if (ed.entityInfo.shortAlias) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed)
             } else {
-                entityDefinitionCache.put(ed.getEntityName(), ed)
-                entityDefinitionCache.put(ed.getFullEntityName(), ed)
-                if (ed.getShortAlias()) entityDefinitionCache.put(ed.getShortAlias(), ed)
+                entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed)
+                entityDefinitionCache.put(fullEntityName, ed)
+                if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
             }
             // send it on its way
             return ed
@@ -751,15 +751,15 @@ class EntityFacadeImpl implements EntityFacade {
         // create the new EntityDefinition
         ed = new EntityDefinition(this, entityNode)
         // cache it under entityName, fullEntityName, and short-alias
-        String fullEntityName = ed.getFullEntityName()
+        String fullEntityName = ed.fullEntityName
         if (fullEntityName.startsWith("moqui.")) {
-            frameworkEntityDefinitions.put(ed.getEntityName(), ed)
-            frameworkEntityDefinitions.put(ed.getFullEntityName(), ed)
-            if (ed.getShortAlias()) frameworkEntityDefinitions.put(ed.getShortAlias(), ed)
+            frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed)
+            frameworkEntityDefinitions.put(fullEntityName, ed)
+            if (ed.entityInfo.shortAlias) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed)
         } else {
-            entityDefinitionCache.put(ed.getEntityName(), ed)
-            entityDefinitionCache.put(ed.getFullEntityName(), ed)
-            if (ed.getShortAlias()) entityDefinitionCache.put(ed.getShortAlias(), ed)
+            entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed)
+            entityDefinitionCache.put(fullEntityName, ed)
+            if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
         }
         // send it on its way
         return ed
@@ -774,7 +774,7 @@ class EntityFacadeImpl implements EntityFacade {
             try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
             if (ed == null) continue
-            String edEntityName = ed.entityName
+            String edEntityName = ed.entityInfo.internalEntityName
             String edFullEntityName = ed.fullEntityName
             List<String> pkSet = ed.getPkFieldNames()
             ArrayList<MNode> relationshipList = ed.entityNode.children("relationship")
@@ -1020,9 +1020,9 @@ class EntityFacadeImpl implements EntityFacade {
     void clearEntityDefinitionFromCache(String entityName) {
         EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
         if (ed != null) {
-            this.entityDefinitionCache.remove(ed.getEntityName())
-            this.entityDefinitionCache.remove(ed.getFullEntityName())
-            if (ed.getShortAlias()) this.entityDefinitionCache.remove(ed.getShortAlias())
+            this.entityDefinitionCache.remove(ed.entityInfo.internalEntityName)
+            this.entityDefinitionCache.remove(ed.fullEntityName)
+            if (ed.entityInfo.shortAlias) this.entityDefinitionCache.remove(ed.entityInfo.shortAlias)
         }
     }
 
@@ -1046,7 +1046,7 @@ class EntityFacadeImpl implements EntityFacade {
                 if (ed.getPkFieldNames().size() > 1) continue
             }
 
-            eil.add([entityName:ed.entityName, "package":ed.entityNode.attribute("package"),
+            eil.add([entityName:ed.entityInfo.internalEntityName, "package":ed.entityNode.attribute("package"),
                     isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 

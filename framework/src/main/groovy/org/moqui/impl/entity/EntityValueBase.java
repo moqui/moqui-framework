@@ -977,8 +977,7 @@ public abstract class EntityValueBase implements EntityValue {
         StupidUtilities.removeNullsFromMap(vMap);
         if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
         EntityDefinition ed = getEntityDefinition();
-        final String alias = ed.getShortAlias();
-        vMap.put("_entity", alias != null && !alias.isEmpty() ? alias : entityName);
+        vMap.put("_entity", ed.getShortOrFullEntityName());
 
         if (detailList != null && !detailList.isEmpty()) {
             Set<String> curPkFields = new HashSet<>(ed.getPkFieldNames());

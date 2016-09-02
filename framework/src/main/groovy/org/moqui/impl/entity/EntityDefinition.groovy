@@ -60,8 +60,8 @@ public class EntityDefinition {
     protected Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null
     protected Map<String, MNode> memberEntityAliasMap = null
     // these are used for every list find, so keep them here
-    protected MNode entityConditionNode = null
-    protected MNode entityHavingEconditions = null
+    public final MNode entityConditionNode
+    public final MNode entityHavingEconditions
 
     protected boolean tableExistVerified = false
 
@@ -110,12 +110,6 @@ public class EntityDefinition {
         }
 
         // now initFields() and create EntityInfo
-        boolean neverCache = initFields()
-        entityInfo = new EntityJavaUtil.EntityInfo(this, neverCache)
-    }
-
-    private boolean initFields() {
-        String internalEntityName = internalEntityNode.attribute("entity-name");
         boolean neverCache = false;
         if (isViewEntity) {
             memberEntityFieldAliases = [:]
@@ -153,12 +147,12 @@ public class EntityDefinition {
 
                 String entityAlias = aliasNode.attribute("entity-alias")
                 MNode memberEntity = memberEntityAliasMap.get(entityAlias)
-                if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias ${entityAlias} in view-entity ${internalEntityName}")
+                if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias ${entityAlias} in view-entity ${fullEntityName}")
 
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
                 String fieldName = aliasNode.attribute("field") ?: aliasNode.attribute("name")
                 MNode fieldNode = memberEd.getFieldNode(fieldName)
-                if (fieldNode == null) throw new EntityException("In view-entity [${internalEntityName}] alias [${aliasNode.attribute("name")}] referred to field ${fieldName} that does not exist on entity ${memberEd.getFullEntityName()}.")
+                if (fieldNode == null) throw new EntityException("In view-entity ${fullEntityName} alias ${aliasNode.attribute("name")} referred to field ${fieldName} that does not exist on entity ${memberEd.fullEntityName}.")
                 if (!aliasNode.attribute("type")) aliasNode.attributes.put("type", fieldNode.attribute("type"))
                 if (fieldNode.attribute("is-pk") == "true") aliasNode.attributes.put("is-pk", "true")
                 if (fieldNode.attribute("enable-localization") == "true") aliasNode.attributes.put("enable-localization", "true")
@@ -177,6 +171,7 @@ public class EntityDefinition {
 
             entityConditionNode = internalEntityNode.first("entity-condition")
             if (entityConditionNode != null) entityHavingEconditions = entityConditionNode.first("having-econditions")
+            else entityHavingEconditions = null
         } else {
             if (internalEntityNode.attribute("no-update-stamp") != "true") {
                 // automatically add the lastUpdatedStamp field
@@ -187,10 +182,15 @@ public class EntityDefinition {
                 FieldInfo fi = new FieldInfo(this, fieldNode)
                 addFieldInfo(fi)
             }
+
+            entityConditionNode = null
+            entityHavingEconditions = null
         }
-        // if (isViewEntity) logger.warn("========== entity Node: ${internalEntityNode.toString()}")
-        return neverCache
+
+        // finally create the EntityInfo object
+        entityInfo = new EntityJavaUtil.EntityInfo(this, neverCache)
     }
+
     private void addFieldInfo(FieldInfo fi) {
         fieldNodeMap.put(fi.name, fi.fieldNode)
         fieldInfoMap.put(fi.name, fi)
@@ -408,13 +408,9 @@ public class EntityDefinition {
     String getShortOrFullEntityName() { return entityInfo.shortAlias != null ? entityInfo.shortAlias : entityInfo.fullEntityName }
     MNode getEntityNode() { return internalEntityNode }
 
-    // boolean isViewEntity() { return isView }
-    // boolean isDynamicViewEntity() { return isDynamicView }
-    // boolean hasFunctionAlias() { return hasFunctionAliasVal }
     Map<String, ArrayList<MNode>> getMemberFieldAliases(String memberEntityName) {
         return memberEntityFieldAliases?.get(memberEntityName)
     }
-    MNode getEntityConditionNode() { return entityConditionNode }
     String getEntityGroupName() { return groupName }
 
     /** Returns the table name, ie table-name or converted entity-name */
@@ -546,7 +542,7 @@ public class EntityDefinition {
             // if there is a shortAlias add it under that
             if (relInfo.shortAlias) relInfoMap.put(relInfo.shortAlias, relInfo)
             // if there is no title, allow referring to the relationship by just the simple entity name (no package)
-            if (!relInfo.title) relInfoMap.put(relInfo.relatedEd.getEntityName(), relInfo)
+            if (!relInfo.title) relInfoMap.put(relInfo.relatedEd.entityInfo.internalEntityName, relInfo)
         }
         relationshipInfoMap = relInfoMap
     }
@@ -947,7 +943,7 @@ public class EntityDefinition {
     Object convertFieldString(String name, String value, ExecutionContextImpl eci) {
         if (value == null) return null
         FieldInfo fieldInfo = getFieldInfo(name)
-        if (fieldInfo == null) throw new EntityException("The name [${name}] is not a valid field name for entity [${entityName}]")
+        if (fieldInfo == null) throw new EntityException("Invalid field name ${name} for entity ${fullEntityName}")
         return fieldInfo.convertFromString(value, eci.getL10nFacade())
     }
 

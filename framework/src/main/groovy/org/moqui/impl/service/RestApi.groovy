@@ -403,7 +403,7 @@ class RestApi {
             // Node entityNode = ed.getEntityNode()
 
             Map definitionsMap = ((Map) swaggerMap.definitions)
-            String refDefName = ed.getShortAlias() ?: ed.getFullEntityName()
+            String refDefName = ed.getShortOrFullEntityName()
             if (masterName) refDefName = refDefName + "." + masterName
             String refDefNamePk = refDefName + ".PK"
 
@@ -467,7 +467,7 @@ class RestApi {
             }
 
             Map curMap = [:]
-            String summary = "${operation} ${ed.getEntityName()}"
+            String summary = "${operation} ${ed.entityInfo.internalEntityName}"
             if (masterName) summary = summary + " (master: " + masterName + ")"
             if (swaggerMap.tags && pathNode.fullPathList.size() > 1) curMap.put("tags", [pathNode.fullPathList[1]])
             curMap.putAll([summary:summary, description:ed.getEntityNode().first("description")?.text,
@@ -485,7 +485,7 @@ class RestApi {
             EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
             if (ed == null) throw new IllegalArgumentException("Entity ${entityName} not found")
 
-            String refDefName = ed.getShortAlias() ?: ed.getFullEntityName()
+            String refDefName = ed.getShortOrFullEntityName()
             if (masterName) refDefName = refDefName + "." + masterName
 
             String prettyName = ed.getPrettyName(null, null)

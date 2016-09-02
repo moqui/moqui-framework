@@ -226,7 +226,7 @@ class EntityDataDocument {
                     String _index = eci.getTenantId()
                     if (dataDocument.indexName) _index = _index + "__" + dataDocument.indexName
                     docMap.put('_index', _index.toLowerCase())
-                    docMap.put('_entity', primaryEd.getShortAlias() ?: primaryEd.getFullEntityName())
+                    docMap.put('_entity', primaryEd.getShortOrFullEntityName())
 
                     // add Map for primary entity
                     Map primaryEntityMap = [:]

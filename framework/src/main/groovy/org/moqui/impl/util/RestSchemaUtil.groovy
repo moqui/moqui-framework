@@ -124,7 +124,7 @@ class RestSchemaUtil {
 
     static Map getJsonSchema(EntityDefinition ed, boolean pkOnly, boolean standalone, Map<String, Object> definitionsMap, String schemaUri, String linkPrefix,
                       String schemaLinkPrefix, boolean nestRelationships, String masterName, MasterDetail masterDetail) {
-        String name = ed.getShortAlias() ?: ed.getFullEntityName()
+        String name = ed.getShortOrFullEntityName()
         String prettyName = ed.getPrettyName(null, null)
         String refName = name
         if (masterName) {
@@ -178,7 +178,7 @@ class RestSchemaUtil {
                 RelationshipInfo relInfo = childMasterDetail.relInfo
                 String relationshipName = relInfo.relationshipName
                 String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
+                String relatedRefName = relInfo.relatedEd.getShortOrFullEntityName()
                 if (pkOnly) relatedRefName = relatedRefName + ".PK"
 
                 // recurse, let it put itself in the definitionsMap
@@ -198,7 +198,7 @@ class RestSchemaUtil {
             for (RelationshipInfo relInfo in relInfoList) {
                 String relationshipName = relInfo.relationshipName
                 String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
+                String relatedRefName = relInfo.relatedEd.getShortOrFullEntityName()
                 if (pkOnly) relatedRefName = relatedRefName + ".PK"
 
                 // recurse, let it put itself in the definitionsMap
@@ -266,7 +266,7 @@ class RestSchemaUtil {
 
     static Map<String, Object> getRamlTypeMap(EntityDefinition ed, boolean pkOnly, Map<String, Object> typesMap,
                                               String masterName, MasterDetail masterDetail) {
-        String name = ed.getShortAlias() ?: ed.getFullEntityName()
+        String name = ed.getShortOrFullEntityName()
         String prettyName = ed.getPrettyName(null, null)
         String refName = name
         if (masterName) {
@@ -301,7 +301,7 @@ class RestSchemaUtil {
                 RelationshipInfo relInfo = childMasterDetail.relInfo
                 String relationshipName = relInfo.relationshipName
                 String entryName = relInfo.shortAlias ?: relationshipName
-                String relatedRefName = relInfo.relatedEd.shortAlias ?: relInfo.relatedEd.getFullEntityName()
+                String relatedRefName = relInfo.relatedEd.getShortOrFullEntityName()
 
                 // recurse, let it put itself in the definitionsMap
                 if (typesMap != null && !typesMap.containsKey(relatedRefName))
@@ -320,7 +320,7 @@ class RestSchemaUtil {
     }
 
     static Map getRamlApi(EntityDefinition ed, String masterName) {
-        String name = ed.getShortAlias() ?: ed.getFullEntityName()
+        String name = ed.getShortOrFullEntityName()
         if (masterName) name = "${name}/${masterName}"
         String prettyName = ed.getPrettyName(null, null)
 
@@ -365,7 +365,7 @@ class RestSchemaUtil {
 
     static void addToSwaggerMap(EntityDefinition ed, Map<String, Object> swaggerMap, String masterName) {
         Map definitionsMap = ((Map) swaggerMap.definitions)
-        String refDefName = ed.getShortAlias() ?: ed.getFullEntityName()
+        String refDefName = ed.getShortOrFullEntityName()
         if (masterName) refDefName = refDefName + "." + masterName
         String refDefNamePk = refDefName + ".PK"
 
@@ -377,7 +377,7 @@ class RestSchemaUtil {
                          "500":[description:"General Error"]]
 
         // entity path (no ID)
-        String entityPath = "/" + (ed.getShortAlias() ?: ed.getFullEntityName())
+        String entityPath = "/" + (ed.getShortOrFullEntityName())
         if (masterName) entityPath = entityPath + "/" + masterName
         Map<String, Map<String, Object>> entityResourceMap = [:]
         ((Map) swaggerMap.paths).put(entityPath, entityResourceMap)
@@ -598,7 +598,7 @@ class RestSchemaUtil {
             }
             for (String entityName in entityNameSet) {
                 EntityDefinition ed = efi.getEntityDefinition(entityName)
-                String refName = ed.getShortAlias() ?: ed.getFullEntityName()
+                String refName = ed.getShortOrFullEntityName()
                 if (getMaster) {
                     Map<String, MasterDefinition> masterDefMap = ed.getMasterDefinitionMap()
                     Map entityPathMap = [:]
@@ -694,7 +694,7 @@ class RestSchemaUtil {
         }
         for (String entityName in entityNameSet) {
             EntityDefinition ed = efi.getEntityDefinition(entityName)
-            String refName = ed.getShortAlias() ?: ed.getFullEntityName()
+            String refName = ed.getShortOrFullEntityName()
             if (getMaster) {
                 Set<String> masterNameSet = new LinkedHashSet<String>()
                 if (masterName) {

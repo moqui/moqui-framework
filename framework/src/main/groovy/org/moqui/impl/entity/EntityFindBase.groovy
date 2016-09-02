@@ -971,8 +971,8 @@ abstract class EntityFindBase implements EntityFind {
         }
     }
     protected EntityList listInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException {
-        boolean isViewEntity = ed.isViewEntity
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
+        boolean isViewEntity = entityInfo.isView
 
         if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
@@ -986,14 +986,16 @@ abstract class EntityFindBase implements EntityFind {
         // add the manually specified ones, then the ones in the view entity's entity-condition
         if (orderByFields != null) orderByExpanded.addAll(orderByFields)
 
-        MNode entityConditionNode = ed.getEntityConditionNode()
-        if (entityConditionNode != null) {
-            ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
-            if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
-                MNode orderBy = (MNode) ecObList.get(i)
-                orderByExpanded.add(orderBy.attribute("field-name"))
+        if (isViewEntity) {
+            MNode entityConditionNode = ed.entityConditionNode
+            if (entityConditionNode != null) {
+                ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
+                if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
+                    MNode orderBy = (MNode) ecObList.get(i)
+                    orderByExpanded.add(orderBy.attribute("field-name"))
+                }
+                if ("true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
             }
-            if ("true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
         }
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
@@ -1066,13 +1068,11 @@ abstract class EntityFindBase implements EntityFind {
             EntityConditionImplBase havingCondition = havingEntityCondition
             if (isViewEntity) {
                 EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
-                queryWhereCondition = (EntityConditionImplBase) efi.getConditionFactoryImpl()
-                        .makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
+                queryWhereCondition = EntityConditionFactoryImpl.makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
 
                 havingCondition = havingEntityCondition
                 EntityConditionImplBase viewHaving = ed.makeViewHavingCondition()
-                havingCondition = efi.getConditionFactoryImpl()
-                        .makeConditionImpl(havingCondition, EntityCondition.AND, viewHaving)
+                havingCondition = EntityConditionFactoryImpl.makeConditionImpl(havingCondition, EntityCondition.AND, viewHaving)
             }
 
             // call the abstract method
@@ -1139,6 +1139,7 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityListIterator iteratorInternal(ExecutionContextImpl ec) throws EntityException {
         EntityDefinition ed = getEntityDef()
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
+        boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
 
         if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
@@ -1157,14 +1158,16 @@ abstract class EntityFindBase implements EntityFind {
         // add the manually specified ones, then the ones in the view entity's entity-condition
         if (this.orderByFields != null) orderByExpanded.addAll(this.orderByFields)
 
-        MNode entityConditionNode = ed.getEntityConditionNode()
-        if (entityConditionNode != null) {
-            ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
-            if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
-                MNode orderBy = ecObList.get(i)
-                orderByExpanded.add(orderBy.attribute("field-name"))
+        if (isViewEntity) {
+            MNode entityConditionNode = ed.entityConditionNode
+            if (entityConditionNode != null) {
+                ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
+                if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
+                    MNode orderBy = ecObList.get(i)
+                    orderByExpanded.add(orderBy.attribute("field-name"))
+                }
+                if ("true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
             }
-            if ("true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
         }
 
         // order by fields need to be selected (at least on some databases, Derby is one of them)
@@ -1211,14 +1214,14 @@ abstract class EntityFindBase implements EntityFind {
         aefi.filterFindForUser(this)
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
-        EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
-        whereCondition = (EntityConditionImplBase) efi.getConditionFactory()
-                .makeCondition(whereCondition, EntityCondition.AND, viewWhere)
+        EntityConditionImplBase havingCondition = havingEntityCondition
+        if (isViewEntity) {
+            EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
+            whereCondition = EntityConditionFactoryImpl.makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
 
-        EntityConditionImplBase havingCondition = (EntityConditionImplBase) getHavingEntityCondition()
-        EntityConditionImplBase viewHaving = ed.makeViewHavingCondition()
-        havingCondition = (EntityConditionImplBase) efi.getConditionFactory()
-                .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
+            EntityConditionImplBase viewHaving = ed.makeViewHavingCondition()
+            havingCondition = EntityConditionFactoryImpl.makeConditionImpl(havingCondition, EntityCondition.AND, viewHaving)
+        }
 
         // call the abstract method
         EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray)
@@ -1259,6 +1262,7 @@ abstract class EntityFindBase implements EntityFind {
     protected long countInternal(ExecutionContextImpl ec) throws EntityException {
         EntityDefinition ed = getEntityDef()
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
+        boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
 
         if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
@@ -1276,10 +1280,10 @@ abstract class EntityFindBase implements EntityFind {
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
         // NOTE: don't cache if there is a having condition, for now just support where
-        boolean doCache = !this.havingEntityCondition && this.shouldCache()
+        boolean doCache = whereCondition != null && shouldCache()
         Cache<EntityCondition, Long> entityCountCache = doCache ? ed.getCacheCount(efi.getEntityCache()) : (Cache) null
         Long cacheCount = (Long) null
-        if (doCache && whereCondition != null) cacheCount = (Long) entityCountCache.get(whereCondition)
+        if (doCache) cacheCount = (Long) entityCountCache.get(whereCondition)
 
         long count
         if (cacheCount != null) {
@@ -1316,22 +1320,26 @@ abstract class EntityFindBase implements EntityFind {
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
             }
 
-            MNode entityConditionNode = ed.getEntityConditionNode()
-            if (entityConditionNode != null) if ("true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
+            if (isViewEntity) {
+                MNode entityConditionNode = ed.entityConditionNode
+                if (entityConditionNode != null && "true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
+            }
 
-            EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
-            whereCondition = (EntityConditionImplBase) efi.getConditionFactory()
-                    .makeCondition(whereCondition, EntityCondition.AND, viewWhere)
+            EntityConditionImplBase queryWhereCondition = whereCondition
+            EntityConditionImplBase havingCondition = havingEntityCondition
+            if (isViewEntity) {
+                EntityConditionImplBase viewWhere = ed.makeViewWhereCondition()
+                queryWhereCondition = EntityConditionFactoryImpl.makeConditionImpl(whereCondition, EntityCondition.AND, viewWhere)
 
-            EntityConditionImplBase havingCondition = (EntityConditionImplBase) getHavingEntityCondition()
-            EntityConditionImplBase viewHaving = ed.makeViewHavingCondition()
-            havingCondition = (EntityConditionImplBase) efi.getConditionFactory()
-                    .makeCondition(havingCondition, EntityCondition.AND, viewHaving)
+                havingCondition = havingEntityCondition
+                EntityConditionImplBase viewHaving = ed.makeViewHavingCondition()
+                havingCondition = EntityConditionFactoryImpl.makeConditionImpl(havingCondition, EntityCondition.AND, viewHaving)
+            }
 
             // call the abstract method
-            count = countExtended(whereCondition, havingCondition, fieldInfoArray, fieldOptionsArray)
+            count = countExtended(queryWhereCondition, havingCondition, fieldInfoArray, fieldOptionsArray)
 
-            if (doCache && whereCondition != null) entityCountCache.put(whereCondition, count)
+            if (doCache) entityCountCache.put(whereCondition, count)
         }
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", false)
