@@ -526,9 +526,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="validate-entity" type="xs:string"/>
             <xs:attribute name="validate-field" type="xs:string"/>
 
-            <xs:attribute name="print-width" type="xs:positiveInteger"><xs:annotation><xs:documentation>
+            <xs:attribute name="print-width" type="xs:nonNegativeInteger"><xs:annotation><xs:documentation>
                 Column width when printing (formatted text, xsl-fo render modes); when there are multiple fields in a
                 column the highest width is used; not on form-list-column because that is dynamic with select-columns.
+
+                By default display, display-entity, are printed and link is printed if it is an anchor (not a button).
+                Set to zero (0) to not print this field.
             </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="print-width-type" default="percent"><xs:annotation><xs:documentation>The type of print
                 width, default to percent and can be characters.</xs:documentation></xs:annotation>
