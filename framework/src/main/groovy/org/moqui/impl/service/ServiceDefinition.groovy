@@ -284,7 +284,7 @@ class ServiceDefinition {
             view:ArtifactExecutionInfo.AUTHZA_VIEW, find:ArtifactExecutionInfo.AUTHZA_VIEW]
     static ArtifactExecutionInfo.AuthzAction getVerbAuthzActionEnum(String theVerb) {
         // default to require the "All" authz action, and for special verbs default to something more appropriate
-        ArtifactExecutionInfo.AuthzAction authzAction = verbAuthzActionEnumMap.get(theVerb)
+        ArtifactExecutionInfo.AuthzAction authzAction = (ArtifactExecutionInfo.AuthzAction) verbAuthzActionEnumMap.get(theVerb)
         if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL
         return authzAction
     }

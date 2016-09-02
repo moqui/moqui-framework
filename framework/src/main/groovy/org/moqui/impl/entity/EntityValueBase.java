@@ -634,7 +634,7 @@ public abstract class EntityValueBase implements EntityValue {
 
                 // don't skip for this, if a field was reset then we want to record that: if (!value) continue
 
-                String stackNameString = ec.getArtifactExecutionImpl().getStackNameString();
+                String stackNameString = ec.artifactExecutionFacade.getStackNameString();
                 if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
@@ -1171,9 +1171,9 @@ public abstract class EntityValueBase implements EntityValue {
         final EntityDefinition ed = getEntityDefinition();
         final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
-        final ExecutionContextFactoryImpl ecfi = efi.getEcfi();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
@@ -1244,9 +1244,9 @@ public abstract class EntityValueBase implements EntityValue {
         final EntityDefinition ed = getEntityDefinition();
         final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
-        final ExecutionContextFactoryImpl ecfi = efi.getEcfi();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
         final TransactionCache curTxCache = getTxCache(ecfi);
         final boolean optimisticLock = entityInfo.optimisticLock;
         final boolean hasFieldDefaults = entityInfo.hasFieldDefaults;
@@ -1396,9 +1396,9 @@ public abstract class EntityValueBase implements EntityValue {
         final EntityDefinition ed = getEntityDefinition();
         final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
-        final ExecutionContextFactoryImpl ecfi = efi.getEcfi();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
@@ -1440,9 +1440,9 @@ public abstract class EntityValueBase implements EntityValue {
     public boolean refresh() {
         final EntityDefinition ed = getEntityDefinition();
         final EntityFacadeImpl efi = getEntityFacadeImpl();
-        final ExecutionContextFactoryImpl ecfi = efi.getEcfi();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        final ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         List<String> pkFieldList = ed.getPkFieldNames();
         if (pkFieldList.size() == 0) {

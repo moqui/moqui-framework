@@ -483,7 +483,7 @@ public class EntityJavaUtil {
             totalTimeNanos += runTimeNanos;
             totalSquaredTime += runTimeNanos * runTimeNanos;
             // this gets much more expensive, consider commenting in the future
-            ArtifactExecutionInfo aei = efi.getEcfi().getEci().getArtifactExecutionImpl().peek();
+            ArtifactExecutionInfo aei = efi.ecfi.getEci().artifactExecutionFacade.peek();
             if (aei != null) aei = aei.getParent();
             if (aei != null) {
                 String artifactName = aei.getName();

@@ -194,7 +194,7 @@ class ScreenRenderImpl implements ScreenRender {
         // the transition itself, it's fine
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, null)
-        ec.getArtifactExecutionImpl().pushInternal(aei, false)
+        ec.artifactExecutionFacade.pushInternal(aei, false)
 
         boolean loggedInAnonymous = false
         ResponseItem ri = (ResponseItem) null
@@ -203,11 +203,11 @@ class ScreenRenderImpl implements ScreenRender {
             MNode screenNode = sd.getScreenNode()
             String requireAuthentication = screenNode.attribute("require-authentication")
             if (requireAuthentication == "anonymous-all") {
-                ec.artifactExecution.setAnonymousAuthorizedAll()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             } else if (requireAuthentication == "anonymous-view") {
-                ec.artifactExecution.setAnonymousAuthorizedView()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             }
 
             if (sd.alwaysActions != null) sd.alwaysActions.run(ec)
@@ -225,8 +225,8 @@ class ScreenRenderImpl implements ScreenRender {
                 ri = screenUrlInstance.targetTransition.run(this)
             }
         } finally {
-            ec.getArtifactExecution().pop(aei)
-            if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+            ec.artifactExecutionFacade.pop(aei)
+            if (loggedInAnonymous) ec.userFacade.logoutAnonymousOnly()
         }
 
         return ri
@@ -591,7 +591,7 @@ class ScreenRenderImpl implements ScreenRender {
         String requireAuthentication = screenNode.attribute("require-authentication")
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType)
-        ec.artifactExecutionImpl.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
+        ec.artifactExecutionFacade.pushInternal(aei, !screenDefIterator.hasNext() ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
         try {
@@ -599,11 +599,11 @@ class ScreenRenderImpl implements ScreenRender {
                 throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant ${ec.getTenantId()}")
 
             if (requireAuthentication == "anonymous-all") {
-                ec.artifactExecution.setAnonymousAuthorizedAll()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             } else if (requireAuthentication == "anonymous-view") {
-                ec.artifactExecution.setAnonymousAuthorizedView()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             }
 
             if (runAlwaysActions && sd.alwaysActions != null) sd.alwaysActions.run(ec)
@@ -612,8 +612,8 @@ class ScreenRenderImpl implements ScreenRender {
             if (screenDefIterator.hasNext()) recursiveRunActions(screenDefIterator, runAlwaysActions, runPreActions)
         } finally {
             // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally clause because if there is an error this will help us know how we got there
-            ec.artifactExecution.pop(aei)
-            if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+            ec.artifactExecutionFacade.pop(aei)
+            if (loggedInAnonymous) ec.userFacade.logoutAnonymousOnly()
         }
     }
 
@@ -671,7 +671,7 @@ class ScreenRenderImpl implements ScreenRender {
 
                     ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location,
                             ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType)
-                    ec.artifactExecutionImpl.pushInternal(aei, false)
+                    ec.artifactExecutionFacade.pushInternal(aei, false)
                     aeiList.add(aei)
                 }
             }

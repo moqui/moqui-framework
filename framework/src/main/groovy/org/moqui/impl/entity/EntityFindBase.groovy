@@ -707,8 +707,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityValue one() throws EntityException {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
-        ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
             EntityDefinition ed = getEntityDef()
@@ -778,7 +778,7 @@ abstract class EntityFindBase implements EntityFind {
         if (hasEmptyPk) return (EntityValue) null
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
-        ec.artifactExecutionImpl.filterFindForUser(this)
+        ec.artifactExecutionFacade.filterFindForUser(this)
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
 
@@ -927,8 +927,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     Map<String, Object> oneMaster(String name) {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
-        ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
             EntityDefinition ed = getEntityDef()
@@ -952,8 +952,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityList list() throws EntityException {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
-        ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
             EntityDefinition ed = getEntityDef()
@@ -999,7 +999,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
-        ec.artifactExecutionImpl.filterFindForUser(this)
+        ec.artifactExecutionFacade.filterFindForUser(this)
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
 
@@ -1105,8 +1105,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     List<Map<String, Object>> listMaster(String name) {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
-        ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
         try {
             EntityDefinition ed = getEntityDef()
@@ -1129,18 +1129,18 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityListIterator iterator() throws EntityException {
         ExecutionContextImpl ec = efi.getEcfi().getEci()
-        boolean enableAuthz = disableAuthz ? !ec.getArtifactExecutionImpl().disableAuthz() : false
+        boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
             return iteratorInternal(ec)
         } finally {
-            if (enableAuthz) ec.getArtifactExecutionImpl().enableAuthz()
+            if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
     protected EntityListIterator iteratorInternal(ExecutionContextImpl ec) throws EntityException {
         EntityDefinition ed = getEntityDef()
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
-        ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
         if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
@@ -1252,18 +1252,18 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     long count() throws EntityException {
         ExecutionContextImpl ec = efi.getEcfi().getEci()
-        boolean enableAuthz = disableAuthz ? !ec.getArtifactExecutionImpl().disableAuthz() : false
+        boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
             return countInternal(ec)
         } finally {
-            if (enableAuthz) ec.getArtifactExecutionImpl().enableAuthz()
+            if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
     protected long countInternal(ExecutionContextImpl ec) throws EntityException {
         EntityDefinition ed = getEntityDef()
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
-        ArtifactExecutionFacadeImpl aefi = ec.getArtifactExecutionImpl()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
         if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
             throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")

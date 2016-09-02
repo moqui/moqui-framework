@@ -627,16 +627,16 @@ class RestApi {
             // for now don't track/count artifact hits for REST path
             aei.setTrackArtifactHit(false)
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
-            ec.artifactExecutionImpl.pushInternal(aei, !moreInPath ?
+            ec.artifactExecutionFacade.pushInternal(aei, !moreInPath ?
                     (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)
 
             boolean loggedInAnonymous = false
             if ("anonymous-all".equals(requireAuthentication)) {
-                ec.artifactExecution.setAnonymousAuthorizedAll()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             } else if ("anonymous-view".equals(requireAuthentication)) {
-                ec.artifactExecution.setAnonymousAuthorizedView()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             }
 
             try {
@@ -657,8 +657,8 @@ class RestApi {
                     return runByMethod(pathList, ec)
                 }
             } finally {
-                ec.getArtifactExecution().pop(aei)
-                if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+                ec.artifactExecutionFacade.pop(aei)
+                if (loggedInAnonymous) ec.userFacade.logoutAnonymousOnly()
             }
         }
 

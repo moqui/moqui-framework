@@ -223,7 +223,7 @@ class EntityFacadeImpl implements EntityFacade {
             EntityValue tenant = null
             EntityFacadeImpl defaultEfi = null
             if (tenantId != "DEFAULT" && groupName != "tenantcommon") {
-                defaultEfi = efi.ecfi.getEntityFacade("DEFAULT")
+                defaultEfi = efi.ecfi.defaultEntityFacade
                 tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().one()
             }
 
@@ -913,7 +913,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (lst != null && lst.size() > 0) {
             // if Entity ECA rules disabled in ArtifactExecutionFacade, just return immediately
             // do this only if there are EECA rules to run, small cost in getEci, etc
-            if (ecfi.getEci().getArtifactExecutionImpl().entityEcaDisabled()) return
+            if (ecfi.getEci().artifactExecutionFacade.entityEcaDisabled()) return
 
             for (int i = 0; i < lst.size(); i++) {
                 EntityEcaRule eer = (EntityEcaRule) lst.get(i)
@@ -996,24 +996,25 @@ class EntityFacadeImpl implements EntityFacade {
      * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
      * one of the entity-auto supported verbs. */
     boolean isEntityDefined(String entityName) {
-        if (entityName == null || entityName.length() == 0) return false
+        if (entityName == null) return false
 
         // Special treatment for framework entities, quick Map lookup (also faster than Cache get)
         if (frameworkEntityDefinitions.containsKey(entityName)) return true
 
-        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
+        Map<String, List<String>> entityLocationCache = (Map<String, List<String>>) entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
-        List<String> locList = entityLocationCache.get(entityName)
+        List<String> locList = (List<String>) entityLocationCache.get(entityName)
         return locList != null && locList.size() > 0
     }
 
     EntityDefinition getEntityDefinition(String entityName) {
-        if (entityName == null || entityName.length() == 0) return null
+        if (entityName == null) return null
         EntityDefinition ed = (EntityDefinition) frameworkEntityDefinitions.get(entityName)
         if (ed != null) return ed
         ed = (EntityDefinition) entityDefinitionCache.get(entityName)
         if (ed != null) return ed
+        if (entityName.isEmpty()) return null
         return loadEntityDefinition(entityName)
     }
 
@@ -1489,7 +1490,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", true, true, {
-                    ArtifactExecutionFacadeImpl aefi = ecfi.getEci().getArtifactExecutionImpl()
+                    ArtifactExecutionFacadeImpl aefi = ecfi.getEci().artifactExecutionFacade
                     boolean enableAuthz = !aefi.disableAuthz()
                     try {
                         EntityValue svi = find("moqui.entity.SequenceValueItem").condition("seqName", seqName)

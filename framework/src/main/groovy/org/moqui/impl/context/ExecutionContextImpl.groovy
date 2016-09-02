@@ -37,17 +37,18 @@ class ExecutionContextImpl implements ExecutionContext {
 
     protected ExecutionContextFactoryImpl ecfi
 
-    protected final ContextStack context = new ContextStack()
-    protected final ContextBinding contextBinding = new ContextBinding(context)
+    public final ContextStack context = new ContextStack()
+    public final ContextBinding contextBinding = new ContextBinding(context)
     protected String activeTenantId = "DEFAULT"
     protected LinkedList<String> tenantIdStack = (LinkedList<String>) null
 
     protected WebFacade webFacade = (WebFacade) null
     protected WebFacadeImpl webFacadeImpl = (WebFacadeImpl) null
-    protected final UserFacadeImpl userFacade
-    protected final MessageFacadeImpl messageFacade
-    protected final ArtifactExecutionFacadeImpl artifactExecutionFacade
-    protected final L10nFacadeImpl l10nFacade
+    public final UserFacadeImpl userFacade
+    public final MessageFacadeImpl messageFacade
+    public final ArtifactExecutionFacadeImpl artifactExecutionFacade
+    public final L10nFacadeImpl l10nFacade
+    public final TransactionFacadeImpl transactionFacade
 
     protected Boolean skipStats = null
 
@@ -68,6 +69,8 @@ class ExecutionContextImpl implements ExecutionContext {
         messageFacade = new MessageFacadeImpl()
         artifactExecutionFacade = new ArtifactExecutionFacadeImpl(this)
         l10nFacade = new L10nFacadeImpl(this)
+
+        transactionFacade = ecfi.transactionFacade
 
         initCaches()
 
@@ -137,7 +140,7 @@ class ExecutionContextImpl implements ExecutionContext {
     CacheFacade getCache() { ecfi.getCacheFacade() }
 
     @Override
-    TransactionFacade getTransaction() { ecfi.getTransactionFacade() }
+    TransactionFacade getTransaction() { return transactionFacade }
 
     @Override
     EntityFacade getEntity() { ecfi.getEntityFacade(getTenantId()) }
@@ -180,7 +183,7 @@ class ExecutionContextImpl implements ExecutionContext {
 
         String sessionTenantId = request.session.getAttribute("moqui.tenantId")
         if (!sessionTenantId) {
-            EntityValue tenantHostDefault = ecfi.getEntityFacade("DEFAULT").find("moqui.tenant.TenantHostDefault")
+            EntityValue tenantHostDefault = ecfi.defaultEntityFacade.find("moqui.tenant.TenantHostDefault")
                     .condition("hostName", wfi.getHostName(false)).useCache(true).disableAuthz().one()
             if (tenantHostDefault) {
                 sessionTenantId = tenantHostDefault.tenantId
@@ -224,7 +227,7 @@ class ExecutionContextImpl implements ExecutionContext {
         if (tenantId == fromTenantId) return false
 
         logger.info("Changing to tenant ${tenantId} (from tenant ${fromTenantId})")
-        EntityFacadeImpl defaultEfi = ecfi.getEntityFacade("DEFAULT")
+        EntityFacadeImpl defaultEfi = ecfi.defaultEntityFacade
         EntityValue tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().useCache(true).one()
         if (tenant == null) throw new BaseException("Tenant not found with ID ${tenantId}")
         if (tenant.isEnabled == 'N') throw new BaseException("Tenant ${tenantId} was disabled at ${l10n.format(tenant.disabledDate, null)}")
