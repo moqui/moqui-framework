@@ -96,7 +96,7 @@ public abstract class EntityValueBase implements EntityValue {
         valueMapInternal.putAll((Map<String, Object>) objectInput.readObject());
     }
 
-    EntityFacadeImpl getEntityFacadeImpl() {
+    protected EntityFacadeImpl getEntityFacadeImpl() {
         // handle null after deserialize; this requires a static reference in Moqui.java or we'll get an error
         if (efiTransient == null)
             efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade(tenantId);
@@ -333,7 +333,7 @@ public abstract class EntityValueBase implements EntityValue {
         return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMapInternal.get(name);
     }
 
-    Object getOldDbValue(String name) {
+    protected Object getOldDbValue(String name) {
         if (oldDbValueMap != null && oldDbValueMap.containsKey(name)) return oldDbValueMap.get(name);
         return getOriginalDbValue(name);
     }

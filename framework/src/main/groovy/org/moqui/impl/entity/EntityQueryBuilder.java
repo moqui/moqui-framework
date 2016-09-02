@@ -175,7 +175,7 @@ public class EntityQueryBuilder {
         }
     }
 
-    void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
+    public void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
         int size = fieldInfoArray.length;
         if (size > 0) {
             if (fieldOptionsArray == null && mainEntityDefinition.entityInfo.allFieldInfoArray.length == size) {
