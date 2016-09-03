@@ -820,20 +820,6 @@ public class EntityDefinition {
         return mePkFieldToAliasNameMap
     }
 
-    Map cloneMapRemoveFields(Map theMap, Boolean pks) {
-        Map newMap = new LinkedHashMap(theMap)
-        //ArrayList<String> fieldNameList = (pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames())
-        FieldInfo[] fieldInfoArray = pks == null ? entityInfo.allFieldInfoArray :
-                (pks == Boolean.TRUE ? entityInfo.pkFieldInfoArray : entityInfo.nonPkFieldInfoArray)
-        int size = fieldInfoArray.length
-        for (int i = 0; i < size; i++) {
-            String fieldName = fieldInfoArray[i]
-            // no need to check before remove: if (newMap.containsKey(fieldName))
-            newMap.remove(fieldName)
-        }
-        return newMap
-    }
-
     Object convertFieldString(String name, String value, ExecutionContextImpl eci) {
         if (value == null) return null
         FieldInfo fieldInfo = getFieldInfo(name)

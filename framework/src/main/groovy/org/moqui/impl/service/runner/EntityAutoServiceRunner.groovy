@@ -216,7 +216,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         }
 
         // check parameters Map for relationships
-        Map nonFieldEntries = ed.cloneMapRemoveFields(parameters, null)
+        Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(parameters, null)
         for (Map.Entry entry in nonFieldEntries.entrySet()) {
             Object relParmObj = entry.getValue()
             if (!relParmObj) continue
@@ -411,7 +411,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         Map<String, Object> sharedPkMap = parentValue.getPrimaryKeys()
         if (parentPks) sharedPkMap.putAll(parentPks)
 
-        Map nonFieldEntries = ed.cloneMapRemoveFields(parameters, null)
+        Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(parameters, null)
         for (Map.Entry entry in nonFieldEntries.entrySet()) {
             Object relParmObj = entry.getValue()
             if (!relParmObj) continue

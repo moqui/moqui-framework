@@ -351,6 +351,7 @@ public class EntityJavaUtil {
                 allFieldsSqlSelect = sb.toString();
             }
         }
+
         void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks) {
             if (src == null || dest == null) return;
 
@@ -412,6 +413,7 @@ public class EntityJavaUtil {
                 }
             }
         }
+
         void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
@@ -459,6 +461,19 @@ public class EntityJavaUtil {
                     }
                 }
             }
+        }
+
+        public Map<String, Object> cloneMapRemoveFields(Map<String, Object> theMap, Boolean pks) {
+            Map<String, Object> newMap = new HashMap<>(theMap);
+            //ArrayList<String> fieldNameList = (pks != null ? this.getFieldNames(pks, !pks, !pks) : this.getAllFieldNames())
+            FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
+                    (pks == Boolean.TRUE ? pkFieldInfoArray : nonPkFieldInfoArray);
+            int size = fieldInfoArray.length;
+            for (int i = 0; i < size; i++) {
+                FieldInfo fi = fieldInfoArray[i];
+                newMap.remove(fi.name);
+            }
+            return newMap;
         }
     }
 
