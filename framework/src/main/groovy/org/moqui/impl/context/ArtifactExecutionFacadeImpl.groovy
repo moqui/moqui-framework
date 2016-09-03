@@ -249,7 +249,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         ExecutionContextFactoryImpl ecfi = eci.ecfi
         UserFacadeImpl ufi = eci.userFacade
 
-        if (!isEntity && countTarpit && !tarpitDisabled && ecfi.isTarpitEnabled(artifactTypeEnum)) {
+        if (!isEntity && countTarpit && !tarpitDisabled && Boolean.TRUE.is((Boolean) ecfi.artifactTypeTarpitEnabled.get(artifactTypeEnum))) {
             checkTarpit(aeii, requiresAuthz)
         }
 
@@ -266,7 +266,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         // tarpit enabled already checked, if authz not enabled return true immediately
         // NOTE: do this after the check above as authz is normally enabled so this doesn't normally save is any time
-        if (!ecfi.isAuthzEnabled(artifactTypeEnum)) {
+        if (!Boolean.TRUE.is((Boolean) ecfi.artifactTypeAuthzEnabled.get(artifactTypeEnum))) {
             if (lastAeii != null) aeii.copyAuthorizedInfo(lastAeii)
             return true
         }

@@ -631,10 +631,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         public Source resolve(String href, String base) {
             // try plain href
-            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(href)
+            ResourceReference rr = ecfi.resourceFacade.getLocationReference(href)
 
             // if href has no colon try base + href
-            if (rr == null && href.indexOf(':') < 0) rr = ecfi.getResourceFacade().getLocationReference(base + href)
+            if (rr == null && href.indexOf(':') < 0) rr = ecfi.resourceFacade.getLocationReference(base + href)
 
             if (rr != null) {
                 URL url = rr.getUrl()

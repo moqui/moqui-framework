@@ -132,7 +132,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     String getTenantId() { return tenantId; }
-    ExecutionContextFactoryImpl getEcfi() { return ecfi }
     EntityCache getEntityCache() { return entityCache }
     EntityDataFeed getEntityDataFeed() { return entityDataFeed }
     EntityDataDocument getEntityDataDocument() { return entityDataDocument }
@@ -1273,7 +1272,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             } else {
                 // otherwise do a list find
-                EntityFind ef = find(lastEd.getFullEntityName()).searchFormMap(parameters, null, null, false)
+                EntityFind ef = find(lastEd.fullEntityName).searchFormMap(parameters, null, null, false)
                 // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
                 if (!ef.getLimit()) ef.limit(100)
 
@@ -1304,7 +1303,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
         } else {
             // use the entity auto service runner for other operations (create, store, update, delete)
-            Map result = ecfi.getServiceFacade().sync().name(operation, lastEd.getFullEntityName()).parameters(parameters).call()
+            Map result = ecfi.serviceFacade.sync().name(operation, lastEd.fullEntityName).parameters(parameters).call()
             return result
         }
     }
@@ -1488,7 +1487,7 @@ class EntityFacadeImpl implements EntityFacade {
                     entitySequenceBankCache.put(seqName, bank)
                 }
 
-                ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", true, true, {
+                ecfi.transactionFacade.runRequireNew(null, "Error getting primary sequenced ID", true, true, {
                     ArtifactExecutionFacadeImpl aefi = ecfi.getEci().artifactExecutionFacade
                     boolean enableAuthz = !aefi.disableAuthz()
                     try {

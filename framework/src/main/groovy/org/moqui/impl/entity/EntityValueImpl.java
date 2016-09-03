@@ -160,7 +160,7 @@ public class EntityValueImpl extends EntityValueBase {
             } catch (Exception e) {
                 String txName = "[could not get]";
                 try {
-                    txName = efi.getEcfi().getTransaction().getTransactionManager().getTransaction().toString();
+                    txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString();
                 } catch (Exception txe) { logger.warn("Error getting transaction name: " + txe.toString()); }
                 throw new EntityException("Error in update of " + this.toString() + " in tenant " + efi.getTenantId() + " tx " + txName + " con " + eqb.connection.toString(), e);
             } finally {

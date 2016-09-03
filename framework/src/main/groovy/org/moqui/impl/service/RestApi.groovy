@@ -244,7 +244,7 @@ class RestApi {
         }
 
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
-            ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(serviceName)
+            ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(serviceName)
             if (sd == null) throw new IllegalArgumentException("Service ${serviceName} not found")
             MNode serviceNode = sd.serviceNode
             Map definitionsMap = (Map) swaggerMap.definitions
@@ -299,7 +299,7 @@ class RestApi {
         }
 
         Map<String, Object> getRamlMap(Map<String, Object> typesMap) {
-            ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(serviceName)
+            ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(serviceName)
             if (sd == null) throw new IllegalArgumentException("Service ${serviceName} not found")
             MNode serviceNode = sd.serviceNode
 

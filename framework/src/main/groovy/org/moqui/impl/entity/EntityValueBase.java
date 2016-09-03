@@ -103,7 +103,7 @@ public abstract class EntityValueBase implements EntityValue {
         return efiTransient;
     }
     private TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
-        if (txCacheInternal == null) txCacheInternal = ecfi.getTransactionFacade().getTransactionCache();
+        if (txCacheInternal == null) txCacheInternal = ecfi.transactionFacade.getTransactionCache();
         return txCacheInternal;
     }
     public EntityDefinition getEntityDefinition() {
@@ -192,7 +192,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // if enabled use moqui.basic.LocalizedEntityField for any localized fields
         if (fieldInfo.enableLocalization) {
-            Locale locale = getEntityFacadeImpl().getEcfi().getExecutionContext().getUser().getLocale();
+            Locale locale = getEntityFacadeImpl().ecfi.getEci().userFacade.getLocale();
             String localeStr = locale != null ? locale.toString() : null;
             if (localeStr != null) {
                 Object internalValue = valueMapInternal.get(name);
@@ -393,8 +393,7 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue setString(String name, String value) {
         // this will do a field name check
-        ExecutionContextImpl eci = getEntityFacadeImpl().getEcfi().getEci();
-
+        ExecutionContextImpl eci = getEntityFacadeImpl().ecfi.getEci();
         Object converted = getEntityDefinition().convertFieldString(name, value, eci);
         putNoCheck(name, converted);
         return this;
@@ -484,7 +483,7 @@ public abstract class EntityValueBase implements EntityValue {
         String entityPrefix = null;
         String rawPrefix = ed.entityInfo.sequencePrimaryPrefix;
         if (rawPrefix != null && rawPrefix.length() > 0)
-            entityPrefix = localEfi.getEcfi().getResourceFacade().expand(rawPrefix, null, valueMapInternal);
+            entityPrefix = localEfi.ecfi.resourceFacade.expand(rawPrefix, null, valueMapInternal);
         String sequenceValue = localEfi.sequencedIdPrimaryEd(ed);
 
         putNoCheck(pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue);
@@ -582,7 +581,7 @@ public abstract class EntityValueBase implements EntityValue {
             pkModified = (getEntityDefinition().getPrimaryKeys(this.valueMapInternal).equals(getEntityDefinition().getPrimaryKeys(this.dbValueMap)));
         } else {
             // make sure PK fields with defaults are filled in BEFORE doing the refresh to see if it exists
-            checkSetFieldDefaults(getEntityDefinition(), getEntityFacadeImpl().getEcfi().getExecutionContext(), true);
+            checkSetFieldDefaults(getEntityDefinition(), getEntityFacadeImpl().ecfi.getEci(), true);
         }
 
         if ((isFromDb && !pkModified) || this.cloneValue().refresh()) {
@@ -601,8 +600,8 @@ public abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = getEntityDefinition();
         if (!ed.entityInfo.needsAuditLog) return;
 
-        ExecutionContextImpl ec = getEntityFacadeImpl().getEcfi().getEci();
-        Timestamp nowTimestamp = ec.getUser().getNowTimestamp();
+        ExecutionContextImpl ec = getEntityFacadeImpl().ecfi.getEci();
+        Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
 
         Map<String, Object> pksValueMap = new HashMap<>();
         addThreeFieldPkValues(pksValueMap, ed);
@@ -649,7 +648,7 @@ public abstract class EntityValueBase implements EntityValue {
                 // logger.warn("TOREMOVE: in handleAuditLog for [${ed.entityName}.${fieldName}] value=[${value}], oldValue=[${oldValue}], oldValues=[${oldValues}]", new Exception("AuditLog location"))
 
                 // NOTE: if this is changed to async the time zone on nowTimestamp gets messed up (user's time zone lost)
-                getEntityFacadeImpl().getEcfi().getServiceFacade().sync().name("create#moqui.entity.EntityAuditLog")
+                getEntityFacadeImpl().ecfi.serviceFacade.sync().name("create#moqui.entity.EntityAuditLog")
                         .parameters(parms).disableAuthz().call();
             }
         }
@@ -1181,7 +1180,7 @@ public abstract class EntityValueBase implements EntityValue {
         if (entityInfo.hasFieldDefaults) checkSetFieldDefaults(ed, ec, null);
 
         // set lastUpdatedStamp
-        final Long time = ecfi.getTransactionFacade().getCurrentTransactionStartTime();
+        final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
         Long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
         if (ed.isField("lastUpdatedStamp") && valueMapInternal.get("lastUpdatedStamp") == null)
             valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
@@ -1328,7 +1327,7 @@ public abstract class EntityValueBase implements EntityValue {
             // set lastUpdatedStamp
             FieldInfo lastUpdatedStampInfo = ed.entityInfo.lastUpdatedStampInfo;
             if (!modifiedLastUpdatedStamp && lastUpdatedStampInfo != null) {
-                final Long time = ecfi.getTransactionFacade().getCurrentTransactionStartTime();
+                final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
                 long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
                 valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
                 nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo;

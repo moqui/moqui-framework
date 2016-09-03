@@ -326,7 +326,7 @@ class ScreenRenderImpl implements ScreenRender {
             long transitionStartTime = System.currentTimeMillis()
             long startTimeNanos = System.nanoTime()
 
-            TransactionFacade transactionFacade = sfi.getEcfi().getTransactionFacade()
+            TransactionFacade transactionFacade = sfi.getEcfi().transactionFacade
             boolean beginTransaction = targetTransition.getBeginTransaction()
             boolean beganTransaction = beginTransaction ? transactionFacade.begin(null) : false
             ResponseItem ri = null

@@ -22,7 +22,6 @@ import org.moqui.impl.entity.condition.ConditionAlias
 import javax.cache.Cache
 import java.sql.Timestamp
 
-import org.moqui.BaseException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.JoinOperator
 import org.moqui.entity.EntityException
@@ -862,7 +861,7 @@ public class EntityDefinition {
             // NOTE: this doesn't do context expansion of the valid-date as it doesn't make sense for an entity def to depend on something being in the context
             condList.add((EntityConditionImplBase) this.efi.conditionFactory.makeConditionDate(
                     dateFilter.attribute("from-field-name"), dateFilter.attribute("thru-field-name"),
-                    dateFilter.attribute("valid-date") ? efi.getEcfi().getResourceFacade().expand(dateFilter.attribute("valid-date"), "") as Timestamp : null))
+                    dateFilter.attribute("valid-date") ? efi.ecfi.resourceFacade.expand(dateFilter.attribute("valid-date"), "") as Timestamp : null))
         }
         for (MNode econdition in conditionsParent.children("econdition")) {
             EntityConditionImplBase cond;
@@ -899,7 +898,7 @@ public class EntityDefinition {
                 // NOTE: may need to convert value from String to object for field
                 String condValue = econdition.attribute("value") ?: null
                 // NOTE: only expand if contains "${", expanding normal strings does l10n and messes up key values; hopefully this won't result in a similar issue
-                if (condValue && condValue.contains("\${")) condValue = efi.getEcfi().getResourceFacade().expand(condValue, "") as String
+                if (condValue && condValue.contains("\${")) condValue = efi.ecfi.resourceFacade.expand(condValue, "") as String
                 Object condValueObj = condEd.convertFieldString(field.fieldName, condValue, eci);
                 cond = new FieldValueCondition(field, EntityConditionFactoryImpl.getComparisonOperator(econdition.attribute("operator")), condValueObj)
             }

@@ -97,7 +97,7 @@ class ScreenDefinition {
         }
         // transition-include
         for (MNode transitionInclNode in screenNode.children("transition-include")) {
-            ScreenDefinition includeScreen = ecfi.getScreenFacade().getScreenDefinition(transitionInclNode.attribute("location"))
+            ScreenDefinition includeScreen = ecfi.screenFacade.getScreenDefinition(transitionInclNode.attribute("location"))
             MNode transitionNode = includeScreen?.getTransitionItem(transitionInclNode.attribute("name"), transitionInclNode.attribute("method"))?.transitionNode
             if (transitionNode == null) throw new IllegalArgumentException("For transition-include could not find transition [${transitionInclNode.attribute("name")}] with method [${transitionInclNode.attribute("method")}] in screen at [${transitionInclNode.attribute("location")}]")
             TransitionItem ti = new TransitionItem(transitionNode, this)
@@ -166,7 +166,7 @@ class ScreenDefinition {
             location = location.substring(0, location.indexOf('#'))
         }
 
-        ScreenDefinition includeScreen = sfi.getEcfi().getScreenFacade().getScreenDefinition(location)
+        ScreenDefinition includeScreen = sfi.getEcfi().screenFacade.getScreenDefinition(location)
         ScreenSection includeSection = includeScreen?.getSection(sectionName)
         if (includeSection == null) throw new IllegalArgumentException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
         sectionByName.put(sectionNode.attribute("name"), includeSection)

@@ -127,7 +127,7 @@ public class FieldInfo {
 
     public String getFullColumnName() {
         if (fullColumnNameInternal != null) return fullColumnNameInternal;
-        return ed.efi.ecfi.getResourceFacade().expand(expandColumnName, "", null, false);
+        return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
     }
 
     public Object convertFromString(String value, L10nFacadeImpl l10n) {
@@ -217,7 +217,7 @@ public class FieldInfo {
                 case 8:
                 case 9:
                     if (value instanceof BigDecimal) value = ((BigDecimal) value).stripTrailingZeros();
-                    L10nFacadeImpl l10n = ed.efi.getEcfi().getL10nFacade();
+                    L10nFacadeImpl l10n = ed.efi.ecfi.getEci().l10nFacade;
                     outValue = l10n.format(value, null);
                     break;
                 case 10: outValue = value.toString(); break;

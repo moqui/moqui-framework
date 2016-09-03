@@ -168,7 +168,7 @@ class EntityDataFeed {
     }
 
     protected DataFeedSynchronization getDataFeedSynchronization() {
-        DataFeedSynchronization dfxr = (DataFeedSynchronization) efi.getEcfi().getTransactionFacade().getActiveSynchronization("DataFeedSynchronization")
+        DataFeedSynchronization dfxr = (DataFeedSynchronization) efi.ecfi.transactionFacade.getActiveSynchronization("DataFeedSynchronization")
         if (dfxr == null) {
             dfxr = new DataFeedSynchronization(this)
             dfxr.enlist()
@@ -264,7 +264,7 @@ class EntityDataFeed {
         EntityValue dataDocument = null
         EntityList dataDocumentFieldList = null
         EntityList dataDocumentConditionList = null
-        boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
+        boolean alreadyDisabled = efi.ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
         try {
             dataDocument = efi.find("moqui.entity.document.DataDocument")
                     .condition("dataDocumentId", dataDocumentId).useCache(true).one()
@@ -272,7 +272,7 @@ class EntityDataFeed {
             dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
             dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
         } finally {
-            if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            if (!alreadyDisabled) efi.ecfi.getExecutionContext().getArtifactExecution().enableAuthz()
         }
 
         String primaryEntityName = dataDocument.primaryEntityName
@@ -387,20 +387,20 @@ class EntityDataFeed {
         DataFeedSynchronization(EntityDataFeed edf) {
             // logger.warn("========= Creating new DataFeedSynchronization")
             this.edf = edf
-            ecfi = edf.getEfi().getEcfi()
+            ecfi = edf.getEfi().ecfi
             feedValues = new EntityListImpl(edf.getEfi())
         }
 
         void enlist() {
             // logger.warn("========= Enlisting new DataFeedSynchronization")
-            TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
+            TransactionManager tm = ecfi.transactionFacade.getTransactionManager()
             if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
             Transaction tx = tm.getTransaction()
             if (tx == null) throw new XAException(XAException.XAER_NOTA)
             this.tx = tx
 
             // logger.warn("================= puttng and enlisting new DataFeedSynchronization")
-            ecfi.getTransactionFacade().putAndEnlistActiveSynchronization("DataFeedSynchronization", this)
+            ecfi.transactionFacade.putAndEnlistActiveSynchronization("DataFeedSynchronization", this)
         }
 
         void addValueToFeed(EntityValue ev, Set<String> dataDocumentIdSet) {
@@ -539,7 +539,7 @@ class EntityDataFeed {
                         for (String dataDocumentId in allDataDocumentIds) {
                             EntityValue dataDocument = null
                             EntityList dataDocumentFieldList = null
-                            boolean alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
+                            boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
                             try {
                                 // for each DataDocument go through feedValues and get the primary entity's PK field(s) for each
                                 dataDocument = efi.find("moqui.entity.document.DataDocument")
@@ -547,7 +547,7 @@ class EntityDataFeed {
                                 dataDocumentFieldList =
                                     dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
                             } finally {
-                                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+                                if (!alreadyDisabled) ecfi.getEci().artifactExecutionFacade.enableAuthz()
                             }
 
                             String primaryEntityName = dataDocument.primaryEntityName
@@ -623,7 +623,7 @@ class EntityDataFeed {
 
                                                 String backwardRelName = backwardRelInfo.relationshipName
                                                 List<EntityValueBase> currentRelValueList = []
-                                                alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
+                                                alreadyDisabled = efi.ecfi.getEci().artifactExecutionFacade.disableAuthz()
                                                 try {
                                                     for (EntityValueBase prevRelValue in prevRelValueList) {
                                                         EntityList backwardRelValueList = prevRelValue.findRelated(backwardRelName, null, null, false, false)
@@ -631,7 +631,7 @@ class EntityDataFeed {
                                                             currentRelValueList.add((EntityValueBase) backwardRelValue)
                                                     }
                                                 } finally {
-                                                    if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+                                                    if (!alreadyDisabled) efi.ecfi.getEci().artifactExecutionFacade.enableAuthz()
                                                 }
 
                                                 prevRelName = currentRelName
@@ -698,7 +698,7 @@ class EntityDataFeed {
                                 condition = efi.getConditionFactory().makeCondition(condList, EntityCondition.OR)
                             }
 
-                            alreadyDisabled = efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz()
+                            alreadyDisabled = efi.ecfi.getEci().artifactExecutionFacade.disableAuthz()
                             try {
                                 // generate the document with the extra condition and send it to all DataFeeds
                                 //     associated with the DataDocument
@@ -716,7 +716,7 @@ class EntityDataFeed {
                                     for (EntityValue dataFeedAndDocument in dataFeedAndDocumentList) {
                                         // NOTE: this is a sync call so authz disabled is preserved; it is in its own thread
                                         //     so user/etc are not inherited here
-                                        ecfi.getServiceFacade().sync().name((String) dataFeedAndDocument.feedReceiveServiceName)
+                                        ecfi.serviceFacade.sync().name((String) dataFeedAndDocument.feedReceiveServiceName)
                                                 .parameters([dataFeedId:dataFeedAndDocument.dataFeedId, feedStamp:feedStamp,
                                                 documentList:documents]).call()
                                     }
@@ -725,7 +725,7 @@ class EntityDataFeed {
                                     if (logger.isTraceEnabled()) logger.trace("In DataFeed no documents found for dataDocumentId [${dataDocumentId}]")
                                 }
                             } finally {
-                                if (!alreadyDisabled) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+                                if (!alreadyDisabled) efi.ecfi.getEci().artifactExecutionFacade.enableAuthz()
                             }
                         }
                     } catch (Throwable t) {

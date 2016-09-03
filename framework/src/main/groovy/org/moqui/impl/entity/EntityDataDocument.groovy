@@ -49,7 +49,7 @@ class EntityDataDocument {
                              Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
         File outFile = new File(filename)
         if (!outFile.createNewFile()) {
-            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
+            efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
             return 0
         }
 
@@ -61,7 +61,7 @@ class EntityDataDocument {
 
         pw.write("{}\n]\n")
         pw.close()
-        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
+        efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
         return valuesWritten
     }
 
@@ -70,7 +70,7 @@ class EntityDataDocument {
         File outDir = new File(dirname)
         if (!outDir.exists()) outDir.mkdir()
         if (!outDir.isDirectory()) {
-            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('Path ${dirname} is not a directory.','',[dirname:dirname]))
+            efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('Path ${dirname} is not a directory.','',[dirname:dirname]))
             return 0
         }
 
@@ -80,7 +80,7 @@ class EntityDataDocument {
             String filename = "${dirname}/${dataDocumentId}.json"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping document ${dataDocumentId}.','',[filename:filename,dataDocumentId:dataDocumentId]))
+                efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping document ${dataDocumentId}.','',[filename:filename,dataDocumentId:dataDocumentId]))
                 continue
             }
             outFile.createNewFile()
@@ -92,7 +92,7 @@ class EntityDataDocument {
 
             pw.write("{}\n]\n")
             pw.close()
-            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
+            efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
         }
 
         return valuesWritten
@@ -121,7 +121,7 @@ class EntityDataDocument {
 
     ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
                                Timestamp thruUpdatedStamp) {
-        ExecutionContextImpl eci = efi.getEcfi().getEci()
+        ExecutionContextImpl eci = efi.ecfi.getEci()
 
         EntityValue dataDocument = efi.find("moqui.entity.document.DataDocument")
                 .condition("dataDocumentId", dataDocumentId).useCache(true).one()
@@ -258,7 +258,7 @@ class EntityDataDocument {
             Map docMap = documentMapEntry.getValue()
             // call the manualDataServiceName service for each document
             if (dataDocument.manualDataServiceName) {
-                Map result = efi.ecfi.getServiceFacade().sync().name((String) dataDocument.manualDataServiceName)
+                Map result = efi.ecfi.serviceFacade.sync().name((String) dataDocument.manualDataServiceName)
                         .parameters([dataDocumentId:dataDocumentId, document:docMap]).call()
                 if (result.document) docMap = (Map) result.document
             }

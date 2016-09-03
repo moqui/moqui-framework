@@ -347,14 +347,14 @@ abstract class EntityFindBase implements EntityFind {
         return searchFormInputs(inputFieldsMapName, null, defaultOrderBy, alwaysPaginate)
     }
     EntityFind searchFormInputs(String inputFieldsMapName, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
         Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ec.resource.expression(inputFieldsMapName, "") : ec.context
         return searchFormMap(inf, defaultParameters, defaultOrderBy, alwaysPaginate)
     }
 
     @Override
     EntityFind searchFormMap(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
 
         // to avoid issues with entities that have cache=true, if no cache value is specified for this set it to false (avoids pagination errors, etc)
         if (useCache == null) useCache(false)
@@ -1126,7 +1126,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityListIterator iterator() throws EntityException {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
         boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
             return iteratorInternal(ec)

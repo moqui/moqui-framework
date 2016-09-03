@@ -137,7 +137,7 @@ class ScreenForm {
                     addServiceFields(serviceDef, formSubNode.attribute("include")?:"in", formSubNode.attribute("field-type")?:"edit", newFormNode, ecfi)
                     continue
                 }
-                if (ecfi.getServiceFacade().isEntityAutoPattern(serviceName)) {
+                if (ecfi.serviceFacade.isEntityAutoPattern(serviceName)) {
                     EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(ServiceDefinition.getNounFromName(serviceName))
                     if (ed != null) {
                         addEntityFields(ed, "all", formSubNode.attribute("field-type")?:"edit", ServiceDefinition.getVerbFromName(serviceName), newFormNode)
@@ -165,7 +165,7 @@ class ScreenForm {
             TransitionItem ti = this.sd.getTransitionItem(newFormNode.attribute("transition"), null)
             if (ti != null && ti.getSingleServiceName()) {
                 String singleServiceName = ti.getSingleServiceName()
-                ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(singleServiceName)
+                ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(singleServiceName)
                 if (sd != null) {
                     ArrayList<String> inParamNames = sd.getInParameterNames()
                     for (MNode fieldNode in newFormNode.children("field")) {
@@ -175,7 +175,7 @@ class ScreenForm {
                             fieldNode.attributes.put("validate-service", singleServiceName)
                         }
                     }
-                } else if (ecfi.getServiceFacade().isEntityAutoPattern(singleServiceName)) {
+                } else if (ecfi.serviceFacade.isEntityAutoPattern(singleServiceName)) {
                     String entityName = ServiceDefinition.getNounFromName(singleServiceName)
                     EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
                     ArrayList<String> fieldNames = ed.getAllFieldNames()
@@ -242,11 +242,11 @@ class ScreenForm {
     }
 
     static MNode getDbFormNode(String formId, ExecutionContextFactoryImpl ecfi) {
-        MNode dbFormNode = (MNode) ecfi.getScreenFacade().dbFormNodeByIdCache.get(formId)
+        MNode dbFormNode = (MNode) ecfi.screenFacade.dbFormNodeByIdCache.get(formId)
 
         if (dbFormNode == null) {
 
-            boolean alreadyDisabled = ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
+            boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
             try {
                 EntityValue dbForm = ecfi.getEntityFacade().find("moqui.screen.form.DbForm").condition("formId", formId).useCache(true).one()
                 if (dbForm == null) throw new BaseException("Could not find DbForm record with ID [${formId}]")
@@ -321,9 +321,9 @@ class ScreenForm {
                     mergeFieldNode(dbFormNode, newFieldNode, false)
                 }
 
-                ecfi.getScreenFacade().dbFormNodeByIdCache.put(formId, dbFormNode)
+                ecfi.screenFacade.dbFormNodeByIdCache.put(formId, dbFormNode)
             } finally {
-                if (!alreadyDisabled) ecfi.getExecutionContext().getArtifactExecution().enableAuthz()
+                if (!alreadyDisabled) ecfi.getEci().artifactExecutionFacade.enableAuthz()
             }
         }
 
@@ -746,7 +746,7 @@ class ScreenForm {
             String fileLocation = templateLocation.substring(0, templateLocation.indexOf("#"))
             String widgetTemplateName = templateLocation.substring(templateLocation.indexOf("#") + 1)
 
-            MNode widgetTemplatesNode = ecfi.getScreenFacade().getWidgetTemplatesNodeByLocation(fileLocation)
+            MNode widgetTemplatesNode = ecfi.screenFacade.getWidgetTemplatesNodeByLocation(fileLocation)
             MNode widgetTemplateNode = widgetTemplatesNode?.first({ MNode it -> it.attribute("name") == widgetTemplateName })
             if (widgetTemplateNode == null) throw new IllegalArgumentException("Could not find widget-template [${widgetTemplateName}] in [${fileLocation}]")
 
@@ -1050,7 +1050,7 @@ class ScreenForm {
             String validateService = fieldNode.attribute('validate-service')
             String validateEntity = fieldNode.attribute('validate-entity')
             if (validateService) {
-                ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(validateService)
+                ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(validateService)
                 if (sd == null) throw new IllegalArgumentException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
                 MNode parameterNode = sd.getInParameter((String) fieldNode.attribute('validate-parameter') ?: fieldName)
                 return parameterNode

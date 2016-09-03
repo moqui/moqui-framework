@@ -27,6 +27,7 @@ import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.ServiceCallSyncImpl
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
@@ -71,7 +72,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     EntityDataLoaderImpl(EntityFacadeImpl efi) {
         this.efi = efi
-        this.sfi = efi.getEcfi().getServiceFacade()
+        this.sfi = efi.ecfi.serviceFacade
     }
 
     EntityFacadeImpl getEfi() { return efi }
@@ -180,7 +181,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         efi.createAllAutoReverseManyRelationships()
 
         boolean reenableEeca = false
-        if (this.disableEeca) reenableEeca = !this.efi.ecfi.eci.artifactExecution.disableEntityEca()
+        if (this.disableEeca) reenableEeca = !this.efi.ecfi.eci.artifactExecutionFacade.disableEntityEca()
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -329,10 +330,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         } finally {
             tf.commit(beganTransaction)
 
-            ExecutionContext ec = efi.getEcfi().getExecutionContext()
-            if (ec.message.hasError()) {
-                logger.error("Error messages loading entity data: " + ec.message.getErrorsString())
-                ec.message.clearErrors()
+            ExecutionContextImpl ec = efi.ecfi.getEci()
+            if (ec.messageFacade.hasError()) {
+                logger.error("Error messages loading entity data: " + ec.messageFacade.getErrorsString())
+                ec.messageFacade.clearErrors()
             }
         }
     }
@@ -363,8 +364,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         protected ExecutionContext ec
         LoadValueHandler(EntityDataLoaderImpl edli) {
             super(edli)
-            sfi = edli.getEfi().getEcfi().getServiceFacade()
-            ec = edli.getEfi().getEcfi().getExecutionContext()
+            sfi = edli.getEfi().ecfi.serviceFacade
+            ec = edli.getEfi().ecfi.getEci()
         }
         void handleValue(EntityValue value) {
             if (edli.dummyFks) value.checkFks(true)

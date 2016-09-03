@@ -14,6 +14,7 @@
 package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.ContextStack
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextImpl
@@ -28,15 +29,16 @@ import org.slf4j.LoggerFactory
 public class InlineServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(InlineServiceRunner.class)
 
-    protected ServiceFacadeImpl sfi = null
+    private ServiceFacadeImpl sfi = null
+    private ExecutionContextFactoryImpl ecfi = null
 
     InlineServiceRunner() {}
 
-    public ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; return this }
+    public ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; ecfi = sfi.ecfi; return this; }
 
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
-        ExecutionContextImpl ec = sfi.ecfi.getEci()
-        ContextStack cs = (ContextStack) ec.context
+        ExecutionContextImpl ec = ecfi.getEci()
+        ContextStack cs = ec.contextStack
         try {
             // push the entire context to isolate the context for the service call
             cs.pushContext()

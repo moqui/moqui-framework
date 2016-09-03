@@ -628,7 +628,7 @@ class EntityDbMeta {
         int records = 0
         try {
             // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
-            efi.ecfi.getTransactionFacade().runRequireNew(10, "Error in DB meta data change", useTxForMetaData, true, {
+            efi.ecfi.transactionFacade.runRequireNew(10, "Error in DB meta data change", useTxForMetaData, true, {
                 Connection con = null
                 Statement stmt = null
 

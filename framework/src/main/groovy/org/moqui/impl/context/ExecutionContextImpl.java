@@ -223,7 +223,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         Map<String, Object> skipParms = new HashMap<>();
         if (webFacade != null)
             skipParms.put("pathInfo", webFacade.getRequest().getPathInfo());
-        skipStats = (skipStatsCond != null && !skipStatsCond.isEmpty()) && ecfi.getResourceFacade().condition(skipStatsCond, null, skipParms);
+        skipStats = (skipStatsCond != null && !skipStatsCond.isEmpty()) && ecfi.resourceFacade.condition(skipStatsCond, null, skipParms);
         return skipStats;
     }
 
@@ -303,9 +303,9 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (webFacadeImpl != null) webFacadeImpl.runAfterRequestActions();
 
         // make sure there are no transactions open, if any commit them all now
-        ecfi.getTransactionFacade().destroyAllInThread();
+        ecfi.transactionFacade.destroyAllInThread();
         // clean up resources, like JCR session
-        ecfi.getResourceFacade().destroyAllInThread();
+        ecfi.resourceFacade.destroyAllInThread();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
 

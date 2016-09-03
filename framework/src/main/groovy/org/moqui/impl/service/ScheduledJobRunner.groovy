@@ -164,7 +164,7 @@ class ScheduledJobRunner implements Runnable {
                     }
 
                     // at this point jobRunId and serviceJobRunLock should not be null
-                    ServiceCallJobImpl serviceCallJob = new ServiceCallJobImpl(jobName, ecfi.getServiceFacade())
+                    ServiceCallJobImpl serviceCallJob = new ServiceCallJobImpl(jobName, ecfi.serviceFacade)
                     // use the job run we created
                     serviceCallJob.withJobRunId(jobRunId)
                     // clear the lock when finished

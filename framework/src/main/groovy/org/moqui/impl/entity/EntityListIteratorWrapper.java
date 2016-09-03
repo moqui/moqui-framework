@@ -45,7 +45,7 @@ class EntityListIteratorWrapper implements EntityListIterator {
         this.valueList = valueList;
         this.entityDefinition = entityDefinition;
         // this.fieldsSelected = fieldsSelected;
-        this.txCache = efi.getEcfi().getTransactionFacade().getTransactionCache();
+        this.txCache = efi.ecfi.transactionFacade.getTransactionCache();
     }
 
     public void setQueryCondition(EntityCondition ec) { this.queryCondition = ec; }

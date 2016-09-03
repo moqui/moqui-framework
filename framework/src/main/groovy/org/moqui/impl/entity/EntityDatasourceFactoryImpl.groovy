@@ -78,7 +78,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
                 logger.info("Set property derby.system.home to [${System.getProperty("derby.system.home")}]")
             }
 
-            TransactionInternal ti = efi.getEcfi().getTransactionFacade().getTransactionInternal()
+            TransactionInternal ti = efi.ecfi.transactionFacade.getTransactionInternal()
             this.dataSource = ti.getDataSource(efi, datasourceNode, tenantId)
         } else {
             throw new EntityException("Found datasource with no jdbc sub-element (in datasource with group-name [${datasourceNode.attribute("group-name")}])")

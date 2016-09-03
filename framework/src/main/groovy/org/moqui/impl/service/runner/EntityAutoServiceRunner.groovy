@@ -39,24 +39,27 @@ import java.sql.Timestamp
 public class EntityAutoServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(EntityAutoServiceRunner.class)
 
-    final static Set<String> verbSet = new TreeSet(['create', 'update', 'delete', 'store'])
+    final static Set<String> verbSet = new HashSet(['create', 'update', 'delete', 'store'])
     final static Set<String> otherFieldsToSkip = new HashSet(['ec', '_entity', 'authTenantId', 'authUsername', 'authPassword'])
-    protected ServiceFacadeImpl sfi = null
+
+    private ServiceFacadeImpl sfi = null
+    private ExecutionContextFactoryImpl ecfi = null
 
     EntityAutoServiceRunner() {}
 
-    ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; return this }
+    ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; ecfi = sfi.ecfi; return this }
 
     // TODO: add update-expire and delete-expire entity-auto service verbs for entities with from/thru dates
     // TODO: add find (using search input parameters) and find-one (using literal PK, or as many PK fields as are passed on) entity-auto verbs
     Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
         // check the verb and noun
-        if (!sd.verb || !verbSet.contains(sd.verb))
-            throw new ServiceException("In service [${sd.serviceName}] the verb must be one of ${verbSet} for entity-auto type services.")
-        if (!sd.noun)  throw new ServiceException("In service [${sd.serviceName}] you must specify a noun for entity-auto service calls")
+        if (sd.verb == null || !verbSet.contains(sd.verb))
+            throw new ServiceException("In service ${sd.serviceName} the verb must be one of ${verbSet} for entity-auto type services.")
+        if (sd.noun == null || sd.noun.isEmpty()) throw new ServiceException("In service ${sd.serviceName} you must specify a noun for entity-auto service calls")
 
-        EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(sd.noun)
-        if (!ed) throw new ServiceException("In service [${sd.serviceName}] the specified noun [${sd.noun}] is not a valid entity name")
+        ExecutionContextImpl eci = ecfi.getEci()
+        EntityDefinition ed = eci.entityFacade.getEntityDefinition(sd.noun)
+        if (ed == null) throw new ServiceException("In service ${sd.serviceName} the specified noun ${sd.noun} is not a valid entity name")
 
         Map<String, Object> result = new HashMap()
 
@@ -67,24 +70,24 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             }
 
             if ("create".equals(sd.verb)) {
-                createEntity(sfi.ecfi.getEci(), ed, parameters, result, sd.getOutParameterNames())
+                createEntity(eci, ed, parameters, result, sd.getOutParameterNames())
             } else if ("update".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
-                if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with update noun, not all pk fields have the mode IN")
-                updateEntity(sfi.ecfi.getEci(), ed, parameters, result, sd.getOutParameterNames(), null)
+                if (!allPksInOnly) throw new ServiceException("In entity-auto type service ${sd.serviceName} with update noun, not all pk fields have the mode IN")
+                updateEntity(eci, ed, parameters, result, sd.getOutParameterNames(), null)
             } else if ("delete".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
-                if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with delete noun, not all pk fields have the mode IN")
-                deleteEntity(sfi.ecfi.getEci(), ed, parameters)
+                if (!allPksInOnly) throw new ServiceException("In entity-auto type service ${sd.serviceName} with delete noun, not all pk fields have the mode IN")
+                deleteEntity(eci, ed, parameters)
             } else if ("store".equals(sd.verb)) {
-                storeEntity(sfi.ecfi.getEci(), ed, parameters, result, sd.getOutParameterNames())
-            } else if ("update-expire" == sd.verb) {
+                storeEntity(eci, ed, parameters, result, sd.getOutParameterNames())
+            } else if ("update-expire".equals(sd.verb)) {
                 // TODO
-            } else if ("delete-expire" == sd.verb) {
+            } else if ("delete-expire".equals(sd.verb)) {
                 // TODO
-            } else if ("find" == sd.verb) {
+            } else if ("find".equals(sd.verb)) {
                 // TODO
-            } else if ("find-one" == sd.verb) {
+            } else if ("find-one".equals(sd.verb)) {
                 // TODO
             }
         } catch (BaseException e) {
