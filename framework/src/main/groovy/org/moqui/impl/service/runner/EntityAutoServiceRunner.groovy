@@ -19,6 +19,7 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
@@ -66,17 +67,17 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             }
 
             if ("create".equals(sd.verb)) {
-                createEntity(sfi, ed, parameters, result, sd.getOutParameterNames())
+                createEntity(sfi.ecfi.getEci(), ed, parameters, result, sd.getOutParameterNames())
             } else if ("update".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
                 if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with update noun, not all pk fields have the mode IN")
-                updateEntity(sfi, ed, parameters, result, sd.getOutParameterNames(), null)
+                updateEntity(sfi.ecfi.getEci(), ed, parameters, result, sd.getOutParameterNames(), null)
             } else if ("delete".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
                 if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with delete noun, not all pk fields have the mode IN")
-                deleteEntity(sfi, ed, parameters)
+                deleteEntity(sfi.ecfi.getEci(), ed, parameters)
             } else if ("store".equals(sd.verb)) {
-                storeEntity(sfi, ed, parameters, result, sd.getOutParameterNames())
+                storeEntity(sfi.ecfi.getEci(), ed, parameters, result, sd.getOutParameterNames())
             } else if ("update-expire" == sd.verb) {
                 // TODO
             } else if ("delete-expire" == sd.verb) {
@@ -131,7 +132,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             FieldInfo singlePkField = pkFieldInfos.get(0)
 
             Object pkValue = parameters.get(singlePkField.name)
-            if (pkValue) {
+            if (pkValue != null) {
                 newEntityValue.set(singlePkField.name, pkValue)
             } else {
                 // if it has a default value don't sequence the PK
@@ -148,7 +149,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             FieldInfo doublePkSecondary = pkFieldInfos.get(1)
             newEntityValue.setFields(parameters, true, null, true)
             // if it has a default value don't sequence the PK
-            if (!doublePkSecondary.defaultStr) {
+            if (doublePkSecondary.defaultStr == null || doublePkSecondary.defaultStr.isEmpty()) {
                 newEntityValue.setSequencedIdSecondary()
                 if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains(doublePkSecondary.name))
                     tempResult.put(doublePkSecondary.name, newEntityValue.getNoCheckSimple(doublePkSecondary.name))
@@ -157,7 +158,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             /* **** plain specified primary key **** */
             newEntityValue.setFields(parameters, true, null, true)
         } else {
-            logger.error("Entity [${ed.getFullEntityName()}] auto create pk fields ${pkFieldNames} incomplete: ${parameters}")
+            logger.error("Entity [${ed.fullEntityName}] auto create pk fields ${pkFieldNames} incomplete: ${parameters}")
             throw new ServiceException("In entity-auto create service for entity [${ed.fullEntityName}]: " +
                     "could not find a valid combination of primary key settings to do a create operation; options include: " +
                     "1. a single entity primary-key field for primary auto-sequencing with or without matching in-parameter, and with or without matching out-parameter for the possibly sequenced value, " +
@@ -170,10 +171,9 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         return allPksIn
     }
 
-    static void createEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
-                                    Map<String, Object> result, ArrayList<String> outParamNames) {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        createRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
+    static void createEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
+                             Map<String, Object> result, ArrayList<String> outParamNames) {
+        createRecursive(eci.ecfi, eci.entityFacade, ed, parameters, result, outParamNames, null)
     }
 
     static void createRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
@@ -313,10 +313,10 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         // NOTE: nothing here to maintain the status history, that should be done with a custom service called by SECA rule or with audit log on field
     }
 
-    static void updateEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
+    static void updateEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
                                     Map<String, Object> result, ArrayList<String> outParamNames, EntityValue preLookedUpValue) {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        EntityFacadeImpl efi = ecfi.getEntityFacade()
+        ExecutionContextFactoryImpl ecfi = eci.ecfi
+        EntityFacadeImpl efi = eci.getEntityFacade()
 
         EntityValue lookedUpValue = preLookedUpValue ?:
                 efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
@@ -344,17 +344,15 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         storeRelated(ecfi, efi, (EntityValueBase) lookedUpValue, parameters, result, null)
     }
 
-    static void deleteEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters) {
-        EntityValue ev = sfi.getEcfi().getEntityFacade().makeValue(ed.getFullEntityName())
-                .setFields(parameters, true, null, true)
+    static void deleteEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters) {
+        EntityValue ev = eci.getEntityFacade().makeValue(ed.fullEntityName).setFields(parameters, true, null, true)
         ev.delete()
     }
 
     /** Does a create if record does not exist, or update if it does. */
-    static void storeEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
+    static void storeEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
                                    Map<String, Object> result, ArrayList<String> outParamNames) {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        storeRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
+        storeRecursive(eci.ecfi, eci.getEntityFacade(), ed, parameters, result, outParamNames, null)
     }
 
     static void storeRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
@@ -382,7 +380,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         EntityValue lookedUpValue = null
         if (parameters.containsKey("statusId") && ed.isField("statusId")) {
             // do the actual query so we'll have the current statusId
-            lookedUpValue = efi.find(ed.getFullEntityName())
+            lookedUpValue = efi.find(ed.fullEntityName)
                     .condition(newEntityValue).useCache(false).one()
             if (lookedUpValue != null) {
                 checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)

@@ -365,26 +365,22 @@ class ServiceFacadeImpl implements ServiceFacade {
         return numLoaded
     }
 
-    void runSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when) {
+    ArrayList<ServiceEcaRule> secaRules(String serviceName) {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
-        // remove the hash if there is one to more consistently match the service name
-        // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        ArrayList<ServiceEcaRule> lst = (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
-        if (lst != null && lst.size() > 0) {
-            ExecutionContextImpl eci = ecfi.getEci()
-            for (int i = 0; i < lst.size(); i++) {
-                ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
-                ser.runIfMatches(serviceName, parameters, results, when, eci)
-            }
+        return (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
+    }
+    static void runSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when,
+                      ArrayList<ServiceEcaRule> lst, ExecutionContextImpl eci) {
+        int lstSize = lst.size()
+        for (int i = 0; i < lstSize; i++) {
+            ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
+            ser.runIfMatches(serviceName, parameters, results, when, eci)
         }
     }
-
-    void registerTxSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results) {
-        // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
-        // remove the hash if there is one to more consistently match the service name
-        // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        ArrayList<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-        if (lst != null && lst.size() > 0) for (ServiceEcaRule ser in lst) {
+    void registerTxSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results, ArrayList<ServiceEcaRule> lst) {
+        int lstSize = lst.size()
+        for (int i = 0; i < lstSize; i++) {
+            ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
             if (ser.when.startsWith("tx-")) ser.registerTx(serviceName, parameters, results, ecfi)
         }
     }

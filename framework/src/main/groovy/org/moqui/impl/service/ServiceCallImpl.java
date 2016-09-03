@@ -57,19 +57,16 @@ public class ServiceCallImpl implements ServiceCall {
         this.path = path;
         this.verb = verb;
         this.noun = noun;
-        serviceName = ServiceDefinition.makeServiceName(path, verb, noun);
+        StringBuilder sb = new StringBuilder();
+        if (path != null && !path.isEmpty()) sb.append(path).append('.');
+        sb.append(verb);
+        if (noun != null && !noun.isEmpty()) sb.append('#').append(noun);
+        serviceName = sb.toString();
         serviceNameNoHash = serviceName.replace("#", "");
     }
 
     @Override
-    public String getServiceName() {
-        if (serviceName == null) serviceName = ServiceDefinition.makeServiceName(path, verb, noun);
-        return serviceName;
-    }
-    public String getServiceNameNoHash() {
-        if (serviceNameNoHash == null) serviceNameNoHash = ServiceDefinition.makeServiceNameNoHash(path, verb, noun);
-        return serviceNameNoHash;
-    }
+    public String getServiceName() { return serviceName; }
 
     @Override
     public Map<String, Object> getCurrentParameters() {

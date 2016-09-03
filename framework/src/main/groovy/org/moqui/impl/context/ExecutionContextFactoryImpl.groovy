@@ -1034,7 +1034,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override
     TransactionFacade getTransaction() { transactionFacade }
     @Override
-    EntityFacade getEntity() { getEntityFacade(getExecutionContext()?.getTenantId()) }
+    EntityFacade getEntity() { getEci().entity }
     @Override
     EntityFacade getEntity(String tenantId) { getEntityFacade(tenantId) }
     @Override
