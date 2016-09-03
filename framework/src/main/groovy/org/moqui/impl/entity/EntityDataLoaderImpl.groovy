@@ -31,6 +31,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.ServiceCallSyncImpl
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
+import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.service.ServiceCallSync
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -361,7 +362,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     }
     static class LoadValueHandler extends ValueHandler {
         protected ServiceFacadeImpl sfi
-        protected ExecutionContext ec
+        protected ExecutionContextImpl ec
         LoadValueHandler(EntityDataLoaderImpl edli) {
             super(edli)
             sfi = edli.getEfi().ecfi.serviceFacade
@@ -382,7 +383,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         }
         void handlePlainMap(String entityName, Map value) {
-            Map results = sfi.sync().name('store', entityName).parameters(value).call()
+            EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
+            if (ed == null) throw new BaseException("Could not find entity ${entityName}")
+            Map<String, Object> results = new HashMap()
+            EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null)
+            // no need to call the store auto service, use storeEntity directly:
+            // Map results = sfi.sync().name('store', entityName).parameters(value).call()
             if (logger.isTraceEnabled()) logger.trace("Called store service for entity [${entityName}] in data load, results: ${results}")
             if (ec.getMessage().hasError()) {
                 String errStr = ec.getMessage().getErrorsString()
