@@ -568,7 +568,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (isTraceEnabled) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
-                for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append(infoAei.getName())
+                for (def infoAei in ecfi.getEci().artifactExecutionFacade.getStack()) infoString.append(infoAei.getName())
                 logger.trace(infoString.toString())
             // } else if (logger.isInfoEnabled()) {
             //     logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
@@ -580,7 +580,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             txStackInfo.txCache = txCache
             registerSynchronization(txCache)
         } else if (txStackInfo.txCache.isReadOnly()) {
-            if (isTraceEnabled) logger.trace("Making TX cache write through in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
+            if (isTraceEnabled) logger.trace("Making TX cache write through in ${ecfi.getEci().artifactExecutionFacade.peek()?.getName()}")
             txStackInfo.txCache.makeWriteThrough()
             // doing on read only init: registerSynchronization(txStackInfo.txCache)
         }

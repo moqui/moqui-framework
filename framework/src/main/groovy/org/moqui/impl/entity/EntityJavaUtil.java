@@ -389,7 +389,7 @@ public class EntityJavaUtil {
                     if (!isEmpty) {
                         if (isCharSequence) {
                             try {
-                                Object converted = fi.convertFromString(value.toString(), eci.getL10nFacade());
+                                Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
                                 if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted);
                                 else dest.put(fieldName, converted);
                             } catch (BaseException be) {
@@ -441,7 +441,7 @@ public class EntityJavaUtil {
                     if (!isEmpty) {
                         if (isCharSequence) {
                             try {
-                                Object converted = fi.convertFromString(value.toString(), eci.getL10nFacade());
+                                Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
                                 dest.putNoCheck(fieldName, converted);
                             } catch (BaseException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);

@@ -43,10 +43,9 @@ class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
-    protected final ExecutionContextFactoryImpl ecfi
-    protected final String tenantId
-
-    protected final EntityConditionFactoryImpl entityConditionFactory
+    public final ExecutionContextFactoryImpl ecfi
+    public final String tenantId
+    public final EntityConditionFactoryImpl entityConditionFactory
 
     protected final HashMap<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new HashMap()
 

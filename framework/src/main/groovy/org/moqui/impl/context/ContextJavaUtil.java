@@ -156,8 +156,8 @@ public class ContextJavaUtil {
                         String artifactSubType, String artifactName, long startTime, double runningTimeMillis,
                         Map<String, Object> parameters, Long outputSize) {
             tenantId = eci.getTenantId();
-            visitId = eci.getUserFacade().getVisitId();
-            userId = eci.getUserFacade().getUserId();
+            visitId = eci.userFacade.getVisitId();
+            userId = eci.userFacade.getUserId();
             this.isSlowHit = isSlowHit;
             this.artifactTypeEnum = artifactTypeEnum;
             this.artifactSubType = artifactSubType;

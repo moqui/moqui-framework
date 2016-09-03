@@ -689,7 +689,7 @@ class ScreenDefinition {
                 ScreenUrlInfo.UrlInstance screenUrlInstance = sri.getScreenUrlInstance()
                 setAllParameters(screenUrlInfo.getExtraPathNameList(), ec)
                 // for alias transitions rendered in-request put the parameters in the context
-                if (screenUrlInstance.getTransitionAliasParameters()) ec.getContext().putAll(screenUrlInstance.getTransitionAliasParameters())
+                if (screenUrlInstance.getTransitionAliasParameters()) ec.contextStack.putAll(screenUrlInstance.getTransitionAliasParameters())
 
 
                 if (!checkCondition(ec)) {
@@ -699,7 +699,7 @@ class ScreenDefinition {
                 }
 
                 // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
-                ec.getContext().put("sri", sri)
+                ec.contextStack.put("sri", sri)
                 if (actions != null) actions.run(ec)
 
                 ResponseItem ri = null
@@ -744,10 +744,10 @@ class ScreenDefinition {
             // run actions (if there are any)
             XmlAction actions = parentScreen.rootSection.actions
             if (actions != null) {
-                ec.context.put("sri", sri)
+                ec.contextStack.put("sri", sri)
                 actions.run(ec)
                 // use entire ec.context to get values from always-actions and pre-actions
-                wf.sendJsonResponse(StupidJavaUtilities.unwrapMap(ec.context))
+                wf.sendJsonResponse(StupidJavaUtilities.unwrapMap(ec.contextStack))
             } else {
                 wf.sendJsonResponse(new HashMap())
             }

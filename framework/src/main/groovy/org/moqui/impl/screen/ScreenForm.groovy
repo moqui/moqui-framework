@@ -331,7 +331,7 @@ class ScreenForm {
     }
 
     boolean isDisplayOnly() {
-        ContextStack cs = ecfi.getEci().getContext()
+        ContextStack cs = ecfi.getEci().contextStack
         return cs.getByString("formDisplayOnly") == "true" || cs.getByString("formDisplayOnly_${formName}") == "true"
     }
 
@@ -1313,24 +1313,26 @@ class ScreenForm {
         void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
             // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
             String listEntryStr = formNode.attribute('list-entry')
+            ExecutionContextImpl eci = sri.ec
+            ContextStack context = eci.contextStack
             if (listEntryStr) {
-                sri.ec.context.put(listEntryStr, listEntry)
-                sri.ec.context.put(listEntryStr + "_index", index)
-                sri.ec.context.put(listEntryStr + "_has_next", hasNext)
+                context.put(listEntryStr, listEntry)
+                context.put(listEntryStr + "_index", index)
+                context.put(listEntryStr + "_has_next", hasNext)
             } else {
                 if (listEntry instanceof EntityValueBase) {
-                    sri.ec.context.putAll(((EntityValueBase) listEntry).getValueMap())
+                    context.putAll(((EntityValueBase) listEntry).getValueMap())
                 } else if (listEntry instanceof Map) {
-                    sri.ec.context.putAll((Map) listEntry)
+                    context.putAll((Map) listEntry)
                 } else {
-                    sri.ec.context.put("listEntry", listEntry)
+                    context.put("listEntry", listEntry)
                 }
                 String listStr = formNode.attribute('list')
-                sri.ec.context.put(listStr + "_index", index)
-                sri.ec.context.put(listStr + "_has_next", hasNext)
-                sri.ec.context.put(listStr + "_entry", listEntry)
+                context.put(listStr + "_index", index)
+                context.put(listStr + "_has_next", hasNext)
+                context.put(listStr + "_entry", listEntry)
             }
-            if (rowActions) rowActions.run(sri.ec)
+            if (rowActions != null) rowActions.run(eci)
         }
 
         ArrayList<EntityValue> makeFormListFindFields(String formListFindId, ExecutionContext ec) {
@@ -1467,8 +1469,8 @@ class ScreenForm {
     }
 
     static String processFormSavedFind(ExecutionContextImpl ec) {
-        String userId = ec.user.userId
-        ContextStack cs = ec.context
+        String userId = ec.userFacade.userId
+        ContextStack cs = ec.contextStack
 
         String formListFindId = (String) cs.formListFindId
         EntityValue flf = formListFindId ? ec.entity.find("moqui.screen.form.FormListFind")
@@ -1477,7 +1479,7 @@ class ScreenForm {
         boolean isDelete = cs.containsKey("DeleteFind")
 
         if (isDelete) {
-            if (flf == null) { ec.message.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null; }
+            if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null; }
 
             // delete FormListFindUser record; if there are no other FormListFindUser records or FormListFindUserGroup
             //     records, delete the FormListFind
@@ -1511,7 +1513,7 @@ class ScreenForm {
         if (lastDollarIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return null; }
         String formName = formLocation.substring(lastDollarIndex + 1)
 
-        ScreenDefinition screenDef = ec.ecfi.screenFacade.getScreenDefinition(screenLocation)
+        ScreenDefinition screenDef = ec.screenFacade.getScreenDefinition(screenLocation)
         if (screenDef == null) { ec.message.addError("Screen not found at ${screenLocation}, cannot process saved find"); return null; }
         ScreenForm screenForm = screenDef.getForm(formName)
         if (screenForm == null) { ec.message.addError("Form ${formName} not found in screen at ${screenLocation}, cannot process saved find"); return null; }
@@ -1571,10 +1573,10 @@ class ScreenForm {
     }
 
     static void saveFormConfig(ExecutionContextImpl ec) {
-        String userId = ec.user.userId
-        ContextStack cs = ec.context
+        String userId = ec.userFacade.userId
+        ContextStack cs = ec.contextStack
         String formLocation = cs.get("formLocation")
-        if (!formLocation) { ec.message.addError("No form location specified, cannot save form configuration"); return; }
+        if (!formLocation) { ec.messageFacade.addError("No form location specified, cannot save form configuration"); return; }
 
         // see if there is an existing FormConfig record
         String formConfigId = cs.get("formConfigId")

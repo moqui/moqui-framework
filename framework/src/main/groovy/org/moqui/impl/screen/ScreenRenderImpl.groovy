@@ -757,7 +757,7 @@ class ScreenRenderImpl implements ScreenRender {
         String requireAuthentication = currentSd.screenNode?.attribute("require-authentication")
         String userId = ec.getUser().getUserId()
         if ((requireAuthentication == null || requireAuthentication.length() == 0 || requireAuthentication == "true")
-                && (userId == null || userId.length() == 0) && !ec.getUserFacade().getLoggedInAnonymous()) {
+                && (userId == null || userId.length() == 0) && !ec.userFacade.getLoggedInAnonymous()) {
             logger.info("Screen at location [${currentSd.location}], which is part of [${screenUrlInfo.fullPathNameList}] under screen [${screenUrlInfo.fromSd.location}] requires authentication but no user is currently logged in.")
             // save the request as a save-last to use after login
             if (wfi != null && screenUrlInfo.fileResourceRef == null) {

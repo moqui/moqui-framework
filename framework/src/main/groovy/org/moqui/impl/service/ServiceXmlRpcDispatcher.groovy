@@ -79,7 +79,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
         public boolean isAuthorized(XmlRpcRequest xmlRpcRequest) throws XmlRpcException {
             XmlRpcHttpRequestConfig config = (XmlRpcHttpRequestConfig) xmlRpcRequest.getConfig()
 
-            ServiceDefinition sd = eci.ecfi.getServiceFacade().getServiceDefinition(xmlRpcRequest.getMethodName())
+            ServiceDefinition sd = eci.serviceFacade.getServiceDefinition(xmlRpcRequest.getMethodName())
             if (sd != null && "true".equals(sd.authenticate)) {
                 return eci.user.loginUser(config.getBasicUserName(), config.getBasicPassword(), null)
             } else {
@@ -96,7 +96,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
 
         @Override
         public XmlRpcHandler getHandler(String method) throws XmlRpcNoSuchHandlerException, XmlRpcException {
-            ServiceDefinition sd = eci.ecfi.getServiceFacade().getServiceDefinition(method)
+            ServiceDefinition sd = eci.serviceFacade.getServiceDefinition(method)
             if (sd == null) throw new XmlRpcNoSuchHandlerException("Service not found: [" + method + "]")
             return this
         }
@@ -104,7 +104,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
         public Object execute(XmlRpcRequest xmlRpcReq) throws XmlRpcException {
             String methodName = xmlRpcReq.getMethodName()
 
-            ServiceDefinition sd = eci.ecfi.serviceFacade.getServiceDefinition(methodName)
+            ServiceDefinition sd = eci.serviceFacade.getServiceDefinition(methodName)
             if (sd == null)
                 throw new XmlRpcException("Received XML-RPC service call for unknown service [${methodName}]")
             if (sd.serviceNode.attribute("allow-remote") != "true")
@@ -127,7 +127,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
         }
 
         protected Map getParameters(XmlRpcRequest xmlRpcRequest, String methodName) throws XmlRpcException {
-            ServiceDefinition sd = eci.ecfi.serviceFacade.getServiceDefinition(methodName)
+            ServiceDefinition sd = eci.serviceFacade.getServiceDefinition(methodName)
 
             Map parameters = new HashMap()
             int parameterCount = xmlRpcRequest.getParameterCount()

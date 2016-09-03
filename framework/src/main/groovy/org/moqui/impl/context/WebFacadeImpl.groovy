@@ -874,12 +874,12 @@ class WebFacadeImpl implements WebFacade {
                     // logger.warn("========== REST ${request.getMethod()} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
                     parmStack.push()
                     parmStack.putAll((Map) bodyListObj)
-                    eci.context.push(parmStack)
+                    eci.contextStack.push(parmStack)
 
-                    RestApi.RestResult restResult = eci.getEcfi().getServiceFacade().getRestApi().run(extraPathNameList, eci)
+                    RestApi.RestResult restResult = eci.serviceFacade.getRestApi().run(extraPathNameList, eci)
                     responseList.add(restResult.responseObj ?: [:])
 
-                    eci.context.pop()
+                    eci.contextStack.pop()
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
@@ -894,9 +894,9 @@ class WebFacadeImpl implements WebFacade {
                     sendJsonResponse(responseList)
                 }
             } else {
-                eci.context.push(parmStack)
-                RestApi.RestResult restResult = eci.getEcfi().getServiceFacade().getRestApi().run(extraPathNameList, eci)
-                eci.context.pop()
+                eci.contextStack.push(parmStack)
+                RestApi.RestResult restResult = eci.serviceFacade.getRestApi().run(extraPathNameList, eci)
+                eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
                 restResult.setHeaders(response)
 

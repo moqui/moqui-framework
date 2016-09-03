@@ -17,7 +17,6 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.*
-import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
@@ -367,7 +366,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override
     Object script(String location, String method, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
-        ContextStack cs = ec.context
+        ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
             if (doPushPop) {
@@ -384,7 +383,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     Object setInContext(String field, String from, String value, String defaultValue, String type, String setIfEmpty) {
         def tempValue = getValueFromContext(from, value, defaultValue, type)
-        ecfi.getExecutionContext().getContext().put("_tempValue", tempValue)
+        ecfi.getEci().contextStack.put("_tempValue", tempValue)
         if (tempValue || setIfEmpty) expression("${field} = _tempValue", "")
 
         return tempValue
@@ -401,7 +400,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return conditionInternal(expression, debugLocation, ecfi.getEci())
     }
     protected boolean conditionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
-        if (expression == null || expression.length() == 0) return false
+        if (expression == null || expression.isEmpty()) return false
         try {
             Script script = getGroovyScript(expression, ec)
             Object result = script.run()
@@ -414,7 +413,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override
     boolean condition(String expression, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
-        ContextStack cs = ec.context
+        ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
             if (doPushPop) {
@@ -434,7 +433,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return expressionInternal(expression, debugLocation, ecfi.getEci())
     }
     protected Object expressionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
-        if (expression == null || expression.length() == 0) return null
+        if (expression == null || expression.isEmpty()) return null
         try {
             Script script = getGroovyScript(expression, ec)
             Object result = script.run()
@@ -447,7 +446,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override
     Object expression(String expr, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
-        ContextStack cs = ec.context
+        ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         try {
             if (doPushPop) {
@@ -478,21 +477,22 @@ public class ResourceFacadeImpl implements ResourceFacade {
         int inputStringLength = inputString.length()
         if (inputStringLength == 0) return ""
 
+        ExecutionContextImpl eci = (ExecutionContextImpl) null
         // localize string before expanding
         if (localize && inputStringLength < 256) {
-            ExecutionContextImpl eci = ecfi.getEci()
+            eci = ecfi.getEci()
             inputString = eci.l10nFacade.localize(inputString)
         }
         // if no $ then it's a plain String, just return it
         if (!inputString.contains('$')) return inputString
 
-        ExecutionContextImpl eci = ecfi.getEci()
+        if (eci == null) eci = ecfi.getEci()
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
         ContextStack cs = (ContextStack) null
-        if (doPushPop) cs = eci.context
+        if (doPushPop) cs = eci.contextStack
         try {
             if (doPushPop) {
-                if (additionalContext instanceof EntityValue) { cs.push(((EntityValue) additionalContext).getMap()) }
+                if (additionalContext instanceof EntityValueBase) { cs.push(((EntityValueBase) additionalContext).getValueMap()) }
                 else { cs.push(additionalContext) }
                 // do another push so writes to the context don't modify the passed in Map
                 cs.push()
@@ -514,7 +514,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     Script getGroovyScript(String expression, ExecutionContextImpl eci) {
-        ContextBinding curBinding = eci.getContextBinding()
+        ContextBinding curBinding = eci.contextBindingInternal
 
         Map<String, Script> curScriptByExpr = (Map<String, Script>) threadScriptByExpression.get()
         if (curScriptByExpr == null) {

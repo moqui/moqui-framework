@@ -68,7 +68,7 @@ public class ServiceJsonRpcDispatcher {
 
         String errorMessage = null
         Integer errorCode = null
-        ServiceDefinition sd = method ? eci.ecfi.serviceFacade.getServiceDefinition(method) : null
+        ServiceDefinition sd = method ? eci.serviceFacade.getServiceDefinition(method) : null
         if (eci.web.getRequestParameters()._requestBodyJsonParseError) {
             errorMessage = eci.web.getRequestParameters()._requestBodyJsonParseError
             errorCode = PARSE_ERROR

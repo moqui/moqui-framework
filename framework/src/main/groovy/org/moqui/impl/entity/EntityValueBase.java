@@ -73,8 +73,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     public EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip;
-        tenantId = efip.getTenantId();
-        entityName = ed.getFullEntityName();
+        tenantId = efip.tenantId;
+        entityName = ed.fullEntityName;
         entityDefinitionTransient = ed;
         // NOTE: not serializing modified, mutable, isFromDb... if it is a copy we don't care if it gets modified, etc
     }

@@ -579,7 +579,7 @@ class RestSchemaUtil {
             return
         }
 
-        EntityFacadeImpl efi = eci.getEcfi().getEntityFacade()
+        EntityFacadeImpl efi = eci.entityFacade
 
         if (extraPathNameList.size() == 0) {
             List allRefList = []
@@ -666,7 +666,7 @@ class RestSchemaUtil {
             return
         }
 
-        EntityFacadeImpl efi = eci.getEcfi().getEntityFacade()
+        EntityFacadeImpl efi = eci.entityFacade
 
         List<Map> schemasList = []
         Map<String, Object> rootMap = [title:'Moqui Entity REST API', version:'v1', baseUri:linkPrefix,
@@ -737,7 +737,7 @@ class RestSchemaUtil {
             return
         }
 
-        EntityFacadeImpl efi = eci.getEcfi().getEntityFacade()
+        EntityFacadeImpl efi = eci.entityFacade
 
         String entityName = extraPathNameList.get(0)
         String outputType = "application/json"
@@ -844,7 +844,7 @@ class RestSchemaUtil {
         String fullHost = WebFacadeImpl.makeWebappHost(eci.webImpl.webappMoquiName, eci, eci.webImpl, true)
         String scheme = fullHost.substring(0, fullHost.indexOf("://"))
         String hostName = fullHost.substring(fullHost.indexOf("://") + 3)
-        Map swaggerMap = eci.ecfi.serviceFacade.restApi.getSwaggerMap(rootPathList, [scheme], hostName, basePath)
+        Map swaggerMap = eci.serviceFacade.restApi.getSwaggerMap(rootPathList, [scheme], hostName, basePath)
         if (outputType == "application/json") {
             JsonBuilder jb = new JsonBuilder()
             jb.call(swaggerMap)
@@ -872,7 +872,7 @@ class RestSchemaUtil {
         String rootResourceName = extraPathNameList.get(0)
         if (rootResourceName.endsWith(".raml")) rootResourceName = rootResourceName.substring(0, rootResourceName.length() - 5)
 
-        Map swaggerMap = eci.ecfi.serviceFacade.restApi.getRamlMap(rootResourceName, linkPrefix)
+        Map swaggerMap = eci.serviceFacade.restApi.getRamlMap(rootResourceName, linkPrefix)
         DumperOptions options = new DumperOptions()
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
         // default: options.setDefaultScalarStyle(DumperOptions.ScalarStyle.PLAIN)

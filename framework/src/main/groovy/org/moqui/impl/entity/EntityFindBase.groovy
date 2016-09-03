@@ -40,8 +40,8 @@ abstract class EntityFindBase implements EntityFind {
 
     final static int defaultResultSetType = ResultSet.TYPE_FORWARD_ONLY
 
-    protected final EntityFacadeImpl efi
-    protected final TransactionCache txCache
+    public final EntityFacadeImpl efi
+    public final TransactionCache txCache
 
     protected String entityName
     protected EntityDefinition entityDef = (EntityDefinition) null
@@ -74,19 +74,17 @@ abstract class EntityFindBase implements EntityFind {
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
-        TransactionFacadeImpl tfi = efi.getEcfi().getTransactionFacade()
+        TransactionFacadeImpl tfi = efi.ecfi.transactionFacade
         txCache = tfi.getTransactionCache()
         // if (!tfi.isTransactionInPlace()) logger.warn("No transaction in place, creating find for entity ${entityName}")
     }
     EntityFindBase(EntityFacadeImpl efi, EntityDefinition ed) {
         this.efi = efi
-        entityName = ed.getFullEntityName()
+        entityName = ed.fullEntityName
         entityDef = ed
-        TransactionFacadeImpl tfi = efi.getEcfi().getTransactionFacade()
+        TransactionFacadeImpl tfi = efi.ecfi.transactionFacade
         txCache = tfi.getTransactionCache()
     }
-
-    EntityFacadeImpl getEfi() { return efi }
 
     @Override
     EntityFind entity(String entityName) { this.entityName = entityName; return this }
@@ -118,7 +116,7 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityFind condition(String fieldName, EntityCondition.ComparisonOperator operator, Object value) {
         if (operator == EntityCondition.EQUALS) return condition(fieldName, value)
-        return condition(efi.conditionFactory.makeCondition(fieldName, operator, value))
+        return condition(efi.entityConditionFactory.makeCondition(fieldName, operator, value))
     }
     @Override
     EntityFind condition(String fieldName, String operator, Object value) {
@@ -129,7 +127,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind conditionToField(String fieldName, EntityCondition.ComparisonOperator operator, String toFieldName) {
-        return condition(efi.conditionFactory.makeConditionToField(fieldName, operator, toFieldName))
+        return condition(efi.entityConditionFactory.makeConditionToField(fieldName, operator, toFieldName))
     }
 
     @Override
@@ -222,7 +220,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind conditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
-        condition(efi.conditionFactory.makeConditionDate(fromFieldName, thruFieldName, compareStamp))
+        condition(efi.entityConditionFactory.makeConditionDate(fromFieldName, thruFieldName, compareStamp))
         return this
     }
 
@@ -367,13 +365,13 @@ abstract class EntityFindBase implements EntityFind {
         if (!addedConditions && defaultParameters != null && defaultParameters.size() > 0) {
             processInputFields(defaultParameters, ec)
             for (Map.Entry<String, Object> dpEntry in defaultParameters.entrySet())
-                ec.context.put(dpEntry.key, dpEntry.value)
+                ec.contextStack.put(dpEntry.key, dpEntry.value)
         }
 
         // always look for an orderByField parameter too
         String orderByString = inputFieldsMap?.get("orderByField") ?: defaultOrderBy
         if (orderByString != null && orderByString.length() > 0) {
-            ec.context.put("orderByField", orderByString)
+            ec.contextStack.put("orderByField", orderByString)
             this.orderBy(orderByString)
         }
 
@@ -412,38 +410,38 @@ abstract class EntityFindBase implements EntityFind {
                     case "equals":
                         if (value) {
                             Object convertedValue = value instanceof String ? ed.convertFieldString(fn, (String) value, ec) : value
-                            cond = efi.conditionFactory.makeCondition(fn,
+                            cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
                             if (ic) cond.ignoreCase()
                         }
                         break;
                     case "like":
                         if (value) {
-                            cond = efi.conditionFactory.makeCondition(fn,
+                            cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, value)
                             if (ic) cond.ignoreCase()
                         }
                         break;
                     case "contains":
                         if (value) {
-                            cond = efi.conditionFactory.makeCondition(fn,
+                            cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "%${value}%")
                             if (ic) cond.ignoreCase()
                         }
                         break;
                     case "begins":
                         if (value) {
-                            cond = efi.conditionFactory.makeCondition(fn,
+                            cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "${value}%")
                             if (ic) cond.ignoreCase()
                         }
                         break;
                     case "empty":
-                        cond = efi.conditionFactory.makeCondition(
-                                efi.conditionFactory.makeCondition(fn,
+                        cond = efi.entityConditionFactory.makeCondition(
+                                efi.entityConditionFactory.makeCondition(fn,
                                         not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, null),
                                 not ? EntityCondition.JoinOperator.AND : EntityCondition.JoinOperator.OR,
-                                efi.conditionFactory.makeCondition(fn,
+                                efi.entityConditionFactory.makeCondition(fn,
                                         not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, ""))
                         break;
                     case "in":
@@ -455,7 +453,7 @@ abstract class EntityFindBase implements EntityFind {
                                 valueList = (Collection) value
                             }
                             if (valueList) {
-                                cond = efi.conditionFactory.makeCondition(fn,
+                                cond = efi.entityConditionFactory.makeCondition(fn,
                                         not ? EntityCondition.NOT_IN : EntityCondition.IN, valueList)
 
                             }
@@ -468,8 +466,8 @@ abstract class EntityFindBase implements EntityFind {
                 }
             } else if (inputFieldsMap.get(fn + "_period")) {
                 List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"), (String) inputFieldsMap.get(fn + "_poffset"))
-                this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
-                this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
+                this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
+                this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
                 addedConditions = true
             } else {
                 // these will handle range-find and date-find
@@ -479,11 +477,11 @@ abstract class EntityFindBase implements EntityFind {
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
                 if (fromValue) {
-                    this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
+                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
                     addedConditions = true
                 }
                 if (thruValue) {
-                    this.condition(efi.conditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
                     addedConditions = true
                 }
             }
@@ -1251,7 +1249,7 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     long count() throws EntityException {
-        ExecutionContextImpl ec = efi.getEcfi().getEci()
+        ExecutionContextImpl ec = efi.ecfi.getEci()
         boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
             return countInternal(ec)
@@ -1354,11 +1352,11 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     long updateAll(Map<String, ?> fieldsToSet) {
-        boolean enableAuthz = disableAuthz ? !efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz() : false
+        boolean enableAuthz = disableAuthz ? !efi.ecfi.getEci().artifactExecutionFacade.disableAuthz() : false
         try {
             return updateAllInternal(fieldsToSet)
         } finally {
-            if (enableAuthz) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            if (enableAuthz) efi.ecfi.getEci().artifactExecutionFacade.enableAuthz()
         }
     }
     protected long updateAllInternal(Map<String, ?> fieldsToSet) {
@@ -1392,11 +1390,11 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     long deleteAll() {
-        boolean enableAuthz = disableAuthz ? !efi.getEcfi().getExecutionContext().getArtifactExecution().disableAuthz() : false
+        boolean enableAuthz = disableAuthz ? !efi.ecfi.getEci().artifactExecutionFacade.disableAuthz() : false
         try {
             return deleteAllInternal()
         } finally {
-            if (enableAuthz) efi.getEcfi().getExecutionContext().getArtifactExecution().enableAuthz()
+            if (enableAuthz) efi.ecfi.getEci().artifactExecutionFacade.enableAuthz()
         }
     }
     protected long deleteAllInternal() {

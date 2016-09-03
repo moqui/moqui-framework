@@ -32,7 +32,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     protected EntityFindBase entityFindBase;
 
     public EntityFindBuilder(EntityDefinition entityDefinition, EntityFindBase entityFindBase) {
-        super(entityDefinition, entityFindBase.getEfi());
+        super(entityDefinition, entityFindBase.efi);
         this.entityFindBase = entityFindBase;
 
         // this is always going to start with "SELECT ", so just set it here
@@ -78,7 +78,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         EntityDefinition localEd = getMainEntityDefinition();
         ArrayList<MNode> entityConditionList = localEd.internalEntityNode.children("entity-condition");
         MNode entityConditionNode = entityConditionList != null && entityConditionList.size() > 0 ? entityConditionList.get(0) : null;
-        boolean isDistinct = this.entityFindBase.getDistinct() || (localEd.isViewEntity && entityConditionNode != null && "true".equals(entityConditionNode.attribute("distinct")));
+        boolean isDistinct = entityFindBase.getDistinct() || (localEd.isViewEntity && entityConditionNode != null &&
+                "true".equals(entityConditionNode.attribute("distinct")));
         boolean isGroupBy = localEd.entityInfo.hasFunctionAlias;
 
         if (isGroupBy) sqlTopLevelInternal.append("COUNT(*) FROM (SELECT ");
@@ -116,17 +117,19 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         if (getMainEntityDefinition().entityInfo.hasFunctionAlias) sqlTopLevelInternal.append(") TEMP_NAME");
     }
 
-    public void expandJoinFromAlias(final MNode entityNode, final String searchEntityAlias, Set<String> entityAliasUsedSet, Set<String> entityAliasesJoinedInSet) {
+    public void expandJoinFromAlias(final MNode entityNode, final String searchEntityAlias, Set<String> entityAliasUsedSet,
+                                    Set<String> entityAliasesJoinedInSet) {
         // first see if it needs expanding
         if (entityAliasesJoinedInSet.contains(searchEntityAlias)) return;
 
         // find the a link back one in the set
         MNode memberEntityNode = entityNode.first("member-entity", "entity-alias", searchEntityAlias);
-        if (memberEntityNode == null)
-            throw new EntityException("Could not find member-entity with entity-alias " + searchEntityAlias + " in view-entity " + entityNode.attribute("entity-name"));
+        if (memberEntityNode == null) throw new EntityException("Could not find member-entity with entity-alias " +
+                searchEntityAlias + " in view-entity " + entityNode.attribute("entity-name"));
         String joinFromAlias = memberEntityNode.attribute("join-from-alias");
-        if (joinFromAlias == null || joinFromAlias.length() == 0)
-            throw new EntityException("In view-entity " + entityNode.attribute("entity-name") + " the member-entity for entity-alias " + searchEntityAlias + " has no join-from-alias and is not the first member-entity");
+        if (joinFromAlias == null || joinFromAlias.length() == 0) throw new EntityException("In view-entity " +
+                entityNode.attribute("entity-name") + " the member-entity for entity-alias " + searchEntityAlias +
+                " has no join-from-alias and is not the first member-entity");
         if (entityAliasesJoinedInSet.contains(joinFromAlias)) {
             entityAliasesJoinedInSet.add(searchEntityAlias);
             entityAliasUsedSet.add(joinFromAlias);
@@ -152,7 +155,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             final String joinStyle = jsAttr != null && jsAttr.length() > 0 ? jsAttr : "ansi";
 
             if (!"ansi".equals(joinStyle) && !"ansi-no-parenthesis".equals(joinStyle)) {
-                throw new IllegalArgumentException("The join-style " + joinStyle + " is not supported, found on database " + databaseNode.attribute("name"));
+                throw new IllegalArgumentException("The join-style " + joinStyle + " is not supported, found on database " +
+                        databaseNode.attribute("name"));
             }
 
             boolean useParenthesis = ("ansi".equals(joinStyle));
@@ -270,8 +274,12 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 } else {
                     // make sure the left entity alias is already in the join...
                     if (!joinedAliasSet.contains(joinFromAlias)) {
-                        logger.error("For view-entity [" + localEntityDefinition.getFullEntityName() + "] found member-entity with @join-from-alias [" + joinFromAlias + "] that isn\'t in the joinedAliasSet: " + String.valueOf(joinedAliasSet) + "; view-entity Node: " + String.valueOf(entityNode));
-                        throw new EntityException("Tried to link the " + entityAlias + " alias to the " + joinFromAlias + " alias of the " + localEntityDefinition.getFullEntityName() + " view-entity, but it is not the first member-entity and has not been joined to a previous member-entity. In other words, the left/main alias isn't connected to the rest of the member-entities yet.".toString());
+                        logger.error("For view-entity [" + localEntityDefinition.fullEntityName +
+                                "] found member-entity with @join-from-alias [" + joinFromAlias +
+                                "] that isn\'t in the joinedAliasSet: " + joinedAliasSet + "; view-entity Node: " + entityNode);
+                        throw new EntityException("Tried to link the " + entityAlias + " alias to the " + joinFromAlias +
+                                " alias of the " + localEntityDefinition.fullEntityName +
+                                " view-entity, but it is not the first member-entity and has not been joined to a previous member-entity. In other words, the left/main alias isn't connected to the rest of the member-entities yet.");
                     }
                 }
                 // now put the rel (right) entity alias into the set that is in the join
@@ -288,7 +296,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
                 ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map");
                 if (keyMaps == null || keyMaps.size() == 0) {
-                    throw new IllegalArgumentException("No member-entity/join key-maps found for the " + joinFromAlias + " and the " + entityAlias + " member-entities of the " + localEntityDefinition.getFullEntityName() + " view-entity.");
+                    throw new IllegalArgumentException("No member-entity/join key-maps found for the " + joinFromAlias +
+                            " and the " + entityAlias + " member-entities of the " + localEntityDefinition.fullEntityName + " view-entity.");
                 }
 
                 int keyMapsSize = keyMaps.size();
@@ -307,7 +316,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     String relatedFieldName = relatedAttr != null && !relatedAttr.isEmpty() ? relatedAttr : keyMap.attribute("related-field-name");
                     if (relatedFieldName == null || relatedFieldName.length() == 0)
                         relatedFieldName = keyMap.attribute("field-name");
-                    if (!relatedLinkEntityDefinition.isField(relatedFieldName) && relatedLinkEntityDefinition.getPkFieldNames().size() == 1 && keyMaps.size() == 1) {
+                    if (!relatedLinkEntityDefinition.isField(relatedFieldName) &&
+                            relatedLinkEntityDefinition.getPkFieldNames().size() == 1 && keyMaps.size() == 1) {
                         relatedFieldName = relatedLinkEntityDefinition.getPkFieldNames().get(0);
                         // if we don't match these constraints and get this default we'll get an error later...
                     }
@@ -459,7 +469,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             fieldName = foo.getFieldName();
 
             FieldInfo fieldInfo = getMainEd().getFieldInfo(fieldName);
-            if (fieldInfo == null) throw new EntityException("Making ORDER BY clause, could not find field " + fieldName + " in entity " + getMainEd().getFullEntityName());
+            if (fieldInfo == null) throw new EntityException("Making ORDER BY clause, could not find field " +
+                    fieldName + " in entity " + getMainEd().fullEntityName);
             int typeValue = fieldInfo.typeValue;
 
             // now that it's all torn down, build it back up using the column name

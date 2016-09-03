@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.entity.EntityConditionFactoryImpl
 
 import java.sql.Timestamp
 
@@ -246,7 +247,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         // if ("AT_XML_SCREEN" == aeii.typeEnumId) logger.warn("TOREMOVE artifact isPermitted after authzDisabled ${aeii}")
 
         ExecutionContextFactoryImpl ecfi = eci.ecfi
-        UserFacadeImpl ufi = eci.getUserFacade()
+        UserFacadeImpl ufi = eci.userFacade
 
         if (!isEntity && countTarpit && !tarpitDisabled && ecfi.isTarpitEnabled(artifactTypeEnum)) {
             checkTarpit(aeii, requiresAuthz)
@@ -434,7 +435,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     protected void checkTarpit(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz) {
         ExecutionContextFactoryImpl ecfi = eci.ecfi
-        UserFacadeImpl ufi = eci.getUserFacade()
+        UserFacadeImpl ufi = eci.userFacade
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
 
         ArrayList<Map<String, Object>> artifactTarpitCheckList = (ArrayList<Map<String, Object>>) null
@@ -539,7 +540,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         EntityDefinition findEd = efb.getEntityDef()
         // for evaluating filter Maps add user context to ec.context
-        eci.context.push(eci.user.context)
+        eci.contextStack.push(eci.userFacade.context)
 
         boolean addedFilter = false
         try {
@@ -568,7 +569,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         }
                     }
 
-                    Object filterMapObjEval = eci.getResource().expression((String) entityFilter.getNoCheckSimple('filterMap'), null)
+                    Object filterMapObjEval = eci.resourceFacade.expression((String) entityFilter.getNoCheckSimple('filterMap'), null)
                     Map<String, Object> filterMapObj
                     if (filterMapObjEval instanceof Map<String, Object>) {
                         filterMapObj = filterMapObjEval as Map<String, Object>
@@ -578,15 +579,15 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     }
                     // logger.info("===== ${findEntityName} filterMapObj: ${filterMapObj}")
 
+                    EntityConditionFactoryImpl conditionFactory = eci.entityFacade.conditionFactoryImpl
                     String efComparisonEnumId = (String) entityFilter.getNoCheckSimple('comparisonEnumId')
                     ComparisonOperator compOp = efComparisonEnumId != null && efComparisonEnumId.length() > 0 ?
-                            eci.entity.conditionFactory.comparisonOperatorFromEnumId(efComparisonEnumId) : null
+                            conditionFactory.comparisonOperatorFromEnumId(efComparisonEnumId) : null
                     JoinOperator joinOp = "Y".equals(entityFilter.getNoCheckSimple('joinOr')) ? EntityCondition.OR : EntityCondition.AND
 
                     // use makeCondition(Map) instead of breaking down here
                     try {
-                        EntityCondition entCond = eci.ecfi.getEntityFacade(eci.tenantId).conditionFactoryImpl
-                                .makeCondition(filterMapObj, compOp, joinOp, findEd, memberFieldAliases, true)
+                        EntityCondition entCond = conditionFactory.makeCondition(filterMapObj, compOp, joinOp, findEd, memberFieldAliases, true)
                         if (entCond == null) continue
 
                         // add the condition to the find
@@ -602,7 +603,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 }
             }
         } finally {
-            eci.context.pop()
+            eci.contextStack.pop()
         }
 
         return addedFilter

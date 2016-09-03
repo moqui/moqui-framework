@@ -96,7 +96,9 @@ public class EntityQueryBuilder {
             long beforeQuery = queryStats ? System.nanoTime() : 0;
             rs = ps.executeQuery();
             if (queryStats) queryTime = System.nanoTime() - beforeQuery;
-            if (isDebugEnabled) logger.debug("Executed query with SQL [" + sqlTopLevelInternal.toString() + "] and parameters [" + String.valueOf(parameters) + "] in [" + String.valueOf((double) (System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
+            if (isDebugEnabled) logger.debug("Executed query with SQL [" + sqlTopLevelInternal +
+                    "] and parameters [" + parameters + "] in [" +
+                    ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
             return rs;
         } catch (SQLException sqle) {
             isError = true;
@@ -107,7 +109,7 @@ public class EntityQueryBuilder {
     }
 
     int executeUpdate() throws EntityException {
-        if (this.ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
+        if (ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
         long queryTime = 0;
@@ -117,7 +119,10 @@ public class EntityQueryBuilder {
             final int rows = ps.executeUpdate();
             if (queryStats) queryTime = System.nanoTime() - beforeQuery;
 
-            if (isDebugEnabled) logger.debug("Executed update with SQL [" + sqlTopLevelInternal.toString() + "] and parameters [" + String.valueOf(parameters) + "] in [" + String.valueOf((double) (System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" + String.valueOf(rows) + "] rows");
+            if (isDebugEnabled) logger.debug("Executed update with SQL [" + sqlTopLevelInternal +
+                    "] and parameters [" + parameters + "] in [" +
+                    ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" +
+                    rows + "] rows");
             return rows;
         } catch (SQLException sqle) {
             isError = true;

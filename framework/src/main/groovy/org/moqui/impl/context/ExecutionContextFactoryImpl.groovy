@@ -79,10 +79,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected InetAddress localhostAddress = null
 
     protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>()
-    protected final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>()
+    public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>()
     protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>()
 
     protected final Map<String, EntityFacadeImpl> entityFacadeByTenantMap = new HashMap<>()
+    @SuppressWarnings("GrFinalVariableAccess")
     public final EntityFacadeImpl defaultEntityFacade
     protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
@@ -118,23 +119,23 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     // ======== Permanent Delegated Facades ========
     @SuppressWarnings("GrFinalVariableAccess")
-    protected final CacheFacadeImpl cacheFacade
+    public final CacheFacadeImpl cacheFacade
     @SuppressWarnings("GrFinalVariableAccess")
-    protected final LoggerFacadeImpl loggerFacade
+    public final LoggerFacadeImpl loggerFacade
     @SuppressWarnings("GrFinalVariableAccess")
-    protected final ResourceFacadeImpl resourceFacade
+    public final ResourceFacadeImpl resourceFacade
     @SuppressWarnings("GrFinalVariableAccess")
-    protected final ScreenFacadeImpl screenFacade
+    public final ScreenFacadeImpl screenFacade
     @SuppressWarnings("GrFinalVariableAccess")
-    protected final ServiceFacadeImpl serviceFacade
+    public final ServiceFacadeImpl serviceFacade
     @SuppressWarnings("GrFinalVariableAccess")
-    protected final TransactionFacadeImpl transactionFacade
+    public final TransactionFacadeImpl transactionFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess")
-    final ExecutorService workerPool
+    public final ExecutorService workerPool
     /** An executor for the scheduled job runner */
-    final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
+    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -555,7 +556,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
         List<ArtifactStatsInfo> asiList = new ArrayList<>(artifactStatsInfoByType.values())
         artifactStatsInfoByType.clear()
-        ArtifactExecutionFacadeImpl aefi = getEci().getArtifactExecutionImpl()
+        ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
         boolean enableAuthz = !aefi.disableAuthz()
         try {
             for (ArtifactStatsInfo asi in asiList) {
@@ -732,7 +733,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     ScreenFacadeImpl getScreenFacade() { return screenFacade }
     ServiceFacadeImpl getServiceFacade() { return serviceFacade }
     TransactionFacadeImpl getTransactionFacade() { return transactionFacade }
-    L10nFacadeImpl getL10nFacade() { return getEci().getL10nFacade() }
+    L10nFacadeImpl getL10nFacade() { return getEci().l10nFacade }
     // TODO: find references, change to eci where more direct
 
     // ========== Interface Implementations ==========
@@ -1023,7 +1024,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    L10nFacade getL10n() { getEci().getL10nFacade() }
+    L10nFacade getL10n() { getEci().l10nFacade }
     @Override
     ResourceFacade getResource() { resourceFacade }
     @Override
@@ -1056,10 +1057,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     // ========== Server Stat Tracking ==========
-    boolean getSkipStats() {
-        // NOTE: the results of this condition eval can't be cached because the expression can use any data in the ec
-        return skipStatsCond != null && skipStatsCond.length() > 0 ? getEci().getSkipStats() : false
-    }
 
     protected boolean artifactPersistHit(ArtifactExecutionInfo.ArtifactType artifactTypeEnum) {
         // now checked before calling this: if (ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)) return false
@@ -1208,7 +1205,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         @Override
         synchronized void run() {
             ExecutionContextImpl eci = ecfi.getEci()
-            eci.artifactExecution.disableAuthz()
+            eci.artifactExecutionFacade.disableAuthz()
             try {
                 for (String tenantId in ecfi.deferredHitInfoQueueByTenant.keySet()) {
                     try {
@@ -1232,7 +1229,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         void flushQueue(String tenantId, ConcurrentLinkedQueue<ArtifactHitInfo> queue) {
-            int queueSizeBefore = queue.size()
             ExecutionContextFactoryImpl localEcfi = ecfi
             ArrayList<ArtifactHitInfo> createList = new ArrayList<>(maxCreates)
             int createCount = 0
@@ -1285,7 +1281,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // otherwise, persist the old and create a new one
         EntityValue ahb = abi.makeAhbValue(this, new Timestamp(binStartTime + hitBinLengthMillis))
         eci.runInWorkerThread({
-            ArtifactExecutionFacadeImpl aefi = getEci().getArtifactExecutionImpl()
+            ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
             boolean enableAuthz = !aefi.disableAuthz()
             try { ahb.setSequencedIdPrimary().create() }
             finally { if (enableAuthz) aefi.enableAuthz() }

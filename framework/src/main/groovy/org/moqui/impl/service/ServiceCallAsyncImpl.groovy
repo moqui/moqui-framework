@@ -101,7 +101,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         AsyncServiceInfo(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             ecfi = eci.ecfi
             threadTenantId = eci.tenantId
-            threadUsername = eci.user.username
+            threadUsername = eci.userFacade.username
             this.serviceName = serviceName
             this.parameters = new HashMap<>(parameters)
         }
@@ -136,7 +136,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
                     threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> result = threadEci.service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                Map<String, Object> result = threadEci.serviceFacade.sync().name(serviceName).parameters(parameters).disableAuthz().call()
                 return result
             } catch (Throwable t) {
                 logger.error("Error in async service", t)

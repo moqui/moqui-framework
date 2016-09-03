@@ -222,7 +222,7 @@ class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
             // if user was not logged in we should already have an error message in place so just return
             if (!userLoggedIn) return (Map<String, Object>) null
         }
-        if (sd != null && "true".equals(sd.authenticate) && eci.getUser().getUsername() == null && !eci.getUserFacade().getLoggedInAnonymous()) {
+        if (sd != null && "true".equals(sd.authenticate) && eci.userFacade.getUsername() == null && !eci.userFacade.getLoggedInAnonymous()) {
             if (ignorePreviousError) eci.messageFacade.popErrors()
             throw new AuthenticationRequiredException("User must be logged in to call service ${serviceName}")
         }

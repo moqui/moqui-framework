@@ -838,7 +838,7 @@ public class EntityDefinition {
         if (value == null) return null
         FieldInfo fieldInfo = getFieldInfo(name)
         if (fieldInfo == null) throw new EntityException("Invalid field name ${name} for entity ${fullEntityName}")
-        return fieldInfo.convertFromString(value, eci.getL10nFacade())
+        return fieldInfo.convertFromString(value, eci.l10nFacade)
     }
 
     static String getFieldStringForFile(FieldInfo fieldInfo, Object value) {
