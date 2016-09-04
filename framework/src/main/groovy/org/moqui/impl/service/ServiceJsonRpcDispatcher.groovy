@@ -37,13 +37,13 @@ public class ServiceJsonRpcDispatcher {
     final static int INVALID_PARAMS = -32602 // Invalid method parameter(s).
     final static int INTERNAL_ERROR = -32603 // Internal JSON-RPC error.
 
-    protected ExecutionContextImpl eci
+    private final ExecutionContextImpl eci
 
     public ServiceJsonRpcDispatcher(ExecutionContextImpl eci) {
         this.eci = eci
     }
 
-    public void dispatch(HttpServletRequest request, HttpServletResponse response) {
+    public void dispatch() {
         Map callMap = eci.web.getRequestParameters()
         if (callMap._requestBodyJsonList) {
             List callList = (List) callMap._requestBodyJsonList

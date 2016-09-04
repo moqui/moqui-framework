@@ -751,7 +751,7 @@ class WebFacadeImpl implements WebFacade {
     void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
 
     @Override
-    void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch(request, response) }
+    void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch() }
 
     @Override
     void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {

@@ -144,18 +144,19 @@ dependencies {
     runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
 
-    // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
-    compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
-    compile module('org.apache.xmlrpc:xmlrpc-server:3.1.3') // Apache 2.0
-    compile module('org.apache.xmlrpc:xmlrpc-common:3.1.3') // Apache 2.0
-    compile module('org.apache.ws.commons.util:ws-commons-util:1.0.2') // Apache 2.0
-
     // Snake YAML
     compile 'org.yaml:snakeyaml:1.17' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
     // compile 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
+
+    // NOTE: Apache XML-RPC requires Commons HttpClient and is not used much so currently commented
+    // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
+    compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
+    compile module('org.apache.xmlrpc:xmlrpc-server:3.1.3') // Apache 2.0
+    compile module('org.apache.xmlrpc:xmlrpc-common:3.1.3') // Apache 2.0
+    compile module('org.apache.ws.commons.util:ws-commons-util:1.0.2') // Apache 2.0
 
     // Apache Commons JCS - Only needed when using JCSCacheToolFactory
     // compile 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0

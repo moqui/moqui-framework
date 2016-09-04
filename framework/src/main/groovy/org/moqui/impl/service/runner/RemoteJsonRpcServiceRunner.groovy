@@ -15,7 +15,7 @@ package org.moqui.impl.service.runner
 
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
-
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.service.ServiceDefinition
@@ -25,6 +25,7 @@ import org.moqui.impl.service.ServiceRunner
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 public class RemoteJsonRpcServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(RemoteJsonRpcServiceRunner.class)
 
@@ -42,7 +43,7 @@ public class RemoteJsonRpcServiceRunner implements ServiceRunner {
         if (!location) throw new IllegalArgumentException("Cannot call remote service [${sd.serviceName}] because it has no location specified.")
         if (!method) throw new IllegalArgumentException("Cannot call remote service [${sd.serviceName}] because it has no method specified.")
 
-        return runJsonService(sd.getServiceName(), location, method, parameters, ec)
+        return runJsonService(sd.serviceNameNoHash, location, method, parameters, ec)
     }
 
     static Map<String, Object> runJsonService(String serviceName, String location, String method,
@@ -75,15 +76,15 @@ public class RemoteJsonRpcServiceRunner implements ServiceRunner {
         }
 
         if (jsonObj instanceof Map) {
-            Map responseMap = jsonObj
+            Map responseMap = (Map) jsonObj
             if (responseMap.error) {
                 logger.error("JSON-RPC service [${serviceName ?: method}] returned an error: ${responseMap.error}")
-                ec.message.addError((String) responseMap.error?.message ?: ec.resource.expand('JSON-RPC error with no message, code [${responseMap.error?.code}]','',[responseMap:responseMap]))
+                ec.message.addError((String) ((Map) responseMap.error)?.message ?: ec.resource.expand('JSON-RPC error with no message, code [${responseMap.error?.code}]','',[responseMap:responseMap]))
                 return null
             } else {
                 Object jr = responseMap.result
                 if (jr instanceof Map) {
-                    return jr
+                    return (Map) jr
                 } else {
                     return [response:jr]
                 }

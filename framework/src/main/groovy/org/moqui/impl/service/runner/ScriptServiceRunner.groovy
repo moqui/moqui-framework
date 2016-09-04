@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.service.runner
 
+import groovy.transform.CompileStatic
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.ContextStack
 import org.moqui.impl.context.ExecutionContextImpl
@@ -23,6 +24,7 @@ import org.moqui.impl.service.ServiceRunner
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 public class ScriptServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(ScriptServiceRunner.class)
 
