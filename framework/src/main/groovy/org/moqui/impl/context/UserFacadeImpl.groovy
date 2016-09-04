@@ -15,6 +15,7 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
@@ -642,19 +643,19 @@ class UserFacadeImpl implements UserFacade {
         return groupIdSet
     }
 
-    ArrayList<Map<String, Object>> getArtifactTarpitCheckList(String artifactTypeEnumId) {
-        ArrayList<Map<String, Object>> checkList = (ArrayList<Map<String, Object>>) currentInfo.internalArtifactTarpitCheckListMap.get(artifactTypeEnumId)
+    ArrayList<Map<String, Object>> getArtifactTarpitCheckList(ArtifactExecutionInfo.ArtifactType artifactTypeEnum) {
+        ArrayList<Map<String, Object>> checkList = (ArrayList<Map<String, Object>>) currentInfo.internalArtifactTarpitCheckListMap.get(artifactTypeEnum)
         if (checkList == null) {
             // get the list for each group separately to increase cache hits/efficiency
             checkList = new ArrayList<>()
             for (String userGroupId in getUserGroupIdSet()) {
                 EntityList atcvList = eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
-                        .condition("userGroupId", userGroupId).condition("artifactTypeEnumId", artifactTypeEnumId)
+                        .condition("userGroupId", userGroupId).condition("artifactTypeEnumId", artifactTypeEnum.name())
                         .useCache(true).disableAuthz().list()
                 int atcvListSize = atcvList.size()
                 for (int i = 0; i < atcvListSize; i++) checkList.add(((EntityValueBase) atcvList.get(i)).getValueMap())
             }
-            currentInfo.internalArtifactTarpitCheckListMap.put(artifactTypeEnumId, checkList)
+            currentInfo.internalArtifactTarpitCheckListMap.put(artifactTypeEnum, checkList)
         }
         return checkList
     }
@@ -751,7 +752,7 @@ class UserFacadeImpl implements UserFacade {
     }
 
     static class UserInfo {
-        UserFacadeImpl ufi
+        final UserFacadeImpl ufi
         // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
         protected EntityValueBase userAccount = (EntityValueBase) null
         protected String tenantId = (String) null
@@ -759,7 +760,8 @@ class UserFacadeImpl implements UserFacade {
         protected String userId = (String) null
         Set<String> internalUserGroupIdSet = (Set<String>) null
         // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
-        Map<String, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap = new HashMap<>()
+        final EnumMap<ArtifactExecutionInfo.ArtifactType, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap =
+                new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
         ArrayList<ArtifactAuthzCheck> internalArtifactAuthzCheckList = (ArrayList<ArtifactAuthzCheck>) null
 
         Locale localeCache = (Locale) null

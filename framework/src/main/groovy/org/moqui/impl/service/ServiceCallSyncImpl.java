@@ -14,6 +14,7 @@ import org.moqui.service.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.transaction.Status;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,7 +64,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     @Override
     public Map<String, Object> call() {
-        final ServiceDefinition sd = getServiceDefinition();
         ExecutionContextFactoryImpl ecfi = sfi.ecfi;
         ExecutionContextImpl eci = ecfi.getEci();
 
@@ -136,7 +136,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             return null;
         }
 
-        if (!requireNewTransaction && eci.transactionFacade.getStatus() == 1) {
+        int transactionStatus = eci.transactionFacade.getStatus();
+        if (!requireNewTransaction && transactionStatus == Status.STATUS_MARKED_ROLLBACK) {
             logger.warn("Transaction marked for rollback, not running service [" + serviceName + "]. Errors: " + eci.messageFacade.getErrorsString());
             if (ignorePreviousError) eci.messageFacade.popErrors();
             return null;
@@ -200,8 +201,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
 
         // pre authentication and authorization SECA rules
-        if (hasSecaRules)
-            ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-auth", secaRules, eci);
+        if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-auth", secaRules, eci);
 
         // push service call artifact execution, checks authz too
         // NOTE: don't require authz if the service def doesn't authenticate
@@ -277,7 +277,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
             if (pauseResumeIfNeeded && ((TransactionFacadeImpl) tf).isTransactionInPlace())
                 suspendedTransaction = ((TransactionFacadeImpl) tf).suspend();
-            boolean beganTransaction = beginTransactionIfNeeded && ((TransactionFacadeImpl) tf).begin(transactionTimeout != null ? transactionTimeout : sd.txTimeout);
+            boolean beganTransaction = beginTransactionIfNeeded && transactionStatus != Status.STATUS_ACTIVE &&
+                    tf.begin(transactionTimeout != null ? transactionTimeout : sd.txTimeout);
             if (sd.noTxCache) {
                 tf.flushAndDisableTransactionCache();
             } else {

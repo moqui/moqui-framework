@@ -56,7 +56,7 @@ public class ContextJavaUtil {
         }
         public boolean countHit(long startTime, double runningTime) {
             hitCount++;
-            boolean isSlow = hitCount > checkSlowThreshold && isHitSlow(runningTime);
+            boolean isSlow = isHitSlow(runningTime);
             // if (isSlow) slowHitCount++;
             // do something funny with these so we get a better avg and std dev, leave out the first result (count 2nd
             //     twice) if first hit is more than 2x the second because the first hit is almost always MUCH slower
@@ -74,9 +74,10 @@ public class ContextJavaUtil {
             return isSlow;
         }
         boolean isHitSlow(double runningTime) {
+            if (hitCount < checkSlowThreshold) return false;
             // calc new average and standard deviation
-            double average = getAverage();
-            double stdDev = getStdDev();
+            double average = hitCount > 0 ? totalTimeMillis / hitCount : 0;
+            double stdDev = Math.sqrt(Math.abs(totalSquaredTime - ((totalTimeMillis*totalTimeMillis) / hitCount)) / (hitCount - 1L));
 
             // if runningTime is more than 2.6 std devs from the avg, count it and possibly log it
             // using 2.6 standard deviations because 2 would give us around 5% of hits (normal distro), shooting for more like 1%

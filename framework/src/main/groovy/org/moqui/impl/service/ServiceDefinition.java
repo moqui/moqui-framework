@@ -370,46 +370,128 @@ public class ServiceDefinition {
             boolean hasParameter = parameters.containsKey(parameterName);
             Object parameterValue = hasParameter ? parameters.remove(parameterName) : null;
 
+            boolean parameterIsEmpty;
+            boolean isString = false;
+            boolean isCollection = false;
+            boolean isMap = false;
+            Class parameterClass = null;
+            if (parameterValue != null) {
+                if (parameterValue instanceof CharSequence) {
+                    String stringValue = parameterValue.toString();
+                    parameterValue = stringValue;
+                    isString = true;
+                    parameterClass = String.class;
+                    parameterIsEmpty = stringValue.isEmpty();
+                } else {
+                    parameterClass = parameterValue.getClass();
+                    if (parameterValue instanceof Map) {
+                        isMap = true;
+                        parameterIsEmpty = ((Map) parameterValue).isEmpty();
+                    } else if (parameterValue instanceof Collection) {
+                        isCollection = true;
+                        parameterIsEmpty = ((Collection) parameterValue).isEmpty();
+                    } else {
+                        parameterIsEmpty = false;
+                    }
+                }
+            } else {
+                parameterIsEmpty = true;
+            }
+
             // set the default if applicable
-            boolean parameterIsEmpty = !hasParameter || StupidJavaUtilities.isEmpty(parameterValue);
             if (parameterIsEmpty) {
                 if (parameterInfo.hasDefault) {
                     // NOTE: current constraint is defaults can only depend on previous parameters (has been that way for a while)
                     // TODO: consider doing this as a second pass so newMap has all parameters
-                    parameterValue = getParameterDefault(parameterInfo, newMap, eci);
-                    // update parameterIsEmpty now that a default is set
-                    if (parameterValue != null) {
-                        parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue);
+                    if (parameterInfo.defaultStr != null) {
+                        parameterValue = eci.resourceFacade.expression(parameterInfo.defaultStr, null, newMap);
+                        if (parameterValue != null) {
+                            hasParameter = true;
+                            isString = false;
+                            isCollection = false;
+                            isMap = false;
+                            if (parameterValue instanceof CharSequence) {
+                                String stringValue = parameterValue.toString();
+                                parameterValue = stringValue;
+                                isString = true;
+                                parameterClass = String.class;
+                                parameterIsEmpty = stringValue.isEmpty();
+                            } else {
+                                parameterClass = parameterValue.getClass();
+                                if (parameterValue instanceof Map) {
+                                    isMap = true;
+                                    parameterIsEmpty = ((Map) parameterValue).isEmpty();
+                                } else if (parameterValue instanceof Collection) {
+                                    isCollection = true;
+                                    parameterIsEmpty = ((Collection) parameterValue).isEmpty();
+                                } else {
+                                    parameterIsEmpty = false;
+                                }
+                            }
+                        }
+                    } else if (parameterInfo.defaultValue != null) {
+                        String stringValue = parameterInfo.defaultValueNeedsExpand ?
+                                eci.resourceFacade.expand(parameterInfo.defaultValue, null, newMap, false) : parameterInfo.defaultValue;
                         hasParameter = true;
+                        parameterValue = stringValue;
+                        isString = true;
+                        parameterClass = String.class;
+                        parameterIsEmpty = stringValue.isEmpty();
                     }
                 } else {
                     // if empty but not null and types don't match set to null instead of trying to convert
-                    if (parameterValue != null && !parameterInfo.typeMatches(parameterValue)) {
-                        parameterValue = null;
+                    if (parameterValue != null) {
+                        boolean typeMatches;
+                        if (parameterInfo.parmClass != null) {
+                            typeMatches = parameterClass == parameterInfo.parmClass || parameterInfo.parmClass.isInstance(parameterValue);
+                        } else {
+                            typeMatches = StupidJavaUtilities.isInstanceOf(parameterValue, parameterInfo.type);
+                        }
+                        if (!typeMatches) parameterValue = null;
                     }
                 }
                 // if required and still empty (nothing from default), complain
-                if (validate && parameterInfo.required && parameterIsEmpty)
+                if (parameterIsEmpty && validate && parameterInfo.required)
                     eci.messageFacade.addValidationError(null, namePrefix + parameterName, serviceName, eci.getL10n().localize("Field cannot be empty"), null);
             }
             // NOTE: not else because parameterIsEmpty may be changed
             if (!parameterIsEmpty) {
-                boolean typeMatches = parameterInfo.typeMatches(parameterValue);
+                boolean typeMatches;
+                if (parameterInfo.parmClass != null) {
+                    typeMatches = parameterClass == parameterInfo.parmClass || parameterInfo.parmClass.isInstance(parameterValue);
+                } else {
+                    typeMatches = StupidJavaUtilities.isInstanceOf(parameterValue, parameterInfo.type);
+                }
                 if (!typeMatches) {
                     // convert type, at this point parameterValue is not empty and doesn't match parameter type
-                    parameterValue = parameterInfo.convertType(namePrefix, parameterName, parameterValue, eci);
+                    parameterValue = parameterInfo.convertType(namePrefix, parameterValue, isString, eci);
+                    isString = false;
+                    isCollection = false;
+                    isMap = false;
+                    if (parameterValue instanceof CharSequence) {
+                        parameterValue = parameterValue.toString();
+                        isString = true;
+                    } else if (parameterValue instanceof Map) {
+                            isMap = true;
+                    } else if (parameterValue instanceof Collection) {
+                        isCollection = true;
+                    }
                 }
 
                 if (validate) {
-                    Object htmlValidated = parameterInfo.validateParameterHtml(namePrefix, parameterName, parameterValue, eci);
-                    // put the final parameterValue back into the parameters Map
-                    if (htmlValidated != null) {
-                        parameterValue = htmlValidated;
+                    if ((isString || isCollection) && ServiceJavaUtil.ParameterAllowHtml.ANY != parameterInfo.allowHtml) {
+                        Object htmlValidated = parameterInfo.validateParameterHtml(namePrefix, parameterValue, isString, eci);
+                        // put the final parameterValue back into the parameters Map
+                        if (htmlValidated != null) {
+                            parameterValue = htmlValidated;
+                        }
                     }
 
                     // check against validation sub-elements (do this after the convert so we can deal with objects when needed)
-                    if (parameterInfo.validationNodeList.size() > 0) {
-                        for (MNode valNode : parameterInfo.validationNodeList) {
+                    if (parameterInfo.validationNodeList != null) {
+                        int valListSize = parameterInfo.validationNodeList.size();
+                        for (int valIdx = 0; valIdx < valListSize; valIdx++) {
+                            MNode valNode = parameterInfo.validationNodeList.get(valIdx);
                             // NOTE don't break on fail, we want to get a list of all failures for the user to see
                             try {
                                 // validateParameterSingle calls eci.message.addValidationError as needed so nothing else to do here
@@ -423,24 +505,13 @@ public class ServiceDefinition {
                         }
                     }
                 }
-                if (parameterInfo.childParameterInfoArray.length > 0) {
-                    hasChildrenToCheck = true;
+                if (isMap && parameterInfo.childParameterInfoArray.length > 0) {
+                    parameterValue = nestedParameterClean(namePrefix + parameterName + ".",
+                            (Map<String, Object>) parameterValue, parameterInfo.childParameterInfoArray, eci);
                 }
             }
 
             if (hasParameter) newMap.put(parameterName, parameterValue);
-        }
-
-        // now check parameter sub-elements (after processing all defaults, etc)
-        if (hasChildrenToCheck) for (int i = 0; i < parameterInfoArray.length; i++) {
-            ParameterInfo parameterInfo = parameterInfoArray[i];
-            if (parameterInfo.childParameterInfoArray.length > 0) {
-                Object parameterValue = newMap.get(parameterInfo.name);
-                if (parameterValue == null || !(parameterValue instanceof Map)) continue;
-                Map<String, Object> newChildMap = nestedParameterClean(namePrefix + parameterInfo.name + ".",
-                        (Map<String, Object>) parameterValue, parameterInfo.childParameterInfoArray, eci);
-                newMap.put(parameterInfo.name, newChildMap);
-            }
         }
 
         // if we are not validating and there are parameters remaining, add them to the newMap
@@ -449,125 +520,6 @@ public class ServiceDefinition {
         }
 
         return newMap;
-    }
-    /*
-    @SuppressWarnings("unchecked")
-    private void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map<String, Object> parameters,
-                                   Map<String, ParameterInfo> parameterInfoMap, ExecutionContextImpl eci) {
-        Set<String> defaultCheckSet = new HashSet<>(parameterInfoMap.keySet());
-        // have to iterate over a copy of parameters.keySet() as we'll be modifying it
-        ArrayList<String> parameterNameList = new ArrayList<>(parameters.keySet());
-        int parameterNameListSize = parameterNameList.size();
-        for (int i = 0; i < parameterNameListSize; i++) {
-            final String parameterName = parameterNameList.get(i);
-            ParameterInfo parameterInfo = parameterInfoMap.get(parameterName);
-            if (parameterInfo == null) {
-                if (validate) {
-                    parameters.remove(parameterName);
-                    if (logger.isTraceEnabled() && !"ec".equals(parameterName))
-                        logger.trace("Parameter [" + namePrefix + parameterName + "] was passed to service [" + serviceName + "] but is not defined as an in parameter, removing from parameters.");
-                }
-                // even if we are not validating, ie letting extra parameters fall through in this case, we don't want to do the type convert or anything
-                continue;
-            }
-
-            Object parameterValue = parameters.get(parameterName);
-
-            // set the default if applicable
-            boolean parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue);
-            if (parameterIsEmpty) {
-                Object defaultValue = getParameterDefault(parameterInfo, rootParameters, eci);
-                if (defaultValue != null) {
-                    parameterValue = defaultValue;
-                    parameters.put(parameterName, parameterValue);
-                    // update parameterIsEmpty now that a default is set
-                    parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue);
-                } else {
-                    // if empty but not null and types don't match set to null instead of trying to convert
-                    if (parameterValue != null && !parameterInfo.typeMatches(parameterValue)) {
-                        parameterValue = null;
-                        // put the final parameterValue back into the parameters Map
-                        parameters.put(parameterName, null);
-                    }
-                }
-                // if required and still empty (nothing from default), complain
-                if (validate && parameterInfo.required && parameterIsEmpty)
-                    eci.messageFacade.addValidationError(null, namePrefix + parameterName, serviceName, eci.getL10n().localize("Field cannot be empty"), null);
-            }
-            // NOTE: not else because parameterIsEmpty may be changed
-            if (!parameterIsEmpty) {
-                boolean typeMatches = parameterInfo.typeMatches(parameterValue);
-                if (!typeMatches) {
-                    // convert type, at this point parameterValue is not empty and doesn't match parameter type
-                    parameterValue = parameterInfo.convertType(namePrefix, parameterName, parameterValue, eci);
-                    // put the final parameterValue back into the parameters Map
-                    parameters.put(parameterName, parameterValue);
-                }
-
-                if (validate) {
-                    Object htmlValidated = parameterInfo.validateParameterHtml(namePrefix, parameterName, parameterValue, eci);
-                    // put the final parameterValue back into the parameters Map
-                    if (htmlValidated != null) {
-                        parameterValue = htmlValidated;
-                        parameters.put(parameterName, parameterValue);
-                    }
-
-                    // check against validation sub-elements (do this after the convert so we can deal with objects when needed)
-                    if (parameterInfo.validationNodeList.size() > 0) {
-                        for (MNode valNode : parameterInfo.validationNodeList) {
-                            // NOTE don't break on fail, we want to get a list of all failures for the user to see
-                            try {
-                                // validateParameterSingle calls eci.message.addValidationError as needed so nothing else to do here
-                                validateParameterSingle(valNode, parameterName, parameterValue, eci);
-                            } catch (Throwable t) {
-                                logger.error("Error in validation", t);
-                                Map<String, Object> map = new HashMap<>(3);
-                                map.put("parameterValue", parameterValue); map.put("valNode", valNode); map.put("t", t);
-                                eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}", "", map), null);
-                            }
-                        }
-                    }
-                }
-
-                // now check parameter sub-elements
-                if (parameterInfo.childParameterInfoMap.size() > 0) {
-                    if (parameterValue instanceof Map) {
-                        // any parameter sub-nodes?
-                        checkParameterMap(namePrefix + parameterName + ".", rootParameters, (Map) parameterValue,
-                                parameterInfo.childParameterInfoMap, eci);
-                    }
-                    // this is old code not used and not maintained, but may be useful at some point (note that checkParameterNode also commented below):
-                    // } else if (parameterValue instanceof MNode) {
-                    //     checkParameterNode("${namePrefix}${parameterName}.", rootParameters, (MNode) parameterValue, parameterInfo.childParameterInfoMap, validate, eci)
-                }
-            }
-            defaultCheckSet.remove(parameterName);
-        }
-
-        // now fill in all parameters with defaults (iterate through all parameters not passed)
-        for (String parameterName : defaultCheckSet) {
-            ParameterInfo parameterInfo = parameterInfoMap.get(parameterName);
-            Object defaultValue = getParameterDefault(parameterInfo, rootParameters, eci);
-            if (defaultValue != null) {
-                if (!StupidJavaUtilities.isInstanceOf(defaultValue, parameterInfo.type))
-                    defaultValue = parameterInfo.convertType(namePrefix, parameterName, defaultValue, eci);
-                parameters.put(parameterName, defaultValue);
-            }
-        }
-    }
-    */
-
-    private static Object getParameterDefault(ParameterInfo parameterInfo, Map<String, Object> rootParameters, ExecutionContextImpl eci) {
-        String defaultStr = parameterInfo.defaultStr;
-        if (defaultStr != null && defaultStr.length() > 0) {
-            return eci.resourceFacade.expression(defaultStr, null, rootParameters);
-        }
-        String defaultValueStr = parameterInfo.defaultValue;
-        if (defaultValueStr != null && defaultValueStr.length() > 0) {
-            return eci.resourceFacade.expand(defaultValueStr, null, rootParameters, false);
-        }
-
-        return null;
     }
 
     private boolean validateParameterSingle(MNode valNode, String parameterName, Object pv, ExecutionContextImpl eci) {

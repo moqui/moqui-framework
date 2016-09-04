@@ -62,16 +62,17 @@ public class ServiceJavaUtil {
 
         public final String entityName, fieldName;
         public final String defaultStr, defaultValue;
+        public final boolean defaultValueNeedsExpand;
         public final boolean hasDefault;
         public final boolean thisOrChildHasDefault;
         public final boolean required;
         public final boolean disabled;
         public final ParameterAllowHtml allowHtml;
+        public final boolean allowSafe;
 
-        public final Map<String, ParameterInfo> childParameterInfoMap = new HashMap<>();
         public final ParameterInfo[] childParameterInfoArray;
 
-        public final List<MNode> validationNodeList = new ArrayList<>();
+        public final ArrayList<MNode> validationNodeList;
 
         public ParameterInfo(ServiceDefinition sd, MNode parameterNode) {
             this.sd = sd;
@@ -88,9 +89,14 @@ public class ServiceJavaUtil {
             entityName = parameterNode.attribute("entity-name");
             fieldName = parameterNode.attribute("field-name");
 
-            defaultStr = parameterNode.attribute("default");
-            defaultValue = parameterNode.attribute("default-value");
-            hasDefault = (defaultStr != null && !defaultStr.isEmpty()) || (defaultValue != null && !defaultValue.isEmpty());
+            String defaultTmp = parameterNode.attribute("default");
+            if (defaultTmp != null && defaultTmp.isEmpty()) defaultTmp = null;
+            defaultStr = defaultTmp;
+            String defaultValTmp = parameterNode.attribute("default-value");
+            if (defaultValTmp != null && defaultValTmp.isEmpty()) defaultValTmp = null;
+            defaultValue = defaultValTmp;
+            hasDefault = defaultStr != null || defaultValue != null;
+            defaultValueNeedsExpand = defaultValue != null && defaultValue.contains("${");
 
             required = "true".equals(parameterNode.attribute("required"));
             disabled = "disabled".equals(parameterNode.attribute("required"));
@@ -99,7 +105,9 @@ public class ServiceJavaUtil {
             if ("any".equals(allowHtmlStr)) allowHtml = ParameterAllowHtml.ANY;
             else if ("safe".equals(allowHtmlStr)) allowHtml = ParameterAllowHtml.SAFE;
             else allowHtml = ParameterAllowHtml.NONE;
+            allowSafe = ParameterAllowHtml.SAFE == allowHtml;
 
+            Map<String, ParameterInfo> childParameterInfoMap = new HashMap<>();
             ArrayList<String> parmNameList = new ArrayList<>();
             for (MNode childParmNode: parameterNode.children("parameter")) {
                 String name = childParmNode.attribute("name");
@@ -117,20 +125,20 @@ public class ServiceJavaUtil {
             }
             thisOrChildHasDefault = hasDefault || childHasDefault;
 
+            ArrayList<MNode> tempValidationNodeList = new ArrayList<>();
             for (MNode child: parameterNode.getChildren()) {
                 if ("description".equals(child.getName()) || "parameter".equals(child.getName())) continue;
-                validationNodeList.add(child);
+                tempValidationNodeList.add(child);
+            }
+            if (tempValidationNodeList.size() > 0) {
+                validationNodeList = tempValidationNodeList;
+            } else {
+                validationNodeList = null;
             }
         }
 
-        boolean typeMatches(Object value) {
-            if (value == null) return true;
-            if (parmClass != null) return parmClass.isInstance(value);
-            return StupidJavaUtilities.isInstanceOf(value, type);
-        }
-
         /** Currently used only in ServiceDefinition.checkParameterMap() */
-        public Object convertType(String namePrefix, String parameterName, Object parameterValue, ExecutionContextImpl eci) {
+        public Object convertType(String namePrefix, Object parameterValue, boolean isString, ExecutionContextImpl eci) {
             // no need to check for null, only called with parameterValue not empty
             // if (parameterValue == null) return null;
             // no need to check for type match, only called when types don't match
@@ -138,7 +146,6 @@ public class ServiceJavaUtil {
 
             // do type conversion if possible
             Object converted = null;
-            boolean isString = parameterValue instanceof CharSequence;
             boolean isEmptyString = isString && ((CharSequence) parameterValue).length() == 0;
             if (parmType != null && isString && !isEmptyString) {
                 String valueStr = parameterValue.toString();
@@ -152,7 +159,7 @@ public class ServiceJavaUtil {
                     case BIG_INTEGER:
                         BigDecimal bdVal = eci.l10nFacade.parseNumber(valueStr, format);
                         if (bdVal == null) {
-                            eci.messageFacade.addValidationError(null, namePrefix + parameterName, serviceName,
+                            eci.messageFacade.addValidationError(null, namePrefix + name, serviceName,
                                     MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                         } else {
                             switch (parmType) {
@@ -167,17 +174,17 @@ public class ServiceJavaUtil {
                         break;
                     case TIME:
                         converted = eci.l10nFacade.parseTime(valueStr, format);
-                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + parameterName,
+                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + name,
                                 serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                         break;
                     case DATE:
                         converted = eci.l10nFacade.parseDate(valueStr, format);
-                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + parameterName,
+                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + name,
                                 serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                         break;
                     case TIMESTAMP:
                         converted = eci.l10nFacade.parseTimestamp(valueStr, format);
-                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + parameterName,
+                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + name,
                                 serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                         break;
                     case LIST:
@@ -217,80 +224,72 @@ public class ServiceJavaUtil {
         }
 
         @SuppressWarnings("unchecked")
-        Object validateParameterHtml(String namePrefix, String parameterName, Object parameterValue, ExecutionContextImpl eci) {
+        Object validateParameterHtml(String namePrefix, Object parameterValue, boolean isString, ExecutionContextImpl eci) {
             // check for none/safe/any HTML
-            boolean isString = parameterValue instanceof CharSequence;
-            if ((isString || parameterValue instanceof List) && ParameterAllowHtml.ANY != allowHtml) {
-                boolean allowSafe = ParameterAllowHtml.SAFE == allowHtml;
 
-                if (isString) {
-                    return canonicalizeAndCheckHtml(sd, namePrefix, parameterName, parameterValue.toString(), allowSafe, eci);
-                } else {
-                    List lst = (List) parameterValue;
-                    ArrayList<Object> lstClone = new ArrayList<>(lst);
-                    int lstSize = lstClone.size();
-                    for (int i = 0; i < lstSize; i++) {
-                        Object obj = lstClone.get(i);
-                        if (obj instanceof CharSequence) {
-                            String htmlChecked = canonicalizeAndCheckHtml(sd, namePrefix, parameterName, obj.toString(), allowSafe, eci);
-                            lstClone.set(i, htmlChecked != null ? htmlChecked : obj);
-                        } else {
-                            lstClone.set(i, obj);
-                        }
+            if (isString) {
+                return canonicalizeAndCheckHtml(sd, namePrefix, (String) parameterValue, eci);
+            } else {
+                Collection lst = (Collection) parameterValue;
+                ArrayList<Object> lstClone = new ArrayList<>(lst);
+                int lstSize = lstClone.size();
+                for (int i = 0; i < lstSize; i++) {
+                    Object obj = lstClone.get(i);
+                    if (obj instanceof CharSequence) {
+                        String htmlChecked = canonicalizeAndCheckHtml(sd, namePrefix, obj.toString(), eci);
+                        lstClone.set(i, htmlChecked != null ? htmlChecked : obj);
+                    } else {
+                        lstClone.set(i, obj);
                     }
-                    return lstClone;
+                }
+                return lstClone;
+            }
+        }
+
+        private String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterValue, ExecutionContextImpl eci) {
+            int indexOfEscape = -1;
+            int indexOfLessThan = -1;
+            char[] valueCharArray = parameterValue.toCharArray();
+            int valueLength = valueCharArray.length;
+            for (int i = 0; i < valueLength; i++) {
+                char curChar = valueCharArray[i];
+                if (curChar == '%' || curChar == '&') {
+                    indexOfEscape = i;
+                    if (indexOfLessThan >= 0) break;
+                } else if (curChar == '<') {
+                    indexOfLessThan = i;
+                    if (indexOfEscape >= 0) break;
+                }
+            }
+            if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
+
+            String canValue = parameterValue;
+            if (indexOfEscape >= 0) {
+                // don't want to unescape HTML, escaped chars should be preserved or we mess up the HTML: canValue = StringEscapeUtils.unescapeHtml(parameterValue);
+                // don't want to do this either, should be done before this: canValue = new URLCodec().decode(parameterValue);
+            }
+
+            if (allowSafe) {
+                SafeHtmlChangeListener changes = new SafeHtmlChangeListener(eci, sd);
+                String cleanHtml = StupidWebUtilities.getSafeHtmlPolicy().sanitize(canValue, changes, namePrefix.concat(name));
+                List<String> cleanChanges = changes.getMessages();
+                // use message instead of error, accept cleaned up HTML
+                if (cleanChanges.size() > 0) {
+                    for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
+                    logger.info("Service parameter safe HTML messages for " + sd.serviceName + "." + name + ": " + cleanChanges);
+                    return cleanHtml;
+                } else {
+                    // nothing changed, return null
+                    return null;
                 }
             } else {
-                // return null so caller knows we changed nothing (incoming parameterValue checked for null before by caller)
-                return null;
-            }
-        }
-    }
-
-    private static String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterName,
-                                                   String parameterValue, boolean allowSafe, ExecutionContextImpl eci) {
-        int indexOfEscape = -1;
-        int indexOfLessThan = -1;
-        int valueLength = parameterValue.length();
-        char[] valueCharArray = parameterValue.toCharArray();
-        for (int i = 0; i < valueLength; i++) {
-            char curChar = valueCharArray[i];
-            if (curChar == '%' || curChar == '&') {
-                indexOfEscape = i;
-                if (indexOfLessThan >= 0) break;
-            } else if (curChar == '<') {
-                indexOfLessThan = i;
-                if (indexOfEscape >= 0) break;
-            }
-        }
-        if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
-
-        String canValue = parameterValue;
-        if (indexOfEscape >= 0) {
-            // don't want to unescape HTML, escaped chars should be preserved or we mess up the HTML: canValue = StringEscapeUtils.unescapeHtml(parameterValue);
-            // don't want to do this either, should be done before this: canValue = new URLCodec().decode(parameterValue);
-        }
-
-        if (allowSafe) {
-            SafeHtmlChangeListener changes = new SafeHtmlChangeListener(eci, sd);
-            String cleanHtml = StupidWebUtilities.getSafeHtmlPolicy().sanitize(canValue, changes, namePrefix + parameterName);
-            List<String> cleanChanges = changes.getMessages();
-            // use message instead of error, accept cleaned up HTML
-            if (cleanChanges.size() > 0) {
-                for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
-                logger.info("Service parameter safe HTML messages for " + sd.serviceName + "." + parameterName + ": " + cleanChanges);
-                return cleanHtml;
-            } else {
+                // check for "<"; this will protect against HTML/JavaScript injection
+                if (indexOfLessThan >= 0) {
+                    eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
+                }
                 // nothing changed, return null
                 return null;
             }
-        } else {
-            // check for "<"; this will protect against HTML/JavaScript injection
-            if (indexOfLessThan >= 0) {
-                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.serviceName, eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
-            }
-            // nothing changed, return null
-            return null;
         }
     }
 

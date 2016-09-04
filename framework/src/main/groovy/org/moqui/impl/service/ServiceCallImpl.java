@@ -90,12 +90,14 @@ public class ServiceCallImpl implements ServiceCall {
     }
 
     public ServiceDefinition getServiceDefinition() {
-        if (sd == null && !noSd) sd = sfi.getServiceDefinition(serviceName);
+        // this should now never happen, sd now always set on name set
+        // if (sd == null && !noSd) sd = sfi.getServiceDefinition(serviceName);
         return sd;
     }
 
     public boolean isEntityAutoPattern() {
-        return sfi.isEntityAutoPattern(path, verb, noun);
+        return noSd;
+        // return sfi.isEntityAutoPattern(path, verb, noun);
     }
 
     public void validateCall(ExecutionContextImpl eci) {

@@ -253,7 +253,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             checkTarpit(aeii, requiresAuthz)
         }
 
-        // if last was an always allow, then don't bother checking for deny/etc - this is the most common case
+        // if last was an always allow, then don't bother checking for deny/etc - this is a common case
         if (lastAeii != null && lastAeii.internalAuthorizationInheritable &&
                 ArtifactExecutionInfo.AUTHZT_ALWAYS.is(lastAeii.internalAuthorizedAuthzType) &&
                 (ArtifactExecutionInfo.AUTHZA_ALL.is(lastAeii.internalAuthorizedActionEnum) || aeii.internalActionEnum.is(lastAeii.internalAuthorizedActionEnum))) {
@@ -441,7 +441,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         ArrayList<Map<String, Object>> artifactTarpitCheckList = (ArrayList<Map<String, Object>>) null
         // only check screens if they are the final screen in the chain (the target screen)
         if (requiresAuthz || !ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum)) {
-            artifactTarpitCheckList = ufi.getArtifactTarpitCheckList(artifactTypeEnum.name())
+            artifactTarpitCheckList = ufi.getArtifactTarpitCheckList(artifactTypeEnum)
         }
         if (artifactTarpitCheckList == null || artifactTarpitCheckList.size() == 0) return
 
