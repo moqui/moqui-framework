@@ -83,8 +83,9 @@ public class ContextJavaUtil {
             // using 2.6 standard deviations because 2 would give us around 5% of hits (normal distro), shooting for more like 1%
             double slowTime = average + (stdDev * 2.6);
             if (slowTime != 0 && runningTime > slowTime) {
-                if (runningTime > userImpactMinMillis)
-                    logger.warn("Slow hit to " + artifactTypeEnum + ":" + artifactSubType + ":" + artifactName + " running time " + runningTime + " is greater than average " + average + " plus 2.6 standard deviations " + stdDev);
+                if (runningTime > userImpactMinMillis) logger.warn("Slow hit to " + artifactTypeEnum + ":" + artifactSubType +
+                        ":" + artifactName + " running time " + runningTime + " is greater than average " + average +
+                        " plus 2.6 standard deviations " + stdDev);
                 return true;
             } else {
                 return false;

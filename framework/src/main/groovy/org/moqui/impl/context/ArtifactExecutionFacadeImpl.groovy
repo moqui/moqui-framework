@@ -116,8 +116,8 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             // set end time
             lastAeii.setEndTime()
             // count artifact hit (now done here instead of by each caller)
-            if (lastAeii.shouldCountArtifactHit())
-                eci.ecfi.countArtifactHit(lastAeii.typeEnum, lastAeii.actionDetail, lastAeii.nameInternal,
+            if (lastAeii.trackArtifactHit && lastAeii.internalAuthzWasRequired && lastAeii.isAccess)
+                eci.ecfi.countArtifactHit(lastAeii.internalTypeEnum, lastAeii.actionDetail, lastAeii.nameInternal,
                         lastAeii.parameters, lastAeii.startTimeMillis, lastAeii.getRunningTimeMillisDouble(), lastAeii.outputSize)
             return lastAeii
         } catch(NoSuchElementException e) {

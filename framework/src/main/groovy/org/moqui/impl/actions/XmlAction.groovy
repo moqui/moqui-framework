@@ -61,7 +61,7 @@ class XmlAction {
 
         if (isDebugEnabled) logger.debug("Running groovy script: \n${writeGroovyWithLines()}\n")
 
-        Script script = InvokerHelper.createScript(curClass, eci.getContextBinding())
+        Script script = InvokerHelper.createScript(curClass, eci.contextBindingInternal)
         try {
             Object result = script.run()
             return result

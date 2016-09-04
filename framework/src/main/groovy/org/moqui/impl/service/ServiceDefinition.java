@@ -47,8 +47,9 @@ public class ServiceDefinition {
     private final ParameterInfo[] inParameterInfoArray;
     private final boolean inParameterHasDefault;
     private final LinkedHashMap<String, ParameterInfo> outParameterInfoMap = new LinkedHashMap<>();
-    private final ArrayList<String> inParameterNameList = new ArrayList<>();
-    private final ArrayList<String> outParameterNameList = new ArrayList<>();
+    public final ArrayList<String> inParameterNameList = new ArrayList<>();
+    public final ArrayList<String> outParameterNameList = new ArrayList<>();
+    public final String[] outParameterNameArray;
 
     public final String path;
     public final String verb;
@@ -62,6 +63,7 @@ public class ServiceDefinition {
 
     public final String authenticate;
     public final String serviceType;
+    public final ServiceRunner serviceRunner;
     public final boolean txIgnore;
     public final boolean txForceNew;
     public final boolean txUseCache;
@@ -159,6 +161,8 @@ public class ServiceDefinition {
         authenticate = authenticateAttr != null && !authenticateAttr.isEmpty() ? authenticateAttr : "true";
         final String typeAttr = serviceNode.attribute("type");
         serviceType = typeAttr != null && !typeAttr.isEmpty() ? typeAttr : "inline";
+        serviceRunner = sfi.getServiceRunner(serviceType);
+
         String transactionAttr = serviceNode.attribute("transaction");
         txIgnore = "ignore".equals(transactionAttr);
         txForceNew = "force-new".equals(transactionAttr) || "force-cache".equals(transactionAttr);
@@ -211,6 +215,8 @@ public class ServiceDefinition {
             outParameterInfoMap.put(parameterName, new ParameterInfo(this, parameter));
             outParameterNameList.add(parameterName);
         }
+        outParameterNameArray = new String[outParameterNameList.size()];
+        outParameterNameList.toArray(outParameterNameArray);
     }
 
     private void mergeAutoParameters(MNode parametersNode, MNode autoParameters) {
@@ -772,7 +778,7 @@ public class ServiceDefinition {
     private static final long allCreditCards = CreditCardValidator.VISA + CreditCardValidator.MASTERCARD +
             CreditCardValidator.AMEX + CreditCardValidator.DISCOVER + CreditCardValidator.DINERS;
 
-    private static final HashMap<String, ArtifactExecutionInfo.AuthzAction> verbAuthzActionEnumMap;
+    public static final HashMap<String, ArtifactExecutionInfo.AuthzAction> verbAuthzActionEnumMap;
     static {
         HashMap<String, ArtifactExecutionInfo.AuthzAction> map = new HashMap<>(6);
         map.put("create", ArtifactExecutionInfo.AUTHZA_CREATE);
