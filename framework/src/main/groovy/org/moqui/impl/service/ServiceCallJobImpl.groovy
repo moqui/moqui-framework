@@ -45,7 +45,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
     ServiceCallJobImpl(String jobName, ServiceFacadeImpl sfi) {
         super(sfi)
-        ExecutionContextImpl eci = sfi.ecfi.eci
+        ExecutionContextImpl eci = sfi.ecfi.getEci()
 
         // get ServiceJob, make sure exists
         this.jobName = jobName
@@ -73,7 +73,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
     @Override
     String run() throws ServiceException {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
         validateCall(eci)
 

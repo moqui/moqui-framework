@@ -42,7 +42,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
-    protected RestApi restApi
+    public final RestApi restApi
 
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
 
@@ -120,11 +120,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         for (ServiceRunner sr in serviceRunners.values()) sr.destroy()
     }
 
-    ExecutionContextFactoryImpl getEcfi() { ecfi }
-
     ServiceRunner getServiceRunner(String type) { serviceRunners.get(type) }
-    ScheduledJobRunner getServiceJobRunner() { jobRunner }
-    RestApi getRestApi() { restApi }
 
     boolean isServiceDefined(String serviceName) {
         ServiceDefinition sd = getServiceDefinition(serviceName)
@@ -180,24 +176,24 @@ class ServiceFacadeImpl implements ServiceFacade {
             // NOTE: don't throw an exception for service not found (this is where we know there is no def), let service caller handle that
             // Put null in the cache to remember the non-existing service
             serviceLocationCache.put(cacheKey, null)
-            if (origServiceName != cacheKey) serviceLocationCache.put(origServiceName, null)
+            if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, null)
             return null
         }
 
         ServiceDefinition sd = new ServiceDefinition(this, path, serviceNode)
         serviceLocationCache.put(cacheKey, sd)
-        if (origServiceName != cacheKey) serviceLocationCache.put(origServiceName, sd)
+        if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, sd)
         return sd
     }
 
     protected static String makeCacheKey(String path, String verb, String noun) {
         // use a consistent format as the key in the cache, keeping in mind that the verb and noun may be merged in the serviceName passed in
         // no # here so that it doesn't matter if the caller used one or not
-        return (path ? path + '.' : '') + verb + (noun ? noun : '')
+        return (path != null && !path.isEmpty() ? path + '.' : '') + verb + (noun != null ? noun : '')
     }
 
     protected MNode findServiceNode(String path, String verb, String noun) {
-        if (!path) return null
+        if (path == null || path.isEmpty()) return null
 
         // make a file location from the path
         String partialLocation = path.replace('.', '/') + '.xml'
@@ -215,7 +211,7 @@ class ServiceFacadeImpl implements ServiceFacade {
                 // only way to see if it is a valid location is to try opening the stream, so no extra conditions here
                 serviceNode = findServiceNode(serviceComponentRr, verb, noun)
             }
-            if (serviceNode) break
+            if (serviceNode != null) break
         }
 
         // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)

@@ -488,7 +488,7 @@ public class EntityJavaUtil {
 
         public final String relationshipName;
         public final String shortAlias;
-        final String prettyName;
+        public final String prettyName;
         public final Map<String, String> keyMap;
         public final boolean dependent;
         public final boolean mutable;
@@ -520,6 +520,10 @@ public class EntityJavaUtil {
                 mutable = !isTypeOne;
             }
         }
+
+        // some methods for FTL templates that don't access member fields, just call getters; don't follow getter pattern so groovy code won't pick them up
+        public String riPrettyName() { return prettyName; }
+        public String riRelatedEntityName() { return relatedEntityName; }
 
         private boolean hasReverse() {
             ArrayList<MNode> relatedRelList = relatedEd.internalEntityNode.children("relationship");

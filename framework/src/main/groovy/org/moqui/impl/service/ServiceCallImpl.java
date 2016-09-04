@@ -28,6 +28,7 @@ public class ServiceCallImpl implements ServiceCall {
     protected String verb = null;
     protected String noun = null;
     protected ServiceDefinition sd = null;
+    protected boolean noSd = false;
     protected String serviceName = null;
     protected String serviceNameNoHash = null;
     protected Map<String, Object> parameters = new HashMap<>();
@@ -47,22 +48,37 @@ public class ServiceCallImpl implements ServiceCall {
             path = ServiceDefinition.getPathFromName(serviceName);
             verb = ServiceDefinition.getVerbFromName(serviceName);
             noun = ServiceDefinition.getNounFromName(serviceName);
+            // if the service is not found must be an entity auto, but if there is a path then error
+            if (path == null || path.isEmpty()) {
+                noSd = true;
+            } else {
+                throw new ServiceException("Service not found with name " + serviceName);
+            }
             this.serviceName = serviceName;
-            if (serviceName.contains("#")) serviceNameNoHash = serviceName.replace("#", "");
-            else serviceNameNoHash = serviceName;
+            serviceNameNoHash = serviceName.replace("#", "");
         }
     }
 
     protected void serviceNameInternal(String path, String verb, String noun) {
-        this.path = path;
+        if (path == null || path.isEmpty()) {
+            noSd = true;
+        } else {
+            this.path = path;
+        }
         this.verb = verb;
         this.noun = noun;
         StringBuilder sb = new StringBuilder();
-        if (path != null && !path.isEmpty()) sb.append(path).append('.');
+        if (!noSd) sb.append(path).append('.');
         sb.append(verb);
         if (noun != null && !noun.isEmpty()) sb.append('#').append(noun);
         serviceName = sb.toString();
-        serviceNameNoHash = serviceName.replace("#", "");
+        if (noSd) {
+            serviceNameNoHash = serviceName.replace("#", "");
+        } else {
+            sd = sfi.getServiceDefinition(serviceName);
+            if (sd == null) throw new ServiceException("Service not found with name " + serviceName + " (path: " + path + ", verb: " + verb + ", noun: " + noun + ")");
+            serviceNameNoHash = sd.serviceNameNoHash;
+        }
     }
 
     @Override
@@ -74,7 +90,7 @@ public class ServiceCallImpl implements ServiceCall {
     }
 
     public ServiceDefinition getServiceDefinition() {
-        if (sd == null) sd = sfi.getServiceDefinition(serviceName);
+        if (sd == null && !noSd) sd = sfi.getServiceDefinition(serviceName);
         return sd;
     }
 
@@ -95,7 +111,7 @@ public class ServiceCallImpl implements ServiceCall {
             ServiceRunner sr = sfi.getServiceRunner(serviceType);
             if (sr == null) throw new IllegalArgumentException("Could not find service runner for type [" + serviceType + "] for service [" + getServiceName() + "]");
             // validation
-            sd.convertValidateCleanParameters(this.parameters, eci);
+            parameters = sd.convertValidateCleanParameters(parameters, eci);
             // if error(s) in parameters, return now with no results
             if (eci.getMessage().hasError()) return;
         }

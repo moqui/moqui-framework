@@ -151,7 +151,7 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
                 }
             }
 
-            sd.convertValidateCleanParameters(parameters, eci)
+            parameters = sd.convertValidateCleanParameters(parameters, eci)
             return parameters
         }
     }

@@ -511,7 +511,7 @@ class RestSchemaUtil {
         String entityName = parmNode.attribute("entity-name")
         String fieldName = parmNode.attribute("field-name")
         if (entityName && fieldName) {
-            EntityDefinition ed = sd.sfi.getEcfi().getEntityFacade().getEntityDefinition(entityName)
+            EntityDefinition ed = sd.sfi.ecfi.getEntityFacade().getEntityDefinition(entityName)
             if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${sd.serviceName}")
             FieldInfo fi = ed.getFieldInfo(fieldName)
             if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${sd.serviceName}")

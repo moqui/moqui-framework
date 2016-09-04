@@ -723,14 +723,15 @@ public class EntityDefinition {
     }
 
     String getPrettyName(String title, String baseName) {
+        Set<String> baseNameParts = baseName != null ? new HashSet<>(Arrays.asList(baseName.split("(?=[A-Z])"))) : null;
         StringBuilder prettyName = new StringBuilder()
         for (String part in entityInfo.internalEntityName.split("(?=[A-Z])")) {
-            if (baseName && part == baseName) continue
-            if (prettyName) prettyName.append(" ")
+            if (baseNameParts != null && baseNameParts.contains(part)) continue
+            if (prettyName.length() > 0) prettyName.append(" ")
             prettyName.append(part)
         }
         if (title) {
-            boolean addParens = prettyName as boolean
+            boolean addParens = prettyName.length() > 0
             if (addParens) prettyName.append(" (")
             for (String part in title.split("(?=[A-Z])")) prettyName.append(part).append(" ")
             prettyName.deleteCharAt(prettyName.length()-1)

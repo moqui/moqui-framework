@@ -44,6 +44,8 @@ public class ServiceDefinition {
     public final MNode outParametersNode;
 
     private final LinkedHashMap<String, ParameterInfo> inParameterInfoMap = new LinkedHashMap<>();
+    private final ParameterInfo[] inParameterInfoArray;
+    private final boolean inParameterHasDefault;
     private final LinkedHashMap<String, ParameterInfo> outParameterInfoMap = new LinkedHashMap<>();
     private final ArrayList<String> inParameterNameList = new ArrayList<>();
     private final ArrayList<String> outParameterNameList = new ArrayList<>();
@@ -116,8 +118,8 @@ public class ServiceDefinition {
         // expand auto-parameters and merge parameter in in-parameters and out-parameters
         // if noun is a valid entity name set it on parameters with valid field names on it
         EntityDefinition ed = null;
-        if (sfi.getEcfi().getEntityFacade().isEntityDefined(this.noun))
-            ed = sfi.getEcfi().getEntityFacade().getEntityDefinition(this.noun);
+        if (sfi.ecfi.getEntityFacade().isEntityDefined(this.noun))
+            ed = sfi.ecfi.getEntityFacade().getEntityDefinition(this.noun);
         if (serviceNode.hasChild("in-parameters")) {
             for (MNode paramNode : serviceNode.first("in-parameters").getChildren()) {
                 if ("auto-parameters".equals(paramNode.getName())) {
@@ -148,7 +150,7 @@ public class ServiceDefinition {
 
         // if this is an inline service, get that now
         if (serviceNode.hasChild("actions")) {
-            xmlAction = new XmlAction(sfi.getEcfi(), serviceNode.first("actions"), serviceName);
+            xmlAction = new XmlAction(sfi.ecfi, serviceNode.first("actions"), serviceName);
         } else {
             xmlAction = null;
         }
@@ -193,6 +195,17 @@ public class ServiceDefinition {
             inParameterInfoMap.put(parameterName, new ParameterInfo(this, parameter));
             inParameterNameList.add(parameterName);
         }
+        int inParameterNameListSize = inParameterNameList.size();
+        inParameterInfoArray = new ParameterInfo[inParameterNameListSize];
+        boolean tempHasDefault = false;
+        for (int i = 0; i < inParameterNameListSize; i++) {
+            String parmName = inParameterNameList.get(i);
+            ParameterInfo pi = inParameterInfoMap.get(parmName);
+            inParameterInfoArray[i] = pi;
+            if (pi.thisOrChildHasDefault) tempHasDefault = true;
+        }
+        inParameterHasDefault = tempHasDefault;
+
         if (outParametersNode != null) for (MNode parameter : outParametersNode.children("parameter")) {
             String parameterName = parameter.attribute("name");
             outParameterInfoMap.put(parameterName, new ParameterInfo(this, parameter));
@@ -223,7 +236,7 @@ public class ServiceDefinition {
         for (String fieldName : ed.getFieldNames("all".equals(includeStr) || "pk".equals(includeStr), "all".equals(includeStr) || "nonpk".equals(includeStr))) {
             if (fieldsToExclude.contains(fieldName)) continue;
 
-            String javaType = sfi.getEcfi().getEntityFacade().getFieldJavaType(ed.getFieldInfo(fieldName).type, ed);
+            String javaType = sfi.ecfi.getEntityFacade().getFieldJavaType(ed.getFieldInfo(fieldName).type, ed);
             Map<String, String> map = new LinkedHashMap<>(5);
             map.put("type", javaType);
             map.put("required", requiredStr);
@@ -286,22 +299,27 @@ public class ServiceDefinition {
     public static String getPathFromName(String serviceName) {
         String p = serviceName;
         // do hash first since a noun following hash may have dots in it
-        if (p.contains("#")) p = p.substring(0, p.indexOf("#"));
-        if (!p.contains(".")) return null;
-        return p.substring(0, p.lastIndexOf("."));
+        int hashIndex = p.indexOf('#');
+        if (hashIndex > 0) p = p.substring(0, hashIndex);
+        int lastDotIndex = p.lastIndexOf('.');
+        if (lastDotIndex <= 0) return null;
+        return p.substring(0, lastDotIndex);
     }
 
     public static String getVerbFromName(String serviceName) {
         String v = serviceName;
         // do hash first since a noun following hash may have dots in it
-        if (v.contains("#")) v = v.substring(0, v.indexOf("#"));
-        if (v.contains(".")) v = v.substring(v.lastIndexOf(".") + 1);
+        int hashIndex = v.indexOf('#');
+        if (hashIndex > 0) v = v.substring(0, hashIndex);
+        int lastDotIndex = v.lastIndexOf('.');
+        if (lastDotIndex > 0) v = v.substring(lastDotIndex + 1);
         return v;
     }
 
     public static String getNounFromName(String serviceName) {
-        if (!serviceName.contains("#")) return null;
-        return serviceName.substring(serviceName.lastIndexOf("#") + 1);
+        int hashIndex = serviceName.lastIndexOf('#');
+        if (hashIndex < 0) return null;
+        return serviceName.substring(hashIndex + 1);
     }
 
     public static ArtifactExecutionInfo.AuthzAction getVerbAuthzActionEnum(String theVerb) {
@@ -331,15 +349,108 @@ public class ServiceDefinition {
         return outParameterNameList;
     }
 
-    public void convertValidateCleanParameters(Map<String, Object> parameters, ExecutionContextImpl eci) {
+    public Map<String, Object>  convertValidateCleanParameters(Map<String, Object> parameters, ExecutionContextImpl eci) {
         // logger.warn("BEFORE ${serviceName} convertValidateCleanParameters: ${parameters.toString()}")
 
-        // even if validate is false still apply defaults, convert defined params, etc
-        checkParameterMap("", parameters, parameters, inParameterInfoMap, eci);
+        // checkParameterMap("", parameters, parameters, inParameterInfoMap, eci);
+        return nestedParameterClean("", parameters, inParameterInfoArray, eci);
 
         // logger.warn("AFTER ${serviceName} convertValidateCleanParameters: ${parameters.toString()}")
     }
 
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> nestedParameterClean(String namePrefix, Map<String, Object> parameters,
+                                      ParameterInfo[] parameterInfoArray, ExecutionContextImpl eci) {
+        HashMap<String, Object> newMap = new HashMap<>();
+        boolean hasChildrenToCheck = false;
+        for (int i = 0; i < parameterInfoArray.length; i++) {
+            ParameterInfo parameterInfo = parameterInfoArray[i];
+            String parameterName = parameterInfo.name;
+
+            boolean hasParameter = parameters.containsKey(parameterName);
+            Object parameterValue = hasParameter ? parameters.remove(parameterName) : null;
+
+            // set the default if applicable
+            boolean parameterIsEmpty = !hasParameter || StupidJavaUtilities.isEmpty(parameterValue);
+            if (parameterIsEmpty) {
+                if (parameterInfo.hasDefault) {
+                    // NOTE: current constraint is defaults can only depend on previous parameters (has been that way for a while)
+                    // TODO: consider doing this as a second pass so newMap has all parameters
+                    parameterValue = getParameterDefault(parameterInfo, newMap, eci);
+                    // update parameterIsEmpty now that a default is set
+                    if (parameterValue != null) {
+                        parameterIsEmpty = StupidJavaUtilities.isEmpty(parameterValue);
+                        hasParameter = true;
+                    }
+                } else {
+                    // if empty but not null and types don't match set to null instead of trying to convert
+                    if (parameterValue != null && !parameterInfo.typeMatches(parameterValue)) {
+                        parameterValue = null;
+                    }
+                }
+                // if required and still empty (nothing from default), complain
+                if (validate && parameterInfo.required && parameterIsEmpty)
+                    eci.messageFacade.addValidationError(null, namePrefix + parameterName, serviceName, eci.getL10n().localize("Field cannot be empty"), null);
+            }
+            // NOTE: not else because parameterIsEmpty may be changed
+            if (!parameterIsEmpty) {
+                boolean typeMatches = parameterInfo.typeMatches(parameterValue);
+                if (!typeMatches) {
+                    // convert type, at this point parameterValue is not empty and doesn't match parameter type
+                    parameterValue = parameterInfo.convertType(namePrefix, parameterName, parameterValue, eci);
+                }
+
+                if (validate) {
+                    Object htmlValidated = parameterInfo.validateParameterHtml(namePrefix, parameterName, parameterValue, eci);
+                    // put the final parameterValue back into the parameters Map
+                    if (htmlValidated != null) {
+                        parameterValue = htmlValidated;
+                    }
+
+                    // check against validation sub-elements (do this after the convert so we can deal with objects when needed)
+                    if (parameterInfo.validationNodeList.size() > 0) {
+                        for (MNode valNode : parameterInfo.validationNodeList) {
+                            // NOTE don't break on fail, we want to get a list of all failures for the user to see
+                            try {
+                                // validateParameterSingle calls eci.message.addValidationError as needed so nothing else to do here
+                                validateParameterSingle(valNode, parameterName, parameterValue, eci);
+                            } catch (Throwable t) {
+                                logger.error("Error in validation", t);
+                                Map<String, Object> map = new HashMap<>(3);
+                                map.put("parameterValue", parameterValue); map.put("valNode", valNode); map.put("t", t);
+                                eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}", "", map), null);
+                            }
+                        }
+                    }
+                }
+                if (parameterInfo.childParameterInfoArray.length > 0) {
+                    hasChildrenToCheck = true;
+                }
+            }
+
+            if (hasParameter) newMap.put(parameterName, parameterValue);
+        }
+
+        // now check parameter sub-elements (after processing all defaults, etc)
+        if (hasChildrenToCheck) for (int i = 0; i < parameterInfoArray.length; i++) {
+            ParameterInfo parameterInfo = parameterInfoArray[i];
+            if (parameterInfo.childParameterInfoArray.length > 0) {
+                Object parameterValue = newMap.get(parameterInfo.name);
+                if (parameterValue == null || !(parameterValue instanceof Map)) continue;
+                Map<String, Object> newChildMap = nestedParameterClean(namePrefix + parameterInfo.name + ".",
+                        (Map<String, Object>) parameterValue, parameterInfo.childParameterInfoArray, eci);
+                newMap.put(parameterInfo.name, newChildMap);
+            }
+        }
+
+        // if we are not validating and there are parameters remaining, add them to the newMap
+        if (!validate && parameters.size() > 0) {
+            newMap.putAll(parameters);
+        }
+
+        return newMap;
+    }
+    /*
     @SuppressWarnings("unchecked")
     private void checkParameterMap(String namePrefix, Map<String, Object> rootParameters, Map<String, Object> parameters,
                                    Map<String, ParameterInfo> parameterInfoMap, ExecutionContextImpl eci) {
@@ -383,18 +494,18 @@ public class ServiceDefinition {
                 if (validate && parameterInfo.required && parameterIsEmpty)
                     eci.messageFacade.addValidationError(null, namePrefix + parameterName, serviceName, eci.getL10n().localize("Field cannot be empty"), null);
             }
-
+            // NOTE: not else because parameterIsEmpty may be changed
             if (!parameterIsEmpty) {
                 boolean typeMatches = parameterInfo.typeMatches(parameterValue);
                 if (!typeMatches) {
                     // convert type, at this point parameterValue is not empty and doesn't match parameter type
-                    parameterValue = ServiceJavaUtil.convertType(parameterInfo, namePrefix, parameterName, parameterValue, eci);
+                    parameterValue = parameterInfo.convertType(namePrefix, parameterName, parameterValue, eci);
                     // put the final parameterValue back into the parameters Map
                     parameters.put(parameterName, parameterValue);
                 }
 
                 if (validate) {
-                    Object htmlValidated = ServiceJavaUtil.validateParameterHtml(parameterInfo, this, namePrefix, parameterName, parameterValue, eci);
+                    Object htmlValidated = parameterInfo.validateParameterHtml(namePrefix, parameterName, parameterValue, eci);
                     // put the final parameterValue back into the parameters Map
                     if (htmlValidated != null) {
                         parameterValue = htmlValidated;
@@ -439,21 +550,21 @@ public class ServiceDefinition {
             Object defaultValue = getParameterDefault(parameterInfo, rootParameters, eci);
             if (defaultValue != null) {
                 if (!StupidJavaUtilities.isInstanceOf(defaultValue, parameterInfo.type))
-                    defaultValue = ServiceJavaUtil.convertType(parameterInfo, namePrefix, parameterName, defaultValue, eci);
+                    defaultValue = parameterInfo.convertType(namePrefix, parameterName, defaultValue, eci);
                 parameters.put(parameterName, defaultValue);
             }
         }
     }
+    */
 
     private static Object getParameterDefault(ParameterInfo parameterInfo, Map<String, Object> rootParameters, ExecutionContextImpl eci) {
         String defaultStr = parameterInfo.defaultStr;
         if (defaultStr != null && defaultStr.length() > 0) {
-            return eci.getResource().expression(defaultStr, null, rootParameters);
+            return eci.resourceFacade.expression(defaultStr, null, rootParameters);
         }
-
         String defaultValueStr = parameterInfo.defaultValue;
         if (defaultValueStr != null && defaultValueStr.length() > 0) {
-            return eci.getResource().expand(defaultValueStr, null, rootParameters, false);
+            return eci.resourceFacade.expand(defaultValueStr, null, rootParameters, false);
         }
 
         return null;

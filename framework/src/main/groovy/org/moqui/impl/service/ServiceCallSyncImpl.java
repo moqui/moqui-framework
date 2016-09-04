@@ -64,7 +64,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     @Override
     public Map<String, Object> call() {
         final ServiceDefinition sd = getServiceDefinition();
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi();
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi;
         ExecutionContextImpl eci = ecfi.getEci();
 
         boolean enableAuthz = disableAuthz && !eci.artifactExecutionFacade.disableAuthz();
@@ -128,7 +128,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         }
     }
 
-    public Map<String, Object> callSingle(final Map<String, Object> currentParameters, ServiceDefinition sd, final ExecutionContextImpl eci) {
+    public Map<String, Object> callSingle(Map<String, Object> currentParameters, ServiceDefinition sd, final ExecutionContextImpl eci) {
         if (ignorePreviousError) eci.messageFacade.pushErrors();
         // NOTE: checking this here because service won't generally run after input validation, etc anyway
         if (eci.messageFacade.hasError()) {
@@ -170,7 +170,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         // in-parameter validation
         if (hasSecaRules)
             ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-validate", secaRules, eci);
-        if (sd != null) sd.convertValidateCleanParameters(currentParameters, eci);
+        if (sd != null) currentParameters = sd.convertValidateCleanParameters(currentParameters, eci);
         // if error(s) in parameters, return now with no results
         if (eci.messageFacade.hasError()) {
             StringBuilder errMsg = new StringBuilder("Found error(s) when validating input parameters for service [" + serviceName + "], so not running service. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");

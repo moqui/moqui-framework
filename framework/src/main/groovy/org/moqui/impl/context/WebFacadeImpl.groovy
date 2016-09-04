@@ -876,7 +876,7 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.putAll((Map) bodyListObj)
                     eci.contextStack.push(parmStack)
 
-                    RestApi.RestResult restResult = eci.serviceFacade.getRestApi().run(extraPathNameList, eci)
+                    RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                     responseList.add(restResult.responseObj ?: [:])
 
                     eci.contextStack.pop()
@@ -895,7 +895,7 @@ class WebFacadeImpl implements WebFacade {
                 }
             } else {
                 eci.contextStack.push(parmStack)
-                RestApi.RestResult restResult = eci.serviceFacade.getRestApi().run(extraPathNameList, eci)
+                RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                 eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
                 restResult.setHeaders(response)

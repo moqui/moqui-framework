@@ -55,7 +55,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     void call() {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
         validateCall(eci)
 
@@ -69,7 +69,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     Future<Map<String, Object>> callFuture() throws ServiceException {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
         validateCall(eci)
 
@@ -83,12 +83,12 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     Runnable getRunnable() {
-        return new AsyncServiceRunnable(sfi.getEcfi().getEci(), serviceName, parameters)
+        return new AsyncServiceRunnable(sfi.ecfi.getEci(), serviceName, parameters)
     }
 
     @Override
     Callable<Map<String, Object>> getCallable() {
-        return new AsyncServiceCallable(sfi.getEcfi().getEci(), serviceName, parameters)
+        return new AsyncServiceCallable(sfi.ecfi.getEci(), serviceName, parameters)
     }
 
     static class AsyncServiceInfo implements Externalizable {

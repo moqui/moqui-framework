@@ -53,21 +53,25 @@ public class ServiceJavaUtil {
 
     /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT */
     public static class ParameterInfo {
-        public ServiceDefinition sd;
-        public String serviceName;
-        public MNode parameterNode;
-        public String name, type, format;
-        public ParameterType parmType;
-        public Class parmClass;
+        public final ServiceDefinition sd;
+        public final String serviceName;
+        public final MNode parameterNode;
+        public final String name, type, format;
+        public final ParameterType parmType;
+        public final Class parmClass;
 
-        public String entityName, fieldName;
-        public String defaultStr, defaultValue;
-        public boolean required;
-        public boolean disabled;
-        public ParameterAllowHtml allowHtml;
+        public final String entityName, fieldName;
+        public final String defaultStr, defaultValue;
+        public final boolean hasDefault;
+        public final boolean thisOrChildHasDefault;
+        public final boolean required;
+        public final boolean disabled;
+        public final ParameterAllowHtml allowHtml;
 
-        public Map<String, ParameterInfo> childParameterInfoMap = new HashMap<>();
-        public List<MNode> validationNodeList = new ArrayList<>();
+        public final Map<String, ParameterInfo> childParameterInfoMap = new HashMap<>();
+        public final ParameterInfo[] childParameterInfoArray;
+
+        public final List<MNode> validationNodeList = new ArrayList<>();
 
         public ParameterInfo(ServiceDefinition sd, MNode parameterNode) {
             this.sd = sd;
@@ -75,16 +79,19 @@ public class ServiceJavaUtil {
             serviceName = sd.serviceName;
 
             name = parameterNode.attribute("name");
-            type = parameterNode.attribute("type");
-            if (type == null || type.length() == 0) type = "String";
+            String typeAttr = parameterNode.attribute("type");
+            type = typeAttr == null || typeAttr.isEmpty() ? "String" : typeAttr;
             parmType = typeEnumByString.get(type);
             parmClass = StupidClassLoader.commonJavaClassesMap.get(type);
 
             format = parameterNode.attribute("format");
             entityName = parameterNode.attribute("entity-name");
             fieldName = parameterNode.attribute("field-name");
+
             defaultStr = parameterNode.attribute("default");
             defaultValue = parameterNode.attribute("default-value");
+            hasDefault = (defaultStr != null && !defaultStr.isEmpty()) || (defaultValue != null && !defaultValue.isEmpty());
+
             required = "true".equals(parameterNode.attribute("required"));
             disabled = "disabled".equals(parameterNode.attribute("required"));
 
@@ -93,10 +100,22 @@ public class ServiceJavaUtil {
             else if ("safe".equals(allowHtmlStr)) allowHtml = ParameterAllowHtml.SAFE;
             else allowHtml = ParameterAllowHtml.NONE;
 
+            ArrayList<String> parmNameList = new ArrayList<>();
             for (MNode childParmNode: parameterNode.children("parameter")) {
                 String name = childParmNode.attribute("name");
                 childParameterInfoMap.put(name, new ParameterInfo(sd, childParmNode));
+                parmNameList.add(name);
             }
+            int parmNameListSize = parmNameList.size();
+            childParameterInfoArray = new ParameterInfo[parmNameListSize];
+            boolean childHasDefault = false;
+            for (int i = 0; i < parmNameListSize; i++) {
+                String parmName = parmNameList.get(i);
+                ParameterInfo pi = childParameterInfoMap.get(parmName);
+                childParameterInfoArray[i] = pi;
+                if (pi.thisOrChildHasDefault) childHasDefault = true;
+            }
+            thisOrChildHasDefault = hasDefault || childHasDefault;
 
             for (MNode child: parameterNode.getChildren()) {
                 if ("description".equals(child.getName()) || "parameter".equals(child.getName())) continue;
@@ -105,127 +124,129 @@ public class ServiceJavaUtil {
         }
 
         boolean typeMatches(Object value) {
+            if (value == null) return true;
             if (parmClass != null) return parmClass.isInstance(value);
             return StupidJavaUtilities.isInstanceOf(value, type);
         }
-    }
 
-    /** Currently used only in ServiceDefinition.checkParameterMap() */
-    public static Object convertType(ParameterInfo pi, String namePrefix, String parameterName, Object parameterValue,
-                                          ExecutionContextImpl eci) {
-        // no need to check for null, only called with parameterValue not empty
-        // if (parameterValue == null) return null;
-        // no need to check for type match, only called when types don't match
-        // if (StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
+        /** Currently used only in ServiceDefinition.checkParameterMap() */
+        public Object convertType(String namePrefix, String parameterName, Object parameterValue, ExecutionContextImpl eci) {
+            // no need to check for null, only called with parameterValue not empty
+            // if (parameterValue == null) return null;
+            // no need to check for type match, only called when types don't match
+            // if (StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
 
-        String type = pi.type;
-        // do type conversion if possible
-        String format = pi.format;
-        Object converted = null;
-        boolean isString = parameterValue instanceof CharSequence;
-        boolean isEmptyString = isString && ((CharSequence) parameterValue).length() == 0;
-        if (pi.parmType != null && isString && !isEmptyString) {
-            String valueStr = parameterValue.toString();
-            // try some String to XYZ specific conversions for parsing with format, locale, etc
-            switch (pi.parmType) {
-                case INTEGER:
-                case LONG:
-                case FLOAT:
-                case DOUBLE:
-                case BIG_DECIMAL:
-                case BIG_INTEGER:
-                    BigDecimal bdVal = eci.getL10n().parseNumber(valueStr, format);
-                    if (bdVal == null) {
-                        eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
-                    } else {
-                        switch (pi.parmType) {
-                            case INTEGER: converted = bdVal.intValue(); break;
-                            case LONG: converted = bdVal.longValue(); break;
-                            case FLOAT: converted = bdVal.floatValue(); break;
-                            case DOUBLE: converted = bdVal.doubleValue(); break;
-                            case BIG_INTEGER: converted = bdVal.toBigInteger(); break;
-                            default: converted = bdVal;
+            // do type conversion if possible
+            Object converted = null;
+            boolean isString = parameterValue instanceof CharSequence;
+            boolean isEmptyString = isString && ((CharSequence) parameterValue).length() == 0;
+            if (parmType != null && isString && !isEmptyString) {
+                String valueStr = parameterValue.toString();
+                // try some String to XYZ specific conversions for parsing with format, locale, etc
+                switch (parmType) {
+                    case INTEGER:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                    case BIG_DECIMAL:
+                    case BIG_INTEGER:
+                        BigDecimal bdVal = eci.l10nFacade.parseNumber(valueStr, format);
+                        if (bdVal == null) {
+                            eci.messageFacade.addValidationError(null, namePrefix + parameterName, serviceName,
+                                    MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                        } else {
+                            switch (parmType) {
+                                case INTEGER: converted = bdVal.intValue(); break;
+                                case LONG: converted = bdVal.longValue(); break;
+                                case FLOAT: converted = bdVal.floatValue(); break;
+                                case DOUBLE: converted = bdVal.doubleValue(); break;
+                                case BIG_INTEGER: converted = bdVal.toBigInteger(); break;
+                                default: converted = bdVal;
+                            }
+                        }
+                        break;
+                    case TIME:
+                        converted = eci.l10nFacade.parseTime(valueStr, format);
+                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + parameterName,
+                                serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                        break;
+                    case DATE:
+                        converted = eci.l10nFacade.parseDate(valueStr, format);
+                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + parameterName,
+                                serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                        break;
+                    case TIMESTAMP:
+                        converted = eci.l10nFacade.parseTimestamp(valueStr, format);
+                        if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + parameterName,
+                                serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                        break;
+                    case LIST:
+                        // strip off square braces
+                        if (valueStr.charAt(0) == '[' && valueStr.charAt(valueStr.length()-1) == ']')
+                            valueStr = valueStr.substring(1, valueStr.length()-1);
+                        // split by comma or just create a list with the single string
+                        if (valueStr.contains(",")) {
+                            converted = Arrays.asList(valueStr.split(","));
+                        } else {
+                            List<String> newList = new ArrayList<>();
+                            newList.add(valueStr);
+                            converted = newList;
+                        }
+                        break;
+                    case SET:
+                        // strip off square braces
+                        if (valueStr.charAt(0) == '[' && valueStr.charAt(valueStr.length()-1) == ']')
+                            valueStr = valueStr.substring(1, valueStr.length()-1);
+                        // split by comma or just create a list with the single string
+                        if (valueStr.contains(",")) {
+                            converted = new HashSet<>(Arrays.asList(valueStr.split(",")));
+                        } else {
+                            Set<String> newSet = new HashSet<>();
+                            newSet.add(valueStr);
+                            converted = newSet;
+                        }
+                        break;
+                }
+            }
+
+            // fallback to a really simple type conversion
+            // TODO: how to detect conversion failed to add validation error?
+            if (converted == null && !isEmptyString) converted = StupidUtilities.basicConvert(parameterValue, type);
+
+            return converted;
+        }
+
+        @SuppressWarnings("unchecked")
+        Object validateParameterHtml(String namePrefix, String parameterName, Object parameterValue, ExecutionContextImpl eci) {
+            // check for none/safe/any HTML
+            boolean isString = parameterValue instanceof CharSequence;
+            if ((isString || parameterValue instanceof List) && ParameterAllowHtml.ANY != allowHtml) {
+                boolean allowSafe = ParameterAllowHtml.SAFE == allowHtml;
+
+                if (isString) {
+                    return canonicalizeAndCheckHtml(sd, namePrefix, parameterName, parameterValue.toString(), allowSafe, eci);
+                } else {
+                    List lst = (List) parameterValue;
+                    ArrayList<Object> lstClone = new ArrayList<>(lst);
+                    int lstSize = lstClone.size();
+                    for (int i = 0; i < lstSize; i++) {
+                        Object obj = lstClone.get(i);
+                        if (obj instanceof CharSequence) {
+                            String htmlChecked = canonicalizeAndCheckHtml(sd, namePrefix, parameterName, obj.toString(), allowSafe, eci);
+                            lstClone.set(i, htmlChecked != null ? htmlChecked : obj);
+                        } else {
+                            lstClone.set(i, obj);
                         }
                     }
-                    break;
-                case TIME:
-                    converted = eci.getL10n().parseTime(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
-                    break;
-                case DATE:
-                    converted = eci.getL10n().parseDate(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
-                    break;
-                case TIMESTAMP:
-                    converted = eci.getL10n().parseTimestamp(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
-                    break;
-                case LIST:
-                    // strip off square braces
-                    if (valueStr.charAt(0) == '[' && valueStr.charAt(valueStr.length()-1) == ']')
-                        valueStr = valueStr.substring(1, valueStr.length()-1);
-                    // split by comma or just create a list with the single string
-                    if (valueStr.contains(",")) {
-                        converted = Arrays.asList(valueStr.split(","));
-                    } else {
-                        List<String> newList = new ArrayList<>();
-                        newList.add(valueStr);
-                        converted = newList;
-                    }
-                    break;
-                case SET:
-                    // strip off square braces
-                    if (valueStr.charAt(0) == '[' && valueStr.charAt(valueStr.length()-1) == ']')
-                        valueStr = valueStr.substring(1, valueStr.length()-1);
-                    // split by comma or just create a list with the single string
-                    if (valueStr.contains(",")) {
-                        converted = new HashSet<>(Arrays.asList(valueStr.split(",")));
-                    } else {
-                        Set<String> newSet = new HashSet<>();
-                        newSet.add(valueStr);
-                        converted = newSet;
-                    }
-                    break;
-            }
-        }
-
-        // fallback to a really simple type conversion
-        // TODO: how to detect conversion failed to add validation error?
-        if (converted == null && !isEmptyString) converted = StupidUtilities.basicConvert(parameterValue, type);
-
-        return converted;
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Object validateParameterHtml(ParameterInfo parameterInfo, ServiceDefinition sd, String namePrefix,
-                                               String parameterName, Object parameterValue, ExecutionContextImpl eci) {
-        // check for none/safe/any HTML
-        boolean isString = parameterValue instanceof CharSequence;
-        if ((isString || parameterValue instanceof List) && ParameterAllowHtml.ANY != parameterInfo.allowHtml) {
-            boolean allowSafe = ParameterAllowHtml.SAFE == parameterInfo.allowHtml;
-
-            if (isString) {
-                return canonicalizeAndCheckHtml(sd, namePrefix, parameterName, parameterValue.toString(), allowSafe, eci);
-            } else {
-                List lst = (List) parameterValue;
-                ArrayList<Object> lstClone = new ArrayList<>(lst);
-                int lstSize = lstClone.size();
-                for (int i = 0; i < lstSize; i++) {
-                    Object obj = lstClone.get(i);
-                    if (obj instanceof CharSequence) {
-                        String htmlChecked = canonicalizeAndCheckHtml(sd, namePrefix, parameterName, obj.toString(), allowSafe, eci);
-                        lstClone.set(i, htmlChecked != null ? htmlChecked : obj);
-                    } else {
-                        lstClone.set(i, obj);
-                    }
+                    return lstClone;
                 }
-                return lstClone;
+            } else {
+                // return null so caller knows we changed nothing (incoming parameterValue checked for null before by caller)
+                return null;
             }
-        } else {
-            // return null so caller knows we changed nothing (incoming parameterValue checked for null before by caller)
-            return null;
         }
     }
+
     private static String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterName,
                                                    String parameterValue, boolean allowSafe, ExecutionContextImpl eci) {
         int indexOfEscape = -1;
