@@ -813,8 +813,8 @@ class ScreenUrlInfo {
                 }
                 String targetServiceName = targetTransition.getSingleServiceName()
                 if (targetServiceName != null && targetServiceName.length() > 0) {
-                    ServiceDefinition sd = ec.ecfi.getServiceFacade().getServiceDefinition(targetServiceName)
-                    Map<String, Object> csMap = ec.getContext().getCombinedMap()
+                    ServiceDefinition sd = ec.serviceFacade.getServiceDefinition(targetServiceName)
+                    Map<String, Object> csMap = ec.contextStack.getCombinedMap()
                     Map<String, Object> wfParameters = ec.getWeb()?.getParameters()
                     if (sd != null) {
                         ArrayList<String> inParameterNames = sd.getInParameterNames()
@@ -832,7 +832,7 @@ class ScreenUrlInfo {
                         String verb = targetServiceName.substring(0, targetServiceName.indexOf("#"))
                         if (verb == "create" || verb == "update" || verb == "delete" || verb == "store") {
                             String en = targetServiceName.substring(targetServiceName.indexOf("#") + 1)
-                            EntityDefinition ed = ec.ecfi.getEntityFacade(ec.tenantId).getEntityDefinition(en)
+                            EntityDefinition ed = ec.entityFacade.getEntityDefinition(en)
                             if (ed != null) {
                                 for (String fn in ed.getPkFieldNames()) {
                                     Object value = csMap.get(fn)

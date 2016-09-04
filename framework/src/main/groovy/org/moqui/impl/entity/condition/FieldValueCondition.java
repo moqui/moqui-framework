@@ -15,11 +15,8 @@ package org.moqui.impl.entity.condition;
 
 import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityException;
-import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.entity.EntityJavaUtil;
+import org.moqui.impl.entity.*;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
-import org.moqui.impl.entity.EntityConditionFactoryImpl;
-import org.moqui.impl.entity.EntityQueryBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +65,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         StringBuilder sql = eqb.getSqlTopLevel();
         boolean valueDone = false;
         EntityDefinition mainEd = eqb.getMainEd();
-        EntityJavaUtil.FieldInfo fi = field.getFieldInfo(mainEd);
+        FieldInfo fi = field.getFieldInfo(mainEd);
         if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + eqb.getMainEd().getFullEntityName());
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {

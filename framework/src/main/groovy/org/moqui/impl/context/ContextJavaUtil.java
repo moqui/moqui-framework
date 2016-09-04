@@ -121,7 +121,7 @@ public class ContextJavaUtil {
 
         // NOTE: ArtifactHitBin always created in DEFAULT tenant since data is aggregated across all tenants, mostly used to monitor performance
         EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
-            EntityValueBase ahb = (EntityValueBase) ecfi.getEntityFacade("DEFAULT").makeValue("moqui.server.ArtifactHitBin");
+            EntityValueBase ahb = (EntityValueBase) ecfi.defaultEntityFacade.makeValue("moqui.server.ArtifactHitBin");
             ahb.putNoCheck("artifactType", statsInfo.artifactTypeEnum.name());
             ahb.putNoCheck("artifactSubType", statsInfo.artifactSubType);
             ahb.putNoCheck("artifactName", statsInfo.artifactName);
@@ -156,8 +156,8 @@ public class ContextJavaUtil {
                         String artifactSubType, String artifactName, long startTime, double runningTimeMillis,
                         Map<String, Object> parameters, Long outputSize) {
             tenantId = eci.getTenantId();
-            visitId = eci.getUserFacade().getVisitId();
-            userId = eci.getUserFacade().getUserId();
+            visitId = eci.userFacade.getVisitId();
+            userId = eci.userFacade.getUserId();
             this.isSlowHit = isSlowHit;
             this.artifactTypeEnum = artifactTypeEnum;
             this.artifactSubType = artifactSubType;

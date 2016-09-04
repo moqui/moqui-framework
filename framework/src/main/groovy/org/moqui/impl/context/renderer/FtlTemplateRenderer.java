@@ -69,7 +69,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         Template theTemplate;
         if (templateFtlLocationCache instanceof MCache) {
             MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
-            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
             // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
             //     updated time is older/less than rr.lastModified)
             long lastModified = rr != null ? rr.getLastModified() : 0L;
@@ -90,7 +90,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         Template newTemplate = null;
         Reader templateReader = null;
         try {
-            templateReader = new InputStreamReader(ecfi.getResourceFacade().getLocationStream(location), "UTF-8");
+            templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location), "UTF-8");
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
             throw new IllegalArgumentException("Error while initializing template at [" + location + "]", e);
@@ -139,9 +139,9 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             // NOTE: doing this because template loading behavior with cache/etc not desired and was having issues
             Template theTemplate;
             if (parseAsFTL) {
-                theTemplate = ecfi.getResourceFacade().getFtlTemplateRenderer().getFtlTemplateByLocation(name);
+                theTemplate = ecfi.resourceFacade.getFtlTemplateRenderer().getFtlTemplateByLocation(name);
             } else {
-                String text = ecfi.getResourceFacade().getLocationText(name, true);
+                String text = ecfi.resourceFacade.getLocationText(name, true);
                 theTemplate = Template.getPlainTextTemplate(name, text, this);
             }
 

@@ -75,9 +75,9 @@ class UserFacadeImpl implements UserFacade {
             if (request != null) wsc.setServletRequest(request)
             if (response != null) wsc.setServletResponse(response)
             wsc.setSession(new HttpServletSession(session, request?.getServerName()))
-            return eci.getEcfi().getSecurityManager().createSubject(wsc)
+            return eci.ecfi.getSecurityManager().createSubject(wsc)
         } else {
-            return eci.getEcfi().getSecurityManager().createSubject(new DefaultSubjectContext())
+            return eci.ecfi.getSecurityManager().createSubject(new DefaultSubjectContext())
         }
     }
 
@@ -129,8 +129,8 @@ class UserFacadeImpl implements UserFacade {
 
         this.visitId = session.getAttribute("moqui.visitId")
         if (!this.visitId && !eci.getSkipStats()) {
-            MNode serverStatsNode = eci.getEcfi().getServerStatsNode()
-            ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.getEcfi().getScreenFacade(), request)
+            MNode serverStatsNode = eci.ecfi.getServerStatsNode()
+            ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, request)
             boolean isJustContent = sui.fileResourceRef != null
 
             // handle visitorId and cookie
@@ -182,7 +182,7 @@ class UserFacadeImpl implements UserFacade {
                         initialUserAgent:request.getHeader("User-Agent")?:"",
                         clientHostName:request.getRemoteHost(), clientUser:request.getRemoteUser()])
 
-                InetAddress address = eci.getEcfi().getLocalhostAddress()
+                InetAddress address = eci.ecfi.getLocalhostAddress()
                 parameters.serverIpAddress = address?.getHostAddress() ?: "127.0.0.1"
                 parameters.serverHostName = address?.getHostName() ?: "localhost"
 
@@ -566,7 +566,7 @@ class UserFacadeImpl implements UserFacade {
         int expireHours = eci.ecfi.getLoginKeyExpireHours()
         Timestamp fromDate = getNowTimestamp()
         long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
-        eci.service.sync().name("create", "moqui.security.UserLoginKey")
+        eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
                 .disableAuthz().requireNewTransaction(true).call()
 
@@ -735,7 +735,7 @@ class UserFacadeImpl implements UserFacade {
 
     /** Called by ExecutionContextInfo when tenant pushed (changeTenant()) */
     void pushTenant(String toTenantId) {
-        UserInfo wasInfo = currentInfo
+        // UserInfo wasInfo = currentInfo
         // if there is a previous user populated and it is not in the toTenantId tenant, push an empty UserInfo
         if (currentInfo.tenantId != toTenantId) pushUser(null, toTenantId)
 
@@ -743,7 +743,7 @@ class UserFacadeImpl implements UserFacade {
     }
     /** Called by ExecutionContextInfo when tenant popped (popTenant()) */
     void popTenant(String fromTenantId) {
-        UserInfo wasInfo = currentInfo
+        // UserInfo wasInfo = currentInfo
         // pop current user (if populated effectively logs out, if not will get an empty user in current tenant, already set in eci)
         if (currentInfo.tenantId == fromTenantId) popUser()
 

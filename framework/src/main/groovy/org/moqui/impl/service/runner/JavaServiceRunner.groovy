@@ -15,6 +15,8 @@ package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
 import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -29,12 +31,15 @@ import org.moqui.util.ContextStack
 
 @CompileStatic
 public class JavaServiceRunner implements ServiceRunner {
-    protected ServiceFacadeImpl sfi
+
+    private ServiceFacadeImpl sfi = null
+    private ExecutionContextFactoryImpl ecfi = null
 
     JavaServiceRunner() {}
 
     public ServiceRunner init(ServiceFacadeImpl sfi) {
         this.sfi = sfi
+        ecfi = sfi.ecfi
         return this
     }
 
@@ -43,8 +48,8 @@ public class JavaServiceRunner implements ServiceRunner {
             throw new ServiceException("Service [" + sd.serviceName + "] is missing location and/or method attributes and they are required for running a java service.")
         }
 
-        ExecutionContext ec = sfi.ecfi.getExecutionContext()
-        ContextStack cs = ec.context
+        ExecutionContextImpl ec = ecfi.getEci()
+        ContextStack cs = ec.contextStack
         Map<String, Object> result = (Map<String, Object>) null
         try {
             // push the entire context to isolate the context for the service call
@@ -59,9 +64,9 @@ public class JavaServiceRunner implements ServiceRunner {
 
             Method m = c.getMethod(sd.serviceNode.attribute("method"), ExecutionContext.class)
             if (Modifier.isStatic(m.getModifiers())) {
-                result = (Map<String, Object>) m.invoke(null, sfi.ecfi.getExecutionContext())
+                result = (Map<String, Object>) m.invoke(null, ec)
             } else {
-                result = (Map<String, Object>) m.invoke(c.newInstance(), sfi.ecfi.getExecutionContext())
+                result = (Map<String, Object>) m.invoke(c.newInstance(), ec)
             }
         } catch (ClassNotFoundException e) {
             throw new ServiceException("Could not find class for java service [${sd.serviceName}]", e)

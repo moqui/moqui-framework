@@ -20,11 +20,11 @@ public class ContextStack implements Map<String, Object> {
     protected final static org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ContextStack.class);
 
     private LinkedList<ArrayList<MapWrapper>> contextStack = null;
-    private LinkedList<Map<String, Object>> contextCombinedStack = null;
+    private LinkedList<HashMap<String, Object>> contextCombinedStack = null;
 
     private ArrayList<MapWrapper> stackList = new ArrayList<>();
     private Map<String, Object> topMap = null;
-    private Map<String, Object> combinedMap = null;
+    private HashMap<String, Object> combinedMap = null;
     private boolean includeContext = true;
     private boolean toStringRecursion = false;
 
@@ -52,11 +52,11 @@ public class ContextStack implements Map<String, Object> {
     private void rebuildCombinedMap() {
         clearCombinedMap();
         // iterate through stackList from end to beginning
-        Map<String, Object> parentCombined = null;
+        HashMap<String, Object> parentCombined = null;
         for (int i = stackList.size() - 1; i >= 0; i--) {
             MapWrapper curWrapper = stackList.get(i);
-            Map<String, Object> curMap = curWrapper.getWrapped();
-            Map<String, Object> curCombined = curWrapper.getCombined();
+            Map<String, Object> curMap = curWrapper.internal;
+            HashMap<String, Object> curCombined = curWrapper.combined;
 
             curCombined.clear();
             if (parentCombined != null) curCombined.putAll(parentCombined);
@@ -96,7 +96,7 @@ public class ContextStack implements Map<String, Object> {
         if (contextStack == null || contextStack.size() == 0) throw new IllegalStateException("Cannot pop context, no context pushed");
         stackList = contextStack.removeFirst();
         combinedMap = contextCombinedStack.removeFirst();
-        topMap = stackList.get(0).getWrapped();
+        topMap = stackList.get(0).internal;
         return this;
     }
 
@@ -104,8 +104,8 @@ public class ContextStack implements Map<String, Object> {
      * @return Returns reference to this ContextStack
      */
     public ContextStack push() {
-        Map<String, Object> newMap = new HashMap<>();
-        Map<String, Object> newCombined = new HashMap<>(combinedMap);
+        HashMap<String, Object> newMap = new HashMap<>();
+        HashMap<String, Object> newCombined = new HashMap<>(combinedMap);
         stackList.add(0, new MapWrapper(this, newMap, newCombined));
         topMap = newMap;
         combinedMap = newCombined;
@@ -121,7 +121,7 @@ public class ContextStack implements Map<String, Object> {
         if (existingMap == null) throw new IllegalArgumentException("Cannot push null as an existing Map");
 
         // if (existingMap.containsKey("context")) throw new IllegalArgumentException("Cannot push existing with key 'context', reserved key");
-        Map<String, Object> newCombined = new HashMap<>(combinedMap);
+        HashMap<String, Object> newCombined = new HashMap<>(combinedMap);
         newCombined.putAll(existingMap);
         // make sure 'context' refers to this no matter what is in the existingMap (may even be a ContextStack instance)
         if (includeContext) newCombined.put("context", this);
@@ -144,8 +144,8 @@ public class ContextStack implements Map<String, Object> {
         Map<String, Object> oldMap = stackList.remove(0);
         if (initialStackListSize > 1) {
             MapWrapper topWrapper = stackList.get(0);
-            topMap = topWrapper.getWrapped();
-            combinedMap = topWrapper.getCombined();
+            topMap = topWrapper.internal;
+            combinedMap = topWrapper.combined;
         } else {
             topMap = null;
             clearCombinedMap();
@@ -257,27 +257,18 @@ public class ContextStack implements Map<String, Object> {
         topMap.clear();
         if (stackList.size() > 1) {
             MapWrapper parentWrapper = stackList.get(1);
-            combinedMap = parentWrapper.getCombined();
+            combinedMap = parentWrapper.combined;
         } else {
             clearCombinedMap();
         }
     }
 
     @Override
-    public Set<String> keySet() {
-        return combinedMap.keySet();
-    }
-
+    public Set<String> keySet() { return combinedMap.keySet(); }
     @Override
-    public Collection<Object> values() {
-        return combinedMap.values();
-    }
-
-    /** @see java.util.Map#entrySet() */
+    public Collection<Object> values() { return combinedMap.values(); }
     @Override
-    public Set<Map.Entry<String, Object>> entrySet() {
-        return combinedMap.entrySet();
-    }
+    public Set<Map.Entry<String, Object>> entrySet() { return combinedMap.entrySet(); }
 
     @Override
     public String toString() {
@@ -325,17 +316,14 @@ public class ContextStack implements Map<String, Object> {
     /** Wrap a Map with a reference to the ContextStack to maintain the combinedMap on changes */
     private static class MapWrapper implements Map<String, Object> {
         private final ContextStack contextStack;
-        private final Map<String, Object> internal;
-        private final Map<String, Object> combined;
+        final Map<String, Object> internal;
+        final HashMap<String, Object> combined;
 
-        MapWrapper(ContextStack contextStack, Map<String, Object> toWrap, Map<String, Object> newCombined) {
+        MapWrapper(ContextStack contextStack, Map<String, Object> toWrap, HashMap<String, Object> newCombined) {
             this.contextStack = contextStack;
-            this.internal = toWrap != null ? toWrap : new HashMap<String, Object>();
+            this.internal = toWrap != null ? toWrap : new HashMap<>();
             this.combined = newCombined;
         }
-
-        Map<String, Object> getWrapped() { return internal; }
-        Map<String, Object> getCombined() { return combined; }
 
         @Override
         public int size() { return internal.size(); }

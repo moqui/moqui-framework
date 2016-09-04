@@ -265,12 +265,12 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     @Override
     EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         return new DateCondition(fromFieldName, thruFieldName,
-                compareStamp ?: efi.getEcfi().getExecutionContext().getUser().getNowTimestamp())
+                compareStamp ?: efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
     EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty) {
         if (ignoreIfEmpty && (Object) compareStamp == null) return null
         return new DateCondition(fromFieldName, thruFieldName,
-                compareStamp ?: efi.getEcfi().getExecutionContext().getUser().getNowTimestamp())
+                compareStamp ?: efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
 
     @Override
@@ -306,7 +306,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName, boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         // logger.info("TOREMOVE makeActionCondition(fieldName ${fieldName}, operator ${operator}, fromExpr ${fromExpr}, value ${value}, toFieldName ${toFieldName}, ignoreCase ${ignoreCase}, ignoreIfEmpty ${ignoreIfEmpty}, orNull ${orNull}, ignore ${ignore})")
 
-        if (efi.getEcfi().getResourceFacade().condition(ignore, null)) return null
+        if (efi.ecfi.resourceFacade.condition(ignore, null)) return null
 
         if (toFieldName != null && toFieldName.length() > 0) {
             EntityCondition ec = makeConditionToField(fieldName, getComparisonOperator(operator), toFieldName)

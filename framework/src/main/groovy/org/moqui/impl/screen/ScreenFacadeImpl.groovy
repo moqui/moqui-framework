@@ -143,7 +143,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         ScreenDefinition sd = (ScreenDefinition) screenLocationCache.get(location)
         if (sd != null) return sd
 
-        ResourceReference screenRr = ecfi.getResourceFacade().getLocationReference(location)
+        ResourceReference screenRr = ecfi.resourceFacade.getLocationReference(location)
 
         ScreenDefinition permSd = (ScreenDefinition) screenLocationPermCache.get(location)
         if (permSd != null) {
@@ -445,7 +445,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
                 if (ri.urlType && ri.urlType != "transition" && ri.urlType != "screen") continue
                 String expandedUrl = ri.url
                 if (expandedUrl.contains('${')) expandedUrl = ecfi.getResource().expand(expandedUrl, "")
-                ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(ecfi.getScreenFacade(), si.rootInfo.sd,
+                ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(ecfi.screenFacade, si.rootInfo.sd,
                         si.sd, si.screenPath, expandedUrl, null)
                 if (sui.targetScreen == null) continue
                 String targetScreenPath = screenPathToString(sui.getPreTransitionPathNameList())

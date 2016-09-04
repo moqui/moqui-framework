@@ -145,10 +145,11 @@ dependencies {
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
 
     // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
-    compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
-    compile module('org.apache.xmlrpc:xmlrpc-server:3.1.3') // Apache 2.0
-    compile module('org.apache.xmlrpc:xmlrpc-common:3.1.3') // Apache 2.0
     compile module('org.apache.ws.commons.util:ws-commons-util:1.0.2') // Apache 2.0
+    compile module('org.apache.xmlrpc:xmlrpc-common:3.1.3') // Apache 2.0
+    compile module('org.apache.xmlrpc:xmlrpc-server:3.1.3') // Apache 2.0
+    // NOTE: Apache XML-RPC client requires Commons HttpClient and is not used much so currently commented
+    // compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
 
     // Snake YAML
     compile 'org.yaml:snakeyaml:1.17' // Apache 2.0

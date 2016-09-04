@@ -198,8 +198,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="saved-finds" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Enable saved finds (query parameters, order by).</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="show-csv-button" type="boolean" default="true">
-                <xs:annotation><xs:documentation>Show a button to export as CSV, if the pagination header is displayed</xs:documentation></xs:annotation>
+            <xs:attribute name="show-csv-button" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Show a button to export as CSV (renderMode=csv), if the pagination header is displayed</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="show-text-button" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Show a button to export as plain text (renderMode=text), if the pagination header is displayed</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="show-all-button" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Show a button to display all results (pageNoLimit=true), if the pagination header is displayed</xs:documentation></xs:annotation>
@@ -522,6 +525,21 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="validate-parameter" type="xs:string"/>
             <xs:attribute name="validate-entity" type="xs:string"/>
             <xs:attribute name="validate-field" type="xs:string"/>
+
+            <xs:attribute name="print-width" type="xs:nonNegativeInteger"><xs:annotation><xs:documentation>
+                Column width when printing (formatted text, xsl-fo render modes); when there are multiple fields in a
+                column the highest width is used; not on form-list-column because that is dynamic with select-columns.
+
+                By default display, display-entity, are printed and link is printed if it is an anchor (not a button).
+                Set to zero (0) to not print this field.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="print-width-type" default="percent"><xs:annotation><xs:documentation>The type of print
+                width, default to percent and can be characters.</xs:documentation></xs:annotation>
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="percent"/>
+                    <xs:enumeration value="characters"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="header-field">

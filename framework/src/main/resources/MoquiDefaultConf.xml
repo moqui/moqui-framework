@@ -235,8 +235,8 @@
         <service-type name="entity-auto" runner-class="org.moqui.impl.service.runner.EntityAutoServiceRunner"/>
         <service-type name="script" runner-class="org.moqui.impl.service.runner.ScriptServiceRunner"/>
         <service-type name="java" runner-class="org.moqui.impl.service.runner.JavaServiceRunner"/>
-        <service-type name="remote-xml-rpc" runner-class="org.moqui.impl.service.runner.RemoteXmlrpcServiceRunner"/>
         <service-type name="remote-json-rpc" runner-class="org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner"/>
+        <!-- not commonly used, see class: <service-type name="remote-xml-rpc" runner-class="org.moqui.impl.service.runner.RemoteXmlrpcServiceRunner"/> -->
 
         <!-- These are not needed for running classpath services, are for service reference (known services) -->
         <service-file location="classpath://service/org/moqui/EmailServices.xml"/>

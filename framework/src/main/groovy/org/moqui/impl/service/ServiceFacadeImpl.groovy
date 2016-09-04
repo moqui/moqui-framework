@@ -36,13 +36,13 @@ import java.util.concurrent.*
 class ServiceFacadeImpl implements ServiceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceFacadeImpl.class)
 
-    protected final ExecutionContextFactoryImpl ecfi
+    public final ExecutionContextFactoryImpl ecfi
 
     protected final Cache<String, ServiceDefinition> serviceLocationCache
 
     protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
-    protected RestApi restApi
+    public final RestApi restApi
 
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
 
@@ -120,11 +120,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         for (ServiceRunner sr in serviceRunners.values()) sr.destroy()
     }
 
-    ExecutionContextFactoryImpl getEcfi() { ecfi }
-
     ServiceRunner getServiceRunner(String type) { serviceRunners.get(type) }
-    ScheduledJobRunner getServiceJobRunner() { jobRunner }
-    RestApi getRestApi() { restApi }
 
     boolean isServiceDefined(String serviceName) {
         ServiceDefinition sd = getServiceDefinition(serviceName)
@@ -143,7 +139,8 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     boolean isEntityAutoPattern(String path, String verb, String noun) {
         // if no path, verb is create|update|delete and noun is a valid entity name, do an implicit entity-auto
-        return !path && EntityAutoServiceRunner.verbSet.contains(verb) && getEcfi().getEntityFacade("DEFAULT").isEntityDefined(noun)
+        return (path == null || path.isEmpty()) && EntityAutoServiceRunner.verbSet.contains(verb) &&
+                ecfi.defaultEntityFacade.isEntityDefined(noun)
     }
 
     ServiceDefinition getServiceDefinition(String serviceName) {
@@ -179,24 +176,24 @@ class ServiceFacadeImpl implements ServiceFacade {
             // NOTE: don't throw an exception for service not found (this is where we know there is no def), let service caller handle that
             // Put null in the cache to remember the non-existing service
             serviceLocationCache.put(cacheKey, null)
-            if (origServiceName != cacheKey) serviceLocationCache.put(origServiceName, null)
+            if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, null)
             return null
         }
 
         ServiceDefinition sd = new ServiceDefinition(this, path, serviceNode)
         serviceLocationCache.put(cacheKey, sd)
-        if (origServiceName != cacheKey) serviceLocationCache.put(origServiceName, sd)
+        if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, sd)
         return sd
     }
 
     protected static String makeCacheKey(String path, String verb, String noun) {
         // use a consistent format as the key in the cache, keeping in mind that the verb and noun may be merged in the serviceName passed in
         // no # here so that it doesn't matter if the caller used one or not
-        return (path ? path + '.' : '') + verb + (noun ? noun : '')
+        return (path != null && !path.isEmpty() ? path + '.' : '') + verb + (noun != null ? noun : '')
     }
 
     protected MNode findServiceNode(String path, String verb, String noun) {
-        if (!path) return null
+        if (path == null || path.isEmpty()) return null
 
         // make a file location from the path
         String partialLocation = path.replace('.', '/') + '.xml'
@@ -214,7 +211,7 @@ class ServiceFacadeImpl implements ServiceFacade {
                 // only way to see if it is a valid location is to try opening the stream, so no extra conditions here
                 serviceNode = findServiceNode(serviceComponentRr, verb, noun)
             }
-            if (serviceNode) break
+            if (serviceNode != null) break
         }
 
         // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
@@ -364,26 +361,22 @@ class ServiceFacadeImpl implements ServiceFacade {
         return numLoaded
     }
 
-    void runSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when) {
+    ArrayList<ServiceEcaRule> secaRules(String serviceName) {
         // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
-        // remove the hash if there is one to more consistently match the service name
-        // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        ArrayList<ServiceEcaRule> lst = (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
-        if (lst != null && lst.size() > 0) {
-            ExecutionContextImpl eci = ecfi.getEci()
-            for (int i = 0; i < lst.size(); i++) {
-                ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
-                ser.runIfMatches(serviceName, parameters, results, when, eci)
-            }
+        return (ArrayList<ServiceEcaRule>) secaRulesByServiceName.get(serviceName)
+    }
+    static void runSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when,
+                      ArrayList<ServiceEcaRule> lst, ExecutionContextImpl eci) {
+        int lstSize = lst.size()
+        for (int i = 0; i < lstSize; i++) {
+            ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
+            ser.runIfMatches(serviceName, parameters, results, when, eci)
         }
     }
-
-    void registerTxSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results) {
-        // NOTE: no need to remove the hash, ServiceCallSyncImpl now passes a service name with no hash
-        // remove the hash if there is one to more consistently match the service name
-        // serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
-        ArrayList<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
-        if (lst != null && lst.size() > 0) for (ServiceEcaRule ser in lst) {
+    void registerTxSecaRules(String serviceName, Map<String, Object> parameters, Map<String, Object> results, ArrayList<ServiceEcaRule> lst) {
+        int lstSize = lst.size()
+        for (int i = 0; i < lstSize; i++) {
+            ServiceEcaRule ser = (ServiceEcaRule) lst.get(i)
             if (ser.when.startsWith("tx-")) ser.registerTx(serviceName, parameters, results, ecfi)
         }
     }

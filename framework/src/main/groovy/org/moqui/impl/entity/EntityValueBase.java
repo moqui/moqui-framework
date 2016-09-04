@@ -26,10 +26,7 @@ import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.StupidUtilities;
-import org.moqui.impl.context.ArtifactExecutionInfoImpl;
-import org.moqui.impl.context.ExecutionContextFactoryImpl;
-import org.moqui.impl.context.ExecutionContextImpl;
-import org.moqui.impl.context.TransactionCache;
+import org.moqui.impl.context.*;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,15 +45,7 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public abstract class EntityValueBase implements EntityValue {
     protected static final Logger logger = LoggerFactory.getLogger(EntityValueBase.class);
@@ -84,8 +73,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     public EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip;
-        tenantId = efip.getTenantId();
-        entityName = ed.getFullEntityName();
+        tenantId = efip.tenantId;
+        entityName = ed.fullEntityName;
         entityDefinitionTransient = ed;
         // NOTE: not serializing modified, mutable, isFromDb... if it is a copy we don't care if it gets modified, etc
     }
@@ -107,14 +96,14 @@ public abstract class EntityValueBase implements EntityValue {
         valueMapInternal.putAll((Map<String, Object>) objectInput.readObject());
     }
 
-    EntityFacadeImpl getEntityFacadeImpl() {
+    protected EntityFacadeImpl getEntityFacadeImpl() {
         // handle null after deserialize; this requires a static reference in Moqui.java or we'll get an error
         if (efiTransient == null)
             efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade(tenantId);
         return efiTransient;
     }
     private TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
-        if (txCacheInternal == null) txCacheInternal = ecfi.getTransactionFacade().getTransactionCache();
+        if (txCacheInternal == null) txCacheInternal = ecfi.transactionFacade.getTransactionCache();
         return txCacheInternal;
     }
     public EntityDefinition getEntityDefinition() {
@@ -159,10 +148,10 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> theMap = new LinkedHashMap<>();
 
         EntityDefinition ed = getEntityDefinition();
-        ArrayList<EntityJavaUtil.FieldInfo> allFieldInfos = ed.getAllFieldInfoList();
-        int allFieldInfosSize = allFieldInfos.size();
+        FieldInfo[] allFieldInfos = ed.entityInfo.allFieldInfoArray;
+        int allFieldInfosSize = allFieldInfos.length;
         for (int i = 0; i < allFieldInfosSize; i++) {
-            EntityJavaUtil.FieldInfo fieldInfo = allFieldInfos.get(i);
+            FieldInfo fieldInfo = allFieldInfos[i];
             Object fieldValue = getKnownField(fieldInfo);
             // NOTE DEJ20151117 also put nulls in Map, make more complete, removed: if (fieldValue != null)
             theMap.put(fieldInfo.name, fieldValue);
@@ -175,7 +164,7 @@ public abstract class EntityValueBase implements EntityValue {
     public Object get(final String name) {
         EntityDefinition ed = getEntityDefinition();
 
-        EntityJavaUtil.FieldInfo fieldInfo = ed.getFieldInfo(name);
+        FieldInfo fieldInfo = ed.getFieldInfo(name);
         if (fieldInfo != null) {
             return getKnownField(fieldInfo);
         } else {
@@ -188,17 +177,14 @@ public abstract class EntityValueBase implements EntityValue {
                 } else {
                     return this.findRelated(name, null, null, null, null);
                 }
-
             } else {
                 // logger.warn("========== relInfo Map keys: ${ed.getRelationshipInfoMap().keySet()}, relInfoList: ${ed.getRelationshipsInfo(false)}")
                 throw new EntityException("The name [" + name + "] is not a valid field name or relationship name for entity [" + entityName + "]");
             }
-
         }
-
     }
 
-    private Object getKnownField(EntityJavaUtil.FieldInfo fieldInfo) {
+    private Object getKnownField(FieldInfo fieldInfo) {
         EntityDefinition ed = fieldInfo.ed;
         String name = fieldInfo.name;
         // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
@@ -206,7 +192,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // if enabled use moqui.basic.LocalizedEntityField for any localized fields
         if (fieldInfo.enableLocalization) {
-            Locale locale = getEntityFacadeImpl().getEcfi().getExecutionContext().getUser().getLocale();
+            Locale locale = getEntityFacadeImpl().ecfi.getEci().userFacade.getLocale();
             String localeStr = locale != null ? locale.toString() : null;
             if (localeStr != null) {
                 Object internalValue = valueMapInternal.get(name);
@@ -232,7 +218,7 @@ public abstract class EntityValueBase implements EntityValue {
                     List<String> pks;
                     MNode aliasNode = null;
                     String memberEntityName = null;
-                    if (ed.isViewEntity() && !ed.isDynamicViewEntity()) {
+                    if (ed.isViewEntity && !ed.entityInfo.isDynamicView) {
                         // NOTE: there are issues with dynamic view entities here, may be possible to fix them but for now not running for EntityDynamicView
                         aliasNode = ed.getFieldNode(name);
                         memberEntityName = ed.getMemberEntityName(aliasNode.attribute("entity-alias"));
@@ -292,9 +278,7 @@ public abstract class EntityValueBase implements EntityValue {
                                 StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                 return localized;
                             }
-
                         }
-
                     }
 
                     // no luck? try getting a localized value from moqui.basic.LocalizedMessage
@@ -326,16 +310,13 @@ public abstract class EntityValueBase implements EntityValue {
                         return localized;
                     }
 
-
                     // we didn't find a localized value, remember that so we don't do the queries again (common case)
                     StupidUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
                     // logger.warn("======== field ${name}:${internalValue} remembering no localized, localizedByLocaleByField=${localizedByLocaleByField}")
                 }
 
-
                 return internalValue;
             }
-
         }
 
 
@@ -352,7 +333,7 @@ public abstract class EntityValueBase implements EntityValue {
         return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMapInternal.get(name);
     }
 
-    Object getOldDbValue(String name) {
+    protected Object getOldDbValue(String name) {
         if (oldDbValueMap != null && oldDbValueMap.containsKey(name)) return oldDbValueMap.get(name);
         return getOriginalDbValue(name);
     }
@@ -404,17 +385,15 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue setAll(Map<String, Object> fields) {
-        if (!mutable)
-            throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
-        getEntityDefinition().setFieldsEv(fields, this, null);
+        if (!mutable) throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
+        getEntityDefinition().entityInfo.setFieldsEv(fields, this, null);
         return this;
     }
 
     @Override
     public EntityValue setString(String name, String value) {
         // this will do a field name check
-        ExecutionContextImpl eci = getEntityFacadeImpl().getEcfi().getEci();
-
+        ExecutionContextImpl eci = getEntityFacadeImpl().ecfi.getEci();
         Object converted = getEntityDefinition().convertFieldString(name, value, eci);
         putNoCheck(name, converted);
         return this;
@@ -425,10 +404,10 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public String getString(String name) {
         EntityDefinition ed = getEntityDefinition();
-        EntityJavaUtil.FieldInfo fieldInfo = ed.getFieldInfo(name);
+        FieldInfo fieldInfo = ed.getFieldInfo(name);
 
         Object valueObj = getKnownField(fieldInfo);
-        return getEntityDefinition().getFieldInfoString(fieldInfo, valueObj);
+        return fieldInfo.convertToString(valueObj);
     }
     @Override
     public Timestamp getTimestamp(String name) { return DefaultGroovyMethods.asType(get(name), Timestamp.class); }
@@ -486,9 +465,9 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks) {
         if (!setIfEmpty && (namePrefix == null || namePrefix.length() == 0)) {
-            getEntityDefinition().setFields(fields, this, false, namePrefix, pks);
+            getEntityDefinition().entityInfo.setFields(fields, this, false, namePrefix, pks);
         } else {
-            getEntityDefinition().setFieldsEv(fields, this, pks);
+            getEntityDefinition().entityInfo.setFieldsEv(fields, this, pks);
         }
 
         return this;
@@ -502,9 +481,9 @@ public abstract class EntityValueBase implements EntityValue {
 
         // get the entity-specific prefix, support string expansion for it too
         String entityPrefix = null;
-        String rawPrefix = ed.sequencePrimaryPrefix;
+        String rawPrefix = ed.entityInfo.sequencePrimaryPrefix;
         if (rawPrefix != null && rawPrefix.length() > 0)
-            entityPrefix = localEfi.getEcfi().getResourceFacade().expand(rawPrefix, null, valueMapInternal);
+            entityPrefix = localEfi.ecfi.resourceFacade.expand(rawPrefix, null, valueMapInternal);
         String sequenceValue = localEfi.sequencedIdPrimaryEd(ed);
 
         putNoCheck(pkFields.get(0), entityPrefix != null ? entityPrefix + sequenceValue : sequenceValue);
@@ -524,7 +503,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         this.remove(seqFieldName);
         Map<String, Object> otherPkMap = new LinkedHashMap<>();
-        getEntityDefinition().setFields(this, otherPkMap, false, null, true);
+        getEntityDefinition().entityInfo.setFields(this, otherPkMap, false, null, true);
 
         // temporarily disable authz for this, just doing lookup to get next value and to allow for a
         //     authorize-skip="create" with authorize-skip of view too this is necessary
@@ -602,7 +581,7 @@ public abstract class EntityValueBase implements EntityValue {
             pkModified = (getEntityDefinition().getPrimaryKeys(this.valueMapInternal).equals(getEntityDefinition().getPrimaryKeys(this.dbValueMap)));
         } else {
             // make sure PK fields with defaults are filled in BEFORE doing the refresh to see if it exists
-            checkSetFieldDefaults(getEntityDefinition(), getEntityFacadeImpl().getEcfi().getExecutionContext(), true);
+            checkSetFieldDefaults(getEntityDefinition(), getEntityFacadeImpl().ecfi.getEci(), true);
         }
 
         if ((isFromDb && !pkModified) || this.cloneValue().refresh()) {
@@ -619,17 +598,17 @@ public abstract class EntityValueBase implements EntityValue {
         if (isUpdate && oldValues == null) return;
 
         EntityDefinition ed = getEntityDefinition();
-        if (!ed.needsAuditLog()) return;
+        if (!ed.entityInfo.needsAuditLog) return;
 
-        ExecutionContextImpl ec = getEntityFacadeImpl().getEcfi().getEci();
-        Timestamp nowTimestamp = ec.getUser().getNowTimestamp();
+        ExecutionContextImpl ec = getEntityFacadeImpl().ecfi.getEci();
+        Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
 
         Map<String, Object> pksValueMap = new HashMap<>();
-        addThreeFieldPkValues(pksValueMap);
+        addThreeFieldPkValues(pksValueMap, ed);
 
-        ArrayList<EntityJavaUtil.FieldInfo> fieldInfoList = ed.getAllFieldInfoList();
-        for (int i = 0; i < fieldInfoList.size(); i++) {
-            EntityJavaUtil.FieldInfo fieldInfo = fieldInfoList.get(i);
+        FieldInfo[] fieldInfoList = ed.entityInfo.allFieldInfoArray;
+        for (int i = 0; i < fieldInfoList.length; i++) {
+            FieldInfo fieldInfo = fieldInfoList[i];
             if ("true".equals(fieldInfo.enableAuditLog) || (isUpdate && "update".equals(fieldInfo.enableAuditLog))) {
                 String fieldName = fieldInfo.name;
 
@@ -653,7 +632,7 @@ public abstract class EntityValueBase implements EntityValue {
 
                 // don't skip for this, if a field was reset then we want to record that: if (!value) continue
 
-                String stackNameString = ec.getArtifactExecutionImpl().getStackNameString();
+                String stackNameString = ec.artifactExecutionFacade.getStackNameString();
                 if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
@@ -669,24 +648,24 @@ public abstract class EntityValueBase implements EntityValue {
                 // logger.warn("TOREMOVE: in handleAuditLog for [${ed.entityName}.${fieldName}] value=[${value}], oldValue=[${oldValue}], oldValues=[${oldValues}]", new Exception("AuditLog location"))
 
                 // NOTE: if this is changed to async the time zone on nowTimestamp gets messed up (user's time zone lost)
-                getEntityFacadeImpl().getEcfi().getServiceFacade().sync().name("create#moqui.entity.EntityAuditLog")
+                getEntityFacadeImpl().ecfi.serviceFacade.sync().name("create#moqui.entity.EntityAuditLog")
                         .parameters(parms).disableAuthz().call();
             }
         }
     }
 
-    private void addThreeFieldPkValues(Map<String, Object> parms) {
-        EntityDefinition ed = getEntityDefinition();
-
+    private void addThreeFieldPkValues(Map<String, Object> parms, EntityDefinition ed) {
         // get pkPrimaryValue, pkSecondaryValue, pkRestCombinedValue (just like the AuditLog stuff)
-        ArrayList<EntityJavaUtil.FieldInfo> pkFieldList = new ArrayList<>(ed.getPkFieldInfoList());
-        EntityJavaUtil.FieldInfo firstPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null;
-        EntityJavaUtil.FieldInfo secondPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null;
+        ArrayList<FieldInfo> pkFieldList = new ArrayList<>();
+        Collections.addAll(pkFieldList, ed.entityInfo.pkFieldInfoArray);
+        FieldInfo firstPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null;
+        FieldInfo secondPkField = pkFieldList.size() > 0 ? pkFieldList.remove(0) : null;
         StringBuilder pkTextSb = new StringBuilder();
         for (int i = 0; i < pkFieldList.size(); i++) {
-            EntityJavaUtil.FieldInfo curFieldInfo = pkFieldList.get(i);
+            FieldInfo curFieldInfo = pkFieldList.get(i);
             if (i > 0) pkTextSb.append(",");
-            pkTextSb.append(curFieldInfo.name).append(":'").append(ed.getFieldStringForFile(curFieldInfo, getKnownField(curFieldInfo))).append("'");
+            pkTextSb.append(curFieldInfo.name).append(":'")
+                    .append(EntityDefinition.getFieldStringForFile(curFieldInfo, getKnownField(curFieldInfo))).append("'");
         }
         String pkText = pkTextSb.toString();
 
@@ -696,7 +675,8 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override
-    public EntityList findRelated(final String relationshipName, Map<String, Object> byAndFields, List<String> orderBy, Boolean useCache, Boolean forUpdate) {
+    public EntityList findRelated(final String relationshipName, Map<String, Object> byAndFields, List<String> orderBy,
+                                  Boolean useCache, Boolean forUpdate) {
         EntityJavaUtil.RelationshipInfo relInfo = getEntityDefinition().getRelationshipInfo(relationshipName);
         if (relInfo == null) throw new EntityException("Relationship " + relationshipName + " not found in entity " + entityName);
 
@@ -797,11 +777,8 @@ public abstract class EntityValueBase implements EntityValue {
                     } else {
                         if (!checkFieldValue.equals(dbFieldValue)) areSame = false;
                     }
-
-                    if (!areSame)
-                        messages.add("Field [" + getEntityName() + "." + nonpkFieldName + "] did not match; check (file) value [" + String.valueOf(checkFieldValue) + "], db value [" + String.valueOf(dbFieldValue) + "] for primary key [" + String.valueOf(getPrimaryKeys()) + "]");
+                    if (!areSame) messages.add("Field [" + getEntityName() + "." + nonpkFieldName + "] did not match; check (file) value [" + String.valueOf(checkFieldValue) + "], db value [" + String.valueOf(dbFieldValue) + "] for primary key [" + String.valueOf(getPrimaryKeys()) + "]");
                 }
-
                 fieldsChecked++;
             }
         } catch (EntityException e) {
@@ -978,11 +955,8 @@ public abstract class EntityValueBase implements EntityValue {
                         }
                         vMap.put(entryName, plainRelList);
                     }
-
                 }
-
             }
-
         }
 
         return vMap;
@@ -992,7 +966,7 @@ public abstract class EntityValueBase implements EntityValue {
     public Map<String, Object> getMasterValueMap(final String name) {
         EntityDefinition.MasterDefinition masterDefinition = getEntityDefinition().getMasterDefinition(name);
         if (masterDefinition == null)
-            throw new EntityException("No master definition found for name [" + name + "] in entity [" + getEntityDefinition().getFullEntityName() + "]");
+            throw new EntityException("No master definition found for name [" + name + "] in entity [" + entityName + "]");
         return internalMasterValueMap(masterDefinition.getDetailList(), null);
     }
 
@@ -1001,8 +975,7 @@ public abstract class EntityValueBase implements EntityValue {
         StupidUtilities.removeNullsFromMap(vMap);
         if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
         EntityDefinition ed = getEntityDefinition();
-        final String alias = ed.getShortAlias();
-        vMap.put("_entity", alias != null && !alias.isEmpty() ? alias : ed.getFullEntityName());
+        vMap.put("_entity", ed.getShortOrFullEntityName());
 
         if (detailList != null && !detailList.isEmpty()) {
             Set<String> curPkFields = new HashSet<>(ed.getPkFieldNames());
@@ -1124,11 +1097,11 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public Set<Entry<String, Object>> entrySet() {
         // everything needs to go through the get method, so iterate through the fields and get the values
-        ArrayList<EntityJavaUtil.FieldInfo> allFieldInfos = getEntityDefinition().getAllFieldInfoList();
+        FieldInfo[] allFieldInfos = getEntityDefinition().entityInfo.allFieldInfoArray;
         Set<Entry<String, Object>> entries = new HashSet<>();
-        int allFieldInfosSize = allFieldInfos.size();
+        int allFieldInfosSize = allFieldInfos.length;
         for (int i = 0; i < allFieldInfosSize; i++) {
-            EntityJavaUtil.FieldInfo fi = allFieldInfos.get(i);
+            FieldInfo fi = allFieldInfos[i];
             entries.add(new EntityFieldEntry(fi, this));
         }
         return entries;
@@ -1157,16 +1130,16 @@ public abstract class EntityValueBase implements EntityValue {
 
     private boolean doDataFeed() {
         // skip ArtifactHitBin, causes funny recursion
-        return !"moqui.server.ArtifactHitBin".equals(getEntityDefinition().getFullEntityName());
+        return !"moqui.server.ArtifactHitBin".equals(entityName);
     }
 
     private void checkSetFieldDefaults(EntityDefinition ed, ExecutionContext ec, Boolean pks) {
         // allow updating a record without specifying default PK fields, so don't check this: if (isCreate) {
-        Map<String, String> pkDefaults = ed.getPkFieldDefaults();
-        if ((pks == null || pks) && pkDefaults.size() > 0) for (Entry<String, String> entry : pkDefaults.entrySet())
+        Map<String, String> pkDefaults = ed.entityInfo.pkFieldDefaults;
+        if ((pks == null || pks) && pkDefaults != null && pkDefaults.size() > 0) for (Entry<String, String> entry : pkDefaults.entrySet())
             checkSetDefault(entry.getKey(), entry.getValue(), ec);
-        Map<String, String> nonPkDefaults = ed.getNonPkFieldDefaults();
-        if ((pks == null || !pks) && nonPkDefaults.size() > 0)
+        Map<String, String> nonPkDefaults = ed.entityInfo.nonPkFieldDefaults;
+        if ((pks == null || !pks) && nonPkDefaults != null && nonPkDefaults.size() > 0)
             for (Entry<String, String> entry : nonPkDefaults.entrySet())
                 checkSetDefault(entry.getKey(), entry.getValue(), ec);
     }
@@ -1193,30 +1166,32 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue create() {
-        EntityDefinition ed = getEntityDefinition();
-        EntityFacadeImpl efi = getEntityFacadeImpl();
-        ExecutionContextFactoryImpl ecfi = efi.getEcfi();
+        final EntityDefinition ed = getEntityDefinition();
+        final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
+        final EntityFacadeImpl efi = getEntityFacadeImpl();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
-        if ("tenantcommon".equals(ed.getEntityGroupName()) && !"DEFAULT".equals(ec.getTenantId()))
+        if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
 
         // check/set defaults
-        if (ed.hasFieldDefaults()) checkSetFieldDefaults(ed, ec, null);
+        if (entityInfo.hasFieldDefaults) checkSetFieldDefaults(ed, ec, null);
 
         // set lastUpdatedStamp
-        final Long time = ecfi.getTransactionFacade().getCurrentTransactionStartTime();
+        final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
         Long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
         if (ed.isField("lastUpdatedStamp") && valueMapInternal.get("lastUpdatedStamp") == null)
             valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal);
-        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipCreate());
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal);
+        aefi.pushInternal(aei, !entityInfo.authorizeSkipCreate);
 
         try {
             // run EECA before rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "create", true);
+            efi.runEecaRules(entityName, this, "create", true);
 
             // do this before the db change so modified flag isn't cleared
             if (doDataFeed()) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMapInternal, null);
@@ -1231,10 +1206,10 @@ public abstract class EntityValueBase implements EntityValue {
             // save audit log(s) if applicable
             handleAuditLog(false, null);
             // run EECA after rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "create", false);
+            efi.runEecaRules(entityName, this, "create", false);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            ec.getArtifactExecution().pop(aei);
+            aefi.pop(aei);
         }
 
         return this;
@@ -1242,12 +1217,12 @@ public abstract class EntityValueBase implements EntityValue {
 
     public void basicCreate(Connection con) {
         EntityDefinition ed = getEntityDefinition();
-        EntityJavaUtil.FieldInfo[] allFieldArray = ed.getAllFieldInfoArray();
-        EntityJavaUtil.FieldInfo[] fieldArray = new EntityJavaUtil.FieldInfo[allFieldArray.length];
+        FieldInfo[] allFieldArray = ed.entityInfo.allFieldInfoArray;
+        FieldInfo[] fieldArray = new FieldInfo[allFieldArray.length];
         int size = allFieldArray.length;
         int fieldArrayIndex = 0;
         for (int i = 0; i < size; i++) {
-            EntityJavaUtil.FieldInfo fi = allFieldArray[i];
+            FieldInfo fi = allFieldArray[i];
             if (valueMapInternal.containsKey(fi.name)) {
                 fieldArray[fieldArrayIndex] = fi;
                 fieldArrayIndex++;
@@ -1260,21 +1235,23 @@ public abstract class EntityValueBase implements EntityValue {
      * This method should create a corresponding record in the datasource. NOTE: fieldInfoArray may have null values
      * after valid ones, the length is not the actual number of fields.
      */
-    public abstract void createExtended(EntityJavaUtil.FieldInfo[] fieldInfoArray, Connection con);
+    public abstract void createExtended(FieldInfo[] fieldInfoArray, Connection con);
 
     @Override
     public EntityValue update() {
-        EntityDefinition ed = getEntityDefinition();
-        EntityFacadeImpl efi = getEntityFacadeImpl();
-        ExecutionContextFactoryImpl ecfi = efi.getEcfi();
+        final EntityDefinition ed = getEntityDefinition();
+        final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
+        final EntityFacadeImpl efi = getEntityFacadeImpl();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
-        TransactionCache curTxCache = getTxCache(ecfi);
-        boolean optimisticLock = ed.optimisticLock();
-        boolean hasFieldDefaults = ed.hasFieldDefaults();
-        boolean needsAuditLog = ed.needsAuditLog();
-        boolean createOnlyAny = ed.createOnlyAny();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
+        final TransactionCache curTxCache = getTxCache(ecfi);
+        final boolean optimisticLock = entityInfo.optimisticLock;
+        final boolean hasFieldDefaults = entityInfo.hasFieldDefaults;
+        final boolean needsAuditLog = entityInfo.needsAuditLog;
+        final boolean createOnlyAny = entityInfo.createOnly || entityInfo.createOnlyFields;
 
-        if ("tenantcommon".equals(ed.getEntityGroupName()) && !"DEFAULT".equals(ec.getTenantId()))
+        if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
 
         // check/set defaults for pk fields, do this first to fill in optional pk fields
@@ -1283,10 +1260,9 @@ public abstract class EntityValueBase implements EntityValue {
         // if there is one or more DataFeed configs associated with this entity get info about them
         boolean curDataFeed = doDataFeed();
         if (curDataFeed) {
-            ArrayList<EntityDataFeed.DocumentEntityInfo> entityInfoList = efi.getEntityDataFeed().getDataFeedEntityInfoList(ed.getFullEntityName());
+            ArrayList<EntityDataFeed.DocumentEntityInfo> entityInfoList = efi.getEntityDataFeed().getDataFeedEntityInfoList(entityName);
             if (entityInfoList.size() == 0) curDataFeed = false;
         }
-
 
         // need actual DB values for various scenarios? get them here
         if (needsAuditLog || createOnlyAny || curDataFeed || optimisticLock || hasFieldDefaults) {
@@ -1295,7 +1271,6 @@ public abstract class EntityValueBase implements EntityValue {
             this.setDbValueMap(refreshedValue.getValueMap());
         }
 
-
         // check/set defaults for non-pk fields, after getting dbValueMap
         if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, false);
 
@@ -1303,28 +1278,31 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> originalValues = dbValueMap != null && !dbValueMap.isEmpty() ? new HashMap<>(dbValueMap) : null;
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal);
-        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue());
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal);
+        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue);
 
         try {
             // run EECA before rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "update", true);
+            efi.runEecaRules(entityName, this, "update", true);
 
-            EntityJavaUtil.FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray();
-            Set<String> nonPkFieldNameSet = new HashSet<>();
-            EntityJavaUtil.FieldInfo[] allNonPkFieldArray = ed.getNonPkFieldInfoArray();
-            EntityJavaUtil.FieldInfo[] nonPkFieldArray = new EntityJavaUtil.FieldInfo[allNonPkFieldArray.length];
-            final List<String> changedCreateOnlyFields = new ArrayList<>();
+            FieldInfo[] pkFieldArray = entityInfo.pkFieldInfoArray;
+            FieldInfo[] allNonPkFieldArray = entityInfo.nonPkFieldInfoArray;
+            FieldInfo[] nonPkFieldArray = new FieldInfo[allNonPkFieldArray.length];
+            ArrayList<String> changedCreateOnlyFields = null;
+            boolean modifiedLastUpdatedStamp = false;
             int size = allNonPkFieldArray.length;
             int nonPkFieldArrayIndex = 0;
             for (int i = 0; i < size; i++) {
-                EntityJavaUtil.FieldInfo fieldInfo = allNonPkFieldArray[i];
+                FieldInfo fieldInfo = allNonPkFieldArray[i];
                 String fieldName = fieldInfo.name;
                 if (isFieldModified(fieldName)) {
                     nonPkFieldArray[nonPkFieldArrayIndex] = fieldInfo;
                     nonPkFieldArrayIndex++;
-                    nonPkFieldNameSet.add(fieldName);
-                    if (createOnlyAny && fieldInfo.createOnly) changedCreateOnlyFields.add(fieldName);
+                    if (fieldInfo.isLastUpdatedStamp) modifiedLastUpdatedStamp = true;
+                    if (createOnlyAny && fieldInfo.createOnly) {
+                        if (changedCreateOnlyFields == null) changedCreateOnlyFields = new ArrayList<>();
+                        changedCreateOnlyFields.add(fieldName);
+                    }
                 }
             }
 
@@ -1335,9 +1313,8 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             // do this after the empty nonPkFieldList check so that if nothing has changed then ignore the attempt to update
-            if (changedCreateOnlyFields.size() > 0) {
-                throw new EntityException("Cannot update create-only (immutable) fields " + String.valueOf(changedCreateOnlyFields) + " on entity [" + getEntityName() + "]");
-            }
+            if (changedCreateOnlyFields != null && changedCreateOnlyFields.size() > 0)
+                throw new EntityException("Cannot update create-only (immutable) fields " + changedCreateOnlyFields + " on entity " + getEntityName());
 
             // check optimistic lock with lastUpdatedStamp; if optimisticLock() dbValueMap will have latest from DB
             if (optimisticLock) {
@@ -1348,20 +1325,17 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             // set lastUpdatedStamp
-            EntityJavaUtil.FieldInfo lastUpdatedStampInfo = ed.getFieldInfo("lastUpdatedStamp");
-            if (lastUpdatedStampInfo != null) {
-                final Long time = ecfi.getTransactionFacade().getCurrentTransactionStartTime();
+            FieldInfo lastUpdatedStampInfo = ed.entityInfo.lastUpdatedStampInfo;
+            if (!modifiedLastUpdatedStamp && lastUpdatedStampInfo != null) {
+                final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
                 long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
                 valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
-                if (!nonPkFieldNameSet.contains("lastUpdatedStamp")) {
-                    nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo;
-                    // never gets used after this point, but if ever does will need to: nonPkFieldArrayIndex++
-                }
+                nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo;
+                // never gets used after this point, but if ever does will need to: nonPkFieldArrayIndex++
             }
 
             // do this before the db change so modified flag isn't cleared
-            if (curDataFeed)
-                efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMapInternal, originalValues);
+            if (curDataFeed) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMapInternal, originalValues);
 
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
             if (curTxCache == null || !curTxCache.update(this)) {
@@ -1374,12 +1348,11 @@ public abstract class EntityValueBase implements EntityValue {
             // save audit log(s) if applicable
             if (needsAuditLog) handleAuditLog(true, originalValues);
             // run EECA after rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "update", false);
+            efi.runEecaRules(entityName, this, "update", false);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            ec.getArtifactExecution().pop(aei);
+            aefi.pop(aei);
         }
-
 
         return this;
     }
@@ -1393,13 +1366,13 @@ public abstract class EntityValueBase implements EntityValue {
         if (dbValueMap) for (Object val in dbValueMap.values()) if (val != null) { dbValueMapFromDb = true; break }
         */
 
-        EntityJavaUtil.FieldInfo[] pkFieldArray = ed.getPkFieldInfoArray();
-        EntityJavaUtil.FieldInfo[] allNonPkFieldArray = ed.getNonPkFieldInfoArray();
-        EntityJavaUtil.FieldInfo[] nonPkFieldArray = new EntityJavaUtil.FieldInfo[allNonPkFieldArray.length];
+        FieldInfo[] pkFieldArray = ed.entityInfo.pkFieldInfoArray;
+        FieldInfo[] allNonPkFieldArray = ed.entityInfo.nonPkFieldInfoArray;
+        FieldInfo[] nonPkFieldArray = new FieldInfo[allNonPkFieldArray.length];
         int size = allNonPkFieldArray.length;
         int nonPkFieldArrayIndex = 0;
         for (int i = 0; i < size; i++) {
-            EntityJavaUtil.FieldInfo fi = allNonPkFieldArray[i];
+            FieldInfo fi = allNonPkFieldArray[i];
             String fieldName = fi.name;
             if (isFieldModified(fieldName)) {
                 nonPkFieldArray[nonPkFieldArrayIndex] = fi;
@@ -1414,28 +1387,30 @@ public abstract class EntityValueBase implements EntityValue {
      * This method should update the corresponding record in the datasource. NOTE: fieldInfoArray may have null values
      * after valid ones, the length is not the actual number of fields.
      */
-    public abstract void updateExtended(EntityJavaUtil.FieldInfo[] pkFieldArray, EntityJavaUtil.FieldInfo[] nonPkFieldArray, Connection con);
+    public abstract void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con);
 
     @Override
     public EntityValue delete() {
-        EntityDefinition ed = getEntityDefinition();
-        EntityFacadeImpl efi = getEntityFacadeImpl();
-        ExecutionContextFactoryImpl ecfi = efi.getEcfi();
+        final EntityDefinition ed = getEntityDefinition();
+        final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
+        final EntityFacadeImpl efi = getEntityFacadeImpl();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
-        if ("tenantcommon".equals(ed.getEntityGroupName()) && !"DEFAULT".equals(ec.getTenantId()))
+        if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
             throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
 
         // NOTE: this is create-only on the entity, ignores setting on fields (only considered in update)
-        if (ed.createOnly()) throw new EntityException("Entity [" + getEntityName() + "] is create-only (immutable), cannot be deleted.");
+        if (entityInfo.createOnly) throw new EntityException("Entity [" + getEntityName() + "] is create-only (immutable), cannot be deleted.");
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE, "delete").setParameters(valueMapInternal);
-        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipTrue());
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE, "delete").setParameters(valueMapInternal);
+        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue);
 
         try {
             // run EECA before rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "delete", true);
+            efi.runEecaRules(entityName, this, "delete", true);
             // this needs to be called before the actual update so we know which fields are modified
             // NOTE: consider not doing this on delete, DataDocuments are not great for representing absence of records
             // NOTE2: this might be useful, but is a bit of a pain and utility is dubious, leave out for now
@@ -1448,12 +1423,11 @@ public abstract class EntityValueBase implements EntityValue {
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false);
             // run EECA after rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "delete", false);
+            efi.runEecaRules(entityName, this, "delete", false);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            ec.getArtifactExecution().pop(aei);
+            aefi.pop(aei);
         }
-
 
         return this;
     }
@@ -1462,10 +1436,11 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public boolean refresh() {
-        EntityDefinition ed = getEntityDefinition();
-        EntityFacadeImpl efi = getEntityFacadeImpl();
-        ExecutionContextFactoryImpl ecfi = efi.getEcfi();
-        ExecutionContextImpl ec = ecfi.getEci();
+        final EntityDefinition ed = getEntityDefinition();
+        final EntityFacadeImpl efi = getEntityFacadeImpl();
+        final ExecutionContextFactoryImpl ecfi = efi.ecfi;
+        final ExecutionContextImpl ec = ecfi.getEci();
+        final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         List<String> pkFieldList = ed.getPkFieldNames();
         if (pkFieldList.size() == 0) {
@@ -1475,13 +1450,12 @@ public abstract class EntityValueBase implements EntityValue {
         }
 
         // do the artifact push/authz
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(), ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "refresh").setParameters(valueMapInternal);
-        ec.getArtifactExecutionImpl().pushInternal(aei, !ed.authorizeSkipView());
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "refresh").setParameters(valueMapInternal);
+        aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView);
 
         boolean retVal = false;
         try {
-            // run EECA before rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "find-one", true);
+            // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", true);
 
             // if there is not a txCache or the txCache doesn't handle the refresh, call the abstract method to refresh
             TransactionCache curTxCache = getTxCache(ecfi);
@@ -1492,12 +1466,10 @@ public abstract class EntityValueBase implements EntityValue {
                 if (retVal && curTxCache != null) curTxCache.onePut(this);
             }
 
-
-            // run EECA after rules
-            efi.runEecaRules(ed.getFullEntityName(), this, "find-one", false);
+            // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", false);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
-            ec.getArtifactExecution().pop(aei);
+            aefi.pop(aei);
         }
 
         return retVal;
@@ -1506,9 +1478,9 @@ public abstract class EntityValueBase implements EntityValue {
     public abstract boolean refreshExtended();
 
     private static class EntityFieldEntry implements Entry<String, Object> {
-        protected EntityJavaUtil.FieldInfo fi;
+        protected FieldInfo fi;
         EntityValueBase evb;
-        private EntityFieldEntry(EntityJavaUtil.FieldInfo fi, EntityValueBase evb) {
+        private EntityFieldEntry(FieldInfo fi, EntityValueBase evb) {
             this.fi = fi;
             this.evb = evb;
         }
@@ -1538,10 +1510,10 @@ public abstract class EntityValueBase implements EntityValue {
         @Override
         public EntityValue cloneDbValue(boolean getOld) { return this; }
         @Override
-        public void createExtended(EntityJavaUtil.FieldInfo[] fieldInfoArray, Connection con) {
+        public void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
             throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
         @Override
-        public void updateExtended(EntityJavaUtil.FieldInfo[] pkFieldArray, EntityJavaUtil.FieldInfo[] nonPkFieldArray, Connection con) {
+        public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
             throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
         @Override
         public void deleteExtended(Connection con) { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }

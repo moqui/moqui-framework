@@ -193,11 +193,11 @@ class WebFacadeStub implements WebFacade {
     @Override
     void handleServiceRestCall(List<String> extraPathNameList) {
         long startTime = System.currentTimeMillis()
-        ExecutionContextImpl eci = (ExecutionContextImpl) ecfi.getExecutionContext()
+        ExecutionContextImpl eci = ecfi.getEci()
 
-        eci.context.push(getParameters())
-        RestApi.RestResult restResult = eci.getEcfi().getServiceFacade().getRestApi().run(extraPathNameList, eci)
-        eci.context.pop()
+        eci.contextStack.push(getParameters())
+        RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
+        eci.contextStack.pop()
 
         response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
         restResult.setHeaders(response)

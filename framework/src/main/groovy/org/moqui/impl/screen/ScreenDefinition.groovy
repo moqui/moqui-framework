@@ -97,7 +97,7 @@ class ScreenDefinition {
         }
         // transition-include
         for (MNode transitionInclNode in screenNode.children("transition-include")) {
-            ScreenDefinition includeScreen = ecfi.getScreenFacade().getScreenDefinition(transitionInclNode.attribute("location"))
+            ScreenDefinition includeScreen = ecfi.screenFacade.getScreenDefinition(transitionInclNode.attribute("location"))
             MNode transitionNode = includeScreen?.getTransitionItem(transitionInclNode.attribute("name"), transitionInclNode.attribute("method"))?.transitionNode
             if (transitionNode == null) throw new IllegalArgumentException("For transition-include could not find transition [${transitionInclNode.attribute("name")}] with method [${transitionInclNode.attribute("method")}] in screen at [${transitionInclNode.attribute("location")}]")
             TransitionItem ti = new TransitionItem(transitionNode, this)
@@ -166,7 +166,7 @@ class ScreenDefinition {
             location = location.substring(0, location.indexOf('#'))
         }
 
-        ScreenDefinition includeScreen = sfi.getEcfi().getScreenFacade().getScreenDefinition(location)
+        ScreenDefinition includeScreen = sfi.getEcfi().screenFacade.getScreenDefinition(location)
         ScreenSection includeSection = includeScreen?.getSection(sectionName)
         if (includeSection == null) throw new IllegalArgumentException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
         sectionByName.put(sectionNode.attribute("name"), includeSection)
@@ -443,15 +443,15 @@ class ScreenDefinition {
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, sri.outputContentType)
         if ("false".equals(screenNode.attribute('track-artifact-hit'))) aei.setTrackArtifactHit(false)
-        sri.ec.artifactExecutionImpl.pushInternal(aei, isTargetScreen ?
+        sri.ec.artifactExecutionFacade.pushInternal(aei, isTargetScreen ?
                 (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)
 
         boolean loggedInAnonymous = false
         if ("anonymous-all".equals(requireAuthentication)) {
-            sri.ec.artifactExecution.setAnonymousAuthorizedAll()
+            sri.ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
             loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
         } else if ("anonymous-view".equals(requireAuthentication)) {
-            sri.ec.artifactExecution.setAnonymousAuthorizedView()
+            sri.ec.artifactExecutionFacade.setAnonymousAuthorizedView()
             loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
         }
 
@@ -460,7 +460,7 @@ class ScreenDefinition {
         try {
             rootSection.render(sri)
         } finally {
-            sri.ec.artifactExecution.pop(aei)
+            sri.ec.artifactExecutionFacade.pop(aei)
             if (loggedInAnonymous) ((UserFacadeImpl) sri.ec.getUser()).logoutAnonymousOnly()
         }
     }
@@ -673,15 +673,15 @@ class ScreenDefinition {
             String requireAuthentication = (String) parentScreen.screenNode.attribute('require-authentication')
             ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
                     ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, sri.outputContentType)
-            ec.getArtifactExecutionImpl().pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
+            ec.artifactExecutionFacade.pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
 
             boolean loggedInAnonymous = false
             if (requireAuthentication == "anonymous-all") {
-                ec.artifactExecution.setAnonymousAuthorizedAll()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             } else if (requireAuthentication == "anonymous-view") {
-                ec.artifactExecution.setAnonymousAuthorizedView()
-                loggedInAnonymous = ec.getUser().loginAnonymousIfNoUser()
+                ec.artifactExecutionFacade.setAnonymousAuthorizedView()
+                loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             }
 
             try {
@@ -689,7 +689,7 @@ class ScreenDefinition {
                 ScreenUrlInfo.UrlInstance screenUrlInstance = sri.getScreenUrlInstance()
                 setAllParameters(screenUrlInfo.getExtraPathNameList(), ec)
                 // for alias transitions rendered in-request put the parameters in the context
-                if (screenUrlInstance.getTransitionAliasParameters()) ec.getContext().putAll(screenUrlInstance.getTransitionAliasParameters())
+                if (screenUrlInstance.getTransitionAliasParameters()) ec.contextStack.putAll(screenUrlInstance.getTransitionAliasParameters())
 
 
                 if (!checkCondition(ec)) {
@@ -699,7 +699,7 @@ class ScreenDefinition {
                 }
 
                 // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
-                ec.getContext().put("sri", sri)
+                ec.contextStack.put("sri", sri)
                 if (actions != null) actions.run(ec)
 
                 ResponseItem ri = null
@@ -720,8 +720,8 @@ class ScreenDefinition {
 
                 // all done so pop the artifact info; don't bother making sure this is done on errors/etc like in a finally
                 // clause because if there is an error this will help us know how we got there
-                ec.getArtifactExecution().pop(aei)
-                if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
+                ec.artifactExecutionFacade.pop(aei)
+                if (loggedInAnonymous) ec.userFacade.logoutAnonymousOnly()
             }
         }
     }
@@ -744,10 +744,10 @@ class ScreenDefinition {
             // run actions (if there are any)
             XmlAction actions = parentScreen.rootSection.actions
             if (actions != null) {
-                ec.context.put("sri", sri)
+                ec.contextStack.put("sri", sri)
                 actions.run(ec)
                 // use entire ec.context to get values from always-actions and pre-actions
-                wf.sendJsonResponse(StupidJavaUtilities.unwrapMap(ec.context))
+                wf.sendJsonResponse(StupidJavaUtilities.unwrapMap(ec.contextStack))
             } else {
                 wf.sendJsonResponse(new HashMap())
             }

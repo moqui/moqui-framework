@@ -23,7 +23,6 @@ import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
-import org.moqui.impl.entity.EntityJavaUtil.FieldInfo
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.MNode
 import org.moqui.util.SystemBinding
@@ -44,10 +43,9 @@ class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
-    protected final ExecutionContextFactoryImpl ecfi
-    protected final String tenantId
-
-    protected final EntityConditionFactoryImpl entityConditionFactory
+    public final ExecutionContextFactoryImpl ecfi
+    public final String tenantId
+    public final EntityConditionFactoryImpl entityConditionFactory
 
     protected final HashMap<String, EntityDatasourceFactory> datasourceFactoryByGroupMap = new HashMap()
 
@@ -134,7 +132,6 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     String getTenantId() { return tenantId; }
-    ExecutionContextFactoryImpl getEcfi() { return ecfi }
     EntityCache getEntityCache() { return entityCache }
     EntityDataFeed getEntityDataFeed() { return entityDataFeed }
     EntityDataDocument getEntityDataDocument() { return entityDataDocument }
@@ -224,7 +221,7 @@ class EntityFacadeImpl implements EntityFacade {
             EntityValue tenant = null
             EntityFacadeImpl defaultEfi = null
             if (tenantId != "DEFAULT" && groupName != "tenantcommon") {
-                defaultEfi = efi.ecfi.getEntityFacade("DEFAULT")
+                defaultEfi = efi.ecfi.defaultEntityFacade
                 tenant = defaultEfi.find("moqui.tenant.Tenant").condition("tenantId", tenantId).disableAuthz().one()
             }
 
@@ -301,7 +298,7 @@ class EntityFacadeImpl implements EntityFacade {
                     EntityDefinition ed = getEntityDefinition(entityName)
                     ed.getRelationshipInfoMap()
                     // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                    ed.datasourceFactory.checkTableExists(ed.getFullEntityName())
+                    ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
                 } catch (Throwable t) { logger.warn("Error loading framework entity ${entityName} definitions: ${t.toString()}", t) }
             }
         }
@@ -335,7 +332,7 @@ class EntityFacadeImpl implements EntityFacade {
                 EntityDefinition ed = getEntityDefinition(entityName)
                 ed.getRelationshipInfoMap()
                 // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                ed.datasourceFactory.checkTableExists(ed.getFullEntityName())
+                ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
 
                 if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
                 if (cachedListEntities.contains(entityName)) {
@@ -651,15 +648,15 @@ class EntityFacadeImpl implements EntityFacade {
             ed = new EntityDefinition(this, dbViewNode)
 
             // cache it under entityName, fullEntityName, and short-alias
-            String fullEntityName = ed.getFullEntityName()
+            String fullEntityName = ed.fullEntityName
             if (fullEntityName.startsWith("moqui.")) {
-                frameworkEntityDefinitions.put(ed.getEntityName(), ed)
-                frameworkEntityDefinitions.put(ed.getFullEntityName(), ed)
-                if (ed.getShortAlias()) frameworkEntityDefinitions.put(ed.getShortAlias(), ed)
+                frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed)
+                frameworkEntityDefinitions.put(fullEntityName, ed)
+                if (ed.entityInfo.shortAlias) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed)
             } else {
-                entityDefinitionCache.put(ed.getEntityName(), ed)
-                entityDefinitionCache.put(ed.getFullEntityName(), ed)
-                if (ed.getShortAlias()) entityDefinitionCache.put(ed.getShortAlias(), ed)
+                entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed)
+                entityDefinitionCache.put(fullEntityName, ed)
+                if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
             }
             // send it on its way
             return ed
@@ -752,15 +749,15 @@ class EntityFacadeImpl implements EntityFacade {
         // create the new EntityDefinition
         ed = new EntityDefinition(this, entityNode)
         // cache it under entityName, fullEntityName, and short-alias
-        String fullEntityName = ed.getFullEntityName()
+        String fullEntityName = ed.fullEntityName
         if (fullEntityName.startsWith("moqui.")) {
-            frameworkEntityDefinitions.put(ed.getEntityName(), ed)
-            frameworkEntityDefinitions.put(ed.getFullEntityName(), ed)
-            if (ed.getShortAlias()) frameworkEntityDefinitions.put(ed.getShortAlias(), ed)
+            frameworkEntityDefinitions.put(ed.entityInfo.internalEntityName, ed)
+            frameworkEntityDefinitions.put(fullEntityName, ed)
+            if (ed.entityInfo.shortAlias) frameworkEntityDefinitions.put(ed.entityInfo.shortAlias, ed)
         } else {
-            entityDefinitionCache.put(ed.getEntityName(), ed)
-            entityDefinitionCache.put(ed.getFullEntityName(), ed)
-            if (ed.getShortAlias()) entityDefinitionCache.put(ed.getShortAlias(), ed)
+            entityDefinitionCache.put(ed.entityInfo.internalEntityName, ed)
+            entityDefinitionCache.put(fullEntityName, ed)
+            if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
         }
         // send it on its way
         return ed
@@ -775,7 +772,7 @@ class EntityFacadeImpl implements EntityFacade {
             try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
             if (ed == null) continue
-            String edEntityName = ed.entityName
+            String edEntityName = ed.entityInfo.internalEntityName
             String edFullEntityName = ed.fullEntityName
             List<String> pkSet = ed.getPkFieldNames()
             ArrayList<MNode> relationshipList = ed.entityNode.children("relationship")
@@ -833,7 +830,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 // track the fact that the related entity has others pointing back to it, unless original relationship is type many (doesn't qualify)
-                if (!ed.isViewEntity() && !"many".equals(relNode.attribute("type"))) reverseEd.entityNode.attributes.put("has-dependents", "true")
+                if (!ed.isViewEntity && !"many".equals(relNode.attribute("type"))) reverseEd.entityNode.attributes.put("has-dependents", "true")
 
                 // create a new reverse-many relationship
                 Map<String, String> keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, reverseEd)
@@ -854,7 +851,7 @@ class EntityFacadeImpl implements EntityFacade {
             EntityDefinition ed
             try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
             if (ed == null) continue
-            ed.hasReverseRelationships = true
+            ed.setHasReverseRelationships()
         }
 
         if (logger.infoEnabled && relationshipsCreated > 0) logger.info("Created ${relationshipsCreated} automatic reverse relationships")
@@ -914,7 +911,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (lst != null && lst.size() > 0) {
             // if Entity ECA rules disabled in ArtifactExecutionFacade, just return immediately
             // do this only if there are EECA rules to run, small cost in getEci, etc
-            if (ecfi.getEci().getArtifactExecutionImpl().entityEcaDisabled()) return
+            if (ecfi.getEci().artifactExecutionFacade.entityEcaDisabled()) return
 
             for (int i = 0; i < lst.size(); i++) {
                 EntityEcaRule eer = (EntityEcaRule) lst.get(i)
@@ -955,7 +952,7 @@ class EntityFacadeImpl implements EntityFacade {
         Set<String> nonViewNames = new TreeSet<>()
         for (String name in allNames) {
             EntityDefinition ed = getEntityDefinition(name)
-            if (ed != null && !ed.isViewEntity()) nonViewNames.add(name)
+            if (ed != null && !ed.isViewEntity) nonViewNames.add(name)
         }
         return nonViewNames
     }
@@ -965,7 +962,7 @@ class EntityFacadeImpl implements EntityFacade {
         for (String name in allNames) {
             EntityDefinition ed
             try { ed = getEntityDefinition(name) } catch (EntityException e) { continue }
-            if (ed != null && !ed.isViewEntity() && ed.masterDefinitionMap) masterNames.add(name)
+            if (ed != null && !ed.isViewEntity && ed.masterDefinitionMap) masterNames.add(name)
         }
         return masterNames
     }
@@ -974,7 +971,7 @@ class EntityFacadeImpl implements EntityFacade {
         Map<String, Map> entityInfoMap = [:]
         for (String entityName in getAllEntityNames()) {
             EntityDefinition ed = getEntityDefinition(entityName)
-            boolean isView = ed.isViewEntity()
+            boolean isView = ed.isViewEntity
             if (excludeViewEntities && isView) continue
             int lastDotIndex = 0
             for (int i = 0; i < levels; i++) lastDotIndex = entityName.indexOf(".", lastDotIndex+1)
@@ -997,33 +994,34 @@ class EntityFacadeImpl implements EntityFacade {
      * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
      * one of the entity-auto supported verbs. */
     boolean isEntityDefined(String entityName) {
-        if (entityName == null || entityName.length() == 0) return false
+        if (entityName == null) return false
 
         // Special treatment for framework entities, quick Map lookup (also faster than Cache get)
         if (frameworkEntityDefinitions.containsKey(entityName)) return true
 
-        Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
+        Map<String, List<String>> entityLocationCache = (Map<String, List<String>>) entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
-        List<String> locList = entityLocationCache.get(entityName)
+        List<String> locList = (List<String>) entityLocationCache.get(entityName)
         return locList != null && locList.size() > 0
     }
 
     EntityDefinition getEntityDefinition(String entityName) {
-        if (entityName == null || entityName.length() == 0) return null
+        if (entityName == null) return null
         EntityDefinition ed = (EntityDefinition) frameworkEntityDefinitions.get(entityName)
         if (ed != null) return ed
         ed = (EntityDefinition) entityDefinitionCache.get(entityName)
         if (ed != null) return ed
+        if (entityName.isEmpty()) return null
         return loadEntityDefinition(entityName)
     }
 
     void clearEntityDefinitionFromCache(String entityName) {
         EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
         if (ed != null) {
-            this.entityDefinitionCache.remove(ed.getEntityName())
-            this.entityDefinitionCache.remove(ed.getFullEntityName())
-            if (ed.getShortAlias()) this.entityDefinitionCache.remove(ed.getShortAlias())
+            this.entityDefinitionCache.remove(ed.entityInfo.internalEntityName)
+            this.entityDefinitionCache.remove(ed.fullEntityName)
+            if (ed.entityInfo.shortAlias) this.entityDefinitionCache.remove(ed.entityInfo.shortAlias)
         }
     }
 
@@ -1038,7 +1036,7 @@ class EntityFacadeImpl implements EntityFacade {
             EntityDefinition ed = null
             try { ed = getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
             if (ed == null) continue
-            if (excludeViewEntities && ed.isViewEntity()) continue
+            if (excludeViewEntities && ed.isViewEntity) continue
             if (excludeTenantCommon && ed.getEntityGroupName() == "tenantcommon") continue
 
             if (masterEntitiesOnly) {
@@ -1047,8 +1045,8 @@ class EntityFacadeImpl implements EntityFacade {
                 if (ed.getPkFieldNames().size() > 1) continue
             }
 
-            eil.add([entityName:ed.entityName, "package":ed.entityNode.attribute("package"),
-                    isView:(ed.isViewEntity() ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
+            eil.add([entityName:ed.entityInfo.internalEntityName, "package":ed.entityNode.attribute("package"),
+                    isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 
         if (orderByField) StupidUtilities.orderMapList(eil, [orderByField])
@@ -1260,7 +1258,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (lastEd.containsPrimaryKey(parameters)) {
                 // if we have a full PK lookup by PK and return the single value
                 Map pkValues = [:]
-                lastEd.setFields(parameters, pkValues, false, null, true)
+                lastEd.entityInfo.setFields(parameters, pkValues, false, null, true)
 
                 if (masterName != null && masterName.length() > 0) {
                     Map resultMap = find(lastEd.getFullEntityName()).condition(pkValues).oneMaster(masterName)
@@ -1274,7 +1272,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             } else {
                 // otherwise do a list find
-                EntityFind ef = find(lastEd.getFullEntityName()).searchFormMap(parameters, null, null, false)
+                EntityFind ef = find(lastEd.fullEntityName).searchFormMap(parameters, null, null, false)
                 // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
                 if (!ef.getLimit()) ef.limit(100)
 
@@ -1305,7 +1303,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
         } else {
             // use the entity auto service runner for other operations (create, store, update, delete)
-            Map result = ecfi.getServiceFacade().sync().name(operation, lastEd.getFullEntityName()).parameters(parameters).call()
+            Map result = ecfi.serviceFacade.sync().name(operation, lastEd.fullEntityName).parameters(parameters).call()
             return result
         }
     }
@@ -1386,7 +1384,7 @@ class EntityFacadeImpl implements EntityFacade {
             int paramIndex = 1
             for (Object parameterValue in sqlParameterList) {
                 FieldInfo fi = (FieldInfo) fiArray[paramIndex - 1]
-                EntityJavaUtil.setPreparedStatementValue(ps, paramIndex, parameterValue, fi, ed, this)
+                fi.setPreparedStatementValue(ps, paramIndex, parameterValue, ed, this)
                 paramIndex++
             }
             // do the actual query
@@ -1429,7 +1427,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (isEntityDefined(seqName)) {
                 EntityDefinition ed = getEntityDefinition(seqName)
                 String groupName = ed.getEntityGroupName()
-                if (ed.sequencePrimaryUseUuid ||
+                if (ed.entityInfo.sequencePrimaryUseUuid ||
                         getDatasourceNode(groupName)?.attribute('sequence-primary-use-uuid') == "true")
                     return UUID.randomUUID().toString()
             }
@@ -1444,15 +1442,16 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     String sequencedIdPrimaryEd(EntityDefinition ed) {
+        EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         try {
             // is the seqName an entityName?
-            if (ed.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
+            if (entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
             if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
         }
         // fall through to default to the db sequenced ID
-        return dbSequencedIdPrimary(ed.getFullEntityName(), ed.sequencePrimaryStagger, ed.sequenceBankSize)
+        return dbSequencedIdPrimary(ed.getFullEntityName(), entityInfo.sequencePrimaryStagger, entityInfo.sequenceBankSize)
     }
 
     protected final static long defaultBankSize = 50L
@@ -1488,8 +1487,8 @@ class EntityFacadeImpl implements EntityFacade {
                     entitySequenceBankCache.put(seqName, bank)
                 }
 
-                ecfi.getTransactionFacade().runRequireNew(null, "Error getting primary sequenced ID", true, true, {
-                    ArtifactExecutionFacadeImpl aefi = ecfi.getEci().getArtifactExecutionImpl()
+                ecfi.transactionFacade.runRequireNew(null, "Error getting primary sequenced ID", true, true, {
+                    ArtifactExecutionFacadeImpl aefi = ecfi.getEci().artifactExecutionFacade
                     boolean enableAuthz = !aefi.disableAuthz()
                     try {
                         EntityValue svi = find("moqui.entity.SequenceValueItem").condition("seqName", seqName)

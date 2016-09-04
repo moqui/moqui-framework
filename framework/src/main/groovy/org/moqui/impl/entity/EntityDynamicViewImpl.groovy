@@ -60,7 +60,7 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         MNode joinFromMemberEntityNode =
                 entityNode.first({ MNode it -> it.name == "member-entity" && it.attribute("entity-alias") == joinFromAlias })
         String entityName = joinFromMemberEntityNode.attribute("entity-name")
-        EntityDefinition joinFromEd = entityFind.getEfi().getEntityDefinition(entityName)
+        EntityDefinition joinFromEd = entityFind.efi.getEntityDefinition(entityName)
         EntityJavaUtil.RelationshipInfo relInfo = joinFromEd.getRelationshipInfo(relationshipName)
         if (relInfo == null) throw new EntityException("Relationship not found with name [${relationshipName}] on entity [${entityName}]")
 

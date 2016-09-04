@@ -19,11 +19,12 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
-import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.ServiceRunner
@@ -38,24 +39,27 @@ import java.sql.Timestamp
 public class EntityAutoServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(EntityAutoServiceRunner.class)
 
-    final static Set<String> verbSet = new TreeSet(['create', 'update', 'delete', 'store'])
+    final static Set<String> verbSet = new HashSet(['create', 'update', 'delete', 'store'])
     final static Set<String> otherFieldsToSkip = new HashSet(['ec', '_entity', 'authTenantId', 'authUsername', 'authPassword'])
-    protected ServiceFacadeImpl sfi = null
+
+    private ServiceFacadeImpl sfi = null
+    private ExecutionContextFactoryImpl ecfi = null
 
     EntityAutoServiceRunner() {}
 
-    ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; return this }
+    ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; ecfi = sfi.ecfi; return this }
 
     // TODO: add update-expire and delete-expire entity-auto service verbs for entities with from/thru dates
     // TODO: add find (using search input parameters) and find-one (using literal PK, or as many PK fields as are passed on) entity-auto verbs
     Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
         // check the verb and noun
-        if (!sd.verb || !verbSet.contains(sd.verb))
-            throw new ServiceException("In service [${sd.serviceName}] the verb must be one of ${verbSet} for entity-auto type services.")
-        if (!sd.noun)  throw new ServiceException("In service [${sd.serviceName}] you must specify a noun for entity-auto service calls")
+        if (sd.verb == null || !verbSet.contains(sd.verb))
+            throw new ServiceException("In service ${sd.serviceName} the verb must be one of ${verbSet} for entity-auto type services.")
+        if (sd.noun == null || sd.noun.isEmpty()) throw new ServiceException("In service ${sd.serviceName} you must specify a noun for entity-auto service calls")
 
-        EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(sd.noun)
-        if (!ed) throw new ServiceException("In service [${sd.serviceName}] the specified noun [${sd.noun}] is not a valid entity name")
+        ExecutionContextImpl eci = ecfi.getEci()
+        EntityDefinition ed = eci.entityFacade.getEntityDefinition(sd.noun)
+        if (ed == null) throw new ServiceException("In service ${sd.serviceName} the specified noun ${sd.noun} is not a valid entity name")
 
         Map<String, Object> result = new HashMap()
 
@@ -65,25 +69,25 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                 if (!sd.getInParameter(pkFieldName) || sd.getOutParameter(pkFieldName)) { allPksInOnly = false; break }
             }
 
-            if ("create" == sd.verb) {
-                createEntity(sfi, ed, parameters, result, sd.getOutParameterNames())
-            } else if ("update" == sd.verb) {
+            if ("create".equals(sd.verb)) {
+                createEntity(eci, ed, parameters, result, sd.getOutParameterNames())
+            } else if ("update".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
-                if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with update noun, not all pk fields have the mode IN")
-                updateEntity(sfi, ed, parameters, result, sd.getOutParameterNames(), null)
-            } else if ("delete" == sd.verb) {
+                if (!allPksInOnly) throw new ServiceException("In entity-auto type service ${sd.serviceName} with update noun, not all pk fields have the mode IN")
+                updateEntity(eci, ed, parameters, result, sd.getOutParameterNames(), null)
+            } else if ("delete".equals(sd.verb)) {
                 /* <auto-attributes include="pk" mode="IN" optional="false"/> */
-                if (!allPksInOnly) throw new ServiceException("In entity-auto type service [${sd.serviceName}] with delete noun, not all pk fields have the mode IN")
-                deleteEntity(sfi, ed, parameters)
-            } else if ("store" == sd.verb) {
-                storeEntity(sfi, ed, parameters, result, sd.getOutParameterNames())
-            } else if ("update-expire" == sd.verb) {
+                if (!allPksInOnly) throw new ServiceException("In entity-auto type service ${sd.serviceName} with delete noun, not all pk fields have the mode IN")
+                deleteEntity(eci, ed, parameters)
+            } else if ("store".equals(sd.verb)) {
+                storeEntity(eci, ed, parameters, result, sd.getOutParameterNames())
+            } else if ("update-expire".equals(sd.verb)) {
                 // TODO
-            } else if ("delete-expire" == sd.verb) {
+            } else if ("delete-expire".equals(sd.verb)) {
                 // TODO
-            } else if ("find" == sd.verb) {
+            } else if ("find".equals(sd.verb)) {
                 // TODO
-            } else if ("find-one" == sd.verb) {
+            } else if ("find-one".equals(sd.verb)) {
                 // TODO
             }
         } catch (BaseException e) {
@@ -109,14 +113,14 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     protected static boolean checkAllPkFields(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> tempResult,
                                     EntityValue newEntityValue, ArrayList<String> outParamNames) {
         ArrayList<String> pkFieldNames = ed.getPkFieldNames()
-        ArrayList<EntityJavaUtil.FieldInfo> pkFieldInfos = new ArrayList<>(pkFieldNames.size())
+        ArrayList<FieldInfo> pkFieldInfos = new ArrayList<>(pkFieldNames.size())
 
         // see if all PK fields were passed in
         boolean allPksIn = true
         int size = pkFieldNames.size()
         for (int i = 0; i < size; i++) {
             String pkFieldName = pkFieldNames.get(i)
-            EntityJavaUtil.FieldInfo fieldInfo = ed.getFieldInfo(pkFieldName)
+            FieldInfo fieldInfo = ed.getFieldInfo(pkFieldName)
             pkFieldInfos.add(fieldInfo)
             if (!parameters.get(pkFieldName) && !fieldInfo.defaultStr) { allPksIn = false }
         }
@@ -128,10 +132,10 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         if (isSinglePk) {
             /* **** primary sequenced primary key **** */
             /* **** primary sequenced key with optional override passed in **** */
-            EntityJavaUtil.FieldInfo singlePkField = pkFieldInfos.get(0)
+            FieldInfo singlePkField = pkFieldInfos.get(0)
 
             Object pkValue = parameters.get(singlePkField.name)
-            if (pkValue) {
+            if (pkValue != null) {
                 newEntityValue.set(singlePkField.name, pkValue)
             } else {
                 // if it has a default value don't sequence the PK
@@ -145,10 +149,10 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         } else if (isDoublePk && !allPksIn) {
             /* **** secondary sequenced primary key **** */
             // don't do it this way, currently only supports second pk fields: String doublePkSecondaryName = parameters.get(pkFieldNames.get(0)) ? pkFieldNames.get(1) : pkFieldNames.get(0)
-            EntityJavaUtil.FieldInfo doublePkSecondary = pkFieldInfos.get(1)
+            FieldInfo doublePkSecondary = pkFieldInfos.get(1)
             newEntityValue.setFields(parameters, true, null, true)
             // if it has a default value don't sequence the PK
-            if (!doublePkSecondary.defaultStr) {
+            if (doublePkSecondary.defaultStr == null || doublePkSecondary.defaultStr.isEmpty()) {
                 newEntityValue.setSequencedIdSecondary()
                 if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains(doublePkSecondary.name))
                     tempResult.put(doublePkSecondary.name, newEntityValue.getNoCheckSimple(doublePkSecondary.name))
@@ -157,7 +161,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             /* **** plain specified primary key **** */
             newEntityValue.setFields(parameters, true, null, true)
         } else {
-            logger.error("Entity [${ed.getFullEntityName()}] auto create pk fields ${pkFieldNames} incomplete: ${parameters}")
+            logger.error("Entity [${ed.fullEntityName}] auto create pk fields ${pkFieldNames} incomplete: ${parameters}")
             throw new ServiceException("In entity-auto create service for entity [${ed.fullEntityName}]: " +
                     "could not find a valid combination of primary key settings to do a create operation; options include: " +
                     "1. a single entity primary-key field for primary auto-sequencing with or without matching in-parameter, and with or without matching out-parameter for the possibly sequenced value, " +
@@ -170,15 +174,14 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         return allPksIn
     }
 
-    static void createEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
-                                    Map<String, Object> result, ArrayList<String> outParamNames) {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        createRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
+    static void createEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
+                             Map<String, Object> result, ArrayList<String> outParamNames) {
+        createRecursive(eci.ecfi, eci.entityFacade, ed, parameters, result, outParamNames, null)
     }
 
     static void createRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
                                 Map<String, Object> result, ArrayList<String> outParamNames, Map<String, Object> parentPks) {
-        EntityValue newEntityValue = efi.makeValue(ed.getFullEntityName())
+        EntityValue newEntityValue = ed.makeEntityValue()
 
         checkFromDate(ed, parameters, result, ecfi)
 
@@ -209,14 +212,14 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         int size = pkFieldNames.size()
         for (int i = 0; i < size; i++) {
             String pkName = pkFieldNames.get(i)
-            EntityJavaUtil.FieldInfo pkInfo = ed.getFieldInfo(pkName)
+            FieldInfo pkInfo = ed.getFieldInfo(pkName)
             if (pkInfo.defaultStr) {
                 tempResult.put(pkName, newEntityValue.getNoCheckSimple(pkName))
             }
         }
 
         // check parameters Map for relationships
-        Map nonFieldEntries = ed.cloneMapRemoveFields(parameters, null)
+        Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(parameters, null)
         for (Map.Entry entry in nonFieldEntries.entrySet()) {
             Object relParmObj = entry.getValue()
             if (!relParmObj) continue
@@ -313,10 +316,10 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         // NOTE: nothing here to maintain the status history, that should be done with a custom service called by SECA rule or with audit log on field
     }
 
-    static void updateEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
+    static void updateEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
                                     Map<String, Object> result, ArrayList<String> outParamNames, EntityValue preLookedUpValue) {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        EntityFacadeImpl efi = ecfi.getEntityFacade()
+        ExecutionContextFactoryImpl ecfi = eci.ecfi
+        EntityFacadeImpl efi = eci.getEntityFacade()
 
         EntityValue lookedUpValue = preLookedUpValue ?:
                 efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
@@ -344,17 +347,15 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         storeRelated(ecfi, efi, (EntityValueBase) lookedUpValue, parameters, result, null)
     }
 
-    static void deleteEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters) {
-        EntityValue ev = sfi.getEcfi().getEntityFacade().makeValue(ed.getFullEntityName())
-                .setFields(parameters, true, null, true)
+    static void deleteEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters) {
+        EntityValue ev = eci.getEntityFacade().makeValue(ed.fullEntityName).setFields(parameters, true, null, true)
         ev.delete()
     }
 
     /** Does a create if record does not exist, or update if it does. */
-    static void storeEntity(ServiceFacadeImpl sfi, EntityDefinition ed, Map<String, Object> parameters,
+    static void storeEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
                                    Map<String, Object> result, ArrayList<String> outParamNames) {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
-        storeRecursive(ecfi, ecfi.getEntityFacade(), ed, parameters, result, outParamNames, null)
+        storeRecursive(eci.ecfi, eci.getEntityFacade(), ed, parameters, result, outParamNames, null)
     }
 
     static void storeRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
@@ -382,7 +383,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         EntityValue lookedUpValue = null
         if (parameters.containsKey("statusId") && ed.isField("statusId")) {
             // do the actual query so we'll have the current statusId
-            lookedUpValue = efi.find(ed.getFullEntityName())
+            lookedUpValue = efi.find(ed.fullEntityName)
                     .condition(newEntityValue).useCache(false).one()
             if (lookedUpValue != null) {
                 checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
@@ -413,7 +414,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         Map<String, Object> sharedPkMap = parentValue.getPrimaryKeys()
         if (parentPks) sharedPkMap.putAll(parentPks)
 
-        Map nonFieldEntries = ed.cloneMapRemoveFields(parameters, null)
+        Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(parameters, null)
         for (Map.Entry entry in nonFieldEntries.entrySet()) {
             Object relParmObj = entry.getValue()
             if (!relParmObj) continue
