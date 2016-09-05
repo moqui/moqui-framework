@@ -49,9 +49,9 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public AuthzType internalAuthorizedAuthzType = null;
     public AuthzAction internalAuthorizedActionEnum = null;
     public boolean internalAuthorizationInheritable = false;
-    private boolean internalAuthzWasRequired = false;
-    private boolean isAccess = false;
-    private boolean trackArtifactHit = true;
+    public boolean internalAuthzWasRequired = false;
+    public boolean isAccess = false;
+    public boolean trackArtifactHit = true;
     private boolean internalAuthzWasGranted = false;
     public ArtifactAuthzCheck internalAacv = null;
 
@@ -118,7 +118,6 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         this.isAccess = isAccess;
     }
     public void setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; }
-    boolean shouldCountArtifactHit() { return trackArtifactHit && internalAuthzWasRequired && isAccess; }
     @Override
     public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
@@ -147,7 +146,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     void setEndTime() { this.endTimeNanos = System.nanoTime(); }
     @Override
     public long getRunningTime() { return endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0; }
-    public double getRunningTimeMillisDouble() { return getRunningTime() / 1000000.0; }
+    public double getRunningTimeMillisDouble() { return (endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0) / 1000000.0; }
     private void calcChildTime(boolean recurse) {
         childrenRunningTime = 0;
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) {

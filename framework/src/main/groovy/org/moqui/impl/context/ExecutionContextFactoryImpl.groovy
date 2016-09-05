@@ -94,7 +94,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class)
 
     protected String skipStatsCond
-    protected Integer hitBinLengthMillis
+    protected long hitBinLengthMillis = 900000 // 15 minute default
     private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
     private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
     final Map<String, ConcurrentLinkedQueue<ArtifactHitInfo>> deferredHitInfoQueueByTenant =
@@ -375,7 +375,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // do these after initComponents as that may override configuration
         serverStatsNode = confXmlRoot.first('server-stats')
         skipStatsCond = serverStatsNode.attribute("stats-skip-condition")
-        hitBinLengthMillis = (serverStatsNode.attribute("bin-length-seconds") as Integer)*1000 ?: 900000
+        String binLengthAttr = serverStatsNode.attribute("bin-length-seconds")
+        if (binLengthAttr != null && !binLengthAttr.isEmpty()) hitBinLengthMillis = (binLengthAttr as long)*1000
         // populate ArtifactType configurations
         for (ArtifactType at in ArtifactType.values()) {
             MNode artifactStats = getArtifactStatsNode(at.name(), null)
@@ -1097,7 +1098,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         boolean isSlowHit = false
         if (Boolean.TRUE.is((Boolean) artifactPersistBinByTypeEnum.get(artifactTypeEnum))) {
-            String binKey = new StringBuilder(200).append(artifactTypeEnum.name()).append(artifactSubType).append(artifactName).toString()
+            // NOTE: not adding artifactTypeEnum.name() to key, artifact names should be unique
+            String binKey = artifactName
+            // TODO: may be more cases where we don't need to append artifactTypeEnum, ie based on artifactName
+            if (artifactSubType != null && !ArtifactExecutionInfo.AT_SERVICE.is(artifactTypeEnum)) binKey = binKey.concat(artifactSubType)
             ArtifactStatsInfo statsInfo = (ArtifactStatsInfo) artifactStatsInfoByType.get(binKey)
             if (statsInfo == null) {
                 // consider seeding this from the DB using ArtifactHitReport to get all past data, or maybe not to better handle different servers/etc over time, etc
@@ -1108,7 +1112,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             // has the current bin expired since the last hit record?
             if (statsInfo.curHitBin != null) {
                 long binStartTime = statsInfo.curHitBin.startTime
-                if (startTime > (binStartTime + hitBinLengthMillis.longValue())) {
+                if (startTime > (binStartTime + hitBinLengthMillis)) {
                     if (isTraceEnabled) logger.trace("Advancing ArtifactHitBin [${artifactTypeEnum.name()}.${artifactSubType}:${artifactName}] current hit start [${new Timestamp(startTime)}], bin start [${new Timestamp(binStartTime)}] bin length ${hitBinLengthMillis/1000} seconds")
                     advanceArtifactHitBin(getEci(), statsInfo, startTime, hitBinLengthMillis)
                 }
@@ -1212,7 +1216,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected synchronized void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
-            long startTime, int hitBinLengthMillis) {
+            long startTime, long hitBinLengthMillis) {
         ArtifactBinInfo abi = statsInfo.curHitBin
         if (abi == null) {
             statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)

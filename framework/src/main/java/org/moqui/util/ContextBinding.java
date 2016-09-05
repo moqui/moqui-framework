@@ -16,7 +16,7 @@ package org.moqui.util;
 import groovy.lang.Binding;
 
 public class ContextBinding extends Binding {
-    ContextStack contextStack;
+    private ContextStack contextStack;
     public ContextBinding(ContextStack variables) {
         super(variables);
         contextStack = variables;
@@ -29,12 +29,15 @@ public class ContextBinding extends Binding {
         //if (result == null && !variables.containsKey(name)) {
         //    throw new MissingPropertyException(name, this.getClass());
         //}
-        return contextStack.getByString(name);
+        return contextStack.combinedMap.get(name);
     }
 
     @Override
     public void setVariable(String name, Object value) {
-        contextStack.put(name, value);
+        if ("context".equals(name)) throw new IllegalArgumentException("Cannot set variable 'context', reserved key");
+        contextStack.combinedMap.put(name, value);
+        contextStack.topMap.put(name, value);
+        // contextStack.put(name, value);
     }
 
     @Override

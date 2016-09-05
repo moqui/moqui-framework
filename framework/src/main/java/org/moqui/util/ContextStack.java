@@ -13,6 +13,7 @@
  */
 package org.moqui.util;
 
+import javax.annotation.Nonnull;
 import java.util.*;
 
 @SuppressWarnings("unused")
@@ -23,8 +24,8 @@ public class ContextStack implements Map<String, Object> {
     private LinkedList<HashMap<String, Object>> contextCombinedStack = null;
 
     private ArrayList<MapWrapper> stackList = new ArrayList<>();
-    private Map<String, Object> topMap = null;
-    private HashMap<String, Object> combinedMap = null;
+    Map<String, Object> topMap = null;
+    HashMap<String, Object> combinedMap = null;
     private boolean includeContext = true;
     private boolean toStringRecursion = false;
 
@@ -245,8 +246,8 @@ public class ContextStack implements Map<String, Object> {
     }
 
     @Override
-    public void putAll(Map<? extends String, ?> theMap) {
-        if (theMap == null) return;
+    public void putAll(@Nonnull Map<? extends String, ?> theMap) {
+        // if (theMap == null) return;
         combinedMap.putAll(theMap);
         if (includeContext) combinedMap.put("context", this);
         topMap.putAll(theMap);
