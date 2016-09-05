@@ -368,7 +368,6 @@ public class ServiceDefinition {
     private Map<String, Object> nestedParameterClean(String namePrefix, Map<String, Object> parameters,
                                       ParameterInfo[] parameterInfoArray, ExecutionContextImpl eci) {
         HashMap<String, Object> newMap = new HashMap<>();
-        boolean hasChildrenToCheck = false;
         for (int i = 0; i < parameterInfoArray.length; i++) {
             ParameterInfo parameterInfo = parameterInfoArray[i];
             String parameterName = parameterInfo.name;
@@ -407,10 +406,11 @@ public class ServiceDefinition {
             // set the default if applicable
             if (parameterIsEmpty) {
                 if (parameterInfo.hasDefault) {
-                    // NOTE: current constraint is defaults can only depend on previous parameters (has been that way for a while)
                     // TODO: consider doing this as a second pass so newMap has all parameters
                     if (parameterInfo.defaultStr != null) {
-                        parameterValue = eci.resourceFacade.expression(parameterInfo.defaultStr, null, newMap);
+                        Map<String, Object> combinedMap = new HashMap<>(parameters);
+                        combinedMap.putAll(newMap);
+                        parameterValue = eci.resourceFacade.expression(parameterInfo.defaultStr, null, combinedMap);
                         if (parameterValue != null) {
                             hasParameter = true;
                             isString = false;
@@ -436,8 +436,14 @@ public class ServiceDefinition {
                             }
                         }
                     } else if (parameterInfo.defaultValue != null) {
-                        String stringValue = parameterInfo.defaultValueNeedsExpand ?
-                                eci.resourceFacade.expand(parameterInfo.defaultValue, null, newMap, false) : parameterInfo.defaultValue;
+                        String stringValue;
+                        if (parameterInfo.defaultValueNeedsExpand) {
+                            Map<String, Object> combinedMap = new HashMap<>(parameters);
+                            combinedMap.putAll(newMap);
+                            stringValue = eci.resourceFacade.expand(parameterInfo.defaultValue, null, combinedMap, false);
+                        } else {
+                            stringValue = parameterInfo.defaultValue;
+                        }
                         hasParameter = true;
                         parameterValue = stringValue;
                         isString = true;
