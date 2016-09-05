@@ -23,7 +23,6 @@ import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.service.ServiceJavaUtil.ParameterInfo;
 import org.moqui.impl.util.FtlNodeWrapper;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
@@ -491,7 +490,7 @@ public class ServiceDefinition {
                 }
 
                 if (validate) {
-                    if ((isString || isCollection) && ServiceJavaUtil.ParameterAllowHtml.ANY != parameterInfo.allowHtml) {
+                    if ((isString || isCollection) && ParameterInfo.ParameterAllowHtml.ANY != parameterInfo.allowHtml) {
                         Object htmlValidated = parameterInfo.validateParameterHtml(namePrefix, parameterValue, isString, eci);
                         // put the final parameterValue back into the parameters Map
                         if (htmlValidated != null) {
