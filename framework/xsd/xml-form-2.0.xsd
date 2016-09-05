@@ -540,6 +540,13 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="characters"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="align" default="left">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="left"/>
+                    <xs:enumeration value="center"/>
+                    <xs:enumeration value="right"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="header-field">
