@@ -1147,61 +1147,64 @@ class ScreenForm {
             lineWidth -= (numCols - 1)
 
             // set fixed column widths and get a total of fixed columns, remaining characters to be split among percent width cols
-            ArrayList<BigDecimal> colPercents = new ArrayList<>(numCols)
-            for (int i = 0; i < numCols; i++) colPercents.add(null)
-            int fixedColsTotal = 0
+            ArrayList<BigDecimal> percentWidths = new ArrayList<>(numCols)
+            for (int i = 0; i < numCols; i++) percentWidths.add(null)
+            int fixedColsWidth = 0
             int fixedColsCount = 0
             for (int i = 0; i < numCols; i++) {
                 ArrayList<FtlNodeWrapper> colNodes = (ArrayList<FtlNodeWrapper>) formListColumnInfo.get(i)
-                int charWidth = 0;
-                BigDecimal percentWidth = null;
+                int charWidth = -1
+                BigDecimal percentWidth = null
                 for (int j = 0; j < colNodes.size(); j++) {
                     FtlNodeWrapper fieldFtlNode = (FtlNodeWrapper) colNodes.get(j)
                     MNode fieldNode = fieldFtlNode.getMNode()
                     String pwAttr = fieldNode.attribute("print-width")
                     if (pwAttr == null || pwAttr.isEmpty()) continue
                     BigDecimal curWidth = new BigDecimal(pwAttr)
-                    if (curWidth.intValue() == 0)
+                    if (curWidth == BigDecimal.ZERO) {
+                        charWidth = 0
+                        continue
+                    }
                     if ("characters".equals(fieldNode.attribute("print-width-type"))) {
-                        if (curWidth > charWidth.intValue()) charWidth = curWidth.intValue()
+                        if (curWidth.intValue() > charWidth) charWidth = curWidth.intValue()
                     } else {
                         if (percentWidth == null || curWidth > percentWidth) percentWidth = curWidth
                     }
                 }
-                if (charWidth > 0) {
-                    if (percentWidth > 0) {
+                if (charWidth >= 0) {
+                    if (percentWidth != null) {
                         // if we have char and percent widths, calculate effective chars of percent width and if greater use that
                         int percentChars = ((percentWidth / 100) * lineWidth).intValue()
                         if (percentChars < charWidth) {
                             charWidths.set(i, charWidth)
-                            fixedColsTotal += charWidth
+                            fixedColsWidth += charWidth
                             fixedColsCount++
                         } else {
-                            colPercents.set(i, percentWidth)
+                            percentWidths.set(i, percentWidth)
                         }
                     } else {
                         charWidths.set(i, charWidth)
-                        fixedColsTotal += charWidth
+                        fixedColsWidth += charWidth
                         fixedColsCount++
                     }
                 } else {
-                    if (percentWidth > 0) colPercents.set(i, percentWidth)
+                    if (percentWidth != null) percentWidths.set(i, percentWidth)
                 }
             }
 
             // now we have all fixed widths, calculate and set percent widths
-            int remainingWidth = lineWidth - fixedColsTotal
-            if (remainingWidth < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total width ${lineWidth} by ${-remainingWidth} characteres")
-            int remainingCols = numCols - fixedColsCount
+            int widthForPercentCols = lineWidth - fixedColsWidth
+            if (widthForPercentCols < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total width ${lineWidth} by ${-widthForPercentCols} characteres")
+            int percentColsCount = numCols - fixedColsCount
 
             // scale column percents to 100, fill in missing
             BigDecimal percentTotal = 0
             for (int i = 0; i < numCols; i++) {
-                BigDecimal colPercent = (BigDecimal) colPercents.get(i)
+                BigDecimal colPercent = (BigDecimal) percentWidths.get(i)
                 if (colPercent == null) {
                     if (charWidths.get(i) != null) continue
-                    BigDecimal percentWidth = (1 / remainingCols) * 100
-                    colPercents.set(i, percentWidth)
+                    BigDecimal percentWidth = (1 / percentColsCount) * 100
+                    percentWidths.set(i, percentWidth)
                     percentTotal += percentWidth
                 } else {
                     percentTotal += colPercent
@@ -1210,18 +1213,33 @@ class ScreenForm {
             int percentColsUsed = 0
             BigDecimal percentScale = 100 / percentTotal
             for (int i = 0; i < numCols; i++) {
-                BigDecimal colPercent = (BigDecimal) colPercents.get(i)
+                BigDecimal colPercent = (BigDecimal) percentWidths.get(i)
                 if (colPercent == null) continue
                 BigDecimal actualPercent = colPercent * percentScale
-                int percentChars = ((actualPercent / 100.0) * lineWidth).setScale(0, RoundingMode.HALF_EVEN).intValue()
+                percentWidths.set(i, actualPercent)
+                int percentChars = ((actualPercent / 100.0) * widthForPercentCols).setScale(0, RoundingMode.HALF_EVEN).intValue()
                 charWidths.set(i, percentChars)
                 percentColsUsed += percentChars
             }
 
             // adjust for over/underflow
-            if (percentColsUsed != remainingCols) charWidths.set(numCols - 1, ((Integer) charWidths.get(numCols - 1)).intValue() - (percentColsUsed - remainingWidth))
+            if (percentColsUsed != widthForPercentCols) {
+                int diffRemaining = widthForPercentCols - percentColsUsed
+                int diffPerCol = (diffRemaining / percentColsCount).setScale(0, RoundingMode.UP).intValue()
+                for (int i = 0; i < numCols; i++) {
+                    if (percentWidths.get(i) == null) continue
+                    Integer curChars = charWidths.get(i)
+                    int adjustAmount = Math.abs(diffRemaining) > Math.abs(diffPerCol) ? diffPerCol : diffRemaining
+                    int newChars = curChars + adjustAmount
+                    if (newChars > 0) {
+                        charWidths.set(i, newChars)
+                        diffRemaining -= adjustAmount
+                        if (diffRemaining == 0) break
+                    }
+                }
+            }
 
-            logger.warn("numCols=${numCols}, percentColsUsed=${percentColsUsed}, remainingWidth=${remainingWidth}, remainingCols=${remainingCols}\ncharWidths: ${charWidths}")
+            logger.warn("numCols=${numCols}, percentColsUsed=${percentColsUsed}, widthForPercentCols=${widthForPercentCols}, percentColsCount=${percentColsCount}\npercentWidths: ${percentWidths}\ncharWidths: ${charWidths}")
             return charWidths
         }
 
