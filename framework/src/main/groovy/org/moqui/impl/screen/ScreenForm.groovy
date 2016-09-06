@@ -33,6 +33,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.math.RoundingMode
 import java.sql.Timestamp
 
 @CompileStatic
@@ -1135,6 +1136,93 @@ class ScreenForm {
             }
 
             return null
+        }
+
+        ArrayList<Integer> getFormListColumnCharWidths(ArrayList<ArrayList<FtlNodeWrapper>> formListColumnInfo, int lineWidth) {
+            int numCols = formListColumnInfo.size()
+            ArrayList<Integer> charWidths = new ArrayList<>(numCols)
+            for (int i = 0; i < numCols; i++) charWidths.add(null)
+            if (lineWidth == 0) lineWidth = 132
+            // leave room for 1 space between each column
+            lineWidth -= (numCols - 1)
+
+            // set fixed column widths and get a total of fixed columns, remaining characters to be split among percent width cols
+            ArrayList<BigDecimal> colPercents = new ArrayList<>(numCols)
+            for (int i = 0; i < numCols; i++) colPercents.add(null)
+            int fixedColsTotal = 0
+            int fixedColsCount = 0
+            for (int i = 0; i < numCols; i++) {
+                ArrayList<FtlNodeWrapper> colNodes = (ArrayList<FtlNodeWrapper>) formListColumnInfo.get(i)
+                int charWidth = 0;
+                BigDecimal percentWidth = null;
+                for (int j = 0; j < colNodes.size(); j++) {
+                    FtlNodeWrapper fieldFtlNode = (FtlNodeWrapper) colNodes.get(j)
+                    MNode fieldNode = fieldFtlNode.getMNode()
+                    String pwAttr = fieldNode.attribute("print-width")
+                    if (pwAttr == null || pwAttr.isEmpty()) continue
+                    BigDecimal curWidth = new BigDecimal(pwAttr)
+                    if (curWidth.intValue() == 0)
+                    if ("characters".equals(fieldNode.attribute("print-width-type"))) {
+                        if (curWidth > charWidth.intValue()) charWidth = curWidth.intValue()
+                    } else {
+                        if (percentWidth == null || curWidth > percentWidth) percentWidth = curWidth
+                    }
+                }
+                if (charWidth > 0) {
+                    if (percentWidth > 0) {
+                        // if we have char and percent widths, calculate effective chars of percent width and if greater use that
+                        int percentChars = ((percentWidth / 100) * lineWidth).intValue()
+                        if (percentChars < charWidth) {
+                            charWidths.set(i, charWidth)
+                            fixedColsTotal += charWidth
+                            fixedColsCount++
+                        } else {
+                            colPercents.set(i, percentWidth)
+                        }
+                    } else {
+                        charWidths.set(i, charWidth)
+                        fixedColsTotal += charWidth
+                        fixedColsCount++
+                    }
+                } else {
+                    if (percentWidth > 0) colPercents.set(i, percentWidth)
+                }
+            }
+
+            // now we have all fixed widths, calculate and set percent widths
+            int remainingWidth = lineWidth - fixedColsTotal
+            if (remainingWidth < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total width ${lineWidth} by ${-remainingWidth} characteres")
+            int remainingCols = numCols - fixedColsCount
+
+            // scale column percents to 100, fill in missing
+            BigDecimal percentTotal = 0
+            for (int i = 0; i < numCols; i++) {
+                BigDecimal colPercent = (BigDecimal) colPercents.get(i)
+                if (colPercent == null) {
+                    if (charWidths.get(i) != null) continue
+                    BigDecimal percentWidth = (1 / remainingCols) * 100
+                    colPercents.set(i, percentWidth)
+                    percentTotal += percentWidth
+                } else {
+                    percentTotal += colPercent
+                }
+            }
+            int percentColsUsed = 0
+            BigDecimal percentScale = 100 / percentTotal
+            for (int i = 0; i < numCols; i++) {
+                BigDecimal colPercent = (BigDecimal) colPercents.get(i)
+                if (colPercent == null) continue
+                BigDecimal actualPercent = colPercent * percentScale
+                int percentChars = ((actualPercent / 100.0) * lineWidth).setScale(0, RoundingMode.HALF_EVEN).intValue()
+                charWidths.set(i, percentChars)
+                percentColsUsed += percentChars
+            }
+
+            // adjust for over/underflow
+            if (percentColsUsed != remainingCols) charWidths.set(numCols - 1, ((Integer) charWidths.get(numCols - 1)).intValue() - (percentColsUsed - remainingWidth))
+
+            logger.warn("numCols=${numCols}, percentColsUsed=${percentColsUsed}, remainingWidth=${remainingWidth}, remainingCols=${remainingCols}\ncharWidths: ${charWidths}")
+            return charWidths
         }
 
         ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
