@@ -274,12 +274,29 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
+        Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF")
+        while (resources.hasMoreElements()) {
+            try {
+                Manifest manifest = new Manifest(resources.nextElement().openStream())
+                Attributes attributes = manifest.getMainAttributes()
+                String implTitle = attributes.getValue("Implementation-Title")
+                String implVendor = attributes.getValue("Implementation-Vendor")
+                if ("Moqui Framework".equals(implTitle) && "Moqui Ecosystem".equals(implVendor)) {
+                    moquiVersion = attributes.getValue("Implementation-Version")
+                    break
+                }
+            } catch (IOException e) {
+                logger.info("Error reading manifest files", e)
+            }
+        }
+        System.setProperty("moqui.version", moquiVersion)
+
         // don't set the moqui.runtime and moqui.conf system properties as before, causes conflict with multiple moqui instances in one JVM
         // NOTE: moqui.runtime is set in MoquiStart and in MoquiContextListener (if there is an embedded runtime directory)
         // System.setProperty("moqui.runtime", runtimePath)
         // System.setProperty("moqui.conf", runtimeConfPath)
 
-        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
+        logger.info("Initializing Moqui Framework version ${moquiVersion ?: 'Unknown'}\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
@@ -371,24 +388,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         } catch (UnknownHostException e) {
             logger.warn("Could not get localhost address", new BaseException("Could not get localhost address", e))
         }
-
-        Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF")
-        while (resources.hasMoreElements()) {
-            try {
-                Manifest manifest = new Manifest(resources.nextElement().openStream())
-                Attributes attributes = manifest.getMainAttributes()
-                String implTitle = attributes.getValue("Implementation-Title")
-                String implVendor = attributes.getValue("Implementation-Vendor")
-                if ("Moqui Framework".equals(implTitle) && "Moqui Ecosystem".equals(implVendor)) {
-                    moquiVersion = attributes.getValue("Implementation-Version")
-                    break
-                }
-            } catch (IOException e) {
-                logger.info("Error reading manifest files", e)
-            }
-        }
-        if (moquiVersion) logger.info("Running Moqui Framework version ${moquiVersion}")
-        else logger.warn("Moqui Framework version not found from MANIFEST.MF file")
 
         // init ClassLoader early so that classpath:// resources and framework interface impls will work
         initClassLoader()
