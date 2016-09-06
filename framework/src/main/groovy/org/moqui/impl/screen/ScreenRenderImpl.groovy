@@ -184,7 +184,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (response != null) {
             response.sendRedirect(redirectUrl)
             dontDoRender = true
-            logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+            if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
         }
     }
 
@@ -233,6 +233,8 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     protected void internalRender() {
+        long renderStartTime = System.currentTimeMillis()
+
         rootScreenDef = sfi.getScreenDefinition(rootScreenLocation)
         if (rootScreenDef == null) throw new BaseException("Could not find root screen at location [${rootScreenLocation}]")
 
@@ -323,7 +325,6 @@ class ScreenRenderImpl implements ScreenRender {
                 }
             }
 
-            long transitionStartTime = System.currentTimeMillis()
             long startTimeNanos = System.nanoTime()
 
             TransactionFacade transactionFacade = sfi.getEcfi().transactionFacade
@@ -353,7 +354,7 @@ class ScreenRenderImpl implements ScreenRender {
                     String riType = ri != null ? ri.type : null
                     sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, riType != null ? riType : "",
                             targetTransition.parentScreen.getLocation() + "#" + targetTransition.name,
-                            (web != null ? web.requestParameters : null), transitionStartTime,
+                            (web != null ? web.requestParameters : null), renderStartTime,
                             (System.nanoTime() - startTimeNanos)/1E6, null)
                 }
             }
@@ -370,7 +371,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if ("none".equals(ri.type)) {
-                logger.info("Transition ${getScreenUrlInfo().getFullPathNameList().join("/")} in ${System.currentTimeMillis() - transitionStartTime}ms, type none response")
+                if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, type none response")
                 return
             }
 
@@ -424,7 +425,7 @@ class ScreenRenderImpl implements ScreenRender {
                         fullUrl += ps.toString()
                     }
                     // NOTE: even if transition extension is json still send redirect when we just have a plain url
-                    logger.info("Transition ${getScreenUrlInfo().getFullPathNameList().join("/")} in ${System.currentTimeMillis() - transitionStartTime}ms, redirecting to plain URL: ${fullUrl}")
+                    if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to plain URL: ${fullUrl}")
                     response.sendRedirect(fullUrl)
                 } else {
                     // default is screen-path
@@ -478,7 +479,7 @@ class ScreenRenderImpl implements ScreenRender {
                         web.sendJsonResponse(responseMap)
                     } else {
                         String fullUrlString = fullUrl.getMinimalPathUrlWithParams()
-                        logger.info("Transition ${getScreenUrlInfo().getFullPathNameList().join("/")} in ${System.currentTimeMillis() - transitionStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
+                        if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
                     }
                 }
@@ -534,7 +535,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (is != null) is.close()
                     }
                 } else {
-                    throw new IllegalArgumentException("Tried to get binary content at [${screenUrlInfo.fileResourcePathList}] under screen [${screenUrlInfo.targetScreen.location}], but there is no HTTP response available")
+                    throw new IllegalArgumentException("Tried to get binary content at ${screenUrlInfo.fileResourcePathList} under screen ${screenUrlInfo.targetScreen.location}, but there is no HTTP response available")
                 }
             } else if (!"true".equals(screenUrlInfo.targetScreen.screenNode.attribute("include-child-content"))) {
                 // not a binary object (hopefully), read it and write it to the writer
@@ -580,6 +581,8 @@ class ScreenRenderImpl implements ScreenRender {
             }
         } else {
             doActualRender()
+            if (response != null && logger.isInfoEnabled())
+                logger.info("${screenUrlInfo.getFullPathNameList().join("/")} in ${(System.currentTimeMillis()-renderStartTime)}ms (${response.getContentType()}) session ${request.session.id}")
         }
     }
 
@@ -711,8 +714,8 @@ class ScreenRenderImpl implements ScreenRender {
             renderStartDef.render(this, screenUrlInfo.screenRenderDefList.size() == 1)
 
             // if these aren't already cleared it out means they haven't been included in the output, so add them here
-            if (afterScreenWriter) internalWriter.write(afterScreenWriter.toString())
-            if (scriptWriter) {
+            if (afterScreenWriter != null) internalWriter.write(afterScreenWriter.toString())
+            if (scriptWriter != null) {
                 internalWriter.write("\n<script>\n")
                 internalWriter.write(scriptWriter.toString())
                 internalWriter.write("\n</script>\n")
@@ -758,7 +761,7 @@ class ScreenRenderImpl implements ScreenRender {
         String userId = ec.getUser().getUserId()
         if ((requireAuthentication == null || requireAuthentication.length() == 0 || requireAuthentication == "true")
                 && (userId == null || userId.length() == 0) && !ec.userFacade.getLoggedInAnonymous()) {
-            logger.info("Screen at location [${currentSd.location}], which is part of [${screenUrlInfo.fullPathNameList}] under screen [${screenUrlInfo.fromSd.location}] requires authentication but no user is currently logged in.")
+            if (logger.isInfoEnabled()) logger.info("Screen at location ${currentSd.location}, which is part of ${screenUrlInfo.fullPathNameList} under screen ${screenUrlInfo.fromSd.location} requires authentication but no user is currently logged in.")
             // save the request as a save-last to use after login
             if (wfi != null && screenUrlInfo.fileResourceRef == null) {
                 StringBuilder screenPath = new StringBuilder()
@@ -802,7 +805,7 @@ class ScreenRenderImpl implements ScreenRender {
         MNode webappNode = sfi.getWebappNode(webappName)
         if (!request.isSecure() && (webSettingsNode == null || webSettingsNode.attribute("require-encryption") != "false") &&
                 webappNode != null && webappNode.attribute("https-enabled") != "false") {
-            logger.info("Screen at location [${currentSd.location}], which is part of [${screenUrlInfo.fullPathNameList}] under screen [${screenUrlInfo.fromSd.location}] requires an encrypted/secure connection but the request is not secure, sending redirect to secure.")
+            if (logger.isInfoEnabled()) logger.info("Screen at location ${currentSd.location}, which is part of ${screenUrlInfo.fullPathNameList} under screen ${screenUrlInfo.fromSd.location} requires an encrypted/secure connection but the request is not secure, sending redirect to secure.")
             // save messages in session before redirecting so they can be displayed on the next screen
             if (wfi != null) wfi.saveMessagesToSession()
             // redirect to the same URL this came to
