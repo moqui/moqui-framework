@@ -1163,6 +1163,8 @@ class ScreenForm {
                     BigDecimal curWidth = new BigDecimal(pwAttr)
                     if (curWidth == BigDecimal.ZERO) {
                         charWidth = 0
+                        // no separator char needed for columns not displayed so add back to lineWidth
+                        lineWidth++
                         continue
                     }
                     if ("characters".equals(fieldNode.attribute("print-width-type"))) {
@@ -1239,7 +1241,7 @@ class ScreenForm {
                 }
             }
 
-            logger.warn("numCols=${numCols}, percentColsUsed=${percentColsUsed}, widthForPercentCols=${widthForPercentCols}, percentColsCount=${percentColsCount}\npercentWidths: ${percentWidths}\ncharWidths: ${charWidths}")
+            logger.info("Text mode form-list: numCols=${numCols}, percentColsUsed=${percentColsUsed}, widthForPercentCols=${widthForPercentCols}, percentColsCount=${percentColsCount}\npercentWidths: ${percentWidths}\ncharWidths: ${charWidths}")
             return charWidths
         }
 
