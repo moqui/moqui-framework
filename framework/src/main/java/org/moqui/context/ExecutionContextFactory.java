@@ -40,6 +40,7 @@ public interface ExecutionContextFactory {
 
     /** Get the path of the runtime directory */
     String getRuntimePath();
+    String getMoquiVersion();
 
     /** Get the named ToolFactory instance (loaded by configuration) */
     <V> ToolFactory<V> getToolFactory(String toolName);

@@ -57,7 +57,9 @@ import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.jar.Attributes
 import java.util.jar.JarFile
+import java.util.jar.Manifest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -74,6 +76,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess")
     protected final MNode confXmlRoot
     protected MNode serverStatsNode
+    protected String moquiVersion = ""
 
     protected StupidClassLoader stupidClassLoader
     protected GroovyClassLoader groovyClassLoader
@@ -369,6 +372,24 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Could not get localhost address", new BaseException("Could not get localhost address", e))
         }
 
+        Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF")
+        while (resources.hasMoreElements()) {
+            try {
+                Manifest manifest = new Manifest(resources.nextElement().openStream())
+                Attributes attributes = manifest.getMainAttributes()
+                String implTitle = attributes.getValue("Implementation-Title")
+                String implVendor = attributes.getValue("Implementation-Vendor")
+                if ("Moqui Framework".equals(implTitle) && "Moqui Ecosystem".equals(implVendor)) {
+                    moquiVersion = attributes.getValue("Implementation-Version")
+                    break
+                }
+            } catch (IOException e) {
+                logger.info("Error reading manifest files", e)
+            }
+        }
+        if (moquiVersion) logger.info("Running Moqui Framework version ${moquiVersion}")
+        else logger.warn("Moqui Framework version not found from MANIFEST.MF file")
+
         // init ClassLoader early so that classpath:// resources and framework interface impls will work
         initClassLoader()
 
@@ -635,6 +656,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @Override
     String getRuntimePath() { return runtimePath }
+    @Override
+    String getMoquiVersion() { return moquiVersion }
     MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
