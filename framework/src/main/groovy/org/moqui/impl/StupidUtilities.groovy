@@ -723,4 +723,8 @@ class StupidUtilities {
     static final String removeNonumericCharacters(String inputValue) {
         return inputValue.replaceAll("[^\\d]", "")
     }
+
+    static final String removeCommas(String inputValue) {
+        return inputValue.replaceAll(",", ".")
+    }
 }
