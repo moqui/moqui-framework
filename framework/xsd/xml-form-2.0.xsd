@@ -252,15 +252,18 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element ref="field-group"/>
-                <xs:element ref="field-row"/>
-                <xs:element ref="field-row-big"/>
+                <xs:element name="field-accordion"><xs:complexType>
+                    <xs:sequence><xs:element maxOccurs="unbounded" ref="field-group"/></xs:sequence>
+                    <xs:attribute name="collapsible" type="boolean"/>
+                    <xs:attribute name="active" type="xs:string"><xs:annotation><xs:documentation>If collapsible=true use this
+                        to specify the accordion section index to be open, or false for all to be closed.</xs:documentation></xs:annotation></xs:attribute>
+                </xs:complexType></xs:element>
                 <xs:element ref="field-ref"/>
                 <xs:element ref="fields-not-referenced"/>
+                <xs:element ref="field-row"/>
+                <xs:element ref="field-row-big"/>
             </xs:choice>
             <xs:attribute name="id" type="xs:string"/>
-            <xs:attribute name="collapsible" type="boolean"/>
-            <xs:attribute name="active" type="xs:string"><xs:annotation><xs:documentation>If collapsible=true use this
-                to specify the accordion section index to be open, or false for all to be closed.</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="field-group">
@@ -269,6 +272,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="field-ref"/>
                 <xs:element ref="fields-not-referenced"/>
                 <xs:element ref="field-row"/>
+                <xs:element ref="field-row-big"/>
             </xs:choice>
             <xs:attribute name="title" type="xs:string" use="required"/>
             <xs:attribute name="style" type="xs:string"/>
