@@ -206,8 +206,13 @@ class UrlResourceReference extends BaseResourceReference {
         if (!isFileProtocol)
             throw new IllegalArgumentException("Move not supported for resource [${getLocation()}] with protocol [${locationUrl?.protocol}]")
 
+        File curFile = getFile()
+        if (!curFile.exists()) return
         String path = newRr.getUrl().toExternalForm().substring(5)
-        getFile().renameTo(new File(path))
+        File newFile = new File(path)
+        File newFileParent = newFile.getParentFile()
+        if (newFileParent != null && !newFileParent.exists()) newFileParent.mkdirs()
+        curFile.renameTo(newFile)
     }
 
     @Override

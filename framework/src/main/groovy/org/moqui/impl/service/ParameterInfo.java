@@ -14,7 +14,6 @@
 package org.moqui.impl.service;
 
 import org.moqui.impl.StupidClassLoader;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.StupidWebUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
@@ -28,8 +27,9 @@ import java.math.BigDecimal;
 import java.text.MessageFormat;
 import java.util.*;
 
-public class ServiceJavaUtil {
-    protected final static Logger logger = LoggerFactory.getLogger(ServiceJavaUtil.class);
+/** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT */
+public class ParameterInfo {
+    protected final static Logger logger = LoggerFactory.getLogger(ParameterInfo.class);
 
     public enum ParameterAllowHtml { ANY, SAFE, NONE }
     public enum ParameterType { STRING, INTEGER, LONG, FLOAT, DOUBLE, BIG_DECIMAL, BIG_INTEGER, TIME, DATE, TIMESTAMP, LIST, SET }
@@ -51,96 +51,116 @@ public class ServiceJavaUtil {
         typeEnumByString.put("Set", ParameterType.SET); typeEnumByString.put("java.util.Set", ParameterType.SET);
     }
 
-    /** This is a dumb data holder class for framework internal use only; in Java for efficiency as it is used a LOT */
-    public static class ParameterInfo {
-        public ServiceDefinition sd;
-        public String serviceName;
-        public MNode parameterNode;
-        public String name, type, format;
-        public ParameterType parmType;
-        public Class parmClass;
+    public final ServiceDefinition sd;
+    public final String serviceName;
+    public final MNode parameterNode;
+    public final String name, type, format;
+    public final ParameterType parmType;
+    public final Class parmClass;
 
-        public String entityName, fieldName;
-        public String defaultStr, defaultValue;
-        public boolean required;
-        public boolean disabled;
-        public ParameterAllowHtml allowHtml;
+    public final String entityName, fieldName;
+    public final String defaultStr, defaultValue;
+    public final boolean defaultValueNeedsExpand;
+    public final boolean hasDefault;
+    public final boolean thisOrChildHasDefault;
+    public final boolean required;
+    public final boolean disabled;
+    public final ParameterAllowHtml allowHtml;
+    public final boolean allowSafe;
 
-        public Map<String, ParameterInfo> childParameterInfoMap = new HashMap<>();
-        public List<MNode> subtypeNodeList = null;
-        public List<MNode> validationNodeList = new ArrayList<>();
+    public final ParameterInfo[] childParameterInfoArray;
 
-        public ParameterInfo(ServiceDefinition sd, MNode parameterNode) {
-            this.sd = sd;
-            this.parameterNode = parameterNode;
-            serviceName = sd.getServiceName();
+    public final ArrayList<MNode> validationNodeList;
 
-            name = parameterNode.attribute("name");
-            type = parameterNode.attribute("type");
-            if (type == null || type.length() == 0) type = "String";
-            parmType = typeEnumByString.get(type);
-            parmClass = StupidClassLoader.commonJavaClassesMap.get(type);
+    public ParameterInfo(ServiceDefinition sd, MNode parameterNode) {
+        this.sd = sd;
+        this.parameterNode = parameterNode;
+        serviceName = sd.serviceName;
 
-            format = parameterNode.attribute("format");
-            entityName = parameterNode.attribute("entity-name");
-            fieldName = parameterNode.attribute("field-name");
-            defaultStr = parameterNode.attribute("default");
-            defaultValue = parameterNode.attribute("default-value");
-            required = "true".equals(parameterNode.attribute("required"));
-            disabled = "disabled".equals(parameterNode.attribute("required"));
+        name = parameterNode.attribute("name");
+        String typeAttr = parameterNode.attribute("type");
+        type = typeAttr == null || typeAttr.isEmpty() ? "String" : typeAttr;
+        parmType = typeEnumByString.get(type);
+        parmClass = StupidClassLoader.commonJavaClassesMap.get(type);
 
-            String allowHtmlStr = parameterNode.attribute("allow-html");
-            if ("any".equals(allowHtmlStr)) allowHtml = ParameterAllowHtml.ANY;
-            else if ("safe".equals(allowHtmlStr)) allowHtml = ParameterAllowHtml.SAFE;
-            else allowHtml = ParameterAllowHtml.NONE;
+        format = parameterNode.attribute("format");
+        entityName = parameterNode.attribute("entity-name");
+        fieldName = parameterNode.attribute("field-name");
 
-            for (MNode childParmNode: parameterNode.children("parameter")) {
-                String name = childParmNode.attribute("name");
-                childParameterInfoMap.put(name, new ParameterInfo(sd, childParmNode));
-            }
-            if (parameterNode.hasChild("subtype")) subtypeNodeList = parameterNode.children("subtype");
+        String defaultTmp = parameterNode.attribute("default");
+        if (defaultTmp != null && defaultTmp.isEmpty()) defaultTmp = null;
+        defaultStr = defaultTmp;
+        String defaultValTmp = parameterNode.attribute("default-value");
+        if (defaultValTmp != null && defaultValTmp.isEmpty()) defaultValTmp = null;
+        defaultValue = defaultValTmp;
+        hasDefault = defaultStr != null || defaultValue != null;
+        defaultValueNeedsExpand = defaultValue != null && defaultValue.contains("${");
 
-            for (MNode child: parameterNode.getChildren()) {
-                if ("description".equals(child.getName()) || "subtype".equals(child.getName()) || "parameter".equals(child.getName())) continue;
-                validationNodeList.add(child);
-            }
+        required = "true".equals(parameterNode.attribute("required"));
+        disabled = "disabled".equals(parameterNode.attribute("required"));
+
+        String allowHtmlStr = parameterNode.attribute("allow-html");
+        if ("any".equals(allowHtmlStr)) allowHtml = ParameterAllowHtml.ANY;
+        else if ("safe".equals(allowHtmlStr)) allowHtml = ParameterAllowHtml.SAFE;
+        else allowHtml = ParameterAllowHtml.NONE;
+        allowSafe = ParameterAllowHtml.SAFE == allowHtml;
+
+        Map<String, ParameterInfo> childParameterInfoMap = new HashMap<>();
+        ArrayList<String> parmNameList = new ArrayList<>();
+        for (MNode childParmNode: parameterNode.children("parameter")) {
+            String name = childParmNode.attribute("name");
+            childParameterInfoMap.put(name, new ParameterInfo(sd, childParmNode));
+            parmNameList.add(name);
         }
+        int parmNameListSize = parmNameList.size();
+        childParameterInfoArray = new ParameterInfo[parmNameListSize];
+        boolean childHasDefault = false;
+        for (int i = 0; i < parmNameListSize; i++) {
+            String parmName = parmNameList.get(i);
+            ParameterInfo pi = childParameterInfoMap.get(parmName);
+            childParameterInfoArray[i] = pi;
+            if (pi.thisOrChildHasDefault) childHasDefault = true;
+        }
+        thisOrChildHasDefault = hasDefault || childHasDefault;
 
-        boolean typeMatches(Object value) {
-            if (parmClass != null) return parmClass.isInstance(value);
-            return StupidJavaUtilities.isInstanceOf(value, type);
+        ArrayList<MNode> tempValidationNodeList = new ArrayList<>();
+        for (MNode child: parameterNode.getChildren()) {
+            if ("description".equals(child.getName()) || "parameter".equals(child.getName())) continue;
+            tempValidationNodeList.add(child);
+        }
+        if (tempValidationNodeList.size() > 0) {
+            validationNodeList = tempValidationNodeList;
+        } else {
+            validationNodeList = null;
         }
     }
 
     /** Currently used only in ServiceDefinition.checkParameterMap() */
-    public static Object convertType(ParameterInfo pi, String namePrefix, String parameterName, Object parameterValue,
-                                          ExecutionContextImpl eci) {
+    Object convertType(String namePrefix, Object parameterValue, boolean isString, ExecutionContextImpl eci) {
         // no need to check for null, only called with parameterValue not empty
         // if (parameterValue == null) return null;
         // no need to check for type match, only called when types don't match
         // if (StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
 
-        String type = pi.type;
         // do type conversion if possible
-        String format = pi.format;
         Object converted = null;
-        boolean isString = parameterValue instanceof CharSequence;
         boolean isEmptyString = isString && ((CharSequence) parameterValue).length() == 0;
-        if (pi.parmType != null && isString && !isEmptyString) {
+        if (parmType != null && isString && !isEmptyString) {
             String valueStr = parameterValue.toString();
             // try some String to XYZ specific conversions for parsing with format, locale, etc
-            switch (pi.parmType) {
+            switch (parmType) {
                 case INTEGER:
                 case LONG:
                 case FLOAT:
                 case DOUBLE:
                 case BIG_DECIMAL:
                 case BIG_INTEGER:
-                    BigDecimal bdVal = eci.getL10n().parseNumber(valueStr, format);
+                    BigDecimal bdVal = eci.l10nFacade.parseNumber(valueStr, format);
                     if (bdVal == null) {
-                        eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                        eci.messageFacade.addValidationError(null, namePrefix + name, serviceName,
+                                MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     } else {
-                        switch (pi.parmType) {
+                        switch (parmType) {
                             case INTEGER: converted = bdVal.intValue(); break;
                             case LONG: converted = bdVal.longValue(); break;
                             case FLOAT: converted = bdVal.floatValue(); break;
@@ -151,16 +171,19 @@ public class ServiceJavaUtil {
                     }
                     break;
                 case TIME:
-                    converted = eci.getL10n().parseTime(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                    converted = eci.l10nFacade.parseTime(valueStr, format);
+                    if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + name,
+                            serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     break;
                 case DATE:
-                    converted = eci.getL10n().parseDate(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                    converted = eci.l10nFacade.parseDate(valueStr, format);
+                    if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + name,
+                            serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     break;
                 case TIMESTAMP:
-                    converted = eci.getL10n().parseTimestamp(valueStr, format);
-                    if (converted == null) eci.getMessage().addValidationError(null, namePrefix + parameterName, pi.serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
+                    converted = eci.l10nFacade.parseTimestamp(valueStr, format);
+                    if (converted == null) eci.messageFacade.addValidationError(null, namePrefix + name,
+                            serviceName, MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);
                     break;
                 case LIST:
                     // strip off square braces
@@ -199,41 +222,33 @@ public class ServiceJavaUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public static Object validateParameterHtml(ParameterInfo parameterInfo, ServiceDefinition sd, String namePrefix,
-                                               String parameterName, Object parameterValue, ExecutionContextImpl eci) {
+    Object validateParameterHtml(String namePrefix, Object parameterValue, boolean isString, ExecutionContextImpl eci) {
         // check for none/safe/any HTML
-        boolean isString = parameterValue instanceof CharSequence;
-        if ((isString || parameterValue instanceof List) && ParameterAllowHtml.ANY != parameterInfo.allowHtml) {
-            boolean allowSafe = ParameterAllowHtml.SAFE == parameterInfo.allowHtml;
 
-            if (isString) {
-                return canonicalizeAndCheckHtml(sd, namePrefix, parameterName, parameterValue.toString(), allowSafe, eci);
-            } else {
-                List lst = (List) parameterValue;
-                ArrayList<Object> lstClone = new ArrayList<>(lst);
-                int lstSize = lstClone.size();
-                for (int i = 0; i < lstSize; i++) {
-                    Object obj = lstClone.get(i);
-                    if (obj instanceof CharSequence) {
-                        String htmlChecked = canonicalizeAndCheckHtml(sd, namePrefix, parameterName, obj.toString(), allowSafe, eci);
-                        lstClone.set(i, htmlChecked != null ? htmlChecked : obj);
-                    } else {
-                        lstClone.set(i, obj);
-                    }
-                }
-                return lstClone;
-            }
+        if (isString) {
+            return canonicalizeAndCheckHtml(sd, namePrefix, (String) parameterValue, eci);
         } else {
-            // return null so caller knows we changed nothing (incoming parameterValue checked for null before by caller)
-            return null;
+            Collection lst = (Collection) parameterValue;
+            ArrayList<Object> lstClone = new ArrayList<>(lst);
+            int lstSize = lstClone.size();
+            for (int i = 0; i < lstSize; i++) {
+                Object obj = lstClone.get(i);
+                if (obj instanceof CharSequence) {
+                    String htmlChecked = canonicalizeAndCheckHtml(sd, namePrefix, obj.toString(), eci);
+                    lstClone.set(i, htmlChecked != null ? htmlChecked : obj);
+                } else {
+                    lstClone.set(i, obj);
+                }
+            }
+            return lstClone;
         }
     }
-    private static String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterName,
-                                                   String parameterValue, boolean allowSafe, ExecutionContextImpl eci) {
+
+    private String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterValue, ExecutionContextImpl eci) {
         int indexOfEscape = -1;
         int indexOfLessThan = -1;
-        int valueLength = parameterValue.length();
         char[] valueCharArray = parameterValue.toCharArray();
+        int valueLength = valueCharArray.length;
         for (int i = 0; i < valueLength; i++) {
             char curChar = valueCharArray[i];
             if (curChar == '%' || curChar == '&') {
@@ -246,20 +261,14 @@ public class ServiceJavaUtil {
         }
         if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
 
-        String canValue = parameterValue;
-        if (indexOfEscape >= 0) {
-            // don't want to unescape HTML, escaped chars should be preserved or we mess up the HTML: canValue = StringEscapeUtils.unescapeHtml(parameterValue);
-            // don't want to do this either, should be done before this: canValue = new URLCodec().decode(parameterValue);
-        }
-
         if (allowSafe) {
             SafeHtmlChangeListener changes = new SafeHtmlChangeListener(eci, sd);
-            String cleanHtml = StupidWebUtilities.getSafeHtmlPolicy().sanitize(canValue, changes, namePrefix + parameterName);
+            String cleanHtml = StupidWebUtilities.getSafeHtmlPolicy().sanitize(parameterValue, changes, namePrefix.concat(name));
             List<String> cleanChanges = changes.getMessages();
             // use message instead of error, accept cleaned up HTML
             if (cleanChanges.size() > 0) {
                 for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
-                logger.info("Service parameter safe HTML messages for " + sd.getServiceName() + "." + parameterName + ": " + cleanChanges);
+                logger.info("Service parameter safe HTML messages for " + sd.serviceName + "." + name + ": " + cleanChanges);
                 return cleanHtml;
             } else {
                 // nothing changed, return null
@@ -268,7 +277,7 @@ public class ServiceJavaUtil {
         } else {
             // check for "<"; this will protect against HTML/JavaScript injection
             if (indexOfLessThan >= 0) {
-                eci.getMessage().addValidationError(null, namePrefix + parameterName, sd.getServiceName(), eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
+                eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
             }
             // nothing changed, return null
             return null;
@@ -285,14 +294,14 @@ public class ServiceJavaUtil {
         @Override
         public void discardedTag(@Nullable String context, String elementName) {
             messages.add(MessageFormat.format(eci.getL10n().localize("Removed HTML element {0} from field {1} in service {2}"),
-                    elementName, context, sd.getServiceName()));
+                    elementName, context, sd.serviceName));
         }
         @SuppressWarnings("NullableProblems")
         @Override
         public void discardedAttributes(@Nullable String context, String tagName, String... attributeNames) {
             for (String attrName: attributeNames)
                 messages.add(MessageFormat.format(eci.getL10n().localize("Removed attribute {0} from HTML element {1} from field {2} in service {3}"),
-                        attrName, tagName, context, sd.getServiceName()));
+                        attrName, tagName, context, sd.serviceName));
         }
     }
 }

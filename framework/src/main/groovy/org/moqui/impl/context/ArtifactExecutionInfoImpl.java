@@ -43,32 +43,37 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public final String nameInternal;
     public final ArtifactType internalTypeEnum;
     public final AuthzAction internalActionEnum;
-    protected String actionDetail = "";
+    public final String actionDetail;
     protected Map<String, Object> parameters = null;
     public String internalAuthorizedUserId = null;
     public AuthzType internalAuthorizedAuthzType = null;
     public AuthzAction internalAuthorizedActionEnum = null;
     public boolean internalAuthorizationInheritable = false;
-    private Boolean internalAuthzWasRequired = null;
-    private Boolean internalAuthzWasGranted = null;
+    public boolean internalAuthzWasRequired = false;
+    public boolean isAccess = false;
+    public boolean trackArtifactHit = true;
+    private boolean internalAuthzWasGranted = false;
     public ArtifactAuthzCheck internalAacv = null;
 
     //protected Exception createdLocation = null
     private ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null;
-    protected long startTime;
-    private long endTime = 0;
+    public final long startTimeMillis;
+    public final long startTimeNanos;
+    private long endTimeNanos = 0;
+    public Long outputSize = null;
     private ArrayList<ArtifactExecutionInfoImpl> childList = (ArrayList<ArtifactExecutionInfoImpl>) null;
     private long childrenRunningTime = 0;
 
-    public ArtifactExecutionInfoImpl(String name, ArtifactType typeEnum, AuthzAction actionEnum) {
+    public ArtifactExecutionInfoImpl(String name, ArtifactType typeEnum, AuthzAction actionEnum, String detail) {
         nameInternal = name;
         internalTypeEnum = typeEnum;
         internalActionEnum = actionEnum != null ? actionEnum : AUTHZA_ALL;
+        actionDetail = detail;
         //createdLocation = new Exception("Create AEII location for ${name}, type ${typeEnumId}, action ${actionEnumId}")
-        startTime = System.nanoTime();
+        startTimeMillis = System.currentTimeMillis();
+        startTimeNanos = System.nanoTime();
     }
 
-    public ArtifactExecutionInfoImpl setActionDetail(String detail) { this.actionDetail = detail; return this; }
     public ArtifactExecutionInfoImpl setParameters(Map<String, Object> parameters) { this.parameters = parameters; return this; }
 
     @Override
@@ -107,10 +112,14 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     void setAuthorizationInheritable(boolean isAuthorizationInheritable) { this.internalAuthorizationInheritable = isAuthorizationInheritable; }
 
     @Override
-    public Boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
-    void setAuthorizationWasRequired(boolean value) { internalAuthzWasRequired = value ? Boolean.TRUE : Boolean.FALSE; }
+    public boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
+    void setAuthzReqdAndIsAccess(boolean authzReqd, boolean isAccess) {
+        internalAuthzWasRequired = authzReqd;
+        this.isAccess = isAccess;
+    }
+    public void setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; }
     @Override
-    public Boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
+    public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
 
     ArtifactAuthzCheck getAacv() { return internalAacv; }
@@ -134,9 +143,10 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         internalAuthzWasGranted = aeii.internalAuthzWasGranted;
     }
 
-    void setEndTime() { this.endTime = System.nanoTime(); }
+    void setEndTime() { this.endTimeNanos = System.nanoTime(); }
     @Override
-    public long getRunningTime() { return endTime != 0 ? endTime - startTime : 0; }
+    public long getRunningTime() { return endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0; }
+    public double getRunningTimeMillisDouble() { return (endTimeNanos != 0 ? endTimeNanos - startTimeNanos : 0) / 1000000.0; }
     private void calcChildTime(boolean recurse) {
         childrenRunningTime = 0;
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) {
@@ -160,7 +170,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     @Override
     public ArtifactExecutionInfo getParent() { return parentAeii; }
     @Override
-    public BigDecimal getPercentOfParentTime() { return parentAeii != null && endTime != 0 ?
+    public BigDecimal getPercentOfParentTime() { return parentAeii != null && endTimeNanos != 0 ?
         new BigDecimal((getRunningTime() / parentAeii.getRunningTime()) * 100).setScale(2, BigDecimal.ROUND_HALF_UP) : BigDecimal.ZERO; }
 
 

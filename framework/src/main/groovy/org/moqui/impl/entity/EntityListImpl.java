@@ -249,8 +249,8 @@ public class EntityListImpl implements EntityList {
     public EntityList filterByLimit(String inputFieldsMapName, boolean alwaysPaginate) {
         if (fromCache) return this.cloneList().filterByLimit(inputFieldsMapName, alwaysPaginate);
         Map inf = inputFieldsMapName != null && inputFieldsMapName.length() > 0 ?
-                (Map) getEfi().getEcfi().getExecutionContext().getContext().get(inputFieldsMapName) :
-                getEfi().getEcfi().getExecutionContext().getContext();
+                (Map) getEfi().ecfi.getEci().contextStack.get(inputFieldsMapName) :
+                getEfi().ecfi.getEci().contextStack;
         if (alwaysPaginate || inf.get("pageIndex") != null) {
             final Object pageIndexObj = inf.get("pageIndex");
             int pageIndex;
@@ -275,18 +275,12 @@ public class EntityListImpl implements EntityList {
     }
 
     @Override
-    public Integer getOffset() {
-        return this.offset;
-    }
-
+    public Integer getOffset() { return this.offset; }
     @Override
-    public Integer getLimit() {
-        return this.limit;
-    }
+    public Integer getLimit() { return this.limit; }
 
     @Override
     public int getPageIndex() { return (offset != null ? offset : 0) / getPageSize(); }
-
     @Override
     public int getPageSize() { return limit != null ? limit : 20; }
 
@@ -391,7 +385,11 @@ public class EntityListImpl implements EntityList {
 
     public EntityListImpl deepCloneList() {
         EntityListImpl newObj = new EntityListImpl(this.getEfi(), valueList.size());
-        for (EntityValue ev : valueList) newObj.valueList.add(ev.cloneValue());
+        int valueListSize = valueList.size();
+        for (int i = 0; i < valueListSize; i++) {
+            EntityValue ev = valueList.get(i);
+            newObj.valueList.add(ev.cloneValue());
+        }
         return newObj;
     }
 

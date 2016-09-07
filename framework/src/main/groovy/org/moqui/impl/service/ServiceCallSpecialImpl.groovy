@@ -35,17 +35,14 @@ class ServiceCallSpecialImpl extends ServiceCallImpl implements ServiceCallSpeci
     }
 
     @Override
-    ServiceCallSpecial name(String serviceName) { this.setServiceName(serviceName); return this }
-
+    ServiceCallSpecial name(String serviceName) { serviceNameInternal(serviceName); return this }
     @Override
-    ServiceCallSpecial name(String v, String n) { path = null; verb = v; noun = n; return this }
-
+    ServiceCallSpecial name(String v, String n) { serviceNameInternal(null, v, n); return this }
     @Override
-    ServiceCallSpecial name(String p, String v, String n) { path = p; verb = v; noun = n; return this }
+    ServiceCallSpecial name(String p, String v, String n) { serviceNameInternal(p, v, n); return this }
 
     @Override
     ServiceCallSpecial parameters(Map<String, ?> map) { parameters.putAll(map); return this }
-
     @Override
     ServiceCallSpecial parameter(String name, Object value) { parameters.put(name, value); return this }
 

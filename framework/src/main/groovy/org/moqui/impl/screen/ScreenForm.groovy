@@ -15,7 +15,6 @@ package org.moqui.impl.screen
 
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
-import org.apache.commons.collections.map.ListOrderedMap
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
@@ -25,7 +24,7 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.*
-import org.moqui.impl.entity.EntityDefinition.RelationshipInfo
+import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.util.FtlNodeWrapper
@@ -138,7 +137,7 @@ class ScreenForm {
                     addServiceFields(serviceDef, formSubNode.attribute("include")?:"in", formSubNode.attribute("field-type")?:"edit", newFormNode, ecfi)
                     continue
                 }
-                if (ecfi.getServiceFacade().isEntityAutoPattern(serviceName)) {
+                if (ecfi.serviceFacade.isEntityAutoPattern(serviceName)) {
                     EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(ServiceDefinition.getNounFromName(serviceName))
                     if (ed != null) {
                         addEntityFields(ed, "all", formSubNode.attribute("field-type")?:"edit", ServiceDefinition.getVerbFromName(serviceName), newFormNode)
@@ -166,7 +165,7 @@ class ScreenForm {
             TransitionItem ti = this.sd.getTransitionItem(newFormNode.attribute("transition"), null)
             if (ti != null && ti.getSingleServiceName()) {
                 String singleServiceName = ti.getSingleServiceName()
-                ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(singleServiceName)
+                ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(singleServiceName)
                 if (sd != null) {
                     ArrayList<String> inParamNames = sd.getInParameterNames()
                     for (MNode fieldNode in newFormNode.children("field")) {
@@ -176,10 +175,10 @@ class ScreenForm {
                             fieldNode.attributes.put("validate-service", singleServiceName)
                         }
                     }
-                } else if (ecfi.getServiceFacade().isEntityAutoPattern(singleServiceName)) {
+                } else if (ecfi.serviceFacade.isEntityAutoPattern(singleServiceName)) {
                     String entityName = ServiceDefinition.getNounFromName(singleServiceName)
                     EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
-                    List<String> fieldNames = ed.getAllFieldNames(false)
+                    ArrayList<String> fieldNames = ed.getAllFieldNames()
                     for (MNode fieldNode in newFormNode.children("field")) {
                         // if the field matches an in-parameter name and does not already have a validate-entity, then set it
                         if (fieldNames.contains(fieldNode.attribute("name")) && !fieldNode.attribute("validate-entity")) {
@@ -243,11 +242,11 @@ class ScreenForm {
     }
 
     static MNode getDbFormNode(String formId, ExecutionContextFactoryImpl ecfi) {
-        MNode dbFormNode = (MNode) ecfi.getScreenFacade().dbFormNodeByIdCache.get(formId)
+        MNode dbFormNode = (MNode) ecfi.screenFacade.dbFormNodeByIdCache.get(formId)
 
         if (dbFormNode == null) {
 
-            boolean alreadyDisabled = ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
+            boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
             try {
                 EntityValue dbForm = ecfi.getEntityFacade().find("moqui.screen.form.DbForm").condition("formId", formId).useCache(true).one()
                 if (dbForm == null) throw new BaseException("Could not find DbForm record with ID [${formId}]")
@@ -322,9 +321,9 @@ class ScreenForm {
                     mergeFieldNode(dbFormNode, newFieldNode, false)
                 }
 
-                ecfi.getScreenFacade().dbFormNodeByIdCache.put(formId, dbFormNode)
+                ecfi.screenFacade.dbFormNodeByIdCache.put(formId, dbFormNode)
             } finally {
-                if (!alreadyDisabled) ecfi.getExecutionContext().getArtifactExecution().enableAuthz()
+                if (!alreadyDisabled) ecfi.getEci().artifactExecutionFacade.enableAuthz()
             }
         }
 
@@ -332,7 +331,7 @@ class ScreenForm {
     }
 
     boolean isDisplayOnly() {
-        ContextStack cs = ecfi.getEci().getContext()
+        ContextStack cs = ecfi.getEci().contextStack
         return cs.getByString("formDisplayOnly") == "true" || cs.getByString("formDisplayOnly_${formName}") == "true"
     }
 
@@ -526,7 +525,7 @@ class ScreenForm {
     }
 
     void addEntityFields(EntityDefinition ed, String include, String fieldType, String serviceVerb, MNode baseFormNode) {
-        for (String fieldName in ed.getFieldNames(include == "all" || include == "pk", include == "all" || include == "nonpk", include == "all" || include == "nonpk")) {
+        for (String fieldName in ed.getFieldNames(include == "all" || include == "pk", include == "all" || include == "nonpk")) {
             String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
             if (baseFormNode.name == "form-list" && efType in ['text-long', 'text-very-long', 'binary-very-long']) continue
 
@@ -747,7 +746,7 @@ class ScreenForm {
             String fileLocation = templateLocation.substring(0, templateLocation.indexOf("#"))
             String widgetTemplateName = templateLocation.substring(templateLocation.indexOf("#") + 1)
 
-            MNode widgetTemplatesNode = ecfi.getScreenFacade().getWidgetTemplatesNodeByLocation(fileLocation)
+            MNode widgetTemplatesNode = ecfi.screenFacade.getWidgetTemplatesNodeByLocation(fileLocation)
             MNode widgetTemplateNode = widgetTemplatesNode?.first({ MNode it -> it.attribute("name") == widgetTemplateName })
             if (widgetTemplateNode == null) throw new IllegalArgumentException("Could not find widget-template [${widgetTemplateName}] in [${fileLocation}]")
 
@@ -887,9 +886,9 @@ class ScreenForm {
         }
     }
 
-    static ListOrderedMap getFieldOptions(MNode widgetNode, ExecutionContext ec) {
+    static LinkedHashMap<String, String> getFieldOptions(MNode widgetNode, ExecutionContext ec) {
         MNode fieldNode = widgetNode.parent.parent
-        ListOrderedMap options = new ListOrderedMap()
+        LinkedHashMap<String, String> options = new LinkedHashMap<>()
         for (MNode childNode in widgetNode.children) {
             if (childNode.name == "entity-options") {
                 MNode entityFindNode = childNode.first("entity-find")
@@ -930,7 +929,8 @@ class ScreenForm {
                         if (listOption instanceof Map) {
                             addFieldOption(options, fieldNode, childNode, (Map) listOption, ec)
                         } else {
-                            options.put(listOption, listOption)
+                            String loString = StupidJavaUtilities.toPlainString(listOption)
+                            if (loString != null) options.put(loString, loString)
                             // addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
                         }
                     }
@@ -944,9 +944,9 @@ class ScreenForm {
         return options
     }
 
-    static void addFieldOption(ListOrderedMap options, MNode fieldNode, MNode childNode, Map listOption,
+    static void addFieldOption(LinkedHashMap<String, String> options, MNode fieldNode, MNode childNode, Map listOption,
                                ExecutionContext ec) {
-        EntityValueBase listOptionEvb = listOption instanceof EntityValueImpl ? listOption : null
+        EntityValueBase listOptionEvb = listOption instanceof EntityValueBase ? listOption : null
         if (listOptionEvb != null) {
             ec.context.push(listOptionEvb.getMap())
         } else {
@@ -954,23 +954,23 @@ class ScreenForm {
         }
         try {
             String key = null
-            String keyAttr = (String) childNode.attribute('key')
+            String keyAttr = childNode.attribute('key')
             if (keyAttr != null && keyAttr.length() > 0) {
                 key = ec.resource.expand(keyAttr, null)
                 // we just did a string expand, if it evaluates to a literal "null" then there was no value
                 if (key == "null") key = null
             } else if (listOptionEvb != null) {
                 String keyFieldName = listOptionEvb.getEntityDefinition().getPkFieldNames().get(0)
-                if (keyFieldName) key = ec.context.getByString(keyFieldName)
+                if (keyFieldName != null && keyFieldName.length() > 0) key = ec.context.getByString(keyFieldName)
             }
             if (key == null) key = ec.context.getByString(fieldNode.attribute('name'))
             if (key == null) return
 
             String text = childNode.attribute('text')
             if (text == null || text.length() == 0) {
-                if ((listOptionEvb == null || listOptionEvb.getEntityDefinition().isField("description"))
-                        && listOption["description"]) {
-                    options.put(key, listOption["description"])
+                if (listOptionEvb == null || listOptionEvb.getEntityDefinition().isField("description")) {
+                    Object desc = listOption.get("description")
+                    options.put(key, desc != null ? (String) desc : key)
                 } else {
                     options.put(key, key)
                 }
@@ -1050,7 +1050,7 @@ class ScreenForm {
             String validateService = fieldNode.attribute('validate-service')
             String validateEntity = fieldNode.attribute('validate-entity')
             if (validateService) {
-                ServiceDefinition sd = ecfi.getServiceFacade().getServiceDefinition(validateService)
+                ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(validateService)
                 if (sd == null) throw new IllegalArgumentException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
                 MNode parameterNode = sd.getInParameter((String) fieldNode.attribute('validate-parameter') ?: fieldName)
                 return parameterNode
@@ -1313,24 +1313,26 @@ class ScreenForm {
         void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
             // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
             String listEntryStr = formNode.attribute('list-entry')
+            ExecutionContextImpl eci = sri.ec
+            ContextStack context = eci.contextStack
             if (listEntryStr) {
-                sri.ec.context.put(listEntryStr, listEntry)
-                sri.ec.context.put(listEntryStr + "_index", index)
-                sri.ec.context.put(listEntryStr + "_has_next", hasNext)
+                context.put(listEntryStr, listEntry)
+                context.put(listEntryStr + "_index", index)
+                context.put(listEntryStr + "_has_next", hasNext)
             } else {
                 if (listEntry instanceof EntityValueBase) {
-                    sri.ec.context.putAll(((EntityValueBase) listEntry).getValueMap())
+                    context.putAll(((EntityValueBase) listEntry).getValueMap())
                 } else if (listEntry instanceof Map) {
-                    sri.ec.context.putAll((Map) listEntry)
+                    context.putAll((Map) listEntry)
                 } else {
-                    sri.ec.context.put("listEntry", listEntry)
+                    context.put("listEntry", listEntry)
                 }
                 String listStr = formNode.attribute('list')
-                sri.ec.context.put(listStr + "_index", index)
-                sri.ec.context.put(listStr + "_has_next", hasNext)
-                sri.ec.context.put(listStr + "_entry", listEntry)
+                context.put(listStr + "_index", index)
+                context.put(listStr + "_has_next", hasNext)
+                context.put(listStr + "_entry", listEntry)
             }
-            if (rowActions) rowActions.run(sri.ec)
+            if (rowActions != null) rowActions.run(eci)
         }
 
         ArrayList<EntityValue> makeFormListFindFields(String formListFindId, ExecutionContext ec) {
@@ -1467,8 +1469,8 @@ class ScreenForm {
     }
 
     static String processFormSavedFind(ExecutionContextImpl ec) {
-        String userId = ec.user.userId
-        ContextStack cs = ec.context
+        String userId = ec.userFacade.userId
+        ContextStack cs = ec.contextStack
 
         String formListFindId = (String) cs.formListFindId
         EntityValue flf = formListFindId ? ec.entity.find("moqui.screen.form.FormListFind")
@@ -1477,7 +1479,7 @@ class ScreenForm {
         boolean isDelete = cs.containsKey("DeleteFind")
 
         if (isDelete) {
-            if (flf == null) { ec.message.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null; }
+            if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null; }
 
             // delete FormListFindUser record; if there are no other FormListFindUser records or FormListFindUserGroup
             //     records, delete the FormListFind
@@ -1511,7 +1513,7 @@ class ScreenForm {
         if (lastDollarIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return null; }
         String formName = formLocation.substring(lastDollarIndex + 1)
 
-        ScreenDefinition screenDef = ec.ecfi.screenFacade.getScreenDefinition(screenLocation)
+        ScreenDefinition screenDef = ec.screenFacade.getScreenDefinition(screenLocation)
         if (screenDef == null) { ec.message.addError("Screen not found at ${screenLocation}, cannot process saved find"); return null; }
         ScreenForm screenForm = screenDef.getForm(formName)
         if (screenForm == null) { ec.message.addError("Form ${formName} not found in screen at ${screenLocation}, cannot process saved find"); return null; }
@@ -1571,10 +1573,10 @@ class ScreenForm {
     }
 
     static void saveFormConfig(ExecutionContextImpl ec) {
-        String userId = ec.user.userId
-        ContextStack cs = ec.context
+        String userId = ec.userFacade.userId
+        ContextStack cs = ec.contextStack
         String formLocation = cs.get("formLocation")
-        if (!formLocation) { ec.message.addError("No form location specified, cannot save form configuration"); return; }
+        if (!formLocation) { ec.messageFacade.addError("No form location specified, cannot save form configuration"); return; }
 
         // see if there is an existing FormConfig record
         String formConfigId = cs.get("formConfigId")

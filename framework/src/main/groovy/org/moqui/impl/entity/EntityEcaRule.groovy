@@ -108,11 +108,11 @@ class EntityEcaRule {
         }
 
         try {
-            ec.context.push()
-            ec.context.putAll(fieldValues)
-            ec.context.put("entityValue", fieldValues)
-            ec.context.put("originalValue", originalValue)
-            ec.context.put("eecaOperation", operation)
+            ec.contextStack.push()
+            ec.contextStack.putAll(fieldValues)
+            ec.contextStack.put("entityValue", fieldValues)
+            ec.contextStack.put("originalValue", originalValue)
+            ec.contextStack.put("eecaOperation", operation)
 
             // run the condition and if passes run the actions
             boolean conditionPassed = true
@@ -121,7 +121,7 @@ class EntityEcaRule {
                 if (actions) actions.run(ec)
             }
         } finally {
-            ec.context.pop()
+            ec.contextStack.pop()
         }
     }
 

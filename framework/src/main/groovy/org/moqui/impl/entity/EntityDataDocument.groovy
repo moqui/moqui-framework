@@ -49,7 +49,7 @@ class EntityDataDocument {
                              Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
         File outFile = new File(filename)
         if (!outFile.createNewFile()) {
-            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
+            efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
             return 0
         }
 
@@ -61,7 +61,7 @@ class EntityDataDocument {
 
         pw.write("{}\n]\n")
         pw.close()
-        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
+        efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
         return valuesWritten
     }
 
@@ -70,7 +70,7 @@ class EntityDataDocument {
         File outDir = new File(dirname)
         if (!outDir.exists()) outDir.mkdir()
         if (!outDir.isDirectory()) {
-            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('Path ${dirname} is not a directory.','',[dirname:dirname]))
+            efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('Path ${dirname} is not a directory.','',[dirname:dirname]))
             return 0
         }
 
@@ -80,7 +80,7 @@ class EntityDataDocument {
             String filename = "${dirname}/${dataDocumentId}.json"
             File outFile = new File(filename)
             if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping document ${dataDocumentId}.','',[filename:filename,dataDocumentId:dataDocumentId]))
+                efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping document ${dataDocumentId}.','',[filename:filename,dataDocumentId:dataDocumentId]))
                 continue
             }
             outFile.createNewFile()
@@ -92,7 +92,7 @@ class EntityDataDocument {
 
             pw.write("{}\n]\n")
             pw.close()
-            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
+            efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
         }
 
         return valuesWritten
@@ -119,9 +119,9 @@ class EntityDataDocument {
         return valuesWritten
     }
 
-    List<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
+    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
                                Timestamp thruUpdatedStamp) {
-        ExecutionContextImpl eci = efi.getEcfi().getEci()
+        ExecutionContextImpl eci = efi.ecfi.getEci()
 
         EntityValue dataDocument = efi.find("moqui.entity.document.DataDocument")
                 .condition("dataDocumentId", dataDocumentId).useCache(true).one()
@@ -221,19 +221,20 @@ class EntityDataDocument {
                 if (docMap == null) {
                     // add special entries
                     docMap = [_type:dataDocumentId, _id:docId] as Map<String, Object>
-                    docMap.put('_timestamp', eci.getL10nFacade().format(
+                    docMap.put('_timestamp', eci.l10nFacade.format(
                             thruUpdatedStamp ?: new Timestamp(System.currentTimeMillis()), "yyyy-MM-dd'T'HH:mm:ssZ"))
                     String _index = eci.getTenantId()
                     if (dataDocument.indexName) _index = _index + "__" + dataDocument.indexName
                     docMap.put('_index', _index.toLowerCase())
-                    docMap.put('_entity', primaryEd.getShortAlias() ?: primaryEd.getFullEntityName())
+                    docMap.put('_entity', primaryEd.getShortOrFullEntityName())
 
                     // add Map for primary entity
                     Map primaryEntityMap = [:]
                     for (Map.Entry fieldTreeEntry in fieldTree.entrySet()) {
-                        if (fieldTreeEntry.getValue() instanceof String) {
+                        Object entryValue = fieldTreeEntry.getValue()
+                        if (entryValue instanceof String) {
                             if (fieldTreeEntry.getKey() == "_ALIAS") continue
-                            String fieldName = fieldTreeEntry.getValue()
+                            String fieldName = (String) entryValue
                             Object value = ev.get(fieldName)
                             if (value) primaryEntityMap.put(fieldName, value)
                         }
@@ -252,12 +253,12 @@ class EntityDataDocument {
         }
 
         // make the actual list and return it
-        List<Map> documentMapList = []
+        ArrayList<Map> documentMapList = new ArrayList<>(documentMapMap.size())
         for (Map.Entry<String, Map> documentMapEntry in documentMapMap.entrySet()) {
             Map docMap = documentMapEntry.getValue()
             // call the manualDataServiceName service for each document
             if (dataDocument.manualDataServiceName) {
-                Map result = efi.ecfi.getServiceFacade().sync().name((String) dataDocument.manualDataServiceName)
+                Map result = efi.ecfi.serviceFacade.sync().name((String) dataDocument.manualDataServiceName)
                         .parameters([dataDocumentId:dataDocumentId, document:docMap]).call()
                 if (result.document) docMap = (Map) result.document
             }
@@ -314,7 +315,7 @@ class EntityDataDocument {
                 String relationshipName = fieldTreeEntry.getKey()
                 Map fieldTreeChild = (Map) fieldTreeEntry.getValue()
 
-                EntityDefinition.RelationshipInfo relationshipInfo = parentEd.getRelationshipInfo(relationshipName)
+                EntityJavaUtil.RelationshipInfo relationshipInfo = parentEd.getRelationshipInfo(relationshipName)
                 String relDocumentAlias = relationshipAliasMap.get(relationshipName) ?: relationshipInfo.shortAlias ?: relationshipName
                 EntityDefinition relatedEd = relationshipInfo.relatedEd
                 boolean isOneRelationship = relationshipInfo.isTypeOne

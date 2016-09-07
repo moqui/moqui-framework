@@ -13,14 +13,16 @@
  */
 package org.moqui.impl.service.runner
 
-import org.apache.xmlrpc.client.XmlRpcClientConfigImpl
-import org.apache.xmlrpc.client.XmlRpcClient
-import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory
+import groovy.transform.CompileStatic
+// import org.apache.xmlrpc.client.XmlRpcClientConfigImpl
+// import org.apache.xmlrpc.client.XmlRpcClient
+// import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory
 
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.ServiceRunner
 
+@CompileStatic
 public class RemoteXmlrpcServiceRunner implements ServiceRunner {
     protected ServiceFacadeImpl sfi = null
 
@@ -29,6 +31,8 @@ public class RemoteXmlrpcServiceRunner implements ServiceRunner {
     public ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; return this }
 
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
+        throw new IllegalArgumentException("RemoteXmlrpcServiceRunner not currently supported")
+        /*
         String location = sd.serviceNode.attribute("location")
         String method = sd.serviceNode.attribute("method")
         if (!location) throw new IllegalArgumentException("Cannot call remote service [${sd.serviceName}] because it has no location specified.")
@@ -50,6 +54,7 @@ public class RemoteXmlrpcServiceRunner implements ServiceRunner {
         } else {
             return [response:result]
         }
+        */
     }
 
     public void destroy() { }

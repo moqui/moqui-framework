@@ -26,6 +26,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="jobName" type="text-short" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="serviceName" type="text-medium"/>
+        <field name="transactionTimeout" type="number-integer"/>
         <field name="topic" type="text-medium"><description>On completion send a notification to this topic</description></field>
         <field name="localOnly" type="text-indicator"><description>If Y this will be run local only. By default runs on any
             server in a cluster listening for async distributed services (if an async distributed executor is configured).</description></field>

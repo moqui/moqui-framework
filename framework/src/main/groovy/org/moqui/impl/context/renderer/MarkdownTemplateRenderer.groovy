@@ -46,7 +46,7 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
         String mdText;
         if (templateMarkdownLocationCache instanceof MCache) {
             MCache<String, String> mCache = (MCache) templateMarkdownLocationCache;
-            ResourceReference rr = ecfi.getResourceFacade().getLocationReference(location);
+            ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
             long lastModified = rr != null ? rr.getLastModified() : 0L;
             mdText = mCache.get(location, lastModified);
         } else {
