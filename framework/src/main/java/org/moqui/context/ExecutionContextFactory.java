@@ -18,6 +18,7 @@ import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
 
+import javax.annotation.Nonnull;
 import javax.servlet.ServletContext;
 import javax.websocket.server.ServerContainer;
 import java.util.LinkedHashMap;
@@ -27,7 +28,7 @@ import java.util.LinkedHashMap;
  */
 public interface ExecutionContextFactory {
     /** Get the ExecutionContext associated with the current thread or initialize one and associate it with the thread. */
-    ExecutionContext getExecutionContext();
+    @Nonnull ExecutionContext getExecutionContext();
 
     /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
     void destroyActiveExecutionContext();
@@ -39,52 +40,52 @@ public interface ExecutionContextFactory {
     boolean isDestroyed();
 
     /** Get the path of the runtime directory */
-    String getRuntimePath();
-    String getMoquiVersion();
+    @Nonnull String getRuntimePath();
+    @Nonnull String getMoquiVersion();
 
     /** Get the named ToolFactory instance (loaded by configuration) */
-    <V> ToolFactory<V> getToolFactory(String toolName);
+    <V> ToolFactory<V> getToolFactory(@Nonnull String toolName);
     /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
      * null in scripts or other contexts where static typing is not needed */
-    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters);
+    <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
 
     /** Get a Map where each key is a component name and each value is the component's base location. */
-    LinkedHashMap<String, String> getComponentBaseLocations();
+    @Nonnull LinkedHashMap<String, String> getComponentBaseLocations();
 
     /** For localization (l10n) functionality, like localizing messages. */
-    L10nFacade getL10n();
+    @Nonnull L10nFacade getL10n();
 
     /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
-    ResourceFacade getResource();
+    @Nonnull ResourceFacade getResource();
 
     /** For trace, error, etc logging to the console, files, etc. */
-    LoggerFacade getLogger();
+    @Nonnull LoggerFacade getLogger();
 
     /** For managing and accessing caches. */
-    CacheFacade getCache();
+    @Nonnull CacheFacade getCache();
 
     /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
-    TransactionFacade getTransaction();
+    @Nonnull TransactionFacade getTransaction();
 
     /** For interactions with a relational database. */
-    EntityFacade getEntity();
-    EntityFacade getEntity(String tenantId);
+    @Nonnull EntityFacade getEntity();
+    EntityFacade getEntity(@Nonnull String tenantId);
 
     /** For calling services (local or remote, sync or async or scheduled). */
-    ServiceFacade getService();
+    @Nonnull ServiceFacade getService();
 
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
-    ScreenFacade getScreen();
+    @Nonnull ScreenFacade getScreen();
 
     /** Get the framework ClassLoader, aware of all additional classes in runtime and in components. */
-    ClassLoader getClassLoader();
+    @Nonnull ClassLoader getClassLoader();
     /** Get a GroovyClassLoader for runtime compilation, etc. */
-    GroovyClassLoader getGroovyClassLoader();
+    @Nonnull GroovyClassLoader getGroovyClassLoader();
 
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
-    ServletContext getServletContext();
+    @Nonnull ServletContext getServletContext();
     /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
-    ServerContainer getServerContainer();
+    @Nonnull ServerContainer getServerContainer();
 
-    void registerNotificationMessageListener(NotificationMessageListener nml);
+    void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml);
 }

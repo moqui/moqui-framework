@@ -45,6 +45,7 @@ import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.annotation.Nonnull
 import javax.servlet.ServletContext
 import javax.websocket.server.ServerContainer
 import java.sql.Timestamp
@@ -654,9 +655,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    String getRuntimePath() { return runtimePath }
+    @Nonnull String getRuntimePath() { return runtimePath }
     @Override
-    String getMoquiVersion() { return moquiVersion }
+    @Nonnull String getMoquiVersion() { return moquiVersion }
     MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
@@ -667,7 +668,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     InetAddress getLocalhostAddress() { return localhostAddress }
 
     @Override
-    void registerNotificationMessageListener(NotificationMessageListener nml) {
+    void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
         nml.init(this)
         registeredNotificationMessageListeners.add(nml)
     }
@@ -721,11 +722,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         return hcm
     }
+    // NOTE: may not be used
     static String getRandomSalt() { return StupidUtilities.getRandomString(8) }
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
+    // NOTE: used in UserServices.xml
     String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType()) }
     String getSimpleHash(String source, String salt, String hashType) {
         return new SimpleHash(hashType ?: getPasswordHashType(), source, salt).toString()
@@ -746,9 +749,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     Collection<EntityFacadeImpl> getAllEntityFacades() { entityFacadeByTenantMap.values() }
     EntityFacadeImpl getEntityFacade() { return getEci().getEntityFacade() }
-    EntityFacadeImpl getEntityFacade(String tenantId) {
-        // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now
-        if (tenantId == null) throw new IllegalArgumentException("For getEntityFacade tenantId cannot be null")
+    EntityFacadeImpl getEntityFacade(@Nonnull String tenantId) {
         EntityFacadeImpl efi = (EntityFacadeImpl) entityFacadeByTenantMap.get(tenantId)
         if (efi == null) efi = initEntityFacade(tenantId)
 
@@ -767,7 +768,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========== Interface Implementations ==========
 
     @Override
-    ExecutionContext getExecutionContext() { return getEci() }
+    @Nonnull ExecutionContext getExecutionContext() { return getEci() }
     ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
         ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
@@ -797,12 +798,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    <V> ToolFactory<V> getToolFactory(String toolName) {
+    <V> ToolFactory<V> getToolFactory(@Nonnull String toolName) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         return toolFactory
     }
     @Override
-    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters) {
+    <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
         return toolFactory.getInstance(parameters)
@@ -1043,7 +1044,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
 
     @Override
-    LinkedHashMap<String, String> getComponentBaseLocations() {
+    @Nonnull LinkedHashMap<String, String> getComponentBaseLocations() {
         LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
         for (ComponentInfo componentInfo in componentInfoMap.values()) {
             compLocMap.put(componentInfo.name, componentInfo.location)
@@ -1052,33 +1053,33 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    L10nFacade getL10n() { getEci().l10nFacade }
+    @Nonnull L10nFacade getL10n() { getEci().l10nFacade }
     @Override
-    ResourceFacade getResource() { resourceFacade }
+    @Nonnull ResourceFacade getResource() { resourceFacade }
     @Override
-    LoggerFacade getLogger() { loggerFacade }
+    @Nonnull LoggerFacade getLogger() { loggerFacade }
     @Override
-    CacheFacade getCache() { this.cacheFacade }
+    @Nonnull CacheFacade getCache() { this.cacheFacade }
     @Override
-    TransactionFacade getTransaction() { transactionFacade }
+    @Nonnull TransactionFacade getTransaction() { transactionFacade }
     @Override
-    EntityFacade getEntity() { getEci().getEntity() }
+    @Nonnull EntityFacade getEntity() { getEci().getEntity() }
     @Override
-    EntityFacade getEntity(String tenantId) { getEntityFacade(tenantId) }
+    EntityFacade getEntity(@Nonnull String tenantId) { getEntityFacade(tenantId) }
     @Override
-    ServiceFacade getService() { serviceFacade }
+    @Nonnull ServiceFacade getService() { serviceFacade }
     @Override
-    ScreenFacade getScreen() { screenFacade }
+    @Nonnull ScreenFacade getScreen() { screenFacade }
 
     @Override
-    ClassLoader getClassLoader() { groovyClassLoader }
+    @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
     @Override
-    GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
+    @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
 
     @Override
-    ServletContext getServletContext() { internalServletContext }
+    @Nonnull ServletContext getServletContext() { internalServletContext }
     @Override
-    ServerContainer getServerContainer() { internalServerContainer }
+    @Nonnull ServerContainer getServerContainer() { internalServerContainer }
     void initServletContext(ServletContext sc) {
         internalServletContext = sc
         internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")

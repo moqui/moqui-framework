@@ -17,6 +17,7 @@ import groovy.lang.Closure;
 import org.moqui.BaseException;
 import org.moqui.context.*;
 import org.moqui.entity.EntityFacade;
+import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityFacadeImpl;
@@ -29,6 +30,8 @@ import org.moqui.util.ContextStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.cache.Cache;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -101,84 +104,83 @@ public class ExecutionContextImpl implements ExecutionContext {
         tarpitHitCache = cacheFacade.getCache("artifact.tarpit.hits", activeTenantId);
         l10nMessageCache = cacheFacade.getCache("l10n.message", activeTenantId);
     }
-    public Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
+    Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
     public Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache; }
 
     @Override
-    public ExecutionContextFactory getFactory() { return ecfi; }
+    public @Nonnull ExecutionContextFactory getFactory() { return ecfi; }
 
     @Override
-    public ContextStack getContext() { return contextStack; }
+    public @Nonnull ContextStack getContext() { return contextStack; }
     @Override
-    public Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
+    public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
     @Override
-    public ContextBinding getContextBinding() { return contextBindingInternal; }
+    public @Nonnull ContextBinding getContextBinding() { return contextBindingInternal; }
 
     @Override
-    public <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters) {
+    public <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters) {
         return ecfi.getTool(toolName, instanceClass, parameters);
     }
 
     @Override
-    public String getTenantId() { return activeTenantId; }
+    public @Nonnull String getTenantId() { return activeTenantId; }
     @Override
-    public EntityValue getTenant() {
+    public @Nonnull EntityValue getTenant() {
         return getEntity().find("moqui.tenant.Tenant").condition("tenantId", getTenantId()).useCache(true).disableAuthz().one();
     }
 
     @Override
-    public WebFacade getWeb() { return webFacade; }
-    public WebFacadeImpl getWebImpl() { return webFacadeImpl; }
+    public @Nullable WebFacade getWeb() { return webFacade; }
+    public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
 
     @Override
-    public UserFacade getUser() { return userFacade; }
+    public @Nonnull UserFacade getUser() { return userFacade; }
     @Override
-    public MessageFacade getMessage() { return messageFacade; }
+    public @Nonnull MessageFacade getMessage() { return messageFacade; }
     @Override
-    public ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
+    public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
     @Override
-    public L10nFacade getL10n() { return l10nFacade; }
+    public @Nonnull L10nFacade getL10n() { return l10nFacade; }
     @Override
-    public ResourceFacade getResource() { return resourceFacade; }
+    public @Nonnull ResourceFacade getResource() { return resourceFacade; }
     @Override
-    public LoggerFacade getLogger() { return loggerFacade; }
+    public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
     @Override
-    public CacheFacade getCache() { return cacheFacade; }
+    public @Nonnull CacheFacade getCache() { return cacheFacade; }
     @Override
-    public TransactionFacade getTransaction() { return transactionFacade; }
+    public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
 
     @Override
-    public EntityFacade getEntity() { return activeEntityFacade; }
-    public EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
+    public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
+    public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 
     @Override
-    public ServiceFacade getService() { return serviceFacade; }
+    public @Nonnull ServiceFacade getService() { return serviceFacade; }
 
     @Override
-    public ScreenFacade getScreen() { return screenFacade; }
+    public @Nonnull ScreenFacade getScreen() { return screenFacade; }
 
     @Override
-    public NotificationMessage makeNotificationMessage() {
+    public @Nonnull NotificationMessage makeNotificationMessage() {
         return new NotificationMessageImpl(ecfi, getTenantId());
     }
 
     @Override
-    public List<NotificationMessage> getNotificationMessages(String topic) {
+    public @Nonnull List<NotificationMessage> getNotificationMessages(@Nullable String topic) {
         String userId = userFacade.getUserId();
         if (userId == null || userId.isEmpty()) return new ArrayList<>();
 
         List<NotificationMessage> nmList = new ArrayList<>();
         boolean alreadyDisabled = artifactExecutionFacade.disableAuthz();
         try {
-            Map<String, Object> parameters = new HashMap<>();
-            if (topic != null && !topic.isEmpty()) parameters.put("topic", topic);
-            EntityList nmbuList = activeEntityFacade.find("moqui.security.user.NotificationMessageByUser").condition(parameters).list();
+            EntityFind nmbuFind = activeEntityFacade.find("moqui.security.user.NotificationMessageByUser").condition("userId", userId);
+            if (topic != null && !topic.isEmpty()) nmbuFind.condition("topic", topic);
+            EntityList nmbuList = nmbuFind.list();
             for (EntityValue nmbu : nmbuList) {
                 NotificationMessageImpl nmi = new NotificationMessageImpl(ecfi, getTenantId());
                 nmi.populateFromValue(nmbu);
                 nmList.add(nmi);
             }
-
         } finally {
             if (!alreadyDisabled) artifactExecutionFacade.enableAuthz();
         }
@@ -187,7 +189,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public void initWebFacade(String webappMoquiName, HttpServletRequest request, HttpServletResponse response) {
+    public void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response) {
         WebFacadeImpl wfi = new WebFacadeImpl(webappMoquiName, request, response, this);
         webFacade = wfi;
         webFacadeImpl = wfi;
@@ -235,7 +237,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public boolean changeTenant(final String tenantId) {
+    public boolean changeTenant(@Nonnull final String tenantId) {
         final String fromTenantId = activeTenantId;
         if (tenantId.equals(fromTenantId)) return false;
 
@@ -255,7 +257,6 @@ public class ExecutionContextImpl implements ExecutionContext {
             final String hostName = (String) webFacade.getSession().getAttribute("moqui.tenantHostName");
             throw new BaseException("Tenant override is not allowed for host [" + (hostName != null ? hostName : "Unknown") + "].");
         }
-
 
         activeTenantId = tenantId;
         activeEntityFacade = ecfi.getEntityFacade(activeTenantId);
@@ -291,15 +292,11 @@ public class ExecutionContextImpl implements ExecutionContext {
         } else {
             return false;
         }
-
     }
 
     @Override
-    public void runAsync(Closure closure) {
-        runInWorkerThread(closure);
-    }
-
-    public void runInWorkerThread(Closure closure) {
+    public void runAsync(@Nonnull Closure closure) { runInWorkerThread(closure); }
+    public void runInWorkerThread(@Nonnull Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure);
         ecfi.workerPool.execute(runnable);
     }
@@ -320,9 +317,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public String toString() {
-        return "ExecutionContext in tenant " + activeTenantId;
-    }
+    public String toString() { return "ExecutionContext in tenant " + activeTenantId; }
 
     public static class ThreadPoolRunnable implements Runnable {
         private ExecutionContextFactoryImpl ecfi;
@@ -358,7 +353,6 @@ public class ExecutionContextImpl implements ExecutionContext {
             } finally {
                 if (threadEci != null) threadEci.destroy();
             }
-
         }
 
         public ExecutionContextFactoryImpl getEcfi() { return ecfi; }
