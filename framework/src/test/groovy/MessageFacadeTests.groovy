@@ -57,7 +57,7 @@ class MessageFacadeTests extends Specification {
         ec.message.hasError()
 
         cleanup:
-        ec.message.errors.clear()
+        ec.message.clearErrors()
     }
 
     def "add validation error"() {
@@ -74,6 +74,6 @@ class MessageFacadeTests extends Specification {
         ec.message.hasError()
 
         cleanup:
-        ec.message.validationErrors.clear()
+        ec.message.clearErrors()
     }
 }

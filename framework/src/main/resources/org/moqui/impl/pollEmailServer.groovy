@@ -51,10 +51,10 @@ String protocol = emailServer.storeProtocol ?: "imaps"
 int port = (emailServer.storePort ?: "993") as int
 String storeFolder = emailServer.storeFolder ?: "INBOX"
 
-logger.info("Polling Email from ${user}@${host}:${port}/${storeFolder}")
-
 // def urlName = new URLName(protocol, host, port as int, "", user, password)
 Session session = Session.getInstance(System.getProperties())
+logger.info("Polling Email from ${user}@${host}:${port}/${storeFolder}, properties ${session.getProperties()}")
+
 Store store = session.getStore(protocol)
 if (!store.isConnected()) store.connect(host, port, user, password)
 
@@ -86,7 +86,9 @@ for (Message message in messages) {
 
     // NOTE: should we check size? long messageSize = message.getSize()
     if (message instanceof MimeMessage) {
-        ec.service.runEmecaRules(message, emailServerId)
+        // use copy constructor to have it download the full message, may fix BODYSTRUCTURE issue from some email servers (see details in issue #97)
+        MimeMessage fullMessage = new MimeMessage(message)
+        ec.service.runEmecaRules(fullMessage, emailServerId)
 
         // mark seen if setup to do so
         if (emailServer.storeMarkSeen == "Y") message.setFlag(Flags.Flag.SEEN, true)

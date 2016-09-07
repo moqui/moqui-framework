@@ -78,7 +78,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
                 logger.info("Set property derby.system.home to [${System.getProperty("derby.system.home")}]")
             }
 
-            TransactionInternal ti = efi.getEcfi().getTransactionFacade().getTransactionInternal()
+            TransactionInternal ti = efi.ecfi.transactionFacade.getTransactionInternal()
             this.dataSource = ti.getDataSource(efi, datasourceNode, tenantId)
         } else {
             throw new EntityException("Found datasource with no jdbc sub-element (in datasource with group-name [${datasourceNode.attribute("group-name")}])")
@@ -99,7 +99,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
         try { ed = efi.getEntityDefinition(entityName) } catch (EntityException e) { return false }
         // may happen if all entity names includes a DB view entity or other that doesn't really exist
         if (ed == null) return false
-        return efi.getEntityDbMeta().tableExists(ed)
+        return ed.tableExistsDbMetaOnly()
     }
     @Override
     void checkAndAddTable(String entityName) {

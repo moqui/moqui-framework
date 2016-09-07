@@ -16,11 +16,12 @@ package org.moqui.impl
 import groovy.transform.CompileStatic
 import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
-import org.joda.time.DurationFieldType
 
 import java.nio.charset.Charset
 import java.sql.Time
 import java.sql.Timestamp
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalUnit
 import java.util.regex.Pattern
 
 import org.w3c.dom.Element
@@ -604,16 +605,16 @@ class StupidUtilities {
             default: throw new IllegalArgumentException("No equivalent Calendar field found for UOM ID [${uomId}]"); break
         }
     }
-    static DurationFieldType getJodaFieldFromUomId(String uomId) {
+    static TemporalUnit getTemporalUnitFromUomId(String uomId) {
         switch (uomId) {
-            case "TF_ms": return DurationFieldType.millis()
-            case "TF_s": return DurationFieldType.seconds()
-            case "TF_min": return DurationFieldType.minutes()
-            case "TF_hr": return DurationFieldType.hours()
-            case "TF_day": return DurationFieldType.days()
-            case "TF_wk": return DurationFieldType.weeks()
-            case "TF_mon": return DurationFieldType.months()
-            case "TF_yr": return DurationFieldType.years()
+            case "TF_ms": return ChronoUnit.MILLIS
+            case "TF_s": return ChronoUnit.SECONDS
+            case "TF_min": return ChronoUnit.MINUTES
+            case "TF_hr": return ChronoUnit.HOURS
+            case "TF_day": return ChronoUnit.DAYS
+            case "TF_wk": return ChronoUnit.WEEKS
+            case "TF_mon": return ChronoUnit.MONTHS
+            case "TF_yr": return ChronoUnit.YEARS
             default: throw new IllegalArgumentException("No equivalent Calendar field found for UOM ID [${uomId}]"); break
         }
     }

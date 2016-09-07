@@ -39,17 +39,14 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     }
 
     @Override
-    ServiceCallAsync name(String serviceName) { this.setServiceName(serviceName); return this }
-
+    ServiceCallAsync name(String serviceName) { serviceNameInternal(serviceName); return this }
     @Override
-    ServiceCallAsync name(String v, String n) { path = null; verb = v; noun = n; return this }
-
+    ServiceCallAsync name(String v, String n) { serviceNameInternal(null, v, n); return this }
     @Override
-    ServiceCallAsync name(String p, String v, String n) { path = p; verb = v; noun = n; return this }
+    ServiceCallAsync name(String p, String v, String n) { serviceNameInternal(p, v, n); return this }
 
     @Override
     ServiceCallAsync parameters(Map<String, ?> map) { parameters.putAll(map); return this }
-
     @Override
     ServiceCallAsync parameter(String name, Object value) { parameters.put(name, value); return this }
 
@@ -58,7 +55,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     void call() {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
         validateCall(eci)
 
@@ -72,7 +69,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     Future<Map<String, Object>> callFuture() throws ServiceException {
-        ExecutionContextFactoryImpl ecfi = sfi.getEcfi()
+        ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
         validateCall(eci)
 
@@ -86,12 +83,12 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     Runnable getRunnable() {
-        return new AsyncServiceRunnable(sfi.getEcfi().getEci(), serviceName, parameters)
+        return new AsyncServiceRunnable(sfi.ecfi.getEci(), serviceName, parameters)
     }
 
     @Override
     Callable<Map<String, Object>> getCallable() {
-        return new AsyncServiceCallable(sfi.getEcfi().getEci(), serviceName, parameters)
+        return new AsyncServiceCallable(sfi.ecfi.getEci(), serviceName, parameters)
     }
 
     static class AsyncServiceInfo implements Externalizable {
@@ -104,7 +101,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         AsyncServiceInfo(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             ecfi = eci.ecfi
             threadTenantId = eci.tenantId
-            threadUsername = eci.user.username
+            threadUsername = eci.userFacade.username
             this.serviceName = serviceName
             this.parameters = new HashMap<>(parameters)
         }
@@ -139,7 +136,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
                     threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> result = threadEci.service.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                Map<String, Object> result = threadEci.serviceFacade.sync().name(serviceName).parameters(parameters).disableAuthz().call()
                 return result
             } catch (Throwable t) {
                 logger.error("Error in async service", t)

@@ -15,11 +15,11 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.apache.commons.codec.binary.Base64
-import org.joda.time.DateTimeZone
-import org.joda.time.MutableDateTime
+import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
 
@@ -76,9 +76,9 @@ class UserFacadeImpl implements UserFacade {
             if (request != null) wsc.setServletRequest(request)
             if (response != null) wsc.setServletResponse(response)
             wsc.setSession(new HttpServletSession(session, request?.getServerName()))
-            return eci.getEcfi().getSecurityManager().createSubject(wsc)
+            return eci.ecfi.getSecurityManager().createSubject(wsc)
         } else {
-            return eci.getEcfi().getSecurityManager().createSubject(new DefaultSubjectContext())
+            return eci.ecfi.getSecurityManager().createSubject(new DefaultSubjectContext())
         }
     }
 
@@ -130,11 +130,13 @@ class UserFacadeImpl implements UserFacade {
 
         this.visitId = session.getAttribute("moqui.visitId")
         if (!this.visitId && !eci.getSkipStats()) {
-            MNode serverStatsNode = eci.getEcfi().getServerStatsNode()
+            MNode serverStatsNode = eci.ecfi.getServerStatsNode()
+            ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, request)
+            boolean isJustContent = sui.fileResourceRef != null
 
             // handle visitorId and cookie
-            String cookieVisitorId = null
-            if (serverStatsNode.attribute('visitor-enabled') != "false") {
+            String cookieVisitorId = (String) null
+            if (!isJustContent && !"false".equals(serverStatsNode.attribute('visitor-enabled'))) {
                 Cookie[] cookies = request.getCookies()
                 if (cookies != null) {
                     for (int i = 0; i < cookies.length; i++) {
@@ -168,7 +170,7 @@ class UserFacadeImpl implements UserFacade {
                 }
             }
 
-            if (serverStatsNode.attribute('visit-enabled') != "false") {
+            if (!isJustContent && !"false".equals(serverStatsNode.attribute('visit-enabled'))) {
                 // create and persist Visit
                 String contextPath = session.getServletContext().getContextPath()
                 String webappId = contextPath.length() > 1 ? contextPath.substring(1) : "ROOT"
@@ -181,7 +183,7 @@ class UserFacadeImpl implements UserFacade {
                         initialUserAgent:request.getHeader("User-Agent")?:"",
                         clientHostName:request.getRemoteHost(), clientUser:request.getRemoteUser()])
 
-                InetAddress address = eci.getEcfi().getLocalhostAddress()
+                InetAddress address = eci.ecfi.getLocalhostAddress()
                 parameters.serverIpAddress = address?.getHostAddress() ?: "127.0.0.1"
                 parameters.serverHostName = address?.getHostName() ?: "localhost"
 
@@ -288,14 +290,6 @@ class UserFacadeImpl implements UserFacade {
         return Calendar.getInstance(currentInfo.tzCache ?: TimeZone.getDefault(),
                 currentInfo.localeCache ?: (request ? request.getLocale() : Locale.getDefault()))
     }
-    MutableDateTime getDateTimeSafe(Long timeMillis) {
-        DateTimeZone dtz = DateTimeZone.forTimeZone(currentInfo.tzCache ?: TimeZone.getDefault())
-        long now
-        if (timeMillis != null) now = timeMillis
-        else now = ((Object) this.effectiveTime != null) ? this.effectiveTime.getTime() : System.currentTimeMillis()
-        return new MutableDateTime(now, dtz)
-    }
-
 
     @Override
     void setTimeZone(TimeZone tz) {
@@ -573,7 +567,7 @@ class UserFacadeImpl implements UserFacade {
         int expireHours = eci.ecfi.getLoginKeyExpireHours()
         Timestamp fromDate = getNowTimestamp()
         long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
-        eci.service.sync().name("create", "moqui.security.UserLoginKey")
+        eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
                 .disableAuthz().requireNewTransaction(true).call()
 
@@ -649,19 +643,19 @@ class UserFacadeImpl implements UserFacade {
         return groupIdSet
     }
 
-    ArrayList<Map<String, Object>> getArtifactTarpitCheckList(String artifactTypeEnumId) {
-        ArrayList<Map<String, Object>> checkList = (ArrayList<Map<String, Object>>) currentInfo.internalArtifactTarpitCheckListMap.get(artifactTypeEnumId)
+    ArrayList<Map<String, Object>> getArtifactTarpitCheckList(ArtifactExecutionInfo.ArtifactType artifactTypeEnum) {
+        ArrayList<Map<String, Object>> checkList = (ArrayList<Map<String, Object>>) currentInfo.internalArtifactTarpitCheckListMap.get(artifactTypeEnum)
         if (checkList == null) {
             // get the list for each group separately to increase cache hits/efficiency
             checkList = new ArrayList<>()
             for (String userGroupId in getUserGroupIdSet()) {
                 EntityList atcvList = eci.getEntity().find("moqui.security.ArtifactTarpitCheckView")
-                        .condition("userGroupId", userGroupId).condition("artifactTypeEnumId", artifactTypeEnumId)
+                        .condition("userGroupId", userGroupId).condition("artifactTypeEnumId", artifactTypeEnum.name())
                         .useCache(true).disableAuthz().list()
                 int atcvListSize = atcvList.size()
                 for (int i = 0; i < atcvListSize; i++) checkList.add(((EntityValueBase) atcvList.get(i)).getValueMap())
             }
-            currentInfo.internalArtifactTarpitCheckListMap.put(artifactTypeEnumId, checkList)
+            currentInfo.internalArtifactTarpitCheckListMap.put(artifactTypeEnum, checkList)
         }
         return checkList
     }
@@ -742,7 +736,7 @@ class UserFacadeImpl implements UserFacade {
 
     /** Called by ExecutionContextInfo when tenant pushed (changeTenant()) */
     void pushTenant(String toTenantId) {
-        UserInfo wasInfo = currentInfo
+        // UserInfo wasInfo = currentInfo
         // if there is a previous user populated and it is not in the toTenantId tenant, push an empty UserInfo
         if (currentInfo.tenantId != toTenantId) pushUser(null, toTenantId)
 
@@ -750,7 +744,7 @@ class UserFacadeImpl implements UserFacade {
     }
     /** Called by ExecutionContextInfo when tenant popped (popTenant()) */
     void popTenant(String fromTenantId) {
-        UserInfo wasInfo = currentInfo
+        // UserInfo wasInfo = currentInfo
         // pop current user (if populated effectively logs out, if not will get an empty user in current tenant, already set in eci)
         if (currentInfo.tenantId == fromTenantId) popUser()
 
@@ -758,7 +752,7 @@ class UserFacadeImpl implements UserFacade {
     }
 
     static class UserInfo {
-        UserFacadeImpl ufi
+        final UserFacadeImpl ufi
         // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
         protected EntityValueBase userAccount = (EntityValueBase) null
         protected String tenantId = (String) null
@@ -766,7 +760,8 @@ class UserFacadeImpl implements UserFacade {
         protected String userId = (String) null
         Set<String> internalUserGroupIdSet = (Set<String>) null
         // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
-        Map<String, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap = new HashMap<>()
+        final EnumMap<ArtifactExecutionInfo.ArtifactType, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap =
+                new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
         ArrayList<ArtifactAuthzCheck> internalArtifactAuthzCheckList = (ArrayList<ArtifactAuthzCheck>) null
 
         Locale localeCache = (Locale) null

@@ -73,6 +73,7 @@ public class StupidJavaUtilities {
      *   0 length String (actually CharSequence to include GString, etc), and 0 size Collection/Map are considered empty. */
     public static boolean isEmpty(Object obj) {
         if (obj == null) return true;
+        /* faster not to do this
         Class objClass = obj.getClass();
         // some common direct classes
         if (objClass == String.class) return ((String) obj).length() == 0;
@@ -81,6 +82,7 @@ public class StupidJavaUtilities {
         if (objClass == HashMap.class) return ((HashMap) obj).size() == 0;
         if (objClass == LinkedHashMap.class) return ((HashMap) obj).size() == 0;
         // hopefully less common sub-classes
+        */
         if (obj instanceof CharSequence) return ((CharSequence) obj).length() == 0;
         if (obj instanceof Collection) return ((Collection) obj).size() == 0;
         return obj instanceof Map && ((Map) obj).size() == 0;

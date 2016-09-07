@@ -92,7 +92,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         int valuesWritten = 0
 
-        TransactionFacade tf = efi.getEcfi().getTransactionFacade()
+        TransactionFacade tf = efi.ecfi.transactionFacade
         boolean suspendedTransaction = false
         try {
             if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
@@ -106,7 +106,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             } catch (Throwable t) {
                 logger.warn("Error writing data", t)
                 tf.rollback(beganTransaction, "Error writing data", t)
-                efi.getEcfi().getExecutionContext().getMessage().addError(t.getMessage())
+                efi.ecfi.getEci().messageFacade.addError(t.getMessage())
             } finally {
                 if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
             }
@@ -222,7 +222,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
     int writer(Writer writer) {
         if (dependentLevels) efi.createAllAutoReverseManyRelationships()
 
-        TransactionFacade tf = efi.getEcfi().getTransactionFacade()
+        TransactionFacade tf = efi.ecfi.transactionFacade
         boolean suspendedTransaction = false
         int valuesWritten = 0
         try {
@@ -237,7 +237,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             } catch (Throwable t) {
                 logger.warn("Error writing data: " + t.toString(), t)
                 tf.rollback(beganTransaction, "Error writing data", t)
-                efi.getEcfi().getExecutionContext().getMessage().addError(t.getMessage())
+                efi.ecfi.getEci().messageFacade.addError(t.getMessage())
             } finally {
                 if (beganTransaction && tf.isTransactionInPlace()) tf.commit()
             }

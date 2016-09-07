@@ -113,6 +113,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Defaults to true. Set to false to not validate input parameters, and
                     not automatically remove unspecified parameters.</xs:documentation></xs:annotation>
             </xs:attribute>
+
             <xs:attribute name="transaction" default="use-or-begin" type="transaction-options"/>
             <xs:attribute name="transaction-timeout" type="xs:int">
                 <xs:annotation><xs:documentation>
@@ -121,6 +122,9 @@ along with this software (see the LICENSE.md file). If not, see
                     use-or-begin or cache and there is no other transaction already in place).
                 </xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="no-tx-cache" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true and a TransactionCache is active flush and remove it before calling the service.</xs:documentation></xs:annotation></xs:attribute>
+
             <!-- not supported by Atomikos/etc right now, consider for later:
             <xs:attribute name="transaction-isolation" type="isolation-level" use="optional">
                 <xs:annotation><xs:documentation>
@@ -218,7 +222,6 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" ref="description"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="subtype"/>
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element ref="auto-parameters"/>
                     <xs:element ref="parameter">
@@ -306,21 +309,6 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:simpleType>
         </xs:attribute>
     </xs:attributeGroup>
-
-    <xs:element name="subtype">
-        <xs:annotation><xs:documentation>
-            The valid type if the parameter.type or the parent subtype is a Map or any type of collection.
-
-            If the parent type is a Map then the key should be a String and the value should be the type of the subtype
-            where the key attribute matches the Map key, or for all other Map keys not specified the subtype with no
-            key specified.
-        </xs:documentation></xs:annotation>
-        <xs:complexType>
-            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="subtype"/></xs:sequence>
-            <xs:attribute name="key" type="xs:string"/>
-            <xs:attribute name="type" type="xs:string" use="required"/>
-        </xs:complexType>
-    </xs:element>
 
     <xs:element name="val-or" substitutionGroup="ParameterValidations">
         <xs:complexType>

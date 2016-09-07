@@ -27,9 +27,11 @@ import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.service.ServiceCallSyncImpl
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
+import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.service.ServiceCallSync
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -71,7 +73,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     EntityDataLoaderImpl(EntityFacadeImpl efi) {
         this.efi = efi
-        this.sfi = efi.getEcfi().getServiceFacade()
+        this.sfi = efi.ecfi.serviceFacade
     }
 
     EntityFacadeImpl getEfi() { return efi }
@@ -180,7 +182,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         efi.createAllAutoReverseManyRelationships()
 
         boolean reenableEeca = false
-        if (this.disableEeca) reenableEeca = !this.efi.ecfi.eci.artifactExecution.disableEntityEca()
+        if (this.disableEeca) reenableEeca = !this.efi.ecfi.eci.artifactExecutionFacade.disableEntityEca()
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -329,10 +331,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         } finally {
             tf.commit(beganTransaction)
 
-            ExecutionContext ec = efi.getEcfi().getExecutionContext()
-            if (ec.message.hasError()) {
-                logger.error("Error messages loading entity data: " + ec.message.getErrorsString())
-                ec.message.clearErrors()
+            ExecutionContextImpl ec = efi.ecfi.getEci()
+            if (ec.messageFacade.hasError()) {
+                logger.error("Error messages loading entity data: " + ec.messageFacade.getErrorsString())
+                ec.messageFacade.clearErrors()
             }
         }
     }
@@ -360,11 +362,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     }
     static class LoadValueHandler extends ValueHandler {
         protected ServiceFacadeImpl sfi
-        protected ExecutionContext ec
+        protected ExecutionContextImpl ec
         LoadValueHandler(EntityDataLoaderImpl edli) {
             super(edli)
-            sfi = edli.getEfi().getEcfi().getServiceFacade()
-            ec = edli.getEfi().getEcfi().getExecutionContext()
+            sfi = edli.getEfi().ecfi.serviceFacade
+            ec = edli.getEfi().ecfi.getEci()
         }
         void handleValue(EntityValue value) {
             if (edli.dummyFks) value.checkFks(true)
@@ -381,7 +383,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         }
         void handlePlainMap(String entityName, Map value) {
-            Map results = sfi.sync().name('store', entityName).parameters(value).call()
+            EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
+            if (ed == null) throw new BaseException("Could not find entity ${entityName}")
+            Map<String, Object> results = new HashMap()
+            EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null)
+            // no need to call the store auto service, use storeEntity directly:
+            // Map results = sfi.sync().name('store', entityName).parameters(value).call()
             if (logger.isTraceEnabled()) logger.trace("Called store service for entity [${entityName}] in data load, results: ${results}")
             if (ec.getMessage().hasError()) {
                 String errStr = ec.getMessage().getErrorsString()
@@ -478,9 +485,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     // nested value/CDATA element
                     currentFieldName = elementName
                 } else if (checkEd.getRelationshipInfo(elementName) != null) {
-                    EntityDefinition.RelationshipInfo relInfo = checkEd.getRelationshipInfo(elementName)
+                    EntityJavaUtil.RelationshipInfo relInfo = checkEd.getRelationshipInfo(elementName)
                     Map curRelMap = getAttributesMap(attributes, relInfo.relatedEd)
-                    String relationshipName = relInfo.getRelationshipName()
+                    String relationshipName = relInfo.relationshipName
                     if (valueMapStack) {
                         Map prevValueMap = valueMapStack.get(0)
                         if (prevValueMap.containsKey(relationshipName)) {
@@ -604,7 +611,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 if (currentFieldValue) {
                     if (currentEntityDef != null) {
                         if (currentEntityDef.isField(currentFieldName)) {
-                            EntityJavaUtil.FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
+                            FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
                             String type = fieldInfo.type
                             if (type == "binary-very-long") {
                                 byte[] binData = Base64.decodeBase64(currentFieldValue.toString())
@@ -649,17 +656,17 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                             currentEntityDef = (EntityDefinition) null
                             entityOperation = (String) null
                         } catch (Exception e) {
-                            throw new SAXException("Error running service [${currentServiceDef.getServiceName()}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                            throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
                         }
                     }
                 } else if (currentServiceDef != null) {
                     try {
-                        ServiceCallSync currentScs = edli.sfi.sync().name(currentServiceDef.getServiceName()).parameters(valueMap)
+                        ServiceCallSync currentScs = edli.sfi.sync().name(currentServiceDef.serviceName).parameters(valueMap)
                         valueHandler.handleService(currentScs)
                         valuesRead++
                         currentServiceDef = (ServiceDefinition) null
                     } catch (Exception e) {
-                        throw new SAXException("Error running service [${currentServiceDef.getServiceName()}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                        throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
                     }
                 }
             }

@@ -38,8 +38,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="referrerUrl" type="text-long"/>
         <field name="serverIpAddress" type="id"/>
         <field name="serverHostName" type="text-medium"/>
-        <relationship type="one" related="moqui.server.Visit"/>
-        <relationship type="one" related="moqui.security.UserAccount"/>
+        <relationship type="one-nofk" related="moqui.server.Visit"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
     </entity>
     <entity entity-name="ArtifactHitBin" package="moqui.server" use="nontransactional"
             cache="never" sequence-bank-size="100">
@@ -104,13 +104,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="clientIpTimeZone" type="text-short"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
-        <relationship type="one" related="moqui.server.Visitor"/>
-        <relationship type="one" related="moqui.security.UserAccount"/>
-        <relationship type="one" title="ClientIpStateProv" related="Geo">
+        <relationship type="one-nofk" related="moqui.server.Visitor"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <relationship type="one-nofk" title="ClientIpStateProv" related="Geo">
             <key-map field-name="clientIpStateProvGeoId" related="geoId"/></relationship>
-        <relationship type="one" title="ClientIpCountry" related="Geo">
+        <relationship type="one-nofk" title="ClientIpCountry" related="Geo">
             <key-map field-name="clientIpCountryGeoId" related="geoId"/></relationship>
-        <index name="VisitThruIndex" unique="false"><index-field name="thruDate"/></index>
+        <!-- expensive for updates <index name="VisitThruIndex" unique="false"><index-field name="thruDate"/></index> -->
     </entity>
     <view-entity entity-name="VisitUserSummary" package="moqui.server">
         <member-entity entity-alias="VST" entity-name="moqui.server.Visit"/>

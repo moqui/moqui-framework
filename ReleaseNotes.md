@@ -15,6 +15,7 @@ significant changes.
 ### Non Backward Compatible Changes
 
 - Java JDK 8 now required (Java 7 no longer supported)
+- Now requires Servlet Container supporting the Servlet 3.1 specification
 - No longer using Winstone embedded web server (now using Jetty)
 - Entity Definitions
   - XSDs updated for these changes, though old attributes still supported
@@ -22,6 +23,7 @@ significant changes.
   - changed entity.@group-name to entity.@group
   - changed relationship.@related-entity-name to relationship.@related
   - changed key-map.@related-field-name to key-map.@related
+  - UserField no longer supported (UserField and UserFieldValue entities)
 - Service Job Scheduling
   - Quartz Scheduler has been removed, use new ServiceJob instead which
     supports more relevant options, is much cleaner and more manageable
@@ -97,6 +99,8 @@ significant changes.
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
+- Service parameter.subtype element removed, use the much more flexible 
+  nested parameter element
 - JCR and Apache Jackrabbit
   - The repository.@type, @location, and @conf-location attributes have
     been removed and the repository.parameter sub-element added for use
@@ -108,12 +112,13 @@ significant changes.
   - AntiSamy replaced by OWASP Java HTML Sanitizer
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
-  - These methods were deprecated (usually by methods with shorter names)
+  - These methods were deprecated (by methods with shorter names)
     long ago and with other API changes now removing them
   - Removed getLocalizedMessage() and formatValue() from L10nFacade
   - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(),
     evaluateCondition(), evaluateContextField(), and evaluateStringExpand()
     from ResourceFacade
+  - Removed EntityFacade.makeFind()   
 - ArtifactHit and ArtifactHitBin now use same artifact type enum as
   ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and
@@ -237,6 +242,12 @@ significant changes.
   thread with an ExecutionContext like the current (tenant, user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
+- Transaction Facade
+  - The write-through transaction cache now supports a read only mode
+  - Added service.@no-tx-cache attribute which flushes and disables write
+    through transaction cache for the rest of the transaction
+  - Added TransactionFacade.flushAndDisableTransactionCache() method to
+    flush and disable the write through cache, like service.@no-tx-cache
 - Entity Facade
   - In view-entity.alias.complex-alias the expression attribute is now
     expanded so context fields may be inserted or other Groovy expressions
@@ -488,6 +499,7 @@ Gradle tasks.
   method to see if exists and show disabled link if it doesn't?
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
+- Support seek for faster pagination like jOOQ: https://blog.jooq.org/2013/10/26/faster-sql-paging-with-jooq-using-the-seek-method/
 
 - Improved Distributed Datasource Support
   - Put all framework, mantle entities in the 4 new groups: transactional, nontransactional, configuration, analytical

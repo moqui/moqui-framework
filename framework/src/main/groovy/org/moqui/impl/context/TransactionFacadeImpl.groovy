@@ -18,6 +18,9 @@ import org.moqui.BaseException
 import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.context.TransactionInternal
+import org.moqui.impl.context.ContextJavaUtil.ConnectionWrapper
+import org.moqui.impl.context.ContextJavaUtil.RollbackInfo
+import org.moqui.impl.context.ContextJavaUtil.TxStackInfo
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -30,11 +33,11 @@ import javax.transaction.*
 import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
 import java.sql.*
-import java.util.concurrent.Executor
 
 @CompileStatic
 class TransactionFacadeImpl implements TransactionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionFacadeImpl.class)
+    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
     protected final ExecutionContextFactoryImpl ecfi
 
@@ -51,10 +54,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        initTransactionInternal()
-    }
 
-    void initTransactionInternal() {
         MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade")
         if (transactionFacadeNode.hasChild("transaction-jndi")) {
             this.populateTransactionObjectsJndi()
@@ -84,6 +84,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         // destroy internal if applicable; nothing for JNDI
         if (transactionInternal != null) transactionInternal.destroy()
 
+        txStackInfoCurThread.remove()
         txStackInfoListThread.remove()
     }
 
@@ -110,6 +111,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (numSuspended > 0) logger.warn("Cleaned up [" + numSuspended + "] suspended transactions.")
         }
 
+        txStackInfoCurThread.remove()
         txStackInfoListThread.remove()
     }
 
@@ -119,7 +121,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     Long getCurrentTransactionStartTime() {
         TxStackInfo txStackInfo = getTxStackInfo()
         Long time = txStackInfo != null ? (Long) txStackInfo.transactionBeginStartTime : (Long) null
-        if (time == null && logger.isTraceEnabled()) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
+        if (time == null && isTraceEnabled) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
         return time
     }
 
@@ -246,6 +248,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     int getStatus() {
+        if (ut == null) return Status.STATUS_NO_TRANSACTION
         try {
             return ut.getStatus()
         } catch (SystemException e) {
@@ -306,36 +309,44 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     boolean begin(Integer timeout) {
-        try {
-            int currentStatus = ut.getStatus()
-            // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
+        int currentStatus = ut.getStatus()
+        // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
 
+        if (currentStatus == Status.STATUS_ACTIVE) {
+            // don't begin, and return false so caller knows we didn't
+            return false
+        } else if (currentStatus == Status.STATUS_MARKED_ROLLBACK) {
             TxStackInfo txStackInfo = getTxStackInfo()
-            if (currentStatus == Status.STATUS_ACTIVE) {
-                // don't begin, and return false so caller knows we didn't
-                return false
-            } else if (currentStatus == Status.STATUS_MARKED_ROLLBACK) {
-                if (txStackInfo.transactionBegin != null) {
-                    logger.warn("Current transaction marked for rollback, so no transaction begun. This stack trace shows where the transaction began: ", txStackInfo.transactionBegin)
-                } else {
-                    logger.warn("Current transaction marked for rollback, so no transaction begun (NOTE: No stack trace to show where transaction began).")
-                }
-
-                if (txStackInfo.rollbackOnlyInfo != null) {
-                    logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
-                    throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
-                } else {
-                    return false
-                }
+            if (txStackInfo.transactionBegin != null) {
+                logger.warn("Current transaction marked for rollback, so no transaction begun. This stack trace shows where the transaction began: ", txStackInfo.transactionBegin)
+            } else {
+                logger.warn("Current transaction marked for rollback, so no transaction begun (NOTE: No stack trace to show where transaction began).")
             }
+            if (txStackInfo.rollbackOnlyInfo != null) {
+                logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
+            } else {
+                return false
+            }
+        }
 
+        try {
             // NOTE: Since JTA 1.1 setTransactionTimeout() is local to the thread, so this doesn't need to be synchronized.
-            if (timeout) ut.setTransactionTimeout(timeout)
+            if (timeout != null) ut.setTransactionTimeout(timeout)
             ut.begin()
 
+            TxStackInfo txStackInfo = getTxStackInfo()
             txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder")
             txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
+
+            if (txStackInfo.txCache != null) logger.warn("Begin TX, tx cache is not null!")
+            /* FUTURE: this is an interesting possibility, always use tx cache in read only mode, but currently causes issues (needs more work with cache clear, etc)
+            if (useTransactionCache) {
+                txStackInfo.txCache = new TransactionCache(ecfi, true)
+                registerSynchronization(txStackInfo.txCache)
+            }
+            */
 
             return true
         } catch (NotSupportedException e) {
@@ -344,7 +355,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             throw new TransactionException("Could not begin transaction", e)
         } finally {
             // make sure the timeout always gets reset to the default
-            if (timeout) ut.setTransactionTimeout(0)
+            if (timeout != null) ut.setTransactionTimeout(0)
         }
     }
 
@@ -512,7 +523,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
         try {
             Transaction tx = tm.getTransaction()
-            if (tx) {
+            if (tx != null) {
                  tx.enlistResource(resource)
             } else {
                 logger.warn("Not enlisting XAResource: transaction was null", new Exception("Warning Location"))
@@ -537,7 +548,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
         try {
             Transaction tx = tm.getTransaction()
-            if (tx) {
+            if (tx != null) {
                  tx.registerSynchronization(sync)
             } else {
                 logger.warn("Not registering Synchronization: transaction was null", new Exception("Warning Location"))
@@ -551,28 +562,45 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void initTransactionCache() {
+        if (!useTransactionCache) return
         TxStackInfo txStackInfo = getTxStackInfo()
-        if (useTransactionCache && txStackInfo.txCache == null) {
-            if (logger.isInfoEnabled()) {
+        if (txStackInfo.txCache == null) {
+            if (isTraceEnabled) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
-                for (def infoAei in ecfi.getExecutionContext().getArtifactExecution().getStack()) infoString.append("\n").append(infoAei)
-                logger.info(infoString.toString())
+                for (def infoAei in ecfi.getEci().artifactExecutionFacade.getStack()) infoString.append(infoAei.getName())
+                logger.trace(infoString.toString())
+            // } else if (logger.isInfoEnabled()) {
+            //     logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
             }
 
-            TransactionManager tm = ecfi.getTransactionFacade().getTransactionManager()
             if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
-            Transaction tx = tm.getTransaction()
-            if (tx == null) throw new XAException(XAException.XAER_NOTA)
 
-            TransactionCache txCache = new TransactionCache(this.ecfi, tx)
+            TransactionCache txCache = new TransactionCache(this.ecfi, false)
             txStackInfo.txCache = txCache
             registerSynchronization(txCache)
+        } else if (txStackInfo.txCache.isReadOnly()) {
+            if (isTraceEnabled) logger.trace("Making TX cache write through in ${ecfi.getEci().artifactExecutionFacade.peek()?.getName()}")
+            txStackInfo.txCache.makeWriteThrough()
+            // doing on read only init: registerSynchronization(txStackInfo.txCache)
         }
     }
     @Override
-    boolean isTransactionCacheActive() { return getTxStackInfo().txCache != null }
+    boolean isTransactionCacheActive() {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        return txStackInfo.txCache != null && !txStackInfo.txCache.isReadOnly()
+    }
     TransactionCache getTransactionCache() { return getTxStackInfo().txCache }
+    @Override
+    void flushAndDisableTransactionCache() {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        if (txStackInfo.txCache != null) {
+            txStackInfo.txCache.makeReadOnly()
+            // would be safer to flush and remove it completely, but trying just switching to read only mode
+            // txStackInfo.txCache.flushCache(true)
+            // txStackInfo.txCache = null
+        }
+    }
 
     Connection getTxConnection(String tenantId, String groupName) {
         if (!useConnectionStash) return null
@@ -614,63 +642,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         return newCw
     }
 
-    @CompileStatic
-    static class RollbackInfo {
-        String causeMessage
-        /** A rollback is often done because of another error, this represents that error. */
-        Throwable causeThrowable
-        /** This is for a stack trace for where the rollback was actually called to help track it down more easily. */
-        Exception rollbackLocation
-
-        RollbackInfo(String causeMessage, Throwable causeThrowable, Exception rollbackLocation) {
-            this.causeMessage = causeMessage
-            this.causeThrowable = causeThrowable
-            this.rollbackLocation = rollbackLocation
-        }
-    }
-
-    @CompileStatic
-    static class TxStackInfo {
-        Exception transactionBegin = (Exception) null
-        Long transactionBeginStartTime = (Long) null
-        RollbackInfo rollbackOnlyInfo = (RollbackInfo) null
-
-        Transaction suspendedTx = (Transaction) null
-        Exception suspendedTxLocation = (Exception) null
-
-        protected Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>()
-        protected Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>()
-        protected Map<String, ConnectionWrapper> txConByGroup = new HashMap<>()
-        TransactionCache txCache = (TransactionCache) null
-
-        Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap }
-        Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap }
-        Map<String, ConnectionWrapper> getTxConByGroup() { return txConByGroup }
-
-
-        void clearCurrent() {
-            rollbackOnlyInfo = (RollbackInfo) null
-            transactionBegin = (Exception) null
-            transactionBeginStartTime = (Long) null
-            activeXaResourceMap.clear()
-            activeSynchronizationMap.clear()
-            txCache = (TransactionCache) null
-            // this should already be done, but make sure
-            closeTxConnections()
-        }
-
-        void closeTxConnections() {
-            for (Map.Entry<String, ConnectionWrapper> entry in txConByGroup.entrySet()) {
-                try {
-                    ConnectionWrapper con = entry.value
-                    if (con != null && !con.isClosed()) con.closeInternal()
-                } catch (Throwable t) {
-                    logger.error("Error closing connection for tenant/group ${entry.key}", t)
-                }
-            }
-            txConByGroup.clear()
-        }
-    }
 
     // ========== Initialize/Populate Methods ==========
 
@@ -683,7 +654,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
         try {
             InitialContext ic;
-            if (serverJndi) {
+            if (serverJndi != null) {
                 Hashtable<String, Object> h = new Hashtable<String, Object>()
                 h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi.attribute("initial-context-factory"))
                 h.put(Context.PROVIDER_URL, serverJndi.attribute("context-provider-url"))
@@ -701,126 +672,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             logger.error("Error while finding JNDI Transaction objects [${userTxJndiName}] and [${txMgrJndiName}] from server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].", ne)
         }
 
-        if (!this.ut) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
-        if (!this.tm) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
-    }
-
-    /** A simple delegating wrapper for java.sql.Connection.
-     *
-     * The close() method does nothing, only closed when closeInternal() called by TransactionFacade on commit,
-     * rollback, or destroy (when transactions are also cleaned up as a last resort).
-     *
-     * Connections are attached to 3 things: entity group, tenant, and transaction.
-     */
-    static class ConnectionWrapper implements Connection {
-        protected Connection con
-        protected TransactionFacadeImpl tfi
-        protected String tenantId, groupName
-
-        ConnectionWrapper(Connection con, TransactionFacadeImpl tfi, String tenantId, String groupName) {
-            this.con = con
-            this.tfi = tfi
-            this.tenantId = tenantId
-            this.groupName = groupName
-        }
-
-        String getTenantId() { return tenantId }
-        String getGroupName() { return groupName }
-
-        void closeInternal() {
-            con.close()
-        }
-
-
-        Statement createStatement() throws SQLException { return con.createStatement() }
-        PreparedStatement prepareStatement(String sql) throws SQLException { return con.prepareStatement(sql) }
-        CallableStatement prepareCall(String sql) throws SQLException { return con.prepareCall(sql) }
-        String nativeSQL(String sql) throws SQLException { return con.nativeSQL(sql) }
-        void setAutoCommit(boolean autoCommit) throws SQLException { con.setAutoCommit(autoCommit) }
-        boolean getAutoCommit() throws SQLException { return con.getAutoCommit() }
-        void commit() throws SQLException { con.commit() }
-        void rollback() throws SQLException { con.rollback() }
-
-        void close() throws SQLException {
-            // do nothing! see closeInternal
-        }
-
-        boolean isClosed() throws SQLException { return con.isClosed() }
-        DatabaseMetaData getMetaData() throws SQLException { return con.getMetaData() }
-        void setReadOnly(boolean readOnly) throws SQLException { con.setReadOnly(readOnly) }
-        boolean isReadOnly() throws SQLException { return con.isReadOnly() }
-        void setCatalog(String catalog) throws SQLException { con.setCatalog(catalog) }
-        String getCatalog() throws SQLException { return con.getCatalog() }
-        void setTransactionIsolation(int level) throws SQLException { con.setTransactionIsolation(level) }
-        int getTransactionIsolation() throws SQLException { return con.getTransactionIsolation() }
-        SQLWarning getWarnings() throws SQLException { return con.getWarnings() }
-        void clearWarnings() throws SQLException { con.clearWarnings() }
-
-        Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.createStatement(resultSetType, resultSetConcurrency) }
-        PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency) }
-        CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.prepareCall(sql, resultSetType, resultSetConcurrency) }
-
-        Map<String, Class<?>> getTypeMap() throws SQLException { return con.getTypeMap() }
-        void setTypeMap(Map<String, Class<?>> map) throws SQLException { con.setTypeMap(map) }
-        void setHoldability(int holdability) throws SQLException { con.setHoldability(holdability) }
-        int getHoldability() throws SQLException { return con.getHoldability() }
-        Savepoint setSavepoint() throws SQLException { return con.setSavepoint() }
-        Savepoint setSavepoint(String name) throws SQLException { return con.setSavepoint(name) }
-        void rollback(Savepoint savepoint) throws SQLException { con.rollback(savepoint) }
-        void releaseSavepoint(Savepoint savepoint) throws SQLException { con.releaseSavepoint(savepoint) }
-
-        Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability) }
-        PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability) }
-        CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability) }
-        PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-            return con.prepareStatement(sql, autoGeneratedKeys) }
-        PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-            return con.prepareStatement(sql, columnIndexes) }
-        PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-            return con.prepareStatement(sql, columnNames) }
-
-        Clob createClob() throws SQLException { return con.createClob() }
-        Blob createBlob() throws SQLException { return con.createBlob() }
-        NClob createNClob() throws SQLException { return con.createNClob() }
-        SQLXML createSQLXML() throws SQLException { return con.createSQLXML() }
-        boolean isValid(int timeout) throws SQLException { return con.isValid(timeout) }
-        void setClientInfo(String name, String value) throws SQLClientInfoException { con.setClientInfo(name, value) }
-        void setClientInfo(Properties properties) throws SQLClientInfoException { con.setClientInfo(properties) }
-        String getClientInfo(String name) throws SQLException { return con.getClientInfo(name) }
-        Properties getClientInfo() throws SQLException { return con.getClientInfo() }
-        Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-            return con.createArrayOf(typeName, elements) }
-        Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-            return con.createStruct(typeName, attributes) }
-
-        void setSchema(String schema) throws SQLException { con.setSchema(schema) }
-        String getSchema() throws SQLException { return con.getSchema() }
-
-        void abort(Executor executor) throws SQLException { con.abort(executor) }
-        void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-            con.setNetworkTimeout(executor, milliseconds) }
-        int getNetworkTimeout() throws SQLException { return con.getNetworkTimeout() }
-
-        def <T> T unwrap(Class<T> iface) throws SQLException { return con.unwrap(iface) }
-        boolean isWrapperFor(Class<?> iface) throws SQLException { return con.isWrapperFor(iface) }
-
-        // Object overrides
-        int hashCode() { return con.hashCode() }
-        boolean equals(Object obj) { return con.equals(obj) }
-        String toString() {
-            return new StringBuilder().append("Tenant: ").append(tenantId).append(", Group: ").append(groupName)
-                    .append(", Con: ").append(con.toString()).toString()
-        }
-        /* these don't work, don't think we need them anyway:
-        protected Object clone() throws CloneNotSupportedException {
-            return new ConnectionWrapper((Connection) con.clone(), tfi, tenantId, groupName) }
-        protected void finalize() throws Throwable { con.finalize() }
-        */
+        if (this.ut == null) logger.error("Could not find UserTransaction with name [${userTxJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
+        if (this.tm == null) logger.error("Could not find TransactionManager with name [${txMgrJndiName}] in JNDI server [${serverJndi ? serverJndi.attribute("context-provider-url") : "default"}].")
     }
 }

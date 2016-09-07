@@ -61,10 +61,6 @@ class TransactionInternalBitronix implements TransactionInternal {
     @Override
     UserTransaction getUserTransaction() { return ut }
 
-    Properties getXaProperties() {
-
-    }
-
     @Override
     DataSource getDataSource(EntityFacade ef, MNode datasourceNode, String tenantId) {
         // NOTE: this is called during EFI init, so use the passed one and don't try to get from ECFI
@@ -113,6 +109,7 @@ class TransactionInternalBitronix implements TransactionInternal {
         // pds.setShareTransactionConnections(false) // don't share connections in the ACCESSIBLE, needed?
         // pds.setIgnoreRecoveryFailures(false) // something to consider for XA recovery errors, quarantines by default
 
+        pds.setEnableJdbc4ConnectionTest(true) // use faster jdbc4 connection test
         // default is 0, disabled PreparedStatement cache (cache size per Connection)
         // NOTE: make this configurable? value too high or low?
         pds.setPreparedStatementCacheSize(100)
