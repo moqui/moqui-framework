@@ -637,10 +637,13 @@ Gradle tasks.
     - Use this in HiveMind to send notifications of project, task, and wiki changes (maybe?)
 
 - Integration
-  - OData (http://www.odata.org) compliant entity auto REST API
+  - OData V4 (http://www.odata.org) compliant entity auto REST API
     - like current but use OData URL structure, query parameters, etc
     - mount on /odata4 as alternative to existing /rest
     - generate EDMX for all entities (and exported services?)
+    - use Apache Olingo (http://olingo.apache.org)
+    - see: https://templth.wordpress.com/2015/04/27/implementing-an-odata-service-with-olingo/
+    - also add an ElasticSearch interface? https://templth.wordpress.com/2015/04/03/handling-odata-queries-with-elasticsearch/
   - Generate minimal Data Document based on changes (per TX possible, runs async so not really; from existing doc, like current ES doc)
   - Update database from Data Document
   - Data Document UI
