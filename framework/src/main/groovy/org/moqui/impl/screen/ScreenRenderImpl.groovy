@@ -1149,6 +1149,23 @@ class ScreenRenderImpl implements ScreenRender {
 
         return ""
     }
+    String getFieldValueString(FtlNodeWrapper widgetNodeWrapper) {
+        FtlNodeWrapper fieldNodeWrapper = widgetNodeWrapper.parentNodeWrapper.parentNodeWrapper
+        MNode widgetNode = widgetNodeWrapper.getMNode()
+        String defaultValue = widgetNode.attribute("default-value")
+        if (defaultValue == null) defaultValue = ""
+        String format = widgetNode.attribute("format")
+        if ("text".equals(renderMode)) {
+            String textFormat = widgetNode.attribute("text-format")
+            if (textFormat != null && !textFormat.isEmpty()) format = textFormat
+        }
+
+        Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
+        if (obj == null) return ""
+        if (obj instanceof String) return (String) obj
+        String strValue = ec.l10n.format(obj, format)
+        return strValue
+    }
     String getFieldValueString(FtlNodeWrapper fieldNodeWrapper, String defaultValue, String format) {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
