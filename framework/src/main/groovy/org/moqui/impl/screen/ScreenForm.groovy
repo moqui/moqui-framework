@@ -1149,11 +1149,12 @@ class ScreenForm {
             return null
         }
 
-        ArrayList<Integer> getFormListColumnCharWidths(ArrayList<ArrayList<FtlNodeWrapper>> formListColumnInfo, int lineWidth) {
+        ArrayList<Integer> getFormListColumnCharWidths(ArrayList<ArrayList<FtlNodeWrapper>> formListColumnInfo, int originalLineWidth) {
             int numCols = formListColumnInfo.size()
             ArrayList<Integer> charWidths = new ArrayList<>(numCols)
             for (int i = 0; i < numCols; i++) charWidths.add(null)
-            if (lineWidth == 0) lineWidth = 132
+            if (originalLineWidth == 0) originalLineWidth = 132
+            int lineWidth = originalLineWidth;
             // leave room for 1 space between each column
             lineWidth -= (numCols - 1)
 
@@ -1207,7 +1208,7 @@ class ScreenForm {
 
             // now we have all fixed widths, calculate and set percent widths
             int widthForPercentCols = lineWidth - fixedColsWidth
-            if (widthForPercentCols < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total width ${lineWidth} by ${-widthForPercentCols} characteres")
+            if (widthForPercentCols < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
             int percentColsCount = numCols - fixedColsCount
 
             // scale column percents to 100, fill in missing
