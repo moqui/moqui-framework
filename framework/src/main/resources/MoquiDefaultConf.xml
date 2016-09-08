@@ -516,7 +516,15 @@
                 default-jdbc-driver="com.mysql.jdbc.Driver"
                 default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
                 default-test-query="SELECT 1">
+            <!--
+                NOTE: to support 4 byte UTF-8 characters use 'utf8mb4' for character-set, and a corresponding collate such as
+                'utf8mb4_col'. Use this character set and collate when creating your database/schema in MySQL before running Moqui,
+                and if set here it will be set on tables that are created as well. For existing databases already set to plain utf8
+                you'll need to run SQL statements on MySQL to change the character set and collate for each table.
+            -->
+
             <!-- use DATETIME instead of TIMESTAMP so can be null and gets no default value; issue with newer MySQL versions -->
+            <!-- NOTE: DATETIME(3) is supported, and needed, on MySQL 5.7; for earlier versions removed the '(3)' as it has millisecond precision by default -->
             <database-type type="date-time" sql-type="DATETIME(3)"/>
 
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
