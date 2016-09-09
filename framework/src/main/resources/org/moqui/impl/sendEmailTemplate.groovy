@@ -33,7 +33,6 @@ import javax.xml.transform.stream.StreamSource
 Logger logger = LoggerFactory.getLogger("org.moqui.impl.sendEmailTemplate")
 
 try {
-
     ExecutionContextImpl ec = context.ec
 
     // logger.info("sendEmailTemplate with emailTemplateId [${emailTemplateId}], bodyParameters [${bodyParameters}]")
@@ -177,9 +176,11 @@ try {
     messageId = email.send()
 
     if (emailMessageId) {
-        Map uemParms = [emailMessageId:emailMessageId, statusId:"ES_SENT", messageId:messageId]
-        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").parameters(uemParms).disableAuthz().call()
+        ec.service.sync().name("update", "moqui.basic.email.EmailMessage")
+                .parameters([emailMessageId:emailMessageId, statusId:"ES_SENT", messageId:messageId]).disableAuthz().call()
     }
+
+    return
 } catch (Throwable t) {
     logger.info("Error in sendEmailTemplate groovy", t)
     throw new BaseException("Error in sendEmailTemplate", t)
