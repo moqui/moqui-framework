@@ -214,7 +214,7 @@ jar {
     // this is necessary otherwise jar won't build when war plugin is applied
     enabled = true
     appendix = 'framework'
-    manifest { attributes 'Implementation-Title': 'Moqui Framework', 'Implementation-Version': version }
+    manifest { attributes 'Implementation-Title': 'Moqui Framework', 'Implementation-Version': version, 'Implementation-Vendor': 'Moqui Ecosystem' }
     from sourceSets.main.output
     // get all of the "resources" that are in component-standard directories instead of src/main/resources
     from fileTree(dir: projectDir.absolutePath,
@@ -236,7 +236,7 @@ war {
     from(files(configurations.execWarRuntime)) { into 'execlib' }
     // TODO some sort of config for Jetty? from file(projectDir.absolutePath + '/jetty/jetty.xml')
     // setup the manifest for the executable war/jar mode
-    manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Framework',
+    manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Ecosystem',
             'Implementation-Version': version, 'Main-Class': 'MoquiStart' }
 }
 

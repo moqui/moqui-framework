@@ -252,15 +252,18 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element ref="field-group"/>
-                <xs:element ref="field-row"/>
-                <xs:element ref="field-row-big"/>
+                <xs:element name="field-accordion"><xs:complexType>
+                    <xs:sequence><xs:element maxOccurs="unbounded" ref="field-group"/></xs:sequence>
+                    <xs:attribute name="collapsible" type="boolean"/>
+                    <xs:attribute name="active" type="xs:string"><xs:annotation><xs:documentation>If collapsible=true use this
+                        to specify the accordion section index to be open, or false for all to be closed.</xs:documentation></xs:annotation></xs:attribute>
+                </xs:complexType></xs:element>
                 <xs:element ref="field-ref"/>
                 <xs:element ref="fields-not-referenced"/>
+                <xs:element ref="field-row"/>
+                <xs:element ref="field-row-big"/>
             </xs:choice>
             <xs:attribute name="id" type="xs:string"/>
-            <xs:attribute name="collapsible" type="boolean"/>
-            <xs:attribute name="active" type="xs:string"><xs:annotation><xs:documentation>If collapsible=true use this
-                to specify the accordion section index to be open, or false for all to be closed.</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="field-group">
@@ -269,6 +272,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="field-ref"/>
                 <xs:element ref="fields-not-referenced"/>
                 <xs:element ref="field-row"/>
+                <xs:element ref="field-row-big"/>
             </xs:choice>
             <xs:attribute name="title" type="xs:string" use="required"/>
             <xs:attribute name="style" type="xs:string"/>
@@ -294,7 +298,6 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:annotation><xs:documentation>Fields in this set will be in the same column in the list form table.</xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
-            <xs:attribute name="style" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="field-ref">
@@ -540,6 +543,13 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="characters"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="align" default="left">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="left"/>
+                    <xs:enumeration value="center"/>
+                    <xs:enumeration value="right"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="header-field">
@@ -754,6 +764,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
                     With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="text-format" type="xs:string"><xs:annotation><xs:documentation>
+                Used to format the output of Number/Time/Date/Timestamp/etc objects for text output.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="encode" default="true" type="boolean">
                 <xs:annotation><xs:documentation>
                     If true the text will be encoded so that it does not interfere with markup of the target output.

@@ -29,6 +29,7 @@ import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.util.RestSchemaUtil
 import org.moqui.jcache.MCache
 import org.moqui.util.MNode
+import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -570,6 +571,7 @@ class RestApi {
             displayName = node.attribute("displayName")
             description = node.attribute("description")
             version = node.attribute("version")
+            if (version && version.contains('${')) version = SystemBinding.expand(version)
 
             if (parent != null) this.pathParameters.addAll(parent.pathParameters)
             name = node.attribute("name")

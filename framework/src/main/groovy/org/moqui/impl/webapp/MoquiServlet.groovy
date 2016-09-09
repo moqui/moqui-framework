@@ -17,6 +17,8 @@ import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactTarpitException
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.screen.ScreenRenderImpl
 import org.moqui.screen.ScreenRender
 import org.moqui.util.MNode
 
@@ -63,7 +65,7 @@ class MoquiServlet extends HttpServlet {
 
         if (logger.traceEnabled) logger.trace("Start request to [${pathInfo}] at time [${startTime}] in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
 
-        ExecutionContext ec = ecfi.getExecutionContext()
+        ExecutionContextImpl ec = ecfi.getEci()
 
         /** NOTE to set render settings manually do something like this, but it is not necessary to set these things
          * for a web page render because if we call render(request, response) it can figure all of this out as defaults
@@ -76,7 +78,8 @@ class MoquiServlet extends HttpServlet {
             ec.initWebFacade(moquiWebappName, request, response)
             ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
-            ec.screen.makeRender().render(request, response)
+            ScreenRenderImpl sri = (ScreenRenderImpl) ec.screenFacade.makeRender()
+            sri.render(request, response)
         } catch (AuthenticationRequiredException e) {
             logger.warn("Web Unauthorized (no authc): " + e.message)
             sendErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized", e.message, e)
@@ -105,13 +108,6 @@ class MoquiServlet extends HttpServlet {
         } finally {
             // make sure everything is cleaned up
             ec.destroy()
-        }
-
-        if (logger.isInfoEnabled() || logger.isTraceEnabled()) {
-            String contentType = response.getContentType()
-            String logMsg = "${pathInfo} in ${(System.currentTimeMillis()-startTime)}ms (${response.getContentType()}) session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}"
-            if (logger.isInfoEnabled() && contentType != null && contentType.contains("text/html")) logger.info(logMsg)
-            else if (logger.isTraceEnabled()) logger.trace(logMsg)
         }
 
         /* this is here just for kicks, uncomment to log a list of all artifacts hit/used in the screen render

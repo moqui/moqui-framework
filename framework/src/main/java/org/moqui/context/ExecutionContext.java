@@ -24,6 +24,8 @@ import org.moqui.service.ServiceFacade;
 import org.moqui.util.ContextBinding;
 import org.moqui.util.ContextStack;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -35,82 +37,81 @@ import javax.servlet.http.HttpServletResponse;
 @SuppressWarnings("unused")
 public interface ExecutionContext {
     /** Get the ExecutionContextFactory this came from. */
-    ExecutionContextFactory getFactory();
+    @Nonnull ExecutionContextFactory getFactory();
 
     /** Returns a Map that represents the current local variable space (context) in whatever is being run. */
-    ContextStack getContext();
-    ContextBinding getContextBinding();
+    @Nonnull ContextStack getContext();
+    @Nonnull ContextBinding getContextBinding();
     /** Returns a Map that represents the global/root variable space (context), ie the bottom of the context stack. */
-    Map<String, Object> getContextRoot();
+    @Nonnull Map<String, Object> getContextRoot();
 
     /** Get an instance object from the named ToolFactory instance (loaded by configuration). Some tools return a
      * singleton instance, others a new instance each time it is used and that instance is saved with this
      * ExecutionContext to be reused. The instanceClass may be null in scripts or other contexts where static typing
      * is not needed */
-    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters);
+    <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
 
     /** Get current Tenant ID. A single application may be run in multiple virtual instances, one for each Tenant, and
      * each will have its own set of databases (except for the tenant database which is shared among all Tenants).
      */
-    String getTenantId();
-    EntityValue getTenant();
+    @Nonnull String getTenantId();
+    @Nonnull EntityValue getTenant();
 
     /** If running through a web (HTTP servlet) request offers access to the various web objects/information.
      * If not running in a web context will return null.
      */
-    WebFacade getWeb();
+    @Nullable WebFacade getWeb();
 
     /** For information about the user and user preferences (including locale, time zone, currency, etc). */
-    UserFacade getUser();
+    @Nonnull UserFacade getUser();
 
     /** For user messages including general feedback, errors, and field-specific validation errors. */
-    MessageFacade getMessage();
+    @Nonnull MessageFacade getMessage();
 
     /** For information about artifacts as they are being executed. */
-    ArtifactExecutionFacade getArtifactExecution();
+    @Nonnull ArtifactExecutionFacade getArtifactExecution();
 
     /** For localization (l10n) functionality, like localizing messages. */
-    L10nFacade getL10n();
+    @Nonnull L10nFacade getL10n();
 
     /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
-    ResourceFacade getResource();
+    @Nonnull ResourceFacade getResource();
 
     /** For trace, error, etc logging to the console, files, etc. */
-    LoggerFacade getLogger();
+    @Nonnull LoggerFacade getLogger();
 
     /** For managing and accessing caches. */
-    CacheFacade getCache();
+    @Nonnull CacheFacade getCache();
 
     /** For transaction operations use this facade instead of the JTA UserTransaction and TransactionManager. See javadoc comments there for examples of code usage. */
-    TransactionFacade getTransaction();
+    @Nonnull TransactionFacade getTransaction();
 
     /** For interactions with a relational database. */
-    EntityFacade getEntity();
+    @Nonnull EntityFacade getEntity();
 
     /** For calling services (local or remote, sync or async or scheduled). */
-    ServiceFacade getService();
+    @Nonnull ServiceFacade getService();
 
     /** For rendering screens for general use (mostly for things other than web pages or web page snippets). */
-    ScreenFacade getScreen();
+    @Nonnull ScreenFacade getScreen();
 
-    NotificationMessage makeNotificationMessage();
-    List<NotificationMessage> getNotificationMessages(String topic);
+    @Nonnull NotificationMessage makeNotificationMessage();
+    @Nonnull List<NotificationMessage> getNotificationMessages(@Nullable String topic);
 
     /** This should be called by a filter or servlet at the beginning of an HTTP request to initialize a web facade
-     * for the current thread.
-     */
-    void initWebFacade(String webappMoquiName, HttpServletRequest request, HttpServletResponse response);
+     * for the current thread. */
+    void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response);
 
     /** Change the active tenant and push the tenantId on a stack. Does nothing if tenantId is the current.
      *  @return True if tenant changed, false otherwise (tenantId matches the current tenantId) */
-    boolean changeTenant(String tenantId);
+    boolean changeTenant(@Nonnull String tenantId);
     /** Change the tenant to the last tenantId on the stack. Returns false if the tenantId stack is empty.
      * @return True if tenant changed, false otherwise (tenantId stack is empty or tenantId matches the current tenantId) */
     boolean popTenant();
 
     /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
      * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
-    void runAsync(Closure closure);
+    void runAsync(@Nonnull Closure closure);
 
     /** This should be called when the ExecutionContext won't be used any more. Implementations should make sure
      * any active transactions, database connections, etc are closed.
