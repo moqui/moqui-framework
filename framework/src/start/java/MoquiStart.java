@@ -70,10 +70,12 @@ public class MoquiStart {
             System.out.println("    -dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
             System.out.println("    -use-try-insert -------------- Try insert and update on error instead of checking for record first");
             System.out.println("    -tenantId=<tenantId> --------- ID for the Tenant to load the data into");
+            System.out.println("    -conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server.");
             System.out.println("    --port=<port> ---------------- The http listening port. Default is 8080");
             System.out.println("    --threads=<max threads> ------ Maximum number of threads. Default is 100");
+            System.out.println("    --conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("");
             System.exit(0);
         }
@@ -106,6 +108,8 @@ public class MoquiStart {
                     argMap.put(arg, "");
                 }
             }
+            String overrideConf = argMap.get("conf");
+            if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
 
             try {
                 System.out.println("Loading data with args [" + argMap + "]");
@@ -134,13 +138,15 @@ public class MoquiStart {
         Map<String, String> argMap = new HashMap<>();
         for (String arg: argList) {
             if (arg.startsWith("--")) arg = arg.substring(2);
-            if (arg.contains("=")) {
-                argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
+            int equalsIndex = arg.indexOf('=');
+            if (equalsIndex > 0) {
+                argMap.put(arg.substring(0, equalsIndex), arg.substring(equalsIndex+1));
             } else {
                 argMap.put(arg, "");
             }
         }
-
+        String overrideConf = argMap.get("conf");
+        if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
 
         try {
             int port = 8080;
