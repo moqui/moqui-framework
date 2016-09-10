@@ -5,7 +5,7 @@
     <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
         any of the desired sub-elements. -->
 
-    <!-- Default properties are only set if there is no System property of the same name -->
+    <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
     <default-property name="ds_transactional_user" value="sa"/>
     <default-property name="ds_transactional_password" value="sa"/>
     <default-property name="ds_transactional_url" value="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000"/>
