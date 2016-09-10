@@ -13,6 +13,7 @@ build
 # runtime directory (separate repository so ignore directory entirely)
 /runtime
 /execwartmp
+/docker/runtime
 
 # IntelliJ IDEA files
 .idea
