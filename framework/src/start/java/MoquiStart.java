@@ -454,7 +454,7 @@ public class MoquiStart {
                     addJarFilesNested(wrapperFile, jarList, loadWebInf);
                     for (File jarFile : jarList) {
                         jarFileList.add(new JarFile(jarFile));
-                        System.out.println("jar file: " + jarFile.getAbsolutePath());
+                        // System.out.println("jar file: " + jarFile.getAbsolutePath());
                     }
                 }
             } catch (Exception e) {
