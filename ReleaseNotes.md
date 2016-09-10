@@ -16,7 +16,7 @@ significant changes.
 
 - Java JDK 8 now required (Java 7 no longer supported)
 - Now requires Servlet Container supporting the Servlet 3.1 specification
-- No longer using Winstone embedded web server (now using Jetty)
+- No longer using Winstone embedded web server, now using Jetty
 - Entity Definitions
   - XSDs updated for these changes, though old attributes still supported
   - changed entity.@package-name to entity.@package
@@ -270,6 +270,11 @@ significant changes.
   - ArtifactAuthzFailure records are only created when a user tries to use
     an artifact, not when simply checking to see if use is permitted (such
     as in menus, links, etc)
+  - significant macro cleanups and improvements
+  - csv render macros now improved to support more screen elements, more 
+    intelligently handle links (only include anchor/text links), etc
+  - text render macros now use fixed width output (number of characters)
+    along with new field attributes to specify print settings
 
 ### Bug Fixes
 
@@ -492,6 +497,26 @@ Gradle tasks.
 
 
 ## Long Term To Do List - aka Informal Road Map
+
+- Docker configurations
+  - full stack production
+    - from
+      - openjdk:8-jdk or openjdk:8-jdk-alpine
+      - jetty:9.3 or jetty:9.3-alpine (only includes JRE...)
+      - tomcat:8.5 (only includes JRE...)
+    - mysql:5.7
+    - mariadb:10.1
+    - elasticsearch:2.3.5 (match internal version, change to non-persistent cluster member)
+    - reverse proxy
+      - httpd:2.4 or httpd:2.4-alpine (run with embedded Jetty, SSL termination/etc in httpd)
+      - jwilder/nginx-proxy
+      - https://github.com/jwilder/nginx-proxy
+  - simple image
+    - openjdk:8-jdk or openjdk:8-jdk-alpine
+    - embedded jetty, h2, elasticsearch
+  - embedded and gradle docker client
+    - https://github.com/docker-java/docker-java
+    - https://github.com/bmuschko/gradle-docker-plugin
 
 - Option for link element to only render if referenced transition/screen exists
 - Option for transition to only mount if all response URLs for screen paths exist
