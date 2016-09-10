@@ -160,8 +160,8 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="multi" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Make the form a multi-submit form where all rows on a page are
                     submitted together in a single request with a "_${rowNumber}" suffix on each field. Also passes a
-                    _isMulti=true parameter so the Service Facade knows to run the service (a single service-call in a
-                    transition) for each row. Defaults to true, so set to false to disable this behavior and have a
+                    _isMulti=true parameter so the Service Facade knows to run the service (for a single service-call in a
+                    transition) for each row. Defaults to false, so set to true to enable this behavior and have a
                     separate form (submitted separately) for each row.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="list" type="xs:string">
