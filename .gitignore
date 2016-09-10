@@ -7,7 +7,7 @@ build
 /framework/dependencies
 
 # build generated files
-/moqui-*.war
+/moqui*.war
 /Save*.zip
 
 # runtime directory (separate repository so ignore directory entirely)
