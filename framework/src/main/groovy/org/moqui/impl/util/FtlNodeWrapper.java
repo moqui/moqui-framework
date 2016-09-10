@@ -142,7 +142,8 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
     // TemplateNodeModel methods
 
     @Override
-    public TemplateNodeModel getParentNode() {
+    public TemplateNodeModel getParentNode() { return getParentNodeWrapper(); }
+    public FtlNodeWrapper getParentNodeWrapper() {
         if (parentNode != null) return parentNode;
         parentNode = wrapNode(mNode.getParent());
         return parentNode;

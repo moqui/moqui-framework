@@ -33,6 +33,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.math.RoundingMode
 import java.sql.Timestamp
 
 @CompileStatic
@@ -889,8 +890,11 @@ class ScreenForm {
     static LinkedHashMap<String, String> getFieldOptions(MNode widgetNode, ExecutionContext ec) {
         MNode fieldNode = widgetNode.parent.parent
         LinkedHashMap<String, String> options = new LinkedHashMap<>()
-        for (MNode childNode in widgetNode.children) {
-            if (childNode.name == "entity-options") {
+        ArrayList<MNode> widgetChildren = widgetNode.children
+        int widgetChildrenSize = widgetChildren.size()
+        for (int wci = 0; wci < widgetChildrenSize; wci++) {
+            MNode childNode = (MNode) widgetChildren.get(wci)
+            if ("entity-options".equals(childNode.name)) {
                 MNode entityFindNode = childNode.first("entity-find")
                 EntityFindImpl ef = (EntityFindImpl) ec.entity.find(entityFindNode.attribute('entity-name'))
                 ef.findNode(entityFindNode)
@@ -899,7 +903,10 @@ class ScreenForm {
 
                 if (ef.shouldCache()) {
                     // do the date filtering after the query
-                    for (MNode df in entityFindNode.children("date-filter")) {
+                    ArrayList<MNode> dateFilterList = entityFindNode.children("date-filter")
+                    int dateFilterListSize = dateFilterList.size()
+                    for (int k = 0; k < dateFilterListSize; k++) {
+                        MNode df = (MNode) dateFilterList.get(k)
                         EntityCondition dateEc = ec.entity.conditionFactory.makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
                                 df.attribute("thru-field-name") ?: "thruDate",
                                 (df.attribute("valid-date") ? ec.resource.expression(df.attribute("valid-date"), null) as Timestamp : ec.user.nowTimestamp))
@@ -913,7 +920,7 @@ class ScreenForm {
                     EntityValue ev = (EntityValue) eli.get(i)
                     addFieldOption(options, fieldNode, childNode, ev, ec)
                 }
-            } else if (childNode.name == "list-options") {
+            } else if ("list-options".equals(childNode.name)) {
                 Object listObject = ec.resource.expression(childNode.attribute('list'), null)
                 if (listObject instanceof EntityListIterator) {
                     EntityListIterator eli
@@ -935,9 +942,9 @@ class ScreenForm {
                         }
                     }
                 }
-            } else if (childNode.name == "option") {
-                String key = ec.resource.expand((String) childNode.attribute('key'), null)
-                String text = ec.resource.expand((String) childNode.attribute('text'), null)
+            } else if ("option".equals(childNode.name)) {
+                String key = ec.resource.expand(childNode.attribute('key'), null)
+                String text = ec.resource.expand(childNode.attribute('text'), null)
                 options.put(key, text ?: key)
             }
         }
@@ -1003,6 +1010,7 @@ class ScreenForm {
 
         private ArrayList<MNode> allFieldNodes
         private Map<String, MNode> fieldNodeMap = new LinkedHashMap<>()
+        private Map<String, FtlNodeWrapper> fieldFtlNodeMap = new LinkedHashMap<>()
 
         private boolean isUploadForm = false
         private boolean isFormHeaderFormVal = false
@@ -1021,7 +1029,9 @@ class ScreenForm {
             int afnSize = allFieldNodes.size()
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
-                fieldNodeMap.put(fieldNode.attribute("name"), fieldNode)
+                String fieldName = fieldNode.attribute("name")
+                fieldNodeMap.put(fieldName, fieldNode)
+                fieldFtlNodeMap.put(fieldName, FtlNodeWrapper.wrapNode(fieldNode))
             }
 
             isUploadForm = formNode.depthFirst({ MNode it -> it.name == "file" }).size() > 0
@@ -1039,6 +1049,7 @@ class ScreenForm {
         }
         // MNode getFormMNode() { return formNode }
         FtlNodeWrapper getFtlFormNode() { return ftlFormNode }
+        FtlNodeWrapper getFtlFieldNode(String fieldName) { return fieldFtlNodeMap.get(fieldName) }
 
         boolean isUpload() { return isUploadForm }
         boolean isHeaderForm() { return isFormHeaderFormVal }
@@ -1069,8 +1080,9 @@ class ScreenForm {
 
             if (formNode.hasChild("field-layout")) for (MNode fieldNode in formNode.children("field")) {
                 MNode fieldLayoutNode = formNode.first("field-layout")
-                if (!fieldLayoutNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldNode.attribute("name") }))
-                    fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
+                String fieldName = fieldNode.attribute("name")
+                if (!fieldLayoutNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldName }))
+                    fieldList.add(fieldFtlNodeMap.get(fieldName))
             }
 
             nonReferencedFieldList = fieldList
@@ -1135,6 +1147,114 @@ class ScreenForm {
             }
 
             return null
+        }
+
+        ArrayList<Integer> getFormListColumnCharWidths(ArrayList<ArrayList<FtlNodeWrapper>> formListColumnInfo, int originalLineWidth) {
+            int numCols = formListColumnInfo.size()
+            ArrayList<Integer> charWidths = new ArrayList<>(numCols)
+            for (int i = 0; i < numCols; i++) charWidths.add(null)
+            if (originalLineWidth == 0) originalLineWidth = 132
+            int lineWidth = originalLineWidth;
+            // leave room for 1 space between each column
+            lineWidth -= (numCols - 1)
+
+            // set fixed column widths and get a total of fixed columns, remaining characters to be split among percent width cols
+            ArrayList<BigDecimal> percentWidths = new ArrayList<>(numCols)
+            for (int i = 0; i < numCols; i++) percentWidths.add(null)
+            int fixedColsWidth = 0
+            int fixedColsCount = 0
+            for (int i = 0; i < numCols; i++) {
+                ArrayList<FtlNodeWrapper> colNodes = (ArrayList<FtlNodeWrapper>) formListColumnInfo.get(i)
+                int charWidth = -1
+                BigDecimal percentWidth = null
+                for (int j = 0; j < colNodes.size(); j++) {
+                    FtlNodeWrapper fieldFtlNode = (FtlNodeWrapper) colNodes.get(j)
+                    MNode fieldNode = fieldFtlNode.getMNode()
+                    String pwAttr = fieldNode.attribute("print-width")
+                    if (pwAttr == null || pwAttr.isEmpty()) continue
+                    BigDecimal curWidth = new BigDecimal(pwAttr)
+                    if (curWidth == BigDecimal.ZERO) {
+                        charWidth = 0
+                        // no separator char needed for columns not displayed so add back to lineWidth
+                        lineWidth++
+                        continue
+                    }
+                    if ("characters".equals(fieldNode.attribute("print-width-type"))) {
+                        if (curWidth.intValue() > charWidth) charWidth = curWidth.intValue()
+                    } else {
+                        if (percentWidth == null || curWidth > percentWidth) percentWidth = curWidth
+                    }
+                }
+                if (charWidth >= 0) {
+                    if (percentWidth != null) {
+                        // if we have char and percent widths, calculate effective chars of percent width and if greater use that
+                        int percentChars = ((percentWidth / 100) * lineWidth).intValue()
+                        if (percentChars < charWidth) {
+                            charWidths.set(i, charWidth)
+                            fixedColsWidth += charWidth
+                            fixedColsCount++
+                        } else {
+                            percentWidths.set(i, percentWidth)
+                        }
+                    } else {
+                        charWidths.set(i, charWidth)
+                        fixedColsWidth += charWidth
+                        fixedColsCount++
+                    }
+                } else {
+                    if (percentWidth != null) percentWidths.set(i, percentWidth)
+                }
+            }
+
+            // now we have all fixed widths, calculate and set percent widths
+            int widthForPercentCols = lineWidth - fixedColsWidth
+            if (widthForPercentCols < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
+            int percentColsCount = numCols - fixedColsCount
+
+            // scale column percents to 100, fill in missing
+            BigDecimal percentTotal = 0
+            for (int i = 0; i < numCols; i++) {
+                BigDecimal colPercent = (BigDecimal) percentWidths.get(i)
+                if (colPercent == null) {
+                    if (charWidths.get(i) != null) continue
+                    BigDecimal percentWidth = (1 / percentColsCount) * 100
+                    percentWidths.set(i, percentWidth)
+                    percentTotal += percentWidth
+                } else {
+                    percentTotal += colPercent
+                }
+            }
+            int percentColsUsed = 0
+            BigDecimal percentScale = 100 / percentTotal
+            for (int i = 0; i < numCols; i++) {
+                BigDecimal colPercent = (BigDecimal) percentWidths.get(i)
+                if (colPercent == null) continue
+                BigDecimal actualPercent = colPercent * percentScale
+                percentWidths.set(i, actualPercent)
+                int percentChars = ((actualPercent / 100.0) * widthForPercentCols).setScale(0, RoundingMode.HALF_EVEN).intValue()
+                charWidths.set(i, percentChars)
+                percentColsUsed += percentChars
+            }
+
+            // adjust for over/underflow
+            if (percentColsUsed != widthForPercentCols) {
+                int diffRemaining = widthForPercentCols - percentColsUsed
+                int diffPerCol = (diffRemaining / percentColsCount).setScale(0, RoundingMode.UP).intValue()
+                for (int i = 0; i < numCols; i++) {
+                    if (percentWidths.get(i) == null) continue
+                    Integer curChars = charWidths.get(i)
+                    int adjustAmount = Math.abs(diffRemaining) > Math.abs(diffPerCol) ? diffPerCol : diffRemaining
+                    int newChars = curChars + adjustAmount
+                    if (newChars > 0) {
+                        charWidths.set(i, newChars)
+                        diffRemaining -= adjustAmount
+                        if (diffRemaining == 0) break
+                    }
+                }
+            }
+
+            logger.info("Text mode form-list: numCols=${numCols}, percentColsUsed=${percentColsUsed}, widthForPercentCols=${widthForPercentCols}, percentColsCount=${percentColsCount}\npercentWidths: ${percentWidths}\ncharWidths: ${charWidths}")
+            return charWidths
         }
 
         ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
@@ -1240,8 +1360,9 @@ class ScreenForm {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
                 // skip hidden fields, they are handled separately
                 if (isListFieldHidden(fieldNode)) continue
-                if (!fieldsInFormListColumns.contains(fieldNode.attribute("name")))
-                    colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+                String fieldName = fieldNode.attribute("name")
+                if (!fieldsInFormListColumns.contains(fieldName))
+                    colFieldNodes.add(fieldFtlNodeMap.get(fieldName))
             }
 
             return colFieldNodes
@@ -1418,7 +1539,6 @@ class ScreenForm {
 
             return flfInfoList
         }
-
 
         EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
             if (ec.web == null) return null

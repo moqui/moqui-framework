@@ -14,17 +14,19 @@
 package org.moqui.impl.context.renderer;
 
 import freemarker.core.Environment;
-import freemarker.core.ParseException;
+import freemarker.core.InvalidReferenceException;
 import freemarker.ext.beans.BeansWrapper;
 import freemarker.ext.beans.BeansWrapperBuilder;
 import freemarker.template.*;
 import groovy.transform.CompileStatic;
+
 import org.moqui.BaseException;
 import org.moqui.context.ExecutionContextFactory;
 import org.moqui.context.ResourceReference;
 import org.moqui.context.TemplateRenderer;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.jcache.MCache;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +37,8 @@ import java.util.Locale;
 @CompileStatic
 public class FtlTemplateRenderer implements TemplateRenderer {
     public static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
-    protected static final Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class);
+    private static final Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class);
+
     protected ExecutionContextFactoryImpl ecfi;
     private Configuration defaultFtlConfiguration;
     private Cache<String, Template> templateFtlLocationCache;
@@ -53,19 +56,15 @@ public class FtlTemplateRenderer implements TemplateRenderer {
     public void render(String location, Writer writer) {
         Template theTemplate = getFtlTemplateByLocation(location);
         try {
-            theTemplate.createProcessingEnvironment(ecfi.getExecutionContext().getContext(), writer).process();
+            theTemplate.createProcessingEnvironment(ecfi.getEci().contextStack, writer).process();
         } catch (Exception e) { throw new BaseException("Error rendering template at " + location, e); }
     }
+    public String stripTemplateExtension(String fileName) { return fileName.contains(".ftl") ? fileName.replace(".ftl", "") : fileName; }
 
-    public String stripTemplateExtension(String fileName) {
-        return fileName.contains(".ftl") ? fileName.replace(".ftl", "") : fileName;
-    }
-
-    public void destroy() {
-    }
+    public void destroy() { }
 
     @SuppressWarnings("unchecked")
-    public Template getFtlTemplateByLocation(final String location) {
+    private Template getFtlTemplateByLocation(final String location) {
         Template theTemplate;
         if (templateFtlLocationCache instanceof MCache) {
             MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
@@ -79,7 +78,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             theTemplate = templateFtlLocationCache.get(location);
         }
         if (theTemplate == null) theTemplate = makeTemplate(location);
-        if (theTemplate == null) throw new IllegalArgumentException("Could not find template at [" + location + "]");
+        if (theTemplate == null) throw new IllegalArgumentException("Could not find template at " + location);
         return theTemplate;
     }
 
@@ -93,11 +92,11 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location), "UTF-8");
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error while initializing template at [" + location + "]", e);
+            throw new IllegalArgumentException("Error while initializing template at " + location, e);
         } finally {
             if (templateReader != null) {
                 try { templateReader.close(); }
-                catch (Exception e) { throw new BaseException("Error closing template reader", e); }
+                catch (Exception e) { logger.error("Error closing template reader", e); }
             }
         }
 
@@ -106,9 +105,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         return newTemplate;
     }
 
-    public Configuration getFtlConfiguration() {
-        return defaultFtlConfiguration;
-    }
+    public Configuration getFtlConfiguration() { return defaultFtlConfiguration; }
 
     private static Configuration makeFtlConfiguration(ExecutionContextFactoryImpl ecfi) {
         Configuration newConfig = new MoquiConfiguration(FTL_VERSION, ecfi);
@@ -122,11 +119,13 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         // not needed, using getTemplate override instead: newConfig.setLocalizedLookup(false)
 
         newConfig.setTemplateExceptionHandler(new MoquiTemplateExceptionHandler());
+        newConfig.setLogTemplateExceptions(false);
         newConfig.setWhitespaceStripping(true);
         return newConfig;
     }
 
     private static class MoquiConfiguration extends Configuration {
+        private ExecutionContextFactoryImpl ecfi;
         MoquiConfiguration(Version version, ExecutionContextFactoryImpl ecfi) {
             super(version);
             this.ecfi = ecfi;
@@ -146,20 +145,12 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             }
 
             // NOTE: this is the same exception the standard FreeMarker code returns
-            if (theTemplate == null && !ignoreMissing)
-                throw new FileNotFoundException("Template [" + name + "] not found.");
+            if (theTemplate == null && !ignoreMissing) throw new FileNotFoundException("Template " + name + " not found.");
             return theTemplate;
         }
 
-        public ExecutionContextFactoryImpl getEcfi() {
-            return ecfi;
-        }
-
-        public void setEcfi(ExecutionContextFactoryImpl ecfi) {
-            this.ecfi = ecfi;
-        }
-
-        private ExecutionContextFactoryImpl ecfi;
+        public ExecutionContextFactoryImpl getEcfi() { return ecfi; }
+        public void setEcfi(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi; }
     }
 
     private static class MoquiTemplateExceptionHandler implements TemplateExceptionHandler {
@@ -169,12 +160,25 @@ public class FtlTemplateRenderer implements TemplateRenderer {
                 // stackTrace = simpleEncoder.encode(stackTrace);
                 if (te.getCause() != null) {
                     BaseException.filterStackTrace(te.getCause());
-                    logger.error("Error in FTL render", te.getCause());
-                    out.write("[FTL Error: " + te.getCause().getMessage() + "]");
+                    logger.error("Error from code called in FTL render", te.getCause());
+                    // NOTE: ScreenTestImpl looks for this string, ie "[Template Error"
+                    out.write("[Template Error: ");
+                    out.write(te.getCause().getMessage());
+                    out.write("]");
                 } else {
-                    BaseException.filterStackTrace(te);
-                    logger.error("Error in FTL render", te);
-                    out.write("[FTL Error: " + te.getMessage() + "]");
+                    // NOTE: if there is not cause it is an exception generated by FreeMarker and not some code called in the template
+                    if (te instanceof InvalidReferenceException) {
+                        // NOTE: ScreenTestImpl looks for this string, ie "[Template Error"
+                        logger.error("[Template Error: expression '" + te.getBlamedExpressionString() + "' was null or not found (" + te.getTemplateSourceName() + ":" + te.getLineNumber() + "," + te.getColumnNumber() + ")]");
+                        out.write("[Template Error]");
+                    } else {
+                        BaseException.filterStackTrace(te);
+                        logger.error("Error from FTL in render", te);
+                        // NOTE: ScreenTestImpl looks for this string, ie "[Template Error"
+                        out.write("[Template Error: ");
+                        out.write(te.getMessage());
+                        out.write("]");
+                    }
                 }
             } catch (IOException e) {
                 throw new TemplateException("Failed to print error message. Cause: " + e, env);
