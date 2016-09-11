@@ -15,6 +15,6 @@ docker run --rm -p 8080:8080 -v $PWD/runtime/conf:/opt/moqui/runtime/conf -v $PW
     -v $PWD/runtime/classes:/opt/moqui/runtime/classes -v $PWD/runtime/log:/opt/moqui/runtime/log \
     -v $PWD/runtime/txlog:/opt/moqui/runtime/txlog -v $PWD/runtime/db:/opt/moqui/runtime/db \
     -v $PWD/runtime/elasticsearch:/opt/moqui/runtime/elasticsearch \
-    moqui
+    --name=moqui-server moqui
 # docker run -d -p 8080:8080 moqui
 # docker run --rm -p 8080:8080 moqui

@@ -2,6 +2,7 @@ version: "2"
 services:
   moqui-server:
     image: moqui
+    container_name: moqui-server
     command: --conf=conf/MySQLConf.xml
     restart: always
     links:
@@ -25,6 +26,7 @@ services:
 
   mysql-moqui:
     image: mysql:5.7
+    container_name: mysql-moqui
     restart: always
     # uncomment this to expose the port for use outside other services
     # ports:
