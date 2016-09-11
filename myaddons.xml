@@ -41,4 +41,5 @@
 	<!-- rovnanik.sk Components -->
     <component name="economy-setup" group="mrovnanik" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
     <component name="Kinekus-data" group="mrovnanik" version="" branch="master" repository="github-ssh"/>       <!-- no releases -->
+    <component name="HotelSlovan-data" group="mrovnanik" version="" branch="master" repository="github-ssh"/>       <!-- no releases -->
 </addons>
