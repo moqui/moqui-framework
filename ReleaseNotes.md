@@ -153,6 +153,23 @@ significant changes.
       instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime};
       if a property name contains underscores and no value is found with
       the literal name it replaces underscores with dots and looks again
+- Deployment and Docker
+  - The MoquiStart class now supports running from an expanded WAR file,
+    i.e. from a directory with the contents of a Moqui executable WAR
+  - On startup DataSource (database) connections are retried 5 times, 
+    every 5 seconds, for situations where init of separate containers is 
+    triggered at the same time like with Docker Compose
+  - Added a MySQLConf.xml file where settings can come from Java system 
+    properties or system environment variables
+  - The various webapp.@http* attributes can now be set as system 
+    properties or environment variables
+  - Added a Dockerfile and docker-build.sh script to build a Docker image
+    from moqui-plus-runtime.war or moqui.war and the runtime directory
+  - Added sample Docker Compose files for moqui+mysql, and for moqui, 
+    mysql, and nginx-proxy for reverse proxy that supports virtual hosts
+    for multiple Docker containers running Moqui
+  - Added script to bring up a Docker Compose file after copying relevant
+    configuration and data persistence runtime directories if needed
 - Tool Factory
   - Added org.moqui.context.ToolFactory interface used to initialize,
     destroy, and get instances of tools
