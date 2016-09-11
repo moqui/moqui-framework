@@ -463,12 +463,12 @@ class UserFacadeImpl implements UserFacade {
 
     /** For internal framework use only, does a login without authc. */
     boolean internalLoginUser(String username, String tenantId) {
-        if (!username) {
+        if (username == null || username.isEmpty()) {
             eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
-        if (!tenantId) tenantId = eci.tenantId
-        if (tenantId && tenantId != eci.tenantId) {
+        if (tenantId == null || tenantId.isEmpty()) tenantId = eci.tenantId
+        if (tenantId != null && !tenantId.isEmpty() && tenantId != eci.tenantId) {
             eci.changeTenant(tenantId)
             // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
             // this.visitId = null
@@ -486,7 +486,7 @@ class UserFacadeImpl implements UserFacade {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
-            eci.message.addError(ae.message)
+            eci.messageFacade.addError(ae.message)
             logger.warn("Login failure: ${eci.message.errorsString}", ae)
             return false
         }

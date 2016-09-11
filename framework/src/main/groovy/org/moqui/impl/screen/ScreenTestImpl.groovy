@@ -138,10 +138,10 @@ class ScreenTestImpl implements ScreenTest {
         Map<String, Object> parameters = [:]
         String requestMethod = (String) null
 
-        protected ScreenRender screenRender = (ScreenRender) null
-        protected String outputString = (String) null
-        protected long renderTime = 0
-        protected Map postRenderContext = (Map) null
+        ScreenRender screenRender = (ScreenRender) null
+        String outputString = (String) null
+        long renderTime = 0
+        Map postRenderContext = (Map) null
         protected List<String> errorMessages = []
 
         ScreenTestRenderImpl(ScreenTestImpl sti, String screenPath, Map<String, Object> parameters, String requestMethod) {
@@ -151,23 +151,48 @@ class ScreenTestImpl implements ScreenTest {
             this.requestMethod = requestMethod
         }
 
+
         ScreenTestRender render() {
-            ExecutionContextImpl eci = sti.ecfi.getEci()
+            // render in separate thread with an independent ExecutionContext so it doesn't muck up the current one
+            ExecutionContextFactoryImpl ecfi = sti.ecfi
+            ExecutionContextImpl localEci = ecfi.getEci()
+            String username = localEci.userFacade.getUsername()
+            String tenantId = localEci.tenantId
+            boolean authzDisabled = localEci.artifactExecutionFacade.getAuthzDisabled()
+            Throwable threadThrown = null
+            Thread txThread = Thread.start('ScreenTestRender', {
+                try {
+                    ExecutionContextImpl eci = ecfi.getEci()
+                    eci.userFacade.internalLoginUser(username, tenantId)
+                    if (authzDisabled) eci.artifactExecutionFacade.disableAuthz()
+                    renderInternal(eci, this)
+                    eci.destroy()
+                } catch (Throwable t) {
+                    threadThrown = t
+                }
+            })
+            txThread.join()
+            if (threadThrown != null) throw threadThrown
+            return this
+        }
+        private static void renderInternal(ExecutionContextImpl eci, ScreenTestRenderImpl stri) {
+            ScreenTestImpl sti = stri.sti
             long startTime = System.currentTimeMillis()
 
             // parse the screenPath
             ArrayList<String> screenPathList = ScreenUrlInfo.parseSubScreenPath(sti.rootScreenDef, sti.baseScreenDef,
-                    sti.baseScreenPathList, screenPath, parameters, sti.sfi)
+                    sti.baseScreenPathList, stri.screenPath, stri.parameters, sti.sfi)
 
             // push the context
             ContextStack cs = eci.getContext()
             cs.push()
             // create the WebFacadeStub
-            WebFacadeStub wfs = new WebFacadeStub(sti.ecfi, parameters, sti.sessionAttributes, requestMethod)
+            WebFacadeStub wfs = new WebFacadeStub(sti.ecfi, stri.parameters, sti.sessionAttributes, stri.requestMethod)
             // set stub on eci, will also put parameters in the context
             eci.setWebFacade(wfs)
             // make the ScreenRender
-            screenRender = sti.sfi.makeRender()
+            ScreenRender screenRender = sti.sfi.makeRender()
+            stri.screenRender = screenRender
             // pass through various settings
             if (sti.rootScreenLocation != null && sti.rootScreenLocation.length() > 0) screenRender.rootScreen(sti.rootScreenLocation)
             if (sti.outputType != null && sti.outputType.length() > 0) screenRender.renderMode(sti.outputType)
@@ -184,42 +209,40 @@ class ScreenTestImpl implements ScreenTest {
             try {
                 screenRender.render(wfs.httpServletRequest, wfs.httpServletResponse)
                 // get the response text from the WebFacadeStub
-                outputString = wfs.getResponseText()
+                stri.outputString = wfs.getResponseText()
             } catch (Throwable t) {
-                String errMsg = "Exception in render of ${screenPath}: ${t.toString()}"
+                String errMsg = "Exception in render of ${stri.screenPath}: ${t.toString()}"
                 logger.warn(errMsg, t)
-                errorMessages.add(errMsg)
+                stri.errorMessages.add(errMsg)
                 sti.errorCount++
             }
             // calc renderTime
-            renderTime = System.currentTimeMillis() - startTime
+            stri.renderTime = System.currentTimeMillis() - startTime
 
             // pop the context stack, get rid of var space
-            postRenderContext = cs.pop()
+            stri.postRenderContext = cs.pop()
 
             // check, pass through, error messages
             if (eci.message.hasError()) {
-                errorMessages.addAll(eci.message.getErrors())
+                stri.errorMessages.addAll(eci.message.getErrors())
                 eci.message.clearErrors()
-                StringBuilder sb = new StringBuilder("Error messages from ${screenPath}: ")
-                for (String errorMessage in errorMessages) sb.append("\n").append(errorMessage)
+                StringBuilder sb = new StringBuilder("Error messages from ${stri.screenPath}: ")
+                for (String errorMessage in stri.errorMessages) sb.append("\n").append(errorMessage)
                 logger.warn(sb.toString())
-                sti.errorCount += errorMessages.size()
+                sti.errorCount += stri.errorMessages.size()
             }
 
             // check for error strings in output
-            if (outputString != null) for (String errorStr in sti.errorStrings) if (outputString.contains(errorStr)) {
-                String errMsg = "Found error [${errorStr}] in output from ${screenPath}"
-                errorMessages.add(errMsg)
+            if (stri.outputString != null) for (String errorStr in sti.errorStrings) if (stri.outputString.contains(errorStr)) {
+                String errMsg = "Found error [${errorStr}] in output from ${stri.screenPath}"
+                stri.errorMessages.add(errMsg)
                 sti.errorCount++
                 logger.warn(errMsg)
             }
 
             // update stats
             sti.renderCount++
-            if (outputString != null) sti.totalChars += outputString.length()
-
-            return this
+            if (stri.outputString != null) sti.totalChars += stri.outputString.length()
         }
 
         @Override

@@ -1454,6 +1454,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         String httpPort, httpHost, httpsPort, httpsHost
         boolean httpsEnabled
+        boolean requireSessionToken
 
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
@@ -1466,6 +1467,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             httpsPort = webappNode.attribute("https-port") ?: null
             httpsHost = webappNode.attribute("https-host") ?: httpPort ?: null
             httpsEnabled = "true".equals(webappNode.attribute("https-enabled"))
+            requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
 
             logger.info("Initializing webapp ${webappName} http://${httpHost}:${httpPort} https://${httpsHost}:${httpsPort} https enabled? ${httpsEnabled}")
 

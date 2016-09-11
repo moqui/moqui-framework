@@ -201,7 +201,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     boolean disableAuthz() { boolean alreadyDisabled = this.authzDisabled; this.authzDisabled = true; return alreadyDisabled }
     void enableAuthz() { this.authzDisabled = false }
-    // boolean getAuthzDisabled() { return authzDisabled }
+    boolean getAuthzDisabled() { return authzDisabled }
 
     boolean disableTarpit() { boolean alreadyDisabled = this.tarpitDisabled; this.tarpitDisabled = true; return alreadyDisabled }
     void enableTarpit() { this.tarpitDisabled = false }
