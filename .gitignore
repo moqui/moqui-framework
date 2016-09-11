@@ -14,6 +14,7 @@ build
 /runtime
 /execwartmp
 /docker/runtime
+/docker/db
 
 # IntelliJ IDEA files
 .idea
