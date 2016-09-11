@@ -665,7 +665,7 @@ class ScreenDefinition {
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
-            ExecutionContextImpl ec = sri.getEc()
+            ExecutionContextImpl ec = sri.ec
 
             // NOTE: if parent screen of transition does not require auth, don't require authz
             // NOTE: use the View authz action to leave it open, ie require minimal authz; restrictions are often more
@@ -737,7 +737,7 @@ class ScreenDefinition {
 
         // NOTE: runs pre-actions too, see sri.recursiveRunTransition() call in sri.internalRender()
         ResponseItem run(ScreenRenderImpl sri) {
-            ExecutionContextImpl ec = sri.getEc()
+            ExecutionContextImpl ec = sri.ec
             WebFacade wf = ec.getWeb()
             if (wf == null) throw new BaseException("Cannot run actions transition outside of a web request")
 
@@ -766,7 +766,7 @@ class ScreenDefinition {
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
-            ScreenForm.saveFormConfig(sri.getEc())
+            ScreenForm.saveFormConfig(sri.ec)
             return defaultResponse
         }
     }
@@ -783,7 +783,7 @@ class ScreenDefinition {
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
-            String formListFindId = ScreenForm.processFormSavedFind(sri.getEc())
+            String formListFindId = ScreenForm.processFormSavedFind(sri.ec)
 
             if (formListFindId == null || sri.response == null) return defaultResponse
 
@@ -795,7 +795,7 @@ class ScreenDefinition {
             ScreenUrlInfo fwdUrlInfo = ScreenUrlInfo.getScreenUrlInfo(sri, null, curFpnl, null, null)
             ScreenUrlInfo.UrlInstance fwdInstance = fwdUrlInfo.getInstance(sri, null)
 
-            Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.getEc(), null)
+            Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
             fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
 
             sri.response.sendRedirect(fwdInstance.getUrlWithParams())

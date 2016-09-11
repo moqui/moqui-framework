@@ -15,7 +15,6 @@ package org.moqui.impl.screen
 
 import freemarker.template.Template
 import groovy.transform.CompileStatic
-import org.apache.commons.collections.map.ListOrderedMap
 
 import org.moqui.BaseException
 import org.moqui.context.*
@@ -31,7 +30,6 @@ import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.ResourceFacadeImpl
-import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityValueBase
@@ -56,8 +54,8 @@ class ScreenRenderImpl implements ScreenRender {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenRenderImpl.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
-    protected final ScreenFacadeImpl sfi
-    protected ExecutionContextImpl localEc
+    public final ScreenFacadeImpl sfi
+    public final ExecutionContextImpl ec
     protected boolean rendering = false
 
     protected String rootScreenLocation = (String) null
@@ -98,7 +96,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     ScreenRenderImpl(ScreenFacadeImpl sfi) {
         this.sfi = sfi
-        localEc = sfi.ecfi.getEci()
+        ec = sfi.ecfi.getEci()
     }
 
     Writer getWriter() {
@@ -110,8 +108,6 @@ class ScreenRenderImpl implements ScreenRender {
         throw new BaseException("Could not render screen, no writer available")
     }
 
-    ExecutionContextImpl getEc() { return localEc }
-    ScreenFacadeImpl getSfi() { return sfi }
     ScreenUrlInfo getScreenUrlInfo() { return screenUrlInfo }
     UrlInstance getScreenUrlInstance() { return screenUrlInstance }
 
@@ -1350,10 +1346,10 @@ class ScreenRenderImpl implements ScreenRender {
         // if no setting default to STT_INTERNAL
         if (stteId == null) stteId = "STT_INTERNAL"
 
-        EntityFacade entityFacade = sfi.ecfi.getEntityFacade(localEc.tenantId)
+        EntityFacade entityFacade = sfi.ecfi.getEntityFacade(ec.tenantId)
         // see if there is a user setting for the theme
         String themeId = entityFacade.find("moqui.security.UserScreenTheme")
-                .condition("userId", localEc.user.userId).condition("screenThemeTypeEnumId", stteId)
+                .condition("userId", ec.userFacade.userId).condition("screenThemeTypeEnumId", stteId)
                 .useCache(true).disableAuthz().one()?.screenThemeId
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {

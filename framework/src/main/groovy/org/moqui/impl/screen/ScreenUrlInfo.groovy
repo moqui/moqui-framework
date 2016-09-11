@@ -18,7 +18,6 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
-import org.moqui.context.WebFacade
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -100,7 +99,7 @@ class ScreenUrlInfo {
 
     /** Stub mode for ScreenUrlInfo, represent a plain URL and not a screen URL */
     static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, String url) {
-        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.sfi.screenUrlCache
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(url)
         if (cached != null) return cached
 
@@ -129,12 +128,12 @@ class ScreenUrlInfo {
         if (fromSd == null) fromSd = sri.getActiveScreenDef()
         if (fromPathList == null) fromPathList = sri.getActiveScreenPath()
 
-        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
         if (cached != null) return cached
 
-        ScreenUrlInfo newSui = new ScreenUrlInfo(sri.getSfi(), rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
+        ScreenUrlInfo newSui = new ScreenUrlInfo(sri.sfi, rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
         if (newSui.reusable) screenUrlCache.put(cacheKey, newSui)
         return newSui
     }
@@ -179,8 +178,8 @@ class ScreenUrlInfo {
 
     /** Stub mode for ScreenUrlInfo, represent a plain URL and not a screen URL */
     ScreenUrlInfo(ScreenRenderImpl sri, String url) {
-        this.sfi = sri.getSfi()
-        this.ecfi = sfi.getEcfi()
+        this.sfi = sri.sfi
+        this.ecfi = sfi.ecfi
         this.rootSd = sri.getRootScreenDef()
         this.plainUrl = url
     }
@@ -286,7 +285,7 @@ class ScreenUrlInfo {
             if (sri.webappName == null || sri.webappName.length() == 0)
                 throw new BaseException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
             baseUrl = WebFacadeImpl.getWebappRootUrl(sri.webappName, sri.servletContextPath, true,
-                    this.requireEncryption, (ExecutionContextImpl) sri.getEc())
+                    this.requireEncryption, sri.ec)
         }
         return baseUrl
     }
@@ -505,7 +504,7 @@ class ScreenUrlInfo {
 
             // if any conditional-default.@condition eval to true, use that conditional-default.@item instead
             List<MNode> condDefaultList = lastSd.getSubscreensNode()?.children("conditional-default")
-            if (condDefaultList) for (MNode conditionalDefaultNode in condDefaultList) {
+            if (condDefaultList != null && condDefaultList.size() > 0) for (MNode conditionalDefaultNode in condDefaultList) {
                 String condStr = conditionalDefaultNode.attribute('condition')
                 if (!condStr) continue
                 if (ecfi.getResource().condition(condStr, null)) {
@@ -515,12 +514,13 @@ class ScreenUrlInfo {
             }
 
             // whether we got a hit or not there are conditional defaults for this path, so can't reuse this instance
-            if (subscreensDefaultList || condDefaultList) reusable = false
+            if ((subscreensDefaultList != null && subscreensDefaultList.size() > 0) ||
+                    (condDefaultList != null && condDefaultList.size() > 0)) reusable = false
 
-            if (!subscreenName) subscreenName = lastSd.getDefaultSubscreensItem()
+            if (subscreenName == null || subscreenName.isEmpty()) subscreenName = lastSd.getDefaultSubscreensItem()
 
             String nextLoc = lastSd.getSubscreensItem(subscreenName)?.location
-            if (!nextLoc) {
+            if (nextLoc == null || nextLoc.isEmpty()) {
                 // handle case where last one may be a transition name, and not a subscreen name
                 if (lastSd.hasTransition(subscreenName)) {
                     targetTransitionActualName = subscreenName
@@ -710,7 +710,7 @@ class ScreenUrlInfo {
         ScreenUrlInfo sui
         ScreenRenderImpl sri
         ExecutionContextImpl ec
-        boolean expandAliasTransition
+        Boolean expandAliasTransition
 
         /** If a transition is specified, the target transition within the targetScreen */
         TransitionItem curTargetTransition = (TransitionItem) null
@@ -722,9 +722,9 @@ class ScreenUrlInfo {
         UrlInstance(ScreenUrlInfo sui, ScreenRenderImpl sri, Boolean expandAliasTransition) {
             this.sui = sui
             this.sri = sri
-            ec = sri.getEc()
+            ec = sri.ec
 
-            this.expandAliasTransition = expandAliasTransition != null ? expandAliasTransition : true
+            this.expandAliasTransition = expandAliasTransition
             if (expandAliasTransition != null && expandAliasTransition.booleanValue()) expandTransitionAliasUrl()
 
             // logger.warn("======= Creating UrlInstance ${sui.getFullPathNameList()} - ${sui.targetScreen.getLocation()} - ${sui.getTargetTransitionActualName()}")
@@ -753,19 +753,19 @@ class ScreenUrlInfo {
             // service/actions or conditional-response then use the default-response.url instead
             // of the name (if type is screen-path or empty, url-type is url or empty)
             if (ti.condition == null && !ti.hasActionsOrSingleService() && !ti.conditionalResponseList &&
-                    ti.defaultResponse && ti.defaultResponse.type == "url" &&
-                    ti.defaultResponse.urlType == "screen-path" && ec.web != null) {
-
+                    ti.defaultResponse != null && "url".equals(ti.defaultResponse.type) &&
+                    "screen-path".equals(ti.defaultResponse.urlType) && ec.web != null) {
 
                 transitionAliasParameters = ti.defaultResponse.expandParameters(sui.getExtraPathNameList(), ec)
 
                 // create a ScreenUrlInfo, then copy its info into this
                 String expandedUrl = ti.defaultResponse.url
-                if (expandedUrl.contains('${')) expandedUrl = ec.getResource().expand(expandedUrl, "")
-                ScreenUrlInfo aliasUrlInfo = getScreenUrlInfo(sri.getSfi(), sui.rootSd, sui.fromSd,
+                if (expandedUrl.contains('${')) expandedUrl = ec.resourceFacade.expand(expandedUrl, "")
+                ScreenUrlInfo aliasUrlInfo = getScreenUrlInfo(sri.sfi, sui.rootSd, sui.fromSd,
                         sui.preTransitionPathNameList, expandedUrl,
-                        (sui.lastStandalone || transitionAliasParameters.lastStandalone == "true"))
+                        (sui.lastStandalone || "true".equals(transitionAliasParameters.lastStandalone)))
 
+                // logger.warn("Made transition alias: ${aliasUrlInfo.toString()}")
                 sui = aliasUrlInfo
                 curTargetTransition = (TransitionItem) null
             }
