@@ -1,6 +1,6 @@
 #! /bin/bash
 
-MOQUI_HOME="${1:-../..}"
+MOQUI_HOME="${1:-..}"
 
 if [ ! -e runtime ]; then mkdir runtime; fi
 if [ ! -e runtime/conf ]; then cp -R $MOQUI_HOME/runtime/conf runtime/; fi

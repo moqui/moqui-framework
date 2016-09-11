@@ -1,13 +1,26 @@
+# A Docker Compose application with moqui, mysql, and virtual hosting through
+#   nginx-proxy supporting multiple moqui instances on different hosts.
+
+# Test locally by adding the virtual host to /etc/hosts or with something like:
+#   curl -H "Host: moqui.local" localhost/Login
+
 version: "2"
 services:
+  nginx-proxy:
+    # For documentation on SSL and other settings see:
+    # https://github.com/jwilder/nginx-proxy
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - 80:80
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
   moqui-server:
     image: moqui
     command: --conf=conf/MySQLConf.xml
     restart: always
     links:
      - mysql-moqui
-    ports:
-     - 8080:8080
     volumes:
      - ./runtime/conf:/opt/moqui/runtime/conf
      - ./runtime/lib:/opt/moqui/runtime/lib
@@ -22,6 +35,9 @@ services:
      - ds_transactional_database=MoquiDEFAULT
      - ds_transactional_user=moqui
      - ds_transactional_password=moqui
+     # CHANGE ME
+     - VIRTUAL_HOST=moqui.local
+     - VIRTUAL_PORT=8080
 
   mysql-moqui:
     image: mysql:5.7

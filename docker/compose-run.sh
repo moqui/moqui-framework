@@ -1,6 +1,12 @@
 #! /bin/bash
 
-MOQUI_HOME="${1:-../..}"
+if [[ ! $1 ]]; then
+  echo "Usage: moqui-compose-run.sh <docker compose file> [<moqui directory>]"
+  exit 1
+fi
+
+COMP_FILE="${1}"
+MOQUI_HOME="${2:-..}"
 
 if [ ! -e runtime ]; then mkdir runtime; fi
 if [ ! -e runtime/conf ]; then cp -R $MOQUI_HOME/runtime/conf runtime/; fi
@@ -11,4 +17,4 @@ if [ ! -e runtime/txlog ]; then cp -R $MOQUI_HOME/runtime/txlog runtime/; fi
 if [ ! -e runtime/db ]; then cp -R $MOQUI_HOME/runtime/db runtime/; fi
 if [ ! -e runtime/elasticsearch ]; then cp -R $MOQUI_HOME/runtime/elasticsearch runtime/; fi
 
-docker-compose -f moqui-mysql-compose.yml up
+docker-compose -f $1 up
