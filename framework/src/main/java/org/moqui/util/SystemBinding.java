@@ -50,7 +50,7 @@ public class SystemBinding extends Binding {
             if (value != null && value.length() > 0) return value;
         }
 
-        logger.warn("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") + " system property or environment variable found, returning empty string");
+        logger.info("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") + " system property or environment variable found, returning empty string");
         return "";
     }
 

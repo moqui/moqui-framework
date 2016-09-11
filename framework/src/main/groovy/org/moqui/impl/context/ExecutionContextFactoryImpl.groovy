@@ -1452,37 +1452,47 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction beforeShutdownActions = null
         Integer sessionTimeoutSeconds = null
 
+        String httpPort, httpHost, httpsPort, httpsHost
+        boolean httpsEnabled
+
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
-            webappNode = ecfi.getWebappNode(webappName)
-            init(ecfi)
-        }
+            webappNode = ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
+            if (webappNode == null) throw new BaseException("Could not find webapp element for name ${webappName}")
 
-        void init(ExecutionContextFactoryImpl ecfi) {
+            webappNode.setSystemExpandAttributes(true)
+            httpPort = webappNode.attribute("http-port") ?: null
+            httpHost = webappNode.attribute("http-host") ?: null
+            httpsPort = webappNode.attribute("https-port") ?: null
+            httpsHost = webappNode.attribute("https-host") ?: httpPort ?: null
+            httpsEnabled = "true".equals(webappNode.attribute("https-enabled"))
+
+            logger.info("Initializing webapp ${webappName} http://${httpHost}:${httpPort} https://${httpsHost}:${httpsPort} https enabled? ${httpsEnabled}")
+
             // prep actions
             if (webappNode.hasChild("first-hit-in-visit"))
-                this.firstHitInVisitActions = new XmlAction(ecfi, webappNode.first("first-hit-in-visit").first("actions"),
+                firstHitInVisitActions = new XmlAction(ecfi, webappNode.first("first-hit-in-visit").first("actions"),
                         "webapp_${webappName}.first_hit_in_visit.actions")
 
             if (webappNode.hasChild("before-request"))
-                this.beforeRequestActions = new XmlAction(ecfi, webappNode.first("before-request").first("actions"),
+                beforeRequestActions = new XmlAction(ecfi, webappNode.first("before-request").first("actions"),
                         "webapp_${webappName}.before_request.actions")
             if (webappNode.hasChild("after-request"))
-                this.afterRequestActions = new XmlAction(ecfi, webappNode.first("after-request").first("actions"),
+                afterRequestActions = new XmlAction(ecfi, webappNode.first("after-request").first("actions"),
                         "webapp_${webappName}.after_request.actions")
 
             if (webappNode.hasChild("after-login"))
-                this.afterLoginActions = new XmlAction(ecfi, webappNode.first("after-login").first("actions"),
+                afterLoginActions = new XmlAction(ecfi, webappNode.first("after-login").first("actions"),
                         "webapp_${webappName}.after_login.actions")
             if (webappNode.hasChild("before-logout"))
-                this.beforeLogoutActions = new XmlAction(ecfi, webappNode.first("before-logout").first("actions"),
+                beforeLogoutActions = new XmlAction(ecfi, webappNode.first("before-logout").first("actions"),
                         "webapp_${webappName}.before_logout.actions")
 
             if (webappNode.hasChild("after-startup"))
-                this.afterStartupActions = new XmlAction(ecfi, webappNode.first("after-startup").first("actions"),
+                afterStartupActions = new XmlAction(ecfi, webappNode.first("after-startup").first("actions"),
                         "webapp_${webappName}.after_startup.actions")
             if (webappNode.hasChild("before-shutdown"))
-                this.beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
+                beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
 
             MNode sessionConfigNode = webappNode.first("session-config")

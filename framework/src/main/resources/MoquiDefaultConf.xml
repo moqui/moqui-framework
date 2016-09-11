@@ -6,6 +6,11 @@
         any of the desired sub-elements. -->
 
     <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
+    <default-property name="webapp_http_host" value=""/>
+    <default-property name="webapp_http_port" value=""/>
+    <default-property name="webapp_https_port" value=""/>
+    <default-property name="webapp_https_enabled" value="false"/>
+
     <default-property name="ds_transactional_user" value="sa"/>
     <default-property name="ds_transactional_password" value="sa"/>
     <default-property name="ds_transactional_url" value="jdbc:h2:${moqui_runtime}/db/h2/MoquiDEFAULT;lock_timeout=30000"/>
@@ -101,8 +106,9 @@
 
     <webapp-list>
         <!-- The webapp.@name is looked up based on the value of the 'moqui-name' context-param in the web.xml file -->
-        <webapp name="webroot" http-port="" http-host="" https-port="" https-host=""
-                https-enabled="false" require-session-token="true" websocket-timeout="600000">
+        <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}" https-port="${webapp_https_port}"
+                https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
+                require-session-token="true" websocket-timeout="600000">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
             <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
             <error-screen error="unauthorized" screen-path="error/Unauthorized"/>

@@ -46,6 +46,10 @@ services:
      - ds_transactional_password=moqui
      # CHANGE ME
      - VIRTUAL_HOST=moqui.local
+     - webapp_http_host=moqui.local
+     - webapp_http_port=80
+     # - webapp_https_port=443
+     # - webapp_https_enabled=true
 
   mysql-moqui:
     image: mysql:5.7

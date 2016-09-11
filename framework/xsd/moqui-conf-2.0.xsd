@@ -187,7 +187,7 @@ along with this software (see the LICENSE.md file). If not, see
                     param-name is "moqui-name".
                 </xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="https-enabled" default="true" type="boolean"/>
+            <xs:attribute name="https-enabled" default="false" type="xs:string"/>
             <xs:attribute name="https-port" type="xs:string"/>
             <xs:attribute name="https-host" type="xs:string"/>
             <xs:attribute name="http-port" type="xs:string"/>

@@ -476,16 +476,16 @@ class WebFacadeImpl implements WebFacade {
         return urlValue
     }
     static String makeWebappHost(String webappName, ExecutionContextImpl eci, WebFacade webFacade, boolean requireEncryption) {
-        MNode webappNode = eci.ecfi.getWebappNode(webappName)
+        WebappInfo webappInfo = eci.ecfi.getWebappInfo(webappName)
         // can't get these settings, hopefully a URL from the root will do
-        if (webappNode == null) return ""
+        if (webappInfo == null) return ""
 
         StringBuilder urlBuilder = new StringBuilder()
         HttpServletRequest request = webFacade.getRequest()
-        if (request.getScheme() == "https" || (requireEncryption && webappNode.attribute("https-enabled") != "false")) {
+        if ("https".equals(request.getScheme()) || (requireEncryption && webappInfo.httpsEnabled)) {
             urlBuilder.append("https://")
-            if (webappNode.attribute("https-host")) {
-                urlBuilder.append(webappNode.attribute("https-host"))
+            if (webappInfo.httpsHost != null) {
+                urlBuilder.append(webappInfo.httpsHost)
             } else {
                 if (webFacade != null) {
                     urlBuilder.append(webFacade.getHostName(false))
@@ -494,15 +494,15 @@ class WebFacadeImpl implements WebFacade {
                     urlBuilder.append("localhost")
                 }
             }
-            String httpsPort = webappNode.attribute("https-port")
+            String httpsPort = webappInfo.httpsPort
             // try the local port; this won't work when switching from http to https, conf required for that
-            if (!httpsPort && webFacade != null && request.isSecure())
+            if (httpsPort == null && webFacade != null && request.isSecure())
                 httpsPort = request.getServerPort() as String
             if (httpsPort && httpsPort != "443") urlBuilder.append(":").append(httpsPort)
         } else {
             urlBuilder.append("http://")
-            if (webappNode.attribute("http-host")) {
-                urlBuilder.append(webappNode.attribute("http-host"))
+            if (webappInfo.httpHost != null) {
+                urlBuilder.append(webappInfo.httpHost)
             } else {
                 if (webFacade) {
                     urlBuilder.append(webFacade.getHostName(false))
@@ -512,7 +512,7 @@ class WebFacadeImpl implements WebFacade {
                     logger.trace("No webFacade in place, defaulting to localhost for hostName")
                 }
             }
-            String httpPort = webappNode.attribute("http-port")
+            String httpPort = webappInfo.httpPort
             // try the server port; this won't work when switching from https to http, conf required for that
             if (!httpPort && webFacade != null && !request.isSecure())
                 httpPort = request.getServerPort() as String
