@@ -515,25 +515,34 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
-- Docker configurations
-  - full stack production
-    - from
-      - openjdk:8-jdk or openjdk:8-jdk-alpine
-      - jetty:9.3 or jetty:9.3-alpine (only includes JRE...)
-      - tomcat:8.5 (only includes JRE...)
-    - mysql:5.7
-    - mariadb:10.1
-    - elasticsearch:2.3.5 (match internal version, change to non-persistent cluster member)
-    - reverse proxy
-      - httpd:2.4 or httpd:2.4-alpine (run with embedded Jetty, SSL termination/etc in httpd)
-      - jwilder/nginx-proxy
-      - https://github.com/jwilder/nginx-proxy
-  - simple image
-    - openjdk:8-jdk or openjdk:8-jdk-alpine
-    - embedded jetty, h2, elasticsearch
-  - embedded and gradle docker client
+- Multi-Tenant Alternative: Multi-Instance Management
+  - Moqui instances could be managed manually, this would be for some automation from a Moqui 'master' instance that runs something
+    like a PopCommerce store for automated SaaS
+  - for Moqui 'master' instance controlling other instances, would not run in managed/slave instances
+  - separate component from moqui-framework with entity, service, screen
+  - service interfaces, implementations in separate components  
+  - provision, suspend/resume (disable/enable), remove: need service interfaces, like current TenantServices 
+  - monitoring and other management: best with separate tools or something built into a Moqui master instance?
+  - instance meta data
+    - instance name (like docker container name)
+    - instance host
+      - instance location (like docker host location for REST API, ie through docker-java)
+      - admin credentials (docker client approach? jclouds ssh approach? something generic including user, password, certificate)
+    - host name (ie virtual host, could be deployed with actual IP/host)
+    - db details or manage externally?
+- Instance Provisioning and Management
+  - embedded and gradle docker client (for docker host or docker swarm)
     - https://github.com/docker-java/docker-java
     - https://github.com/bmuschko/gradle-docker-plugin
+  - Apache Stratos
+    - http://stratos.apache.org/
+    - feature rich but complex, uses ActiveMQ, Puppet, WSO2 CEP, WSO2 DAS
+    - perhaps just Puppet directly is adequate? Stratos seems to handle many things only in commercial Puppet Enterprise
+  - Apache jclouds
+    - http://jclouds.apache.org
+    - API and implementations for various IaaS options, including Docker (limited), AWS, openstack, etc
+    - mainly use the Compute API (ComputeService)
+    - http://jclouds.apache.org/guides/docker/
 
 - Option for link element to only render if referenced transition/screen exists
 - Option for transition to only mount if all response URLs for screen paths exist
