@@ -256,7 +256,7 @@ significant changes.
   each component is merged into the main conf based on the component
   dependency order (logged on startup)
 - Added ExecutionContext.runAsync method to run a closure in a worker
-  thread with an ExecutionContext like the current (tenant, user, etc)
+  thread with an ExecutionContext like the current (user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
 - Transaction Facade
