@@ -399,7 +399,7 @@ class RestApi {
         }
 
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
-            EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
+            EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new IllegalArgumentException("Entity ${entityName} not found")
             // Node entityNode = ed.getEntityNode()
 
@@ -483,7 +483,7 @@ class RestApi {
         Map<String, Object> getRamlMap(Map<String, Object> typesMap) {
             Map<String, Object> ramlMap = null
 
-            EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
+            EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new IllegalArgumentException("Entity ${entityName} not found")
 
             String refDefName = ed.getShortOrFullEntityName()

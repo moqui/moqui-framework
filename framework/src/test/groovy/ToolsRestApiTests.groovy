@@ -32,7 +32,7 @@ class ToolsRestApiTests extends Specification {
 
     def setupSpec() {
         ec = Moqui.getExecutionContext()
-        ec.user.loginUser("john.doe", "moqui", null)
+        ec.user.loginUser("john.doe", "moqui")
         screenTest = ec.screen.makeTest().baseScreenPath("rest")
     }
 
