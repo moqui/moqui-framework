@@ -33,7 +33,6 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
 
     protected EntityFacadeImpl efi
     protected MNode datasourceNode
-    protected String tenantId
 
     protected DataSource dataSource
 
@@ -41,11 +40,10 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     EntityDatasourceFactoryImpl() { }
 
     @Override
-    EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode, String tenantId) {
+    EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode) {
         // local fields
         this.efi = (EntityFacadeImpl) ef
         this.datasourceNode = datasourceNode
-        this.tenantId = tenantId
 
         // init the DataSource
 
@@ -84,7 +82,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
             // init the DataSource, if it fails for any reason retry a few times
             for (int retry = 1; retry <= DS_RETRY_COUNT; retry++) {
                 try {
-                    this.dataSource = ti.getDataSource(efi, datasourceNode, tenantId)
+                    this.dataSource = ti.getDataSource(efi, datasourceNode)
                     break
                 } catch (Throwable t) {
                     if (retry < DS_RETRY_COUNT) {

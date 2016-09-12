@@ -128,7 +128,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
     static class ServiceJobCallable implements Callable<Map<String, Object>>, Externalizable {
         transient ExecutionContextFactoryImpl ecfi
-        String threadTenantId, threadUsername, currentUserId
+        String threadUsername, currentUserId
         String jobName, jobDescription, serviceName, topic, jobRunId
         Map<String, Object> parameters
         boolean clearLock
@@ -139,7 +139,6 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
         ServiceJobCallable(ExecutionContextImpl eci, Map<String, Object> serviceJob, String jobRunId, boolean clearLock, Map<String, Object> parameters) {
             ecfi = eci.ecfi
-            threadTenantId = eci.tenantId
             threadUsername = eci.userFacade.username
             currentUserId = eci.userFacade.userId
             jobName = (String) serviceJob.jobName
@@ -154,7 +153,6 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
         @Override
         void writeExternal(ObjectOutput out) throws IOException {
-            out.writeUTF(threadTenantId) // never null
             out.writeObject(threadUsername) // might be null
             out.writeObject(currentUserId) // might be null
             out.writeUTF(jobName) // never null
@@ -168,7 +166,6 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         }
         @Override
         void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-            threadTenantId = objectInput.readUTF()
             threadUsername = (String) objectInput.readObject()
             currentUserId = (String) objectInput.readObject()
             jobName = objectInput.readUTF()
@@ -192,9 +189,8 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             try {
                 ExecutionContextFactoryImpl ecfi = getEcfi()
                 threadEci = ecfi.getEci()
-                threadEci.changeTenant(threadTenantId)
                 if (threadUsername != null && threadUsername.length() > 0)
-                    threadEci.userFacade.internalLoginUser(threadUsername, threadTenantId)
+                    threadEci.userFacade.internalLoginUser(threadUsername)
 
                 // set hostAddress, hostName, runThread, startTime on ServiceJobRun
                 InetAddress localHost = ecfi.getLocalhostAddress()

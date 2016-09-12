@@ -99,7 +99,7 @@ public class EntityValueImpl extends EntityValueBase {
                     eqb.setPreparedStatementValue(i + 1, valueMapInternal.get(fieldName), fieldInfo);
                 }
 
-                // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} in tenant ${efi.tenantId} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
+                // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
                 eqb.executeUpdate();
                 setSyncedWithDb();
             } catch (Exception e) {
@@ -153,7 +153,7 @@ public class EntityValueImpl extends EntityValueBase {
                 eqb.makePreparedStatement();
                 eqb.setPreparedStatementValues();
 
-                // if (ed.entityName == "Subscription") logger.warn("Update ${this.toString()} in tenant ${efi.tenantId} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
+                // if (ed.entityName == "Subscription") logger.warn("Update ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
                 if (eqb.executeUpdate() == 0)
                     throw new EntityException("Tried to update a value that does not exist [" + this.toString() + "]. SQL used was " + eqb.sqlTopLevelInternal.toString() + ", parameters were " + eqb.getParameters().toString());
                 setSyncedWithDb();
@@ -162,7 +162,7 @@ public class EntityValueImpl extends EntityValueBase {
                 try {
                     txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString();
                 } catch (Exception txe) { logger.warn("Error getting transaction name: " + txe.toString()); }
-                throw new EntityException("Error in update of " + this.toString() + " in tenant " + efi.getTenantId() + " tx " + txName + " con " + eqb.connection.toString(), e);
+                throw new EntityException("Error in update of " + this.toString() + " tx " + txName + " con " + eqb.connection.toString(), e);
             } finally {
                 try { eqb.closeAll(); }
                 catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock

@@ -126,8 +126,7 @@ public class ServiceCallImpl implements ServiceCall {
         // pop immediately, just did the push to to an authz
         eci.artifactExecutionFacade.pop(aei);
 
-        parameters.put("authUsername", eci.getUser().getUsername());
-        parameters.put("authTenantId", eci.getTenantId());
+        parameters.put("authUsername", eci.userFacade.getUsername());
 
         // logger.warn("=========== async call ${serviceName}, parameters: ${parameters}")
     }

@@ -1133,12 +1133,12 @@ class ScreenForm {
         boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
-            EntityValue fcu = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUser")
+            EntityValue fcu = ecfi.entityFacade.find("moqui.screen.form.FormConfigUser")
                     .condition("userId", ec.user.userId).condition("formLocation", location).useCache(true).one()
             if (fcu != null) return (String) fcu.getNoCheckSimple("formConfigId")
 
             // Maybe not do this at all and let it be a future thing where the user selects an active one from options available through groups
-            EntityList fcugvList = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUserGroupView")
+            EntityList fcugvList = ecfi.entityFacade.find("moqui.screen.form.FormConfigUserGroupView")
                     .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
                     .condition("formLocation", location).useCache(true).list()
             if (fcugvList.size() > 0) {
@@ -1314,7 +1314,7 @@ class ScreenForm {
             return colInfoList
         }
         private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
-            EntityList formConfigFieldList = ecfi.getEntityFacade(eci.tenantId).find("moqui.screen.form.FormConfigField")
+            EntityList formConfigFieldList = ecfi.entityFacade.find("moqui.screen.form.FormConfigField")
                     .condition("formConfigId", formConfigId).orderBy("positionIndex").orderBy("positionSequence").useCache(true).list()
 
             // NOTE: calling code checks to see if this is not empty

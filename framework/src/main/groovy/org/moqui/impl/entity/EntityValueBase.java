@@ -17,7 +17,6 @@ import org.apache.commons.codec.binary.Base64;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 import org.moqui.Moqui;
-import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ExecutionContext;
 import org.moqui.entity.EntityException;
@@ -50,7 +49,6 @@ import java.util.*;
 public abstract class EntityValueBase implements EntityValue {
     protected static final Logger logger = LoggerFactory.getLogger(EntityValueBase.class);
 
-    protected String tenantId;
     private String entityName;
     final HashMap<String, Object> valueMapInternal = new HashMap<>();
 
@@ -73,7 +71,6 @@ public abstract class EntityValueBase implements EntityValue {
 
     public EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip;
-        tenantId = efip.tenantId;
         entityName = ed.fullEntityName;
         entityDefinitionTransient = ed;
         // NOTE: not serializing modified, mutable, isFromDb... if it is a copy we don't care if it gets modified, etc
@@ -84,7 +81,6 @@ public abstract class EntityValueBase implements EntityValue {
         // NOTE: found that the serializer in Hazelcast is REALLY slow with writeUTF(), uses String.chatAt() in a for loop, crazy
         // NOTE2: in Groovy this results in castToType() overhead anyway, so for now use writeUTF/readUTF as other serialization might be more efficient
         out.writeUTF(entityName);
-        out.writeUTF(tenantId);
         out.writeObject(valueMapInternal);
     }
 
@@ -92,14 +88,13 @@ public abstract class EntityValueBase implements EntityValue {
     @SuppressWarnings("unchecked")
     public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         entityName = objectInput.readUTF();
-        tenantId = objectInput.readUTF();
         valueMapInternal.putAll((Map<String, Object>) objectInput.readObject());
     }
 
     protected EntityFacadeImpl getEntityFacadeImpl() {
         // handle null after deserialize; this requires a static reference in Moqui.java or we'll get an error
         if (efiTransient == null)
-            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade(tenantId);
+            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).entityFacade;
         return efiTransient;
     }
     private TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
@@ -440,6 +435,7 @@ public abstract class EntityValueBase implements EntityValue {
         return DefaultGroovyMethods.asType(o, byte[].class);
     }
 
+    @Override
     public EntityValue setBytes(String name, byte[] theBytes) {
         try {
             if (theBytes != null) set(name, new SerialBlob(theBytes));
@@ -449,6 +445,7 @@ public abstract class EntityValueBase implements EntityValue {
         return this;
     }
 
+    @Override
     public SerialBlob getSerialBlob(String name) {
         Object o = this.get(name);
         if (o == null) return null;
@@ -1125,7 +1122,7 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public Object clone() { return this.cloneValue(); }
-    public abstract EntityValue cloneValue();
+    @Override public abstract EntityValue cloneValue();
     public abstract EntityValue cloneDbValue(boolean getOld);
 
     private boolean doDataFeed() {
@@ -1172,9 +1169,6 @@ public abstract class EntityValueBase implements EntityValue {
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
         final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
-
-        if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
 
         // check/set defaults
         if (entityInfo.hasFieldDefaults) checkSetFieldDefaults(ed, ec, null);
@@ -1250,9 +1244,6 @@ public abstract class EntityValueBase implements EntityValue {
         final boolean hasFieldDefaults = entityInfo.hasFieldDefaults;
         final boolean needsAuditLog = entityInfo.needsAuditLog;
         final boolean createOnlyAny = entityInfo.createOnly || entityInfo.createOnlyFields;
-
-        if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
 
         // check/set defaults for pk fields, do this first to fill in optional pk fields
         if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, true);
@@ -1398,9 +1389,6 @@ public abstract class EntityValueBase implements EntityValue {
         final ExecutionContextImpl ec = ecfi.getEci();
         final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
-        if (entityInfo.isTenantcommon && !"DEFAULT".equals(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant " + ec.getTenantId());
-
         // NOTE: this is create-only on the entity, ignores setting on fields (only considered in update)
         if (entityInfo.createOnly) throw new EntityException("Entity [" + getEntityName() + "] is create-only (immutable), cannot be deleted.");
 
@@ -1484,9 +1472,9 @@ public abstract class EntityValueBase implements EntityValue {
             this.fi = fi;
             this.evb = evb;
         }
-        public String getKey() { return fi.name; }
-        public Object getValue() { return evb.getKnownField(fi); }
-        public Object setValue(Object v) { return evb.set(fi.name, v); }
+        @Override public String getKey() { return fi.name; }
+        @Override public Object getValue() { return evb.getKnownField(fi); }
+        @Override public Object setValue(Object v) { return evb.set(fi.name, v); }
         @Override
         public int hashCode() {
             Object val = getValue();

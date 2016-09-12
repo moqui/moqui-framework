@@ -51,12 +51,6 @@ public interface ExecutionContext {
      * is not needed */
     <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters);
 
-    /** Get current Tenant ID. A single application may be run in multiple virtual instances, one for each Tenant, and
-     * each will have its own set of databases (except for the tenant database which is shared among all Tenants).
-     */
-    @Nonnull String getTenantId();
-    @Nonnull EntityValue getTenant();
-
     /** If running through a web (HTTP servlet) request offers access to the various web objects/information.
      * If not running in a web context will return null.
      */
@@ -102,15 +96,8 @@ public interface ExecutionContext {
      * for the current thread. */
     void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response);
 
-    /** Change the active tenant and push the tenantId on a stack. Does nothing if tenantId is the current.
-     *  @return True if tenant changed, false otherwise (tenantId matches the current tenantId) */
-    boolean changeTenant(@Nonnull String tenantId);
-    /** Change the tenant to the last tenantId on the stack. Returns false if the tenantId stack is empty.
-     * @return True if tenant changed, false otherwise (tenantId stack is empty or tenantId matches the current tenantId) */
-    boolean popTenant();
-
     /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
-     * tenant and user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+     * user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
     void runAsync(@Nonnull Closure closure);
 
     /** This should be called when the ExecutionContext won't be used any more. Implementations should make sure

@@ -150,7 +150,7 @@ class RestApi {
                   version:(resourceNode.version ?: '1.0'), description:(resourceNode.description ?: '')],
             host:hostName, basePath:fullBasePath.toString(), schemes:schemes,
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
-                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key, also supports tenant_id header']],
+                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key']],
             consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
         ]
 

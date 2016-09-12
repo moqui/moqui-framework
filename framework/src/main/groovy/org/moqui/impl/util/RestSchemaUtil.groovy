@@ -768,7 +768,7 @@ class RestSchemaUtil {
             info:[title:("${filename} REST API"), version:eci.factory.moquiVersion], host:hostName, basePath:basePath,
             schemes:[scheme], consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
-                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key, also supports tenant_id header']],
+                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key']],
             paths:[:], definitions:definitionsMap
         ]
 
