@@ -212,7 +212,7 @@ along with this software (see the LICENSE.md file). If not, see
     <Geo geoCodeAlpha3="SYC" geoCodeAlpha2="SC" geoId="SYC" geoName="Seychelles" geoCodeNumeric="690" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="SLE" geoCodeAlpha2="SL" geoId="SLE" geoName="Sierra Leone" geoCodeNumeric="694" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="SGP" geoCodeAlpha2="SG" geoId="SGP" geoName="Singapore" geoCodeNumeric="702" geoTypeEnumId="GEOT_COUNTRY"/>
-    <Geo geoCodeAlpha3="SVK" geoCodeAlpha2="SK" geoId="SVK" geoName="Slovakia (slovak Republic)" geoCodeNumeric="703" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="SVK" geoCodeAlpha2="SK" geoId="SVK" geoName="Slovakia (Slovak Republic)" geoCodeNumeric="703" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="SVN" geoCodeAlpha2="SI" geoId="SVN" geoName="Slovenia" geoCodeNumeric="705" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="SLB" geoCodeAlpha2="SB" geoId="SLB" geoName="Solomon Islands" geoCodeNumeric="090" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="SOM" geoCodeAlpha2="SO" geoId="SOM" geoName="Somalia" geoCodeNumeric="706" geoTypeEnumId="GEOT_COUNTRY"/>
