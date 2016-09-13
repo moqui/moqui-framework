@@ -612,8 +612,8 @@
     <component-list>
         <component-dir location="base-component"/>
         <component-dir location="mantle"/>
-        <component-dir location="component-lib"/>
         <component-dir location="component"/>
+        <component-dir location="ecomponent"/>
         <!-- Here are some examples of explicitly loading the example component in different ways: -->
         <!-- <component name="example" location="component/example"/> -->
         <!-- <component name="example" location="content://main/component/example"/> -->

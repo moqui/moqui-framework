@@ -231,8 +231,8 @@ task addRuntime {
         copy { from fileTree(dir: moquiRuntime+'/classes', include: '**/*') into 'wartemp/WEB-INF/classes' }
         // copy the jar files from components
         copy { from fileTree(dir: moquiRuntime+'/base-component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
-        copy { from fileTree(dir: moquiRuntime+'/component-lib', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
         copy { from fileTree(dir: moquiRuntime+'/component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
+        copy { from fileTree(dir: moquiRuntime+'/ecomponent', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
         // add MoquiInit.properties fresh copy, just in case it was changed
         copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
         // special case: copy elasticsearch plugin/module jars

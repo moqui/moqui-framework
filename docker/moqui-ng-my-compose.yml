@@ -34,6 +34,7 @@ services:
      - ./runtime/conf:/opt/moqui/runtime/conf
      - ./runtime/lib:/opt/moqui/runtime/lib
      - ./runtime/classes:/opt/moqui/runtime/classes
+     - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
      - ./runtime/log:/opt/moqui/runtime/log
      - ./runtime/txlog:/opt/moqui/runtime/txlog
      # this one isn't needed: - ./runtime/db:/opt/moqui/runtime/db
