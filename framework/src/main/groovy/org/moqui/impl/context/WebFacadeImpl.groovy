@@ -849,6 +849,7 @@ class WebFacadeImpl implements WebFacade {
             String errorsString = eci.message.errorsString
             logger.warn((String) "General error in Service REST API: " + errorsString)
             sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+            return
         }
 
         // check for parsing error, send a 400 response
