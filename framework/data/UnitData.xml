@@ -342,7 +342,6 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="BTU/hr" description="BTU per hour" uomId="PW_BTU_hr" uomTypeEnumId="UT_POWER_MEASURE"/>
     <moqui.basic.Uom abbreviation="cal/sec" description="Calorie per second" uomId="PW_cal_sec" uomTypeEnumId="UT_POWER_MEASURE"/>
     <moqui.basic.Uom abbreviation="bhp" description="Boiler horsepower" uomId="PW_bhp" uomTypeEnumId="UT_POWER_MEASURE"/>
-    <moqui.basic.Uom abbreviation="ft lb" description="Foot-pound" uomId="EN_ft_lbf" uomTypeEnumId="UT_ENERGY_MEASURE"/>
 
     <moqui.basic.UomConversion uomConversionId="PW_kw_w" uomId="PW_kw" toUomId="PW_w" conversionFactor="1000"/>
     <moqui.basic.UomConversion uomConversionId="PW_hp_w" uomId="PW_hp" toUomId="PW_w" conversionFactor="745.7"/>
