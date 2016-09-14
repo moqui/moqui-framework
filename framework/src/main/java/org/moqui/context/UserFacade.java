@@ -82,15 +82,14 @@ public interface UserFacade {
     /** Authenticate a user and make active in this ExecutionContext (and session of WebExecutionContext if applicable).
      * @param username An ID to match the UserAccount.username field.
      * @param password The user's current password.
-     * @param tenantId The ID of the Tenant to login to. Optional, defaults to no tenant (the base/root instance).
      * @return true if user was logged in, otherwise false
      */
-    boolean loginUser(String username, String password, String tenantId);
+    boolean loginUser(String username, String password);
     /** Remove (logout) active user. */
     void logoutUser();
 
     /** Authenticate a user and make active using a login key */
-    boolean loginUserKey(String loginKey, String tenantId);
+    boolean loginUserKey(String loginKey);
     /** Get a login key for the active user. */
     String getLoginKey();
 

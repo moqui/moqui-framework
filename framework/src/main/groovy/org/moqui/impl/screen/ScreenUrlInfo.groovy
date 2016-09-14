@@ -250,12 +250,6 @@ class ScreenUrlInfo {
             boolean isLast = ((i + 1) == screenPathDefListSize)
             MNode screenNode = screenDef.getScreenNode()
 
-            // if screen is limited to certain tenants, and current tenant is not in the Set, it is not permitted
-            if (screenDef.getTenantsAllowed().size() > 0 && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
-                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
-                return false
-            }
-
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false)) {
@@ -489,11 +483,7 @@ class ScreenUrlInfo {
             String subscreenName = null
 
             // check SubscreensDefault records
-            EntityCondition tenantCond = ecfi.entity.conditionFactory.makeCondition(
-                    ecfi.entity.conditionFactory.makeCondition("tenantId", EntityCondition.EQUALS, ecfi.eci.tenantId),
-                    EntityCondition.OR,
-                    ecfi.entity.conditionFactory.makeCondition("tenantId", EntityCondition.EQUALS, null))
-            EntityList subscreensDefaultList = ecfi.entity.find("moqui.screen.SubscreensDefault").condition(tenantCond)
+            EntityList subscreensDefaultList = ecfi.entity.find("moqui.screen.SubscreensDefault")
                     .condition("screenLocation", lastSd.location).useCache(true).disableAuthz().list()
             for (int i = 0; i < subscreensDefaultList.size(); i++) {
                 EntityValue subscreensDefault = subscreensDefaultList.get(i)

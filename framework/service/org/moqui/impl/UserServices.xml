@@ -73,11 +73,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="oldPassword" required="true"><description>Ignored if user has password admin permissions.</description></parameter>
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
-            <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
-            <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
-
             <set field="hasPwAdminPermission" from="ec.user.hasPermission('ADMIN_PASSWORD')"/>
 
             <if condition="userId"><then>
@@ -89,7 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                     <field-map field-name="userId" from="ec.user.userId"/></entity-find-one>
             </else></if>
-            <if condition="!userAccount"><return error="true" message="Could not find user with name ${username} in tenant ${tenantId}"/></if>
+            <if condition="!userAccount"><return error="true" message="Could not find user with name ${username}"/></if>
             <set field="userId" from="userAccount.userId"/>
 
             <!-- compare the passwords, encrypted -->
@@ -114,17 +111,15 @@ along with this software (see the LICENSE.md file). If not, see
                                     "moquiRealm")
                         </script>
                         <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType).doCredentialsMatch(token, info)">
-                            <return message="Current password did not match password or reset password for user ${username} in tenant ${tenantId}" error="true"/></if>
+                            <return message="Current password did not match password or reset password for user ${username}" error="true"/></if>
                     </then><else>
-                        <return message="Current password incorrect for user ${username} in tenant ${tenantId}" error="true"/>
+                        <return message="Current password incorrect for user ${username}" error="true"/>
                     </else></if>
                 </if>
             </if>
 
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
-                in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify, tenantId:tenantId]"/>
-
-            <script>if (changedTenant) ec.popTenant()</script>
+                in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify]"/>
         </actions>
     </service>
     <service verb="update" noun="PasswordInternal" authenticate="false" allow-remote="false">
@@ -133,11 +128,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
             <parameter name="requirePasswordChange" default-value="N"/>
-            <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
-            <script>boolean changedTenant = ec.changeTenant(tenantId)</script>
-
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
             <if condition="userAccount == null">
                 <return error="true" message="Cannot update password, Account not found with ID ${userId}"/></if>
@@ -209,9 +201,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="disabled" value="N"/>
             </service-call>
 
-            <message>Password updated for user ${userAccount.username} in tenant ${tenantId}</message>
-
-            <script>if (changedTenant) ec.popTenant()</script>
+            <message>Password updated for user ${userAccount.username}</message>
         </actions>
     </service>
 
@@ -227,11 +217,8 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
-            <parameter name="tenantId" default="ec.tenantId"/>
         </in-parameters>
         <actions>
-            <script>ec.changeTenant(tenantId)</script>
-
             <!-- find by userId -->
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount" for-update="true"/>
             <if condition="!userAccount">
@@ -240,9 +227,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <field-map field-name="username"/></entity-find-one>
             </if>
             <if condition="!userAccount">
-                <return message="Could not find account with username ${username} in tenant ${tenantId}" error="true"/></if>
+                <return message="Could not find account with username ${username}" error="true"/></if>
             <if condition="!userAccount.emailAddress">
-                <return message="Account with username ${username} in tenant ${tenantId} does not have an email address" error="true"/></if>
+                <return message="Account with username ${username} does not have an email address" error="true"/></if>
 
             <!-- reset the password to a random value -->
             <set field="resetPassword" from="org.moqui.impl.StupidUtilities.getRandomString(12)"/>
@@ -259,8 +246,6 @@ along with this software (see the LICENSE.md file). If not, see
             </service-call>
             <message>A reset password was sent by email to ${userAccount.emailAddress}. This password may only be used to change your password. Your current password is still valid.</message>
             <if condition="userAccount.requirePasswordChange == 'Y'"><message>You must change your password before login.</message></if>
-
-            <script>if (changedTenant) ec.popTenant()</script>
         </actions>
     </service>
 </services>

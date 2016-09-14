@@ -183,7 +183,7 @@ significant changes.
 - WebSocket Support
   - Now looks for javax.websocket.server.ServerContainer in ServletContext
     during initialization, available through ECFI.getServerContainer()
-  - If ServetContainer found adds endpoints defined in the webapp.endpoint
+  - If ServletContainer found adds endpoints defined in the webapp.endpoint
     element in the Moqui Conf XML file
   - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint
     so that Moqui objects such as ExecutionContext/Factory are available,
@@ -256,7 +256,7 @@ significant changes.
   each component is merged into the main conf based on the component
   dependency order (logged on startup)
 - Added ExecutionContext.runAsync method to run a closure in a worker
-  thread with an ExecutionContext like the current (tenant, user, etc)
+  thread with an ExecutionContext like the current (user, etc)
 - Added configuration for worker thread pool parameters, used for local
   async services, EC.runAsync, etc
 - Transaction Facade

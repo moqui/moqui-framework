@@ -67,7 +67,7 @@ class UserFacadeImpl implements UserFacade {
 
     UserFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
-        pushUser(null, eci.tenantId)
+        pushUser(null)
     }
 
     Subject makeEmptySubject() {
@@ -90,7 +90,7 @@ class UserFacadeImpl implements UserFacade {
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
             // effectively login the user
-            pushUserSubject(webSubject, null)
+            pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
@@ -106,26 +106,22 @@ class UserFacadeImpl implements UserFacade {
             if (basicAuthAsString.indexOf(":") > 0) {
                 String username = basicAuthAsString.substring(0, basicAuthAsString.indexOf(":"))
                 String password = basicAuthAsString.substring(basicAuthAsString.indexOf(":") + 1)
-                String tenantId = secureParameters.authTenantId
-                this.loginUser(username, password, tenantId)
+                this.loginUser(username, password)
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
         } else if (request.getHeader("api_key") || request.getHeader("login_key")) {
             String loginKey = request.getHeader("api_key") ?: request.getHeader("login_key")
-            String tenantId = request.getHeader("tenant_id")
-            this.loginUserKey(loginKey.trim(), tenantId?.trim())
+            this.loginUserKey(loginKey.trim())
         } else if (secureParameters.api_key || secureParameters.login_key) {
             String loginKey = secureParameters.api_key ?: secureParameters.login_key
-            String tenantId = secureParameters.tenant_id
-            this.loginUserKey(loginKey.trim(), tenantId?.trim())
+            this.loginUserKey(loginKey.trim())
         } else if (secureParameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = secureParameters.authUsername
             String authPassword = secureParameters.authPassword
-            String authTenantId = secureParameters.authTenantId
-            this.loginUser(authUsername, authPassword, authTenantId)
+            this.loginUser(authUsername, authPassword)
         }
 
         this.visitId = session.getAttribute("moqui.visitId")
@@ -215,7 +211,7 @@ class UserFacadeImpl implements UserFacade {
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
             // effectively login the user
-            pushUserSubject(webSubject, null)
+            pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
@@ -230,26 +226,22 @@ class UserFacadeImpl implements UserFacade {
             if (basicAuthAsString.indexOf(":") > 0) {
                 String username = basicAuthAsString.substring(0, basicAuthAsString.indexOf(":"))
                 String password = basicAuthAsString.substring(basicAuthAsString.indexOf(":") + 1)
-                String tenantId = parameters.authTenantId ? parameters.authTenantId.get(0) : null
-                this.loginUser(username, password, tenantId)
+                this.loginUser(username, password)
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
         } else if (headers.api_key || headers.login_key) {
             String loginKey = headers.api_key ? headers.api_key.get(0) : (headers.login_key ? headers.login_key.get(0) : null)
-            String tenantId = headers.tenant_id ? headers.tenant_id.get(0) : null
-            if (loginKey) this.loginUserKey(loginKey.trim(), tenantId?.trim())
+            if (loginKey) this.loginUserKey(loginKey.trim())
         } else if (parameters.api_key || parameters.login_key) {
             String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            String tenantId = parameters.tenant_id ? parameters.tenant_id.get(0) : null
-            if (loginKey) this.loginUserKey(loginKey.trim(), tenantId?.trim())
+            if (loginKey) this.loginUserKey(loginKey.trim())
         } else if (parameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = parameters.authUsername.get(0)
             String authPassword = parameters.authPassword ? parameters.authPassword.get(0) : null
-            String authTenantId = parameters.authTenantId ? parameters.authTenantId.get(0) : null
-            this.loginUser(authUsername, authPassword, authTenantId)
+            this.loginUser(authUsername, authPassword)
         }
     }
     void initFromHttpSession(HttpSession session) {
@@ -257,7 +249,7 @@ class UserFacadeImpl implements UserFacade {
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
             // effectively login the user
-            pushUserSubject(webSubject, null)
+            pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
@@ -417,7 +409,7 @@ class UserFacadeImpl implements UserFacade {
     void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
 
     @Override
-    boolean loginUser(String username, String password, String tenantId) {
+    boolean loginUser(String username, String password) {
         if (!username) {
             eci.message.addError(eci.l10n.localize("No username specified"))
             return false
@@ -425,13 +417,6 @@ class UserFacadeImpl implements UserFacade {
         if (!password) {
             eci.message.addError(eci.l10n.localize("No password specified"))
             return false
-        }
-        if (!tenantId) tenantId = eci.tenantId
-        if (tenantId && tenantId != eci.tenantId) {
-            eci.changeTenant(tenantId)
-            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
-            // this.visitId = null
-            // if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
         }
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
@@ -442,7 +427,7 @@ class UserFacadeImpl implements UserFacade {
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
-            pushUserSubject(loginSubject, tenantId)
+            pushUserSubject(loginSubject)
 
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
@@ -462,17 +447,10 @@ class UserFacadeImpl implements UserFacade {
     }
 
     /** For internal framework use only, does a login without authc. */
-    boolean internalLoginUser(String username, String tenantId) {
+    boolean internalLoginUser(String username) {
         if (username == null || username.isEmpty()) {
             eci.message.addError(eci.l10n.localize("No username specified"))
             return false
-        }
-        if (tenantId == null || tenantId.isEmpty()) tenantId = eci.tenantId
-        if (tenantId != null && !tenantId.isEmpty() && tenantId != eci.tenantId) {
-            eci.changeTenant(tenantId)
-            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
-            // this.visitId = null
-            // if (eci.web != null) eci.web.session.removeAttribute("moqui.visitId")
         }
 
         // since this doesn't go through the Shiro realm and do validations, do them now
@@ -493,7 +471,7 @@ class UserFacadeImpl implements UserFacade {
 
         // do this first so that the rest will be done as this user
         // just in case there is already a user authenticated push onto a stack to remember
-        pushUser(username, tenantId)
+        pushUser(username)
 
         // after successful login trigger the after-login actions
         if (eci.getWebImpl() != null) {
@@ -510,22 +488,14 @@ class UserFacadeImpl implements UserFacade {
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
         popUser()
-
-        if (eci.web != null) {
-            eci.web.session.removeAttribute("moqui.tenantId")
-            // DEJ 2016-05-26: better to keep the visitId, with this code it is always removed:
-            // eci.web.session.removeAttribute("moqui.visitId")
-        }
     }
 
     @Override
-    boolean loginUserKey(String loginKey, String tenantId) {
+    boolean loginUserKey(String loginKey) {
         if (!loginKey) {
             eci.message.addError(eci.l10n.localize("No login key specified"))
             return false
         }
-        // if tenantId, change before lookup
-        if (tenantId) eci.changeTenant(tenantId)
 
         // lookup login key, by hashed key
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())
@@ -548,7 +518,7 @@ class UserFacadeImpl implements UserFacade {
         // login user with internalLoginUser()
         EntityValue userAccount = eci.getEntity().find("moqui.security.UserAccount")
                 .condition("userId", userLoginKey.userId).disableAuthz().one()
-        return internalLoginUser(userAccount.getString("username"), tenantId)
+        return internalLoginUser(userAccount.getString("username"))
     }
     @Override
     String getLoginKey() {
@@ -700,23 +670,23 @@ class UserFacadeImpl implements UserFacade {
 
     // ========== UserInfo ==========
 
-    UserInfo pushUserSubject(Subject subject, String tenantId) {
-        UserInfo userInfo = pushUser((String) subject.getPrincipal(), tenantId)
+    UserInfo pushUserSubject(Subject subject) {
+        UserInfo userInfo = pushUser((String) subject.getPrincipal())
         userInfo.subject = subject
         return userInfo
     }
-    UserInfo pushUser(String username, String tenantId) {
-        if (currentInfo != null && currentInfo.username == username && currentInfo.tenantId == tenantId)
+    UserInfo pushUser(String username) {
+        if (currentInfo != null && currentInfo.username == username)
             return currentInfo
 
         if (currentInfo == null || currentInfo.isPopulated()) {
-            // logger.info("Pushing UserInfo for ${username}:${tenantId} to stack, was ${currentInfo.username}:${currentInfo.tenantId}")
-            UserInfo userInfo = new UserInfo(this, username, tenantId)
+            // logger.info("Pushing UserInfo for ${username} to stack, was ${currentInfo.username}")
+            UserInfo userInfo = new UserInfo(this, username)
             userInfoStack.addFirst(userInfo)
             currentInfo = userInfo
             return userInfo
         } else {
-            currentInfo.setInfo(username, tenantId)
+            currentInfo.setInfo(username)
             return currentInfo
         }
     }
@@ -725,37 +695,19 @@ class UserFacadeImpl implements UserFacade {
         userInfoStack.removeFirst()
 
         // always leave at least an empty UserInfo on the stack
-        if (userInfoStack.size() == 0) userInfoStack.addFirst(new UserInfo(this, null, null))
+        if (userInfoStack.size() == 0) userInfoStack.addFirst(new UserInfo(this, null))
 
         UserInfo newCurInfo = userInfoStack.getFirst()
-        // logger.info("Popping UserInfo ${currentInfo.username}:${currentInfo.tenantId}, new current is ${newCurInfo.username}:${newCurInfo.tenantId}")
+        // logger.info("Popping UserInfo ${currentInfo.username}, new current is ${newCurInfo.username}")
 
         // whether previous user on stack or new one, set the currentInfo
         currentInfo = newCurInfo
-    }
-
-    /** Called by ExecutionContextInfo when tenant pushed (changeTenant()) */
-    void pushTenant(String toTenantId) {
-        // UserInfo wasInfo = currentInfo
-        // if there is a previous user populated and it is not in the toTenantId tenant, push an empty UserInfo
-        if (currentInfo.tenantId != toTenantId) pushUser(null, toTenantId)
-
-        // logger.info("UserFacade pushed tenant: from ${wasInfo.tenantId} to ${currentInfo.tenantId}, user was ${wasInfo.username} and is ${currentInfo.username}")
-    }
-    /** Called by ExecutionContextInfo when tenant popped (popTenant()) */
-    void popTenant(String fromTenantId) {
-        // UserInfo wasInfo = currentInfo
-        // pop current user (if populated effectively logs out, if not will get an empty user in current tenant, already set in eci)
-        if (currentInfo.tenantId == fromTenantId) popUser()
-
-        // logger.info("UserFacade popped tenant: ${wasInfo.tenantId} to ${currentInfo.tenantId}, user was ${wasInfo.username} and is ${currentInfo.username}")
     }
 
     static class UserInfo {
         final UserFacadeImpl ufi
         // keep a reference to a UserAccount for performance reasons, avoid repeated cached queries
         protected EntityValueBase userAccount = (EntityValueBase) null
-        protected String tenantId = (String) null
         protected String username = (String) null
         protected String userId = (String) null
         Set<String> internalUserGroupIdSet = (Set<String>) null
@@ -775,19 +727,18 @@ class UserFacadeImpl implements UserFacade {
 
         protected Map<String, Object> userContext = (Map<String, Object>) null
 
-        UserInfo(UserFacadeImpl ufi, String username, String tenantId) {
+        UserInfo(UserFacadeImpl ufi, String username) {
             this.ufi = ufi
-            setInfo(username, tenantId)
+            setInfo(username)
         }
 
         boolean isPopulated() { return (username != null && username.length() > 0) || loggedInAnonymous }
 
-        void setInfo(String username, String tenantId) {
+        void setInfo(String username) {
             // this shouldn't happen unless there is a bug in the framework
             if (isPopulated()) throw new IllegalStateException("Cannot set user info, UserInfo already populated")
 
             this.username = username
-            this.tenantId = tenantId ?: ufi.eci.tenantId
 
             EntityValueBase ua = (EntityValueBase) null
             if (username != null && username.length() > 0) {

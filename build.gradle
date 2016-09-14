@@ -51,7 +51,7 @@ task cleanOrientDb(type: Delete) { delete file(moquiRuntime+'/db/orientdb/databa
 task cleanElasticSearch(type: Delete) { delete file(moquiRuntime+'/elasticsearch/data') }
 task cleanLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/log', include: '*') }
 task cleanTxLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/txlog', include: '*') }
-task cleanLoadSave(type: Delete) { delete file('SaveH2.zip'); delete file('SaveDEFAULT.zip'); delete file('SaveTenant.zip');
+task cleanLoadSave(type: Delete) { delete file('SaveH2.zip'); delete file('SaveDEFAULT.zip');
     delete file('SaveTransactional.zip'); delete file('SaveAnalytical.zip'); delete file('SaveOrientDb.zip'); delete file('SaveElasticSearch.zip') }
 task cleanPlusRuntime(type: Delete) { delete file(plusRuntimeName) }
 task cleanOther(type: Delete) { delete fileTree(dir: '.', includes: ['**/.nbattrs', '**/*~', '**/.#*', '**/.DS_Store', '**/*.rej', '**/*.orig']) }
@@ -149,14 +149,13 @@ task runProduction(type: JavaExec) {
 }
 
 task load(type: JavaExec) {
-    description "Run Moqui to load data; to specify data types and tenant use something like: gradle load -Ptypes=seed -PtenantId=EXAMPLE1"
+    description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn getRuntime, allBuildTasks
     workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     main = '-jar'
     def argList = [warName, '-load']
     if (project.properties.containsKey('types')) argList.add("-types=${types}")
-    if (project.properties.containsKey('tenantId')) argList.add("-tenantId=${tenantId}")
     args = argList
 }
 task loadProduction(type: JavaExec) {
@@ -166,7 +165,6 @@ task loadProduction(type: JavaExec) {
     main = '-jar'
     def argList = [warName, '-load']
     if (project.properties.containsKey('types')) argList.add("-types=${types}")
-    if (project.properties.containsKey('tenantId')) argList.add("-tenantId=${tenantId}")
     args = argList
 }
 
@@ -176,8 +174,6 @@ task loadSave {
     doLast {
         if (file(moquiRuntime+'/db/derby/MoquiDEFAULT').exists())
             ant.zip(destfile: 'SaveDEFAULT.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiDEFAULT') { include(name: '**/*') } }
-        if (file(moquiRuntime+'/db/derby/MoquiTenant').exists())
-            ant.zip(destfile: 'SaveTenant.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiTenant') { include(name: '**/*') } }
         if (file(moquiRuntime+'/db/h2').exists())
             ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
         if (file(moquiRuntime+'/db/orientdb/databases').exists())
@@ -193,7 +189,6 @@ task reloadSave {
     dependsOn allBuildTasks
     doLast {
         if (file('SaveDEFAULT.zip').exists()) copy { from zipTree('SaveDEFAULT.zip'); into file(moquiRuntime+'/db/derby/MoquiDEFAULT') }
-        if (file('SaveTenant.zip').exists()) copy { from zipTree('SaveTenant.zip'); into file(moquiRuntime+'/db/derby/MoquiTenant') }
         if (file('SaveH2.zip').exists()) copy { from zipTree('SaveH2.zip'); into file(moquiRuntime+'/db/h2') }
         if (file('SaveOrientDb.zip').exists()) copy { from zipTree('SaveOrientDb.zip'); into file(moquiRuntime+'/db/orientdb/databases') }
         if (file('SaveElasticSearch.zip').exists()) copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }

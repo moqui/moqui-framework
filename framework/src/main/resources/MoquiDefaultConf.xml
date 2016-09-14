@@ -57,38 +57,34 @@
         <!-- this is info for each entity for real-time push DataFeeds; expires every 15 min to get DataFeed and DataDocument updates -->
         <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList"/>
 
-        <cache name="service.location" tenants-share="true" value-type="org.moqui.impl.service.ServiceDefinition"/>
-        <cache name="service.rest.api" tenants-share="true" value-type="org.moqui.impl.service.RestApi$ResourceNode"/>
-        <cache name="kie.component.releaseId" tenants-share="true" value-type="org.kie.api.builder.ReleaseId"/>
-        <cache name="kie.session.component" tenants-share="true" value-type="String"/>
+        <cache name="service.location" value-type="org.moqui.impl.service.ServiceDefinition"/>
+        <cache name="service.rest.api" value-type="org.moqui.impl.service.RestApi$ResourceNode"/>
+        <cache name="kie.component.releaseId" value-type="org.kie.api.builder.ReleaseId"/>
+        <cache name="kie.session.component" value-type="String"/>
 
-        <!-- TODO: Potential issue for multi-tenant where DbForm*, SubscreenItem, etc comes from wrong tenant...
-            would need to change ScreenFacadeImpl to get cache per tenant too, maybe even init ScreenFacadeImpl under ECI instead of ECFI (would be slower) -->
-        <cache name="screen.location" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition"/>
-        <cache name="screen.location.perm" tenants-share="true" value-type="org.moqui.impl.screen.ScreenDefinition"/>
-        <cache name="screen.url" tenants-share="true" value-type="org.moqui.impl.screen.ScreenUrlInfo"/>
-        <cache name="screen.info" tenants-share="true" value-type="List"/>
-        <cache name="screen.info.ref.rev" tenants-share="true" value-type="Set"/>
-        <cache name="screen.template.mode" tenants-share="true" value-type="freemarker.template.Template"/>
-        <cache name="screen.template.location" tenants-share="true" value-type="freemarker.template.Template"/>
-        <cache name="widget.template.location" tenants-share="true" value-type="MNode"/>
-        <cache name="screen.find.path" tenants-share="true" value-type="ArrayList"/>
-        <cache name="screen.form.db.node" tenants-share="true" value-type="MNode"/>
+        <cache name="screen.location" value-type="org.moqui.impl.screen.ScreenDefinition"/>
+        <cache name="screen.location.perm" value-type="org.moqui.impl.screen.ScreenDefinition"/>
+        <cache name="screen.url" value-type="org.moqui.impl.screen.ScreenUrlInfo"/>
+        <cache name="screen.info" value-type="List"/>
+        <cache name="screen.info.ref.rev" value-type="Set"/>
+        <cache name="screen.template.mode" value-type="freemarker.template.Template"/>
+        <cache name="screen.template.location" value-type="freemarker.template.Template"/>
+        <cache name="widget.template.location" value-type="MNode"/>
+        <cache name="screen.find.path" value-type="ArrayList"/>
+        <cache name="screen.form.db.node" value-type="MNode"/>
 
-        <!-- TODO: Potential issue for multi-tenant where DbResource, etc comes from wrong tenant...
-            would need to change ResourceFacadeImpl to get cache per tenant too, maybe even init ResourceFacadeImpl under ECI instead of ECFI (would be slower) -->
-        <cache name="resource.xml-actions.location" tenants-share="true" value-type="org.moqui.impl.actions.XmlAction"/>
-        <cache name="resource.groovy.location" tenants-share="true" value-type="java.lang.Class"/>
-        <cache name="resource.javascript.location" tenants-share="true" value-type="java.lang.Class"/>
+        <cache name="resource.xml-actions.location" value-type="org.moqui.impl.actions.XmlAction"/>
+        <cache name="resource.groovy.location" value-type="java.lang.Class"/>
+        <cache name="resource.javascript.location" value-type="java.lang.Class"/>
 
         <!-- These caches must be local caches (use additional methods on MCache not in javax.cache.Cache) -->
-        <cache name="resource.ftl.location" tenants-share="true" value-type="freemarker.template.Template" type="local"/>
-        <cache name="resource.gstring.location" tenants-share="true" value-type="groovy.text.Template" type="local"/>
-        <cache name="resource.wiki.location" tenants-share="true" value-type="String" type="local"/>
-        <cache name="resource.markdown.location" tenants-share="true" value-type="String" type="local"/>
-        <cache name="resource.text.location" tenants-share="true" value-type="String" type="local"/>
+        <cache name="resource.ftl.location" value-type="freemarker.template.Template" type="local"/>
+        <cache name="resource.gstring.location" value-type="groovy.text.Template" type="local"/>
+        <cache name="resource.wiki.location" value-type="String" type="local"/>
+        <cache name="resource.markdown.location" value-type="String" type="local"/>
+        <cache name="resource.text.location" value-type="String" type="local"/>
 
-        <cache name="resource.reference.location" tenants-share="true" value-type="org.moqui.context.ResourceReference"/>
+        <cache name="resource.reference.location" value-type="org.moqui.context.ResourceReference"/>
 
         <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String"/>
 
@@ -257,7 +253,6 @@
         <service-file location="classpath://service/org/moqui/impl/ServerServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ServiceServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/SystemMessageServices.xml"/>
-        <service-file location="classpath://service/org/moqui/impl/TenantServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/UserServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
         <service-file location="classpath://service/org/moqui/search/SearchServices.xml"/>
@@ -296,21 +291,11 @@
 
             Good numbers for a decent sized server are 100 servlet container (Jetty) threads, 16 worker threads, plus a
             few extra so 120 connections in the main pool.
-
-            For multi-tenant the tenantcommon pool can be much smaller. The pool sizes for multi-tenant are generally
-            much more complex as there is currently one connection pool per tenant and group (making it more important
-            to use just one datasource). In the future this may change to support higher numbers of tenants under a load.
         -->
 
         <!-- NOTE: With this embedded H2 setup you can connect remotely using "jdbc:h2:tcp://localhost:9092/MoquiDEFAULT" -->
         <datasource group-name="transactional" database-conf-name="h2" schema-name=""
                 start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
-            <inline-jdbc><xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}"
-                    password="${ds_transactional_password}"/></inline-jdbc>
-        </datasource>
-
-        <!-- The tenantcommon group can also in the same DB, but MUST have a separate definition for multi-tenant to work -->
-        <datasource group-name="tenantcommon" database-conf-name="h2" schema-name="">
             <inline-jdbc><xa-properties url="${ds_transactional_url}" user="${ds_transactional_user}"
                     password="${ds_transactional_password}"/></inline-jdbc>
         </datasource>
@@ -339,7 +324,6 @@
         <load-entity location="classpath://entity/SecurityEntities.xml"/>
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
-        <load-entity location="classpath://entity/TenantEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>
         <!-- in framework/data -->
         <load-data location="classpath://data/CommonL10nData.xml"/>
@@ -348,7 +332,6 @@
         <load-data location="classpath://data/GeoCountryData.xml"/>
         <load-data location="classpath://data/SecurityTypeData.xml"/>
         <load-data location="classpath://data/ServiceTypeData.xml"/>
-        <load-data location="classpath://data/TenantDefaultData.xml"/>
         <load-data location="classpath://data/UnitData.xml"/>
     </entity-facade>
     <database-list>

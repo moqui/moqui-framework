@@ -73,7 +73,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 if (sd != null) {
                     inParameterNames = sd.getInParameterNames();
                 } else if (isEntityAutoPattern()) {
-                    EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(noun);
+                    EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(noun);
                     if (ed != null) inParameterNames = ed.getAllFieldNames();
                 }
 
@@ -147,18 +147,15 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         // get these before cleaning up the parameters otherwise will be removed
         String userId = null;
         String password = null;
-        String tenantId = null;
         if (currentParameters.containsKey("authUsername")) {
             userId = (String) currentParameters.get("authUsername");
             password = (String) currentParameters.get("authPassword");
-            tenantId = (String) currentParameters.get("authTenantId");
         } else if (currentParameters.containsKey("authUserAccount")) {
             Map authUserAccount = (Map) currentParameters.get("authUserAccount");
             userId = (String) authUserAccount.get("userId");
             if (userId == null || userId.isEmpty()) userId = (String) currentParameters.get("authUsername");
             password = (String) authUserAccount.get("currentPassword");
             if (password == null || password.isEmpty()) password = (String) currentParameters.get("authPassword");
-            tenantId = (String) currentParameters.get("authTenantId");
         }
 
         final String serviceType = sd != null ? sd.serviceType : "entity-implicit";
@@ -184,7 +181,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
         // always try to login the user if parameters are specified
         if (userId != null && password != null && userId.length() > 0 && password.length() > 0) {
-            userLoggedIn = eci.getUser().loginUser(userId, password, tenantId);
+            userLoggedIn = eci.getUser().loginUser(userId, password);
             // if user was not logged in we should already have an error message in place so just return
             if (!userLoggedIn) return null;
         }
@@ -345,8 +342,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
 
             return result;
-        } catch (TransactionException e) {
-            throw e;
         } finally {
             try {
                 if (suspendedTransaction) tf.resume();
@@ -373,7 +368,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     }
 
-    protected void clearSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+    private void clearSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
         String semParameter = sd.semaphoreParameter;
         String parameterValue;
         if (semParameter == null || semParameter.isEmpty()) {
@@ -397,7 +392,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
     }
 
-    protected void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+    private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
         final String semaphore = sd.semaphore;
         String semaphoreParameter = sd.semaphoreParameter;
         final String parameterValue;
@@ -466,7 +461,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
     }
 
-    protected Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ArrayList<ServiceEcaRule> secaRules, ExecutionContextImpl eci) {
+    private Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ArrayList<ServiceEcaRule> secaRules, ExecutionContextImpl eci) {
         // NOTE: no authentication, assume not required for this; security settings can override this and require
         //     permissions, which will require authentication
         // done in calling method: sfi.runSecaRules(serviceName, currentParameters, null, "pre-auth")

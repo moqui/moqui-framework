@@ -44,5 +44,5 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- Special Permissions -->
     <moqui.security.UserPermission userPermissionId="ADMIN_PASSWORD" description="Admin Password Update"/>
-    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ADMIN_PASSWORD"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ADMIN_PASSWORD" fromDate="0" />
 </entity-facade-xml>

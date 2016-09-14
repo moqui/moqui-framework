@@ -36,20 +36,13 @@ along with this software (see the LICENSE.md file). If not, see
             <description>Defaults to Y. Set to N to not include in the menu for the subscreens. This can be used to hide
                 subscreens from the directory structure or even explicitly declared in the Screen XML file.</description>
         </field>
-        <field name="tenantsAllowed" type="text-medium">
-            <description>Comma-separated set of Tenant IDs allowed to use this screen. If empty (default) all tenants
-                can use the screen.</description>
-        </field>
         <relationship type="one" related="moqui.security.UserGroup"/>
     </entity>
     <entity entity-name="SubscreensDefault" package="moqui.screen" use="configuration" cache="true">
         <field name="screenLocation" type="text-medium" is-pk="true"/>
         <field name="defaultSeqId" type="id" is-pk="true"/>
         <field name="conditionExpression" type="text-medium"/>
-        <field name="tenantId" type="id"/>
         <field name="subscreenName" type="text-medium"/>
-        <!-- nofk because generally in a different DB -->
-        <relationship type="one-nofk" related="moqui.tenant.Tenant"/>
     </entity>
 
     <!-- ========== Theme ========== -->

@@ -27,9 +27,6 @@ public interface CacheFacade {
     Cache getCache(String cacheName);
     /** A type-safe variation on getCache for configured caches. */
     <K, V> Cache<K, V> getCache(String cacheName, Class<K> keyType, Class<V> valueType);
-    /** For caches that are not tenant shared (based on configuration in Moqui Conf XML file) the tenantId is prefixed
-     * to the full cache name followed by two undersctores (__). This is a convenience method to get a cache for a tenant. */
-    Cache getCache(String cacheName, String tenantId);
     /** Get the named local Cache (MCache instance), creating one based on defaults if none exists.
      * If the cache is configured with type != 'local' this will return an error. */
     MCache getLocalCache(String cacheName);

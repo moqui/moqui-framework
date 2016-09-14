@@ -35,13 +35,13 @@ class EntityCache {
     protected final EntityFacadeImpl efi
     final CacheFacadeImpl cfi
 
-    final String oneKeyBase
-    final String oneRaKeyBase
-    final String oneViewRaKeyBase
-    final String listKeyBase
-    final String listRaKeyBase
-    final String listViewRaKeyBase
-    final String countKeyBase
+    static final String oneKeyBase = "entity.record.one."
+    static final String oneRaKeyBase = "entity.record.one_ra."
+    static final String oneViewRaKeyBase = "entity.record.one_view_ra."
+    static final String listKeyBase = "entity.record.list."
+    static final String listRaKeyBase = "entity.record.list_ra."
+    static final String listViewRaKeyBase = "entity.record.list_view_ra."
+    static final String countKeyBase = "entity.record.count."
 
     Cache<String, Set<EntityCondition>> oneBfCache
     protected final Map<String, List<String>> cachedListViewEntitiesByMember = new HashMap<>()
@@ -54,16 +54,7 @@ class EntityCache {
         this.efi = efi
         this.cfi = efi.ecfi.getCacheFacade()
 
-        oneKeyBase = efi.tenantId + "__entity.record.one."
-        oneRaKeyBase = efi.tenantId + "__entity.record.one_ra."
-        oneViewRaKeyBase = efi.tenantId + "__entity.record.one_view_ra."
-        listKeyBase = efi.tenantId + "__entity.record.list."
-        listRaKeyBase = efi.tenantId + "__entity.record.list_ra."
-        listViewRaKeyBase = efi.tenantId + "__entity.record.list_view_ra."
-        countKeyBase = efi.tenantId + "__entity.record.count."
-
-        String oneBfKey = efi.tenantId + "__entity.record.one_bf"
-        oneBfCache = cfi.getCache(oneBfKey, efi.tenantId)
+        oneBfCache = cfi.getCache("entity.record.one_bf")
 
         MNode entityFacadeNode = efi.getEntityFacadeNode()
         distributedCacheInvalidate = entityFacadeNode.attribute("distributed-cache-invalidate") == "true" && entityFacadeNode.attribute("dci-topic-factory")
@@ -81,20 +72,17 @@ class EntityCache {
 
 
     static class EntityCacheInvalidate implements Externalizable {
-        String tenantId
         boolean isCreate
         EntityValueBase evb
 
         EntityCacheInvalidate() { }
-        EntityCacheInvalidate(String tenantId, EntityValueBase evb, boolean isCreate) {
-            this.tenantId = tenantId
+        EntityCacheInvalidate(EntityValueBase evb, boolean isCreate) {
             this.isCreate = isCreate
             this.evb = evb
         }
 
         @Override
         void writeExternal(ObjectOutput out) throws IOException {
-            out.writeUTF(tenantId)
             out.writeBoolean(isCreate)
             // NOTE: this would be faster but can't because don't know which impl of the abstract class was used: evb.writeExternal(out)
             out.writeObject(evb)
@@ -102,47 +90,16 @@ class EntityCache {
 
         @Override
         void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-            tenantId = objectInput.readUTF()
             isCreate = objectInput.readBoolean()
             evb = (EntityValueBase) objectInput.readObject()
         }
     }
 
-    // EntityFacadeImpl getEfi() { return efi }
-
-    /* Get caches through EntityDefinition so we don't have to look them up every time:
-    Cache<EntityCondition, EntityValueBase> getCacheOne(String entityName) {
-        return cfi.getCache(oneKeyBase.concat(entityName), efi.tenantId) }
-    private Cache<EntityCondition, List<EntityCondition>> getCacheOneRa(String entityName) {
-        return cfi.getCache(oneRaKeyBase.concat(entityName), efi.tenantId) }
-    private Cache<EntityCondition, List<ViewRaKey>> getCacheOneViewRa(String entityName) {
-        return cfi.getCache(oneViewRaKeyBase.concat(entityName), efi.tenantId) }
-
-    private Cache<String, Set<EntityCondition>> getCacheOneBf() { return internalCacheOneBf }
-
-    Cache<EntityCondition, EntityListImpl> getCacheList(String entityName) {
-        return cfi.getCache(listKeyBase.concat(entityName), efi.tenantId) }
-    private Cache<EntityCondition, List<EntityCondition>> getCacheListRa(String entityName) {
-        return cfi.getCache(listRaKeyBase.concat(entityName), efi.tenantId) }
-    private Cache<EntityCondition, List<ViewRaKey>> getCacheListViewRa(String entityName) {
-        return cfi.getCache(listViewRaKeyBase.concat(entityName), efi.tenantId) }
-
-    Cache<EntityCondition, Long> getCacheCount(String entityName) {
-        return cfi.getCache(countKeyBase.concat(entityName), efi.tenantId) }
-    */
-
     static class EmptyRecord extends EntityValueImpl {
         EmptyRecord() { }
         EmptyRecord(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip) }
     }
-    /*
-    EntityValueBase getFromOneCache(EntityDefinition ed, EntityCondition whereCondition,
-                                    Cache<EntityCondition, EntityValueBase> entityOneCache) {
-        if (entityOneCache == null) entityOneCache = getCacheOne(ed.getFullEntityName())
 
-        return (EntityValueBase) entityOneCache.get(whereCondition)
-    }
-    */
     void putInOneCache(EntityDefinition ed, EntityCondition whereCondition, EntityValueBase newEntityValue,
                        Cache<EntityCondition, EntityValueBase> entityOneCache) {
         if (entityOneCache == null) entityOneCache = ed.getCacheOne(this)
@@ -192,7 +149,7 @@ class EntityCache {
             // NOTE: this takes some time to run and is done a LOT, for nearly all entity CrUD ops
             // NOTE: have set many entities as never cache
             // NOTE: can't avoid message when caches don't exist and not used in view-entity as it might be on another server
-            EntityCacheInvalidate eci = new EntityCacheInvalidate(efi.tenantId, evb, isCreate)
+            EntityCacheInvalidate eci = new EntityCacheInvalidate(evb, isCreate)
             entityCacheInvalidateTopic.publish(eci)
         } else {
             clearCacheForValueActual(evb, isCreate)

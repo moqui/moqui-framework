@@ -58,7 +58,7 @@ along with this software (see the LICENSE.md file). If not, see
                         </xs:enumeration>
                         <xs:enumeration value="pre-auth">
                             <xs:annotation><xs:documentation>Runs before authentication and authorization checks, but
-                                after the authUsername, authPassword and authTenantId parameters are used and specified
+                                after the authUsername and authPassword parameters are used and specified
                                 user logged in; useful for any custom behavior related to authc or authz</xs:documentation></xs:annotation>
                         </xs:enumeration>
                         <xs:enumeration value="pre-service">

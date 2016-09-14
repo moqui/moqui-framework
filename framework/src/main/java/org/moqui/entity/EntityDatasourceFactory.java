@@ -18,7 +18,7 @@ import org.moqui.util.MNode;
 import javax.sql.DataSource;
 
 public interface EntityDatasourceFactory {
-    EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode, String tenantId);
+    EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode);
     void destroy();
     boolean checkTableExists(String entityName);
     void checkAndAddTable(String entityName);

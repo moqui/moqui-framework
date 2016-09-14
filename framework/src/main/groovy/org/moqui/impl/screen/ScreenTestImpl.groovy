@@ -157,13 +157,12 @@ class ScreenTestImpl implements ScreenTest {
             ExecutionContextFactoryImpl ecfi = sti.ecfi
             ExecutionContextImpl localEci = ecfi.getEci()
             String username = localEci.userFacade.getUsername()
-            String tenantId = localEci.tenantId
             boolean authzDisabled = localEci.artifactExecutionFacade.getAuthzDisabled()
             Throwable threadThrown = null
             Thread txThread = Thread.start('ScreenTestRender', {
                 try {
                     ExecutionContextImpl eci = ecfi.getEci()
-                    eci.userFacade.internalLoginUser(username, tenantId)
+                    eci.userFacade.internalLoginUser(username)
                     if (authzDisabled) eci.artifactExecutionFacade.disableAuthz()
                     renderInternal(eci, this)
                     eci.destroy()
