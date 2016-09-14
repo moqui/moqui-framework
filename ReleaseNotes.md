@@ -17,6 +17,12 @@ significant changes.
 - Java JDK 8 now required (Java 7 no longer supported)
 - Now requires Servlet Container supporting the Servlet 3.1 specification
 - No longer using Winstone embedded web server, now using Jetty
+- Multi-Tenant Functionality Removed
+  - ExecutionContext.getTenant() and getTenantId() removed
+  - UserFacade.loginUser() third parameter (tenantId) removed
+  - CacheFacade.getCache() with second parameter for tenantId removed
+  - EntityFacade no longer per-tenant, getTenantId() removed
+  - TransactionInternal and EntityDatasourceFactory methods no longer have tenantId parameter
 - Entity Definitions
   - XSDs updated for these changes, though old attributes still supported
   - changed entity.@package-name to entity.@package
@@ -25,73 +31,50 @@ significant changes.
   - changed key-map.@related-field-name to key-map.@related
   - UserField no longer supported (UserField and UserFieldValue entities)
 - Service Job Scheduling
-  - Quartz Scheduler has been removed, use new ServiceJob instead which
-    supports more relevant options, is much cleaner and more manageable
+  - Quartz Scheduler has been removed, use new ServiceJob instead with more relevant options, much cleaner and more manageable
   - Removed ServiceFacade.getScheduler() method
-  - Removed ServiceCallSchedule interface, implementation, and
-    ServiceFacade.schedule() factory method
+  - Removed ServiceCallSchedule interface, implementation, and ServiceFacade.schedule() factory method
   - Removed ServiceQuartzJob class (impl of Job interface)
-  - Removed EntityJobStore class (impl of JobStore interface); this is a
-    huge and complicated class to handle the various complexities of Quartz
-    and was never fully working, had some remaining issues in testing
+  - Removed EntityJobStore class (impl of JobStore interface); this is a huge and complicated class to handle the various 
+    complexities of Quartz and was never fully working, had some remaining issues in testing
   - Removed HistorySchedulerListener and HistoryTriggerListener classes
-  - Removed all entities in the moqui.service.scheduler and
-    moqui.service.quartz packages
+  - Removed all entities in the moqui.service.scheduler and moqui.service.quartz packages
   - Removed quartz.properties and quartz_data.xml configuration files
   - Removed Scheduler screens from System app in tools component
-  - For all of these artifacts see moqui-framework commit #d42ede0 and
-    moqui-runtime commit #6a9c61e
+  - For all of these artifacts see moqui-framework commit #d42ede0 and moqui-runtime commit #6a9c61e
 - Externalized Tools
   - ElasticSearch (and Apache Lucene)
-    - libraries, classes and all related services, screens, etc are now in
-      the moqui-elasticsearch component
-    - System/DataDocument screens now in moqui-elasticsearch component and
-      added to tools/System app through SubscreensItem record
-    - all ElasticSearch services in org.moqui.impl.EntityServices moved to
-      org.moqui.search.SearchServices including:
-      index#DataDocuments, put#DataDocumentMappings,
-      index#DataFeedDocuments, search#DataDocuments, search#CountBySource
-    - Moved index#WikiSpacePages service from org.moqui.impl.WikiServices
-      to org.moqui.search.SearchServices
-    - ElasticSearch dependent REST API methods moved to the 'elasticsearch'
-      REST API in the moqui-elasticsearch component
-  - Apache FOP is now in the moqui-fop tool component; everything in the
-    framework, including the now poorly named MoquiFopServlet, use generic
-    interfaces but XML-FO files will not transform to PDF/etc without this
-    component in place
-  - OrientDB and Entity Facade interface implementations are now in the
-    moqui-orientdb component, see its README.md for usage
-  - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint
-    are now in the moqui-camel component which has a MoquiConf.xml file so
-    no additional configuration is needed
-  - JBoss KIE and Drools are now in tool component moqui-kie, an optional
-    component for mantle-usl; has MoquiConf to add ToolFactory
+    - libraries, classes and all related services, screens, etc are now in the moqui-elasticsearch component
+    - System/DataDocument screens now in moqui-elasticsearch component and added to tools/System app through SubscreensItem record
+    - all ElasticSearch services in org.moqui.impl.EntityServices moved to org.moqui.search.SearchServices including:
+      index#DataDocuments, put#DataDocumentMappings, index#DataFeedDocuments, search#DataDocuments, search#CountBySource
+    - Moved index#WikiSpacePages service from org.moqui.impl.WikiServices to org.moqui.search.SearchServices
+    - ElasticSearch dependent REST API methods moved to the 'elasticsearch' REST API in the moqui-elasticsearch component
+  - Apache FOP is now in the moqui-fop tool component; everything in the framework, including the now poorly named MoquiFopServlet, 
+    use generic interfaces but XML-FO files will not transform to PDF/etc without this component in place
+  - OrientDB and Entity Facade interface implementations are now in the moqui-orientdb component, see its README.md for usage
+  - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint are now in the moqui-camel component which has a 
+    MoquiConf.xml file so no additional configuration is needed
+  - JBoss KIE and Drools are now in tool component moqui-kie, an optional component for mantle-usl; has MoquiConf to add ToolFactory
   - Atomikos TM moved to moqui-atomikos tool component
 - ExecutionContext and ExecutionContextFactory
-  - Removed initComponent() and destroyComponent() methods; were never well
-    supported (runtime component init and destroy caused issues)
-  - Removed getCamelContext() from ExecutionContextFactory and
-    ExecutionContext, use getTool("Camel", CamelContext.class)
-  - Removed getElasticSearchClient() from ExecutionContextFactory and
-    ExecutionContext, use getTool("ElasticSearch", Client.class)
-  - Removed getKieContainer, getKieSession, and getStatelessKieSession
-    methods from ExecutionContextFactory and ExecutionContext, use
-    getTool("KIE", KieToolFactory.class) and use the corresponding
-    methods there
+  - Removed initComponent(), destroyComponent() methods; were never well supported (runtime component init/destroy caused issues)
+  - Removed getCamelContext() from ExecutionContextFactory and ExecutionContext, use getTool("Camel", CamelContext.class)
+  - Removed getElasticSearchClient() from ExecutionContextFactory and ExecutionContext, use getTool("ElasticSearch", Client.class)
+  - Removed getKieContainer, getKieSession, and getStatelessKieSession methods from ExecutionContextFactory and ExecutionContext, 
+    use getTool("KIE", KieToolFactory.class) and use the corresponding methods there
   - See new feature notes under Tool Factory
 - Caching
   - Ehcache has been removed
   - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
   - Configuration options for caches changed (moqui-conf.cache-list.cache)
 - NotificationMessage
-  - NotificationMessage, NotificationMessageListener interfaces have
-    various changes for more features and to better support serialized
-    messages for notification through a distributed topic
+  - NotificationMessage, NotificationMessageListener interfaces have various changes for more features and to better support 
+    serialized messages for notification through a distributed topic
 - Async Services
   - Now uses more standard java.util.concurrent interfaces
   - Removed ServiceCallAsync.maxRetry() - was never supported
-  - Removed ServiceCallAsync.persist() - was never supported well, used to
-    simply call through Quartz Scheduler when set
+  - Removed ServiceCallAsync.persist() - was never supported well, used to simply call through Quartz Scheduler when set
   - Removed persist option from XML Actions service-call.@async attribute
   - Async services never called through Quartz Scheduler (only scheduled)
   - ServiceCallAsync.callWaiter() replaced by callFuture()
@@ -99,130 +82,93 @@ significant changes.
   - Removed ServiceResultReceiver interface - use callFuture() instead
   - Removed ServiceResultWaiter class - use callFuture() instead
   - See related new features below
-- Service parameter.subtype element removed, use the much more flexible 
-  nested parameter element
+- Service parameter.subtype element removed, use the much more flexible nested parameter element
 - JCR and Apache Jackrabbit
-  - The repository.@type, @location, and @conf-location attributes have
-    been removed and the repository.parameter sub-element added for use
-    with the javax.jcr.RepositoryFactory interface
-  - See new configuration examples in MoquiDefaultConf.xml under the
-    repository-list element
+  - The repository.@type, @location, and @conf-location attributes have been removed and the repository.parameter sub-element 
+    added for use with the javax.jcr.RepositoryFactory interface
+  - See new configuration examples in MoquiDefaultConf.xml under the repository-list element
 - OWASP ESAPI and AntiSamy
   - ESAPI removed, now using simple StringEscapeUtils from commons-lang
   - AntiSamy replaced by OWASP Java HTML Sanitizer
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
-  - These methods were deprecated (by methods with shorter names)
-    long ago and with other API changes now removing them
+  - These methods were deprecated (by methods with shorter names) long ago and with other API changes now removing them
   - Removed getLocalizedMessage() and formatValue() from L10nFacade
-  - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(),
-    evaluateCondition(), evaluateContextField(), and evaluateStringExpand()
-    from ResourceFacade
+  - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(), evaluateCondition(), evaluateContextField(), and 
+    evaluateStringExpand() from ResourceFacade
   - Removed EntityFacade.makeFind()   
-- ArtifactHit and ArtifactHitBin now use same artifact type enum as
-  ArtifactAuthz, for efficiency and consistency; configuration of
-  artifact-stats by sub-type no longer supported, had little value and
-  caused performance overhead
-- Removed ArtifactAuthzRecord/Cond entities and support for them; this was
-  never all that useful and is replaced by the ArtifactAuthzFilter and
-  EntityFilter entities
+- ArtifactHit and ArtifactHitBin now use same artifact type enum as ArtifactAuthz, for efficiency and consistency; configuration of
+  artifact-stats by sub-type no longer supported, had little value and caused performance overhead
+- Removed ArtifactAuthzRecord/Cond entities and support for them; this was never all that useful and is replaced by the 
+  ArtifactAuthzFilter and EntityFilter entities
 - The ContextStack class has moved to the org.moqui.util package
-- Replaced Apache HttpComponents client with jetty-client to get support
-  for HTTP/2, cleaner API, better async support and other options
-- When updating to this version recommend stopping all instances in a
-  cluster before starting any instance with the new version
+- Replaced Apache HttpComponents client with jetty-client to get support for HTTP/2, cleaner API, better async support, etc
+- When updating to this version recommend stopping all instances in a cluster before starting any instance with the new version
 
 ### New Features
 
 - Now using Jetty embedded for the executable WAR instead of Winstone
   - using Jetty 9 which requires Java 8
   - now internally using Servlet API 3.1.0
-- Various library updates, big cleanup of classes found in multiple jar
-  files (JarHell checks pass; nice in general, needed for ElasticSearch)
+- Various library updates, cleanup of classes found in multiple jar files (ElasticSearch JarHell checks pass; nice in general)
 - Configuration
-  - Added default-property element to set Java System properties from the
-    configuration file
+  - Added default-property element to set Java System properties from the configuration file
   - Added Groovy string expansion to various configuration attributes
-    - looks for named fields in Java System properties and environment
-      variables
+    - looks for named fields in Java System properties and environment variables
     - used in default-property.@value and all xa-properties attributes
-    - replaces the old explicit check for ${moqui.runtime}, which was a
-      simple replacement hack
-    - because these are Groovy expressions the typical dots used in
-      property names cannot be used in these strings, use an underscore
-      instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime};
-      if a property name contains underscores and no value is found with
-      the literal name it replaces underscores with dots and looks again
+    - replaces the old explicit check for ${moqui.runtime}, which was a simple replacement hack
+    - because these are Groovy expressions the typical dots used in property names cannot be used in these strings, use an 
+      underscore instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime}; if a property name contains underscores and 
+      no value is found with the literal name it replaces underscores with dots and looks again
 - Deployment and Docker
-  - The MoquiStart class now supports running from an expanded WAR file,
-    i.e. from a directory with the contents of a Moqui executable WAR
-  - On startup DataSource (database) connections are retried 5 times, 
-    every 5 seconds, for situations where init of separate containers is 
-    triggered at the same time like with Docker Compose
-  - Added a MySQLConf.xml file where settings can come from Java system 
-    properties or system environment variables
-  - The various webapp.@http* attributes can now be set as system 
-    properties or environment variables
-  - Added a Dockerfile and docker-build.sh script to build a Docker image
-    from moqui-plus-runtime.war or moqui.war and the runtime directory
-  - Added sample Docker Compose files for moqui+mysql, and for moqui, 
-    mysql, and nginx-proxy for reverse proxy that supports virtual hosts
-    for multiple Docker containers running Moqui
-  - Added script to bring up a Docker Compose file after copying relevant
-    configuration and data persistence runtime directories if needed
+  - The MoquiStart class can now run from an expanded WAR file, i.e. from a directory with the contents of a Moqui executable WAR
+  - On startup DataSource (database) connections are retried 5 times, every 5 seconds, for situations where init of separate 
+    containers is triggered at the same time like with Docker Compose
+  - Added a MySQLConf.xml file where settings can come from Java system properties or system environment variables
+  - The various webapp.@http* attributes can now be set as system properties or environment variables
+  - Added a Dockerfile and docker-build.sh script to build a Docker image from moqui-plus-runtime.war or moqui.war and runtime
+  - Added sample Docker Compose files for moqui+mysql, and for moqui, mysql, and nginx-proxy for reverse proxy that supports 
+    virtual hosts for multiple Docker containers running Moqui
+  - Added script to run a Docker Compose file after copying configuration and data persistence runtime directories if needed
 - Tool Factory
-  - Added org.moqui.context.ToolFactory interface used to initialize,
-    destroy, and get instances of tools
-  - Added tools.tool-factory element in Moqui Conf XML file; has default
-    tools in MoquiDefaultConf.xml and can be populated or modified in
-    component and/or runtime conf XML files
-  - Use new ExecutionContextFactory.getToolFactory(),
-    ExecutionContextFactory.getTool(), and
-    ExecutionContext.getTool() methods to interact with tools
+  - Added org.moqui.context.ToolFactory interface used to initialize, destroy, and get instances of tools
+  - Added tools.tool-factory element in Moqui Conf XML file; has default tools in MoquiDefaultConf.xml and can be populated or 
+    modified in component and/or runtime conf XML files
+  - Use new ExecutionContextFactory.getToolFactory(), ExecutionContextFactory.getTool(), and ExecutionContext.getTool() methods 
+    to interact with tools
   - See non backward compatible change notes for ExecutionContextFactory
 - WebSocket Support
-  - Now looks for javax.websocket.server.ServerContainer in ServletContext
-    during initialization, available through ECFI.getServerContainer()
-  - If ServletContainer found adds endpoints defined in the webapp.endpoint
-    element in the Moqui Conf XML file
-  - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint
-    so that Moqui objects such as ExecutionContext/Factory are available,
-    UserFacade initialized from handshake (HTTP upgrade) request, etc
-  - Added NotificationEndpoint which listens for NotificationMessage
-    through ECFI and sends them over WebSocket to notify user
+  - Now looks for javax.websocket.server.ServerContainer in ServletContext during init, available from ECFI.getServerContainer()
+  - If ServletContainer found adds endpoints defined in the webapp.endpoint element in the Moqui Conf XML file
+  - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint so that Moqui objects such as ExecutionContext/Factory 
+    are available, UserFacade initialized from handshake (HTTP upgrade) request, etc
+  - Added NotificationEndpoint which listens for NotificationMessage through ECFI and sends them over WebSocket to notify user
 - NotificationMessage
-  - Notifications can now be configured to send through a topic interface
-    for distributed topics (implemented in the moqui-hazelcast component);
-    this handles the scenario where a notification is generated on one
-    server but a user is connected (by WebSocket, etc) to another
-  - Various additional fields for display in the JavaScript
-    NotificationClient including type, title and link templates, etc
+  - Notifications can now be configured to send through a topic interface for distributed topics (implemented in the 
+    moqui-hazelcast component); this handles the scenario where a notification is generated on one server but a user is connected 
+    (by WebSocket, etc) to another
+  - Various additional fields for display in the JavaScript NotificationClient including type, title and link templates, etc
 - Caching
-  - CacheFacade now supports separate local and distributed caches both
-    using the javax.cache interfaces
+  - CacheFacade now supports separate local and distributed caches both using the javax.cache interfaces
   - Added new MCache class for faster local-only caches
     - implements the javax.cache.Cache interface
     - supports expire by create, access, update
     - supports custom expire on get
     - supports max entries, eviction done in separate thread
   - Support for distributed caches such as Hazelcast
-  - Implemented interfaces to plugin entity distributed cache invalidation
-    through a SimpleTopic interface, supported in moqui-hazelcast
-  - Set many entities to cache=never to avoid overhead of caching where
-    read/write ratio doesn't justify it or where cache could cause issues
+  - New interfaces to plugin entity distributed cache invalidation through a SimpleTopic interface, supported in moqui-hazelcast
+  - Set many entities to cache=never, avoid overhead of cache where read/write ratio doesn't justify it or cache could cause issues
 - Async Services
   - ServiceCallAsync now using standard java.util.concurrent interfaces
   - Use callFuture() to get a Future object instead of callWaiter()
-  - Can now get Runnable or Callable objects to run a service through a
-    ExecutorService of your choice
+  - Can now get Runnable or Callable objects to run a service through a ExecutorService of your choice
   - Services can now be called local or distributed
     - Added ServiceCallAsync.distribute() method
     - Added distribute option to XML Actions service-call.@async attribute
     - Distributed executor is configurable, supported in moqui-hazelcast
   - Distributed services allow offloading service execution to worker nodes
 - Service Jobs
-  - Configure ad-hoc (explicitly executed) or scheduled jobs using the new
-    ServiceJob and related entities
+  - Configure ad-hoc (explicitly executed) or scheduled jobs using the new ServiceJob and related entities
   - Tracks execution in ServiceJobRun records
   - Can send NotificationMessage, success or error, to configured topic
   - Run service job through ServiceCallJob interface, ec.service.job()
@@ -230,96 +176,64 @@ significant changes.
 - Hazelcast Integration (moqui-hazelcast component)
   - These features are only enabled with this tool component in place
   - Added default Hazelcast web session replication config
-  - Hazelcast can be used for distributed entity cache and can be used for
-    web session replication, distributed execution, and OrientDB clustering
-  - Implemented distributed entity cache invalidate using a Hazelcast
-    Topic, enabled in Moqui Conf XML file with the
+  - Hazelcast can be used for distributed entity cache, web session replication, distributed execution, and OrientDB clustering
+  - Implemented distributed entity cache invalidate using a Hazelcast Topic, enabled in Moqui Conf XML file with the
     @distributed-cache-invalidate attribute on the entity-facade element
-- XSL-FO rendering now supports a generic ToolFactory to create a
-  org.xml.sax.ContentHandler object, with an implementation using Apache
-  FOP now in the moqui-fop component
+- XSL-FO rendering now supports a generic ToolFactory to create a org.xml.sax.ContentHandler object, with an implementation 
+  using Apache FOP now in the moqui-fop component
 - JCR and Apache Jackrabbit
-  - JCR support (for content:// locations in the ResourceFacade) now uses
-    javax.jcr interfaces only, no dependencies on Jackrabbit
-  - JCR repository configuration now supports other JCR implementations by
-    using implementation specific RepositoryFactory parameters
-- Added ADMIN_PASSWORD permission for administrative password change
-  (in UserServices.update#Password service)
+  - JCR support (for content:// locations in the ResourceFacade) now uses javax.jcr interfaces only, no dependencies on Jackrabbit
+  - JCR repository configuration now supports other JCR implementations by using RepositoryFactory parameters
+- Added ADMIN_PASSWORD permission for administrative password change (in UserServices.update#Password service)
 - Added UserServices.enable#UserAccount service to enable disabled account
 - Added support for error screens rendered depending on type of error
   - configured in the webapp.error-screen element in Moqui Conf XML file
   - if error screen render fails sends original error response
   - this is custom content that avoids sending an error response
-- A component may now have a MoquiConf.xml file that overrides the default
-  configuration file (MoquiDefaultConf.xml from the classpath) but is
-  overridden by the runtime configuration file; the MoquiConf.xml file in
-  each component is merged into the main conf based on the component
-  dependency order (logged on startup)
-- Added ExecutionContext.runAsync method to run a closure in a worker
-  thread with an ExecutionContext like the current (user, etc)
-- Added configuration for worker thread pool parameters, used for local
-  async services, EC.runAsync, etc
+- A component may now have a MoquiConf.xml file that overrides the default configuration file (MoquiDefaultConf.xml from the 
+  classpath) but is overridden by the runtime configuration file; the MoquiConf.xml file in each component is merged into the main 
+  conf based on the component dependency order (logged on startup)
+- Added ExecutionContext.runAsync method to run a closure in a worker thread with an ExecutionContext like the current (user, etc)
+- Added configuration for worker thread pool parameters, used for local async services, EC.runAsync, etc
 - Transaction Facade
   - The write-through transaction cache now supports a read only mode
-  - Added service.@no-tx-cache attribute which flushes and disables write
-    through transaction cache for the rest of the transaction
-  - Added TransactionFacade.flushAndDisableTransactionCache() method to
-    flush and disable the write through cache, like service.@no-tx-cache
+  - Added service.@no-tx-cache attribute which flushes and disables write through transaction cache for the rest of the transaction
+  - Added flushAndDisableTransactionCache() method to flush/disable the write through cache like service.@no-tx-cache
 - Entity Facade
-  - In view-entity.alias.complex-alias the expression attribute is now
-    expanded so context fields may be inserted or other Groovy expressions
-    evaluated using dollar-sign curly-brace syntax
-  - Added view-entity.alias.case element with when and else sub-elements
-    that contain complex-alias elements; these can be used for CASE,
-    CASE WHEN, etc SQL expressions
-  - EntityFind.searchFormMap() now has a defaultParameters argument, used
-    when no conditions added from the input fields Map
-  - EntityDataWriter now supports export with a entity master definition
-    name, applied only to entities exported that have a master def with the
-    given master name
+  - In view-entity.alias.complex-alias the expression attribute is now expanded so context fields may be inserted or other Groovy 
+    expressions evaluated using dollar-sign curly-brace (${}) syntax
+  - Added view-entity.alias.case element with when and else sub-elements that contain complex-alias elements; these can be used for 
+    CASE, CASE WHEN, etc SQL expressions
+  - EntityFind.searchFormMap() now has a defaultParameters argument, used when no conditions added from the input fields Map
+  - EntityDataWriter now supports export with a entity master definition name, applied only to entities exported that have a master 
+    definition with the given master name
 - XML Screen and Form
-  - form-list now supports @header-dialog to put header-field widgets in a
-    dialog instead of in the header
-  - form-list now supports @select-columns to allow users to select which
-    fields are displayed in which columns, or not displayed
-  - added entity-find.search-form-inputs.default-parameters element whose
-    attributes are used as defaultParameters in searchFormMap()
-  - ArtifactAuthzFailure records are only created when a user tries to use
-    an artifact, not when simply checking to see if use is permitted (such
-    as in menus, links, etc)
+  - form-list now supports @header-dialog to put header-field widgets in a dialog instead of in the header
+  - form-list now supports @select-columns to allow users to select which fields are displayed in which columns, or not displayed
+  - added search-form-inputs.default-parameters element whose attributes are used as defaultParameters in searchFormMap()
+  - ArtifactAuthzFailure records are only created when a user tries to use an artifact, not when simply checking to see if use is 
+    permitted (such as in menus, links, etc)
   - significant macro cleanups and improvements
-  - csv render macros now improved to support more screen elements, more 
-    intelligently handle links (only include anchor/text links), etc
-  - text render macros now use fixed width output (number of characters)
-    along with new field attributes to specify print settings
+  - csv render macros now improved to support more screen elements, more intelligently handle links (only include anchor/text), etc
+  - text render macros now use fixed width output (number of characters) along with new field attributes to specify print settings
 
 ### Bug Fixes
 
-- Fixed issue with REST and other requests using various HTTP request
-  methods that were not handled, MoquiServlet now uses the
+- Fixed issue with REST and other requests using various HTTP request methods that were not handled, MoquiServlet now uses the
   HttpServlet.service() method instead of the various do*() methods
-- Fixed issue with REST and other JSON request body parameters where single
-  entry lists were unwrapped to just the entry by the canonicalization code
-- Fixed NPE in EntityFind.oneMaster() when the master value isn't found,
-  now returns null with no error; fixes moqui-runtime issue #18
+- Fixed issue with REST and other JSON request body parameters where single entry lists were unwrapped to just the entry
+- Fixed NPE in EntityFind.oneMaster() when the master value isn't found, returns null with no error; fixes moqui-runtime issue #18
 - Fixed ElFinder rm (moqui-runtime GitHub issue #23), response for upload
-- Screen sub-content directories treated as not found so directory entries
-  not listed (GitHub moqui-framework issue #47)
-- In entity cache auto clear for list of view-entity fixed mapping of
-  member entity fields to view entity alias, and partial match when only
-  some view entity fields are on a member entity
-- Cache clear fix for view-entity list cache fixes issue where adding a
-  permission required manual cache clear or restart for permission to apply
-- Fixed issue with Entity/DataEdit screens in the Tools application where
-  the parameter and form field name 'entityName' conflicted with certain
-  entities that have a field named entityName
+- Screen sub-content directories treated as not found so directory entries not listed (GitHub moqui-framework issue #47)
+- In entity cache auto clear for list of view-entity fixed mapping of member entity fields to view entity alias, and partial match 
+  when only some view entity fields are on a member entity
+- Cache clear fix for view-entity list cache, fixes adding a permission on the fly
+- Fixed issue with Entity/DataEdit screens in the Tools application where the parameter and form field name 'entityName' conflicted 
+  with certain entities that have a field named entityName
 - Concurrency Issues
-  - Fixed concurrent update errors in EntityCache RA (reverse association)
-    using Collections.synchronizedList()
-  - Fixed per-entity DataFeed info rebuild to avoid multiple runs and
-    rebuild completely before adding to cache in use to avoid partial data
-  - Fixed attribute and child node wrapper caching in FtlNodeWrapper where
-    in certain cases a false null would be returned
+  - Fixed concurrent update errors in EntityCache RA (reverse association) using Collections.synchronizedList()
+  - Fixed per-entity DataFeed info rebuild to avoid multiple runs and rebuild before adding to cache in use to avoid partial data
+  - Fixed attribute and child node wrapper caching in FtlNodeWrapper where in certain cases a false null would be returned
 
 ## Release 1.6.2 - 26 Mar 2016
 
