@@ -844,7 +844,14 @@ class WebFacadeImpl implements WebFacade {
     void handleServiceRestCall(List<String> extraPathNameList) {
         ContextStack parmStack = (ContextStack) getParameters()
 
-        // check for login, etc error messages
+        // check for login
+        if ("false".equals(request.getAttribute("moqui.request.loginKeyValid"))) {
+            String errorsString = eci.message.errorsString
+            logger.warn((String) "Login key error in Service REST API: " + errorsString)
+            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorsString)
+            return
+        }
+        // check for general error messages
         if (eci.message.hasError()) {
             String errorsString = eci.message.errorsString
             logger.warn((String) "General error in Service REST API: " + errorsString)

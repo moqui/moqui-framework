@@ -522,6 +522,8 @@ class UserFacadeImpl implements UserFacade {
     boolean loginUserKey(String loginKey, String tenantId) {
         if (!loginKey) {
             eci.message.addError(eci.l10n.localize("No login key specified"))
+            if (eci.getWebImpl() != null)
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.loginKeyValid", "false")
             return false
         }
         // if tenantId, change before lookup
@@ -535,6 +537,8 @@ class UserFacadeImpl implements UserFacade {
         // see if we found a record for the login key
         if (userLoginKey == null) {
             eci.message.addError(eci.l10n.localize("Login key not valid"))
+            if (eci.getWebImpl() != null)
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.loginKeyValid", "false")
             return false
         }
 
@@ -542,6 +546,8 @@ class UserFacadeImpl implements UserFacade {
         Timestamp nowDate = getNowTimestamp()
         if (nowDate > userLoginKey.getTimestamp("thruDate")) {
             eci.message.addError(eci.l10n.localize("Login key expired"))
+            if (eci.getWebImpl() != null)
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.loginKeyValid", "false")
             return false
         }
 
