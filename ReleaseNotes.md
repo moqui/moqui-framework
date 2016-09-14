@@ -183,7 +183,7 @@ significant changes.
 - WebSocket Support
   - Now looks for javax.websocket.server.ServerContainer in ServletContext
     during initialization, available through ECFI.getServerContainer()
-  - If ServetContainer found adds endpoints defined in the webapp.endpoint
+  - If ServletContainer found adds endpoints defined in the webapp.endpoint
     element in the Moqui Conf XML file
   - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint
     so that Moqui objects such as ExecutionContext/Factory are available,
