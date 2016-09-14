@@ -23,6 +23,9 @@ significant changes.
   - CacheFacade.getCache() with second parameter for tenantId removed
   - EntityFacade no longer per-tenant, getTenantId() removed
   - TransactionInternal and EntityDatasourceFactory methods no longer have tenantId parameter
+  - Removed tenantcommon entity group and moqui.tenant entities
+  - Removed tenant related MoquiStart command line options
+  - Removed tenant related Moqui Conf XML, XML Screen, etc attributes
 - Entity Definitions
   - XSDs updated for these changes, though old attributes still supported
   - changed entity.@package-name to entity.@package
