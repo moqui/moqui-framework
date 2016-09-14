@@ -35,22 +35,22 @@ public class SystemBinding extends Binding {
 
         // start with System properties
         String value = System.getProperty(name);
-        if (value != null && value.length() > 0) return value;
+        if (value != null && !value.isEmpty()) return value;
         //  try environment variables
         value = System.getenv(name);
-        if (value != null && value.length() > 0) return value;
+        if (value != null && !value.isEmpty()) return value;
 
         // no luck? try replacing underscores with dots (dots used for map access in Groovy so need workaround)
         String dotName = null;
         if (name.contains("_")) {
             dotName = name.replace('_', '.');
             value = System.getProperty(dotName);
-            if (value != null && value.length() > 0) return value;
+            if (value != null && !value.isEmpty()) return value;
             value = System.getenv(dotName);
-            if (value != null && value.length() > 0) return value;
+            if (value != null && !value.isEmpty()) return value;
         }
 
-        logger.info("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") + " system property or environment variable found, returning empty string");
+        logger.info("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") + " system property or environment variable found, using empty string");
         return "";
     }
 

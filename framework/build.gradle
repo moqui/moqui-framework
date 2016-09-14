@@ -198,7 +198,7 @@ test {
     include '**/*MoquiSuite.class'
 
     systemProperty 'moqui.runtime', '../runtime'
-    systemProperty 'moqui.conf', 'conf/MoquiDevTestConf.xml'
+    systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
     systemProperty 'moqui.init.static', 'true'
 
     testLogging.showStandardStreams = true; testLogging.showExceptions = true
