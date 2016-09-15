@@ -26,7 +26,7 @@ services:
   moqui-server:
     image: moqui
     container_name: moqui-server
-    command: --conf=conf/MySQLConf.xml
+    command: conf=conf/MoquiProductionConf.xml
     restart: always
     links:
      - mysql-moqui
@@ -57,7 +57,7 @@ services:
     image: mysql:5.7
     container_name: mysql-moqui
     restart: always
-    # uncomment this to expose the port for use outside other services
+    # uncomment this to expose the port for use outside other containers
     # ports:
     #  - 3306:3306
     # edit these as needed to map configuration and data storage
