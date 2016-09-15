@@ -154,8 +154,8 @@ task load(type: JavaExec) {
     workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     main = '-jar'
-    def argList = [warName, '-load']
-    if (project.properties.containsKey('types')) argList.add("-types=${types}")
+    def argList = [warName, 'load']
+    if (project.properties.containsKey('types')) argList.add("types=${types}")
     args = argList
 }
 task loadProduction(type: JavaExec) {
@@ -163,8 +163,8 @@ task loadProduction(type: JavaExec) {
     workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     main = '-jar'
-    def argList = [warName, '-load']
-    if (project.properties.containsKey('types')) argList.add("-types=${types}")
+    def argList = [warName, 'load']
+    if (project.properties.containsKey('types')) argList.add("types=${types}")
     args = argList
 }
 

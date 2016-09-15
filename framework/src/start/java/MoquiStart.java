@@ -43,7 +43,7 @@ public class MoquiStart {
         // now grab the first arg and see if it is a known command
         String firstArg = args.length > 0 ? args[0] : "";
 
-        if (firstArg.contains("-help") || "-?".equals(firstArg)) {
+        if (firstArg.endsWith("help") || "-?".equals(firstArg)) {
             // setup the class loader
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
@@ -60,21 +60,22 @@ public class MoquiStart {
             System.out.println("Current configuration file (moqui.conf): " + System.getProperty("moqui.conf"));
             System.out.println("To set these properties use something like: java -Dmoqui.conf=conf/MoquiProductionConf.xml -jar moqui.war ...");
             System.out.println("------------------------------------------------");
-            System.out.println("Usage: java -jar moqui.war [command] [arguments]");
-            System.out.println("-help, -? ---- Help (this text)");
-            System.out.println("-load -------- Run data loader");
-            System.out.println("    -types=<type>[,<type>] ------- Data types to load (can be anything, common are: seed, seed-initial, install, demo, ...)");
-            System.out.println("    -components=<name>[,<name>] -- Component names to load for data types; if none specified loads from all");
-            System.out.println("    -location=<location> --------- Location of data file to load");
-            System.out.println("    -timeout=<seconds> ----------- Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
-            System.out.println("    -dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
-            System.out.println("    -use-try-insert -------------- Try insert and update on error instead of checking for record first");
-            System.out.println("    -conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
+            System.out.println("Executable WAR : java -jar moqui.war [command] [arguments]");
+            System.out.println("Expanded WAR   : java -cp . MoquiStart [command] [arguments]");
+            System.out.println("help, -? ---- Help (this text)");
+            System.out.println("load -------- Run data loader");
+            System.out.println("    types=<type>[,<type>] ------- Data types to load (can be anything, common are: seed, seed-initial, install, demo, ...)");
+            System.out.println("    components=<name>[,<name>] -- Component names to load for data types; if none specified loads from all");
+            System.out.println("    location=<location> --------- Location of data file to load");
+            System.out.println("    timeout=<seconds> ----------- Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
+            System.out.println("    dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
+            System.out.println("    use-try-insert -------------- Try insert and update on error instead of checking for record first");
+            System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server");
-            System.out.println("    --port=<port> ---------------- The http listening port. Default is 8080");
-            System.out.println("    --threads=<max threads> ------ Maximum number of threads. Default is 100");
-            System.out.println("    --conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
+            System.out.println("    port=<port> ---------------- The http listening port. Default is 8080");
+            System.out.println("    threads=<max threads> ------ Maximum number of threads. Default is 100");
+            System.out.println("    conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("");
             System.exit(0);
         }
@@ -102,29 +103,31 @@ public class MoquiStart {
         }
 
         // make a list of arguments
-        List<String> argList = new ArrayList<>(Arrays.asList(args));
+        List<String> argList = Arrays.asList(args);
+        Map<String, String> argMap = new LinkedHashMap<>();
+        for (String arg: argList) {
+            // run twice to allow one or two dashes
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.contains("=")) {
+                argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
+            } else {
+                argMap.put(arg, "");
+            }
+        }
 
         // now run the command
-        if ("-load".equals(firstArg)) {
+        if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
-            Map<String, String> argMap = new HashMap<>();
-            for (String arg: argList) {
-                if (arg.startsWith("-")) arg = arg.substring(1);
-                if (arg.contains("=")) {
-                    argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
-                } else {
-                    argMap.put(arg, "");
-                }
-            }
             String overrideConf = argMap.get("conf");
             if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
 
             try {
-                System.out.println("Loading data with args [" + argMap + "]");
+                System.out.println("Loading data with args " + argMap);
                 Class<?> c = moquiStartLoader.loadClass("org.moqui.Moqui");
                 Method m = c.getMethod("loadData", Map.class);
                 m.invoke(null, argMap);
@@ -147,16 +150,6 @@ public class MoquiStart {
 
         initSystemProperties(moquiStartLoader, true);
 
-        Map<String, String> argMap = new HashMap<>();
-        for (String arg: argList) {
-            if (arg.startsWith("--")) arg = arg.substring(2);
-            int equalsIndex = arg.indexOf('=');
-            if (equalsIndex > 0) {
-                argMap.put(arg.substring(0, equalsIndex), arg.substring(equalsIndex+1));
-            } else {
-                argMap.put(arg, "");
-            }
-        }
         String overrideConf = argMap.get("conf");
         if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
 
