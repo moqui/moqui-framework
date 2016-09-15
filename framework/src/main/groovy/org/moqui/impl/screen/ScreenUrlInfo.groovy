@@ -349,15 +349,16 @@ class ScreenUrlInfo {
 
         ArrayList<String> subScreenPath = parseSubScreenPath(rootSd, fromSd, fromPathList, fromScreenPath, pathParameterMap, sfi)
         // logger.info("initUrl BEFORE fromPathList=${fromPathList}, fromScreenPath=${fromScreenPath}, subScreenPath=${subScreenPath}")
-        if (fromScreenPath.startsWith("//")) {
+        boolean fromPathSlash = fromScreenPath.startsWith("/")
+        if (fromPathSlash && fromScreenPath.startsWith("//")) {
             // find the screen by name
             fromSd = rootSd
             fromPathList = subScreenPath
             fullPathNameList = subScreenPath
         } else {
-            if (this.fromScreenPath.startsWith("/")) {
-                this.fromSd = rootSd
-                this.fromPathList = new ArrayList<String>()
+            if (fromPathSlash) {
+                fromSd = rootSd
+                fromPathList = new ArrayList<String>()
             }
 
             fullPathNameList = subScreenPath
@@ -365,13 +366,12 @@ class ScreenUrlInfo {
         // logger.info("initUrl fromScreenPath=${fromScreenPath}, fromPathList=${fromPathList}, fullPathNameList=${fullPathNameList}")
 
         // encrypt is the default loop through screens if all are not secure/etc use http setting, otherwise https
-        requireEncryption = false
-        if (rootSd?.webSettingsNode?.attribute('require-encryption') != "false") requireEncryption = true
-        if (rootSd?.screenNode?.attribute('begin-transaction') == "true") beginTransaction = true
+        requireEncryption = !"false".equals(rootSd?.webSettingsNode?.attribute("require-encryption"))
+        if ("true".equals(rootSd?.screenNode?.attribute('begin-transaction'))) beginTransaction = true
 
-        // start the render list with the from/base SD
-        screenRenderDefList.add(fromSd)
-        screenPathDefList.add(fromSd)
+        // start the render lists with the root SD
+        screenRenderDefList.add(rootSd)
+        screenPathDefList.add(rootSd)
 
         // loop through path for various things: check validity, see if we can do a transition short-cut and go right
         //     to its response url, etc
@@ -459,7 +459,6 @@ class ScreenUrlInfo {
                 screenRenderDefList.clear()
             }
             screenRenderDefList.add(nextSd)
-
             screenPathDefList.add(nextSd)
             lastSd = nextSd
             // add this to the list of path names to use for transition redirect
