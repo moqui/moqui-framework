@@ -591,7 +591,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="group-name" type="name-plain" use="required"/>
-            <xs:attribute name="database-conf-name" type="name-plain">
+            <xs:attribute name="database-conf-name" type="xs:string">
                 <xs:annotation><xs:documentation>This is only required for JDBC/SQL datasources.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="schema-name" type="xs:string"/>
