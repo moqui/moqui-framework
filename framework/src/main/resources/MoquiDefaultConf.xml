@@ -15,8 +15,8 @@
     <default-property name="entity_ds_host" value="localhost"/>
     <default-property name="entity_ds_port" value=""/>
     <default-property name="entity_ds_database" value="moqui"/>
-    <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_url" value="jdbc:h2:${moqui_runtime}/db/h2/${entity_ds_database};lock_timeout=30000"/>
+    <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa"/>
 
@@ -401,9 +401,11 @@
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
-
             <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+
+            <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!--
         * Derby:
@@ -419,6 +421,7 @@
                 default-jdbc-driver="org.apache.derby.jdbc.EmbeddedDriver"
                 default-xa-ds-class="org.apache.derby.jdbc.EmbeddedXADataSource">
             <!-- default-test-query="???" maybe like SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0 -->
+            <inline-jdbc><xa-properties databaseName="${moqui_runtime}/db/derby/${entity_ds_database}" createDatabase="create"/></inline-jdbc>
         </database>
         <!--
         * H2 Database:
@@ -493,6 +496,9 @@
             <database-type type="text-very-long" sql-type="TEXT"/>
 
             <database-type type="binary-very-long" sql-type="IMAGE"/>
+
+            <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'1433'}"
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!--
         * MySQL (similar for Percona Server, MariaDB, AWS Aurora):
@@ -535,7 +541,7 @@
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
             <inline-jdbc><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"
-                    serverName="${entity_ds_host}" port="${entity_ds_port}" databaseName="${entity_ds_database}"
+                    serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" databaseName="${entity_ds_database}"
                     user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!--
@@ -563,6 +569,9 @@
             <database-type type="text-short" sql-type="VARCHAR2(10)"/>
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
             <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
+
+            <inline-jdbc><xa-properties user="${entity_ds_user}" password="${entity_ds_password}"
+                    URL="jdbc:oracle:thin:@${entity_ds_host}:${entity_ds_port?:'1521'}:${entity_ds_database}"/></inline-jdbc>
         </database>
 
         <!-- for future reference (OrientDB with JDBC driver): <database name="orientdb"
@@ -583,7 +592,8 @@
         -->
         <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
                   default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
-                  default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource">
+                  default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
+                  default-startup-add-missing="true" default-runtime-add-missing="false">
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 
@@ -592,6 +602,9 @@
             <database-type type="text-very-long" sql-type="TEXT"/>
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
+
+            <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
     </database-list>
 
