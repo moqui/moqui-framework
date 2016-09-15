@@ -46,7 +46,7 @@ services:
      - entity_ds_database=moqui
      - entity_ds_user=moqui
      - entity_ds_password=moqui
-     # CHANGE ME
+     # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
      - VIRTUAL_HOST=moqui.local
      - webapp_http_host=moqui.local
      - webapp_http_port=80
@@ -65,7 +65,7 @@ services:
      - ./db/mysql/data:/var/lib/mysql
      # - /my/mysql/conf.d:/etc/mysql/conf.d
     environment:
-     - MYSQL_ROOT_PASSWORD=moquitest
+     - MYSQL_ROOT_PASSWORD=moquiroot
      - MYSQL_DATABASE=moqui
      - MYSQL_USER=moqui
      - MYSQL_PASSWORD=moqui

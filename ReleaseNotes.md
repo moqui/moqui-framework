@@ -441,12 +441,17 @@ Gradle tasks.
   - provision, suspend/resume (disable/enable), remove: need service interfaces, like current TenantServices 
   - monitoring and other management: best with separate tools or something built into a Moqui master instance?
   - instance meta data
-    - instance name (like docker container name)
-    - instance host
+    - instance ID
+    - app instance host
       - instance location (like docker host location for REST API, ie through docker-java)
       - admin credentials (docker client approach? jclouds ssh approach? something generic including user, password, certificate)
-    - host name (ie virtual host, could be deployed with actual IP/host)
-    - db details or manage externally?
+    - app instance image (like docker image name or ID, could be like 'moqui', 'moqui/moqui:2.0' or 'myaccount/myimage:tag')
+    - app instance name (like docker container name); could be same as instance ID
+    - app access
+      - webapp_http_host (ie virtual host, could be deployed with actual IP/host); could be same as instance ID
+      - webapp_http_port (default to 80), webapp_https_port (default to 443), webapp_https_enabled
+    - db server: entity_ds_db_conf, entity_ds_host, entity_ds_port, admin user/password
+    - database: db server, entity_ds_database, entity_ds_schema, entity_ds_user, entity_ds_password
 - Instance Provisioning and Management
   - embedded and gradle docker client (for docker host or docker swarm)
     - https://github.com/docker-java/docker-java

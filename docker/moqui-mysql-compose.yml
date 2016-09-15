@@ -38,7 +38,7 @@ services:
      - ./db/mysql/data:/var/lib/mysql
      # - /my/mysql/conf.d:/etc/mysql/conf.d
     environment:
-     - MYSQL_ROOT_PASSWORD=moquitest
+     - MYSQL_ROOT_PASSWORD=moquiroot
      - MYSQL_DATABASE=moqui
      - MYSQL_USER=moqui
      - MYSQL_PASSWORD=moqui
