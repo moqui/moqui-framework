@@ -172,8 +172,8 @@ task loadSave {
     description "Clean all, build and load, then save database (H2, Derby), OrientDB, and ElasticSearch files; to be used before reloadSave"
     dependsOn cleanAll, load
     doLast {
-        if (file(moquiRuntime+'/db/derby/MoquiDEFAULT').exists())
-            ant.zip(destfile: 'SaveDEFAULT.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiDEFAULT') { include(name: '**/*') } }
+        if (file(moquiRuntime+'/db/derby/moqui').exists())
+            ant.zip(destfile: 'SaveDerby.zip') { fileset(dir: moquiRuntime+'/db/derby/moqui') { include(name: '**/*') } }
         if (file(moquiRuntime+'/db/h2').exists())
             ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
         if (file(moquiRuntime+'/db/orientdb/databases').exists())
@@ -188,7 +188,7 @@ task reloadSave {
     dependsOn cleanTempDir, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog
     dependsOn allBuildTasks
     doLast {
-        if (file('SaveDEFAULT.zip').exists()) copy { from zipTree('SaveDEFAULT.zip'); into file(moquiRuntime+'/db/derby/MoquiDEFAULT') }
+        if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
         if (file('SaveH2.zip').exists()) copy { from zipTree('SaveH2.zip'); into file(moquiRuntime+'/db/h2') }
         if (file('SaveOrientDb.zip').exists()) copy { from zipTree('SaveOrientDb.zip'); into file(moquiRuntime+'/db/orientdb/databases') }
         if (file('SaveElasticSearch.zip').exists()) copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }

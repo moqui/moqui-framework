@@ -40,11 +40,12 @@ services:
      # this one isn't needed: - ./runtime/db:/opt/moqui/runtime/db
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
-     - ds_transactional_host=mysql-moqui
-     - ds_transactional_port=3306
-     - ds_transactional_database=MoquiDEFAULT
-     - ds_transactional_user=moqui
-     - ds_transactional_password=moqui
+     - entity_ds_db_conf=mysql
+     - entity_ds_host=mysql-moqui
+     - entity_ds_port=3306
+     - entity_ds_database=moqui
+     - entity_ds_user=moqui
+     - entity_ds_password=moqui
      # CHANGE ME
      - VIRTUAL_HOST=moqui.local
      - webapp_http_host=moqui.local
@@ -65,6 +66,6 @@ services:
      # - /my/mysql/conf.d:/etc/mysql/conf.d
     environment:
      - MYSQL_ROOT_PASSWORD=moquitest
-     - MYSQL_DATABASE=MoquiDEFAULT
+     - MYSQL_DATABASE=moqui
      - MYSQL_USER=moqui
      - MYSQL_PASSWORD=moqui

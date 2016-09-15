@@ -685,6 +685,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="database-type"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="inline-jdbc"/>
             </xs:sequence>
 
             <xs:attribute name="name" type="name-plain" use="required"/>
@@ -757,9 +758,17 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="use-tm-join" default="true" type="boolean">
                 <xs:annotation><xs:documentation>For Bitronix set this to false to not use tm join (for Atomikos this is
                 set in the serial_jta_transactions property in jta.properties)</xs:documentation></xs:annotation></xs:attribute>
+
+            <!-- Defaults for inline-jdbc element -->
             <xs:attribute name="default-jdbc-driver" type="xs:string"/>
             <xs:attribute name="default-xa-ds-class" type="xs:string"/>
             <xs:attribute name="default-test-query" type="xs:string"/>
+
+            <!-- Defaults for datasource element -->
+            <xs:attribute name="default-startup-add-missing" type="boolean"/>
+            <xs:attribute name="default-runtime-add-missing" type="boolean"/>
+            <xs:attribute name="default-runtime-add-fks" type="boolean"/>
+            <xs:attribute name="default-start-server-args" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dictionary-type">

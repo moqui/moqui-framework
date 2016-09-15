@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
 
 /** Simple class for evaluating expressions to get System properties and environment variables by string expansion */
 public class SystemBinding extends Binding {
-    protected final static Logger logger = LoggerFactory.getLogger(SystemBinding.class);
+    private final static Logger logger = LoggerFactory.getLogger(SystemBinding.class);
+    private final static boolean isTraceEnabled = logger.isTraceEnabled();
+
     private SystemBinding() { super(); }
 
     @Override
@@ -50,7 +52,8 @@ public class SystemBinding extends Binding {
             if (value != null && !value.isEmpty()) return value;
         }
 
-        logger.info("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") + " system property or environment variable found, using empty string");
+        if (isTraceEnabled) logger.trace("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") +
+                " system property or environment variable found, using empty string");
         return "";
     }
 
