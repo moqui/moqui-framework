@@ -71,10 +71,10 @@ class ScreenSection {
 
     @CompileStatic
     void render(ScreenRenderImpl sri) {
-        ContextStack cs = (ContextStack) sri.ec.context
+        ContextStack cs = sri.ec.contextStack
         if (sectionNode.name == "section-iterate") {
             // if nothing to iterate over, all done
-            Object list = sri.ec.resource.expression(sectionNode.attribute("list"), null)
+            Object list = sri.ec.resourceFacade.expression(sectionNode.attribute("list"), null)
             if (!list) {
                 if (logger.traceEnabled) logger.trace("Target list [${list}] is empty, not rendering section-iterate at [${location}]")
                 return
@@ -117,7 +117,7 @@ class ScreenSection {
     @CompileStatic
     protected void renderSingle(ScreenRenderImpl sri) {
         if (logger.traceEnabled) logger.trace("Begin rendering screen section at [${location}]")
-        ExecutionContextImpl ec = sri.getEc()
+        ExecutionContextImpl ec = sri.ec
         boolean conditionPassed = true
         boolean skipActions = sri.sfi.isRenderModeSkipActions(sri.renderMode)
         if (!skipActions) {

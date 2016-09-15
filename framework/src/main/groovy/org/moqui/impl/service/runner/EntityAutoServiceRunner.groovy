@@ -40,7 +40,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(EntityAutoServiceRunner.class)
 
     final static Set<String> verbSet = new HashSet(['create', 'update', 'delete', 'store'])
-    final static Set<String> otherFieldsToSkip = new HashSet(['ec', '_entity', 'authTenantId', 'authUsername', 'authPassword'])
+    final static Set<String> otherFieldsToSkip = new HashSet(['ec', '_entity', 'authUsername', 'authPassword'])
 
     private ServiceFacadeImpl sfi = null
     private ExecutionContextFactoryImpl ecfi = null

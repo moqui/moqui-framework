@@ -71,7 +71,7 @@ class MoquiShiroRealm implements Realm {
                 .useCache(true).disableAuthz().one()
 
         // no account found?
-        if (newUserAccount == null) throw new UnknownAccountException(eci.resource.expand('No account found for username ${username} in tenant ${tenantId}.','',[username:username,tenantId:eci.tenantId]))
+        if (newUserAccount == null) throw new UnknownAccountException(eci.resource.expand('No account found for username ${username}','',[username:username]))
 
         // check for disabled account before checking password (otherwise even after disable could determine if
         //    password is correct or not
@@ -84,15 +84,15 @@ class MoquiShiroRealm implements Realm {
                     // only blow up if the re-enable time is not passed
                     eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
                             .parameter("userId", newUserAccount.userId).requireNewTransaction(true).call()
-                    throw new ExcessiveAttemptsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} in tenant ${tenantId} because account is disabled and will not be re-enabled until ${reEnableTime} [DISTMP].',
-                            '', [newUserAccount:newUserAccount, tenantId:eci.tenantId, reEnableTime:reEnableTime]))
+                    throw new ExcessiveAttemptsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because account is disabled and will not be re-enabled until ${reEnableTime} [DISTMP].',
+                            '', [newUserAccount:newUserAccount, reEnableTime:reEnableTime]))
                 }
             } else {
                 // account permanently disabled
                 eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
                         .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                throw new DisabledAccountException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} in tenant ${tenantId} because account is disabled and is not schedule to be automatically re-enabled [DISPRM].',
-                        '', [newUserAccount:newUserAccount, tenantId:eci.tenantId]))
+                throw new DisabledAccountException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because account is disabled and is not schedule to be automatically re-enabled [DISPRM].',
+                        '', [newUserAccount:newUserAccount]))
             }
         }
 
@@ -112,8 +112,8 @@ class MoquiShiroRealm implements Realm {
                 int wksSinceChange = ((eci.user.nowTimestamp.time - newUserAccount.getTimestamp("passwordSetDate").time) / (7*24*60*60*1000)).intValue()
                 if (wksSinceChange > changeWeeks) {
                     // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
-                    throw new ExpiredCredentialsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} in tenant ${tenantId} because password was changed ${wksSinceChange} weeks ago and must be changed every ${changeWeeks} weeks [PWDTIM].',
-                            '', [newUserAccount:newUserAccount, tenantId:eci.tenantId, wksSinceChange:wksSinceChange, changeWeeks:changeWeeks]))
+                    throw new ExpiredCredentialsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because password was changed ${wksSinceChange} weeks ago and must be changed every ${changeWeeks} weeks [PWDTIM].',
+                            '', [newUserAccount:newUserAccount, wksSinceChange:wksSinceChange, changeWeeks:changeWeeks]))
                 }
             }
         }
@@ -201,7 +201,7 @@ class MoquiShiroRealm implements Realm {
                 // if failed on password, increment in new transaction to make sure it sticks
                 ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                         .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                throw new IncorrectCredentialsException(ecfi.resource.expand('Username ${username} and/or password incorrect in tenant ${tenantId}.','',[username:username,tenantId:eci.tenantId]))
+                throw new IncorrectCredentialsException(ecfi.resource.expand('Username ${username} and/or password incorrect','',[username:username]))
             }
 
             loginPostPassword(eci, newUserAccount)

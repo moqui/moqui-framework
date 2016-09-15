@@ -15,7 +15,6 @@ package org.moqui.impl.screen
 
 import freemarker.template.Template
 import groovy.transform.CompileStatic
-import org.apache.commons.collections.map.ListOrderedMap
 
 import org.moqui.BaseException
 import org.moqui.context.*
@@ -29,9 +28,9 @@ import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.ResourceFacadeImpl
-import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityValueBase
@@ -56,8 +55,8 @@ class ScreenRenderImpl implements ScreenRender {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenRenderImpl.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
 
-    protected final ScreenFacadeImpl sfi
-    protected ExecutionContextImpl localEc
+    public final ScreenFacadeImpl sfi
+    public final ExecutionContextImpl ec
     protected boolean rendering = false
 
     protected String rootScreenLocation = (String) null
@@ -98,7 +97,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     ScreenRenderImpl(ScreenFacadeImpl sfi) {
         this.sfi = sfi
-        localEc = sfi.ecfi.getEci()
+        ec = sfi.ecfi.getEci()
     }
 
     Writer getWriter() {
@@ -110,8 +109,6 @@ class ScreenRenderImpl implements ScreenRender {
         throw new BaseException("Could not render screen, no writer available")
     }
 
-    ExecutionContextImpl getEc() { return localEc }
-    ScreenFacadeImpl getSfi() { return sfi }
     ScreenUrlInfo getScreenUrlInfo() { return screenUrlInfo }
     UrlInstance getScreenUrlInstance() { return screenUrlInstance }
 
@@ -292,13 +289,13 @@ class ScreenRenderImpl implements ScreenRender {
             // if this transition has actions and request was not secure or any parameters were not in the body
             // return an error, helps prevent CSRF/XSRF attacks
             if (request != null && targetTransition.hasActionsOrSingleService()) {
-                MNode webappNode = sfi.getWebappNode(webappName)
+                ExecutionContextFactoryImpl.WebappInfo webappInfo = ec.ecfi.getWebappInfo(webappName)
                 String queryString = request.getQueryString()
 
                 // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
                 Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getRequestURI())
                 if (!targetTransition.isReadOnly() && (
-                        (!request.isSecure() && !"false".equals(webappNode.attribute("https-enabled"))) ||
+                        (!request.isSecure() && webappInfo.httpsEnabled) ||
                         (queryString != null && queryString.length() > 0) ||
                         (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0))) {
                     throw new IllegalArgumentException(
@@ -308,11 +305,10 @@ class ScreenRenderImpl implements ScreenRender {
                         form with hidden input fields instead, or declare the transition as read-only.""")
                 }
                 // require a moquiSessionToken parameter for all but get
-                if (request.getMethod().toLowerCase() != "get" &&
-                        webappNode.attribute("require-session-token") != "false" &&
+                if (request.getMethod().toLowerCase() != "get" && webappInfo.requireSessionToken &&
                         targetTransition.getRequireSessionToken() &&
-                        request.getAttribute("moqui.session.token.created") != "true" &&
-                        request.getAttribute("moqui.request.authenticated") != "true") {
+                        !"true".equals(request.getAttribute("moqui.session.token.created")) &&
+                        !"true".equals(request.getAttribute("moqui.request.authenticated"))) {
                     String passedToken = (String) ec.web.getParameters().get("moquiSessionToken")
                     String curToken = ec.web.getSessionToken()
                     if (curToken != null && curToken.length() > 0) {
@@ -598,9 +594,6 @@ class ScreenRenderImpl implements ScreenRender {
 
         boolean loggedInAnonymous = false
         try {
-            if (sd.getTenantsAllowed() && !sd.getTenantsAllowed().contains(ec.getTenantId()))
-                throw new ArtifactAuthorizationException("The screen ${sd.getScreenName()} is not available to tenant ${ec.getTenantId()}")
-
             if (requireAuthentication == "anonymous-all") {
                 ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
                 loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
@@ -657,8 +650,6 @@ class ScreenRenderImpl implements ScreenRender {
                 for (int i = 0; i < screenUrlInfo.renderPathDifference; i++) {
                     ScreenDefinition permSd = screenUrlInfo.screenPathDefList.get(i)
 
-                    if (permSd.getTenantsAllowed() && !permSd.getTenantsAllowed().contains(ec.getTenantId()))
-                        throw new ArtifactAuthorizationException("The screen ${permSd.getScreenName()} is not available to tenant ${ec.getTenantId()}")
                     // check the subscreens item for this screen (valid in context)
                     if (i > 0) {
                         String curPathName = screenUrlInfo.fullPathNameList.get(i - 1) // one lower in path as it doesn't have root screen
@@ -802,9 +793,9 @@ class ScreenRenderImpl implements ScreenRender {
         }
 
         // if request not secure and screens requires secure redirect to https
-        MNode webappNode = sfi.getWebappNode(webappName)
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ec.ecfi.getWebappInfo(webappName)
         if (!request.isSecure() && (webSettingsNode == null || webSettingsNode.attribute("require-encryption") != "false") &&
-                webappNode != null && webappNode.attribute("https-enabled") != "false") {
+                webappInfo != null && webappInfo.httpsEnabled) {
             if (logger.isInfoEnabled()) logger.info("Screen at location ${currentSd.location}, which is part of ${screenUrlInfo.fullPathNameList} under screen ${screenUrlInfo.fromSd.location} requires an encrypted/secure connection but the request is not secure, sending redirect to secure.")
             // save messages in session before redirecting so they can be displayed on the next screen
             if (wfi != null) wfi.saveMessagesToSession()
@@ -855,8 +846,6 @@ class ScreenRenderImpl implements ScreenRender {
         }
 
         ScreenDefinition screenDef = screenUrlInfo.screenRenderDefList.get(screenPathIndex + 1)
-        if (screenDef.getTenantsAllowed() && !screenDef.getTenantsAllowed().contains(ec.getTenantId()))
-            throw new ArtifactAuthorizationException("The screen ${screenDef.getScreenName()} is not available to tenant ${ec.getTenantId()}")
         // check the subscreens item for this screen (valid in context)
         int i = screenPathIndex + screenUrlInfo.renderPathDifference
         if (i > 0) {
@@ -1350,10 +1339,10 @@ class ScreenRenderImpl implements ScreenRender {
         // if no setting default to STT_INTERNAL
         if (stteId == null) stteId = "STT_INTERNAL"
 
-        EntityFacade entityFacade = sfi.ecfi.getEntityFacade(localEc.tenantId)
+        EntityFacade entityFacade = sfi.ecfi.entityFacade
         // see if there is a user setting for the theme
         String themeId = entityFacade.find("moqui.security.UserScreenTheme")
-                .condition("userId", localEc.user.userId).condition("screenThemeTypeEnumId", stteId)
+                .condition("userId", ec.userFacade.userId).condition("screenThemeTypeEnumId", stteId)
                 .useCache(true).disableAuthz().one()?.screenThemeId
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {

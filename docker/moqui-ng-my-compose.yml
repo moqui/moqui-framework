@@ -1,0 +1,69 @@
+# A Docker Compose application with moqui, mysql, and virtual hosting through
+# nginx-proxy supporting multiple moqui instances on different hosts.
+
+# Test locally by adding the virtual host to /etc/hosts or with something like:
+# $ curl -H "Host: moqui.local" localhost/Login
+
+# To run an additional instance of moqui run something like this (but with
+# many more arguments for volume mapping, db setup, etc):
+# $ docker run -e VIRTUAL_HOST=moqui2.local --name=moqui2_local moqui
+# NOTE: getting error from nginx with this like: "Error running notify command: nginx -s reload, exit status 1"
+
+version: "2"
+services:
+  nginx-proxy:
+    # For documentation on SSL and other settings see:
+    # https://github.com/jwilder/nginx-proxy
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - 80:80
+      # - 443:443
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      # - /path/to/certs:/etc/nginx/certs
+  moqui-server:
+    image: moqui
+    container_name: moqui-server
+    command: --conf=conf/MySQLConf.xml
+    restart: always
+    links:
+     - mysql-moqui
+    volumes:
+     - ./runtime/conf:/opt/moqui/runtime/conf
+     - ./runtime/lib:/opt/moqui/runtime/lib
+     - ./runtime/classes:/opt/moqui/runtime/classes
+     - ./runtime/log:/opt/moqui/runtime/log
+     - ./runtime/txlog:/opt/moqui/runtime/txlog
+     # this one isn't needed: - ./runtime/db:/opt/moqui/runtime/db
+     - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
+    environment:
+     - ds_transactional_host=mysql-moqui
+     - ds_transactional_port=3306
+     - ds_transactional_database=MoquiDEFAULT
+     - ds_transactional_user=moqui
+     - ds_transactional_password=moqui
+     # CHANGE ME
+     - VIRTUAL_HOST=moqui.local
+     - webapp_http_host=moqui.local
+     - webapp_http_port=80
+     # - webapp_https_port=443
+     # - webapp_https_enabled=true
+
+  mysql-moqui:
+    image: mysql:5.7
+    container_name: mysql-moqui
+    restart: always
+    # uncomment this to expose the port for use outside other services
+    # ports:
+    #  - 3306:3306
+    # edit these as needed to map configuration and data storage
+    volumes:
+     - ./db/mysql/data:/var/lib/mysql
+     # - /my/mysql/conf.d:/etc/mysql/conf.d
+    environment:
+     - MYSQL_ROOT_PASSWORD=moquitest
+     - MYSQL_DATABASE=MoquiDEFAULT
+     - MYSQL_USER=moqui
+     - MYSQL_PASSWORD=moqui

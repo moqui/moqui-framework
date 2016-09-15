@@ -70,7 +70,7 @@ class ScreenForm {
         // does this form have DbForm extensions?
         boolean alreadyDisabled = ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
         try {
-            EntityList dbFormLookupList = this.ecfi.getEntityFacade().find("DbFormLookup")
+            EntityList dbFormLookupList = ecfi.entityFacade.find("DbFormLookup")
                     .condition("modifyXmlScreenForm", fullFormName).useCache(true).list()
             if (dbFormLookupList) hasDbExtensions = true
         } finally {
@@ -178,7 +178,7 @@ class ScreenForm {
                     }
                 } else if (ecfi.serviceFacade.isEntityAutoPattern(singleServiceName)) {
                     String entityName = ServiceDefinition.getNounFromName(singleServiceName)
-                    EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
+                    EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
                     ArrayList<String> fieldNames = ed.getAllFieldNames()
                     for (MNode fieldNode in newFormNode.children("field")) {
                         // if the field matches an in-parameter name and does not already have a validate-entity, then set it
@@ -225,7 +225,7 @@ class ScreenForm {
         try {
             // find DbForm records and merge them in as well
             String formName = sd.getLocation() + "#" + internalFormNode.attribute("name")
-            EntityList dbFormLookupList = this.ecfi.getEntityFacade().find("DbFormLookup")
+            EntityList dbFormLookupList = this.ecfi.entityFacade.find("DbFormLookup")
                     .condition("userGroupId", EntityCondition.IN, ecfi.getExecutionContext().getUser().getUserGroupIdSet())
                     .condition("modifyXmlScreenForm", formName)
                     .useCache(true).list()
@@ -249,11 +249,11 @@ class ScreenForm {
 
             boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
             try {
-                EntityValue dbForm = ecfi.getEntityFacade().find("moqui.screen.form.DbForm").condition("formId", formId).useCache(true).one()
+                EntityValue dbForm = ecfi.entityFacade.find("moqui.screen.form.DbForm").condition("formId", formId).useCache(true).one()
                 if (dbForm == null) throw new BaseException("Could not find DbForm record with ID [${formId}]")
                 dbFormNode = new MNode((dbForm.isListForm == "Y" ? "form-list" : "form-single"), null)
 
-                EntityList dbFormFieldList = ecfi.getEntityFacade().find("moqui.screen.form.DbFormField").condition("formId", formId)
+                EntityList dbFormFieldList = ecfi.entityFacade.find("moqui.screen.form.DbFormField").condition("formId", formId)
                         .orderBy("layoutSequenceNum").useCache(true).list()
                 for (EntityValue dbFormField in dbFormFieldList) {
                     String fieldName = (String) dbFormField.fieldName
@@ -269,7 +269,7 @@ class ScreenForm {
                     String widgetName = fieldType.substring(6)
                     MNode widgetNode = subFieldNode.append(widgetName, null)
 
-                    EntityList dbFormFieldAttributeList = ecfi.getEntityFacade().find("moqui.screen.form.DbFormFieldAttribute")
+                    EntityList dbFormFieldAttributeList = ecfi.entityFacade.find("moqui.screen.form.DbFormFieldAttribute")
                             .condition([formId:formId, fieldName:fieldName] as Map<String, Object>).useCache(true).list()
                     for (EntityValue dbFormFieldAttribute in dbFormFieldAttributeList) {
                         String attributeName = dbFormFieldAttribute.attributeName
@@ -283,11 +283,11 @@ class ScreenForm {
                     }
 
                     // add option settings when applicable
-                    EntityList dbFormFieldOptionList = ecfi.getEntityFacade().find("moqui.screen.form.DbFormFieldOption")
+                    EntityList dbFormFieldOptionList = ecfi.entityFacade.find("moqui.screen.form.DbFormFieldOption")
                             .condition([formId:formId, fieldName:fieldName] as Map<String, Object>).useCache(true).list()
-                    EntityList dbFormFieldEntOptsList = ecfi.getEntityFacade().find("moqui.screen.form.DbFormFieldEntOpts")
+                    EntityList dbFormFieldEntOptsList = ecfi.entityFacade.find("moqui.screen.form.DbFormFieldEntOpts")
                             .condition([formId:formId, fieldName:fieldName] as Map<String, Object>).useCache(true).list()
-                    EntityList combinedOptionList = new EntityListImpl(ecfi.getEntityFacade())
+                    EntityList combinedOptionList = new EntityListImpl(ecfi.entityFacade)
                     combinedOptionList.addAll(dbFormFieldOptionList)
                     combinedOptionList.addAll(dbFormFieldEntOptsList)
                     combinedOptionList.orderByFields(["sequenceNum"])
@@ -299,14 +299,14 @@ class ScreenForm {
                             MNode entityOptionsNode = widgetNode.append("entity-options", [text:((String) optionValue.text ?: "\${description}")])
                             MNode entityFindNode = entityOptionsNode.append("entity-find", ["entity-name":optionValue.getString("entityName")])
 
-                            EntityList dbFormFieldEntOptsCondList = ecfi.getEntityFacade().find("moqui.screen.form.DbFormFieldEntOptsCond")
+                            EntityList dbFormFieldEntOptsCondList = ecfi.entityFacade.find("moqui.screen.form.DbFormFieldEntOptsCond")
                                     .condition([formId:formId, fieldName:fieldName, sequenceNum:optionValue.sequenceNum])
                                     .useCache(true).list()
                             for (EntityValue dbFormFieldEntOptsCond in dbFormFieldEntOptsCondList) {
                                 entityFindNode.append("econdition", ["field-name":(String) dbFormFieldEntOptsCond.entityFieldName, value:(String) dbFormFieldEntOptsCond.value])
                             }
 
-                            EntityList dbFormFieldEntOptsOrderList = ecfi.getEntityFacade().find("moqui.screen.form.DbFormFieldEntOptsOrder")
+                            EntityList dbFormFieldEntOptsOrderList = ecfi.entityFacade.find("moqui.screen.form.DbFormFieldEntOptsOrder")
                                     .condition([formId:formId, fieldName:fieldName, sequenceNum:optionValue.sequenceNum])
                                     .orderBy("orderSequenceNum").useCache(true).list()
                             for (EntityValue dbFormFieldEntOptsOrder in dbFormFieldEntOptsOrderList) {
@@ -1066,7 +1066,7 @@ class ScreenForm {
                 MNode parameterNode = sd.getInParameter((String) fieldNode.attribute('validate-parameter') ?: fieldName)
                 return parameterNode
             } else if (validateEntity) {
-                EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(validateEntity)
+                EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(validateEntity)
                 if (ed == null) throw new IllegalArgumentException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
                 MNode efNode = ed.getFieldNode((String) fieldNode.attribute('validate-field') ?: fieldName)
                 return efNode
@@ -1133,12 +1133,12 @@ class ScreenForm {
         boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
-            EntityValue fcu = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUser")
+            EntityValue fcu = ecfi.entityFacade.find("moqui.screen.form.FormConfigUser")
                     .condition("userId", ec.user.userId).condition("formLocation", location).useCache(true).one()
             if (fcu != null) return (String) fcu.getNoCheckSimple("formConfigId")
 
             // Maybe not do this at all and let it be a future thing where the user selects an active one from options available through groups
-            EntityList fcugvList = ecfi.getEntityFacade(ec.tenantId).find("moqui.screen.form.FormConfigUserGroupView")
+            EntityList fcugvList = ecfi.entityFacade.find("moqui.screen.form.FormConfigUserGroupView")
                     .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
                     .condition("formLocation", location).useCache(true).list()
             if (fcugvList.size() > 0) {
@@ -1314,7 +1314,7 @@ class ScreenForm {
             return colInfoList
         }
         private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
-            EntityList formConfigFieldList = ecfi.getEntityFacade(eci.tenantId).find("moqui.screen.form.FormConfigField")
+            EntityList formConfigFieldList = ecfi.entityFacade.find("moqui.screen.form.FormConfigField")
                     .condition("formConfigId", formConfigId).orderBy("positionIndex").orderBy("positionSequence").useCache(true).list()
 
             // NOTE: calling code checks to see if this is not empty

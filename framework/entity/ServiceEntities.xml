@@ -271,7 +271,6 @@ along with this software (see the LICENSE.md file). If not, see
             the user should be in a group that has authz for the SystemMessageServices ArtifactGroup
             (see SecurityTypeData.xml).</description></field>
         <field name="password" type="text-short" encrypt="true"/>
-        <field name="tenantId" type="text-short"/>
 
         <field name="systemMessageTypeId" type="id"><description>Optional. May be used when this remote is for one
             type of message.</description></field>

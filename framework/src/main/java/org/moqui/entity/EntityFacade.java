@@ -86,7 +86,7 @@ public interface EntityFacade {
      * @param fromUpdateStamp The lastUpdatedStamp on at least one entity selected must be after (&gt;=) this Timestamp.
      * @param thruUpdatedStamp The lastUpdatedStamp on at least one entity selected must be before (&lt;) this Timestamp.
      * @return List of Maps with these entries:
-     *      - _index = tenantId + "__" + DataDocument.indexName
+     *      - _index = DataDocument.indexName
      *      - _type = dataDocumentId
      *      - _id = pk field values from primary entity, underscore separated
      *      - _timestamp = timestamp when the document was created

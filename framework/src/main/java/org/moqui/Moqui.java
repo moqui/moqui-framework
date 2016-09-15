@@ -84,9 +84,7 @@ public class Moqui {
         ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false);
         ec.getArtifactExecution().setAnonymousAuthorizedAll();
 
-        // set tenant and user
-        String tenantId = argMap.get("tenantId");
-        if (tenantId != null && tenantId.length() > 0) ec.changeTenant(tenantId);
+        // login anonymous user
         ec.getUser().loginAnonymousIfNoUser();
 
         // set the data load parameters
