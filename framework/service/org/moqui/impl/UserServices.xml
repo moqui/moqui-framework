@@ -29,14 +29,12 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="newPasswordVerify" required="true"/>
             <parameter name="requirePasswordChange" default-value="N"/>
             <parameter name="userFullName"/>
-            <parameter name="emailAddress"/>
+            <parameter name="emailAddress"><text-email/></parameter>
             <parameter name="currencyUomId"/>
             <parameter name="locale"/>
             <parameter name="timeZone"/>
         </in-parameters>
-        <out-parameters>
-            <parameter name="userId" required="true"/>
-        </out-parameters>
+        <out-parameters><parameter name="userId" required="true"/></out-parameters>
         <actions>
             <service-call name="create#moqui.security.UserAccount" out-map="context" in-map="context"/>
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
@@ -246,6 +244,23 @@ along with this software (see the LICENSE.md file). If not, see
             </service-call>
             <message>A reset password was sent by email to ${userAccount.emailAddress}. This password may only be used to change your password. Your current password is still valid.</message>
             <if condition="userAccount.requirePasswordChange == 'Y'"><message>You must change your password before login.</message></if>
+        </actions>
+    </service>
+
+    <service verb="create" noun="InitialAdminAccount" authenticate="anonymous-all">
+        <in-parameters>
+            <parameter name="username" required="true"/>
+            <parameter name="newPassword" required="true"/>
+            <parameter name="newPasswordVerify" required="true"/>
+            <parameter name="userFullName"/>
+            <parameter name="emailAddress"><text-email/></parameter>
+        </in-parameters>
+        <out-parameters><parameter name="userId" required="true"/></out-parameters>
+        <actions>
+            <if condition="ec.entity.find('moqui.security.UserAccount').count() != 1">
+                <return error="true" message="Can only create initial admin account if there are no UserAccount records"/></if>
+            <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
+            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"/>
         </actions>
     </service>
 </services>
