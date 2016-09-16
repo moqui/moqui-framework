@@ -30,34 +30,32 @@ class NotificationWebSocketListener implements NotificationMessageListener {
     private final static Logger logger = LoggerFactory.getLogger(NotificationWebSocketListener.class)
 
     private ExecutionContextFactory ecf = null
-    private ConcurrentHashMap<String, ConcurrentHashMap<String, NotificationEndpoint>> endpointsByUserTenant = new ConcurrentHashMap<>()
+    private ConcurrentHashMap<String, ConcurrentHashMap<String, NotificationEndpoint>> endpointsByUser = new ConcurrentHashMap<>()
 
     void registerEndpoint(NotificationEndpoint endpoint) {
-        String userTenant = endpoint.userId
+        String userId = endpoint.userId
+        if (userId == null) return
         String sessionId = endpoint.session.id
-        if (userTenant == null) return
-        userTenant = userTenant.concat(endpoint.tenantId)
-        ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userTenant)
+        ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUser.get(userId)
         if (registeredEndPoints == null) {
             registeredEndPoints = new ConcurrentHashMap<>()
-            ConcurrentHashMap<String, NotificationEndpoint> existing = endpointsByUserTenant.putIfAbsent(userTenant, registeredEndPoints)
+            ConcurrentHashMap<String, NotificationEndpoint> existing = endpointsByUser.putIfAbsent(userId, registeredEndPoints)
             if (existing != null) registeredEndPoints = existing
         }
         NotificationEndpoint existing = registeredEndPoints.putIfAbsent(sessionId, endpoint)
-        if (existing != null) logger.warn("Found existing NotificationEndpoint for user ${endpoint.userId} (${existing.username}) in tenant ${endpoint.tenantId}, session ${sessionId}; not registering additional endpoint")
+        if (existing != null) logger.warn("Found existing NotificationEndpoint for user ${endpoint.userId} (${existing.username}) session ${sessionId}; not registering additional endpoint")
     }
     void deregisterEndpoint(NotificationEndpoint endpoint) {
-        String userTenant = endpoint.userId
+        String userId = endpoint.userId
+        if (userId == null) return
         String sessionId = endpoint.session.id
-        if (userTenant == null) return
-        userTenant = userTenant.concat(endpoint.tenantId)
-        ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userTenant)
+        ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUser.get(userId)
         if (registeredEndPoints == null) {
-            logger.warn("Tried to deregister endpoing for user ${endpoint.userId} in tenant ${endpoint.tenantId} but no endpoints found")
+            logger.warn("Tried to deregister endpoing for user ${endpoint.userId} but no endpoints found")
             return
         }
         registeredEndPoints.remove(sessionId)
-        if (registeredEndPoints.size() == 0) endpointsByUserTenant.remove(userTenant, registeredEndPoints)
+        if (registeredEndPoints.size() == 0) endpointsByUser.remove(userId, registeredEndPoints)
     }
 
     @Override
@@ -67,7 +65,7 @@ class NotificationWebSocketListener implements NotificationMessageListener {
 
     @Override
     void destroy() {
-        endpointsByUserTenant.clear()
+        endpointsByUser.clear()
         this.ecf = null
     }
 
@@ -75,7 +73,7 @@ class NotificationWebSocketListener implements NotificationMessageListener {
     void onMessage(NotificationMessage nm) {
         String messageWrapperJson = nm.getWrappedMessageJson()
         for (String userId in nm.getNotifyUserIds()) {
-            ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUserTenant.get(userId.concat(nm.tenantId))
+            ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUser.get(userId)
             if (registeredEndPoints == null) continue
             for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
                 if (endpoint.session.isOpen() && (endpoint.subscribedTopics.contains("ALL") || endpoint.subscribedTopics.contains(nm.topic))) {

@@ -216,7 +216,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="targetServerUrl" type="text-medium"/>
         <field name="targetUsername" type="text-medium"/>
         <field name="targetPassword" type="text-medium" encrypt="true"/>
-        <field name="targetTenantId" type="text-medium"/>
         <field name="keepRemoveInfoHours" type="number-decimal"/>
         <field name="forPull" type="text-indicator"><description>If Y this record tracks data pulled from a remote
             system, otherwise it tracks data pushed from this system.</description></field>

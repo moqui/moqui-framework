@@ -52,7 +52,6 @@ public class ScreenFacadeImpl implements ScreenFacade {
     protected final Cache<String, MNode> dbFormNodeByIdCache
 
     protected final Map<String, Map<String, String>> themeIconByTextByTheme = new HashMap<>()
-    protected final Map<String, MNode> webappNodeByName = new HashMap<>()
 
     ScreenFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -66,9 +65,6 @@ public class ScreenFacadeImpl implements ScreenFacade {
         widgetTemplateLocationCache = ecfi.cacheFacade.getCache("widget.template.location", String.class, MNode.class)
         screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path", String.class, ArrayList.class)
         dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node", String.class, MNode.class)
-
-        for (MNode webappNode in ecfi.confXmlRoot.first("webapp-list").children("webapp"))
-            webappNodeByName.put(webappNode.attribute("name"), webappNode)
 
         List<MNode> stoNodes = ecfi.getConfXmlRoot().first("screen-facade").children("screen-text-output")
         for (MNode stoNode in stoNodes) {
@@ -298,9 +294,9 @@ public class ScreenFacadeImpl implements ScreenFacade {
         }
         return themeIconByText
     }
-    MNode getWebappNode(String webappName) { return webappNodeByName.get(webappName) as MNode }
     String rootScreenFromHost(String host, String webappName) {
-        MNode webappNode = getWebappNode(webappName)
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
+        MNode webappNode = webappInfo.webappNode
         MNode wildcardHost = (MNode) null
         for (MNode rootScreenNode in webappNode.children("root-screen")) {
             String hostAttr = rootScreenNode.attribute("host")

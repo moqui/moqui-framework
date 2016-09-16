@@ -1,0 +1,42 @@
+version: "2"
+services:
+  moqui-server:
+    image: moqui
+    container_name: moqui-server
+    command: --conf=conf/MySQLConf.xml
+    restart: always
+    links:
+     - mysql-moqui
+    ports:
+     - 8080:8080
+    volumes:
+     - ./runtime/conf:/opt/moqui/runtime/conf
+     - ./runtime/lib:/opt/moqui/runtime/lib
+     - ./runtime/classes:/opt/moqui/runtime/classes
+     - ./runtime/log:/opt/moqui/runtime/log
+     - ./runtime/txlog:/opt/moqui/runtime/txlog
+     # this one isn't needed: - ./runtime/db:/opt/moqui/runtime/db
+     - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
+    environment:
+     - ds_transactional_host=mysql-moqui
+     - ds_transactional_port=3306
+     - ds_transactional_database=MoquiDEFAULT
+     - ds_transactional_user=moqui
+     - ds_transactional_password=moqui
+
+  mysql-moqui:
+    image: mysql:5.7
+    container_name: mysql-moqui
+    restart: always
+    # uncomment this to expose the port for use outside other services
+    # ports:
+    #  - 3306:3306
+    # edit these as needed to map configuration and data storage
+    volumes:
+     - ./db/mysql/data:/var/lib/mysql
+     # - /my/mysql/conf.d:/etc/mysql/conf.d
+    environment:
+     - MYSQL_ROOT_PASSWORD=moquitest
+     - MYSQL_DATABASE=MoquiDEFAULT
+     - MYSQL_USER=moqui
+     - MYSQL_PASSWORD=moqui

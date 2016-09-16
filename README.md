@@ -19,7 +19,7 @@ Note that a runtime directory is required for Moqui Framework to run, but is not
 Gradle get component, load, and run tasks will automatically add the default runtime (from the moqui-runtime repository).
 
 For information about the current and near future status of Moqui Framework
-see the [ReleaseNotes.txt](https://github.com/moqui/moqui-framework/blob/master/ReleaseNotes.txt) file.
+see the [ReleaseNotes.md](https://github.com/moqui/moqui-framework/blob/master/ReleaseNotes.md) file.
 
 For an overview of features see:
 

@@ -602,42 +602,42 @@ class TransactionFacadeImpl implements TransactionFacade {
         }
     }
 
-    Connection getTxConnection(String tenantId, String groupName) {
+    Connection getTxConnection(String groupName) {
         if (!useConnectionStash) return null
 
-        String conKey = tenantId.concat(groupName)
+        String conKey = groupName
         TxStackInfo txStackInfo = getTxStackInfo()
         ConnectionWrapper con = (ConnectionWrapper) txStackInfo.txConByGroup.get(conKey)
         if (con == null) return null
 
         if (con.isClosed()) {
             txStackInfo.txConByGroup.remove(conKey)
-            logger.info("Stashed connection closed elsewhere for tenant ${tenantId} group ${groupName}: ${con.toString()}")
+            logger.info("Stashed connection closed elsewhere for group ${groupName}: ${con.toString()}")
             return null
         }
         if (!isTransactionActive()) {
             con.close()
             txStackInfo.txConByGroup.remove(conKey)
-            logger.info("Stashed connection found but transaction is not active (${getStatusString()}) for tenant ${tenantId} group ${groupName}: ${con.toString()}")
+            logger.info("Stashed connection found but transaction is not active (${getStatusString()}) for group ${groupName}: ${con.toString()}")
             return null
         }
         return con
     }
-    Connection stashTxConnection(String tenantId, String groupName, Connection con) {
+    Connection stashTxConnection(String groupName, Connection con) {
         if (!useConnectionStash || !isTransactionActive()) return con
 
         TxStackInfo txStackInfo = getTxStackInfo()
         // if transactionBeginStartTime is null we didn't begin the transaction, so can't count on commit/rollback through this
         if (txStackInfo.transactionBeginStartTime == null) return con
 
-        String conKey = tenantId.concat(groupName)
+        String conKey = groupName
         ConnectionWrapper existing = (ConnectionWrapper) txStackInfo.txConByGroup.get(conKey)
         try {
             if (existing != null && !existing.isClosed()) existing.closeInternal()
         } catch (Throwable t) {
-            logger.error("Error closing previously stashed connection for tenant ${tenantId} group ${groupName}: ${existing.toString()}", t)
+            logger.error("Error closing previously stashed connection for group ${groupName}: ${existing.toString()}", t)
         }
-        ConnectionWrapper newCw = new ConnectionWrapper(con, this, tenantId, groupName)
+        ConnectionWrapper newCw = new ConnectionWrapper(con, this, groupName)
         txStackInfo.txConByGroup.put(conKey, newCw)
         return newCw
     }

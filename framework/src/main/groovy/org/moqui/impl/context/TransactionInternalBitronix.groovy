@@ -62,7 +62,7 @@ class TransactionInternalBitronix implements TransactionInternal {
     UserTransaction getUserTransaction() { return ut }
 
     @Override
-    DataSource getDataSource(EntityFacade ef, MNode datasourceNode, String tenantId) {
+    DataSource getDataSource(EntityFacade ef, MNode datasourceNode) {
         // NOTE: this is called during EFI init, so use the passed one and don't try to get from ECFI
         EntityFacadeImpl efi = (EntityFacadeImpl) ef
 
@@ -123,9 +123,22 @@ class TransactionInternalBitronix implements TransactionInternal {
             pds.setTestQuery(dsi.database.attribute("default-test-query"))
         }
 
+        if (logger.isInfoEnabled()) {
+            StringBuilder dsDetails = new StringBuilder()
+            if (dsi.xaDsClass) {
+                for (String propName in dsi.xaProps.stringPropertyNames()) {
+                    if ("password".equals(propName)) continue
+                    dsDetails.append(propName).append(": ").append(dsi.xaProps.getProperty(propName)).append(", ")
+                }
+            } else {
+                dsDetails.append("uri: ").append(dsi.jdbcUri).append(", user: ").append(dsi.jdbcUsername)
+            }
+            logger.info("Initializing DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) with properties: ${dsDetails}")
+        }
+
         // init the DataSource
         pds.init()
-        logger.info("Init DataSource ${dsi.uniqueName}: ${dsi.database.attribute('name')}, isolation ${pds.getIsolationLevel()} (${isolationInt}), max pool ${pds.getMaxPoolSize()}")
+        logger.info("Init DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) isolation ${pds.getIsolationLevel()} (${isolationInt}), max pool ${pds.getMaxPoolSize()}")
 
         pdsList.add(pds)
 

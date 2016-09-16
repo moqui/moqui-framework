@@ -89,9 +89,6 @@ along with this software (see the LICENSE.md file). If not, see
                     in they will be used for the service call even if a user is logged in to the ExecutionContext that
                     the service is running in.
 
-                    An "authTenantId" parameter may also be specified to authenticate the user in a specific tenant
-                    instance. If specified will be used to run the service with that as the context tenant.
-
                     If set to anonymous-all or anonymous-view then not only will authentication not be required, but this
                     service will run as if authorized (using the _NA_ UserAccount) for all actions or for view-only.
                 </xs:documentation></xs:annotation>

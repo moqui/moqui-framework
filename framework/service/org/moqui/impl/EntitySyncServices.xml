@@ -92,8 +92,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="entitySyncId" from="entitySync.entitySyncId"/>
 
-            <set field="remoteInMap" from="[authUsername:entitySync.targetUsername, authPassword:entitySync.targetPassword,
-                    authTenantId:entitySync.targetTenantId]"/>
+            <set field="remoteInMap" from="[authUsername:entitySync.targetUsername, authPassword:entitySync.targetPassword]"/>
 
             <service-call name="org.moqui.impl.EntitySyncServices.get#EntitySyncIncludeList" out-map="context" in-map="context"/>
             <set field="getInMap" from="[entityIncludeList:entityIncludeList, lastSuccessfulSyncTime:entitySync.lastSuccessfulSyncTime,

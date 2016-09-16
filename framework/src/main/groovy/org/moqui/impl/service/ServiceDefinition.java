@@ -119,8 +119,8 @@ public class ServiceDefinition {
         // expand auto-parameters and merge parameter in in-parameters and out-parameters
         // if noun is a valid entity name set it on parameters with valid field names on it
         EntityDefinition ed = null;
-        if (sfi.ecfi.getEntityFacade().isEntityDefined(this.noun))
-            ed = sfi.ecfi.getEntityFacade().getEntityDefinition(this.noun);
+        if (sfi.ecfi.entityFacade.isEntityDefined(this.noun))
+            ed = sfi.ecfi.entityFacade.getEntityDefinition(this.noun);
         if (serviceNode.hasChild("in-parameters")) {
             for (MNode paramNode : serviceNode.first("in-parameters").getChildren()) {
                 if ("auto-parameters".equals(paramNode.getName())) {
@@ -223,7 +223,7 @@ public class ServiceDefinition {
         if (entityName == null || entityName.isEmpty()) entityName = noun;
         if (entityName == null || entityName.isEmpty()) throw new IllegalArgumentException("Error in auto-parameters in service " +
                 serviceName + ", no auto-parameters.@entity-name and no service.@noun for a default");
-        EntityDefinition ed = sfi.ecfi.getEntityFacade().getEntityDefinition(entityName);
+        EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName);
         if (ed == null) throw new IllegalArgumentException("Error in auto-parameters in service " + serviceName + ", the entity-name or noun [" + entityName + "] is not a valid entity name");
 
         Set<String> fieldsToExclude = new HashSet<>();
@@ -241,7 +241,7 @@ public class ServiceDefinition {
         for (String fieldName : ed.getFieldNames("all".equals(includeStr) || "pk".equals(includeStr), "all".equals(includeStr) || "nonpk".equals(includeStr))) {
             if (fieldsToExclude.contains(fieldName)) continue;
 
-            String javaType = sfi.ecfi.getEntityFacade().getFieldJavaType(ed.getFieldInfo(fieldName).type, ed);
+            String javaType = sfi.ecfi.entityFacade.getFieldJavaType(ed.getFieldInfo(fieldName).type, ed);
             Map<String, String> map = new LinkedHashMap<>(5);
             map.put("type", javaType);
             map.put("required", requiredStr);

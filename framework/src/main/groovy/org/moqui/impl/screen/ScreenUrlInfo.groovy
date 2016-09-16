@@ -18,7 +18,6 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
-import org.moqui.context.WebFacade
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -100,7 +99,7 @@ class ScreenUrlInfo {
 
     /** Stub mode for ScreenUrlInfo, represent a plain URL and not a screen URL */
     static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, String url) {
-        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.sfi.screenUrlCache
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(url)
         if (cached != null) return cached
 
@@ -129,12 +128,12 @@ class ScreenUrlInfo {
         if (fromSd == null) fromSd = sri.getActiveScreenDef()
         if (fromPathList == null) fromPathList = sri.getActiveScreenPath()
 
-        Cache<String, ScreenUrlInfo> screenUrlCache = sri.getSfi().screenUrlCache
+        Cache<String, ScreenUrlInfo> screenUrlCache = sri.sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
         if (cached != null) return cached
 
-        ScreenUrlInfo newSui = new ScreenUrlInfo(sri.getSfi(), rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
+        ScreenUrlInfo newSui = new ScreenUrlInfo(sri.sfi, rootSd, fromSd, fromPathList, subscreenPath, lastStandalone)
         if (newSui.reusable) screenUrlCache.put(cacheKey, newSui)
         return newSui
     }
@@ -179,8 +178,8 @@ class ScreenUrlInfo {
 
     /** Stub mode for ScreenUrlInfo, represent a plain URL and not a screen URL */
     ScreenUrlInfo(ScreenRenderImpl sri, String url) {
-        this.sfi = sri.getSfi()
-        this.ecfi = sfi.getEcfi()
+        this.sfi = sri.sfi
+        this.ecfi = sfi.ecfi
         this.rootSd = sri.getRootScreenDef()
         this.plainUrl = url
     }
@@ -251,12 +250,6 @@ class ScreenUrlInfo {
             boolean isLast = ((i + 1) == screenPathDefListSize)
             MNode screenNode = screenDef.getScreenNode()
 
-            // if screen is limited to certain tenants, and current tenant is not in the Set, it is not permitted
-            if (screenDef.getTenantsAllowed().size() > 0 && !screenDef.getTenantsAllowed().contains(ec.getTenantId())) {
-                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
-                return false
-            }
-
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false)) {
@@ -286,7 +279,7 @@ class ScreenUrlInfo {
             if (sri.webappName == null || sri.webappName.length() == 0)
                 throw new BaseException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
             baseUrl = WebFacadeImpl.getWebappRootUrl(sri.webappName, sri.servletContextPath, true,
-                    this.requireEncryption, (ExecutionContextImpl) sri.getEc())
+                    this.requireEncryption, sri.ec)
         }
         return baseUrl
     }
@@ -356,15 +349,16 @@ class ScreenUrlInfo {
 
         ArrayList<String> subScreenPath = parseSubScreenPath(rootSd, fromSd, fromPathList, fromScreenPath, pathParameterMap, sfi)
         // logger.info("initUrl BEFORE fromPathList=${fromPathList}, fromScreenPath=${fromScreenPath}, subScreenPath=${subScreenPath}")
-        if (fromScreenPath.startsWith("//")) {
+        boolean fromPathSlash = fromScreenPath.startsWith("/")
+        if (fromPathSlash && fromScreenPath.startsWith("//")) {
             // find the screen by name
             fromSd = rootSd
             fromPathList = subScreenPath
             fullPathNameList = subScreenPath
         } else {
-            if (this.fromScreenPath.startsWith("/")) {
-                this.fromSd = rootSd
-                this.fromPathList = new ArrayList<String>()
+            if (fromPathSlash) {
+                fromSd = rootSd
+                fromPathList = new ArrayList<String>()
             }
 
             fullPathNameList = subScreenPath
@@ -372,13 +366,12 @@ class ScreenUrlInfo {
         // logger.info("initUrl fromScreenPath=${fromScreenPath}, fromPathList=${fromPathList}, fullPathNameList=${fullPathNameList}")
 
         // encrypt is the default loop through screens if all are not secure/etc use http setting, otherwise https
-        requireEncryption = false
-        if (rootSd?.webSettingsNode?.attribute('require-encryption') != "false") requireEncryption = true
-        if (rootSd?.screenNode?.attribute('begin-transaction') == "true") beginTransaction = true
+        requireEncryption = !"false".equals(rootSd?.webSettingsNode?.attribute("require-encryption"))
+        if ("true".equals(rootSd?.screenNode?.attribute('begin-transaction'))) beginTransaction = true
 
-        // start the render list with the from/base SD
-        screenRenderDefList.add(fromSd)
-        screenPathDefList.add(fromSd)
+        // start the render lists with the root SD
+        screenRenderDefList.add(rootSd)
+        screenPathDefList.add(rootSd)
 
         // loop through path for various things: check validity, see if we can do a transition short-cut and go right
         //     to its response url, etc
@@ -466,7 +459,6 @@ class ScreenUrlInfo {
                 screenRenderDefList.clear()
             }
             screenRenderDefList.add(nextSd)
-
             screenPathDefList.add(nextSd)
             lastSd = nextSd
             // add this to the list of path names to use for transition redirect
@@ -490,11 +482,7 @@ class ScreenUrlInfo {
             String subscreenName = null
 
             // check SubscreensDefault records
-            EntityCondition tenantCond = ecfi.entity.conditionFactory.makeCondition(
-                    ecfi.entity.conditionFactory.makeCondition("tenantId", EntityCondition.EQUALS, ecfi.eci.tenantId),
-                    EntityCondition.OR,
-                    ecfi.entity.conditionFactory.makeCondition("tenantId", EntityCondition.EQUALS, null))
-            EntityList subscreensDefaultList = ecfi.entity.find("moqui.screen.SubscreensDefault").condition(tenantCond)
+            EntityList subscreensDefaultList = ecfi.entity.find("moqui.screen.SubscreensDefault")
                     .condition("screenLocation", lastSd.location).useCache(true).disableAuthz().list()
             for (int i = 0; i < subscreensDefaultList.size(); i++) {
                 EntityValue subscreensDefault = subscreensDefaultList.get(i)
@@ -505,7 +493,7 @@ class ScreenUrlInfo {
 
             // if any conditional-default.@condition eval to true, use that conditional-default.@item instead
             List<MNode> condDefaultList = lastSd.getSubscreensNode()?.children("conditional-default")
-            if (condDefaultList) for (MNode conditionalDefaultNode in condDefaultList) {
+            if (condDefaultList != null && condDefaultList.size() > 0) for (MNode conditionalDefaultNode in condDefaultList) {
                 String condStr = conditionalDefaultNode.attribute('condition')
                 if (!condStr) continue
                 if (ecfi.getResource().condition(condStr, null)) {
@@ -515,12 +503,13 @@ class ScreenUrlInfo {
             }
 
             // whether we got a hit or not there are conditional defaults for this path, so can't reuse this instance
-            if (subscreensDefaultList || condDefaultList) reusable = false
+            if ((subscreensDefaultList != null && subscreensDefaultList.size() > 0) ||
+                    (condDefaultList != null && condDefaultList.size() > 0)) reusable = false
 
-            if (!subscreenName) subscreenName = lastSd.getDefaultSubscreensItem()
+            if (subscreenName == null || subscreenName.isEmpty()) subscreenName = lastSd.getDefaultSubscreensItem()
 
             String nextLoc = lastSd.getSubscreensItem(subscreenName)?.location
-            if (!nextLoc) {
+            if (nextLoc == null || nextLoc.isEmpty()) {
                 // handle case where last one may be a transition name, and not a subscreen name
                 if (lastSd.hasTransition(subscreenName)) {
                     targetTransitionActualName = subscreenName
@@ -710,7 +699,7 @@ class ScreenUrlInfo {
         ScreenUrlInfo sui
         ScreenRenderImpl sri
         ExecutionContextImpl ec
-        boolean expandAliasTransition
+        Boolean expandAliasTransition
 
         /** If a transition is specified, the target transition within the targetScreen */
         TransitionItem curTargetTransition = (TransitionItem) null
@@ -722,9 +711,9 @@ class ScreenUrlInfo {
         UrlInstance(ScreenUrlInfo sui, ScreenRenderImpl sri, Boolean expandAliasTransition) {
             this.sui = sui
             this.sri = sri
-            ec = sri.getEc()
+            ec = sri.ec
 
-            this.expandAliasTransition = expandAliasTransition != null ? expandAliasTransition : true
+            this.expandAliasTransition = expandAliasTransition
             if (expandAliasTransition != null && expandAliasTransition.booleanValue()) expandTransitionAliasUrl()
 
             // logger.warn("======= Creating UrlInstance ${sui.getFullPathNameList()} - ${sui.targetScreen.getLocation()} - ${sui.getTargetTransitionActualName()}")
@@ -753,19 +742,19 @@ class ScreenUrlInfo {
             // service/actions or conditional-response then use the default-response.url instead
             // of the name (if type is screen-path or empty, url-type is url or empty)
             if (ti.condition == null && !ti.hasActionsOrSingleService() && !ti.conditionalResponseList &&
-                    ti.defaultResponse && ti.defaultResponse.type == "url" &&
-                    ti.defaultResponse.urlType == "screen-path" && ec.web != null) {
-
+                    ti.defaultResponse != null && "url".equals(ti.defaultResponse.type) &&
+                    "screen-path".equals(ti.defaultResponse.urlType) && ec.web != null) {
 
                 transitionAliasParameters = ti.defaultResponse.expandParameters(sui.getExtraPathNameList(), ec)
 
                 // create a ScreenUrlInfo, then copy its info into this
                 String expandedUrl = ti.defaultResponse.url
-                if (expandedUrl.contains('${')) expandedUrl = ec.getResource().expand(expandedUrl, "")
-                ScreenUrlInfo aliasUrlInfo = getScreenUrlInfo(sri.getSfi(), sui.rootSd, sui.fromSd,
+                if (expandedUrl.contains('${')) expandedUrl = ec.resourceFacade.expand(expandedUrl, "")
+                ScreenUrlInfo aliasUrlInfo = getScreenUrlInfo(sri.sfi, sui.rootSd, sui.fromSd,
                         sui.preTransitionPathNameList, expandedUrl,
-                        (sui.lastStandalone || transitionAliasParameters.lastStandalone == "true"))
+                        (sui.lastStandalone || "true".equals(transitionAliasParameters.lastStandalone)))
 
+                // logger.warn("Made transition alias: ${aliasUrlInfo.toString()}")
                 sui = aliasUrlInfo
                 curTargetTransition = (TransitionItem) null
             }

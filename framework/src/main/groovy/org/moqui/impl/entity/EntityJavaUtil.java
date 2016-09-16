@@ -198,7 +198,6 @@ public class EntityJavaUtil {
         private final EntityDefinition ed;
         private final EntityFacadeImpl efi;
         public final String internalEntityName, fullEntityName, shortAlias, groupName;
-        public final boolean isTenantcommon;
         public final String tableName, schemaName, fullTableName;
 
         public final EntityDatasourceFactory datasourceFactory;
@@ -245,7 +244,6 @@ public class EntityJavaUtil {
             isInvalidViewEntity = isView && (!internalEntityNode.hasChild("member-entity") || !internalEntityNode.hasChild("alias"));
 
             groupName = ed.groupName;
-            isTenantcommon = "tenantcommon".equals(groupName);
             datasourceFactory = efi.getDatasourceFactory(groupName);
             isEntityDatasourceFactoryImpl = datasourceFactory instanceof EntityDatasourceFactoryImpl;
             MNode datasourceNode = efi.getDatasourceNode(groupName);

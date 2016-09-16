@@ -45,11 +45,7 @@ class EntityDbMeta {
 
     protected EntityFacadeImpl efi
 
-    EntityDbMeta(EntityFacadeImpl efi) {
-        this.efi = efi
-        // this is nice as a cache but slower and checked MANY times with lots of entity/db traffic:
-        // entityTablesChecked = efi.ecfi.cacheFacade.getCache("entity.${efi.tenantId}.tables.checked")
-    }
+    EntityDbMeta(EntityFacadeImpl efi) { this.efi = efi }
 
     void checkTableRuntime(EntityDefinition ed) {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
