@@ -442,17 +442,28 @@ Gradle tasks.
   - monitoring and other management: best with separate tools or something built into a Moqui master instance?
   - instance meta data
     - instance ID
+    - app instance name (like docker container name); could be same as instance ID
     - app instance host
       - instance location (like docker host location for REST API, ie through docker-java)
       - admin credentials (docker client approach? jclouds ssh approach? something generic including user, password, certificate)
-    - app instance image (like docker image name or ID, could be like 'moqui', 'moqui/moqui:2.0' or 'myaccount/myimage:tag')
-    - app instance name (like docker container name); could be same as instance ID
+      - see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/
+    - app instance image 
+      - name or digest (like docker image name or ID, could be like 'moqui', 'moqui/moqui:2.0' or 'myaccount/myimage:tag')
+      - image repository to pull from
+    - image repository
+      - username, password, email, serverAddress
+      - see https://docs.docker.com/engine/reference/api/docker_remote_api/
     - app access
       - webapp_http_host (ie virtual host, could be deployed with actual IP/host); could be same as instance ID
       - webapp_http_port (default to 80), webapp_https_port (default to 443), webapp_https_enabled
     - db server: entity_ds_db_conf, entity_ds_host, entity_ds_port, admin user/password
     - database: db server, entity_ds_database, entity_ds_schema, entity_ds_user, entity_ds_password
 - Instance Provisioning and Management
+  - external instance management
+    - https://mist.io
+      - Docker, AWS, vmware, etc
+      - http://blog.mist.io/post/96542374356/one-ui-to-rule-them-all-manage-your-docker
+    - https://shipyard-project.com (Docker only)
   - embedded and gradle docker client (for docker host or docker swarm)
     - https://github.com/docker-java/docker-java
     - https://github.com/bmuschko/gradle-docker-plugin
