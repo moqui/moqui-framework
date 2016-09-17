@@ -847,8 +847,13 @@ class WebFacadeImpl implements WebFacade {
         // check for login, etc error messages
         if (eci.message.hasError()) {
             String errorsString = eci.message.errorsString
-            logger.warn((String) "General error in Service REST API: " + errorsString)
-            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+            if ("true".equals(request.getAttribute("moqui.login.error"))) {
+                logger.warn((String) "Login error in Service REST API: " + errorsString)
+                sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorsString)
+            } else {
+                logger.warn((String) "General error in Service REST API: " + errorsString)
+                sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+            }
             return
         }
 
