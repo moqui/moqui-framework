@@ -111,31 +111,31 @@ along with this software (see the LICENSE.md file). If not, see
 
     <xs:simpleType name="url-type">
         <xs:restriction base="xs:token">
-            <xs:enumeration value="transition">
-                <xs:annotation><xs:documentation>The name of a transition in the current screen. URL will be built based
-                    on the transition definition. Technically the same as 'screen' as both are evaluated as a screen path.
-                </xs:documentation></xs:annotation>
-            </xs:enumeration>
-            <xs:enumeration value="screen">
-                <xs:annotation><xs:documentation>The path of a screen relative to the current screen (or the root screen
-                    if begins with '/' or '//' for a sparse path).</xs:documentation></xs:annotation>
-            </xs:enumeration>
-            <xs:enumeration value="content">
-                <xs:annotation><xs:documentation>A content location (without the content://). URL will be one that can
-                    access that content.</xs:documentation></xs:annotation>
-            </xs:enumeration>
-            <xs:enumeration value="plain">
-                <xs:annotation><xs:documentation>A plain URL to be used literally (may be relative or start with http://
-                    or https://).</xs:documentation></xs:annotation>
-            </xs:enumeration>
+            <xs:enumeration value="transition"><xs:annotation><xs:documentation>The name of a transition in the current screen.
+                URL will be built basedon the transition definition. Technically the same as 'screen' as both are evaluated as a screen path.
+            </xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="screen"><xs:annotation><xs:documentation>The path of a screen relative to the current screen
+                (or the root screen if begins with '/' or '//' for a sparse path).</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="content"><xs:annotation><xs:documentation>A content location (without the content://).
+                URL will be one that can access that content.</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="plain"><xs:annotation><xs:documentation>A plain URL to be used literally (may be relative or
+                start with http:// or https://).</xs:documentation></xs:annotation></xs:enumeration>
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="authc-options">
         <xs:restriction base="xs:token">
-            <xs:enumeration value="true"/>
-            <xs:enumeration value="false"/>
-            <xs:enumeration value="anonymous-all"/>
-            <xs:enumeration value="anonymous-view"/>
+            <xs:enumeration value="true"><xs:annotation><xs:documentation>Authentication and authorization are required and checked
+            </xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="false"><xs:annotation><xs:documentation>Authentication and authorization are NOT required and
+                not checked</xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="anonymous-all"><xs:annotation><xs:documentation>When used an anonymous user is effectively logged
+                in and granted ALLOW authorization for view and update operations for the artifact and all artifacts below it.
+                For a screen this grants an ALLOW authorization for all sub-screens, and for a service any services/entities/etc it
+                uses. If an actual user is authenticated already no anonymous user is effectively logged in, but the ALLOW
+                authorization is still added.
+            </xs:documentation></xs:annotation></xs:enumeration>
+            <xs:enumeration value="anonymous-view"><xs:annotation><xs:documentation>Like anonymous-all but authorization is only
+                granted for view (find) operations.</xs:documentation></xs:annotation></xs:enumeration>
         </xs:restriction>
     </xs:simpleType>
 

@@ -18,6 +18,7 @@ import org.moqui.BaseException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
+import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
@@ -112,34 +113,34 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
     protected static boolean checkAllPkFields(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> tempResult,
                                     EntityValue newEntityValue, ArrayList<String> outParamNames) {
-        ArrayList<String> pkFieldNames = ed.getPkFieldNames()
-        ArrayList<FieldInfo> pkFieldInfos = new ArrayList<>(pkFieldNames.size())
+        FieldInfo[] pkFieldInfos = ed.entityInfo.pkFieldInfoArray
 
         // see if all PK fields were passed in
         boolean allPksIn = true
-        int size = pkFieldNames.size()
-        for (int i = 0; i < size; i++) {
-            String pkFieldName = pkFieldNames.get(i)
-            FieldInfo fieldInfo = ed.getFieldInfo(pkFieldName)
-            pkFieldInfos.add(fieldInfo)
-            if (!parameters.get(pkFieldName) && !fieldInfo.defaultStr) { allPksIn = false }
+        int pkSize = pkFieldInfos.length
+        for (int i = 0; i < pkSize; i++) {
+            FieldInfo fieldInfo = pkFieldInfos[i]
+            Object pkValue = parameters.get(fieldInfo.name)
+            if (StupidJavaUtilities.isEmpty(pkValue) && (fieldInfo.defaultStr == null || fieldInfo.defaultStr.isEmpty())) {
+                allPksIn = false
+            }
         }
-        boolean isSinglePk = pkFieldNames.size() == 1
-        boolean isDoublePk = pkFieldNames.size() == 2
+        boolean isSinglePk = pkSize == 1
+        boolean isDoublePk = pkSize == 2
 
         // logger.info("======= checkAllPkFields for ${ed.getEntityName()} allPksIn=${allPksIn}, isSinglePk=${isSinglePk}, isDoublePk=${isDoublePk}; parameters: ${parameters}")
 
         if (isSinglePk) {
             /* **** primary sequenced primary key **** */
             /* **** primary sequenced key with optional override passed in **** */
-            FieldInfo singlePkField = pkFieldInfos.get(0)
+            FieldInfo singlePkField = pkFieldInfos[0]
 
             Object pkValue = parameters.get(singlePkField.name)
-            if (pkValue != null) {
+            if (!StupidJavaUtilities.isEmpty(pkValue)) {
                 newEntityValue.set(singlePkField.name, pkValue)
             } else {
                 // if it has a default value don't sequence the PK
-                if (!singlePkField.defaultStr) {
+                if (singlePkField.defaultStr == null || singlePkField.defaultStr.isEmpty()) {
                     newEntityValue.setSequencedIdPrimary()
                     pkValue = newEntityValue.getNoCheckSimple(singlePkField.name)
                 }
@@ -149,7 +150,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         } else if (isDoublePk && !allPksIn) {
             /* **** secondary sequenced primary key **** */
             // don't do it this way, currently only supports second pk fields: String doublePkSecondaryName = parameters.get(pkFieldNames.get(0)) ? pkFieldNames.get(1) : pkFieldNames.get(0)
-            FieldInfo doublePkSecondary = pkFieldInfos.get(1)
+            FieldInfo doublePkSecondary = pkFieldInfos[1]
             newEntityValue.setFields(parameters, true, null, true)
             // if it has a default value don't sequence the PK
             if (doublePkSecondary.defaultStr == null || doublePkSecondary.defaultStr.isEmpty()) {
@@ -161,7 +162,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             /* **** plain specified primary key **** */
             newEntityValue.setFields(parameters, true, null, true)
         } else {
-            logger.error("Entity [${ed.fullEntityName}] auto create pk fields ${pkFieldNames} incomplete: ${parameters}")
+            logger.error("Entity [${ed.fullEntityName}] auto create pk fields ${ed.getPkFieldNames()} incomplete: ${parameters}")
             throw new ServiceException("In entity-auto create service for entity [${ed.fullEntityName}]: " +
                     "could not find a valid combination of primary key settings to do a create operation; options include: " +
                     "1. a single entity primary-key field for primary auto-sequencing with or without matching in-parameter, and with or without matching out-parameter for the possibly sequenced value, " +
