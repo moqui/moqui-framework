@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity;
 
-import org.apache.commons.codec.binary.Hex;
 import org.moqui.BaseException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityDatasourceFactory;
@@ -31,6 +30,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.PBEParameterSpec;
+import javax.xml.bind.DatatypeConverter;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -87,10 +87,10 @@ public class EntityJavaUtil {
             if (encrypt) {
                 inBytes = value.getBytes();
             } else {
-                inBytes = Hex.decodeHex(value.toCharArray());
+                inBytes = DatatypeConverter.parseHexBinary(value);
             }
             byte[] outBytes = pbeCipher.doFinal(inBytes);
-            return encrypt ? Hex.encodeHexString(outBytes) : new String(outBytes);
+            return encrypt ? DatatypeConverter.printHexBinary(outBytes) : new String(outBytes);
         } catch (Exception e) {
             throw new EntityException("Encryption error", e);
         }

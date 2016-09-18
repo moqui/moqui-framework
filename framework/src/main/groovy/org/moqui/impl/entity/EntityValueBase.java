@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity;
 
-import org.apache.commons.codec.binary.Base64;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 import org.moqui.Moqui;
@@ -862,7 +861,7 @@ public abstract class EntityValueBase implements EntityValue {
             } else if (fieldValue instanceof SerialBlob) {
                 if (((SerialBlob) fieldValue).length() == 0) continue;
                 byte[] objBytes = ((SerialBlob) fieldValue).getBytes(1, (int) ((SerialBlob) fieldValue).length());
-                cdataMap.put(fieldName, new String(Base64.encodeBase64(objBytes)));
+                cdataMap.put(fieldName, Base64.getEncoder().encodeToString(objBytes));
                 continue;
             }
 

@@ -17,7 +17,6 @@ import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 
-import org.apache.commons.codec.binary.Base64
 import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
@@ -34,7 +33,6 @@ import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
 import org.moqui.impl.service.ServiceXmlRpcDispatcher
 import org.moqui.util.ContextStack
-import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -170,11 +168,7 @@ class WebFacadeImpl implements WebFacade {
         // create the session token if needed (protection against CSRF/XSRF attacks; see ScreenRenderImpl)
         String sessionToken = session.getAttribute("moqui.session.token")
         if (sessionToken == null || sessionToken.length() == 0) {
-            SecureRandom sr = new SecureRandom()
-            byte[] randomBytes = new byte[20]
-            sr.nextBytes(randomBytes)
-            // TODO: when we move to Java 8 use java.util.Base64
-            sessionToken = Base64.encodeBase64URLSafeString(randomBytes)
+            sessionToken = StupidUtilities.getRandomString(20)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
         }
