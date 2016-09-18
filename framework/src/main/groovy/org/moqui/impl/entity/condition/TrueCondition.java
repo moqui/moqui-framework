@@ -14,10 +14,7 @@
 package org.moqui.impl.entity.condition;
 
 import org.moqui.entity.EntityCondition;
-import org.moqui.impl.entity.EntityConditionFactoryImpl;
 import org.moqui.impl.entity.EntityQueryBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -25,22 +22,19 @@ import java.io.ObjectOutput;
 import java.util.*;
 
 public class TrueCondition implements EntityConditionImplBase {
-    protected final static Logger logger = LoggerFactory.getLogger(TrueCondition.class);
-
-    protected static final Class thisClass = TrueCondition.class;
+    private static final Class thisClass = TrueCondition.class;
 
     public TrueCondition() { }
 
     @Override
-    public void makeSqlWhere(EntityQueryBuilder eqb) {
-        StringBuilder sql = eqb.getSqlTopLevel();
-        sql.append("1=1");
-    }
+    public void makeSqlWhere(EntityQueryBuilder eqb) { eqb.sqlTopLevel.append("1=1"); }
 
     @Override
     public boolean mapMatches(Map<String, Object> map) { return true; }
     @Override
     public boolean mapMatchesAny(Map<String, Object> map) { return true; }
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) { return true; }
 
     @Override
     public boolean populateMap(Map<String, Object> map) { return true; }
@@ -52,18 +46,13 @@ public class TrueCondition implements EntityConditionImplBase {
     public EntityCondition ignoreCase() { return this; }
 
     @Override
-    public String toString() {
-        return "1=1";
-    }
+    public String toString() { return "1=1"; }
 
     @Override
     public int hashCode() { return 127; }
 
     @Override
-    public boolean equals(Object o) {
-        if (o == null || o.getClass() != thisClass) return false;
-        return true;
-    }
+    public boolean equals(Object o) { return !(o == null || o.getClass() != thisClass); }
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException { }

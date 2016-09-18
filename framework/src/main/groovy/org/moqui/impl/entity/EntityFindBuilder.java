@@ -36,7 +36,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         this.entityFindBase = entityFindBase;
 
         // this is always going to start with "SELECT ", so just set it here
-        sqlTopLevelInternal.append("SELECT ");
+        sqlTopLevel.append("SELECT ");
     }
 
     public void addLimitOffset(Integer limit, Integer offset) {
@@ -48,12 +48,12 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             String offsetStyle = databaseNode.attribute("offset-style");
             if ("limit".equals(offsetStyle)) {
                 // use the LIMIT/OFFSET style
-                sqlTopLevelInternal.append(" LIMIT ").append(limit != null && limit > 0 ? limit : "ALL");
-                sqlTopLevelInternal.append(" OFFSET ").append(offset != null ? offset : 0);
+                sqlTopLevel.append(" LIMIT ").append(limit != null && limit > 0 ? limit : "ALL");
+                sqlTopLevel.append(" OFFSET ").append(offset != null ? offset : 0);
             } else if ("fetch".equals(offsetStyle) || offsetStyle == null || offsetStyle.length() == 0) {
                 // use SQL2008 OFFSET/FETCH style by default
-                if (offset != null) sqlTopLevelInternal.append(" OFFSET ").append(offset).append(" ROWS");
-                if (limit != null) sqlTopLevelInternal.append(" FETCH FIRST ").append(limit).append(" ROWS ONLY");
+                if (offset != null) sqlTopLevel.append(" OFFSET ").append(offset).append(" ROWS");
+                if (limit != null) sqlTopLevel.append(" FETCH FIRST ").append(limit).append(" ROWS ONLY");
             }
             // do nothing here for offset-style=cursor, taken care of in EntityFindImpl
         }
@@ -64,14 +64,14 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         MNode databaseNode = efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
         String forUpdateStr = databaseNode.attribute("for-update");
         if (forUpdateStr != null && forUpdateStr.length() > 0) {
-            sqlTopLevelInternal.append(" ").append(forUpdateStr);
+            sqlTopLevel.append(" ").append(forUpdateStr);
         } else {
-            sqlTopLevelInternal.append(" FOR UPDATE");
+            sqlTopLevel.append(" FOR UPDATE");
         }
     }
 
     public void makeDistinct() {
-        sqlTopLevelInternal.append("DISTINCT ");
+        sqlTopLevel.append("DISTINCT ");
     }
 
     public void makeCountFunction(FieldInfo[] fieldInfoArray) {
@@ -82,7 +82,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 "true".equals(entityConditionNode.attribute("distinct")));
         boolean isGroupBy = localEd.entityInfo.hasFunctionAlias;
 
-        if (isGroupBy) sqlTopLevelInternal.append("COUNT(*) FROM (SELECT ");
+        if (isGroupBy) sqlTopLevel.append("COUNT(*) FROM (SELECT ");
 
         if (isDistinct) {
             // old style, not sensitive to selecting limited columns: sql.append("DISTINCT COUNT(*) ")
@@ -98,23 +98,23 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 String aliasFunction = aliasNode != null ? aliasNode.attribute("function") : null;
                 if (aliasFunction != null && aliasFunction.length() > 0) {
                     // if the field has a function already we don't want to count just it, would be meaningless
-                    sqlTopLevelInternal.append("COUNT(DISTINCT *) ");
+                    sqlTopLevel.append("COUNT(DISTINCT *) ");
                 } else {
-                    sqlTopLevelInternal.append("COUNT(DISTINCT ");
-                    sqlTopLevelInternal.append(fi.getFullColumnName());
-                    sqlTopLevelInternal.append(")");
+                    sqlTopLevel.append("COUNT(DISTINCT ");
+                    sqlTopLevel.append(fi.getFullColumnName());
+                    sqlTopLevel.append(")");
                 }
             } else {
-                sqlTopLevelInternal.append("COUNT(DISTINCT *) ");
+                sqlTopLevel.append("COUNT(DISTINCT *) ");
             }
         } else {
             // NOTE: on H2 COUNT(*) is faster than COUNT(1) (and perhaps other databases? docs hint may be faster in MySQL)
-            sqlTopLevelInternal.append("COUNT(*) ");
+            sqlTopLevel.append("COUNT(*) ");
         }
     }
 
     public void closeCountFunctionIfGroupBy() {
-        if (getMainEntityDefinition().entityInfo.hasFunctionAlias) sqlTopLevelInternal.append(") TEMP_NAME");
+        if (getMainEntityDefinition().entityInfo.hasFunctionAlias) sqlTopLevel.append(") TEMP_NAME");
     }
 
     public void expandJoinFromAlias(final MNode entityNode, final String searchEntityAlias, Set<String> entityAliasUsedSet,
@@ -141,7 +141,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void makeSqlFromClause(FieldInfo[] fieldInfoArray) {
-        makeSqlFromClause(getMainEntityDefinition(), fieldInfoArray, sqlTopLevelInternal, null);
+        makeSqlFromClause(getMainEntityDefinition(), fieldInfoArray, sqlTopLevel, null);
     }
 
     public void makeSqlFromClause(final EntityDefinition localEntityDefinition, FieldInfo[] fieldInfoArray,
@@ -414,7 +414,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void startWhereClause() {
-        sqlTopLevelInternal.append(" WHERE ");
+        sqlTopLevel.append(" WHERE ");
     }
 
     public void makeGroupByClause(FieldInfo[] fieldInfoArray) {
@@ -445,24 +445,24 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
 
         if (gbClause.length() > 0) {
-            sqlTopLevelInternal.append(" GROUP BY ");
-            sqlTopLevelInternal.append(gbClause.toString());
+            sqlTopLevel.append(" GROUP BY ");
+            sqlTopLevel.append(gbClause.toString());
         }
     }
 
     public void startHavingClause() {
-        sqlTopLevelInternal.append(" HAVING ");
+        sqlTopLevel.append(" HAVING ");
     }
 
     public void makeOrderByClause(ArrayList<String> orderByFieldList) {
         int obflSize = orderByFieldList.size();
         if (obflSize == 0) return;
 
-        sqlTopLevelInternal.append(" ORDER BY ");
+        sqlTopLevel.append(" ORDER BY ");
         for (int i = 0; i < obflSize; i++) {
             String fieldName = orderByFieldList.get(i);
             if (fieldName == null || fieldName.length() == 0) continue;
-            if (i > 0) sqlTopLevelInternal.append(", ");
+            if (i > 0) sqlTopLevel.append(", ");
 
             // Parse the fieldName (can have other stuff in it, need to tear down to just the field name)
             EntityJavaUtil.FieldOrderOptions foo = new EntityJavaUtil.FieldOrderOptions(fieldName);
@@ -474,11 +474,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             int typeValue = fieldInfo.typeValue;
 
             // now that it's all torn down, build it back up using the column name
-            if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevelInternal.append(foo.getCaseUpperLower() ? "UPPER(" : "LOWER(");
-            sqlTopLevelInternal.append(fieldInfo.getFullColumnName());
-            if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevelInternal.append(")");
-            sqlTopLevelInternal.append(foo.getDescending() ? " DESC" : " ASC");
-            if (foo.getNullsFirstLast() != null) sqlTopLevelInternal.append(foo.getNullsFirstLast() ? " NULLS FIRST" : " NULLS LAST");
+            if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevel.append(foo.getCaseUpperLower() ? "UPPER(" : "LOWER(");
+            sqlTopLevel.append(fieldInfo.getFullColumnName());
+            if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevel.append(")");
+            sqlTopLevel.append(foo.getDescending() ? " DESC" : " ASC");
+            if (foo.getNullsFirstLast() != null) sqlTopLevel.append(foo.getNullsFirstLast() ? " NULLS FIRST" : " NULLS LAST");
         }
     }
 
@@ -486,7 +486,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     public PreparedStatement makePreparedStatement() {
         if (connection == null)
             throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
-        finalSql = sqlTopLevelInternal.toString();
+        finalSql = sqlTopLevel.toString();
         // if (this.mainEntityDefinition.entityName.equals("Foo")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
         if (isDebugEnabled) logger.debug("making find PreparedStatement for SQL: " + finalSql);
         try {

@@ -64,7 +64,7 @@ public class EntityValueImpl extends EntityValueBase {
             throw new EntityException("Create not yet implemented for view-entity");
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-            StringBuilder sql = eqb.getSqlTopLevel();
+            StringBuilder sql = eqb.sqlTopLevel;
             sql.append("INSERT INTO ").append(ed.getFullTableName());
 
             sql.append(" (");
@@ -122,8 +122,8 @@ public class EntityValueImpl extends EntityValueBase {
             throw new EntityException("Update not yet implemented for view-entity");
         } else {
             final EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-            ArrayList<EntityConditionParameter> parameters = eqb.getParameters();
-            StringBuilder sql = eqb.getSqlTopLevel();
+            ArrayList<EntityConditionParameter> parameters = eqb.parameters;
+            StringBuilder sql = eqb.sqlTopLevel;
             sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ");
 
             int size = nonPkFieldArray.length;
@@ -155,7 +155,7 @@ public class EntityValueImpl extends EntityValueBase {
 
                 // if (ed.entityName == "Subscription") logger.warn("Update ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
                 if (eqb.executeUpdate() == 0)
-                    throw new EntityException("Tried to update a value that does not exist [" + this.toString() + "]. SQL used was " + eqb.sqlTopLevelInternal.toString() + ", parameters were " + eqb.getParameters().toString());
+                    throw new EntityException("Tried to update a value that does not exist [" + this.toString() + "]. SQL used was " + eqb.sqlTopLevel.toString() + ", parameters were " + eqb.parameters.toString());
                 setSyncedWithDb();
             } catch (Exception e) {
                 String txName = "[could not get]";
@@ -181,8 +181,8 @@ public class EntityValueImpl extends EntityValueBase {
             throw new EntityException("Delete not implemented for view-entity");
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-            ArrayList<EntityConditionParameter> parameters = eqb.getParameters();
-            StringBuilder sql = eqb.getSqlTopLevel();
+            ArrayList<EntityConditionParameter> parameters = eqb.parameters;
+            StringBuilder sql = eqb.sqlTopLevel;
             sql.append("DELETE FROM ").append(ed.getFullTableName()).append(" WHERE ");
 
             FieldInfo[] pkFieldArray = ed.entityInfo.pkFieldInfoArray;
@@ -231,8 +231,8 @@ public class EntityValueImpl extends EntityValueBase {
         // NOTE: even if there are no non-pk fields do a refresh in order to see if the record exists or not
 
         EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-        ArrayList<EntityConditionParameter> parameters = eqb.getParameters();
-        StringBuilder sql = eqb.getSqlTopLevel();
+        ArrayList<EntityConditionParameter> parameters = eqb.parameters;
+        StringBuilder sql = eqb.sqlTopLevel;
         sql.append("SELECT ");
         // NOTE: cast here is needed to resolve compile warning, even if there may be a IDE warning
         eqb.makeSqlSelectFields(allFieldArray, null);

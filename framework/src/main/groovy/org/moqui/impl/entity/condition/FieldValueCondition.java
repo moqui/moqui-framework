@@ -62,7 +62,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb) {
         @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
-        StringBuilder sql = eqb.getSqlTopLevel();
+        StringBuilder sql = eqb.sqlTopLevel;
         boolean valueDone = false;
         EntityDefinition mainEd = eqb.getMainEd();
         FieldInfo fi = field.getFieldInfo(mainEd);
@@ -110,13 +110,13 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                         if (isFirst) isFirst = false; else sql.append(", ");
                         sql.append("?");
                         if (ignoreCase && (curValue instanceof CharSequence)) curValue = curValue.toString().toUpperCase();
-                        eqb.getParameters().add(new EntityConditionParameter(fi, curValue, eqb));
+                        eqb.parameters.add(new EntityConditionParameter(fi, curValue, eqb));
                     }
                     sql.append(')');
                 } else {
                     if (ignoreCase && (value instanceof CharSequence)) value = value.toString().toUpperCase();
                     sql.append(" (?)");
-                    eqb.getParameters().add(new EntityConditionParameter(fi, value, eqb));
+                    eqb.parameters.add(new EntityConditionParameter(fi, value, eqb));
                 }
             } else if ((operator == BETWEEN || operator == NOT_BETWEEN) && value instanceof Collection &&
                     ((Collection) value).size() == 2) {
@@ -126,20 +126,24 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                 if (ignoreCase && (value1 instanceof CharSequence)) value1 = value1.toString().toUpperCase();
                 Object value2 = iterator.next();
                 if (ignoreCase && (value2 instanceof CharSequence)) value2 = value2.toString().toUpperCase();
-                eqb.getParameters().add(new EntityConditionParameter(fi, value1, eqb));
-                eqb.getParameters().add(new EntityConditionParameter(fi, value2, eqb));
+                eqb.parameters.add(new EntityConditionParameter(fi, value1, eqb));
+                eqb.parameters.add(new EntityConditionParameter(fi, value2, eqb));
             } else {
                 if (ignoreCase && (value instanceof CharSequence)) value = value.toString().toUpperCase();
                 sql.append(" ?");
-                eqb.getParameters().add(new EntityConditionParameter(fi, value, eqb));
+                eqb.parameters.add(new EntityConditionParameter(fi, value, eqb));
             }
         }
     }
 
     @Override
-    public boolean mapMatches(Map<String, Object> map) { return EntityConditionFactoryImpl.compareByOperator(map.get(field.fieldName), operator, value); }
+    public boolean mapMatches(Map<String, Object> map) {
+        return EntityConditionFactoryImpl.compareByOperator(map.get(field.fieldName), operator, value);
+    }
     @Override
     public boolean mapMatchesAny(Map<String, Object> map) { return mapMatches(map); }
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) { return !map.containsKey(field.fieldName); }
 
     @Override
     public boolean populateMap(Map<String, Object> map) {
