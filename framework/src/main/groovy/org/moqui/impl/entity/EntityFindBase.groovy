@@ -14,7 +14,6 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
@@ -178,7 +177,7 @@ abstract class EntityFindBase implements EntityFind {
         if (condClass == FieldValueCondition.class) {
             // if this is a basic field/value EQUALS condition, just add to simpleAndMap
             FieldValueCondition fvc = (FieldValueCondition) condition
-            if (fvc.getOperator() == EntityCondition.EQUALS && !fvc.getIgnoreCase()) {
+            if (EntityCondition.EQUALS.is(fvc.getOperator()) && !fvc.getIgnoreCase()) {
                 this.condition(fvc.getFieldName(), fvc.getValue())
                 return this
             }
@@ -188,13 +187,13 @@ abstract class EntityFindBase implements EntityFind {
             // if empty list add nothing
             if (condList.size() == 0) return this
             // if this is an AND list condition, just unroll it and add each one; could end up as another list, but may add to simpleAndMap
-            if (lc.getOperator() == EntityCondition.AND) {
+            if (EntityCondition.AND.is(lc.getOperator())) {
                 for (int i = 0; i < condList.size(); i++) this.condition(condList.get(i))
                 return this
             }
         } else if (condClass == BasicJoinCondition.class) {
             BasicJoinCondition basicCond = (BasicJoinCondition) condition
-            if (basicCond.getOperator() == EntityCondition.AND) {
+            if (EntityCondition.AND.is(basicCond.getOperator())) {
                 if (basicCond.getLhs() != null) this.condition(basicCond.getLhs())
                 if (basicCond.getRhs() != null) this.condition(basicCond.getRhs())
                 return this
@@ -284,7 +283,7 @@ abstract class EntityFindBase implements EntityFind {
                 Class whereEntCondClass = whereEntityCondition.getClass()
                 if (whereEntCondClass == ListCondition.class) {
                     ListCondition listCond = (ListCondition) this.whereEntityCondition
-                    if (listCond.getOperator() == EntityCondition.AND) {
+                    if (EntityCondition.AND.is(listCond.getOperator())) {
                         condList.addAll(listCond.getConditionList())
                         return new ListCondition(condList, EntityCondition.AND)
                     } else {
@@ -297,7 +296,7 @@ abstract class EntityFindBase implements EntityFind {
                     return new ListCondition(condList, EntityCondition.AND)
                 } else if (whereEntCondClass == BasicJoinCondition.class) {
                     BasicJoinCondition basicCond = (BasicJoinCondition) this.whereEntityCondition
-                    if (basicCond.getOperator() == EntityCondition.AND) {
+                    if (EntityCondition.AND.is(basicCond.getOperator())) {
                         condList.add(basicCond.getLhs())
                         condList.add(basicCond.getRhs())
                         return new ListCondition(condList, EntityCondition.AND)

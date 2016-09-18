@@ -70,11 +70,12 @@ public class ListCondition implements EntityConditionImplBase {
     public JoinOperator getOperator() { return operator; }
     public ArrayList<EntityConditionImplBase> getConditionList() { return conditionList; }
 
+    @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb) {
         if (conditionListSize == 0) return;
 
-        StringBuilder sql = eqb.getSqlTopLevel();
+        StringBuilder sql = eqb.sqlTopLevel;
         String joinOpString = EntityConditionFactoryImpl.getJoinOperatorString(this.operator);
         if (conditionListSize > 1) sql.append('(');
         for (int i = 0; i < conditionListSize; i++) {
@@ -103,8 +104,17 @@ public class ListCondition implements EntityConditionImplBase {
             boolean conditionMatches = condition.mapMatchesAny(map);
             if (conditionMatches) return true;
         }
-        // if we got here it means that it's an OR with no trues, or an AND with no falses
         return false;
+    }
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) {
+        for (int i = 0; i < conditionListSize; i++) {
+            EntityConditionImplBase condition = conditionList.get(i);
+            boolean notContained = condition.mapKeysNotContained(map);
+            if (!notContained) return false;
+        }
+        // if we got here it means that it's an OR with no trues, or an AND with no falses
+        return true;
     }
 
     @Override
@@ -117,6 +127,7 @@ public class ListCondition implements EntityConditionImplBase {
         return true;
     }
 
+    @Override
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
