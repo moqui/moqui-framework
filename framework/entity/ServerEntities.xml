@@ -131,55 +131,62 @@ along with this software (see the LICENSE.md file). If not, see
 
     <entity entity-name="InstanceHost" package="moqui.server.instance" use="configuration">
         <field name="instanceHostId" type="id" is-pk="true"/>
-        <field name="hostTypeEnumId" type="id"/>
+        <field name="hostTypeId" type="id"/>
         <field name="hostAddress" type="text-medium"/>
         <field name="adminPort" type="number-integer"/>
         <field name="username" type="text-short"/>
         <field name="password" type="text-medium" encrypt="true"/>
-        <relationship type="one" title="InstanceHostType" related="moqui.basic.Enumeration" short-alias="hostType">
-            <key-map field-name="hostTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.server.instance.InstanceHostType" short-alias="hostType"/>
+    </entity>
+    <entity entity-name="InstanceHostType" package="moqui.server.instance" use="configuration">
+        <field name="hostTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="startService" type="text-medium"/>
+        <field name="stopService" type="text-medium"/>
+        <field name="removeService" type="text-medium"/>
+        <field name="checkService" type="text-medium"/>
 
         <seed-data>
-            <moqui.basic.EnumerationType description="Instance Host Type" enumTypeId="InstanceHostType"/>
-            <moqui.basic.Enumeration description="Docker" enumId="IhtDocker" enumCode="docker" enumTypeId="InstanceHostType"/>
+            <moqui.server.instance.InstanceHostType hostTypeId="docker" description="Docker"
+                    startService="" stopService="" removeService="" checkService=""/>
 
             <!-- see: https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket -->
-            <moqui.server.instance.InstanceHost instanceHostId="LocalDocker" hostTypeEnumId="IhtDocker"
+            <moqui.server.instance.InstanceHost instanceHostId="LocalDocker" hostTypeId="docker"
                     hostAddress="127.0.0.1" adminPort="2375"/>
             <!-- for future reference, connect with TLS
-            <moqui.server.instance.InstanceHost instanceHostId="LocalDockerTLS" hostTypeEnumId="IhtDocker"
+            <moqui.server.instance.InstanceHost instanceHostId="LocalDockerTLS" hostTypeId="docker"
                     hostAddress="127.0.0.1" adminPort="2376"/>
             -->
         </seed-data>
     </entity>
+
     <entity entity-name="InstanceImage" package="moqui.server.instance" use="configuration">
         <field name="instanceImageId" type="id" is-pk="true"/>
         <field name="imageTypeId" type="id"/>
+        <field name="hostTypeId" type="id"/>
         <field name="imageName" type="text-medium"/>
         <!-- better as part of the name? <field name="imageDigest" type="text-medium"/> -->
         <field name="registryLocation" type="text-medium"/>
         <field name="username" type="text-short"/>
         <field name="password" type="text-medium" encrypt="true"/>
         <field name="emailAddress" type="text-medium"/>
-        <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
+        <relationship type="one" related="moqui.server.instance.InstanceImageType" short-alias="imageType"/>
+        <relationship type="one" related="moqui.server.instance.InstanceHostType" short-alias="hostType"/>
     </entity>
     <entity entity-name="InstanceImageType" package="moqui.server.instance" use="configuration">
         <field name="imageTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
-        <field name="hostTypeEnumId" type="id"/>
-        <relationship type="one" title="InstanceHostType" related="moqui.basic.Enumeration" short-alias="hostType">
-            <key-map field-name="hostTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.server.instance.InstanceImageTypeEnv" short-alias="envs">
             <key-map field-name="imageTypeId"/></relationship>
 
         <seed-data>
-            <moqui.server.instance.InstanceImageType imageTypeId="moqui" description="Moqui Framework" hostTypeEnumId="IhtDocker">
+            <moqui.server.instance.InstanceImageType imageTypeId="moqui" description="Moqui Framework">
                 <envs envName="webapp_http_host" envValue="${appInstance.hostName}"/>
-                <envs envName="webapp_http_port" envValue=""/>
-                <envs envName="webapp_https_port" envValue=""/>
+                <envs envName="webapp_http_port" envValue="80"/>
+                <envs envName="webapp_https_port" envValue="443"/>
                 <envs envName="webapp_https_enabled" envValue="true"/>
 
-                <envs envName="entity_ds_db_conf" envValue="${appInstance.database.type.enumCode}"/>
+                <envs envName="entity_ds_db_conf" envValue="${appInstance.database.type.confName}"/>
                 <envs envName="entity_ds_host" envValue="${appInstance.database.hostAddress}"/>
                 <envs envName="entity_ds_port" envValue="${appInstance.database.hostPort}"/>
                 <envs envName="entity_ds_database" envValue="${appInstance.hostName.replace('.', '_')}"/>
@@ -189,33 +196,47 @@ along with this software (see the LICENSE.md file). If not, see
             </moqui.server.instance.InstanceImageType>
 
             <!-- these have no registryLocation, username, etc as they are intended to be pulled from Docker Hub -->
-            <moqui.server.instance.InstanceImage instanceImageId="MoquiFramework" imageTypeId="moqui" imageName="moqui/MoquiFramework:latest"/>
-            <moqui.server.instance.InstanceImage instanceImageId="MoquiEcosystem" imageTypeId="moqui" imageName="moqui/MoquiEcosystem:latest"/>
-            <moqui.server.instance.InstanceImage instanceImageId="MoquiHiveMind" imageTypeId="moqui" imageName="moqui/HiveMind:latest"/>
-            <moqui.server.instance.InstanceImage instanceImageId="MoquiPopCommerce" imageTypeId="moqui" imageName="moqui/PopCommerce:latest"/>
+            <moqui.server.instance.InstanceImage instanceImageId="DockerMoquiFramework" imageTypeId="moqui" hostTypeId="docker"
+                    imageName="moqui/MoquiFramework:latest"/>
+            <moqui.server.instance.InstanceImage instanceImageId="DockerMoquiEcosystem" imageTypeId="moqui" hostTypeId="docker"
+                    imageName="moqui/MoquiEcosystem:latest"/>
+            <moqui.server.instance.InstanceImage instanceImageId="DockerHiveMind" imageTypeId="moqui" hostTypeId="docker"
+                    imageName="moqui/HiveMind:latest"/>
+            <moqui.server.instance.InstanceImage instanceImageId="DockerPopCommerce" imageTypeId="moqui" hostTypeId="docker"
+                    imageName="moqui/PopCommerce:latest"/>
         </seed-data>
     </entity>
     <entity entity-name="InstanceImageTypeEnv" package="moqui.server.instance" use="configuration">
         <field name="imageTypeId" type="id" is-pk="true"/>
-        <field name="envName" type="text-medium"/>
+        <field name="envName" type="text-medium" is-pk="true"/>
         <field name="envValue" type="text-medium"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
     </entity>
 
     <entity entity-name="DatabaseHost" package="moqui.server.instance" use="configuration">
         <field name="databaseHostId" type="id" is-pk="true"/>
-        <field name="databaseTypeEnumId" type="id"/>
+        <field name="databaseTypeId" type="id"/>
         <field name="hostAddress" type="text-medium"/>
         <field name="hostPort" type="number-integer"/>
         <field name="adminUser" type="text-short"/>
         <field name="adminPassword" type="text-medium" encrypt="true"/>
-        <relationship type="one" title="DatabaseHostType" related="moqui.basic.Enumeration" short-alias="databaseType">
-            <key-map field-name="databaseTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.server.instance.DatabaseType" short-alias="type"/>
+    </entity>
+    <entity entity-name="DatabaseType" package="moqui.server.instance" use="configuration">
+        <field name="databaseTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="confName" type="text-short"/>
+        <field name="createService" type="text-medium"/>
+        <field name="checkService" type="text-medium"/>
 
         <seed-data>
-            <moqui.basic.EnumerationType description="Database Host Type" enumTypeId="DatabaseHostType"/>
-            <moqui.basic.Enumeration description="MySQL" enumId="DhtMySQL" enumCode="mysql" enumTypeId="DatabaseHostType"/>
-            <moqui.basic.Enumeration description="Postgres" enumId="DhtPostgres" enumCode="postgres" enumTypeId="DatabaseHostType"/>
+            <moqui.server.instance.DatabaseType databaseTypeId="mysql" description="MySQL" confName="mysql"
+                    createService="" checkService=""/>
+            <moqui.server.instance.DatabaseType databaseTypeId="postgres" description="Postgres" confName="postgres"
+                    createService="" checkService=""/>
+
+            <moqui.server.instance.DatabaseHost databaseHostId="LocalMySQL" databaseTypeId="mysql"
+                    hostAddress="127.0.0.1" hostPort="3306" adminUser="root" adminPassword="mysqlroot"/>
         </seed-data>
     </entity>
 
@@ -236,7 +257,8 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="AppInstanceEnv" package="moqui.server.instance" use="configuration">
         <field name="appInstanceId" type="id" is-pk="true"/>
-        <field name="envName" type="text-medium"/>
+        <field name="envName" type="text-medium" is-pk="true"/>
         <field name="envValue" type="text-medium"/>
+        <relationship type="one" related="moqui.server.instance.AppInstance"/>
     </entity>
 </entities>

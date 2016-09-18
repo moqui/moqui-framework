@@ -253,6 +253,7 @@
         <service-file location="classpath://service/org/moqui/impl/EmailServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/EntityServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/EntitySyncServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/InstanceServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/PrintServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ScreenServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ServerServices.xml"/>
