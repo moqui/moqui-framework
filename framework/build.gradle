@@ -84,7 +84,7 @@ dependencies {
     compile 'org.apache.commons:commons-email:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-lang3:3.4' // Apache 2.0; used by cron-utils, may use internally
     compile 'commons-beanutils:commons-beanutils:1.9.2' // Apache 2.0
-    compile 'commons-codec:commons-codec:1.10' // Apache 2.0
+    // compile 'commons-codec:commons-codec:1.10' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     // not currently needed/used: compile module('commons-configuration:commons-configuration:1.10') // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0

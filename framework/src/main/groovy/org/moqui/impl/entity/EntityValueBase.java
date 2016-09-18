@@ -856,7 +856,7 @@ public abstract class EntityValueBase implements EntityValue {
                 subPlainMap.put(fieldName, fieldValue);
                 continue;
             } else if (fieldValue instanceof byte[]) {
-                cdataMap.put(fieldName, new String(org.apache.commons.codec.binary.Base64.encodeBase64((byte[]) fieldValue)));
+                cdataMap.put(fieldName, Base64.getEncoder().encodeToString((byte[]) fieldValue));
                 continue;
             } else if (fieldValue instanceof SerialBlob) {
                 if (((SerialBlob) fieldValue).length() == 0) continue;
