@@ -100,12 +100,13 @@ class UserFacadeImpl implements UserFacade {
         // NOTE: do this even if there is another user logged in, will go on stack
         Map secureParameters = eci.webImpl.getSecureRequestParameters()
         String authzHeader = request.getHeader("Authorization")
-        if (authzHeader != null && authzHeader.length() > 6 && authzHeader.substring(0, 6).equals("Basic ")) {
+        if (authzHeader != null && authzHeader.length() > 6 && authzHeader.startsWith("Basic ")) {
             String basicAuthEncoded = authzHeader.substring(6).trim()
             String basicAuthAsString = new String(basicAuthEncoded.decodeBase64())
-            if (basicAuthAsString.indexOf(":") > 0) {
-                String username = basicAuthAsString.substring(0, basicAuthAsString.indexOf(":"))
-                String password = basicAuthAsString.substring(basicAuthAsString.indexOf(":") + 1)
+            int indexOfColon = basicAuthAsString.indexOf(":")
+            if (indexOfColon > 0) {
+                String username = basicAuthAsString.substring(0, indexOfColon)
+                String password = basicAuthAsString.substring(indexOfColon + 1)
                 this.loginUser(username, password)
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
@@ -123,6 +124,7 @@ class UserFacadeImpl implements UserFacade {
             String authPassword = secureParameters.authPassword
             this.loginUser(authUsername, authPassword)
         }
+        if (eci.messageFacade.hasError()) request.setAttribute("moqui.login.error", "true")
 
         this.visitId = session.getAttribute("moqui.visitId")
         if (!this.visitId && !eci.getSkipStats()) {
@@ -410,11 +412,11 @@ class UserFacadeImpl implements UserFacade {
 
     @Override
     boolean loginUser(String username, String password) {
-        if (!username) {
+        if (username == null || username.isEmpty()) {
             eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
-        if (!password) {
+        if (password == null || password.isEmpty()) {
             eci.message.addError(eci.l10n.localize("No password specified"))
             return false
         }
