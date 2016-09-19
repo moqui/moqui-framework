@@ -70,7 +70,6 @@ class EntityCache {
         }
     }
 
-
     static class EntityCacheInvalidate implements Externalizable {
         boolean isCreate
         EntityValueBase evb
@@ -292,7 +291,7 @@ class EntityCache {
                 int cachedViewEntityNamesSize = cachedViewEntityNames.size()
                 for (int i = 0; i < cachedViewEntityNamesSize; i++) {
                     String cachedViewEntityName = (String) cachedViewEntityNames.get(i)
-                    // logger.info("Found ${cachedViewEntityName} as a cached view-entity for member ${fullEntityName}")
+                    // logger.warn("Found ${cachedViewEntityName} as a cached view-entity for member ${fullEntityName}")
 
                     EntityDefinition viewEd = efi.getEntityDefinition(cachedViewEntityName)
 
@@ -320,11 +319,15 @@ class EntityCache {
                         Cache.Entry<EntityCondition, EntityListImpl> entry = (Cache.Entry<EntityCondition, EntityListImpl>) elcIterator.next()
                         // in javax.cache.Cache next() may return null for expired, etc entries
                         if (entry == null) continue;
-                        EntityCondition ec = (EntityCondition) entry.getKey()
-                        // logger.warn("======= entity ${fullEntityName} view-entity ${cachedViewEntityName} matches? ${ec.mapMatchesAny(viewMatchMap)} ec: ${ec}")
+                        EntityCondition econd = (EntityCondition) entry.getKey()
+                        // logger.warn("======= entity ${fullEntityName} view-entity ${cachedViewEntityName} matches any? ${econd.mapMatchesAny(viewMatchMap)} keys not contained? ${econd.mapKeysNotContained(viewMatchMap)} econd: ${econd}")
                         // FUTURE: any way to efficiently clear out the RA cache for these? for now just leave and they are handled eventually
                         // don't require a full match, if matches any part of condition clear it
-                        if (ec.mapMatchesAny(viewMatchMap)) elcIterator.remove()
+                        // NOTE: the mapKeysNotContained() call will handle cases where there is no negative match, but is overly
+                        //     inclusive and will clear cache entries that may not need to be cleared; a better approach might be
+                        //     possible; especially needed for cases where the list is queried by a field on the primary member-entity
+                        //     but another member-entity is updated
+                        if (econd.mapMatchesAny(viewMatchMap) || econd.mapKeysNotContained(viewMatchMap)) elcIterator.remove()
                     }
                 }
             }

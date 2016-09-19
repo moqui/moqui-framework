@@ -36,7 +36,7 @@ class FieldToFieldCondition implements EntityConditionImplBase {
 
     @Override
     void makeSqlWhere(EntityQueryBuilder eqb) {
-        StringBuilder sql = eqb.getSqlTopLevel()
+        StringBuilder sql = eqb.sqlTopLevel
         int typeValue = -1
         if (ignoreCase) {
             typeValue = field.getFieldInfo(eqb.getMainEd())?.typeValue ?: 1
@@ -61,9 +61,9 @@ class FieldToFieldCondition implements EntityConditionImplBase {
         return EntityConditionFactoryImpl.compareByOperator(map.get(field.getFieldName()), operator, map.get(toField.getFieldName()))
     }
     @Override
-    boolean mapMatchesAny(Map<String, Object> map) {
-        return mapMatches(map)
-    }
+    boolean mapMatchesAny(Map<String, Object> map) { return mapMatches(map) }
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) { return !map.containsKey(field.fieldName) && !map.containsKey(toField.fieldName) }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }
