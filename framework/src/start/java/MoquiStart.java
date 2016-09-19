@@ -13,6 +13,7 @@
  */
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -167,7 +168,28 @@ public class MoquiStart {
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
 
-            Object server = serverClass.getConstructor(int.class).newInstance(port);
+            Class<?> httpConfigurationClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration");
+            Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
+            Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
+
+            Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
+            Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
+            Class<?> connectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ConnectionFactory");
+            Class<?> connectionFactoryArrayClass = Array.newInstance(connectionFactoryClass, 1).getClass();
+            Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
+
+            Object server = serverClass.getConstructor().newInstance();
+            Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
+            Object forwardedRequestCustomizer = forwardedRequestCustomizerClass.getConstructor().newInstance();
+            httpConfigurationClass.getMethod("addCustomizer", customizerClass).invoke(httpConfig, forwardedRequestCustomizer);
+
+            Object httpConnectionFactory = httpConnectionFactoryClass.getConstructor(httpConfigurationClass).newInstance(httpConfig);
+            Object connectionFactoryArray = Array.newInstance(connectionFactoryClass, 1);
+            Array.set(connectionFactoryArray, 0, httpConnectionFactory);
+            Object httpConnector = serverConnectorClass.getConstructor(serverClass, connectionFactoryArrayClass).newInstance(server, connectionFactoryArray);
+            serverConnectorClass.getMethod("setPort", int.class).invoke(httpConnector, port);
+
+            serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
             // WebApp
             Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
@@ -213,7 +235,15 @@ public class MoquiStart {
 
             /* The classpath dependent code we are running:
 
-            Server server = new Server(8080);
+            Server server = new Server();
+            HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
+            ForwardedRequestCustomizer forwardedRequestCustomizer = new ForwardedRequestCustomizer();
+            httpConfig.addCustomizer(forwardedRequestCustomizer);
+
+            HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory(httpConfig);
+            ServerConnector httpConnector = new ServerConnector(server, httpConnectionFactory);
+            httpConnector.setPort(port);
+            server.addConnector(httpConnector);
 
             // WebApp
             WebAppContext webapp = new WebAppContext();
@@ -252,10 +282,6 @@ public class MoquiStart {
             // see https://www.eclipse.org/jetty/documentation/9.3.x/http2.html
             // org.mortbay.jetty.alpn:alpn-boot:8.1.9.v20160720
             // http2-common, http2-hpack, http2-server
-
-            // try the Jetty HTTP client instead of Apache?
-            // see https://www.eclipse.org/jetty/documentation/9.3.x/http-client.html
-            // http2-client, http2-http-client-transport
 
             Server server = new Server();
             HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
