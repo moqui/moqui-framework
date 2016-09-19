@@ -160,7 +160,9 @@ class EntityFacadeImpl implements EntityFacade {
         Set<String> allConfiguredGroups = new TreeSet<>()
         for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             String groupName = datasourceNode.attribute("group-name")
-            if (datasourceNode.attribute("startup-add-missing") == "true") {
+            MNode databaseNode = getDatabaseNode(groupName)
+            String startupAddMissing = datasourceNode.attribute("startup-add-missing")
+            if ((!startupAddMissing && "true".equals(databaseNode.attribute("default-startup-add-missing"))) || "true".equals(startupAddMissing)) {
                 startupAddMissingGroups.add(groupName)
             }
             allConfiguredGroups.add(groupName)
@@ -183,6 +185,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     protected void initAllDatasources() {
         for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
+            datasourceNode.setSystemExpandAttributes(true)
             String groupName = datasourceNode.attribute("group-name")
             String objectFactoryClass = datasourceNode.attribute("object-factory") ?: "org.moqui.impl.entity.EntityDatasourceFactoryImpl"
             EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance()
@@ -211,17 +214,21 @@ class EntityFacadeImpl implements EntityFacade {
             this.efi = efi
             this.datasourceNode = datasourceNode
 
-            String groupName = (String) datasourceNode.attribute("group-name")
+            String groupName = datasourceNode.attribute("group-name")
             uniqueName =  groupName + "_DS"
 
+            MNode jndiJdbcNode = datasourceNode.first("jndi-jdbc")
             inlineJdbc = datasourceNode.first("inline-jdbc")
+            if (jndiJdbcNode == null && inlineJdbc == null) {
+                MNode dbNode = efi.getDatabaseNode(groupName)
+                inlineJdbc = dbNode.first("inline-jdbc")
+            }
             MNode xaProperties = inlineJdbc.first("xa-properties")
             database = efi.getDatabaseNode(groupName)
 
-            MNode jndiJdbcNode = datasourceNode.first("jndi-jdbc")
             if (jndiJdbcNode != null) {
                 serverJndi = efi.getEntityFacadeNode().first("server-jndi")
-                serverJndi.setSystemExpandAttributes(true)
+                if (serverJndi != null) serverJndi.setSystemExpandAttributes(true)
                 jndiName = jndiJdbcNode.attribute("jndi-name")
             } else if (xaProperties) {
                 xaDsClass = inlineJdbc.attribute("xa-ds-class") ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class")
@@ -1077,15 +1084,12 @@ class EntityFacadeImpl implements EntityFacade {
         return findDatabaseNode(groupName)
     }
     protected MNode findDatabaseNode(String groupName) {
-        String databaseConfName = getDatabaseConfName(groupName)
+        MNode datasourceNode = getDatasourceNode(groupName)
+        String databaseConfName = datasourceNode.attribute("database-conf-name")
         MNode node = ecfi.confXmlRoot.first("database-list")
                 .first({ MNode it -> it.name == 'database' && it.attribute("name") == databaseConfName })
         databaseNodeByGroupName.put(groupName, node)
         return node
-    }
-    String getDatabaseConfName(String groupName) {
-        MNode datasourceNode = getDatasourceNode(groupName)
-        return datasourceNode.attribute("database-conf-name")
     }
 
     MNode getDatasourceNode(String groupName) {
@@ -1097,6 +1101,7 @@ class EntityFacadeImpl implements EntityFacade {
         MNode dsNode = getEntityFacadeNode().first({ MNode it -> it.name == 'datasource' && it.attribute("group-name") == groupName })
         if (dsNode == null) dsNode = getEntityFacadeNode()
                 .first({ MNode it -> it.name == 'datasource' && it.attribute("group-name") == defaultGroupName })
+        dsNode.setSystemExpandAttributes(true)
         datasourceNodeByGroupName.put(groupName, dsNode)
         return dsNode
     }
@@ -1383,10 +1388,7 @@ class EntityFacadeImpl implements EntityFacade {
             // is the seqName an entityName?
             if (isEntityDefined(seqName)) {
                 EntityDefinition ed = getEntityDefinition(seqName)
-                String groupName = ed.getEntityGroupName()
-                if (ed.entityInfo.sequencePrimaryUseUuid ||
-                        getDatasourceNode(groupName)?.attribute('sequence-primary-use-uuid') == "true")
-                    return UUID.randomUUID().toString()
+                if (ed.entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
             }
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name

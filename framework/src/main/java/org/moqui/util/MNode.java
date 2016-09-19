@@ -173,7 +173,11 @@ public class MNode {
     public Map<String, String> getAttributes() { return attributeMap; }
     public String attribute(String attrName) {
         String attrValue = attributeMap.get(attrName);
-        if (systemExpandAttributes) attrValue = SystemBinding.expand(attrValue);
+        if (systemExpandAttributes && attrValue != null && attrValue.contains("${")) {
+            attrValue = SystemBinding.expand(attrValue);
+            // system properties and environment variables don't generally change once initial init is done, so save expanded value
+            attributeMap.put(attrName, attrValue);
+        }
         return attrValue;
     }
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }

@@ -14,9 +14,9 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.apache.commons.codec.binary.Base64
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenUrlInfo
@@ -528,11 +528,7 @@ class UserFacadeImpl implements UserFacade {
         if (!userId) throw new IllegalStateException("No active user, cannot get login key")
 
         // generate login key
-        SecureRandom sr = new SecureRandom()
-        byte[] randomBytes = new byte[30]
-        sr.nextBytes(randomBytes)
-        // TODO: when we move to Java 8 use java.util.Base64
-        String loginKey = Base64.encodeBase64URLSafeString(randomBytes)
+        String loginKey = StupidUtilities.getRandomString(40)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())

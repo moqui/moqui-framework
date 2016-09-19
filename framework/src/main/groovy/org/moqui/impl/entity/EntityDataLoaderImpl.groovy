@@ -15,12 +15,10 @@ package org.moqui.impl.entity
 
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
-import org.apache.commons.codec.binary.Base64
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVRecord
 import org.moqui.BaseException
-import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityDataLoader
@@ -612,9 +610,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     if (currentEntityDef != null) {
                         if (currentEntityDef.isField(currentFieldName)) {
                             FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
-                            String type = fieldInfo.type
-                            if (type == "binary-very-long") {
-                                byte[] binData = Base64.decodeBase64(currentFieldValue.toString())
+                            if ("binary-very-long".equals(fieldInfo.type)) {
+                                byte[] binData = Base64.getDecoder().decode(currentFieldValue.toString())
                                 rootValueMap.put(currentFieldName, new SerialBlob(binData))
                             } else {
                                 rootValueMap.put(currentFieldName, currentFieldValue.toString())

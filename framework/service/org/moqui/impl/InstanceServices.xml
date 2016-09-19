@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
+
+    <!-- ========== Instance Interfaces ========== -->
+
+    <service verb="start" noun="Instance" type="interface">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <!-- TODO some sort of status out-parameters -->
+    </service>
+    <service verb="stop" noun="Instance" type="interface">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <!-- TODO some sort of status out-parameters -->
+    </service>
+    <service verb="remove" noun="Instance" type="interface">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <!-- TODO some sort of status out-parameters -->
+    </service>
+    <service verb="check" noun="Instance" type="interface">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <!-- TODO some sort of status and health check out-parameters -->
+    </service>
+
+    <!-- ========== Database Interfaces ========== -->
+
+    <service verb="create" noun="Database" type="interface">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <!-- TODO some sort of status out-parameters -->
+    </service>
+    <service verb="check" noun="Database" type="interface">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <!-- TODO some sort of status out-parameters -->
+    </service>
+
+    <!-- ========== AppInstance Management Services ========== -->
+
+    <service verb="create" noun="AppInstance">
+        <in-parameters>
+            <parameter name="instanceImageId" required="true"/>
+            <parameter name="instanceHostId"/>
+            <parameter name="databaseHostId"/>
+            <parameter name="hostName" required="true"/>
+            <parameter name="instanceName" default="hostName.replace('.', '_')"/>
+        </in-parameters>
+        <out-parameters><parameter name="appInstanceId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.InstanceImage" value-field="instanceImage"/>
+            <if condition="instanceImage == null"><return error="true" message="InstanceImage not found with ID ${instanceImageId}"/></if>
+            <set field="imageType" from="instanceImage.imageType"/>
+            <if condition="imageType == null"><return error="true" message="InstanceImageType not found for InstanceImage with ID ${instanceImageId}"/></if>
+
+            <service-call name="create#moqui.server.instance.AppInstance" in-map="context" out-map="context"/>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+
+            <set field="imageTypeEnvList" from="imageType.envs"/>
+            <iterate list="imageTypeEnvList" entry="imageTypeEnv">
+                <set field="envValue" from="ec.resource.expand(imageTypeEnv.envValue, '')"/>
+                <service-call name="create#moqui.server.instance.AppInstanceEnv"
+                        in-map="[appInstanceId:appInstanceId, envName:imageTypeEnv.envName, envValue:envValue]"/>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="start" noun="AppInstance">
+        <implements service="org.moqui.impl.InstanceServices.start#Instance"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="instanceHost" from="appInstance.instanceHost"/>
+            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${instanceHost.startService}" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="stop" noun="AppInstance">
+        <implements service="org.moqui.impl.InstanceServices.stop#Instance"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="instanceHost" from="appInstance.instanceHost"/>
+            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${instanceHost.stopService}" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="remove" noun="AppInstance">
+        <implements service="org.moqui.impl.InstanceServices.remove#Instance"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="instanceHost" from="appInstance.instanceHost"/>
+            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${instanceHost.removeService}" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="check" noun="AppInstance">
+        <implements service="org.moqui.impl.InstanceServices.check#Instance"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="instanceHost" from="appInstance.instanceHost"/>
+            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${instanceHost.checkService}" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="AppDatabase">
+        <implements service="org.moqui.impl.InstanceServices.create#Database"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="database" from="appInstance.database"/>
+            <if condition="database == null"><return error="true" message="No DatabaseHost found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${database.createService}" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="check" noun="AppDatabase">
+        <implements service="org.moqui.impl.InstanceServices.check#Database"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="database" from="appInstance.database"/>
+            <if condition="database == null"><return error="true" message="No DatabaseHost found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${database.checkService}" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <!-- ========== Docker Management Services ========== -->
+
+    <!-- ========== MySQL Management Services ========== -->
+
+</services>
