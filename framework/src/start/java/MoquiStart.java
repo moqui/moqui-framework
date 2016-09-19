@@ -13,6 +13,7 @@
  */
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -174,7 +175,29 @@ public class MoquiStart {
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
 
-            Object server = serverClass.getConstructor(int.class).newInstance(port);
+            Object server = serverClass.getConstructor().newInstance();
+
+            Class<?> httpConfigurationClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration");
+            Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
+            Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
+            Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
+            Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
+            Class<?> connectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ConnectionFactory");
+//            Class<?> connectionFactoryArrayClass = Class.forName("[Lorg.eclipse.jetty.server.ConnectionFactory;", false, moquiStartLoader);
+            Class<?> connectionFactoryArrayClass = Array.newInstance(connectionFactoryClass, 1).getClass();
+            Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
+
+            Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
+            Object forwardedRequestCustomizer = forwardedRequestCustomizerClass.getConstructor().newInstance();
+            httpConfigurationClass.getMethod("addCustomizer", customizerClass).invoke(httpConfig, forwardedRequestCustomizer);
+
+            Object httpConnectionFactory = httpConnectionFactoryClass.getConstructor(httpConfigurationClass).newInstance(httpConfig);
+            Object connectionFactoryArray = Array.newInstance(connectionFactoryClass, 1);
+            Array.set(connectionFactoryArray, 0, httpConnectionFactory);
+            Object httpConnector = serverConnectorClass.getConstructor(serverClass, connectionFactoryArrayClass).newInstance(server, connectionFactoryArray);
+            serverConnectorClass.getMethod("setPort", int.class).invoke(httpConnector, port);
+
+            serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
             // WebApp
             Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
