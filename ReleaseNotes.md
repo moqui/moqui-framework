@@ -432,6 +432,18 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
+- Moqui.reload(), destroy ECF and init new one; pass optional ServletContext to remove attr before and replace after
+- form-list data prep, more self-contained
+  - form-list.entity-find element support instead of form-list.@list attribute
+  - form-list.service-call
+  - also more general form-list.actions element?
+- form-single.entity-find-one element support, maybe form-single.actions too
+- form-list reporting like features
+  - field attribute to show total (for current page only...)
+  - field attribute for grouping
+    - aggregation functions (like sum) and option to show in nested table (full width cell with columns for nested fields)
+    - if any set with function or nest all others are 'group by' fields
+
 - Multi-Tenant Alternative: Multi-Instance Management
   - Moqui instances could be managed manually, this would be for some automation from a Moqui 'master' instance that runs something
     like a PopCommerce store for automated SaaS
