@@ -336,8 +336,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
             if (!System.getProperty(propName) && !System.getenv(propName)) {
-                String propValue = SystemBinding.expand(defPropNode.attribute("value"))
-                System.setProperty(propName, propValue)
+                String valueAttr = defPropNode.attribute("value")
+                if (valueAttr != null && !valueAttr.isEmpty()) System.setProperty(propName, SystemBinding.expand(valueAttr))
             }
         }
 

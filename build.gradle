@@ -154,8 +154,8 @@ task load(type: JavaExec) {
     workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     main = '-jar'
-    def argList = [warName, '-load']
-    if (project.properties.containsKey('types')) argList.add("-types=${types}")
+    def argList = [warName, 'load']
+    if (project.properties.containsKey('types')) argList.add("types=${types}")
     args = argList
 }
 task loadProduction(type: JavaExec) {
@@ -163,8 +163,8 @@ task loadProduction(type: JavaExec) {
     workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     main = '-jar'
-    def argList = [warName, '-load']
-    if (project.properties.containsKey('types')) argList.add("-types=${types}")
+    def argList = [warName, 'load']
+    if (project.properties.containsKey('types')) argList.add("types=${types}")
     args = argList
 }
 
@@ -172,8 +172,8 @@ task loadSave {
     description "Clean all, build and load, then save database (H2, Derby), OrientDB, and ElasticSearch files; to be used before reloadSave"
     dependsOn cleanAll, load
     doLast {
-        if (file(moquiRuntime+'/db/derby/MoquiDEFAULT').exists())
-            ant.zip(destfile: 'SaveDEFAULT.zip') { fileset(dir: moquiRuntime+'/db/derby/MoquiDEFAULT') { include(name: '**/*') } }
+        if (file(moquiRuntime+'/db/derby/moqui').exists())
+            ant.zip(destfile: 'SaveDerby.zip') { fileset(dir: moquiRuntime+'/db/derby/moqui') { include(name: '**/*') } }
         if (file(moquiRuntime+'/db/h2').exists())
             ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
         if (file(moquiRuntime+'/db/orientdb/databases').exists())
@@ -188,7 +188,7 @@ task reloadSave {
     dependsOn cleanTempDir, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog
     dependsOn allBuildTasks
     doLast {
-        if (file('SaveDEFAULT.zip').exists()) copy { from zipTree('SaveDEFAULT.zip'); into file(moquiRuntime+'/db/derby/MoquiDEFAULT') }
+        if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
         if (file('SaveH2.zip').exists()) copy { from zipTree('SaveH2.zip'); into file(moquiRuntime+'/db/h2') }
         if (file('SaveOrientDb.zip').exists()) copy { from zipTree('SaveOrientDb.zip'); into file(moquiRuntime+'/db/orientdb/databases') }
         if (file('SaveElasticSearch.zip').exists()) copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
@@ -226,8 +226,8 @@ task addRuntime {
         copy { from fileTree(dir: moquiRuntime+'/classes', include: '**/*') into 'wartemp/WEB-INF/classes' }
         // copy the jar files from components
         copy { from fileTree(dir: moquiRuntime+'/base-component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
-        copy { from fileTree(dir: moquiRuntime+'/component-lib', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
         copy { from fileTree(dir: moquiRuntime+'/component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
+        copy { from fileTree(dir: moquiRuntime+'/ecomponent', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
         // add MoquiInit.properties fresh copy, just in case it was changed
         copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
         // special case: copy elasticsearch plugin/module jars

@@ -202,7 +202,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Show a button to export as CSV (renderMode=csv), if the pagination header is displayed</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="show-text-button" type="boolean" default="false">
-                <xs:annotation><xs:documentation>Show a button to export as plain text (renderMode=text), if the pagination header is displayed</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>Show a button to export as plain text (renderMode=text), if the pagination header
+                    is displayed. Because fixed-width text output is limited by nature and the default of evenly sizing all columns
+                    is not very useful in most cases, this should only be set to true when the field.@print-width and @align
+                    attributes are used for the form-list.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="show-pdf-button" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Show a button to render the screen as XSL-FO (renderMode=xsl-fo) and convert to
+                    PDF, if the pagination header is displayed. Because fixed-width text output is limited by nature and the default
+                    of evenly sizing all columns is not very useful in most cases, this should only be set to true when the
+                    field.@print-width and @align attributes are used for the form-list.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="show-all-button" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Show a button to display all results (pageNoLimit=true), if the pagination header is displayed</xs:documentation></xs:annotation>

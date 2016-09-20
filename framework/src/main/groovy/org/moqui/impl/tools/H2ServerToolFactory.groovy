@@ -47,8 +47,16 @@ class H2ServerToolFactory implements ToolFactory<Server> {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
 
         for (MNode datasourceNode in ecfi.getConfXmlRoot().first("entity-facade").children("datasource")) {
-            if (datasourceNode.attribute("database-conf-name") == "h2" && datasourceNode.attribute("start-server-args")) {
-                String argsString = datasourceNode.attribute("start-server-args")
+            String dbConfName = datasourceNode.attribute("database-conf-name")
+            if (!"h2".equals(dbConfName)) continue
+
+            String argsString = datasourceNode.attribute("start-server-args")
+            if (argsString == null || argsString.isEmpty()) {
+                MNode dbNode = ecfi.confXmlRoot.first("database-list")
+                        .first({ MNode it -> "database".equals(it.name) && "h2".equals(it.attribute("name")) })
+                argsString = dbNode.attribute("default-start-server-args")
+            }
+            if (argsString) {
                 String[] args = argsString.split(" ")
                 for (int i = 0; i < args.length; i++) if (args[i].contains('${')) args[i] = SystemBinding.expand(args[i])
                 try {

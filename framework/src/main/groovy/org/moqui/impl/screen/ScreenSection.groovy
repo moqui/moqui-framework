@@ -94,8 +94,7 @@ class ScreenSection {
                 cs.push()
                 try {
                     cs.put(sectionEntry, (entry instanceof Map.Entry ? entry.getValue() : entry))
-                    if (sectionKey && entry instanceof Map.Entry)
-                        cs.put(sectionKey, entry.getKey())
+                    if (sectionKey && entry instanceof Map.Entry) cs.put(sectionKey, entry.getKey())
 
                     cs.put("sectionEntryIndex", index)
                     cs.put(sectionEntry + "_index", index)

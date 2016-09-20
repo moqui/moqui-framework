@@ -18,6 +18,7 @@ import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
 
 import java.nio.charset.Charset
+import java.security.SecureRandom
 import java.sql.Time
 import java.sql.Timestamp
 import java.time.temporal.ChronoUnit
@@ -575,15 +576,12 @@ class StupidUtilities {
     }
 
     static String getRandomString(int length) {
-        StringBuilder sb = new StringBuilder()
-        while (sb.length() <= length) {
-            int r = (int) Math.round(Math.random() * 93)
-            char c = (char) (r + 33).intValue()
-            // avoid certain characters
-            if ("\"'&<>?0\\".indexOf((int) c.charValue()) >= 0) continue
-            sb.append(c)
-        }
-        return sb.toString()
+        SecureRandom sr = new SecureRandom()
+        byte[] randomBytes = new byte[length]
+        sr.nextBytes(randomBytes)
+        String randomStr = Base64.getUrlEncoder().encodeToString(randomBytes)
+        if (randomStr.length() > length) randomStr = randomStr.substring(0, length)
+        return randomStr
     }
 
     public static class Incrementer {

@@ -609,14 +609,19 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // There's a ThreadLocal memory leak in XANLANJ, reported in 2005 but still not fixed in 2016
         // The memory it prevent GC depend on the fo file size and the thread pool size. So use a separate thread to workaround.
         // https://issues.apache.org/jira/browse/XALANJ-2195
-        Thread t = new Thread("xsfFO Transform") {
-            @Override
-            public void run() {
-                transformer.transform(xslFoSrc, new SAXResult(contentHandler))
+        BaseException transformException = null
+        Thread transThread = new Thread("XSL-FO Transform") {
+            @Override public void run() {
+                try {
+                    transformer.transform(xslFoSrc, new SAXResult(contentHandler))
+                } catch (Throwable t) {
+                    transformException = new BaseException("Error transforming XSL-FO to ${contentType}", t)
+                }
             }
         }
-        t.start()
-        t.join()
+        transThread.start()
+        transThread.join()
+        if (transformException != null) throw transformException
     }
 
     @CompileStatic
