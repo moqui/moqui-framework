@@ -97,8 +97,9 @@ class ScreenDefinition {
         // transition-include
         for (MNode transitionInclNode in screenNode.children("transition-include")) {
             ScreenDefinition includeScreen = ecfi.screenFacade.getScreenDefinition(transitionInclNode.attribute("location"))
+            if (includeScreen != null) dependsOnScreenLocations.add(includeScreen.location)
             MNode transitionNode = includeScreen?.getTransitionItem(transitionInclNode.attribute("name"), transitionInclNode.attribute("method"))?.transitionNode
-            if (transitionNode == null) throw new IllegalArgumentException("For transition-include could not find transition [${transitionInclNode.attribute("name")}] with method [${transitionInclNode.attribute("method")}] in screen at [${transitionInclNode.attribute("location")}]")
+            if (transitionNode == null) throw new IllegalArgumentException("For transition-include could not find transition ${transitionInclNode.attribute("name")} with method ${transitionInclNode.attribute("method")} in screen at ${transitionInclNode.attribute("location")}")
             TransitionItem ti = new TransitionItem(transitionNode, this)
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
