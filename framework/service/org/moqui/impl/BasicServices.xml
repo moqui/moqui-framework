@@ -181,7 +181,11 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </if>
             <if condition="!uomConversionList">
-                <return error="true" message="Could not convert from [${uomId}] to [${toUomId}], no UOM Conversion found."/></if>
+                <entity-find-one entity-name="moqui.basic.Uom" value-field="uom"/>
+                <entity-find-one entity-name="moqui.basic.Uom" value-field="toUom">
+                    <field-map field-name="uomId" from="toUomId"/></entity-find-one>
+                <return error="true" message="Could not convert from ${uom?.description ?: uomId} to ${toUom?.description ?: toUomId}, no UOM Conversion found."/>
+            </if>
         </actions>
     </service>
 
