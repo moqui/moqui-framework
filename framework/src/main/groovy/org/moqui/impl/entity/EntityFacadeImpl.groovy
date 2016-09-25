@@ -14,7 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-
+import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseException
 import org.moqui.context.ResourceReference
 import org.moqui.entity.*
@@ -239,7 +239,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (xaProps.containsKey(key)) continue
                     // various H2, Derby, etc properties have a ${moqui.runtime} which is a System property, others may have it too
                     String propValue = xaProperties.attribute(key)
-                    xaProps.setProperty(key, propValue)
+                    if (propValue) xaProps.setProperty(key, propValue)
                 }
             } else {
                 inlineJdbc.setSystemExpandAttributes(true)
@@ -734,7 +734,7 @@ class EntityFacadeImpl implements EntityFacade {
         for (String entityName in entityNameSet) {
             EntityDefinition ed
             // for auto reverse relationships just ignore EntityException on getEntityDefinition
-            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
+            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
             // may happen if all entity names includes a DB view entity or other that doesn't really exist
             if (ed == null) continue
             String edEntityName = ed.entityInfo.internalEntityName
@@ -814,7 +814,7 @@ class EntityFacadeImpl implements EntityFacade {
         //     called for new ones, not from cache
         for (String entityName in entityNameSet) {
             EntityDefinition ed
-            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { continue }
+            try { ed = getEntityDefinition(entityName) } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
             if (ed == null) continue
             ed.setHasReverseRelationships()
         }
@@ -822,6 +822,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (logger.infoEnabled && relationshipsCreated > 0) logger.info("Created ${relationshipsCreated} automatic reverse relationships")
     }
 
+    // used in tools screen
     int getEecaRuleCount() {
         int count = 0
         for (List ruleList in eecaRulesByEntityName.values()) count += ruleList.size()
@@ -894,6 +895,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
+    // used in tools screen
     void checkAllEntityTables(String groupName) {
         // TODO: load framework entities first, then component/mantle/etc entities for better FKs on first pass
         EntityDatasourceFactory edf = getDatasourceFactory(groupName)
@@ -926,12 +928,13 @@ class EntityFacadeImpl implements EntityFacade {
         Set<String> masterNames = new TreeSet<>()
         for (String name in allNames) {
             EntityDefinition ed
-            try { ed = getEntityDefinition(name) } catch (EntityException e) { continue }
+            try { ed = getEntityDefinition(name) } catch (EntityException e) { if (isTraceEnabled) logger.trace("Entity not found", e); continue; }
             if (ed != null && !ed.isViewEntity && ed.masterDefinitionMap) masterNames.add(name)
         }
         return masterNames
     }
 
+    // used in tools screens
     List<Map> getAllEntityInfo(int levels, boolean excludeViewEntities) {
         Map<String, Map> entityInfoMap = [:]
         for (String entityName in getAllEntityNames()) {
@@ -981,6 +984,7 @@ class EntityFacadeImpl implements EntityFacade {
         return loadEntityDefinition(entityName)
     }
 
+    // used in tools screens
     void clearEntityDefinitionFromCache(String entityName) {
         EntityDefinition ed = (EntityDefinition) this.entityDefinitionCache.get(entityName)
         if (ed != null) {
@@ -1017,6 +1021,7 @@ class EntityFacadeImpl implements EntityFacade {
         return eil
     }
 
+    // used in tools screen (EntityDbView)
     ArrayList<Map<String, Object>> getAllEntityRelatedFields(String en, String orderByField, String dbViewEntityName) {
         // make sure reverse-one many relationships exist
         createAllAutoReverseManyRelationships()
@@ -1091,6 +1096,10 @@ class EntityFacadeImpl implements EntityFacade {
         databaseNodeByGroupName.put(groupName, node)
         return node
     }
+    protected MNode getDatabaseNodeByConf(String confName) {
+        return ecfi.confXmlRoot.first("database-list")
+                .first({ MNode it -> it.name == 'database' && it.attribute("name") == confName })
+    }
 
     MNode getDatasourceNode(String groupName) {
         MNode node = datasourceNodeByGroupName.get(groupName)
@@ -1107,6 +1116,48 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     EntityDbMeta getEntityDbMeta() { return dbMeta != null ? dbMeta : (dbMeta = new EntityDbMeta(this)) }
+
+    /** Get a JDBC Connection based on xa-properties configuration. The Conf Map should contain the default entity_ds properties
+     * including entity_ds_db_conf, entity_ds_host, entity_ds_port, entity_ds_database, entity_ds_user, entity_ds_password */
+    Connection getConfConnection(Map<String, String> confMap) {
+        String confName = confMap.entity_ds_db_conf
+        MNode databaseNode = getDatabaseNodeByConf(confName)
+        MNode xaPropsNode = databaseNode.first("inline-jdbc")?.first("xa-properties")
+        if (xaPropsNode == null) throw new IllegalArgumentException("Could not find database.inline-jdbc.xa-properties element for conf name ${confName}")
+
+        String xaDsClassName = databaseNode.attribute("default-xa-ds-class")
+        if (!xaDsClassName) throw new IllegalArgumentException("Could database conf ${confName} has no default-xa-ds-class attribute")
+        XADataSource xaDs = (XADataSource) ecfi.classLoader.loadClass(xaDsClassName).newInstance()
+        for (Map.Entry<String, String> attrEntry in xaPropsNode.attributes.entrySet()) {
+            String propValue = ecfi.resourceFacade.expand(attrEntry.value, "", confMap)
+            try {
+                xaDs.putAt(attrEntry.key, propValue)
+            } catch (GroovyCastException e) {
+                if (isTraceEnabled) logger.trace("Cast failed, trying int", e)
+                xaDs.putAt(attrEntry.key, propValue as int)
+            }
+        }
+
+        return xaDs.getXAConnection(confMap.entity_ds_user, confMap.entity_ds_password).getConnection()
+    }
+    // used in services
+    int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
+        // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
+        int records = 0
+        ecfi.transactionFacade.runRequireNew(30, "Error in DB meta data change", false, true, {
+            Connection con = null
+            Statement stmt = null
+            try {
+                con = getConfConnection(confMap)
+                stmt = con.createStatement()
+                records = stmt.executeUpdate(sql.toString())
+            } finally {
+                if (stmt != null) stmt.close()
+                if (con != null) con.close()
+            }
+        })
+        return records
+    }
 
     /* ========================= */
     /* Interface Implementations */

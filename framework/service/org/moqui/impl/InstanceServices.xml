@@ -37,11 +37,19 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="create" noun="Database" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
-        <!-- TODO some sort of status out-parameters -->
+        <out-parameters>
+            <parameter name="databaseCreated" type="Boolean"/>
+            <parameter name="userCreated" type="Boolean"/>
+        </out-parameters>
     </service>
     <service verb="check" noun="Database" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
-        <!-- TODO some sort of status out-parameters -->
+        <out-parameters>
+            <parameter name="connectSuccess" type="Boolean"/>
+            <parameter name="databaseExists" type="Boolean"/>
+            <parameter name="userExists" type="Boolean"/>
+            <parameter name="testQuerySuccess" type="Boolean"/>
+        </out-parameters>
     </service>
 
     <!-- ========== AppInstance Management Services ========== -->
@@ -114,23 +122,61 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="org.moqui.impl.InstanceServices.create#Database"/>
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
-            <set field="database" from="appInstance.database"/>
-            <if condition="database == null"><return error="true" message="No DatabaseHost found for AppInstance with ID ${appInstanceId}"/></if>
-            <service-call name="${database.createService}" in-map="context" out-map="context"/>
+            <set field="databaseType" from="appInstance.database?.type"/>
+            <if condition="databaseType == null"><return error="true" message="No DatabaseType found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${databaseType.createService}" in-map="context" out-map="context"/>
         </actions>
     </service>
     <service verb="check" noun="AppDatabase">
         <implements service="org.moqui.impl.InstanceServices.check#Database"/>
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
-            <set field="database" from="appInstance.database"/>
-            <if condition="database == null"><return error="true" message="No DatabaseHost found for AppInstance with ID ${appInstanceId}"/></if>
-            <service-call name="${database.checkService}" in-map="context" out-map="context"/>
+            <set field="databaseType" from="appInstance.database?.type"/>
+            <if condition="databaseType == null"><return error="true" message="No DatabaseType found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${databaseType.checkService}" in-map="context" out-map="context"/>
         </actions>
     </service>
 
     <!-- ========== Docker Management Services ========== -->
 
-    <!-- ========== MySQL Management Services ========== -->
+    <!-- ========== Database Management Services ========== -->
+
+    <service verb="check" noun="DatabaseMySQL">
+        <implements service="org.moqui.impl.InstanceServices.check#Database"/>
+        <actions>
+
+        </actions>
+    </service>
+    <service verb="create" noun="DatabaseMySQL">
+        <implements service="org.moqui.impl.InstanceServices.create#Database"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="databaseHost" from="appInstance.database"/>
+            <set field="envList" from="appInstance.envs"/>
+            <set field="envMap" from="[:]"/>
+            <iterate list="envList" entry="envItem"><script>envMap.put(envItem.envName, envItem.envValue)</script></iterate>
+
+            <set field="adminMap" from="new HashMap(envMap)"/>
+            <!-- handle adminUser, adminPassword -->
+            <set field="adminMap.entity_ds_user" from="databaseHost.adminUser"/>
+            <set field="adminMap.entity_ds_password" from="databaseHost.adminPassword"/>
+            <!-- connect with the mysql database which is always there in MySQL -->
+            <set field="adminMap.entity_ds_database" value="mysql"/>
+
+            <script>
+                // TODO: see if database exists (SELECT * FROM information_schema.schemata WHERE schema_name='moqui')
+                // TODO: see if user exists (SELECT * FROM mysql.user WHERE user='root')
+
+                int dbRows = ec.entity.runSqlUpdateConf("CREATE DATABASE IF NOT EXISTS `${envMap.entity_ds_database}` DEFAULT CHARACTER SET utf8", adminMap)
+                databaseCreated = (dbRows > 0)
+
+                // NOTE: calling CREATE USER with IF NOT EXISTS returns an error instead of warning in MySQL 5.7.* (at least 5.7.10)
+                int userRows = ec.entity.runSqlUpdateConf("CREATE USER IF NOT EXISTS '${envMap.entity_ds_user}' IDENTIFIED BY '${envMap.entity_ds_password}'", adminMap)
+                // NOTE: because of issue above user must already exist, often the case (using same user to access all tenant DBs; may create separate users to access only a single tenant DB)
+                userRows += ec.entity.runSqlUpdateConf("GRANT ALL ON ${envMap.entity_ds_database}.* TO '${envMap.entity_ds_user}'", adminMap)
+                userCreated = (userRows > 0)
+            </script>
+        </actions>
+    </service>
 
 </services>
