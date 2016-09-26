@@ -157,7 +157,6 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- handle adminUser, adminPassword -->
             <set field="adminMap.entity_ds_user" from="databaseHost.adminUser"/>
             <set field="adminMap.entity_ds_password" from="databaseHost.adminPassword"/>
-
         </actions>
     </service>
 
