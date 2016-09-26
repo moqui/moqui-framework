@@ -452,6 +452,13 @@ public class MNode {
         childList.add(child);
         child.parentNode = this;
     }
+    public void append(MNode child, int index) {
+        if (childrenByName != null) childrenByName.remove(child.nodeName);
+        if (childList == null) childList = new ArrayList<>();
+        if (index > childList.size()) index = childList.size();
+        childList.add(index, child);
+        child.parentNode = this;
+    }
     public MNode append(Node child) {
         MNode newNode = new MNode(child);
         append(newNode);
