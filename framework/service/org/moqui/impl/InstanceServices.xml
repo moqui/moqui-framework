@@ -48,7 +48,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="connectSuccess" type="Boolean"/>
             <parameter name="databaseExists" type="Boolean"/>
             <parameter name="userExists" type="Boolean"/>
-            <parameter name="testQuerySuccess" type="Boolean"/>
         </out-parameters>
     </service>
 
@@ -141,14 +140,12 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========== Database Management Services ========== -->
 
-    <service verb="check" noun="DatabaseMySQL">
-        <implements service="org.moqui.impl.InstanceServices.check#Database"/>
-        <actions>
-
-        </actions>
-    </service>
-    <service verb="create" noun="DatabaseMySQL">
-        <implements service="org.moqui.impl.InstanceServices.create#Database"/>
+    <service verb="get" noun="AppInstanceEnv">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="envMap" type="Map"/>
+            <parameter name="adminMap" type="Map"/>
+        </out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
             <set field="databaseHost" from="appInstance.database"/>
@@ -160,22 +157,85 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- handle adminUser, adminPassword -->
             <set field="adminMap.entity_ds_user" from="databaseHost.adminUser"/>
             <set field="adminMap.entity_ds_password" from="databaseHost.adminPassword"/>
+
+        </actions>
+    </service>
+
+    <!-- MySQL Services -->
+    <service verb="check" noun="DatabaseMySQL">
+        <implements service="org.moqui.impl.InstanceServices.check#Database"/>
+        <actions>
+            <service-call name="org.moqui.impl.InstanceServices.get#AppInstanceEnv" in-map="context" out-map="context"/>
             <!-- connect with the mysql database which is always there in MySQL -->
             <set field="adminMap.entity_ds_database" value="mysql"/>
 
-            <script>
-                // TODO: see if database exists (SELECT * FROM information_schema.schemata WHERE schema_name='moqui')
-                // TODO: see if user exists (SELECT * FROM mysql.user WHERE user='root')
+            <script><![CDATA[
+                org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger("checkDatabaseMySQL")
 
-                int dbRows = ec.entity.runSqlUpdateConf("CREATE DATABASE IF NOT EXISTS `${envMap.entity_ds_database}` DEFAULT CHARACTER SET utf8", adminMap)
-                databaseCreated = (dbRows > 0)
+                connectSuccess = false
+                databaseExists = false
+                userExists = false
 
-                // NOTE: calling CREATE USER with IF NOT EXISTS returns an error instead of warning in MySQL 5.7.* (at least 5.7.10)
-                int userRows = ec.entity.runSqlUpdateConf("CREATE USER IF NOT EXISTS '${envMap.entity_ds_user}' IDENTIFIED BY '${envMap.entity_ds_password}'", adminMap)
+                java.sql.Connection testCon = null
+                try {
+                    testCon = ec.entity.getConfConnection(adminMap)
+                    connectSuccess = true
+                } catch (Exception e) {
+                    logger.warn("Test connection failed", e)
+                } finally {
+                    if (testCon != null) testCon.close()
+                }
+
+                if (connectSuccess) {
+                    long dbCount = ec.entity.runSqlCountConf("information_schema.schemata", "schema_name='${envMap.entity_ds_database}'", adminMap)
+                    if (dbCount > 0L) databaseExists = true
+
+                    long userCount = ec.entity.runSqlCountConf("mysql.user", "user='${envMap.entity_ds_user}'", adminMap)
+                    if (userCount > 0L) userExists = true
+                }
+            ]]></script>
+
+            <message>Checked database ${envMap.entity_ds_database} at ${envMap.entity_ds_host}: connect ${connectSuccess ? 'successful' : 'failed'}, database ${databaseExists ? 'exists' : 'does not exist'}, user ${envMap.entity_ds_user} ${userExists ? 'exists' : 'does not exist'}</message>
+        </actions>
+    </service>
+    <service verb="create" noun="DatabaseMySQL">
+        <implements service="org.moqui.impl.InstanceServices.create#Database"/>
+        <actions>
+            <service-call name="org.moqui.impl.InstanceServices.get#AppInstanceEnv" in-map="context" out-map="context"/>
+            <!-- connect with the mysql database which is always there in MySQL -->
+            <set field="adminMap.entity_ds_database" value="mysql"/>
+
+            <script><![CDATA[
+                databaseCreated = false
+                userCreated = false
+
+                // see if database exists (SELECT * FROM information_schema.schemata WHERE schema_name='moqui')
+                long dbCount = ec.entity.runSqlCountConf("information_schema.schemata", "schema_name='${envMap.entity_ds_database}'", adminMap)
+                if (dbCount > 0L) {
+                    ec.message.addMessage("Database ${envMap.entity_ds_database} already exists on host ${envMap.entity_ds_host}")
+                } else {
+                    int dbRows = ec.entity.runSqlUpdateConf("CREATE DATABASE `${envMap.entity_ds_database}` DEFAULT CHARACTER SET utf8", adminMap)
+                    if (dbRows > 0) {
+                        databaseCreated = true
+                        ec.message.addMessage("Created database ${envMap.entity_ds_database} on host ${envMap.entity_ds_host}")
+                    }
+                }
+
+                // see if user exists (SELECT * FROM mysql.user WHERE user='root')
+                long userCount = ec.entity.runSqlCountConf("mysql.user", "user='${envMap.entity_ds_user}'", adminMap)
+                if (userCount > 0L) {
+                    ec.message.addMessage("User ${envMap.entity_ds_user} already exists on host ${envMap.entity_ds_host}")
+                } else {
+                    // NOTE: calling CREATE USER with IF NOT EXISTS returns an error instead of warning in MySQL 5.7.* (at least 5.7.10)
+                    int userRows = ec.entity.runSqlUpdateConf("CREATE USER '${envMap.entity_ds_user}' IDENTIFIED BY '${envMap.entity_ds_password}'", adminMap)
+                    if (userRows > 0) {
+                        userCreated = true
+                        ec.message.addMessage("Created user ${envMap.entity_ds_user} on host ${envMap.entity_ds_host}")
+                    }
+                }
                 // NOTE: because of issue above user must already exist, often the case (using same user to access all tenant DBs; may create separate users to access only a single tenant DB)
-                userRows += ec.entity.runSqlUpdateConf("GRANT ALL ON ${envMap.entity_ds_database}.* TO '${envMap.entity_ds_user}'", adminMap)
-                userCreated = (userRows > 0)
-            </script>
+                ec.entity.runSqlUpdateConf("GRANT ALL ON ${envMap.entity_ds_database}.* TO '${envMap.entity_ds_user}'", adminMap)
+            ]]></script>
         </actions>
     </service>
 

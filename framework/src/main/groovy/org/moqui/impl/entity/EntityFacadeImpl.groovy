@@ -1158,6 +1158,40 @@ class EntityFacadeImpl implements EntityFacade {
         })
         return records
     }
+    /* this needs more work, can't pass back ResultSet with Connection closed so need to somehow return Connection and ResultSet so both can be closed...
+    ResultSet runSqlQueryConf(CharSequence sql, Map<String, String> confMap) {
+        Connection con = null
+        Statement stmt = null
+        ResultSet rs = null
+        try {
+            con = getConfConnection(confMap)
+            stmt = con.createStatement()
+            rs = stmt.executeQuery(sql.toString())
+        } finally {
+            if (stmt != null) stmt.close()
+            if (con != null) con.close()
+        }
+        return rs
+    }
+    */
+    // used in services
+    long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
+        StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where)
+        Connection con = null
+        Statement stmt = null
+        ResultSet rs = null
+        try {
+            con = getConfConnection(confMap)
+            stmt = con.createStatement()
+            rs = stmt.executeQuery(sqlSb.toString())
+            if (rs.next()) return rs.getLong(1)
+            return 0
+        } finally {
+            if (stmt != null) stmt.close()
+            if (rs != null) rs.close()
+            if (con != null) con.close()
+        }
+    }
 
     /* ========================= */
     /* Interface Implementations */

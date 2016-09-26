@@ -159,6 +159,13 @@ along with this software (see the LICENSE.md file). If not, see
             -->
         </seed-data>
     </entity>
+    <view-entity entity-name="InstanceHostDetail" package="moqui.server.instance">
+        <member-entity entity-alias="INH" entity-name="moqui.server.instance.InstanceHost"/>
+        <member-entity entity-alias="IHT" entity-name="moqui.server.instance.InstanceHostType" join-from-alias="INH">
+            <key-map field-name="hostTypeId"/></member-entity>
+        <alias-all entity-alias="INH"/>
+        <alias name="typeDescription" entity-alias="IHT" field="description"/>
+    </view-entity>
 
     <entity entity-name="InstanceImage" package="moqui.server.instance" use="configuration">
         <field name="instanceImageId" type="id" is-pk="true"/>
@@ -212,6 +219,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="envValue" type="text-medium"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
     </entity>
+    <view-entity entity-name="InstanceImageDetail" package="moqui.server.instance">
+        <member-entity entity-alias="IIMG" entity-name="moqui.server.instance.InstanceImage"/>
+        <member-entity entity-alias="IIT" entity-name="moqui.server.instance.InstanceImageType" join-from-alias="IIMG">
+            <key-map field-name="imageTypeId"/></member-entity>
+        <member-entity entity-alias="IHT" entity-name="moqui.server.instance.InstanceHostType" join-from-alias="IIMG">
+            <key-map field-name="hostTypeId"/></member-entity>
+        <alias-all entity-alias="IIMG"/>
+        <alias name="imageTypeDescription" entity-alias="IIT" field="description"/>
+        <alias name="hostTypeDescription" entity-alias="IHT" field="description"/>
+    </view-entity>
 
     <entity entity-name="DatabaseHost" package="moqui.server.instance" use="configuration">
         <field name="databaseHostId" type="id" is-pk="true"/>
@@ -240,6 +257,13 @@ along with this software (see the LICENSE.md file). If not, see
                     hostAddress="127.0.0.1" hostPort="3306" adminUser="root" adminPassword="mysqlroot"/>
         </seed-data>
     </entity>
+    <view-entity entity-name="DatabaseHostDetail" package="moqui.server.instance">
+        <member-entity entity-alias="DBH" entity-name="moqui.server.instance.DatabaseHost"/>
+        <member-entity entity-alias="DBTP" entity-name="moqui.server.instance.DatabaseType" join-from-alias="DBH">
+            <key-map field-name="databaseTypeId"/></member-entity>
+        <alias-all entity-alias="DBH"/>
+        <alias name="typeDescription" entity-alias="DBTP" field="description"/>
+    </view-entity>
 
     <entity entity-name="AppInstance" package="moqui.server.instance" use="configuration">
         <field name="appInstanceId" type="id" is-pk="true"/>
