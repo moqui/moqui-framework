@@ -482,6 +482,7 @@ Gradle tasks.
     - https://github.com/bmuschko/gradle-docker-plugin
     - direct through Docker API
       - https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket
+      - https://docs.docker.com/engine/security/https/
       - https://docs.docker.com/engine/reference/api/docker_remote_api/
   - Apache Stratos
     - http://stratos.apache.org/

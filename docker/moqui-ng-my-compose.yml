@@ -16,7 +16,7 @@ services:
     # https://github.com/jwilder/nginx-proxy
     image: jwilder/nginx-proxy
     container_name: nginx-proxy
-    restart: always
+    restart: unless-stopped
     ports:
       - 80:80
       # - 443:443
@@ -27,9 +27,9 @@ services:
     image: moqui
     container_name: moqui-server
     command: conf=conf/MoquiProductionConf.xml
-    restart: always
+    restart: unless-stopped
     links:
-     - mysql-moqui
+     - moqui-database
     volumes:
      - ./runtime/conf:/opt/moqui/runtime/conf
      - ./runtime/lib:/opt/moqui/runtime/lib
@@ -41,7 +41,7 @@ services:
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
      - entity_ds_db_conf=mysql
-     - entity_ds_host=mysql-moqui
+     - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
      - entity_ds_user=moqui
@@ -55,8 +55,8 @@ services:
 
   mysql-moqui:
     image: mysql:5.7
-    container_name: mysql-moqui
-    restart: always
+    container_name: moqui-database
+    restart: unless-stopped
     # uncomment this to expose the port for use outside other containers
     # ports:
     #  - 3306:3306

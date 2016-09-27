@@ -4,7 +4,7 @@ services:
     image: moqui
     container_name: moqui-server
     command: conf=conf/MoquiProductionConf.xml
-    restart: always
+    restart: unless-stopped
     links:
      - mysql-moqui
     ports:

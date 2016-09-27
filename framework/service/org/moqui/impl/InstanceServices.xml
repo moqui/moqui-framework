@@ -16,9 +16,22 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========== Instance Interfaces ========== -->
 
+    <service verb="init" noun="Instance" type="interface">
+        <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="connectSuccess" type="Boolean"/>
+            <parameter name="instanceCreated" type="Boolean"/>
+            <parameter name="instanceExists" type="Boolean"/>
+            <parameter name="instanceUuid"/>
+            <parameter name="warnings"/>
+        </out-parameters>
+    </service>
     <service verb="start" noun="Instance" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
-        <!-- TODO some sort of status out-parameters -->
+        <out-parameters>
+            <parameter name="instanceStarted" type="Boolean"/>
+            <parameter name="instanceRunning" type="Boolean"/>
+        </out-parameters>
     </service>
     <service verb="stop" noun="Instance" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
@@ -30,7 +43,15 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="check" noun="Instance" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
-        <!-- TODO some sort of status and health check out-parameters -->
+        <out-parameters>
+            <parameter name="connectSuccess" type="Boolean"/>
+            <parameter name="instanceExists" type="Boolean"/>
+            <parameter name="instanceRunning" type="Boolean"/>
+            <parameter name="statusString"/>
+            <parameter name="errorString"/>
+            <parameter name="startedAt" type="Timestamp"/>
+            <parameter name="finishedAt" type="Timestamp"/>
+        </out-parameters>
     </service>
 
     <!-- ========== Database Interfaces ========== -->
@@ -77,43 +98,57 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#moqui.server.instance.AppInstanceEnv"
                         in-map="[appInstanceId:appInstanceId, envName:imageTypeEnv.envName, envValue:envValue]"/>
             </iterate>
+            <set field="imageTypeLinkList" from="imageType.links"/>
+            <iterate list="imageTypeLinkList" entry="imageTypeLink">
+                <service-call name="create#moqui.server.instance.AppInstanceLink"
+                        in-map="[appInstanceId:appInstanceId, instanceName:imageTypeLink.instanceName, aliasName:imageTypeLink.aliasName]"/>
+            </iterate>
         </actions>
     </service>
 
+    <service verb="init" noun="AppInstance">
+        <implements service="org.moqui.impl.InstanceServices.init#Instance"/>
+        <actions>
+            <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+            <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
+            <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${hostType.initService}" in-map="context" out-map="context"/>
+        </actions>
+    </service>
     <service verb="start" noun="AppInstance">
         <implements service="org.moqui.impl.InstanceServices.start#Instance"/>
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
-            <set field="instanceHost" from="appInstance.instanceHost"/>
-            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
-            <service-call name="${instanceHost.startService}" in-map="context" out-map="context"/>
+            <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
+            <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${hostType.startService}" in-map="context" out-map="context"/>
         </actions>
     </service>
     <service verb="stop" noun="AppInstance">
         <implements service="org.moqui.impl.InstanceServices.stop#Instance"/>
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
-            <set field="instanceHost" from="appInstance.instanceHost"/>
-            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
-            <service-call name="${instanceHost.stopService}" in-map="context" out-map="context"/>
+            <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
+            <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${hostType.stopService}" in-map="context" out-map="context"/>
         </actions>
     </service>
     <service verb="remove" noun="AppInstance">
         <implements service="org.moqui.impl.InstanceServices.remove#Instance"/>
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
-            <set field="instanceHost" from="appInstance.instanceHost"/>
-            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
-            <service-call name="${instanceHost.removeService}" in-map="context" out-map="context"/>
+            <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
+            <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${hostType.removeService}" in-map="context" out-map="context"/>
         </actions>
     </service>
     <service verb="check" noun="AppInstance">
         <implements service="org.moqui.impl.InstanceServices.check#Instance"/>
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
-            <set field="instanceHost" from="appInstance.instanceHost"/>
-            <if condition="instanceHost == null"><return error="true" message="No InstanceHost found for AppInstance with ID ${appInstanceId}"/></if>
-            <service-call name="${instanceHost.checkService}" in-map="context" out-map="context"/>
+            <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
+            <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
+            <service-call name="${hostType.checkService}" in-map="context" out-map="context"/>
         </actions>
     </service>
 
@@ -137,6 +172,212 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <!-- ========== Docker Management Services ========== -->
+    <!--
+        - https://docs.docker.com/engine/reference/api/docker_remote_api/
+        - https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/
+        - https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket
+        - https://docs.docker.com/engine/security/https/
+    -->
+
+    <service verb="init" noun="InstanceDocker">
+        <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/create-a-container -->
+        <implements service="org.moqui.impl.InstanceServices.init#Instance"/>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityValue
+            import org.moqui.service.RestClient
+
+            connectSuccess = null
+            instanceCreated = false
+            instanceExists = null
+            instanceUuid = null
+            warnings = null
+
+            ExecutionContext ec = context.ec
+            EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
+            EntityValue instanceHost = appInstance.findRelatedOne("instanceHost", null, null)
+            if (instanceHost == null) {
+                ec.message.addError("No InstanceHost found for AppInstance ${appInstanceId}"); return;
+            }
+            EntityValue instanceImage = appInstance.findRelatedOne("image", null, null)
+            if (instanceImage == null) {
+                ec.message.addError("No InstanceImage found for AppInstance ${appInstanceId}"); return;
+            }
+            EntityValue instanceImageType = instanceImage.findRelatedOne("imageType", null, null)
+
+            RestClient restClient = ec.service.rest().method("POST")
+            restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .path("containers").path((String) appInstance.instanceName).path("create").build()
+
+            List<String> envList = []
+            for (Map env in appInstance.envs) envList.add("${env.envName}=${env.envValue}")
+            List<String> linkList = []
+            for (Map link in appInstance.links) envList.add("${link.instanceName}:${link.aliasName ?: link.instanceName}")
+            Map hostConfigMap = [RestartPolicy: [Name: "unless-stopped"]] as Map<String, Object>
+            if (linkList) hostConfigMap.Links = linkList
+            Map jsonBody = [Image: instanceImage.imageName, Env: envList, HostConfig: hostConfigMap]
+            String initCommand = appInstance.initCommand ?: instanceImageType.defaultInitCommand
+            if (initCommand) jsonBody.Cmd = initCommand
+
+            if (appInstance.jsonConfig) {
+                Map baseConfigMap = (Map) new JsonSlurper().parseText((String) appInstance.jsonConfig)
+                org.moqui.impl.StupidJavaUtilities.mergeNestedMap(baseConfigMap, jsonBody, false)
+                jsonBody = baseConfigMap
+            }
+
+            restClient.jsonObject(jsonBody)
+
+            try {
+                RestClient.RestResponse restResponse = restClient.call()
+                connectSuccess = true
+
+                if (restResponse.statusCode == 201) {
+                    instanceCreated = true
+                    instanceExists = true
+
+                    Map jsonObj = (Map) restResponse.jsonObject()
+                    instanceUuid = jsonObj.Id
+                    warnings = jsonObj.Warnings
+
+                    if (instanceUuid) {
+                        appInstance.instanceUuid = instanceUuid
+                        appInstance.update()
+                    }
+
+                    ec.message.addMessage("Created Docker container ${appInstance.instanceName} (${appInstance.instanceUuid})${warnings ? ' warnings: ' + (warnings as String) : ''}")
+                } else if (restResponse.statusCode == 409) {
+                    instanceExists = true
+                    ec.logger.warn("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) conflict [${restResponse.getReasonPhrase()}]:\n${restResponse.text()}")
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) got a conflict on create [${restResponse.getReasonPhrase()}]")
+                } else {
+                    ec.logger.error("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ERROR [${restResponse.getReasonPhrase()}]:\n${restResponse.text()}")
+                    ec.message.addMessage("Error on create container for ${appInstance.instanceName} (${restResponse.statusCode}): ${restResponse.getReasonPhrase()}")
+                }
+            } catch (Exception e) {
+                connectSuccess = false
+                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
+                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+            }
+            ]]></script></actions>
+    </service>
+    <service verb="start" noun="InstanceDocker">
+        <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/start-a-container -->
+        <implements service="org.moqui.impl.InstanceServices.start#Instance"/>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityValue
+            import org.moqui.service.RestClient
+
+            instanceStarted = false
+            instanceRunning = null
+
+            ExecutionContext ec = context.ec
+            EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
+            EntityValue instanceHost = appInstance.findRelatedOne("instanceHost", null, null)
+
+            RestClient restClient = ec.service.rest().method("POST")
+            restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
+                    .path("start").build()
+
+            try {
+                RestClient.RestResponse restResponse = restClient.call()
+                if (restResponse.statusCode == 204) {
+                    instanceStarted = true
+                    instanceRunning = true
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) started")
+                } else if (restResponse.statusCode == 304) {
+                    instanceStarted = false
+                    instanceRunning = true
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) already started")
+                } else if (restResponse.statusCode == 404) {
+                    instanceStarted = false
+                    instanceRunning = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) does not exist, init first")
+                } else {
+                    errorString = restResponse.getReasonPhrase()
+                    ec.message.addMessage("Server error on Docker host: ${errorString}")
+                }
+            } catch (Exception e) {
+                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
+                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+            }
+        ]]></script></actions>
+    </service>
+    <service verb="stop" noun="InstanceDocker">
+        <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/stop-a-container -->
+        <implements service="org.moqui.impl.InstanceServices.stop#Instance"/>
+        <actions>
+            <return error="true" message="Not yet implemented"/>
+        </actions>
+    </service>
+    <service verb="remove" noun="InstanceDocker">
+        <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/remove-a-container -->
+        <implements service="org.moqui.impl.InstanceServices.remove#Instance"/>
+        <actions>
+            <return error="true" message="Not yet implemented"/>
+        </actions>
+    </service>
+    <service verb="check" noun="InstanceDocker">
+        <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/inspect-a-container -->
+        <implements service="org.moqui.impl.InstanceServices.check#Instance"/>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityValue
+            import org.moqui.service.RestClient
+
+            connectSuccess = null
+            instanceExists = null
+            instanceRunning = null
+            statusString = ""
+            errorString = ""
+            startedAt = null
+            finishedAt = null
+
+            ExecutionContext ec = context.ec
+            EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
+            EntityValue instanceHost = appInstance.findRelatedOne("instanceHost", null, null)
+            if (instanceHost == null) { ec.message.addError("No InstanceHost found for AppInstance ${appInstanceId}"); return; }
+
+            RestClient restClient = ec.service.rest().method("GET")
+            restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
+                    .path("json").build()
+
+            try {
+                RestClient.RestResponse restResponse = restClient.call()
+                connectSuccess = true
+
+                if (restResponse.statusCode == 200) {
+                    instanceExists = true
+
+                    Map jsonObj = (Map) restResponse.jsonObject()
+                    Map stateMap = jsonObj.State
+                    instanceRunning = stateMap.Running as Boolean
+                    statusString = stateMap.Status as String
+                    errorString = stateMap.Error as String
+                    startedAt = ec.l10n.parseTimestamp(stateMap.StartedAt as String, "")
+                    finishedAt = ec.l10n.parseTimestamp(stateMap.FinishedAt as String, "")
+
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ${instanceRunning ? 'running' : 'NOT running'} status ${statusString}, ${errorString ? 'error: ' + errorString + ', ' : ''}started at ${ec.l10n.format(startedAt, '')}${finishedAt ? ', finished at ' + ec.l10n.format(finishedAt, '') : ''}")
+                } else if (restResponse.statusCode == 404) {
+                    instanceExists = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) does not exist")
+                } else {
+                    errorString = restResponse.getReasonPhrase()
+                    ec.message.addMessage("Server error on Docker host: ${errorString}")
+                }
+            } catch (Exception e) {
+                connectSuccess = false
+                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
+                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+            }
+        ]]></script></actions>
+    </service>
 
     <!-- ========== Database Management Services ========== -->
 
@@ -149,6 +390,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
             <set field="databaseHost" from="appInstance.database"/>
+            <if condition="databaseHost == null"><return error="true" message="No DatabaseHost found for AppInstance ${appInstanceId}"/></if>
             <set field="envList" from="appInstance.envs"/>
             <set field="envMap" from="[:]"/>
             <iterate list="envList" entry="envItem"><script>envMap.put(envItem.envName, envItem.envValue)</script></iterate>
