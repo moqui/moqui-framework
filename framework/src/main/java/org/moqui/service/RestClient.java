@@ -36,8 +36,9 @@ public interface RestClient {
     RestClient uri(String location);
     /** URL object including protocol, host, path, parameters, etc */
     RestClient uri(URI uri);
+    UriBuilder uri();
 
-    /** Sets the HTTP request method, defaults to 'get'; must be in the METHODS array */
+    /** Sets the HTTP request method, defaults to 'GET'; must be in the METHODS array */
     RestClient method(String method);
     /** Defaults to 'application/json', could also be 'text/xml', etc */
     RestClient contentType(String contentType);
@@ -84,5 +85,16 @@ public interface RestClient {
 
         Map<String, ArrayList<String>> headers();
         String headerFirst(String name);
+    }
+
+    interface UriBuilder {
+        UriBuilder protocol(String protocol);
+        UriBuilder host(String host);
+        UriBuilder port(int port);
+        UriBuilder path(String path);
+        UriBuilder parameter(String name, String value);
+        UriBuilder parameters(Map<String, String> parameters);
+        UriBuilder fragment(String fragment);
+        RestClient build();
     }
 }
