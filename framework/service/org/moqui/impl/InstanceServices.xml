@@ -35,7 +35,10 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="stop" noun="Instance" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
-        <!-- TODO some sort of status out-parameters -->
+        <out-parameters>
+            <parameter name="instanceStopped" type="Boolean"/>
+            <parameter name="instanceRunning" type="Boolean"/>
+        </out-parameters>
     </service>
     <service verb="remove" noun="Instance" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
@@ -209,7 +212,7 @@ along with this software (see the LICENSE.md file). If not, see
             RestClient restClient = ec.service.rest().method("POST")
             restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
                     .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
-                    .path("containers").path((String) appInstance.instanceName).path("create").build()
+                    .path("containers").path("create").parameter("name", (String) appInstance.instanceName).build()
 
             List<String> envList = []
             for (Map env in appInstance.envs) envList.add("${env.envName}=${env.envValue}")
@@ -310,9 +313,47 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="stop" noun="InstanceDocker">
         <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/stop-a-container -->
         <implements service="org.moqui.impl.InstanceServices.stop#Instance"/>
-        <actions>
-            <return error="true" message="Not yet implemented"/>
-        </actions>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityValue
+            import org.moqui.service.RestClient
+
+            instanceStopped = false
+            instanceRunning = null
+
+            ExecutionContext ec = context.ec
+            EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
+            EntityValue instanceHost = appInstance.findRelatedOne("instanceHost", null, null)
+
+            RestClient restClient = ec.service.rest().method("POST")
+            restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
+                    .path("stop").build()
+
+            try {
+                RestClient.RestResponse restResponse = restClient.call()
+                if (restResponse.statusCode == 204) {
+                    instanceStopped = true
+                    instanceRunning = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) stopped")
+                } else if (restResponse.statusCode == 304) {
+                    instanceStopped = false
+                    instanceRunning = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) was not running")
+                } else if (restResponse.statusCode == 404) {
+                    instanceStopped = false
+                    instanceRunning = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) does not exist, init first")
+                } else {
+                    errorString = restResponse.getReasonPhrase()
+                    ec.message.addMessage("Server error on Docker host: ${errorString}")
+                }
+            } catch (Exception e) {
+                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
+                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+            }
+        ]]></script></actions>
     </service>
     <service verb="remove" noun="InstanceDocker">
         <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/remove-a-container -->
