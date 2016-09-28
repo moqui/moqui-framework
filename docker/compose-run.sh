@@ -1,7 +1,7 @@
 #! /bin/bash
 
 if [[ ! $1 ]]; then
-  echo "Usage: moqui-compose-run.sh <docker compose file> [<moqui directory>]"
+  echo "Usage: compose-run.sh <docker compose file> [<moqui directory>]"
   exit 1
 fi
 
