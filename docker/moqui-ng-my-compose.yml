@@ -1,13 +1,17 @@
 # A Docker Compose application with moqui, mysql, and virtual hosting through
 # nginx-proxy supporting multiple moqui instances on different hosts.
 
+# Run with something like one of these:
+# $ docker-compose -f moqui-ng-my-compose.yml -p moqui up -d
+# $ ./compose-run.sh moqui-ng-my-compose.yml
+# This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
+
 # Test locally by adding the virtual host to /etc/hosts or with something like:
 # $ curl -H "Host: moqui.local" localhost/Login
 
 # To run an additional instance of moqui run something like this (but with
 # many more arguments for volume mapping, db setup, etc):
-# $ docker run -e VIRTUAL_HOST=moqui2.local --name=moqui2_local moqui
-# NOTE: getting error from nginx with this like: "Error running notify command: nginx -s reload, exit status 1"
+# $ docker run -e VIRTUAL_HOST=moqui2.local --name moqui2_local --network moqui_default moqui
 
 version: "2"
 services:

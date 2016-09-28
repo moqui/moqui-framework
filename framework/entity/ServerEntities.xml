@@ -190,6 +190,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="imageTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="defaultInitCommand" type="text-medium"/>
+        <field name="defaultNetworkMode" type="text-short"/>
         <relationship type="many" related="moqui.server.instance.InstanceImageTypeEnv" short-alias="envs">
             <key-map field-name="imageTypeId"/></relationship>
         <relationship type="many" related="moqui.server.instance.InstanceImageTypeLink" short-alias="links">
@@ -198,7 +199,10 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- matches configuration in nginx-mysql-compose.yml -->
             <moqui.server.instance.InstanceImageType imageTypeId="moqui" description="Moqui Framework"
-                    defaultInitCommand="conf=conf/MoquiProductionConf.xml">
+                    defaultInitCommand="conf=conf/MoquiProductionConf.xml" defaultNetworkMode="moqui_default">
+                <!-- NOTE: defaultNetworkMode set to a network name, using docker compose use the '-p moqui' argument so moqui
+                    is the app/project name and moqui_default is the network name; use plain 'bridge' or other instead of a network
+                    name to use the default docker bridge or other network -->
                 <envs envName="VIRTUAL_HOST" envValue="${appInstance.hostName}"/>
                 <envs envName="webapp_http_host" envValue="${appInstance.hostName}"/>
                 <envs envName="webapp_http_port" envValue="80"/>
@@ -209,7 +213,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <envs envName="entity_ds_host" envValue="moqui-database"/>
                 <envs envName="entity_ds_port" envValue="${appInstance.database.hostPort}"/>
                 <envs envName="entity_ds_database" envValue="${appInstance.hostName.replace('.', '_')}"/>
-                <envs envName="entity_ds_schema" envValue=""/>
+                <!-- <envs envName="entity_ds_schema" envValue=""/> -->
                 <envs envName="entity_ds_user" envValue="${appInstance.hostName.replace('.', '_')}"/>
                 <envs envName="entity_ds_password" envValue="${org.moqui.impl.StupidUtilities.getRandomString(15)}"/>
 
@@ -298,6 +302,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="instanceUuid" type="text-medium"/>
         <field name="initCommand" type="text-medium"/>
         <field name="jsonConfig" type="text-long"/>
+        <field name="networkMode" type="text-short"/>
 
         <relationship type="one" related="moqui.server.instance.InstanceImage" short-alias="image"/>
         <relationship type="one" related="moqui.server.instance.InstanceHost" short-alias="instanceHost"/>

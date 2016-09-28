@@ -42,7 +42,10 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="remove" noun="Instance" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
-        <!-- TODO some sort of status out-parameters -->
+        <out-parameters>
+            <parameter name="instanceRemoved" type="Boolean"/>
+            <parameter name="instanceExists" type="Boolean"/>
+        </out-parameters>
     </service>
     <service verb="check" noun="Instance" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
@@ -211,15 +214,19 @@ along with this software (see the LICENSE.md file). If not, see
 
             RestClient restClient = ec.service.rest().method("POST")
             restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
-                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
                     .path("containers").path("create").parameter("name", (String) appInstance.instanceName).build()
 
-            List<String> envList = []
-            for (Map env in appInstance.envs) envList.add("${env.envName}=${env.envValue}")
-            List<String> linkList = []
-            for (Map link in appInstance.links) envList.add("${link.instanceName}:${link.aliasName ?: link.instanceName}")
             Map hostConfigMap = [RestartPolicy: [Name: "unless-stopped"]] as Map<String, Object>
+            List<String> linkList = []
+            for (Map link in appInstance.links) linkList.add("${link.instanceName}:${link.aliasName ?: link.instanceName}")
             if (linkList) hostConfigMap.Links = linkList
+            String networkMode = appInstance.networkMode ?: instanceImageType.defaultNetworkMode
+            if (networkMode) hostConfigMap.NetworkMode = networkMode
+
+            List<String> envList = []
+            for (Map env in appInstance.envs) if(env.envValue) envList.add("${env.envName}=${env.envValue}")
+
             Map jsonBody = [Image: instanceImage.imageName, Env: envList, HostConfig: hostConfigMap]
             String initCommand = appInstance.initCommand ?: instanceImageType.defaultInitCommand
             if (initCommand) jsonBody.Cmd = initCommand
@@ -230,6 +237,7 @@ along with this software (see the LICENSE.md file). If not, see
                 jsonBody = baseConfigMap
             }
 
+            ec.logger.info("Initializing docker container for ${appInstance.instanceName} with:\n${jsonBody}")
             restClient.jsonObject(jsonBody)
 
             try {
@@ -282,7 +290,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             RestClient restClient = ec.service.rest().method("POST")
             restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
-                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
                     .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
                     .path("start").build()
 
@@ -327,7 +335,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             RestClient restClient = ec.service.rest().method("POST")
             restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
-                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
                     .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
                     .path("stop").build()
 
@@ -359,7 +367,43 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/remove-a-container -->
         <implements service="org.moqui.impl.InstanceServices.remove#Instance"/>
         <actions>
-            <return error="true" message="Not yet implemented"/>
+            <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityValue
+            import org.moqui.service.RestClient
+
+            instanceRemoved = false
+            instanceExists = null
+
+            ExecutionContext ec = context.ec
+            EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
+            EntityValue instanceHost = appInstance.findRelatedOne("instanceHost", null, null)
+
+            RestClient restClient = ec.service.rest().method("DELETE")
+            restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
+                    .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
+                    .build()
+
+            try {
+                RestClient.RestResponse restResponse = restClient.call()
+                if (restResponse.statusCode == 204) {
+                    instanceRemoved = true
+                    instanceExists = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) removed")
+                } else if (restResponse.statusCode == 404) {
+                    instanceRemoved = false
+                    instanceExists = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) does not exist, init first")
+                } else {
+                    errorString = restResponse.getReasonPhrase()
+                    ec.message.addMessage("Server error on Docker host: ${errorString}")
+                }
+            } catch (Exception e) {
+                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
+                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+            }
+        ]]></script></actions>
         </actions>
     </service>
     <service verb="check" noun="InstanceDocker">
@@ -385,7 +429,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             RestClient restClient = ec.service.rest().method("GET")
             restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
-                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 80)
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
                     .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
                     .path("json").build()
 

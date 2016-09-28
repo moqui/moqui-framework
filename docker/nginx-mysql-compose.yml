@@ -4,6 +4,10 @@
 # This has no moqui instances, meant to be a shell for externally
 # managed moqui containers.
 
+# Run with something like:
+# $ docker-compose -f nginx-mysql-compose.yml -p moqui up -d
+# This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
+
 version: "2"
 services:
   nginx-proxy:

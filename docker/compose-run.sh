@@ -17,4 +17,5 @@ if [ ! -e runtime/txlog ]; then cp -R $MOQUI_HOME/runtime/txlog runtime/; fi
 if [ ! -e runtime/db ]; then cp -R $MOQUI_HOME/runtime/db runtime/; fi
 if [ ! -e runtime/elasticsearch ]; then cp -R $MOQUI_HOME/runtime/elasticsearch runtime/; fi
 
-docker-compose -f $1 up
+# set the project name to 'moqui', network will be called 'moqui_default'
+docker-compose -f $1 -p moqui up
