@@ -196,16 +196,17 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="imageTypeId"/></relationship>
 
         <seed-data>
+            <!-- matches configuration in nginx-mysql-compose.yml -->
             <moqui.server.instance.InstanceImageType imageTypeId="moqui" description="Moqui Framework"
                     defaultInitCommand="conf=conf/MoquiProductionConf.xml">
                 <envs envName="VIRTUAL_HOST" envValue="${appInstance.hostName}"/>
                 <envs envName="webapp_http_host" envValue="${appInstance.hostName}"/>
                 <envs envName="webapp_http_port" envValue="80"/>
                 <envs envName="webapp_https_port" envValue="443"/>
-                <envs envName="webapp_https_enabled" envValue="true"/>
+                <envs envName="webapp_https_enabled" envValue="false"/><!-- NOTE: change this for real production setups! -->
 
                 <envs envName="entity_ds_db_conf" envValue="${appInstance.database.type.confName}"/>
-                <envs envName="entity_ds_host" envValue="${appInstance.database.hostAddress}"/>
+                <envs envName="entity_ds_host" envValue="moqui-database"/>
                 <envs envName="entity_ds_port" envValue="${appInstance.database.hostPort}"/>
                 <envs envName="entity_ds_database" envValue="${appInstance.hostName.replace('.', '_')}"/>
                 <envs envName="entity_ds_schema" envValue=""/>
@@ -274,9 +275,9 @@ along with this software (see the LICENSE.md file). If not, see
                     checkService="org.moqui.impl.InstanceServices.check#DatabaseMySQL"/>
             <moqui.server.instance.DatabaseType databaseTypeId="postgres" description="Postgres" confName="postgres"
                     createService="" checkService=""/>
-
+            <!-- matches configuration in nginx-mysql-compose.yml -->
             <moqui.server.instance.DatabaseHost databaseHostId="LocalMySQL" databaseTypeId="mysql"
-                    hostAddress="127.0.0.1" hostPort="3306" adminUser="root" adminPassword="mysqlroot"/>
+                    hostAddress="127.0.0.1" hostPort="3306" adminUser="root" adminPassword="moquiroot"/>
         </seed-data>
     </entity>
     <view-entity entity-name="DatabaseHostDetail" package="moqui.server.instance">

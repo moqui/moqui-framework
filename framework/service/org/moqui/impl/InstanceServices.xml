@@ -402,9 +402,9 @@ along with this software (see the LICENSE.md file). If not, see
                     statusString = stateMap.Status as String
                     errorString = stateMap.Error as String
                     startedAt = ec.l10n.parseTimestamp(stateMap.StartedAt as String, "")
-                    finishedAt = ec.l10n.parseTimestamp(stateMap.FinishedAt as String, "")
+                    if (stateMap.FinishedAt) finishedAt = ec.l10n.parseTimestamp(stateMap.FinishedAt as String, "")
 
-                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ${instanceRunning ? 'running' : 'NOT running'} status ${statusString}, ${errorString ? 'error: ' + errorString + ', ' : ''}started at ${ec.l10n.format(startedAt, '')}${finishedAt ? ', finished at ' + ec.l10n.format(finishedAt, '') : ''}")
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ${instanceRunning ? 'running' : 'NOT running'}, status ${statusString}, ${errorString ? 'error: ' + errorString + ', ' : ''}started at ${ec.l10n.format(startedAt, '')}${finishedAt ? ', finished at ' + ec.l10n.format(finishedAt, '') : ''}")
                 } else if (restResponse.statusCode == 404) {
                     instanceExists = false
                     ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) does not exist")
@@ -436,10 +436,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="envMap" from="[:]"/>
             <iterate list="envList" entry="envItem"><script>envMap.put(envItem.envName, envItem.envValue)</script></iterate>
 
-            <set field="adminMap" from="new HashMap(envMap)"/>
-            <!-- handle adminUser, adminPassword -->
-            <set field="adminMap.entity_ds_user" from="databaseHost.adminUser"/>
-            <set field="adminMap.entity_ds_password" from="databaseHost.adminPassword"/>
+            <!-- setup adminMap directly from databaseHost settings, may differ from how instance accesses the database -->
+            <set field="adminMap" from="[entity_ds_db_conf:databaseHost.type.confName, entity_ds_host:databaseHost.hostAddress,
+                    entity_ds_port:databaseHost.hostPort, entity_ds_user:databaseHost.adminUser, entity_ds_password:databaseHost.adminPassword]"/>
         </actions>
     </service>
 
@@ -477,7 +476,7 @@ along with this software (see the LICENSE.md file). If not, see
                 }
             ]]></script>
 
-            <message>Checked database ${envMap.entity_ds_database} at ${envMap.entity_ds_host}: connect ${connectSuccess ? 'successful' : 'failed'}, database ${databaseExists ? 'exists' : 'does not exist'}, user ${envMap.entity_ds_user} ${userExists ? 'exists' : 'does not exist'}</message>
+            <message>Checked database ${envMap.entity_ds_database} at ${adminMap.entity_ds_host}: connect ${connectSuccess ? 'successful' : 'failed'}, database ${databaseExists ? 'exists' : 'does not exist'}, user ${envMap.entity_ds_user} ${userExists ? 'exists' : 'does not exist'}</message>
         </actions>
     </service>
     <service verb="create" noun="DatabaseMySQL">
@@ -494,12 +493,12 @@ along with this software (see the LICENSE.md file). If not, see
                 // see if database exists (SELECT * FROM information_schema.schemata WHERE schema_name='moqui')
                 long dbCount = ec.entity.runSqlCountConf("information_schema.schemata", "schema_name='${envMap.entity_ds_database}'", adminMap)
                 if (dbCount > 0L) {
-                    ec.message.addMessage("Database ${envMap.entity_ds_database} already exists on host ${envMap.entity_ds_host}")
+                    ec.message.addMessage("Database ${envMap.entity_ds_database} already exists on host ${adminMap.entity_ds_host}")
                 } else {
                     int dbRows = ec.entity.runSqlUpdateConf("CREATE DATABASE `${envMap.entity_ds_database}` DEFAULT CHARACTER SET utf8", adminMap)
                     if (dbRows > 0) {
                         databaseCreated = true
-                        ec.message.addMessage("Created database ${envMap.entity_ds_database} on host ${envMap.entity_ds_host}")
+                        ec.message.addMessage("Created database ${envMap.entity_ds_database} on host ${adminMap.entity_ds_host}")
                     }
                 }
 
@@ -509,11 +508,10 @@ along with this software (see the LICENSE.md file). If not, see
                     ec.message.addMessage("User ${envMap.entity_ds_user} already exists on host ${envMap.entity_ds_host}")
                 } else {
                     // NOTE: calling CREATE USER with IF NOT EXISTS returns an error instead of warning in MySQL 5.7.* (at least 5.7.10)
-                    int userRows = ec.entity.runSqlUpdateConf("CREATE USER '${envMap.entity_ds_user}' IDENTIFIED BY '${envMap.entity_ds_password}'", adminMap)
-                    if (userRows > 0) {
-                        userCreated = true
-                        ec.message.addMessage("Created user ${envMap.entity_ds_user} on host ${envMap.entity_ds_host}")
-                    }
+                    // NOTE: always seems to return 0 rows updated so ignore
+                    ec.entity.runSqlUpdateConf("CREATE USER '${envMap.entity_ds_user}' IDENTIFIED BY '${envMap.entity_ds_password}'", adminMap)
+                    userCreated = true
+                    ec.message.addMessage("Created user ${envMap.entity_ds_user} on host ${adminMap.entity_ds_host}")
                 }
                 // NOTE: because of issue above user must already exist, often the case (using same user to access all tenant DBs; may create separate users to access only a single tenant DB)
                 ec.entity.runSqlUpdateConf("GRANT ALL ON ${envMap.entity_ds_database}.* TO '${envMap.entity_ds_user}'", adminMap)
