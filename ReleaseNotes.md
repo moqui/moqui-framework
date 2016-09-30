@@ -133,6 +133,11 @@ significant changes.
   - Added sample Docker Compose files for moqui+mysql, and for moqui, mysql, and nginx-proxy for reverse proxy that supports 
     virtual hosts for multiple Docker containers running Moqui
   - Added script to run a Docker Compose file after copying configuration and data persistence runtime directories if needed
+- Multi-Instance Management
+  - New services (InstanceServices.xml) and screens in the System app for Moqui instance management
+  - This replaces the removed multi-tenant functionality
+  - Initially supports Docker for the instance hosting environment via Docker REST API
+  - Initially supports MySQL for instance databases (one DB per instance, just like in the past)
 - Tool Factory
   - Added org.moqui.context.ToolFactory interface used to initialize, destroy, and get instances of tools
   - Added tools.tool-factory element in Moqui Conf XML file; has default tools in MoquiDefaultConf.xml and can be populated or 
@@ -219,6 +224,7 @@ significant changes.
   - significant macro cleanups and improvements
   - csv render macros now improved to support more screen elements, more intelligently handle links (only include anchor/text), etc
   - text render macros now use fixed width output (number of characters) along with new field attributes to specify print settings
+- New /status now a transition instead of a screen and return JSON with more server status information
 
 ### Bug Fixes
 
