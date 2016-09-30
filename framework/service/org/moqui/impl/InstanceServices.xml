@@ -57,6 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="errorString"/>
             <parameter name="startedAt" type="Timestamp"/>
             <parameter name="finishedAt" type="Timestamp"/>
+            <parameter name="confMap" type="Map"/>
         </out-parameters>
     </service>
 
@@ -110,6 +111,48 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[appInstanceId:appInstanceId, instanceName:imageTypeLink.instanceName, aliasName:imageTypeLink.aliasName]"/>
             </iterate>
         </actions>
+    </service>
+
+    <service verb="provision" noun="AppInstance">
+        <in-parameters><parameter name="appInstanceId"/></in-parameters>
+        <out-parameters>
+            <parameter name="databaseCreated" type="Boolean"/>
+            <parameter name="userCreated" type="Boolean"/>
+            <parameter name="instanceCreated" type="Boolean"/>
+            <parameter name="instanceExists" type="Boolean"/>
+            <parameter name="instanceUuid"/>
+            <parameter name="instanceStarted" type="Boolean"/>
+            <parameter name="instanceRunning" type="Boolean"/>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.InstanceServices.create#AppDatabase" in-map="context" out-map="context"/>
+            <service-call name="org.moqui.impl.InstanceServices.init#AppInstance" in-map="context" out-map="context"/>
+            <service-call name="org.moqui.impl.InstanceServices.start#AppInstance" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="check" noun="AppInstanceAndDatabase">
+        <in-parameters><parameter name="appInstanceId"/></in-parameters>
+        <out-parameters>
+            <parameter name="databaseExists" type="Boolean"/>
+            <parameter name="userExists" type="Boolean"/>
+            <parameter name="instanceExists" type="Boolean"/>
+            <parameter name="instanceRunning" type="Boolean"/>
+            <parameter name="statusString"/>
+            <parameter name="errorString"/>
+            <parameter name="startedAt" type="Timestamp"/>
+            <parameter name="finishedAt" type="Timestamp"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import java.util.concurrent.Future
+
+            ExecutionContext ec = context.ec
+            Future<Map> dbFuture = ec.service.async().name("org.moqui.impl.InstanceServices.check#AppDatabase").parameter("appInstanceId", appInstanceId).callFuture()
+            Future<Map> instFuture = ec.service.async().name("org.moqui.impl.InstanceServices.check#AppInstance").parameter("appInstanceId", appInstanceId).callFuture()
+
+            context.putAll(dbFuture.get())
+            context.putAll(instFuture.get())
+            ]]></script></actions>
     </service>
 
     <service verb="init" noun="AppInstance">
@@ -440,13 +483,18 @@ along with this software (see the LICENSE.md file). If not, see
                 if (restResponse.statusCode == 200) {
                     instanceExists = true
 
-                    Map jsonObj = (Map) restResponse.jsonObject()
-                    Map stateMap = jsonObj.State
+                    confMap = (Map) restResponse.jsonObject()
+                    Map stateMap = confMap.State
                     instanceRunning = stateMap.Running as Boolean
                     statusString = stateMap.Status as String
                     errorString = stateMap.Error as String
                     startedAt = ec.l10n.parseTimestamp(stateMap.StartedAt as String, "")
                     if (stateMap.FinishedAt) finishedAt = ec.l10n.parseTimestamp(stateMap.FinishedAt as String, "")
+
+                    if (!appInstance.instanceUuid) {
+                        appInstance.instanceUuid = confMap.Id
+                        appInstance.update()
+                    }
 
                     ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ${instanceRunning ? 'running' : 'NOT running'}, status ${statusString}, ${errorString ? 'error: ' + errorString + ', ' : ''}started at ${ec.l10n.format(startedAt, '')}${finishedAt ? ', finished at ' + ec.l10n.format(finishedAt, '') : ''}")
                 } else if (restResponse.statusCode == 404) {
