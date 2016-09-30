@@ -422,6 +422,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="div"/>
                     <xs:enumeration value="span"/>
                     <xs:enumeration value="strong"/>
+                    <xs:enumeration value="i"/>
                     <xs:enumeration value="h1"/>
                     <xs:enumeration value="h2"/>
                     <xs:enumeration value="h3"/>
