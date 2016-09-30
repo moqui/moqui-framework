@@ -235,7 +235,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
             <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
-            <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
+            <if condition="hostType == null"><return message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
             <service-call name="${hostType.checkService}" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -254,7 +254,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
             <set field="databaseType" from="appInstance.database?.type"/>
-            <if condition="databaseType == null"><return error="true" message="No DatabaseType found for AppInstance with ID ${appInstanceId}"/></if>
+            <if condition="databaseType == null"><return message="No DatabaseType found for AppInstance with ID ${appInstanceId}"/></if>
             <service-call name="${databaseType.checkService}" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -507,7 +507,7 @@ along with this software (see the LICENSE.md file). If not, see
             ExecutionContext ec = context.ec
             EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
             EntityValue instanceHost = appInstance.findRelatedOne("instanceHost", null, null)
-            if (instanceHost == null) { ec.message.addError("No InstanceHost found for AppInstance ${appInstanceId}"); return; }
+            if (instanceHost == null) { ec.message.addMessage("No InstanceHost found for AppInstance ${appInstanceId}"); return; }
 
             RestClient restClient = ec.service.rest().method("GET")
             restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
@@ -562,7 +562,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
             <set field="databaseHost" from="appInstance.database"/>
-            <if condition="databaseHost == null"><return error="true" message="No DatabaseHost found for AppInstance ${appInstanceId}"/></if>
+            <if condition="databaseHost == null"><return message="No DatabaseHost found for AppInstance ${appInstanceId}"/></if>
             <set field="envList" from="appInstance.envs"/>
             <set field="envMap" from="[:]"/>
             <iterate list="envList" entry="envItem"><script>envMap.put(envItem.envName, envItem.envValue)</script></iterate>
@@ -578,6 +578,7 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="org.moqui.impl.InstanceServices.check#Database"/>
         <actions>
             <service-call name="org.moqui.impl.InstanceServices.get#AppInstanceEnv" in-map="context" out-map="context"/>
+            <if condition="!envMap"><return/></if>
             <!-- connect with the mysql database which is always there in MySQL -->
             <set field="adminMap.entity_ds_database" value="mysql"/>
 
@@ -617,6 +618,7 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="org.moqui.impl.InstanceServices.create#Database"/>
         <actions>
             <service-call name="org.moqui.impl.InstanceServices.get#AppInstanceEnv" in-map="context" out-map="context"/>
+            <if condition="!envMap"><return/></if>
             <!-- connect with the mysql database which is always there in MySQL -->
             <set field="adminMap.entity_ds_database" value="mysql"/>
 
