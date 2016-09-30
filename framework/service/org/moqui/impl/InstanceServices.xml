@@ -57,7 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="errorString"/>
             <parameter name="startedAt" type="Timestamp"/>
             <parameter name="finishedAt" type="Timestamp"/>
-            <parameter name="confMap" type="Map"/>
+            <parameter name="inspectMap" type="Map"/>
         </out-parameters>
     </service>
 
@@ -141,18 +141,54 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="errorString"/>
             <parameter name="startedAt" type="Timestamp"/>
             <parameter name="finishedAt" type="Timestamp"/>
+            <parameter name="statusMap" type="Map"/>
         </out-parameters>
         <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
             import java.util.concurrent.Future
-
             ExecutionContext ec = context.ec
+
             Future<Map> dbFuture = ec.service.async().name("org.moqui.impl.InstanceServices.check#AppDatabase").parameter("appInstanceId", appInstanceId).callFuture()
             Future<Map> instFuture = ec.service.async().name("org.moqui.impl.InstanceServices.check#AppInstance").parameter("appInstanceId", appInstanceId).callFuture()
+            Future<Map> msFuture = ec.service.async().name("org.moqui.impl.InstanceServices.check#MoquiServer").parameter("appInstanceId", appInstanceId).callFuture()
 
             context.putAll(dbFuture.get())
             context.putAll(instFuture.get())
+            context.putAll(msFuture.get())
             ]]></script></actions>
+    </service>
+
+    <service verb="check" noun="MoquiServer">
+        <in-parameters><parameter name="appInstanceId"/></in-parameters>
+        <out-parameters>
+            <parameter name="connectSuccess" type="Boolean"/>
+            <parameter name="statusMap" type="Map"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityValue
+            import org.moqui.service.RestClient
+            ExecutionContext ec = context.ec
+
+            EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
+            RestClient restClient = ec.service.rest().method("GET").uri().host(appInstance.hostName as String).path("status").build()
+
+            try {
+                RestClient.RestResponse restResponse = restClient.call()
+                if (restResponse.statusCode == 200) {
+                    connectSuccess = true
+                    statusMap = (Map) restResponse.jsonObject()
+                } else {
+                    connectSuccess = false
+                    ec.message.addMessage("Server error on Moqui server: ${restResponse.getReasonPhrase()}")
+                }
+            } catch (Exception e) {
+                connectSuccess = false
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Moqui server", e)
+                ec.message.addError("Error connecting to Moqui server: ${e.toString()}")
+            }
+        ]]></script></actions>
     </service>
 
     <service verb="init" noun="AppInstance">
@@ -311,8 +347,8 @@ along with this software (see the LICENSE.md file). If not, see
                 }
             } catch (Exception e) {
                 connectSuccess = false
-                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
-                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
+                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
             }
             ]]></script></actions>
     </service>
@@ -356,8 +392,8 @@ along with this software (see the LICENSE.md file). If not, see
                     ec.message.addMessage("Server error on Docker host: ${errorString}")
                 }
             } catch (Exception e) {
-                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
-                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
+                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
             }
         ]]></script></actions>
     </service>
@@ -401,8 +437,8 @@ along with this software (see the LICENSE.md file). If not, see
                     ec.message.addMessage("Server error on Docker host: ${errorString}")
                 }
             } catch (Exception e) {
-                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
-                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
+                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
             }
         ]]></script></actions>
     </service>
@@ -443,8 +479,8 @@ along with this software (see the LICENSE.md file). If not, see
                     ec.message.addMessage("Server error on Docker host: ${errorString}")
                 }
             } catch (Exception e) {
-                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
-                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
+                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
             }
         ]]></script></actions>
         </actions>
@@ -483,8 +519,8 @@ along with this software (see the LICENSE.md file). If not, see
                 if (restResponse.statusCode == 200) {
                     instanceExists = true
 
-                    confMap = (Map) restResponse.jsonObject()
-                    Map stateMap = confMap.State
+                    inspectMap = (Map) restResponse.jsonObject()
+                    Map stateMap = inspectMap.State
                     instanceRunning = stateMap.Running as Boolean
                     statusString = stateMap.Status as String
                     errorString = stateMap.Error as String
@@ -492,7 +528,7 @@ along with this software (see the LICENSE.md file). If not, see
                     if (stateMap.FinishedAt) finishedAt = ec.l10n.parseTimestamp(stateMap.FinishedAt as String, "")
 
                     if (!appInstance.instanceUuid) {
-                        appInstance.instanceUuid = confMap.Id
+                        appInstance.instanceUuid = inspectMap.Id
                         appInstance.update()
                     }
 
@@ -506,8 +542,8 @@ along with this software (see the LICENSE.md file). If not, see
                 }
             } catch (Exception e) {
                 connectSuccess = false
-                ec.logger.log(ec.logger.ERROR_INT, "Error connection to Docker host", e)
-                ec.message.addMessage("Error connecting to Docker host: ${e.toString()}")
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
+                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
             }
         ]]></script></actions>
     </service>

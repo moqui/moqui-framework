@@ -198,7 +198,7 @@ along with this software (see the LICENSE.md file). If not, see
 
         <seed-data>
             <!-- matches configuration in nginx-mysql-compose.yml -->
-            <moqui.server.instance.InstanceImageType imageTypeId="moqui" description="Moqui Framework"
+            <moqui.server.instance.InstanceImageType imageTypeId="moqui" description="Moqui Default Virtual Host"
                     defaultInitCommand="conf=conf/MoquiProductionConf.xml" defaultNetworkMode="moqui_default">
                 <!-- NOTE: defaultNetworkMode set to a network name, using docker compose use the '-p moqui' argument so moqui
                     is the app/project name and moqui_default is the network name; use plain 'bridge' or other instead of a network
