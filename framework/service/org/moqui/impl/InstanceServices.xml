@@ -588,14 +588,17 @@ along with this software (see the LICENSE.md file). If not, see
                 databaseExists = false
                 dbUserExists = false
 
+                javax.sql.XAConnection testXaCon = null
                 java.sql.Connection testCon = null
                 try {
-                    testCon = ec.entity.getConfConnection(adminMap)
+                    testXaCon = ec.entity.getConfConnection(adminMap)
+                    testCon = testXaCon.getConnection()
                     dbConnectSuccess = true
                 } catch (Exception e) {
                     logger.warn("Test connection failed", e)
                 } finally {
                     if (testCon != null) testCon.close()
+                    if (testXaCon != null) testXaCon.close()
                 }
 
                 if (dbConnectSuccess) {

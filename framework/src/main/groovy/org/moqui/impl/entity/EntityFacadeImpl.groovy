@@ -32,6 +32,7 @@ import org.w3c.dom.Element
 
 import javax.cache.Cache
 import javax.sql.DataSource
+import javax.sql.XAConnection
 import javax.sql.XADataSource
 import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
@@ -1119,7 +1120,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     /** Get a JDBC Connection based on xa-properties configuration. The Conf Map should contain the default entity_ds properties
      * including entity_ds_db_conf, entity_ds_host, entity_ds_port, entity_ds_database, entity_ds_user, entity_ds_password */
-    Connection getConfConnection(Map<String, String> confMap) {
+    XAConnection getConfConnection(Map<String, String> confMap) {
         String confName = confMap.entity_ds_db_conf
         MNode databaseNode = getDatabaseNodeByConf(confName)
         MNode xaPropsNode = databaseNode.first("inline-jdbc")?.first("xa-properties")
@@ -1138,22 +1139,25 @@ class EntityFacadeImpl implements EntityFacade {
             }
         }
 
-        return xaDs.getXAConnection(confMap.entity_ds_user, confMap.entity_ds_password).getConnection()
+        return xaDs.getXAConnection(confMap.entity_ds_user, confMap.entity_ds_password)
     }
     // used in services
     int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         int records = 0
         ecfi.transactionFacade.runRequireNew(30, "Error in DB meta data change", false, true, {
+            XAConnection xacon = null
             Connection con = null
             Statement stmt = null
             try {
-                con = getConfConnection(confMap)
+                xacon = getConfConnection(confMap)
+                con = xacon.getConnection()
                 stmt = con.createStatement()
                 records = stmt.executeUpdate(sql.toString())
             } finally {
                 if (stmt != null) stmt.close()
                 if (con != null) con.close()
+                if (xacon != null) xacon.close()
             }
         })
         return records
@@ -1177,11 +1181,13 @@ class EntityFacadeImpl implements EntityFacade {
     // used in services
     long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
         StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where)
+        XAConnection xacon = null
         Connection con = null
         Statement stmt = null
         ResultSet rs = null
         try {
-            con = getConfConnection(confMap)
+            xacon = getConfConnection(confMap)
+            con = xacon.getConnection()
             stmt = con.createStatement()
             rs = stmt.executeQuery(sqlSb.toString())
             if (rs.next()) return rs.getLong(1)
@@ -1190,6 +1196,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (stmt != null) stmt.close()
             if (rs != null) rs.close()
             if (con != null) con.close()
+            if (xacon != null) xacon.close()
         }
     }
 
