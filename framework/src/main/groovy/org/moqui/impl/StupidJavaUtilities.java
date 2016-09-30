@@ -175,6 +175,51 @@ public class StupidJavaUtilities {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public static void mergeNestedMap(Map<Object, Object> baseMap, Map<Object, Object> overrideMap, boolean overrideEmpty) {
+        if (baseMap == null || overrideMap == null) return;
+        Iterator<Map.Entry<Object, Object>> mapIter = overrideMap.entrySet().iterator();
+        while (mapIter.hasNext()) {
+            Map.Entry entry = mapIter.next();
+            Object key = entry.getKey();
+            Object value = entry.getValue();
+            if (baseMap.containsKey(key)) {
+                if (value == null) {
+                    if (overrideEmpty) baseMap.put(key, null);
+                } else {
+                    if (value instanceof CharSequence) {
+                        if (overrideEmpty || ((CharSequence) value).length() > 0) baseMap.put(key, value);
+                    } else if (value instanceof Map) {
+                        Object baseValue = baseMap.get(key);
+                        if (baseValue != null && baseValue instanceof Map) {
+                            mergeNestedMap((Map) baseValue, (Map) value, overrideEmpty);
+                        } else {
+                            baseMap.put(key, value);
+                        }
+                    } else if (value instanceof Collection) {
+                        Object baseValue = baseMap.get(key);
+                        if (baseValue != null && baseValue instanceof Collection) {
+                            Collection baseCol = (Collection) baseValue;
+                            Collection overrideCol = (Collection) value;
+                            for (Object overrideObj : overrideCol) {
+                                // NOTE: if we have a Collection of Map we have no way to merge the Maps without knowing the 'key' entries to use to match them
+                                if (!baseCol.contains(overrideObj)) baseCol.add(overrideObj);
+                            }
+                        } else {
+                            baseMap.put(key, value);
+                        }
+                    } else {
+                        // NOTE: no way to check empty, if not null not empty so put it
+                        baseMap.put(key, value);
+                    }
+                }
+            } else {
+                baseMap.put(key, value);
+            }
+        }
+    }
+
+
 
     public static class MapOrderByComparator implements Comparator<Map> {
         ArrayList<String> fieldNameList;

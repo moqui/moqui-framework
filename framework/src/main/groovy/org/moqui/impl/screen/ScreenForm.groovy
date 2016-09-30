@@ -190,15 +190,6 @@ class ScreenForm {
             }
         }
 
-        /*
-        // add a moquiFormId field to all forms (also: maybe handle in macro ftl file to avoid issue with field-layout
-        //     not including this field), and TODO: save in the session
-        Node newFieldNode = new Node(null, "field", [name:"moquiFormId"])
-        Node subFieldNode = newFieldNode.appendNode("default-field")
-        subFieldNode.appendNode("hidden", ["default-value":"((Math.random() * 9999999999) as Long) as String"])
-        mergeFieldNode(newFormNode, newFieldNode, false)
-         */
-
         // check form-single.field-layout and add ONLY hidden fields that are missing
         MNode fieldLayoutNode = newFormNode.first("field-layout")
         if (fieldLayoutNode && !fieldLayoutNode.depthFirst({ MNode it -> it.name == "fields-not-referenced" })) {
@@ -853,9 +844,9 @@ class ScreenForm {
             baseFieldNode.mergeChildrenByKey(overrideFieldNode, "conditional-field", "condition", null)
             baseFieldNode.mergeSingleChild(overrideFieldNode, "default-field")
 
-            // put at the end of the list
+            // put new node where old was
             baseFormNode.remove(baseFieldIndex)
-            baseFormNode.append(baseFieldNode)
+            baseFormNode.append(baseFieldNode, baseFieldIndex)
         } else {
             baseFormNode.append(deepCopy ? overrideFieldNode.deepCopy(null) : overrideFieldNode)
             // this is a new field... if the form has a field-layout element add a reference under that too
