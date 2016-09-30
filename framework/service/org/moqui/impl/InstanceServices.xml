@@ -73,9 +73,9 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="check" noun="Database" type="interface">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
         <out-parameters>
-            <parameter name="connectSuccess" type="Boolean"/>
+            <parameter name="dbConnectSuccess" type="Boolean"/>
             <parameter name="databaseExists" type="Boolean"/>
-            <parameter name="userExists" type="Boolean"/>
+            <parameter name="dbUserExists" type="Boolean"/>
         </out-parameters>
     </service>
 
@@ -95,6 +95,9 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="instanceImage == null"><return error="true" message="InstanceImage not found with ID ${instanceImageId}"/></if>
             <set field="imageType" from="instanceImage.imageType"/>
             <if condition="imageType == null"><return error="true" message="InstanceImageType not found for InstanceImage with ID ${instanceImageId}"/></if>
+
+            <set field="initCommand" from="imageType.defaultInitCommand"/>
+            <set field="networkMode" from="imageType.defaultNetworkMode"/>
 
             <service-call name="create#moqui.server.instance.AppInstance" in-map="context" out-map="context"/>
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
@@ -134,14 +137,14 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="appInstanceId"/></in-parameters>
         <out-parameters>
             <parameter name="databaseExists" type="Boolean"/>
-            <parameter name="userExists" type="Boolean"/>
+            <parameter name="dbUserExists" type="Boolean"/>
             <parameter name="instanceExists" type="Boolean"/>
             <parameter name="instanceRunning" type="Boolean"/>
             <parameter name="statusString"/>
             <parameter name="errorString"/>
             <parameter name="startedAt" type="Timestamp"/>
             <parameter name="finishedAt" type="Timestamp"/>
-            <parameter name="statusMap" type="Map"/>
+            <parameter name="moquiStatusMap" type="Map"/>
         </out-parameters>
         <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
@@ -161,8 +164,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="check" noun="MoquiServer">
         <in-parameters><parameter name="appInstanceId"/></in-parameters>
         <out-parameters>
-            <parameter name="connectSuccess" type="Boolean"/>
-            <parameter name="statusMap" type="Map"/>
+            <parameter name="moquiConnectSuccess" type="Boolean"/>
+            <parameter name="moquiStatusMap" type="Map"/>
         </out-parameters>
         <actions><script><![CDATA[
             import groovy.json.JsonSlurper
@@ -177,14 +180,14 @@ along with this software (see the LICENSE.md file). If not, see
             try {
                 RestClient.RestResponse restResponse = restClient.call()
                 if (restResponse.statusCode == 200) {
-                    connectSuccess = true
-                    statusMap = (Map) restResponse.jsonObject()
+                    moquiConnectSuccess = true
+                    moquiStatusMap = (Map) restResponse.jsonObject()
                 } else {
-                    connectSuccess = false
+                    moquiConnectSuccess = false
                     ec.message.addMessage("Server error on Moqui server: ${restResponse.getReasonPhrase()}")
                 }
             } catch (Exception e) {
-                connectSuccess = false
+                moquiConnectSuccess = false
                 ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Moqui server", e)
                 ec.message.addError("Error connecting to Moqui server: ${e.toString()}")
             }
@@ -581,30 +584,30 @@ along with this software (see the LICENSE.md file). If not, see
             <script><![CDATA[
                 org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger("checkDatabaseMySQL")
 
-                connectSuccess = false
+                dbConnectSuccess = false
                 databaseExists = false
-                userExists = false
+                dbUserExists = false
 
                 java.sql.Connection testCon = null
                 try {
                     testCon = ec.entity.getConfConnection(adminMap)
-                    connectSuccess = true
+                    dbConnectSuccess = true
                 } catch (Exception e) {
                     logger.warn("Test connection failed", e)
                 } finally {
                     if (testCon != null) testCon.close()
                 }
 
-                if (connectSuccess) {
+                if (dbConnectSuccess) {
                     long dbCount = ec.entity.runSqlCountConf("information_schema.schemata", "schema_name='${envMap.entity_ds_database}'", adminMap)
                     if (dbCount > 0L) databaseExists = true
 
                     long userCount = ec.entity.runSqlCountConf("mysql.user", "user='${envMap.entity_ds_user}'", adminMap)
-                    if (userCount > 0L) userExists = true
+                    if (userCount > 0L) dbUserExists = true
                 }
             ]]></script>
 
-            <message>Checked database ${envMap.entity_ds_database} at ${adminMap.entity_ds_host}: connect ${connectSuccess ? 'successful' : 'failed'}, database ${databaseExists ? 'exists' : 'does not exist'}, user ${envMap.entity_ds_user} ${userExists ? 'exists' : 'does not exist'}</message>
+            <message>Checked database ${envMap.entity_ds_database} at ${adminMap.entity_ds_host}: connect ${dbConnectSuccess ? 'successful' : 'failed'}, database ${databaseExists ? 'exists' : 'does not exist'}, user ${envMap.entity_ds_user} ${dbUserExists ? 'exists' : 'does not exist'}</message>
         </actions>
     </service>
     <service verb="create" noun="DatabaseMySQL">
