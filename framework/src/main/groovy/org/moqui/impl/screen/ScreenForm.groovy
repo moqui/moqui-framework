@@ -132,16 +132,24 @@ class ScreenForm {
                 mergeFieldNode(newFormNode, nodeCopy, false)
             } else if (formSubNode.name == "auto-fields-service") {
                 String serviceName = formSubNode.attribute("service-name")
+                ArrayList<MNode> excludeList = formSubNode.children("exclude")
+                int excludeListSize = excludeList.size()
+                Set<String> excludes = excludeListSize > 0 ? new HashSet<String>() : (Set<String>) null
+                for (int i = 0; i < excludeListSize; i++) {
+                    MNode excludeNode = (MNode) excludeList.get(i)
+                    excludes.add(excludeNode.attribute("parameter-name"))
+                }
                 if (isDynamic) serviceName = ecfi.resourceFacade.expand(serviceName, "")
                 ServiceDefinition serviceDef = ecfi.serviceFacade.getServiceDefinition(serviceName)
                 if (serviceDef != null) {
-                    addServiceFields(serviceDef, formSubNode.attribute("include")?:"in", formSubNode.attribute("field-type")?:"edit", newFormNode, ecfi)
+                    addServiceFields(serviceDef, formSubNode.attribute("include")?:"in", formSubNode.attribute("field-type")?:"edit",
+                            excludes, newFormNode, ecfi)
                     continue
                 }
                 if (ecfi.serviceFacade.isEntityAutoPattern(serviceName)) {
                     EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(ServiceDefinition.getNounFromName(serviceName))
                     if (ed != null) {
-                        addEntityFields(ed, "all", formSubNode.attribute("field-type")?:"edit", ServiceDefinition.getVerbFromName(serviceName), newFormNode)
+                        addEntityFields(ed, "all", formSubNode.attribute("field-type")?:"edit", null, newFormNode)
                         continue
                     }
                 }
@@ -151,7 +159,15 @@ class ScreenForm {
                 if (isDynamic) entityName = ecfi.resourceFacade.expand(entityName, "")
                 EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
                 if (ed != null) {
-                    addEntityFields(ed, formSubNode.attribute("include")?:"all", formSubNode.attribute("field-type")?:"find-display", null, newFormNode)
+                    ArrayList<MNode> excludeList = formSubNode.children("exclude")
+                    int excludeListSize = excludeList.size()
+                    Set<String> excludes = excludeListSize > 0 ? new HashSet<String>() : (Set<String>) null
+                    for (int i = 0; i < excludeListSize; i++) {
+                        MNode excludeNode = (MNode) excludeList.get(i)
+                        excludes.add(excludeNode.attribute("field-name"))
+                    }
+                    addEntityFields(ed, formSubNode.attribute("include")?:"all", formSubNode.attribute("field-type")?:"find-display",
+                            excludes, newFormNode)
                     continue
                 }
                 throw new IllegalArgumentException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
@@ -492,7 +508,7 @@ class ScreenForm {
                 break
         }
     }
-    void addServiceFields(ServiceDefinition sd, String include, String fieldType, MNode baseFormNode,
+    void addServiceFields(ServiceDefinition sd, String include, String fieldType, Set<String> excludes, MNode baseFormNode,
                           ExecutionContextFactoryImpl ecfi) {
         String serviceVerb = sd.verb
         //String serviceType = sd.serviceNode."@type"
@@ -508,16 +524,19 @@ class ScreenForm {
         if (include == "out" || include == "all") parameterNodes.addAll(sd.serviceNode.first("out-parameters").children("parameter"))
 
         for (MNode parameterNode in parameterNodes) {
-            MNode newFieldNode = new MNode("field", [name:parameterNode.attribute("name"),
-                    "validate-service":sd.serviceName, "validate-parameter":parameterNode.attribute("name")])
+            String parameterName = parameterNode.attribute("name")
+            if (excludes != null && excludes.contains(parameterName)) continue
+            MNode newFieldNode = new MNode("field", [name:parameterName, "validate-service":sd.serviceName,
+                                                     "validate-parameter":parameterName])
             MNode subFieldNode = newFieldNode.append("default-field", null)
             addAutoServiceField(nounEd, parameterNode, fieldType, serviceVerb, newFieldNode, subFieldNode, baseFormNode)
             mergeFieldNode(baseFormNode, newFieldNode, false)
         }
     }
 
-    void addEntityFields(EntityDefinition ed, String include, String fieldType, String serviceVerb, MNode baseFormNode) {
-        for (String fieldName in ed.getFieldNames(include == "all" || include == "pk", include == "all" || include == "nonpk")) {
+    void addEntityFields(EntityDefinition ed, String include, String fieldType, Set<String> excludes, MNode baseFormNode) {
+        for (String fieldName in ed.getFieldNames("all".equals(include) || "pk".equals(include), "all".equals(include) || "nonpk".equals(include))) {
+            if (excludes != null && excludes.contains(fieldName)) continue
             String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
             if (baseFormNode.name == "form-list" && efType in ['text-long', 'text-very-long', 'binary-very-long']) continue
 

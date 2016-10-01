@@ -229,6 +229,10 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="auto-fields-service">
         <xs:complexType>
+            <xs:sequence>
+                <xs:element name="exclude" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                    <xs:attribute name="parameter-name" type="name-field" use="required"/></xs:complexType></xs:element>
+            </xs:sequence>
             <xs:attribute name="service-name" type="name-full" use="required"/>
             <xs:attribute name="field-type" default="edit" type="auto-field-type"/>
             <xs:attribute name="include" default="in">
@@ -244,6 +248,10 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="auto-fields-entity">
         <xs:complexType>
+            <xs:sequence>
+                <xs:element name="exclude" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                    <xs:attribute name="field-name" type="name-field" use="required"/></xs:complexType></xs:element>
+            </xs:sequence>
             <xs:attribute name="entity-name" type="name-full" use="required"/>
             <xs:attribute name="include" default="all">
                 <xs:simpleType>

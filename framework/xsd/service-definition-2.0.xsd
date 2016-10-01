@@ -193,7 +193,8 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="auto-parameters">
         <xs:complexType>
             <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="exclude"/>
+                <xs:element name="exclude" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                    <xs:attribute name="field-name" type="name-field" use="required"/></xs:complexType></xs:element>
             </xs:sequence>
             <xs:attribute name="entity-name" type="name-full"/>
             <xs:attribute name="include" default="all">
@@ -206,11 +207,6 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:simpleType>
             </xs:attribute>
             <xs:attributeGroup ref="attlist.parameter-general"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="exclude">
-        <xs:complexType>
-            <xs:attribute name="field-name" type="name-field" use="required"/>
         </xs:complexType>
     </xs:element>
 
