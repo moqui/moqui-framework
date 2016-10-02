@@ -233,16 +233,20 @@ class ScreenRenderImpl implements ScreenRender {
         long renderStartTime = System.currentTimeMillis()
 
         rootScreenDef = sfi.getScreenDefinition(rootScreenLocation)
-        if (rootScreenDef == null) throw new BaseException("Could not find root screen at location [${rootScreenLocation}]")
+        if (rootScreenDef == null) throw new BaseException("Could not find root screen at location ${rootScreenLocation}")
 
-        if (logger.traceEnabled) logger.trace("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
+        if (logger.traceEnabled) logger.trace("Rendering screen ${rootScreenLocation} with path list ${originalScreenPathNameList}")
         // logger.info("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
 
         WebFacade web = ec.getWeb()
         String lastStandalone = web != null ? web.requestParameters.lastStandalone : null
         screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
                 "true".equals(lastStandalone))
+
+        // if the target of the url doesn't exist throw exception
+        screenUrlInfo.checkExists()
         screenUrlInstance = screenUrlInfo.getInstance(this, false)
+
         if (web != null) {
             // clear out the parameters used for special screen URL config
             if (lastStandalone != null && lastStandalone.length() > 0) web.requestParameters.lastStandalone = ""

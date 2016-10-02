@@ -216,6 +216,7 @@ significant changes.
   - EntityDataWriter now supports export with a entity master definition name, applied only to entities exported that have a master 
     definition with the given master name
 - XML Screen and Form
+  - screen path URLs that don't exist are now by default disabled instead of throwing an exception
   - form-list now supports @header-dialog to put header-field widgets in a dialog instead of in the header
   - form-list now supports @select-columns to allow users to select which fields are displayed in which columns, or not displayed
   - added search-form-inputs.default-parameters element whose attributes are used as defaultParameters in searchFormMap()
@@ -438,7 +439,6 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
-- Moqui.reload(), destroy ECF and init new one; pass optional ServletContext to remove attr before and replace after
 - form-list data prep, more self-contained
   - form-list.entity-find element support instead of form-list.@list attribute
   - form-list.service-call
@@ -463,10 +463,7 @@ Gradle tasks.
       - https://docs.docker.com/engine/security/https/
       - https://docs.docker.com/engine/reference/api/docker_remote_api/
 
-- Option for link element to only render if referenced transition/screen exists
 - Option for transition to only mount if all response URLs for screen paths exist
-- Perhaps never throw exception for ScreenUrlInfo or UrlInstance if screen or transition does not exist, ie just add
-  method to see if exists and show disabled link if it doesn't?
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 - Support seek for faster pagination like jOOQ: https://blog.jooq.org/2013/10/26/faster-sql-paging-with-jooq-using-the-seek-method/
