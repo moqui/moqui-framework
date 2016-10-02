@@ -21,6 +21,7 @@ import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
 
 import org.moqui.BaseException
+import org.moqui.Moqui
 import org.moqui.context.*
 import org.moqui.context.ArtifactExecutionInfo.ArtifactType
 import org.moqui.entity.EntityDataLoader
@@ -539,6 +540,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
+    @Override
     boolean checkEmptyDb() {
         String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
         if (!emptyDbLoad || emptyDbLoad == 'none') return false
@@ -649,6 +651,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Error in destroy, called in finalize of ExecutionContextFactoryImpl", e)
         }
         super.finalize()
+    }
+
+    /** Trigger ECF destroy and re-init in another thread, after short wait */
+    void triggerDynamicReInit() {
+        Thread riThread = Thread.start("EcfiReInit", {
+            sleep(2000) // wait 2 seconds
+            Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
+        })
     }
 
     @Override
@@ -1053,6 +1063,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Nonnull ServletContext getServletContext() { internalServletContext }
     @Override
     @Nonnull ServerContainer getServerContainer() { internalServerContainer }
+    @Override
     void initServletContext(ServletContext sc) {
         internalServletContext = sc
         internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")

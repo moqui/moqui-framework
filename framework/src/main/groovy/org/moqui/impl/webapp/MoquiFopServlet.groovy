@@ -51,6 +51,11 @@ class MoquiFopServlet extends HttpServlet {
                 (ExecutionContextFactoryImpl) getServletContext().getAttribute("executionContextFactory")
         String moquiWebappName = getServletContext().getInitParameter("moqui-name")
 
+        if (ecfi == null || moquiWebappName == null) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "System is initializing, try again soon.")
+            return
+        }
+
         String pathInfo = request.getPathInfo()
         long startTime = System.currentTimeMillis()
 

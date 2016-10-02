@@ -20,6 +20,7 @@ import org.moqui.entity.EntityDataLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.ServletContext;
 import java.util.*;
 
 /**
@@ -49,13 +50,52 @@ public class Moqui {
     }
 
     public static void dynamicInit(ExecutionContextFactory executionContextFactory) {
-        if (activeExecutionContextFactory == null || activeExecutionContextFactory.isDestroyed()) {
-            activeExecutionContextFactory = executionContextFactory;
-            activeExecutionContextFactory.postInit();
-        } else {
+        if (activeExecutionContextFactory != null && !activeExecutionContextFactory.isDestroyed())
             throw new IllegalStateException("Active ExecutionContextFactory already in place, cannot set one dynamically.");
+        activeExecutionContextFactory = executionContextFactory;
+        activeExecutionContextFactory.postInit();
+    }
+    public static <K extends ExecutionContextFactory> K dynamicInit(Class<K> ecfClass, ServletContext sc)
+            throws InstantiationException, IllegalAccessException {
+        if (activeExecutionContextFactory != null && !activeExecutionContextFactory.isDestroyed())
+            throw new IllegalStateException("Active ExecutionContextFactory already in place, cannot set one dynamically.");
+
+        K newEcf = ecfClass.newInstance();
+        // check for an empty DB
+        if (newEcf.checkEmptyDb()) {
+            logger.warn("Data loaded into empty DB, re-initializing ExecutionContextFactory");
+            // destroy old ECFI
+            newEcf.destroy();
+            // create new ECFI to get framework init data from DB
+            newEcf = ecfClass.newInstance();
         }
 
+        // tell ECF about the ServletContext
+        if (sc != null) newEcf.initServletContext(sc);
+        // init otherwise fully complete, call postInit()
+        newEcf.postInit();
+        // set SC attribute and Moqui class static reference
+        if (sc != null) sc.setAttribute("executionContextFactory", newEcf);
+
+        activeExecutionContextFactory = newEcf;
+        return newEcf;
+    }
+    public static <K extends ExecutionContextFactory> K dynamicReInit(Class<K> ecfClass, ServletContext sc)
+            throws InstantiationException, IllegalAccessException {
+
+        // handle Servlet pause then resume taking requests after by removing executionContextFactory attribute
+        if (sc.getAttribute("executionContextFactory") != null) sc.removeAttribute("executionContextFactory");
+
+        if (activeExecutionContextFactory != null) {
+            if (!activeExecutionContextFactory.isDestroyed()) {
+                activeExecutionContextFactory.destroyActiveExecutionContext();
+                activeExecutionContextFactory.destroy();
+            }
+            activeExecutionContextFactory = null;
+            System.gc();
+        }
+
+        return dynamicInit(ecfClass, sc);
     }
 
     public static ExecutionContextFactory getExecutionContextFactory() { return activeExecutionContextFactory; }
