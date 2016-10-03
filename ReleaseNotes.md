@@ -33,6 +33,9 @@ significant changes.
   - changed relationship.@related-entity-name to relationship.@related
   - changed key-map.@related-field-name to key-map.@related
   - UserField no longer supported (UserField and UserFieldValue entities)
+- XML Screen and Form
+  - field.@entry-name attribute replaced by field.@from attribute (more meaningful, matches attribute used on set element); the old
+    entry-name attribute is still supported, but removed from XSD
 - Service Job Scheduling
   - Quartz Scheduler has been removed, use new ServiceJob instead with more relevant options, much cleaner and more manageable
   - Removed ServiceFacade.getScheduler() method

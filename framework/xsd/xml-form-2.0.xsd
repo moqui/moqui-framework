@@ -88,7 +88,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="map" type="xs:string" default="fieldValues">
                 <xs:annotation><xs:documentation>The Map to get field values from. Is often a EntityValue object or a
                     Map with data pulled from various places to populate in the form. Map keys are matched against field
-                    names. This is ignored if the field.entry-name attribute is used, that is evaluated against the
+                    names. This is ignored if the field.@from attribute is used, that is evaluated against the
                     context in place at the time each field is rendered. Defaults to "fieldValues".</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="focus-field" type="xs:string">
@@ -529,11 +529,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>A unique name for this field. Used for the parameter name, referencing
                     the field in other places, etc.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="entry-name" type="xs:string">
-                <xs:annotation><xs:documentation>The name of the entry in the context that contains the value to use for
-                    this field. By default will use the field name and look in the context and if not found in the
-                    context then in a map called "fieldValues" (ie: "fieldValues.${name}"). With this convention when
-                    you do an entity find to get a recard to edit, use "fieldValues" for the value-field.</xs:documentation></xs:annotation>
+            <xs:attribute name="from" type="xs:string"><!-- was 'entry-name' -->
+                <xs:annotation><xs:documentation>A Groovy expression to get the value of the field from the context; may be a simple
+                    context field name, arithmetic expression, include function calls, etc.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="hide" type="xs:string">
                 <xs:annotation><xs:documentation>If false field will always be visible (at least the title if nothing
@@ -647,7 +645,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:attribute>
         <xs:attribute name="red-when" default="by-name">
             <xs:annotation><xs:documentation>The widget/interaction part will be red if the date value is before-now
-                (for thruDate), after-now (for fromDate), or by-name (if the field's name or entry-name or fromDate
+                (for thruDate), after-now (for fromDate), or by-name (if the field's @name, @from, fromDate,
                 or thruDate the corresponding action will be done); only applicable when the field is a timestamp.</xs:documentation></xs:annotation>
             <xs:simpleType>
                 <xs:restriction base="xs:token">

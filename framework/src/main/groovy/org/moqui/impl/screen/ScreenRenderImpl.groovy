@@ -1178,8 +1178,11 @@ class ScreenRenderImpl implements ScreenRender {
 
     Object getFieldValue(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
         MNode fieldNode = fieldNodeWrapper.getMNode()
-        String entryName = fieldNode.attribute("entry-name")
-        if (entryName != null && entryName.length() > 0) return ec.getResource().expression(entryName, null)
+
+        String fromAttr = fieldNode.attribute("from")
+        if (fromAttr == null || fromAttr.isEmpty()) fromAttr = fieldNode.attribute("entry-name")
+        if (fromAttr != null && fromAttr.length() > 0) return ec.resourceFacade.expression(fromAttr, null)
+
         String fieldName = fieldNode.attribute("name")
         Object value = null
 
