@@ -31,10 +31,11 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     protected final static int DS_RETRY_COUNT = 5
     protected final static long DS_RETRY_SLEEP = 5000
 
-    protected EntityFacadeImpl efi
-    protected MNode datasourceNode
+    protected EntityFacadeImpl efi = null
+    protected MNode datasourceNode = null
 
-    protected DataSource dataSource
+    protected DataSource dataSource = null
+    EntityFacadeImpl.DatasourceInfo dsi = null
 
 
     EntityDatasourceFactoryImpl() { }
@@ -46,7 +47,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
         this.datasourceNode = datasourceNode
 
         // init the DataSource
-        EntityFacadeImpl.DatasourceInfo dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
+        dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
         if (dsi.jndiName != null && !dsi.jndiName.isEmpty()) {
             try {
                 InitialContext ic;

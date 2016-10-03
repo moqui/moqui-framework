@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
 import org.moqui.context.ExecutionContext
+import org.moqui.impl.entity.EntityFacadeImpl
 
 import java.lang.management.ManagementFactory
 import java.nio.charset.Charset
@@ -776,7 +777,8 @@ class StupidUtilities {
             JavaStats: [ GcCount:gcCount, GcTimeSeconds:gcTime/1000, JIT:jitMXBean.getName(), CompileTimeSeconds:jitMXBean.getTotalCompilationTime()/1000,
                 ClassesLoaded:classMXBean.getLoadedClassCount(), ClassesTotalLoaded:classMXBean.getTotalLoadedClassCount(),
                 ClassesUnloaded:classMXBean.getUnloadedClassCount(), ThreadCount:threadMXBean.getThreadCount(),
-                PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>
+                PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>,
+            DataSources: ((EntityFacadeImpl) ec.entity).getDataSourcesInfo()
         ]
         return statusMap
     }
