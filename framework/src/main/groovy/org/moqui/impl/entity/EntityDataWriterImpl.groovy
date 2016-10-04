@@ -100,10 +100,10 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))
         try {
+            PrintWriter pw = new PrintWriter(out)
             ZipEntry e = new ZipEntry(filenameWithinZip)
             out.putNextEntry(e)
             try {
-                PrintWriter pw = new PrintWriter(out)
                 int valuesWritten = this.writer(pw)
                 pw.flush()
                 efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}', '', [valuesWritten:valuesWritten, filename:zipFilename]))
@@ -125,7 +125,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
             return 0
         }
 
-        if (dependentLevels) efi.createAllAutoReverseManyRelationships()
+        checkAllEntities()
+        if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
 
         int valuesWritten = 0
 
@@ -135,10 +136,43 @@ class EntityDataWriterImpl implements EntityDataWriter {
             if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = tf.begin(txTimeout)
             try {
-                if (fileType == JSON) {
-                    valuesWritten = directoryJson(path)
-                } else {
-                    valuesWritten = directoryXml(path)
+                for (String en in entityNames) {
+                    EntityDefinition ed = efi.getEntityDefinition(en)
+                    boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
+                    EntityFind ef = makeEntityFind(en)
+                    EntityListIterator eli = ef.iterator()
+
+                    try {
+                        if (!eli.hasNext()) continue
+
+                        String filename = path + '/' + en + (JSON.is(fileType) ? ".json" : ".xml")
+                        File outFile = new File(filename)
+                        if (outFile.exists()) {
+                            efi.ecfi.eci.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
+                            continue
+                        }
+                        outFile.createNewFile()
+
+                        PrintWriter pw = new PrintWriter(outFile)
+                        try {
+                            startFile(pw)
+
+                            int curValuesWritten = 0
+                            EntityValue ev
+                            while ((ev = eli.next()) != null) {
+                                curValuesWritten += writeValue(ev, pw, useMaster)
+                            }
+
+                            endFile(pw)
+
+                            efi.ecfi.eci.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten,filename:filename]))
+                            valuesWritten += curValuesWritten
+                        } finally {
+                            pw.close()
+                        }
+                    } finally {
+                        eli.close()
+                    }
                 }
             } catch (Throwable t) {
                 logger.warn("Error writing data", t)
@@ -159,112 +193,66 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         return valuesWritten
     }
-    protected int directoryXml(String path) {
-        int valuesWritten = 0
-
-        for (String en in entityNames) {
-            String filename = "${path}/${en}.xml"
-            File outFile = new File(filename)
-            if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
-                continue
-            }
-            outFile.createNewFile()
-
-            PrintWriter pw = new PrintWriter(outFile)
-            pw.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-            pw.println("<entity-facade-xml>")
-
-            EntityDefinition ed = efi.getEntityDefinition(en)
-            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
-            EntityFind ef = makeEntityFind(en)
-            EntityListIterator eli = ef.iterator()
-
-            int curValuesWritten = 0
-            try {
-                if (useMaster) {
-                    curValuesWritten = eli.writeXmlTextMaster(pw, prefix, masterName)
-                } else {
-                    curValuesWritten = eli.writeXmlText(pw, prefix, dependentLevels)
-                }
-            } finally {
-                eli.close()
-            }
-
-            pw.println("</entity-facade-xml>")
-            pw.close()
-            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten, filename:filename]))
-
-            valuesWritten += curValuesWritten
+    @Override
+    int zipDirectory(String pathWithinZip, String zipFilename) {
+        File zipFile = new File(zipFilename)
+        if (!zipFile.parentFile.exists()) zipFile.parentFile.mkdirs()
+        if (!zipFile.createNewFile()) {
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.', '', [filename:zipFilename]))
+            return 0
         }
 
-        return valuesWritten
-    }
-    protected int directoryJson(String path) {
+        checkAllEntities()
+        if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
+
         int valuesWritten = 0
+        ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))
+        try {
+            PrintWriter pw = new PrintWriter(out)
+            for (String en in entityNames) {
+                EntityDefinition ed = efi.getEntityDefinition(en)
+                boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
+                EntityFind ef = makeEntityFind(en)
+                EntityListIterator eli = ef.iterator()
+                try {
+                    if (!eli.hasNext()) continue
 
-        for (String en in entityNames) {
-            String filename = "${path}/${en}.json"
-            File outFile = new File(filename)
-            if (outFile.exists()) {
-                efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
-                continue
-            }
-            outFile.createNewFile()
+                    String filenameWithinZip = pathWithinZip + '/' + en + (JSON.is(fileType) ? ".json" : ".xml")
+                    ZipEntry e = new ZipEntry(filenameWithinZip)
+                    out.putNextEntry(e)
+                    try {
+                        startFile(pw)
 
-            PrintWriter pw = new PrintWriter(outFile)
-            pw.println("[")
+                        int curValuesWritten = 0
+                        EntityValue ev
+                        while ((ev = eli.next()) != null) {
+                            curValuesWritten += writeValue(ev, pw, useMaster)
+                        }
 
-            EntityDefinition ed = efi.getEntityDefinition(en)
-            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
-            EntityFind ef = makeEntityFind(en)
-            EntityListIterator eli = ef.iterator()
+                        endFile(pw)
 
-            int curValuesWritten = 0
-            try {
-                EntityValue ev
-                while ((ev = eli.next()) != null) {
-                    Map plainMap
-                    if (useMaster) {
-                        plainMap = ev.getMasterValueMap(masterName)
-                    } else {
-                        plainMap = ev.getPlainValueMap(dependentLevels)
+                        pw.flush()
+                        efi.ecfi.eci.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to ${filename}','',[curValuesWritten:curValuesWritten,filename:filenameWithinZip]))
+
+                        valuesWritten += curValuesWritten
+                    } finally {
+                        out.closeEntry()
                     }
-                    JsonBuilder jb = new JsonBuilder()
-                    jb.call(plainMap)
-                    String jsonStr = jb.toPrettyString()
-                    pw.write(jsonStr)
-                    pw.println(",")
-
-                    // TODO: consider including dependent records in the count too... maybe write something to recursively count the nested Maps
-                    curValuesWritten++
+                } finally {
+                    eli.close()
                 }
-            } finally {
-                eli.close()
             }
-
-            pw.println("]")
-            pw.println("")
-
-            pw.close()
-            efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten,filename:filename]))
-
-            valuesWritten += curValuesWritten
+        } finally {
+            out.close()
         }
-
         return valuesWritten
     }
+
 
     @Override
     int writer(Writer writer) {
-        if (dependentLevels) efi.createAllAutoReverseManyRelationships()
-
-        if (allEntities) {
-            LinkedHashSet<String> newEntities = new LinkedHashSet<>(efi.getAllNonViewEntityNames())
-            newEntities.removeAll(entityNames)
-            entityNames = newEntities
-            allEntities = false
-        }
+        checkAllEntities()
+        if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
 
         TransactionFacade tf = efi.ecfi.transactionFacade
         boolean suspendedTransaction = false
@@ -273,11 +261,24 @@ class EntityDataWriterImpl implements EntityDataWriter {
             if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = tf.begin(txTimeout)
             try {
-                if (fileType == JSON) {
-                    valuesWritten = writerJson(writer)
-                } else {
-                    valuesWritten = writerXml(writer)
+                startFile(writer)
+
+                for (String en in entityNames) {
+                    EntityDefinition ed = efi.getEntityDefinition(en)
+                    boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
+                    EntityFind ef = makeEntityFind(en)
+                    EntityListIterator eli = ef.iterator()
+                    try {
+                        EntityValue ev
+                        while ((ev = eli.next()) != null) {
+                            valuesWritten+= writeValue(ev, writer, useMaster)
+                        }
+                    } finally {
+                        eli.close()
+                    }
                 }
+
+                endFile(writer)
             } catch (Throwable t) {
                 logger.warn("Error writing data: " + t.toString(), t)
                 tf.rollback(beganTransaction, "Error writing data", t)
@@ -297,84 +298,59 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         return valuesWritten
     }
-    protected int writerXml(Writer writer) {
-        int valuesWritten = 0
 
-        writer.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        writer.println("<entity-facade-xml>")
-
-        for (String en in entityNames) {
-            EntityDefinition ed = efi.getEntityDefinition(en)
-            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
-            EntityFind ef = makeEntityFind(en)
-
-            /* leaving commented as might be useful for future con pool debugging:
-            try {
-                def dataSource = efi.getDatasourceFactory(ed.getEntityGroupName()).getDataSource()
-                logger.warn("=========== edwi pool available size: ${dataSource.poolAvailableSize()}/${dataSource.poolTotalSize()}; ${dataSource.getMinPoolSize()}-${dataSource.getMaxPoolSize()}")
-            } catch (Throwable t) {
-                logger.warn("========= pool size error ${t.toString()}")
+    private void startFile(Writer writer) {
+        if (JSON.is(fileType)) {
+            writer.println("[")
+        } else {
+            writer.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+            writer.println("<entity-facade-xml>")
+        }
+    }
+    private void endFile(Writer writer) {
+        if (JSON.is(fileType)) {
+            writer.println("]")
+            writer.println("")
+        } else {
+            writer.println("</entity-facade-xml>")
+            writer.println("")
+        }
+    }
+    private int writeValue(EntityValue ev, Writer writer, boolean useMaster) {
+        int valuesWritten
+        if (JSON.is(fileType)) {
+            Map<String, Object> plainMap
+            if (useMaster) {
+                plainMap = ev.getMasterValueMap(masterName)
+            } else {
+                plainMap = ev.getPlainValueMap(dependentLevels)
             }
-            */
-
-            EntityListIterator eli = ef.iterator()
-            try {
-                if (useMaster) {
-                    valuesWritten += eli.writeXmlTextMaster(writer, prefix, masterName)
-                } else {
-                    valuesWritten += eli.writeXmlText(writer, prefix, dependentLevels)
-                }
-            } finally {
-                eli.close()
+            JsonBuilder jb = new JsonBuilder()
+            jb.call(plainMap)
+            String jsonStr = jb.toPrettyString()
+            writer.write(jsonStr)
+            writer.println(",")
+            // TODO: consider including dependent records in the count too... maybe write something to recursively count the nested Maps
+            valuesWritten = 1
+        } else {
+            if (useMaster) {
+                valuesWritten = ev.writeXmlTextMaster(writer, prefix, masterName)
+            } else {
+                valuesWritten = ev.writeXmlText(writer, prefix, dependentLevels)
             }
         }
-
-        writer.println("</entity-facade-xml>")
-        writer.println("")
-
         return valuesWritten
     }
-
-    protected int writerJson(Writer writer) {
-        int valuesWritten = 0
-
-        writer.println("[")
-
-        for (String en in entityNames) {
-            EntityDefinition ed = efi.getEntityDefinition(en)
-            boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
-            EntityFind ef = makeEntityFind(en)
-            EntityListIterator eli = ef.iterator()
-            try {
-                EntityValue ev
-                while ((ev = eli.next()) != null) {
-                    Map plainMap
-                    if (useMaster) {
-                        plainMap = ev.getMasterValueMap(masterName)
-                    } else {
-                        plainMap = ev.getPlainValueMap(dependentLevels)
-                    }
-                    JsonBuilder jb = new JsonBuilder()
-                    jb.call(plainMap)
-                    String jsonStr = jb.toPrettyString()
-                    writer.write(jsonStr)
-                    writer.println(",")
-
-                    // TODO: consider including dependent records in the count too... maybe write something to recursively count the nested Maps
-                    valuesWritten++
-                }
-            } finally {
-                eli.close()
-            }
+    private void checkAllEntities() {
+        if (allEntities) {
+            LinkedHashSet<String> newEntities = new LinkedHashSet<>(efi.getAllNonViewEntityNames())
+            newEntities.removeAll(entityNames)
+            entityNames = newEntities
+            allEntities = false
         }
-
-        writer.println("]")
-        writer.println("")
-
-        return valuesWritten
     }
 
-    protected EntityFind makeEntityFind(String en) {
+    private EntityFind makeEntityFind(String en) {
         EntityFind ef = efi.find(en).condition(filterMap).orderBy(orderByList)
         EntityDefinition ed = efi.getEntityDefinition(en)
         if (ed.isField("lastUpdatedStamp")) {

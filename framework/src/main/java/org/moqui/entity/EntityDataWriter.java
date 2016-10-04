@@ -100,6 +100,7 @@ public interface EntityDataWriter {
      * @return Count of values written
      */
     int directory(String path);
+    int zipDirectory(String pathWithinZip, String zipFilename);
     /** Write the results to a Writer.
      * @param writer The Writer to write to
      * @return Count of values written
