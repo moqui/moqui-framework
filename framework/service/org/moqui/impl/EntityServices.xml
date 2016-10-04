@@ -129,4 +129,30 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
+
+    <service verb="export" noun="EntityDataSnapshot" transaction-timeout="3600">
+        <in-parameters>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="entitiesToSkip" type="List"><parameter name="entityName"/></parameter>
+            <parameter name="baseFilename"/>
+        </in-parameters>
+        <out-parameters><parameter name="recordsWritten" type="Integer"/></out-parameters>
+        <actions>
+            <script><![CDATA[
+                import org.moqui.entity.EntityDataWriter
+                import org.moqui.context.ExecutionContext
+                ExecutionContext ec = context.ec
+                EntityDataWriter edw = ec.entity.makeDataWriter().allEntities()
+
+                if (fromDate) edw.fromDate(ec.l10n.parseTimestamp(fromDate, null))
+                if (thruDate) edw.thruDate(ec.l10n.parseTimestamp(thruDate, null))
+
+                String baseName = baseFilename
+                if (!baseName) baseName = "MoquiSnapshot${ec.l10n.format(ec.user.nowTimestamp, 'yyyyMMddHHmm')}"
+
+                recordsWritten = edw.zipFile(baseName + ".xml", ec.factory.getRuntimePath() + "/db/snapshot/" + baseName + ".zip")
+            ]]></script>
+        </actions>
+    </service>
 </services>

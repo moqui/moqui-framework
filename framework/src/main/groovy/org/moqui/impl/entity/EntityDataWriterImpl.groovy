@@ -28,21 +28,26 @@ import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+
 class EntityDataWriterImpl implements EntityDataWriter {
-    protected final static Logger logger = LoggerFactory.getLogger(EntityDataWriterImpl.class)
+    private final static Logger logger = LoggerFactory.getLogger(EntityDataWriterImpl.class)
 
-    protected EntityFacadeImpl efi
+    private EntityFacadeImpl efi
 
-    protected EntityDataWriter.FileType fileType = XML
-    protected int txTimeout = 3600
-    protected LinkedHashSet<String> entityNames = new LinkedHashSet<>()
-    protected int dependentLevels = 0
-    protected String masterName = null
-    protected String prefix = null
-    protected Map<String, Object> filterMap = [:]
-    protected List<String> orderByList = []
-    protected Timestamp fromDate = null
-    protected Timestamp thruDate = null
+    private EntityDataWriter.FileType fileType = XML
+    private int txTimeout = 3600
+    private LinkedHashSet<String> entityNames = new LinkedHashSet<>()
+    private boolean allEntities = false
+
+    private int dependentLevels = 0
+    private String masterName = null
+    private String prefix = null
+    private Map<String, Object> filterMap = [:]
+    private List<String> orderByList = []
+    private Timestamp fromDate = null
+    private Timestamp thruDate = null
 
     EntityDataWriterImpl(EntityFacadeImpl efi) { this.efi = efi }
 
@@ -51,6 +56,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
     EntityDataWriter fileType(EntityDataWriter.FileType ft) { fileType = ft; return this }
     EntityDataWriter entityName(String entityName) { entityNames.add(entityName);  return this }
     EntityDataWriter entityNames(List<String> enList) { entityNames.addAll(enList);  return this }
+    EntityDataWriter allEntities() { allEntities = true; return this }
+
     EntityDataWriter dependentRecords(boolean dr) { if (dr) { dependentLevels = 2 } else { dependentLevels = 0 }; return this }
     EntityDataWriter dependentLevels(int levels) { dependentLevels = levels; return this }
     EntityDataWriter master(String mn) { masterName = mn; return this }
@@ -75,8 +82,38 @@ class EntityDataWriterImpl implements EntityDataWriter {
         // NOTE: don't have to do anything different here for different file types, writer() method will handle that
         int valuesWritten = this.writer(pw)
         pw.close()
-        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
+        efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}', '', [valuesWritten:valuesWritten, filename:filename]))
         return valuesWritten
+    }
+
+    @Override
+    int zipFile(String filenameWithinZip, String zipFilename) {
+        File zipFile = new File(zipFilename)
+        if (!zipFile.parentFile.exists()) zipFile.parentFile.mkdirs()
+        if (!zipFile.createNewFile()) {
+            efi.ecfi.executionContext.message.addError(efi.ecfi.resource.expand('File ${filename} already exists.', '', [filename:zipFilename]))
+            return 0
+        }
+
+        if (filenameWithinZip.endsWith('.json')) fileType(JSON)
+        else if (filenameWithinZip.endsWith('.xml')) fileType(XML)
+
+        ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))
+        try {
+            ZipEntry e = new ZipEntry(filenameWithinZip)
+            out.putNextEntry(e)
+            try {
+                PrintWriter pw = new PrintWriter(out)
+                int valuesWritten = this.writer(pw)
+                pw.flush()
+                efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}', '', [valuesWritten:valuesWritten, filename:zipFilename]))
+                return valuesWritten
+            } finally {
+                out.closeEntry()
+            }
+        } finally {
+            out.close()
+        }
     }
 
     @Override
@@ -221,6 +258,13 @@ class EntityDataWriterImpl implements EntityDataWriter {
     @Override
     int writer(Writer writer) {
         if (dependentLevels) efi.createAllAutoReverseManyRelationships()
+
+        if (allEntities) {
+            LinkedHashSet<String> newEntities = new LinkedHashSet<>(efi.getAllNonViewEntityNames())
+            newEntities.removeAll(entityNames)
+            entityNames = newEntities
+            allEntities = false
+        }
 
         TransactionFacade tf = efi.ecfi.transactionFacade
         boolean suspendedTransaction = false

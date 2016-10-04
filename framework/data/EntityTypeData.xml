@@ -38,4 +38,14 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.service.job.ServiceJob jobName="IndexDataFeedDocuments" description="Index DataFeed Documents"
             serviceName="org.moqui.search.SearchServices.index#DataFeedDocuments" topic="IndexDataFeedDocuments"
             transactionTimeout="3600"/>
+
+    <!-- Service Job: Export Entity Data Snapshot -->
+    <moqui.security.user.NotificationTopic topic="ExportEntityDataSnapshot" description="Export Entity Data Snapshot Completed"
+            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
+            titleTemplate="Entity Data Snapshot ${parameters.baseFilename}, exported ${results.recordsWritten} records"
+            errorTitleTemplate="Error in export of entity data snapshot ${parameters.baseFilename}"
+            linkTemplate=""/>
+    <moqui.service.job.ServiceJob jobName="ExportEntityDataSnapshot" description="Export Entity Data Snapshot"
+            serviceName="org.moqui.impl.EntityServices.export#EntityDataSnapshot" topic="ExportEntityDataSnapshot"
+            transactionTimeout="3600"/>
 </entity-facade-xml>

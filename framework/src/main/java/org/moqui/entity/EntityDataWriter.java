@@ -45,6 +45,8 @@ public interface EntityDataWriter {
      * @return Reference to this for convenience.
      */
     EntityDataWriter entityNames(List<String> entityNames);
+    /** Write data from all entities. When set other entity names are excluded instead of included. */
+    EntityDataWriter allEntities();
 
     /** Should the dependent records of each record be written? If set will include 2 levels of dependents by default,
      * use dependentLevels() to specify a different number of levels.
@@ -92,6 +94,7 @@ public interface EntityDataWriter {
      * @return Count of values written
      */
     int file(String filename);
+    int zipFile(String filenameWithinZip, String zipFilename);
     /** Write the results to a file for each entity in the specified directory.
      * @param path The path of the directory to create files in
      * @return Count of values written
