@@ -63,6 +63,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     boolean useTryInsert = false
     boolean dummyFks = false
     boolean disableEeca = false
+    boolean disableAuditLog = false
 
     char csvDelimiter = ','
     char csvCommentStart = '#'
@@ -79,59 +80,42 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     EntityFacadeImpl getEfi() { return efi }
 
-    @Override
-    EntityDataLoader location(String location) { this.locationList.add(location); return this }
-    @Override
-    EntityDataLoader locationList(List<String> ll) { this.locationList.addAll(ll); return this }
-    @Override
-    EntityDataLoader xmlText(String xmlText) { this.xmlText = xmlText; return this }
-    @Override
-    EntityDataLoader csvText(String csvText) { this.csvText = csvText; return this }
-    @Override
-    EntityDataLoader jsonText(String jsonText) { this.jsonText = jsonText; return this }
-    @Override
-    EntityDataLoader dataTypes(Set<String> dataTypes) {
+    @Override EntityDataLoader location(String location) { this.locationList.add(location); return this }
+    @Override EntityDataLoader locationList(List<String> ll) { this.locationList.addAll(ll); return this }
+    @Override EntityDataLoader xmlText(String xmlText) { this.xmlText = xmlText; return this }
+    @Override EntityDataLoader csvText(String csvText) { this.csvText = csvText; return this }
+    @Override EntityDataLoader jsonText(String jsonText) { this.jsonText = jsonText; return this }
+    @Override EntityDataLoader dataTypes(Set<String> dataTypes) {
         for (String dt in dataTypes) this.dataTypes.add(dt.trim())
         return this
     }
-    @Override
-    EntityDataLoader componentNameList(List<String> componentNames) {
+    @Override EntityDataLoader componentNameList(List<String> componentNames) {
         for (String cn in componentNames) this.componentNameList.add(cn.trim())
         return this
     }
 
-    @Override
-    EntityDataLoader transactionTimeout(int tt) { this.transactionTimeout = tt; return this }
-    @Override
-    EntityDataLoader useTryInsert(boolean useTryInsert) { this.useTryInsert = useTryInsert; return this }
-    @Override
-    EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
-    @Override
-    EntityDataLoader disableEntityEca(boolean disableEeca) { this.disableEeca = disableEeca; return this }
+    @Override EntityDataLoader transactionTimeout(int tt) { this.transactionTimeout = tt; return this }
+    @Override EntityDataLoader useTryInsert(boolean useTryInsert) { this.useTryInsert = useTryInsert; return this }
+    @Override EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
+    @Override EntityDataLoader disableEntityEca(boolean disable) { disableEeca = disable; return this }
+    @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
 
-    @Override
-    EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
-    @Override
-    EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
-    @Override
-    EntityDataLoader csvQuoteChar(char quoteChar) { this.csvQuoteChar = quoteChar; return this }
+    @Override EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
+    @Override EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
+    @Override EntityDataLoader csvQuoteChar(char quoteChar) { this.csvQuoteChar = quoteChar; return this }
 
-    @Override
-    EntityDataLoader csvEntityName(String entityName) {
+    @Override EntityDataLoader csvEntityName(String entityName) {
         if (!efi.isEntityDefined(entityName) && !sfi.isServiceDefined(entityName))
             throw new IllegalArgumentException("Name ${entityName} is not a valid entity or service name")
         this.csvEntityName = entityName
         return this
     }
-    @Override
-    EntityDataLoader csvFieldNames(List<String> fieldNames) { this.csvFieldNames = fieldNames; return this }
-    @Override
-    EntityDataLoader defaultValues(Map<String, Object> defaultValues) {
+    @Override EntityDataLoader csvFieldNames(List<String> fieldNames) { this.csvFieldNames = fieldNames; return this }
+    @Override EntityDataLoader defaultValues(Map<String, Object> defaultValues) {
         if (this.defaultValues == null) this.defaultValues = [:]
         this.defaultValues.putAll(defaultValues)
         return this
     }
-
 
     @Override
     List<String> check() {
@@ -181,9 +165,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     void internalRun(EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh) {
         // make sure reverse relationships exist
         efi.createAllAutoReverseManyRelationships()
+        ExecutionContextImpl eci = efi.ecfi.getEci()
 
         boolean reenableEeca = false
-        if (this.disableEeca) reenableEeca = !this.efi.ecfi.eci.artifactExecutionFacade.disableEntityEca()
+        if (this.disableEeca) reenableEeca = !eci.artifactExecutionFacade.disableEntityEca()
+        boolean reenableAuditLog = false
+        if (this.disableAuditLog) reenableAuditLog = !eci.artifactExecutionFacade.disableEntityAuditLog()
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -286,7 +273,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh)
         })
 
-        if (reenableEeca) this.efi.ecfi.eci.artifactExecution.enableEntityEca()
+        if (reenableEeca) eci.artifactExecutionFacade.enableEntityEca()
+        if (reenableAuditLog) eci.artifactExecutionFacade.enableEntityAuditLog()
 
         // logger.warn("========== Done loading, waiting for a long time so process is still running for profiler")
         // Thread.sleep(60*1000*100)

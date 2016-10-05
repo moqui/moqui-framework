@@ -51,6 +51,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected boolean authzDisabled = false
     protected boolean tarpitDisabled = false
     protected boolean entityEcaDisabled = false
+    protected boolean entityAuditLogDisabled = false
 
     ArtifactExecutionFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -210,6 +211,10 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     boolean disableEntityEca() { boolean alreadyDisabled = this.entityEcaDisabled; this.entityEcaDisabled = true; return alreadyDisabled }
     void enableEntityEca() { this.entityEcaDisabled = false }
     boolean entityEcaDisabled() { return this.entityEcaDisabled }
+
+    boolean disableEntityAuditLog() { boolean alreadyDisabled = this.entityAuditLogDisabled; this.entityAuditLogDisabled = true; return alreadyDisabled }
+    void enableEntityAuditLog() { this.entityAuditLogDisabled = false }
+    boolean entityAuditLogDisabled() { return this.entityAuditLogDisabled }
 
     /** Checks to see if username is permitted to access given resource.
      *

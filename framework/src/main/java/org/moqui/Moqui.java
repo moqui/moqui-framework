@@ -135,9 +135,10 @@ public class Moqui {
             edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
         if (argMap.containsKey("location")) edl.location(argMap.get("location"));
         if (argMap.containsKey("timeout")) edl.transactionTimeout(Integer.valueOf(argMap.get("timeout")));
-        if (argMap.containsKey("dummy-fks")) edl.dummyFks(true);
-        if (argMap.containsKey("use-try-insert")) edl.useTryInsert(true);
-        if (argMap.containsKey("disable-eeca")) edl.disableEntityEca(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("dummy-fks")) edl.dummyFks(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("use-try-insert")) edl.useTryInsert(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("disable-eeca")) edl.disableEntityEca(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("disable-audit-log")) edl.disableAuditLog(true);
 
         // do the data load
         try {

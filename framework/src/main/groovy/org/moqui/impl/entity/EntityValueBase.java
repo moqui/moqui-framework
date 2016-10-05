@@ -590,13 +590,9 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue store() { return createOrUpdate(); }
 
-    private void handleAuditLog(boolean isUpdate, Map oldValues) {
-        if (isUpdate && oldValues == null) return;
+    private void handleAuditLog(boolean isUpdate, Map oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
+        if ((isUpdate && oldValues == null) || !ed.entityInfo.needsAuditLog || ec.artifactExecutionFacade.entityAuditLogDisabled()) return;
 
-        EntityDefinition ed = getEntityDefinition();
-        if (!ed.entityInfo.needsAuditLog) return;
-
-        ExecutionContextImpl ec = getEntityFacadeImpl().ecfi.getEci();
         Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
 
         Map<String, Object> pksValueMap = new HashMap<>();
@@ -1204,7 +1200,7 @@ public abstract class EntityValueBase implements EntityValue {
             // might have a null value for a previous query attempt
             efi.getEntityCache().clearCacheForValue(this, true);
             // save audit log(s) if applicable
-            handleAuditLog(false, null);
+            handleAuditLog(false, null, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "create", false);
         } finally {
@@ -1343,7 +1339,7 @@ public abstract class EntityValueBase implements EntityValue {
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false);
             // save audit log(s) if applicable
-            if (needsAuditLog) handleAuditLog(true, originalValues);
+            if (needsAuditLog) handleAuditLog(true, originalValues, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "update", false);
         } finally {
