@@ -721,12 +721,14 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public boolean checkFks(boolean insertDummy) {
+        boolean noneMissing = true;
         for (EntityJavaUtil.RelationshipInfo relInfo : getEntityDefinition().getRelationshipsInfo(false)) {
             if (!"one".equals(relInfo.type)) continue;
 
             EntityValue value = findRelatedOne(relInfo, true, false);
             if (value == null) {
                 if (insertDummy) {
+                    noneMissing = false;
                     String relatedEntityName = relInfo.relatedEntityName;
                     EntityValue newValue = getEntityFacadeImpl().makeValue(relatedEntityName);
                     Map<String, String> keyMap = relInfo.keyMap;
@@ -742,8 +744,7 @@ public abstract class EntityValueBase implements EntityValue {
                 }
             }
         }
-        // if we haven't found one missing, we're all good
-        return true;
+        return noneMissing;
     }
 
     @Override

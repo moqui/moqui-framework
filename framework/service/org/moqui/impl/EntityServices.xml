@@ -161,4 +161,20 @@ along with this software (see the LICENSE.md file). If not, see
             ]]></script>
         </actions>
     </service>
+    <service verb="import" noun="EntityDataSnapshot" transaction-timeout="3600">
+        <in-parameters>
+            <parameter name="zipFilename" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="recordsLoaded" type="Long"/></out-parameters>
+        <actions>
+            <script><![CDATA[
+                import org.moqui.entity.EntityDataLoader
+                import org.moqui.context.ExecutionContext
+                ExecutionContext ec = context.ec
+                EntityDataLoader edl = ec.entity.makeDataLoader().dummyFks(true).useTryInsert(true).disableEntityEca(true).transactionTimeout(3600)
+                edl.location(ec.factory.getRuntimePath() + "/db/snapshot/" + (String) zipFilename)
+                recordsLoaded = edl.load()
+            ]]></script>
+        </actions>
+    </service>
 </services>

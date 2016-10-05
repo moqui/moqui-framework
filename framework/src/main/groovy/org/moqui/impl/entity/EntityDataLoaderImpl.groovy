@@ -39,6 +39,8 @@ import org.xml.sax.helpers.DefaultHandler
 
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.parsers.SAXParserFactory
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 
 @CompileStatic
 class EntityDataLoaderImpl implements EntityDataLoader {
@@ -297,25 +299,48 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             try {
                 logger.info("Loading entity data from [${location}]")
                 long beforeTime = System.currentTimeMillis()
+                long beforeRecords = exh.valuesRead ?: 0
 
                 inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
 
                 if (location.endsWith(".xml")) {
-                    long beforeRecords = exh.valuesRead ?: 0
                     XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
                     exh.setLocation(location)
                     reader.setContentHandler(exh)
                     reader.parse(new InputSource(inputStream))
-                    logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from [${location}] in ${((System.currentTimeMillis() - beforeTime)/1000)} seconds")
+                    logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
-                    long beforeRecords = ech.valuesRead ?: 0
                     if (ech.loadFile(location, inputStream)) {
-                        logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from [${location}] in ${((System.currentTimeMillis() - beforeTime)/1000)} seconds")
+                        logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".json")) {
-                    long beforeRecords = ejh.valuesRead ?: 0
                     if (ejh.loadFile(location, inputStream)) {
-                        logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from [${location}] in ${((System.currentTimeMillis() - beforeTime)/1000)} seconds")
+                        logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                    }
+                } else if (location.endsWith(".zip")) {
+                    ZipInputStream zis = new ZipInputStream(inputStream)
+                    ZipEntry entry
+                    while((entry = zis.getNextEntry()) != null) {
+                        try {
+                            String entryFile = entry.getName()
+                            if (entryFile.endsWith(".xml")) {
+                                beforeRecords = exh.valuesRead ?: 0
+                                beforeTime = System.currentTimeMillis()
+
+                                XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
+                                exh.setLocation(location)
+                                reader.setContentHandler(exh)
+                                reader.parse(new InputSource(zis))
+                                logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                            } else {
+                                logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
+                            }
+                        } catch (TypeToSkipException e) {
+                            // nothing to do, this just stops the parsing when we know the file is not in the types we want
+                        } catch (Throwable t) {
+                            tf.rollback(beganTransaction, "Error loading entity data", t)
+                            throw new BaseException("Error loading entity data from ${entry.getName()} in zip file ${location}", t)
+                        }
                     }
                 }
             } catch (TypeToSkipException e) {
@@ -325,7 +350,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         } catch (Throwable t) {
             tf.rollback(beganTransaction, "Error loading entity data", t)
-            throw new IllegalArgumentException("Error loading entity data file [${location}]", t)
+            throw new BaseException("Error loading entity data from ${location}", t)
         } finally {
             tf.commit(beganTransaction)
 
@@ -367,16 +392,23 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             ec = edli.getEfi().ecfi.getEci()
         }
         void handleValue(EntityValue value) {
-            if (edli.dummyFks) value.checkFks(true)
             if (edli.useTryInsert) {
                 try {
                     value.create()
                 } catch (EntityException e) {
                     if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${e.toString()})")
+                    boolean noFksMissing = true
+                    if (edli.dummyFks) noFksMissing = value.checkFks(true)
                     // retry, then if this fails we have a real error so let the exception fall through
-                    value.update()
+                    // if there were no FKs missing then just do an update, if there were that may have been the error so createOrUpdate
+                    if (noFksMissing) {
+                        value.update()
+                    } else {
+                        value.createOrUpdate()
+                    }
                 }
             } else {
+                if (edli.dummyFks) value.checkFks(true)
                 value.createOrUpdate()
             }
         }
@@ -632,15 +664,21 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 valuesRead++
             } else {
                 Map<String, Object> valueMap = [:]
-                if (edli.defaultValues) valueMap.putAll(edli.defaultValues)
+                if (edli.defaultValues != null && edli.defaultValues.size() > 0) valueMap.putAll(edli.defaultValues)
                 valueMap.putAll(rootValueMap)
 
                 if (currentEntityDef != null) {
                     if (entityOperation == null) {
                         try {
                             // if (currentEntityDef.getFullEntityName().contains("DbForm")) logger.warn("========= DbForm rootValueMap: ${rootValueMap}")
-                            valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
-                            valuesRead++
+                            if (edli.dummyFks || edli.useTryInsert) {
+                                EntityValue curValue = currentEntityDef.makeEntityValue()
+                                curValue.setAll(valueMap)
+                                valueHandler.handleValue(curValue)
+                            } else {
+                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
+                                valuesRead++
+                            }
                             currentEntityDef = (EntityDefinition) null
                         } catch (EntityException e) {
                             throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value (line ${locator?.lineNumber}): " + e.toString(), e)
