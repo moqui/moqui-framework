@@ -71,6 +71,7 @@ public class MoquiStart {
             System.out.println("    timeout=<seconds> ----------- Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
             System.out.println("    dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
             System.out.println("    use-try-insert -------------- Try insert and update on error instead of checking for record first");
+            System.out.println("    disable-eeca ---------------- Disable Entity ECA rules");
             System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server");

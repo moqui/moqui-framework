@@ -137,6 +137,7 @@ public class Moqui {
         if (argMap.containsKey("timeout")) edl.transactionTimeout(Integer.valueOf(argMap.get("timeout")));
         if (argMap.containsKey("dummy-fks")) edl.dummyFks(true);
         if (argMap.containsKey("use-try-insert")) edl.useTryInsert(true);
+        if (argMap.containsKey("disable-eeca")) edl.disableEntityEca(true);
 
         // do the data load
         try {

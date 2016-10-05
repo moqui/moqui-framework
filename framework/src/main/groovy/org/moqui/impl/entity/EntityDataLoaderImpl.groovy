@@ -38,6 +38,7 @@ import org.xml.sax.*
 import org.xml.sax.helpers.DefaultHandler
 
 import javax.sql.rowset.serial.SerialBlob
+import javax.xml.parsers.SAXParser
 import javax.xml.parsers.SAXParserFactory
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -304,10 +305,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
 
                 if (location.endsWith(".xml")) {
-                    XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
                     exh.setLocation(location)
-                    reader.setContentHandler(exh)
-                    reader.parse(new InputSource(inputStream))
+                    SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                    parser.parse(inputStream, exh)
                     logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
                     if (ech.loadFile(location, inputStream)) {
@@ -318,7 +318,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".zip")) {
-                    ZipInputStream zis = new ZipInputStream(inputStream)
+                    NoCloseZipStream zis = new NoCloseZipStream(inputStream)
                     ZipEntry entry
                     while((entry = zis.getNextEntry()) != null) {
                         try {
@@ -326,11 +326,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                             if (entryFile.endsWith(".xml")) {
                                 beforeRecords = exh.valuesRead ?: 0
                                 beforeTime = System.currentTimeMillis()
-
-                                XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
                                 exh.setLocation(location)
-                                reader.setContentHandler(exh)
-                                reader.parse(new InputSource(zis))
+
+                                SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                                parser.parse(zis, exh)
+
                                 logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                             } else {
                                 logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
@@ -360,6 +360,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 ec.messageFacade.clearErrors()
             }
         }
+    }
+
+    private static class NoCloseZipStream extends ZipInputStream {
+        NoCloseZipStream(InputStream is) { super(is) }
+        @Override void close() throws IOException { /* do nothing, the point is to not get closed by SAXParser */ }
+        void reallyClose() { super.close() }
     }
 
     static abstract class ValueHandler {
@@ -675,6 +681,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 EntityValue curValue = currentEntityDef.makeEntityValue()
                                 curValue.setAll(valueMap)
                                 valueHandler.handleValue(curValue)
+                                valuesRead++
                             } else {
                                 valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
                                 valuesRead++

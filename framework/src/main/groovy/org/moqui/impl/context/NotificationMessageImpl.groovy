@@ -257,8 +257,10 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
                                      messageJson:nmi.getMessageJson(), titleText:nmi.getTitle(), linkText:nmi.getLink(),
                                      typeString:nmi.getType(), showAlert:(nmi.showAlert ? 'Y' : 'N')])
                         .disableAuthz().call()
-                nmi.setNotificationMessageId((String) createResult.notificationMessageId)
+                // if it's null we got an error
+                if (createResult == null) return
 
+                nmi.setNotificationMessageId((String) createResult.notificationMessageId)
                 for (String userId in nmi.getNotifyUserIds())
                     ecfi.service.sync().name("create", "moqui.security.user.NotificationMessageUser")
                             .parameters([notificationMessageId:createResult.notificationMessageId, userId:userId])
