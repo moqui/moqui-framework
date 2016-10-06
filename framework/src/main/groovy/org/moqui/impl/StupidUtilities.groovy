@@ -185,8 +185,13 @@ class StupidUtilities {
     static Map<String, Object> findMaximalMatch(List<Map<String, Object>> mapList, LinkedHashMap<String, Object> fieldsByPriority) {
         int numFields = fieldsByPriority.size()
         String[] fieldNames = new String[numFields]
+        Object[] fieldValues = new String[numFields]
         int index = 0
-        for (String key in fieldsByPriority.keySet()) { fieldNames[index] = key; index++ }
+        for (Map.Entry<String, Object> entry in fieldsByPriority.entrySet()) {
+            fieldNames[index] = entry.getKey()
+            fieldValues[index] = entry.getValue()
+            index++
+        }
 
         int highScore = -1
         Map<String, Object> highMap = (Map<String, Object>) null
@@ -195,11 +200,12 @@ class StupidUtilities {
             boolean skipMap = false
             for (int i = 0; i < numFields; i++) {
                 String curField = fieldNames[i]
+                Object compareValue = fieldValues[i]
                 // if curMap value is null skip field (null value in Map means allow any match value
                 Object curValue = curMap.get(curField)
                 if (curValue == null) continue
                 // if not equal skip Map
-                if (!curValue.equals(fieldsByPriority.get(curField))) {
+                if (!curValue.equals(compareValue)) {
                     skipMap = true
                     break
                 }
