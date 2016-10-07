@@ -184,6 +184,7 @@ significant changes.
   - Can send NotificationMessage, success or error, to configured topic
   - Run service job through ServiceCallJob interface, ec.service.job()
   - Replacement for Quartz Scheduler scheduled services
+- Added SubEtha SMTP server which receives email messages and calls EMECA rules, an alternative to polling IMAP and POP3 servers
 - Hazelcast Integration (moqui-hazelcast component)
   - These features are only enabled with this tool component in place
   - Added default Hazelcast web session replication config

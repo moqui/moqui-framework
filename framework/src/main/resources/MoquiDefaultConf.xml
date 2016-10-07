@@ -29,6 +29,8 @@
         <tool-factory class="org.moqui.impl.tools.H2ServerToolFactory" init-priority="12" disabled="false"/>
 
         <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
+
+        <tool-factory class="org.moqui.impl.tools.SubEthaSmtpToolFactory" init-priority="50" disabled="false"/>
     </tools>
 
     <cache-list warm-on-start="true" local-factory="MCache" distributed-factory="MCache">
