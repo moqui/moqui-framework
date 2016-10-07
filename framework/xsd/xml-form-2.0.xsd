@@ -933,6 +933,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If true the value enterred in the input box will be used even if no
                     autocomplete option is selected.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="default-transition" type="xs:string">
+                <xs:annotation><xs:documentation>If specified the text-line will get a default dynamically using depends-on fields
+                    and parameters in the parameter-map attribute.</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="parameter-map" type="xs:string">
                 <xs:annotation><xs:documentation>A Map to get parameter names and values from for autocomplete requests.
                     This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
