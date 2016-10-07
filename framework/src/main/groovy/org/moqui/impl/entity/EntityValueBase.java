@@ -109,7 +109,17 @@ public abstract class EntityValueBase implements EntityValue {
     public HashMap<String, Object> getValueMap() { return valueMapInternal; }
     protected Map<String, Object> getDbValueMap() { return dbValueMap; }
 
-    protected void setDbValueMap(Map<String, Object> map) { dbValueMap = map; isFromDb = true; }
+    protected void setDbValueMap(Map<String, Object> map) {
+        dbValueMap = new HashMap<>();
+        FieldInfo[] nonPkFields = getEntityDefinition().entityInfo.nonPkFieldInfoArray;
+        for (int i = 0; i < nonPkFields.length; i++) {
+            FieldInfo fi = nonPkFields[i];
+            Object curValue = map.get(fi.name);
+            dbValueMap.put(fi.name, curValue);
+            if (!valueMapInternal.containsKey(fi.name)) valueMapInternal.put(fi.name, curValue);
+        }
+        isFromDb = true;
+    }
     public void setSyncedWithDb() {
         oldDbValueMap = dbValueMap;
         dbValueMap = null;
