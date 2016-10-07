@@ -40,7 +40,7 @@ import java.sql.Timestamp
 class ScreenForm {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenForm.class)
 
-    protected static final Set<String> fieldAttributeNames = new HashSet<String>(["name", "entry-name", "hide",
+    protected static final Set<String> fieldAttributeNames = new HashSet<String>(["name", "from", "entry-name", "hide",
             "validate-service", "validate-parameter", "validate-entity", "validate-field"])
     protected static final Set<String> subFieldAttributeNames = new HashSet<String>(["title", "tooltip", "red-when"])
 
@@ -265,7 +265,7 @@ class ScreenForm {
                 for (EntityValue dbFormField in dbFormFieldList) {
                     String fieldName = (String) dbFormField.fieldName
                     MNode newFieldNode = new MNode("field", [name:fieldName])
-                    if (dbFormField.entryName) newFieldNode.attributes.put("entry-name", (String) dbFormField.entryName)
+                    if (dbFormField.entryName) newFieldNode.attributes.put("from", (String) dbFormField.entryName)
                     MNode subFieldNode = newFieldNode.append("default-field", null)
                     if (dbFormField.title) subFieldNode.attributes.put("title", (String) dbFormField.title)
                     if (dbFormField.tooltip) subFieldNode.attributes.put("tooltip", (String) dbFormField.tooltip)

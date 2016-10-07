@@ -600,13 +600,9 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue store() { return createOrUpdate(); }
 
-    private void handleAuditLog(boolean isUpdate, Map oldValues) {
-        if (isUpdate && oldValues == null) return;
+    private void handleAuditLog(boolean isUpdate, Map oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
+        if ((isUpdate && oldValues == null) || !ed.entityInfo.needsAuditLog || ec.artifactExecutionFacade.entityAuditLogDisabled()) return;
 
-        EntityDefinition ed = getEntityDefinition();
-        if (!ed.entityInfo.needsAuditLog) return;
-
-        ExecutionContextImpl ec = getEntityFacadeImpl().ecfi.getEci();
         Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
 
         Map<String, Object> pksValueMap = new HashMap<>();
@@ -731,14 +727,19 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public boolean checkFks(boolean insertDummy) {
+        boolean noneMissing = true;
+        ExecutionContextImpl ec = getEntityFacadeImpl().ecfi.getEci();
         for (EntityJavaUtil.RelationshipInfo relInfo : getEntityDefinition().getRelationshipsInfo(false)) {
             if (!"one".equals(relInfo.type)) continue;
 
-            EntityValue value = findRelatedOne(relInfo, true, false);
+            EntityValue value = findRelatedOne(relInfo, false, false);
+            // if (getEntityName().contains("foo")) logger.info("Checking fk " + getEntityName() + ':' + relInfo.relationshipName + " value: " + value);
             if (value == null) {
                 if (insertDummy) {
-                    String relatedEntityName = relInfo.relatedEntityName;
-                    EntityValue newValue = getEntityFacadeImpl().makeValue(relatedEntityName);
+                    noneMissing = false;
+                    EntityValue newValue = relInfo.relatedEd.makeEntityValue();
+                    if (relInfo.relatedEd.entityInfo.hasFieldDefaults && newValue instanceof EntityValueBase)
+                        ((EntityValueBase) newValue).checkSetFieldDefaults(relInfo.relatedEd, ec, null);
                     Map<String, String> keyMap = relInfo.keyMap;
                     if (keyMap == null || keyMap.isEmpty()) throw new EntityException("Relationship " + relInfo.relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
 
@@ -746,14 +747,16 @@ public abstract class EntityValueBase implements EntityValue {
                     for (Entry<String, String> entry : keyMap.entrySet())
                         newValue.set(entry.getValue(), valueMapInternal.get(entry.getKey()));
 
-                    if (newValue.containsPrimaryKey()) newValue.create();
+                    if (newValue.containsPrimaryKey()) {
+                        newValue.checkFks(true);
+                        newValue.create();
+                    }
                 } else {
                     return false;
                 }
             }
         }
-        // if we haven't found one missing, we're all good
-        return true;
+        return noneMissing;
     }
 
     @Override
@@ -763,7 +766,7 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             EntityValue dbValue = this.cloneValue();
             if (!dbValue.refresh()) {
-                messages.add("Entity [" + getEntityName() + "] record not found for primary key [" + String.valueOf(getPrimaryKeys()) + "]");
+                messages.add("Entity " + getEntityName() + " record not found for primary key " + getPrimaryKeys());
                 return 0;
             }
 
@@ -783,14 +786,14 @@ public abstract class EntityValueBase implements EntityValue {
                     } else {
                         if (!checkFieldValue.equals(dbFieldValue)) areSame = false;
                     }
-                    if (!areSame) messages.add("Field [" + getEntityName() + "." + nonpkFieldName + "] did not match; check (file) value [" + String.valueOf(checkFieldValue) + "], db value [" + String.valueOf(dbFieldValue) + "] for primary key [" + String.valueOf(getPrimaryKeys()) + "]");
+                    if (!areSame) messages.add("Field " + getEntityName() + "." + nonpkFieldName + " did not match; check (file) value [" + checkFieldValue + "], db value [" + dbFieldValue + "] for primary key " + getPrimaryKeys());
                 }
                 fieldsChecked++;
             }
         } catch (EntityException e) {
             throw e;
         } catch (Throwable t) {
-            String errMsg = "Error checking entity [" + getEntityName() + "] with pk [" + String.valueOf(getPrimaryKeys()) + "]: " + t.toString();
+            String errMsg = "Error checking entity " + getEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
             messages.add(errMsg);
             logger.error(errMsg, t);
         }
@@ -1207,7 +1210,7 @@ public abstract class EntityValueBase implements EntityValue {
             // might have a null value for a previous query attempt
             efi.getEntityCache().clearCacheForValue(this, true);
             // save audit log(s) if applicable
-            handleAuditLog(false, null);
+            handleAuditLog(false, null, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "create", false);
         } finally {
@@ -1346,7 +1349,7 @@ public abstract class EntityValueBase implements EntityValue {
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false);
             // save audit log(s) if applicable
-            if (needsAuditLog) handleAuditLog(true, originalValues);
+            if (needsAuditLog) handleAuditLog(true, originalValues, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "update", false);
         } finally {

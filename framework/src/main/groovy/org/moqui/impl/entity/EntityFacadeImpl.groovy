@@ -197,14 +197,12 @@ class EntityFacadeImpl implements EntityFacade {
     static class DatasourceInfo {
         EntityFacadeImpl efi
         MNode datasourceNode
-
         String uniqueName
+        Map<String, String> dsDetails = new LinkedHashMap<>()
 
         String jndiName
         MNode serverJndi
-
         String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null
-
         String xaDsClass = null
         Properties xaProps = null
 
@@ -242,6 +240,11 @@ class EntityFacadeImpl implements EntityFacade {
                     String propValue = xaProperties.attribute(key)
                     if (propValue) xaProps.setProperty(key, propValue)
                 }
+
+                for (String propName in xaProps.stringPropertyNames()) {
+                    if (propName.toLowerCase().contains("password")) continue
+                    dsDetails.put(propName, xaProps.getProperty(propName))
+                }
             } else {
                 inlineJdbc.setSystemExpandAttributes(true)
                 jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
@@ -249,6 +252,9 @@ class EntityFacadeImpl implements EntityFacade {
                 if (jdbcUri.contains('${')) jdbcUri = SystemBinding.expand(jdbcUri)
                 jdbcUsername = inlineJdbc.attribute("jdbc-username")
                 jdbcPassword = inlineJdbc.attribute("jdbc-password")
+
+                dsDetails.put("uri", jdbcUri)
+                dsDetails.put("user", jdbcUsername)
             }
         }
     }
@@ -1210,6 +1216,20 @@ class EntityFacadeImpl implements EntityFacade {
         if (edf == null) edf = (EntityDatasourceFactory) datasourceFactoryByGroupMap.get(defaultGroupName)
         if (edf == null) throw new EntityException("Could not find EntityDatasourceFactory for entity group ${groupName}")
         return edf
+    }
+    List<Map<String, Object>> getDataSourcesInfo() {
+        List<Map<String, Object>> dsiList = new LinkedList<>()
+        for (String groupName in datasourceFactoryByGroupMap.keySet()) {
+            EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName)
+            if (edf instanceof EntityDatasourceFactoryImpl) {
+                EntityDatasourceFactoryImpl edfi = (EntityDatasourceFactoryImpl) edf
+                DatasourceInfo dsi = edfi.dsi
+                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails])
+            } else {
+                dsiList.add([group:groupName] as Map<String, Object>)
+            }
+        }
+        return dsiList
     }
 
     @Override

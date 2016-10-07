@@ -215,6 +215,18 @@ class MoquiShiroRealm implements Realm {
         return info;
     }
 
+    static boolean checkCredentials(String username, String password, ExecutionContextFactoryImpl ecfi) {
+        EntityValue newUserAccount = ecfi.entity.find("moqui.security.UserAccount").condition("username", username)
+                .useCache(true).disableAuthz().one()
+
+        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
+                newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null, "moquiRealm")
+
+        CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType)
+        UsernamePasswordToken token = new UsernamePasswordToken(username, password)
+        return cm.doCredentialsMatch(token, info)
+    }
+
     // ========== Authorization Methods ==========
 
     /**

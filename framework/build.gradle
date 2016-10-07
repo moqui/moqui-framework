@@ -144,6 +144,9 @@ dependencies {
     runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
 
+    // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
+    compile module('org.subethamail:subethasmtp:3.1.7')
+
     // Apache XML-RPC (are all modules to not get dependencies which have conflicts)
     compile module('org.apache.ws.commons.util:ws-commons-util:1.0.2') // Apache 2.0
     compile module('org.apache.xmlrpc:xmlrpc-common:3.1.3') // Apache 2.0
