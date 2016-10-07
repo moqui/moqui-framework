@@ -184,7 +184,7 @@ return;
                 ${listName}PageSize = ${listName}_xafind.pageSize
             }
         </#if>
-        ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize, 0, BigDecimal.ROUND_DOWN) as int
+        ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
         ${listName}PageRangeLow = ${listName}PageIndex * ${listName}PageSize + 1
         ${listName}PageRangeHigh = (${listName}PageIndex * ${listName}PageSize) + ${listName}PageSize
         if (${listName}PageRangeHigh > ${listName}Count) ${listName}PageRangeHigh = ${listName}Count
