@@ -18,20 +18,19 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
-import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidJavaUtilities
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.WebFacadeImpl
+import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.screen.ScreenDefinition.ParameterItem
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
-import org.moqui.impl.webapp.ScreenResourceNotFoundException
-import org.moqui.impl.context.ArtifactExecutionInfoImpl
-import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.service.ServiceDefinition
-import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.webapp.ScreenResourceNotFoundException
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -94,6 +93,10 @@ class ScreenUrlInfo {
     ArrayList<String> preTransitionPathNameList = new ArrayList<String>()
 
     boolean reusable = true
+    boolean targetExists = true
+    ScreenDefinition notExistsLastSd = (ScreenDefinition) null
+    String notExistsLastName = (String) null
+    String notExistsNextLoc = (String) null
 
     protected ScreenUrlInfo() { }
 
@@ -285,6 +288,10 @@ class ScreenUrlInfo {
     }
 
     String getUrlWithBase(String baseUrl) {
+        if (!targetExists) {
+            logger.warn("Tried to get URL for screen path ${fullPathNameList} that does not exist under ${rootSd.location}, returning hash")
+            return "#"
+        }
         StringBuilder urlBuilder = new StringBuilder(baseUrl)
         if (fullPathNameList != null) {
             int listSize = fullPathNameList.size()
@@ -297,6 +304,10 @@ class ScreenUrlInfo {
     }
 
     String getMinimalPathUrlWithBase(String baseUrl) {
+        if (!targetExists) {
+            logger.warn("Tried to get URL for screen path ${fullPathNameList} that does not exist under ${rootSd.location}, returning hash")
+            return "#"
+        }
         StringBuilder urlBuilder = new StringBuilder(baseUrl)
         if (alwaysUseFullPath) {
             // really get the full path instead of minimal
@@ -320,6 +331,10 @@ class ScreenUrlInfo {
     }
 
     String getScreenPathUrlWithBase(String baseUrl) {
+        if (!targetExists) {
+            logger.warn("Tried to get URL for screen path ${fullPathNameList} that does not exist under ${rootSd.location}, returning hash")
+            return "#"
+        }
         StringBuilder urlBuilder = new StringBuilder(baseUrl)
         if (preTransitionPathNameList) for (String pathName in preTransitionPathNameList) urlBuilder.append('/').append(pathName)
         return urlBuilder.toString()
@@ -348,6 +363,10 @@ class ScreenUrlInfo {
         // if (fromScreenPath.contains('${')) fromScreenPath = ec.getResource().expand(fromScreenPath, "")
 
         ArrayList<String> subScreenPath = parseSubScreenPath(rootSd, fromSd, fromPathList, fromScreenPath, pathParameterMap, sfi)
+        if (subScreenPath == null) {
+            targetExists = false
+            return
+        }
         // logger.info("initUrl BEFORE fromPathList=${fromPathList}, fromScreenPath=${fromScreenPath}, subScreenPath=${subScreenPath}")
         boolean fromPathSlash = fromScreenPath.startsWith("/")
         if (fromPathSlash && fromScreenPath.startsWith("//")) {
@@ -436,17 +455,23 @@ class ScreenUrlInfo {
                         break
                     }
 
-                    throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, extraPathNameList?.last(), null,
-                            new Exception("Screen sub-content not found here"))
+                    targetExists = false
+                    notExistsLastSd = lastSd
+                    notExistsLastName = extraPathNameList?.last()
+                    return
+                    // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, extraPathNameList?.last(), null, new Exception("Screen sub-content not found here"))
                 }
             }
 
             String nextLoc = nextSi.getLocation()
             ScreenDefinition nextSd = sfi.getScreenDefinition(nextLoc)
             if (nextSd == null) {
-                throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, pathName, nextLoc,
-                        new Exception("Screen subscreen or transition not found here"))
-                // throw new IllegalArgumentException("Could not find screen at location [${nextLoc}], which is subscreen [${pathName}] in relative screen reference [${fromScreenPath}] in screen [${lastSd.location}]")
+                targetExists = false
+                notExistsLastSd = lastSd
+                notExistsLastName = pathName
+                notExistsNextLoc = nextLoc
+                return
+                // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, pathName, nextLoc, new Exception("Screen subscreen or transition not found here"))
             }
 
             if (nextSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
@@ -525,15 +550,15 @@ class ScreenUrlInfo {
                     break
                 }
 
-                throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, subscreenName, null,
-                        new Exception("Screen subscreen or transition not found here"))
-                // throw new BaseException("Could not find subscreen or transition [${subscreenName}] in screen [${lastSd.location}]")
+                targetExists = false
+                return
+                // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, subscreenName, null, new Exception("Screen subscreen or transition not found here"))
             }
             ScreenDefinition nextSd = sfi.getScreenDefinition(nextLoc)
             if (nextSd == null) {
-                throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, subscreenName, nextLoc,
-                        new Exception("Screen subscreen or transition not found here"))
-                // throw new BaseException("Could not find screen at location [${nextLoc}], which is default subscreen [${subscreenName}] in screen [${lastSd.location}]")
+                targetExists = false
+                return
+                // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, subscreenName, nextLoc, new Exception("Screen subscreen or transition not found here"))
             }
 
             if (nextSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
@@ -571,6 +596,11 @@ class ScreenUrlInfo {
             }
             if (i >= defaultSubScreenLimit && menuImage) break
         }
+    }
+
+    void checkExists() {
+        if (!targetExists) throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, notExistsLastSd, notExistsLastName,
+                notExistsNextLoc, new Exception("Screen, transition, or resource not found here"))
     }
 
     @Override
@@ -637,8 +667,8 @@ class ScreenUrlInfo {
                 if (cachedPathList) {
                     return cachedPathList
                 } else {
-                    throw new ScreenResourceNotFoundException(fromSd, originalPathNameList, fromSd, screenPath, null,
-                            new Exception("Could not find screen, transition or content matching path"))
+                    return null
+                    // throw new ScreenResourceNotFoundException(fromSd, originalPathNameList, fromSd, screenPath, null, new Exception("Could not find screen, transition or content matching path"))
                 }
             } else {
                 ArrayList<String> expandedPathNameList = rootSd.findSubscreenPath(originalPathNameList)
@@ -646,8 +676,8 @@ class ScreenUrlInfo {
                 if (expandedPathNameList) {
                     return expandedPathNameList
                 } else {
-                    throw new ScreenResourceNotFoundException(fromSd, originalPathNameList, fromSd, screenPath, null,
-                            new Exception("Could not find screen, transition or content matching path"))
+                    return null
+                    // throw new ScreenResourceNotFoundException(fromSd, originalPathNameList, fromSd, screenPath, null, new Exception("Could not find screen, transition or content matching path"))
                 }
             }
         } else {
@@ -726,7 +756,7 @@ class ScreenUrlInfo {
             return curTargetTransition
         }
         boolean getHasActions() { getTargetTransition() != null && getTargetTransition().actions }
-        boolean getDisableLink() { return (getTargetTransition() != null && !getTargetTransition().checkCondition(ec)) || !sui.isPermitted(ec) }
+        boolean getDisableLink() { return !sui.targetExists || (getTargetTransition() != null && !getTargetTransition().checkCondition(ec)) || !sui.isPermitted(ec) }
         boolean isPermitted() { return sui.isPermitted(ec) }
         boolean getInCurrentScreenPath() {
             List<String> currentPathNameList = new ArrayList<String>(sri.screenUrlInfo.fullPathNameList)

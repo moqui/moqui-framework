@@ -61,6 +61,8 @@ class RestClientImpl implements RestClient {
     RestClient uri(String location) { uri = new URI(location); return this }
     @Override
     RestClient uri(URI uri) { this.uri = uri; return this }
+    @Override
+    RestClient.UriBuilder uri() { return new UriBuilderImpl(this) }
 
     @Override
     RestClient method(String method) {
@@ -139,10 +141,10 @@ class RestClientImpl implements RestClient {
             for (KeyValueString nvp in headerList) request.header(nvp.key, nvp.value)
             for (KeyValueString nvp in bodyParameterList) request.param(nvp.key, nvp.value)
             // authc
-            if (username) httpClient.getAuthenticationStore().addAuthentication(
+            if (username != null && !username.isEmpty()) httpClient.getAuthenticationStore().addAuthentication(
                     new BasicAuthentication(uri, null, username, password))
 
-            if (bodyText) {
+            if (bodyText != null && !bodyText.isEmpty()) {
                 request.content(new StringContentProvider(contentType, bodyText, charset), contentType)
                 request.header(HttpHeader.CONTENT_TYPE, contentType)
             }
@@ -242,6 +244,67 @@ class RestClientImpl implements RestClient {
         String headerFirst(String name) {
             List<String> valueList = headers.get(name)
             return valueList ? valueList[0] : null
+        }
+    }
+
+    static class UriBuilderImpl implements RestClient.UriBuilder {
+        private static final char slashChar = '/' as char
+        private RestClientImpl rci
+        private String protocol = "http"
+        private String host = (String) null
+        private int port = 80
+        private StringBuilder path = new StringBuilder()
+        private Map<String, String> parameters = (Map<String, String>) null
+        private String fragment = (String) null
+
+        UriBuilderImpl(RestClientImpl rci) { this.rci = rci }
+
+        @Override
+        RestClient.UriBuilder protocol(String protocol) { this.protocol = protocol; return this }
+        @Override
+        RestClient.UriBuilder host(String host) { this.host = host; return this }
+        @Override
+        RestClient.UriBuilder port(int port) { this.port = port; return this }
+        @Override
+        RestClient.UriBuilder path(String pathEl) {
+            if (!pathEl.startsWith("/")) path.append('/')
+            path.append(pathEl)
+            int lastIndex = path.length() - 1
+            if (slashChar == path.charAt(lastIndex)) path.deleteCharAt(lastIndex)
+            return this
+        }
+        @Override
+        RestClient.UriBuilder parameter(String name, String value) {
+            if (parameters == null) parameters = new LinkedHashMap<>()
+            parameters.put(name, value)
+            return this
+        }
+        @Override
+        RestClient.UriBuilder parameters(Map<String, String> parms) {
+            if (parameters == null) {
+                parameters = new LinkedHashMap<>(parms)
+            } else {
+                parameters.putAll(parms)
+            }
+            return this
+        }
+        @Override
+        RestClient.UriBuilder fragment(String fragment) { this.fragment = fragment; return this }
+
+        @Override
+        RestClient build() {
+            if (host == null || host.isEmpty()) throw new IllegalArgumentException("No host specified, call the host() method before build()")
+            StringBuilder query = null
+            if (parameters != null && parameters.size() > 0) {
+                query = new StringBuilder()
+                for (Map.Entry<String, String> parm in parameters) {
+                    if (query.length() > 0) query.append('&')
+                    query.append(URLEncoder.encode(parm.key, "UTF-8")).append('=').append(URLEncoder.encode(parm.value, "UTF-8"))
+                }
+            }
+            if (path.length() == 0) path.append('/')
+            URI newUri = new URI(protocol, null, host, port, path.toString(), query != null ? query.toString() : null, null)
+            return rci.uri(newUri)
         }
     }
 }

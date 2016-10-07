@@ -19,7 +19,6 @@ import org.moqui.context.AuthenticationRequiredException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.screen.ScreenRenderImpl
-import org.moqui.screen.ScreenRender
 import org.moqui.util.MNode
 
 import javax.servlet.ServletConfig
@@ -30,7 +29,6 @@ import javax.servlet.ServletException
 
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ExecutionContext
-import org.moqui.context.ExecutionContextFactory
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -38,28 +36,27 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class MoquiServlet extends HttpServlet {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiServlet.class)
-    protected ExecutionContextFactoryImpl ecfi = null
-    protected String moquiWebappName = null
 
     MoquiServlet() { super(); }
 
     @Override
     void init(ServletConfig config) throws ServletException {
         super.init(config)
-
-        ecfi = (ExecutionContextFactoryImpl) config.getServletContext().getAttribute("executionContextFactory")
-        moquiWebappName = config.getServletContext().getInitParameter("moqui-name")
-        logger.info("${config.getServletName()} initialized for webapp ${moquiWebappName}")
+        logger.info("${config.getServletName()} initialized for webapp ${config.getServletContext().getInitParameter("moqui-name")}")
     }
 
     @Override
-    void service(HttpServletRequest request, HttpServletResponse response) { doScreenRequest(request, response) }
+    void service(HttpServletRequest request, HttpServletResponse response) {
+        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) getServletContext().getAttribute("executionContextFactory")
+        String webappName = getServletContext().getInitParameter("moqui-name")
 
-    void doScreenRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // check for and cleanly handle when executionContextFactory is not in place in ServletContext attr
+        if (ecfi == null || webappName == null) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "System is initializing, try again soon.")
+            return
+        }
+
         if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
-
-        if (ecfi == null || moquiWebappName == null) init(getServletConfig())
-
         long startTime = System.currentTimeMillis()
         String pathInfo = request.getPathInfo()
 
@@ -75,35 +72,37 @@ class MoquiServlet extends HttpServlet {
          */
 
         try {
-            ec.initWebFacade(moquiWebappName, request, response)
+            ec.initWebFacade(webappName, request, response)
             ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
             ScreenRenderImpl sri = (ScreenRenderImpl) ec.screenFacade.makeRender()
             sri.render(request, response)
         } catch (AuthenticationRequiredException e) {
             logger.warn("Web Unauthorized (no authc): " + e.message)
-            sendErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized", e.message, e)
+            sendErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized", e.message, e, ecfi, webappName)
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             // See ScreenRenderImpl.checkWebappSettings for authc and SC_UNAUTHORIZED handling
             logger.warn("Web Access Forbidden (no authz): " + e.message)
-            sendErrorResponse(request, response, HttpServletResponse.SC_FORBIDDEN, "forbidden", e.message, e)
+            sendErrorResponse(request, response, HttpServletResponse.SC_FORBIDDEN, "forbidden", e.message, e, ecfi, webappName)
         } catch (ScreenResourceNotFoundException e) {
             logger.warn("Web Resource Not Found: " + e.message)
-            sendErrorResponse(request, response, HttpServletResponse.SC_NOT_FOUND, "not-found", e.message, e)
+            sendErrorResponse(request, response, HttpServletResponse.SC_NOT_FOUND, "not-found", e.message, e, ecfi, webappName)
         } catch (ArtifactTarpitException e) {
             logger.warn("Web Too Many Requests (tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
-            sendErrorResponse(request, response, 429, "too-many", e.message, e)
+            sendErrorResponse(request, response, 429, "too-many", e.message, e, ecfi, webappName)
         } catch (Throwable t) {
             if (ec.message.hasError()) {
                 String errorsString = ec.message.errorsString
                 logger.error(errorsString, t)
-                sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error", errorsString, t)
+                sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error",
+                        errorsString, t, ecfi, webappName)
             } else {
                 logger.error("Internal error processing request: " + t.message, t)
-                sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error", t.message, t)
+                sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error",
+                        t.message, t, ecfi, webappName)
             }
         } finally {
             // make sure everything is cleaned up
@@ -118,8 +117,8 @@ class MoquiServlet extends HttpServlet {
          */
     }
 
-    void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
-                           String message, Throwable origThrowable) {
+    static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
+            String message, Throwable origThrowable, ExecutionContextFactoryImpl ecfi, String moquiWebappName) {
         if (ecfi == null) {
             response.sendError(errorCode, message)
             return

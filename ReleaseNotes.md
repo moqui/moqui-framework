@@ -133,6 +133,11 @@ significant changes.
   - Added sample Docker Compose files for moqui+mysql, and for moqui, mysql, and nginx-proxy for reverse proxy that supports 
     virtual hosts for multiple Docker containers running Moqui
   - Added script to run a Docker Compose file after copying configuration and data persistence runtime directories if needed
+- Multi-Instance Management
+  - New services (InstanceServices.xml) and screens in the System app for Moqui instance management
+  - This replaces the removed multi-tenant functionality
+  - Initially supports Docker for the instance hosting environment via Docker REST API
+  - Initially supports MySQL for instance databases (one DB per instance, just like in the past)
 - Tool Factory
   - Added org.moqui.context.ToolFactory interface used to initialize, destroy, and get instances of tools
   - Added tools.tool-factory element in Moqui Conf XML file; has default tools in MoquiDefaultConf.xml and can be populated or 
@@ -211,6 +216,7 @@ significant changes.
   - EntityDataWriter now supports export with a entity master definition name, applied only to entities exported that have a master 
     definition with the given master name
 - XML Screen and Form
+  - screen path URLs that don't exist are now by default disabled instead of throwing an exception
   - form-list now supports @header-dialog to put header-field widgets in a dialog instead of in the header
   - form-list now supports @select-columns to allow users to select which fields are displayed in which columns, or not displayed
   - added search-form-inputs.default-parameters element whose attributes are used as defaultParameters in searchFormMap()
@@ -219,6 +225,7 @@ significant changes.
   - significant macro cleanups and improvements
   - csv render macros now improved to support more screen elements, more intelligently handle links (only include anchor/text), etc
   - text render macros now use fixed width output (number of characters) along with new field attributes to specify print settings
+- New /status now a transition instead of a screen and return JSON with more server status information
 
 ### Bug Fixes
 
@@ -432,32 +439,17 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
-- Multi-Tenant Alternative: Multi-Instance Management
-  - Moqui instances could be managed manually, this would be for some automation from a Moqui 'master' instance that runs something
-    like a PopCommerce store for automated SaaS
-  - for Moqui 'master' instance controlling other instances, would not run in managed/slave instances
-  - separate component from moqui-framework with entity, service, screen
-  - service interfaces, implementations in separate components  
-  - provision, suspend/resume (disable/enable), remove: need service interfaces, like current TenantServices 
-  - monitoring and other management: best with separate tools or something built into a Moqui master instance?
-  - instance meta data
-    - instance ID
-    - app instance name (like docker container name); could be same as instance ID
-    - app instance host
-      - instance location (like docker host location for REST API, ie through docker-java)
-      - admin credentials (docker client approach? jclouds ssh approach? something generic including user, password, certificate)
-      - see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/
-    - app instance image 
-      - name or digest (like docker image name or ID, could be like 'moqui', 'moqui/moqui:2.0' or 'myaccount/myimage:tag')
-      - image repository to pull from
-    - image repository
-      - username, password, email, serverAddress
-      - see https://docs.docker.com/engine/reference/api/docker_remote_api/
-    - app access
-      - webapp_http_host (ie virtual host, could be deployed with actual IP/host); could be same as instance ID
-      - webapp_http_port (default to 80), webapp_https_port (default to 443), webapp_https_enabled
-    - db server: entity_ds_db_conf, entity_ds_host, entity_ds_port, admin user/password
-    - database: db server, entity_ds_database, entity_ds_schema, entity_ds_user, entity_ds_password
+- form-list data prep, more self-contained
+  - form-list.entity-find element support instead of form-list.@list attribute
+  - form-list.service-call
+  - also more general form-list.actions element?
+- form-single.entity-find-one element support, maybe form-single.actions too
+- form-list reporting like features
+  - field attribute to show total (for current page only...)
+  - field attribute for grouping
+    - aggregation functions (like sum) and option to show in nested table (full width cell with columns for nested fields)
+    - if any set with function or nest all others are 'group by' fields
+
 - Instance Provisioning and Management
   - external instance management
     - https://mist.io
@@ -466,25 +458,12 @@ Gradle tasks.
     - https://shipyard-project.com (Docker only)
     - https://github.com/kevana/ui-for-docker (Docker only)
   - embedded and gradle docker client (for docker host or docker swarm)
-    - https://github.com/docker-java/docker-java
-    - https://github.com/bmuschko/gradle-docker-plugin
     - direct through Docker API
       - https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket
+      - https://docs.docker.com/engine/security/https/
       - https://docs.docker.com/engine/reference/api/docker_remote_api/
-  - Apache Stratos
-    - http://stratos.apache.org/
-    - feature rich but complex, uses ActiveMQ, Puppet, WSO2 CEP, WSO2 DAS
-    - perhaps just Puppet directly is adequate? Stratos seems to handle many things only in commercial Puppet Enterprise
-  - Apache jclouds
-    - http://jclouds.apache.org
-    - API and implementations for various IaaS options, including Docker (limited), AWS, openstack, etc
-    - mainly use the Compute API (ComputeService)
-    - http://jclouds.apache.org/guides/docker/
 
-- Option for link element to only render if referenced transition/screen exists
 - Option for transition to only mount if all response URLs for screen paths exist
-- Perhaps never throw exception for ScreenUrlInfo or UrlInstance if screen or transition does not exist, ie just add
-  method to see if exists and show disabled link if it doesn't?
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 - Support seek for faster pagination like jOOQ: https://blog.jooq.org/2013/10/26/faster-sql-paging-with-jooq-using-the-seek-method/

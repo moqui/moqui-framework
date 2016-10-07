@@ -762,7 +762,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
             <xs:attribute name="id" type="xs:string" use="required"/>
             <xs:attribute name="button-text" type="xs:string" use="required"/>
-            <xs:attribute name="width" type="xs:string" default="600"/>
+            <xs:attribute name="width" type="xs:string" default="760"/>
             <xs:attribute name="height" type="xs:string" default="600"/>
         </xs:complexType>
     </xs:element>
@@ -773,7 +773,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/></xs:sequence>
             <xs:attribute name="id" type="xs:string" use="required"/>
             <xs:attribute name="button-text" type="xs:string" use="required"/>
-            <xs:attribute name="width" type="xs:string" default="600"/>
+            <xs:attribute name="width" type="xs:string" default="760"/>
             <xs:attribute name="height" type="xs:string" default="600"/>
             <xs:attribute name="transition" type="xs:string" use="required"/>
             <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
