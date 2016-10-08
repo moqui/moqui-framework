@@ -286,22 +286,24 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         try {
             InputStream inputStream = null
             try {
-                logger.info("Loading entity data from [${location}]")
+                logger.info("Loading entity data from ${location}")
                 long beforeTime = System.currentTimeMillis()
-                long beforeRecords = exh.valuesRead ?: 0
 
                 inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
 
                 if (location.endsWith(".xml")) {
+                    long beforeRecords = exh.valuesRead ?: 0
                     exh.setLocation(location)
                     SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
                     parser.parse(inputStream, exh)
                     logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
+                    long beforeRecords = ech.valuesRead ?: 0
                     if (ech.loadFile(location, inputStream)) {
                         logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".json")) {
+                    long beforeRecords = ejh.valuesRead ?: 0
                     if (ejh.loadFile(location, inputStream)) {
                         logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
@@ -312,7 +314,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         try {
                             String entryFile = entry.getName()
                             if (entryFile.endsWith(".xml")) {
-                                beforeRecords = exh.valuesRead ?: 0
+                                long beforeRecords = exh.valuesRead ?: 0
                                 beforeTime = System.currentTimeMillis()
                                 exh.setLocation(location)
 
