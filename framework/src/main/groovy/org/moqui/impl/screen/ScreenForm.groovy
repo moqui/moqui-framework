@@ -55,6 +55,7 @@ class ScreenForm {
     protected boolean isDynamic = false
     protected String extendsScreenLocation = null
 
+    protected MNode entityFindNode = null
     protected XmlAction rowActions = null
 
     ScreenForm(ExecutionContextFactoryImpl ecfi, ScreenDefinition sd, MNode baseFormNode, String location) {
@@ -219,10 +220,9 @@ class ScreenForm {
         if (logger.traceEnabled) logger.trace("Form [${location}] resulted in expanded def: " + FtlNodeWrapper.wrapNode(newFormNode).toString())
         // if (location.contains("FOO")) logger.warn("======== Form [${location}] resulted in expanded def: " + FtlNodeWrapper.wrapNode(newFormNode).toString())
 
+        entityFindNode = newFormNode.first("entity-find")
         // prep row-actions
-        if (newFormNode.hasChild("row-actions")) {
-            rowActions = new XmlAction(ecfi, newFormNode.first("row-actions"), location + ".row_actions")
-        }
+        if (newFormNode.hasChild("row-actions")) rowActions = new XmlAction(ecfi, newFormNode.first("row-actions"), location + ".row_actions")
     }
 
     List<MNode> getDbFormNodeList() {
@@ -828,6 +828,11 @@ class ScreenForm {
     protected static void mergeFormNodes(MNode baseFormNode, MNode overrideFormNode, boolean deepCopy, boolean copyFields) {
         if (overrideFormNode.attributes) baseFormNode.attributes.putAll(overrideFormNode.attributes)
 
+        if (overrideFormNode.hasChild("entity-find")) {
+            int efIndex = baseFormNode.firstIndex("entity-find")
+            if (efIndex >= 0) baseFormNode.replace(efIndex, overrideFormNode.first("entity-find"))
+            else baseFormNode.append(overrideFormNode.first("entity-find"), 0)
+        }
         // if overrideFormNode has any row-actions add them all to the ones of the baseFormNode, ie both will run
         if (overrideFormNode.hasChild("row-actions")) {
             if (!baseFormNode.hasChild("row-actions")) baseFormNode.append("row-actions", null)
@@ -906,9 +911,7 @@ class ScreenForm {
             MNode childNode = (MNode) widgetChildren.get(wci)
             if ("entity-options".equals(childNode.name)) {
                 MNode entityFindNode = childNode.first("entity-find")
-                EntityFindImpl ef = (EntityFindImpl) ec.entity.find(entityFindNode.attribute('entity-name'))
-                ef.findNode(entityFindNode)
-
+                EntityFind ef = ec.entity.find(entityFindNode)
                 EntityList eli = ef.list()
 
                 if (ef.shouldCache()) {
@@ -1064,6 +1067,63 @@ class ScreenForm {
         boolean isUpload() { return isUploadForm }
         boolean isHeaderForm() { return isFormHeaderFormVal }
         String getFormLocation() { return location }
+
+        Object getListObject() {
+            if (entityFindNode != null) {
+                EntityFind ef = ecfi.entityFacade.find(entityFindNode)
+                // TODO if no select-field add one for each form field displayed in a column that is a valid entity field name
+
+                // run the query
+                EntityList efList = ef.list()
+                // if cached do the date filter after query
+                boolean useCache = ef.shouldCache()
+                if (useCache) for (MNode df in entityFindNode.children("date-filter")) {
+                    Timestamp validDate = (Timestamp) null
+                    String validDateAttr = df.attribute("valid-date")
+                    if (validDateAttr != null && !validDateAttr.isEmpty()) validDate = ecfi.resourceFacade.expression(validDateAttr, "") as Timestamp
+                    efList.filterByDate(df.attribute("from-field-name") ?: "fromDate", df.attribute("thru-field-name") ?: "thruDate",
+                            validDate, "true".equals(df.attribute("ignore-if-empty")))
+                }
+
+                // put in context for external use
+                ContextStack context = ecfi.getEci().contextStack
+                String listName = formNode.attribute("list")
+                context.put(listName, efList)
+
+                // handle pagination, etc parameters like XML Actions entity-find
+                MNode sfiNode = entityFindNode.first("search-form-inputs")
+                boolean doPaginate = sfiNode != null && !"false".equals(sfiNode.attribute("paginate"))
+                if (doPaginate) {
+                    int count, pageSize, pageIndex
+                    if (useCache) {
+                        count = efList.size()
+                        efList.filterByLimit(sfiNode.attribute("input-fields-map"), true)
+                        pageSize = efList.pageSize
+                        pageIndex = efList.pageIndex
+                    } else {
+                        count = ef.count()
+                        pageIndex = ef.pageIndex
+                        if (ef.limit == null) { pageSize = count } else { pageSize = ef.pageSize }
+                    }
+                    int maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).intValue()
+                    int pageRangeLow = (pageIndex * pageSize) + 1
+                    int pageRangeHigh = (pageIndex * pageSize) + pageSize
+                    if (pageRangeHigh > count) pageRangeHigh = count
+
+                    context.put(listName.concat("Count"), count)
+                    context.put(listName.concat("PageIndex"), pageIndex)
+                    context.put(listName.concat("PageSize"), pageSize)
+                    context.put(listName.concat("PageMaxIndex"), maxIndex)
+                    context.put(listName.concat("PageRangeLow"), pageRangeLow)
+                    context.put(listName.concat("PageRangeHigh"), pageRangeHigh)
+                }
+
+                return efList
+            } else {
+                String listAttr = formNode.attribute("list")
+                return ecfi.resourceFacade.expression(listAttr, "")
+            }
+        }
 
         MNode getFieldValidateNode(String fieldName) {
             MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)

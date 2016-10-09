@@ -85,11 +85,8 @@ abstract class EntityFindBase implements EntityFind {
         txCache = tfi.getTransactionCache()
     }
 
-    @Override
-    EntityFind entity(String entityName) { this.entityName = entityName; return this }
-
-    @Override
-    String getEntity() { return this.entityName }
+    @Override EntityFind entity(String name) { entityName = name; return this }
+    @Override String getEntity() { return entityName }
 
     // ======================== Conditions (Where and Having) =================
 
@@ -230,8 +227,7 @@ abstract class EntityFindBase implements EntityFind {
         if (whereEntityCondition != null) return true
         return false
     }
-    @Override
-    boolean getHasHavingCondition() { havingEntityCondition != null }
+    @Override boolean getHasHavingCondition() { havingEntityCondition != null }
 
     @Override
     EntityFind havingCondition(EntityCondition condition) {
@@ -338,8 +334,7 @@ abstract class EntityFindBase implements EntityFind {
         return pks
     }
 
-    @Override
-    EntityCondition getHavingEntityCondition() { return havingEntityCondition }
+    @Override EntityCondition getHavingEntityCondition() { return havingEntityCondition }
 
     @Override
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate) {
@@ -488,58 +483,6 @@ abstract class EntityFindBase implements EntityFind {
         return addedConditions
     }
 
-    EntityFind findNode(MNode node) {
-        ExecutionContextImpl ec = efi.ecfi.getEci()
-
-        this.entity(node.attribute("entity-name"))
-        String cache = node.attribute("cache")
-        if (cache != null && !cache.isEmpty()) { this.useCache("true".equals(cache)) }
-        String forUpdate = node.attribute("for-update")
-        if (forUpdate != null && !forUpdate.isEmpty()) this.forUpdate("true".equals(forUpdate))
-        String distinct = node.attribute("distinct")
-        if (distinct != null && !distinct.isEmpty()) this.distinct("true".equals(distinct))
-        String offset = node.attribute("offset")
-        if (offset != null && !offset.isEmpty()) this.offset(Integer.valueOf(offset))
-        String limit = node.attribute("limit")
-        if (limit != null && !limit.isEmpty()) this.limit(Integer.valueOf(limit))
-        for (MNode sf in node.children("select-field")) this.selectField(sf.attribute("field-name"))
-        for (MNode ob in node.children("order-by")) this.orderBy(ob.attribute("field-name"))
-
-        if (node.hasChild("search-form-inputs")) {
-            MNode sfiNode = node.first("search-form-inputs")
-            boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
-            MNode defaultParametersNode = sfiNode.first("default-parameters")
-            searchFormInputs(sfiNode.attribute("input-fields-map"), defaultParametersNode.attributes as Map<String, Object>,
-                    sfiNode.attribute("default-order-by"), paginate)
-        }
-
-        // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
-        if (!this.shouldCache()) {
-            for (MNode df in node.children("date-filter"))
-                this.condition(efi.getConditionFactoryImpl().makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
-                        df.attribute("thru-field-name") ?: "thruDate",
-                        (df.attribute("valid-date") ? ec.resource.expression(df.attribute("valid-date"), null) as Timestamp : ec.user.nowTimestamp)))
-        }
-
-        for (MNode ecn in node.children("econdition")) {
-            EntityCondition econd = efi.getConditionFactoryImpl().makeActionCondition(ecn)
-            if (econd != null) this.condition(econd)
-        }
-        for (MNode ecs in node.children("econditions"))
-            this.condition(efi.getConditionFactoryImpl().makeActionConditions(ecs))
-        for (MNode eco in node.children("econdition-object"))
-            this.condition((EntityCondition) ec.resource.expression(eco.attribute("field"), null))
-
-        if (node.hasChild("having-econditions")) {
-            for (MNode havingCond in node.children("having-econditions"))
-                this.havingCondition(efi.getConditionFactoryImpl().makeActionCondition(havingCond))
-        }
-
-        // logger.info("TOREMOVE Added findNode\n${node}\n${this.toString()}")
-
-        return this
-    }
-
     // ======================== General/Common Options ========================
 
     @Override
@@ -556,16 +499,13 @@ abstract class EntityFindBase implements EntityFind {
         }
         return this
     }
-
     @Override
     EntityFind selectFields(Collection<String> selectFields) {
         if (!selectFields) return this
         for (String fieldToSelect in selectFields) selectField(fieldToSelect)
         return this
     }
-
-    @Override
-    List<String> getSelectFields() { return fieldsToSelect }
+    @Override List<String> getSelectFields() { return fieldsToSelect }
 
     @Override
     EntityFind orderBy(String orderByFieldName) {
@@ -583,7 +523,6 @@ abstract class EntityFindBase implements EntityFind {
         }
         return this
     }
-
     @Override
     EntityFind orderBy(List<String> orderByFieldNames) {
         if (!orderByFieldNames) return this
@@ -596,39 +535,25 @@ abstract class EntityFindBase implements EntityFind {
         }
         return this
     }
+    @Override List<String> getOrderBy() { return orderByFields != null ? Collections.unmodifiableList(orderByFields) : null }
 
-    @Override
-    List<String> getOrderBy() { return this.orderByFields != null ? Collections.unmodifiableList(this.orderByFields) : null }
-
-    @Override
-    EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
-
-    @Override
-    boolean getUseCache() { return this.useCache }
+    @Override EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
+    @Override boolean getUseCache() { return this.useCache }
 
     // ======================== Advanced Options ==============================
 
-    @Override
-    EntityFind distinct(boolean distinct) { this.distinct = distinct; return this }
-    @Override
-    boolean getDistinct() { return distinct }
+    @Override EntityFind distinct(boolean distinct) { this.distinct = distinct; return this }
+    @Override boolean getDistinct() { return distinct }
 
-    @Override
-    EntityFind offset(Integer offset) { this.offset = offset; return this }
-    @Override
-    EntityFind offset(int pageIndex, int pageSize) { offset(pageIndex * pageSize) }
-    @Override
-    Integer getOffset() { return offset }
+    @Override EntityFind offset(Integer offset) { this.offset = offset; return this }
+    @Override EntityFind offset(int pageIndex, int pageSize) { offset(pageIndex * pageSize) }
+    @Override Integer getOffset() { return offset }
 
-    @Override
-    EntityFind limit(Integer limit) { this.limit = limit; return this }
-    @Override
-    Integer getLimit() { return limit }
+    @Override EntityFind limit(Integer limit) { this.limit = limit; return this }
+    @Override Integer getLimit() { return limit }
 
-    @Override
-    int getPageIndex() { return offset == null ? 0 : (offset/getPageSize()).intValue() }
-    @Override
-    int getPageSize() { return limit != null ? limit : 20 }
+    @Override int getPageIndex() { return offset == null ? 0 : (offset/getPageSize()).intValue() }
+    @Override int getPageSize() { return limit != null ? limit : 20 }
 
     @Override
     EntityFind forUpdate(boolean forUpdate) {
@@ -636,33 +561,21 @@ abstract class EntityFindBase implements EntityFind {
         this.resultSetType = forUpdate ? ResultSet.TYPE_SCROLL_SENSITIVE : defaultResultSetType
         return this
     }
-    @Override
-    boolean getForUpdate() { return this.forUpdate }
+    @Override boolean getForUpdate() { return this.forUpdate }
 
     // ======================== JDBC Options ==============================
 
-    @Override
-    EntityFind resultSetType(int resultSetType) { this.resultSetType = resultSetType; return this }
-    @Override
-    int getResultSetType() { return this.resultSetType }
+    @Override EntityFind resultSetType(int resultSetType) { this.resultSetType = resultSetType; return this }
+    @Override int getResultSetType() { return this.resultSetType }
 
-    @Override
-    EntityFind resultSetConcurrency(int resultSetConcurrency) {
-        this.resultSetConcurrency = resultSetConcurrency
-        return this
-    }
-    @Override
-    int getResultSetConcurrency() { return this.resultSetConcurrency }
+    @Override EntityFind resultSetConcurrency(int rsc) { resultSetConcurrency = rsc; return this }
+    @Override int getResultSetConcurrency() { return this.resultSetConcurrency }
 
-    @Override
-    EntityFind fetchSize(Integer fetchSize) { this.fetchSize = fetchSize; return this }
-    @Override
-    Integer getFetchSize() { return this.fetchSize }
+    @Override EntityFind fetchSize(Integer fetchSize) { this.fetchSize = fetchSize; return this }
+    @Override Integer getFetchSize() { return this.fetchSize }
 
-    @Override
-    EntityFind maxRows(Integer maxRows) { this.maxRows = maxRows; return this }
-    @Override
-    Integer getMaxRows() { return this.maxRows }
+    @Override EntityFind maxRows(Integer maxRows) { this.maxRows = maxRows; return this }
+    @Override Integer getMaxRows() { return this.maxRows }
 
     // ======================== Misc Methods ========================
 
@@ -676,6 +589,9 @@ abstract class EntityFindBase implements EntityFind {
         return entityDef
     }
 
+    @Override EntityFind disableAuthz() { disableAuthz = true; return this }
+
+    @Override
     boolean shouldCache() {
         if (dynamicView != null) return false
         if (havingEntityCondition != null) return false
@@ -697,8 +613,6 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     // ======================== Find and Abstract Methods ========================
-
-    EntityFind disableAuthz() { disableAuthz = true; return this }
 
     abstract EntityDynamicView makeEntityDynamicView()
 

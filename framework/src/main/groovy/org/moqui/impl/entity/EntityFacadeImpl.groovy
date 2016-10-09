@@ -1251,6 +1251,60 @@ class EntityFacadeImpl implements EntityFacade {
         if (ed == null) throw new EntityException("No entity found with name ${entityName}")
         return ed.makeEntityFind()
     }
+    @Override
+    EntityFind find(MNode node) {
+        String entityName = node.attribute("entity-name")
+        // don't check entityName empty, getEntityDefinition() does it
+        EntityDefinition ed = getEntityDefinition(entityName)
+        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
+        EntityFind ef = ed.makeEntityFind()
+
+        String cache = node.attribute("cache")
+        if (cache != null && !cache.isEmpty()) { ef.useCache("true".equals(cache)) }
+        String forUpdate = node.attribute("for-update")
+        if (forUpdate != null && !forUpdate.isEmpty()) ef.forUpdate("true".equals(forUpdate))
+        String distinct = node.attribute("distinct")
+        if (distinct != null && !distinct.isEmpty()) ef.distinct("true".equals(distinct))
+        String offset = node.attribute("offset")
+        if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset))
+        String limit = node.attribute("limit")
+        if (limit != null && !limit.isEmpty()) ef.limit(Integer.valueOf(limit))
+        for (MNode sf in node.children("select-field")) ef.selectField(sf.attribute("field-name"))
+        for (MNode ob in node.children("order-by")) ef.orderBy(ob.attribute("field-name"))
+
+        if (node.hasChild("search-form-inputs")) {
+            MNode sfiNode = node.first("search-form-inputs")
+            boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
+            MNode defaultParametersNode = sfiNode.first("default-parameters")
+            String inputFieldsMapName = sfiNode.attribute("input-fields-map")
+            Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
+            ef.searchFormMap(inf, defaultParametersNode.attributes as Map<String, Object>, sfiNode.attribute("default-order-by"), paginate)
+        }
+
+        // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
+        if (!ef.shouldCache()) {
+            for (MNode df in node.children("date-filter"))
+                ef.condition(getConditionFactoryImpl().makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
+                        df.attribute("thru-field-name") ?: "thruDate",
+                        (df.attribute("valid-date") ? ecfi.resourceFacade.expression(df.attribute("valid-date"), null) as Timestamp : ecfi.eci.user.nowTimestamp)))
+        }
+
+        for (MNode ecn in node.children("econdition")) {
+            EntityCondition econd = getConditionFactoryImpl().makeActionCondition(ecn)
+            if (econd != null) ef.condition(econd)
+        }
+        for (MNode ecs in node.children("econditions"))
+            ef.condition(getConditionFactoryImpl().makeActionConditions(ecs))
+        for (MNode eco in node.children("econdition-object"))
+            ef.condition((EntityCondition) ecfi.resourceFacade.expression(eco.attribute("field"), null))
+
+        if (node.hasChild("having-econditions")) {
+            for (MNode havingCond in node.children("having-econditions"))
+                ef.havingCondition(getConditionFactoryImpl().makeActionCondition(havingCond))
+        }
+
+        return ef
+    }
 
     final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
     @Override

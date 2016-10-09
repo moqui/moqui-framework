@@ -137,6 +137,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:sequence>
+                <xs:element minOccurs="0" ref="entity-find"/>
                 <xs:element minOccurs="0" ref="row-actions"/>
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element minOccurs="0" ref="auto-fields-service"/>
