@@ -1030,7 +1030,6 @@ class ScreenForm {
         private ArrayList<FtlNodeWrapper> nonReferencedFieldList = (ArrayList<FtlNodeWrapper>) null
         private ArrayList<FtlNodeWrapper> hiddenFieldList = (ArrayList<FtlNodeWrapper>) null
         private ArrayList<ArrayList<FtlNodeWrapper>> formListColInfoList = (ArrayList<ArrayList<FtlNodeWrapper>>) null
-        private Set<String> fieldsInFormListColumns = (Set<String>) null
 
         FormInstance() {
             formNode = getOrCreateFormNode()
@@ -1068,10 +1067,17 @@ class ScreenForm {
         boolean isHeaderForm() { return isFormHeaderFormVal }
         String getFormLocation() { return location }
 
-        Object getListObject() {
+        Object getListObject(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
             if (entityFindNode != null) {
                 EntityFind ef = ecfi.entityFacade.find(entityFindNode)
-                // TODO if no select-field add one for each form field displayed in a column that is a valid entity field name
+
+                // if no select-field add one for each form field displayed in a column that is a valid entity field name
+                if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
+                    LinkedHashSet<String> fieldSet = getFieldsInFormListColumnInfo(curFormListColumnInfo)
+                    for (String fieldName in fieldSet) ef.selectField(fieldName)
+                }
+
+                logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
 
                 // run the query
                 EntityList efList = ef.list()
@@ -1343,7 +1349,6 @@ class ScreenForm {
             int flcListSize = formListColumnList != null ? formListColumnList.size() : 0
 
             ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
-            Set<String> tempFieldsInFormListColumns = new HashSet()
 
             if (flcListSize > 0) {
                 // populate fields under columns
@@ -1360,7 +1365,6 @@ class ScreenForm {
                         // skip hidden fields, they are handled separately
                         if (isListFieldHidden(fieldNode)) continue
 
-                        tempFieldsInFormListColumns.add(fieldName)
                         colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
                     }
                     if (colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
@@ -1374,13 +1378,11 @@ class ScreenForm {
                     if (isListFieldHidden(fieldNode)) continue
 
                     ArrayList<FtlNodeWrapper> singleFieldColList = new ArrayList<>()
-                    tempFieldsInFormListColumns.add(fieldNode.attribute("name"))
                     singleFieldColList.add(FtlNodeWrapper.wrapNode(fieldNode))
                     colInfoList.add(singleFieldColList)
                 }
             }
 
-            fieldsInFormListColumns = tempFieldsInFormListColumns
             return colInfoList
         }
         private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
@@ -1416,13 +1418,11 @@ class ScreenForm {
             // Add the final field (if defined)
             if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
 
-            fieldsInFormListColumns = tempFieldsInFormListColumns
             return colInfoList
         }
 
-        /** Call this after getFormListColumnInfo() so fieldsInFormListColumns will be populated */
-        ArrayList<FtlNodeWrapper> getFieldsNotReferencedInFormListColumn() {
-            if (fieldsInFormListColumns == null) makeFormListColumnInfo()
+        ArrayList<FtlNodeWrapper> getFieldsNotReferencedInFormListColumn(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
+            LinkedHashSet<String> fieldSet = getFieldsInFormListColumnInfo(curFormListColumnInfo)
 
             ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
             int afnSize = allFieldNodes.size()
@@ -1431,11 +1431,28 @@ class ScreenForm {
                 // skip hidden fields, they are handled separately
                 if (isListFieldHidden(fieldNode)) continue
                 String fieldName = fieldNode.attribute("name")
-                if (!fieldsInFormListColumns.contains(fieldName))
+                if (!fieldSet.contains(fieldName))
                     colFieldNodes.add(fieldFtlNodeMap.get(fieldName))
             }
 
             return colFieldNodes
+        }
+        LinkedHashSet<String> getFieldsInFormListColumnInfo(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
+            if (curFormListColumnInfo == null) curFormListColumnInfo = this.getFormListColumnInfo()
+            LinkedHashSet<String> fieldSet = new LinkedHashSet<>()
+
+            int outerSize = curFormListColumnInfo.size()
+            for (int oi = 0; oi < outerSize; oi++) {
+                ArrayList<FtlNodeWrapper> innerList = (ArrayList<FtlNodeWrapper>) curFormListColumnInfo.get(oi)
+                if (innerList == null) continue
+                int innerSize = innerList.size()
+                for (int ii = 0; ii < innerSize; ii++) {
+                    FtlNodeWrapper ftlNode = (FtlNodeWrapper) innerList.get(ii)
+                    if (ftlNode != null) fieldSet.add(ftlNode.getMNode().attribute("name"))
+                }
+            }
+
+            return fieldSet
         }
 
         String getFieldValidationClasses(String fieldName) {
