@@ -66,14 +66,14 @@ dependencies {
     compile 'org.codehaus.groovy:groovy-templates:2.4.7' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-xml:2.4.7' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    providedCompile 'org.fusesource.jansi:jansi:1.13'
+    providedCompile 'org.fusesource.jansi:jansi:1.14'
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
-    compile 'org.javassist:javassist:3.20.0-GA' // Apache 2.0
+    compile 'org.javassist:javassist:3.21.0-GA' // Apache 2.0
 
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
 
@@ -83,7 +83,7 @@ dependencies {
     compile 'org.apache.commons:commons-csv:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-lang3:3.4' // Apache 2.0; used by cron-utils, may use internally
-    compile 'commons-beanutils:commons-beanutils:1.9.2' // Apache 2.0
+    compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
     // compile 'commons-codec:commons-codec:1.10' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     // not currently needed/used: compile module('commons-configuration:commons-configuration:1.10') // Apache 2.0
@@ -122,7 +122,7 @@ dependencies {
     // compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
 
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.3.11.v20160721' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.3.12.v20160915' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
@@ -135,14 +135,14 @@ dependencies {
     compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.3.1' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.3.1' // Apache 2.0
+    compile 'org.apache.shiro:shiro-core:1.3.2' // Apache 2.0
+    compile 'org.apache.shiro:shiro-web:1.3.2' // Apache 2.0
 
     // SLF4J, Log4J
     compile 'org.slf4j:slf4j-api:1.7.21'
-    runtime 'org.apache.logging.log4j:log4j-core:2.6.2'
-    runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
+    runtime 'org.apache.logging.log4j:log4j-core:2.7'
+    runtime 'org.apache.logging.log4j:log4j-api:2.7'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.7'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
@@ -178,14 +178,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.11.v20160721' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.11.v20160721' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.11.v20160721' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.11.v20160721') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.11.v20160721') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.11.v20160721') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.12.v20160915' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.12.v20160915' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.12.v20160915' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.12.v20160915') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.12.v20160915') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.12.v20160915') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.11.v20160721') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.12.v20160915') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
