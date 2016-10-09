@@ -1094,7 +1094,7 @@ class ScreenForm {
                 MNode sfiNode = entityFindNode.first("search-form-inputs")
                 boolean doPaginate = sfiNode != null && !"false".equals(sfiNode.attribute("paginate"))
                 if (doPaginate) {
-                    int count, pageSize, pageIndex
+                    long count, pageSize, pageIndex
                     if (useCache) {
                         count = efList.size()
                         efList.filterByLimit(sfiNode.attribute("input-fields-map"), true)
@@ -1105,9 +1105,9 @@ class ScreenForm {
                         pageIndex = ef.pageIndex
                         if (ef.limit == null) { pageSize = count } else { pageSize = ef.pageSize }
                     }
-                    int maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).intValue()
-                    int pageRangeLow = (pageIndex * pageSize) + 1
-                    int pageRangeHigh = (pageIndex * pageSize) + pageSize
+                    long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
+                    long pageRangeLow = (pageIndex * pageSize) + 1
+                    long pageRangeHigh = (pageIndex * pageSize) + pageSize
                     if (pageRangeHigh > count) pageRangeHigh = count
 
                     context.put(listName.concat("Count"), count)

@@ -1278,7 +1278,7 @@ class EntityFacadeImpl implements EntityFacade {
             MNode defaultParametersNode = sfiNode.first("default-parameters")
             String inputFieldsMapName = sfiNode.attribute("input-fields-map")
             Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
-            ef.searchFormMap(inf, defaultParametersNode.attributes as Map<String, Object>, sfiNode.attribute("default-order-by"), paginate)
+            ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("default-order-by"), paginate)
         }
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
