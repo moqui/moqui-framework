@@ -443,10 +443,7 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
-- form-list.entity-find
-- only select entity fields with matching form field names (for fields actually displayed in columns), 
-  if there are no entity-find.select-field elements
-- field.@group: min, max, sum, avg, group-by, sub-list; if any have attribute all others are group-by
+- field.@aggregate: min, max, sum, avg, count, group-by, sub-list; default is group-by, if all are group-by no aggregation done
 - field.@show-total if sub-list show in sub-list, otherwise add bottom row with current list totals
 
 - form-list data prep, more self-contained

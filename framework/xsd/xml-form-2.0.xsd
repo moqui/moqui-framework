@@ -568,6 +568,15 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="right"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="aggregate" default="group-by">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="min"/><xs:enumeration value="max"/><xs:enumeration value="sum"/>
+                    <xs:enumeration value="avg"/><xs:enumeration value="count"/>
+                    <xs:enumeration value="group-by"/>
+                    <xs:enumeration value="sub-list"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="show-total" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="header-field">
