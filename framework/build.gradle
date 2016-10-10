@@ -223,8 +223,7 @@ jar {
     manifest { attributes 'Implementation-Title': 'Moqui Framework', 'Implementation-Version': version, 'Implementation-Vendor': 'Moqui Ecosystem' }
     from sourceSets.main.output
     // get all of the "resources" that are in component-standard directories instead of src/main/resources
-    from fileTree(dir: projectDir.absolutePath,
-            includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**', 'xsd/**'])
+    from fileTree(dir: projectDir.absolutePath, includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**']) // 'xsd/**'
 }
 
 war {
