@@ -66,11 +66,11 @@ dependencies {
     compile 'org.codehaus.groovy:groovy-templates:2.4.7' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-xml:2.4.7' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    providedCompile 'org.fusesource.jansi:jansi:1.14'
+    compileOnly 'org.fusesource.jansi:jansi:1.14'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
-    providedCompile 'com.google.code.findbugs:annotations:3.0.1'
+    compileOnly 'com.google.code.findbugs:annotations:3.0.1'
     // Guava needed only during compile by findbugs, no longer used in cron-utils, ElasticSearch, etc
-    providedCompile 'com.google.guava:guava:19.0' // Apache 2.0
+    compileOnly 'com.google.guava:guava:19.0' // Apache 2.0
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
