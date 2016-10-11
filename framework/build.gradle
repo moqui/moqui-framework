@@ -67,6 +67,10 @@ dependencies {
     compile 'org.codehaus.groovy:groovy-xml:2.4.7' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     providedCompile 'org.fusesource.jansi:jansi:1.14'
+    // Findbugs need only during compile (used by freemarker and various moqui classes)
+    providedCompile 'com.google.code.findbugs:annotations:3.0.1'
+    // Guava needed only during compile by findbugs, no longer used in cron-utils, ElasticSearch, etc
+    providedCompile 'com.google.guava:guava:19.0' // Apache 2.0
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
@@ -94,15 +98,10 @@ dependencies {
     compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
 
     // cron-utils
-    compile 'com.cronutils:cron-utils:5.0.0' // Apache 2.0
+    compile module('com.cronutils:cron-utils:5.0.1') // Apache 2.0
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
-    providedCompile module('com.google.code.findbugs:annotations:3.0.1') // need only during compile when using freemarker
-
-    // Guava (big but used by ElasticSearch, OWASP Java HTML Sanitizer, may use internally in framework too)
-    // NOTE: may no longer be used by ElasticSearch, no longer used by cron-utils, just OWASP Java HTML Sanitizer?
-    compile 'com.google.guava:guava:19.0' // Apache 2.0
 
     // Java Specifications
     compile 'javax.transaction:jta:1.1'
@@ -127,8 +126,8 @@ dependencies {
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
 
-    // OWASP Java HTML Sanitizer
-    compile 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20160827.1' // New BSD & Apache 2.0
+    // JSoup (HTML parser, cleaner)
+    compile 'org.jsoup:jsoup:1.9.2' // MIT
 
     // Pegdown (Markdown renderer)
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0

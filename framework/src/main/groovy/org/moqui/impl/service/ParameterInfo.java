@@ -13,16 +13,16 @@
  */
 package org.moqui.impl.service;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Whitelist;
 import org.moqui.impl.StupidClassLoader;
 import org.moqui.impl.StupidUtilities;
-import org.moqui.impl.StupidWebUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
-import org.owasp.html.HtmlChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.text.MessageFormat;
 import java.util.*;
@@ -224,7 +224,6 @@ public class ParameterInfo {
     @SuppressWarnings("unchecked")
     Object validateParameterHtml(String namePrefix, Object parameterValue, boolean isString, ExecutionContextImpl eci) {
         // check for none/safe/any HTML
-
         if (isString) {
             return canonicalizeAndCheckHtml(sd, namePrefix, (String) parameterValue, eci);
         } else {
@@ -244,6 +243,7 @@ public class ParameterInfo {
         }
     }
 
+    private static Document.OutputSettings outputSettings = new Document.OutputSettings().charset("UTF-8").prettyPrint(true).indentAmount(4);
     private String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterValue, ExecutionContextImpl eci) {
         int indexOfEscape = -1;
         int indexOfLessThan = -1;
@@ -262,18 +262,7 @@ public class ParameterInfo {
         if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
 
         if (allowSafe) {
-            SafeHtmlChangeListener changes = new SafeHtmlChangeListener(eci, sd);
-            String cleanHtml = StupidWebUtilities.getSafeHtmlPolicy().sanitize(parameterValue, changes, namePrefix.concat(name));
-            List<String> cleanChanges = changes.getMessages();
-            // use message instead of error, accept cleaned up HTML
-            if (cleanChanges.size() > 0) {
-                for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
-                logger.info("Service parameter safe HTML messages for " + sd.serviceName + "." + name + ": " + cleanChanges);
-                return cleanHtml;
-            } else {
-                // nothing changed, return null
-                return null;
-            }
+            return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
         } else {
             // check for "<"; this will protect against HTML/JavaScript injection
             if (indexOfLessThan >= 0) {
@@ -282,6 +271,25 @@ public class ParameterInfo {
             // nothing changed, return null
             return null;
         }
+    }
+    /*
+    Old OWASP HTML Sanitizer code (removed because heavy, depends on Guava):
+
+    in framework/build.gradle:
+    // OWASP Java HTML Sanitizer
+    compile 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20160924.1' // New BSD & Apache 2.0
+
+    SafeHtmlChangeListener changes = new SafeHtmlChangeListener(eci, sd);
+    String cleanHtml = EbayPolicyExample.POLICY_DEFINITION.sanitize(parameterValue, changes, namePrefix.concat(name));
+    List<String> cleanChanges = changes.getMessages();
+    // use message instead of error, accept cleaned up HTML
+    if (cleanChanges.size() > 0) {
+        for (String cleanChange: cleanChanges) eci.getMessage().addMessage(cleanChange);
+        logger.info("Service parameter safe HTML messages for " + sd.serviceName + "." + name + ": " + cleanChanges);
+        return cleanHtml;
+    } else {
+        // nothing changed, return null
+        return null;
     }
 
     private static class SafeHtmlChangeListener implements HtmlChangeListener<String> {
@@ -304,4 +312,5 @@ public class ParameterInfo {
                         attrName, tagName, context, sd.serviceName));
         }
     }
+    */
 }

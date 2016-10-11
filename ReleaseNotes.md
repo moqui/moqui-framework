@@ -95,7 +95,7 @@ significant changes.
   - See new configuration examples in MoquiDefaultConf.xml under the repository-list element
 - OWASP ESAPI and AntiSamy
   - ESAPI removed, now using simple StringEscapeUtils from commons-lang
-  - AntiSamy replaced by OWASP Java HTML Sanitizer
+  - AntiSamy replaced by Jsoup.clean()
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (by methods with shorter names) long ago and with other API changes now removing them
