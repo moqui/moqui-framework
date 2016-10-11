@@ -1076,8 +1076,7 @@ class ScreenForm {
                     LinkedHashSet<String> fieldSet = getFieldsInFormListColumnInfo(curFormListColumnInfo)
                     for (String fieldName in fieldSet) ef.selectField(fieldName)
                 }
-
-                logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
+                // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
 
                 // run the query
                 EntityList efList = ef.list()
