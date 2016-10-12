@@ -40,7 +40,6 @@ import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
-import java.security.SecureRandom
 
 /** This class is a facade to easily get information from and about the web context. */
 @CompileStatic

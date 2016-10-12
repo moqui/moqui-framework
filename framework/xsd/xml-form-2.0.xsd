@@ -137,6 +137,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:sequence>
+                <xs:element minOccurs="0" ref="entity-find"/>
                 <xs:element minOccurs="0" ref="row-actions"/>
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element minOccurs="0" ref="auto-fields-service"/>
@@ -567,6 +568,15 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="right"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="aggregate" default="group-by">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="min"/><xs:enumeration value="max"/><xs:enumeration value="sum"/>
+                    <xs:enumeration value="avg"/><xs:enumeration value="count"/>
+                    <xs:enumeration value="group-by"/>
+                    <xs:enumeration value="sub-list"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="show-total" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="header-field">
@@ -1066,6 +1076,9 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="depends-on">
         <xs:complexType>
             <xs:attribute name="field" type="xs:string" use="required"/>
+            <xs:attribute name="parameter" type="xs:string">
+                <xs:annotation><xs:documentation>If specified used as the parameter to pass instead of the field name.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 </xs:schema>

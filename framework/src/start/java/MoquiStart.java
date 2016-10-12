@@ -19,7 +19,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -428,6 +430,7 @@ public class MoquiStart {
         private URL wrapperUrl = null;
         private boolean isInWar = true;
         final ArrayList<JarFile> jarFileList = new ArrayList<>();
+        private final Map<String, URL> jarLocationByJarName = new HashMap<>();
         private final Map<String, Class<?>> classCache = new HashMap<>();
         private final Map<String, URL> resourceCache = new HashMap<>();
         private ProtectionDomain pd;
@@ -456,6 +459,7 @@ public class MoquiStart {
 
                     // allow for classes in the outerFile as well
                     jarFileList.add(outerFile);
+                    jarLocationByJarName.put(outerFile.getName(), wrapperUrl);
 
                     Enumeration<JarEntry> jarEntries = outerFile.entries();
                     while (jarEntries.hasMoreElements()) {
@@ -467,14 +471,18 @@ public class MoquiStart {
                         String jeName = je.getName().toLowerCase();
                         if (jeName.lastIndexOf(".jar") == jeName.length() - 4) {
                             File file = createTempFile(outerFile, je);
-                            jarFileList.add(new JarFile(file));
+                            JarFile newJarFile = new JarFile(file);
+                            jarFileList.add(newJarFile);
+                            jarLocationByJarName.put(newJarFile.getName(), file.toURI().toURL());
                         }
                     }
                 } else {
                     ArrayList<File> jarList = new ArrayList<>();
                     addJarFilesNested(wrapperFile, jarList, loadWebInf);
                     for (File jarFile : jarList) {
-                        jarFileList.add(new JarFile(jarFile));
+                        JarFile newJarFile = new JarFile(jarFile);
+                        jarFileList.add(newJarFile);
+                        jarLocationByJarName.put(newJarFile.getName(), jarFile.toURI().toURL());
                         // System.out.println("jar file: " + jarFile.getAbsolutePath());
                     }
                 }
@@ -483,6 +491,16 @@ public class MoquiStart {
             }
 
             if (reportJarsUnused) for (JarFile jf : jarFileList) jarsUnused.add(jf.getName());
+        }
+
+        private ConcurrentHashMap<URL, ProtectionDomain> protectionDomainByUrl = new ConcurrentHashMap<>();
+        private ProtectionDomain getProtectionDomain(URL jarLocation) {
+            ProtectionDomain curPd = protectionDomainByUrl.get(jarLocation);
+            if (curPd != null) return curPd;
+            CodeSource codeSource = new CodeSource(jarLocation, (Certificate[]) null);
+            ProtectionDomain newPd = new ProtectionDomain(codeSource, null, this, null);
+            ProtectionDomain existingPd = protectionDomainByUrl.putIfAbsent(jarLocation, newPd);
+            return existingPd != null ? existingPd : newPd;
         }
 
         private void addJarFilesNested(File file, List<File> jarList, boolean loadWebInf) {
@@ -652,7 +670,8 @@ public class MoquiStart {
                         continue;
                     }
                     // System.out.println("Class [" + classFileName + "] FOUND in jarFile [" + jarFile.getName() + "], size is " + (jeBytes == null ? "null" : jeBytes.length));
-                    c = defineClass(className, jeBytes, 0, jeBytes.length, pd);
+                    URL jarLocation = jarLocationByJarName.get(jarFile.getName());
+                    c = defineClass(className, jeBytes, 0, jeBytes.length, jarLocation != null ? getProtectionDomain(jarLocation) : pd);
                     break;
                 }
             }

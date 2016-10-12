@@ -18,8 +18,6 @@ import org.eclipse.jetty.client.HttpClient
 import org.eclipse.jetty.client.api.ContentResponse
 import org.eclipse.jetty.client.api.Request
 import org.eclipse.jetty.client.util.StringContentProvider
-import org.owasp.html.PolicyFactory
-import org.owasp.html.examples.EbayPolicyExample
 
 import java.nio.charset.StandardCharsets
 import javax.servlet.ServletRequest
@@ -32,10 +30,7 @@ import org.slf4j.LoggerFactory
 
 @CompileStatic
 class StupidWebUtilities {
-    protected final static Logger logger = LoggerFactory.getLogger(StupidUtilities.class)
-
-    private static PolicyFactory safeHtmlPolicy = EbayPolicyExample.POLICY_DEFINITION
-    public static PolicyFactory getSafeHtmlPolicy() { return safeHtmlPolicy }
+    protected final static Logger logger = LoggerFactory.getLogger(StupidWebUtilities.class)
 
     static final char tildeChar = '~' as char
     public static Map<String, Object> getPathInfoParameterMap(String pathInfoStr) {

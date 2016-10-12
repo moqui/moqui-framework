@@ -95,7 +95,7 @@ significant changes.
   - See new configuration examples in MoquiDefaultConf.xml under the repository-list element
 - OWASP ESAPI and AntiSamy
   - ESAPI removed, now using simple StringEscapeUtils from commons-lang
-  - AntiSamy replaced by OWASP Java HTML Sanitizer
+  - AntiSamy replaced by Jsoup.clean()
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (by methods with shorter names) long ago and with other API changes now removing them
@@ -442,6 +442,9 @@ Gradle tasks.
 
 
 ## Long Term To Do List - aka Informal Road Map
+
+- field.@aggregate: min, max, sum, avg, count, group-by, sub-list; default is group-by, if all are group-by no aggregation done
+- field.@show-total if sub-list show in sub-list, otherwise add bottom row with current list totals
 
 - form-list data prep, more self-contained
   - form-list.entity-find element support instead of form-list.@list attribute

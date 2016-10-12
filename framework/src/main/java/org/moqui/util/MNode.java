@@ -415,6 +415,16 @@ public class MNode {
         }
         return null;
     }
+    public int firstIndex(String name) {
+        if (childList == null) return -1;
+        if (name == null) return childList.size() - 1;
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (name.equals(curChild.getName())) return i;
+        }
+        return -1;
+    }
     public int firstIndex(Closure<Boolean> condition) {
         if (childList == null) return -1;
         if (condition == null) return childList.size() - 1;
@@ -473,6 +483,12 @@ public class MNode {
         MNode newNode = new MNode(name, attributes, this, null, null);
         append(newNode);
         return newNode;
+    }
+
+    public MNode replace(int index, MNode child) {
+        if (childList == null || childList.size() < index)
+            throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
+        return childList.set(index, child);
     }
     public MNode replace(int index, String name, Map<String, String> attributes) {
         if (childList == null || childList.size() < index)

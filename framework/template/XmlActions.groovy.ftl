@@ -150,14 +150,13 @@ return;
     }
     </#if>
     <#if .node["limit-range"]?has_content && !useCache>
-    org.moqui.entity.EntityListIterator ${listName}_xafind_eli = ${listName}_xafind.iterator()
-    ${listName} = ${listName}_xafind_eli.getPartialList(${.node["limit-range"][0]["@start"]}, ${.node["limit-range"][0]["@size"]}, true)
+        org.moqui.entity.EntityListIterator ${listName}_xafind_eli = ${listName}_xafind.iterator()
+        ${listName} = ${listName}_xafind_eli.getPartialList(${.node["limit-range"][0]["@start"]}, ${.node["limit-range"][0]["@size"]}, true)
     <#elseif .node["limit-view"]?has_content && !useCache>
-    org.moqui.entity.EntityListIterator ${listName}_xafind_eli = ${listName}_xafind.iterator()
-    ${listName} = ${listName}_xafind_eli.getPartialList((${.node["limit-view"][0]["@view-index"]} - 1) * ${.node["limit-view"][0]["@view-size"]}, ${.node["limit-view"][0]["@view-size"]},
-    true)
+        org.moqui.entity.EntityListIterator ${listName}_xafind_eli = ${listName}_xafind.iterator()
+        ${listName} = ${listName}_xafind_eli.getPartialList((${.node["limit-view"][0]["@view-index"]} - 1) * ${.node["limit-view"][0]["@view-size"]}, ${.node["limit-view"][0]["@view-size"]}, true)
     <#elseif .node["use-iterator"]?has_content && !useCache>
-    ${listName} = ${listName}_xafind.iterator()
+        ${listName} = ${listName}_xafind.iterator()
     <#else>
         ${listName} = ${listName}_xafind.list()
         <#if useCache>
@@ -167,7 +166,7 @@ return;
             <#if doPaginate>
                 <#-- get the Count after the date-filter, but before the limit/pagination filter -->
                 ${listName}Count = ${listName}.size()
-                ${listName} = ${listName}.filterByLimit("${sfiNode["@input-fields-map"]!""}", ${sfiNode["@paginate"]!("true")})
+                ${listName} = ${listName}.filterByLimit("${sfiNode["@input-fields-map"]!""}", true)
                 <#-- get the PageIndex and PageSize after date-filter AND after limit filter -->
                 ${listName}PageIndex = ${listName}.pageIndex
                 ${listName}PageSize = ${listName}.pageSize
