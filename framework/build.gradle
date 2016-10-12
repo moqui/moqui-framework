@@ -127,9 +127,8 @@ dependencies {
     // JSoup (HTML parser, cleaner)
     compile 'org.jsoup:jsoup:1.9.2' // MIT
 
-    // Pegdown (Markdown renderer)
+    // Pegdown (Markdown renderer; depends on parboiled, asm)
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
-    compile 'org.parboiled:parboiled-java:1.1.7' // Apache 2.0
 
     // Apache Shiro
     compile 'org.apache.shiro:shiro-core:1.3.2' // Apache 2.0
