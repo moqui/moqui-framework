@@ -449,10 +449,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
         entityFacade.loadAllEntityLocations()
-        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false)
-        // load/warm framework entities
-        entityFacade.loadFrameworkEntities()
-        logger.info("Loaded ${entityInfoList.size()} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
+        int entityCount = entityFacade.loadAllEntityDefinitions()
+        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
+        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
 
         // now that everything is started up, if configured check all entity tables
         entityFacade.checkInitDatasourceTables()

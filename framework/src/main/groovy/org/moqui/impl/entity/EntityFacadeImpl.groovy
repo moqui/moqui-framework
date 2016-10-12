@@ -471,7 +471,8 @@ class EntityFacadeImpl implements EntityFacade {
             int numEntities = 0
             for (MNode entity in entityRoot.children) {
                 String entityName = entity.attribute("entity-name")
-                String packageName = entity.attribute("package") ?: entity.attribute("package-name")
+                String packageName = entity.attribute("package")
+                if (packageName == null || packageName.isEmpty()) packageName = entity.attribute("package-name")
                 String shortAlias = entity.attribute("short-alias")
 
                 if (entityName == null || entityName.length() == 0) {
@@ -480,11 +481,12 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 if (packageName != null && packageName.length() > 0) {
-                    List<String> pkgList = (List<String>) entityLocationCache.get(packageName + "." + entityName)
+                    String fullEntityName = packageName.concat(".").concat(entityName)
+                    List<String> pkgList = (List<String>) entityLocationCache.get(fullEntityName)
                     if (pkgList == null) {
                         pkgList = new LinkedList<>()
                         pkgList.add(entityRr.location)
-                        entityLocationCache.put(packageName + "." + entityName, pkgList)
+                        entityLocationCache.put(fullEntityName, pkgList)
                     } else if (!pkgList.contains(entityRr.location)) {
                         pkgList.add(entityRr.location)
                     }
@@ -533,6 +535,21 @@ class EntityFacadeImpl implements EntityFacade {
             return existingNode
         }
     }
+
+    int loadAllEntityDefinitions() {
+        int entityCount = 0
+        for (String en in getAllEntityNames()) {
+            try {
+                getEntityDefinition(en)
+            } catch (EntityException e) {
+                logger.warn("Problem finding entity definition", e)
+                continue
+            }
+            entityCount++
+        }
+        return entityCount
+    }
+
 
     protected EntityDefinition loadEntityDefinition(String entityName) {
         if (entityName.contains("#")) {
@@ -757,7 +774,7 @@ class EntityFacadeImpl implements EntityFacade {
                 if (relatedEntityName == null || relatedEntityName.length() == 0) relatedEntityName = relNode.attribute("related-entity-name")
                 // don't create reverse relationships coming back to the same entity, since it will have the same title
                 //     it would create multiple relationships with the same name
-                if (entityName == relatedEntityName) continue
+                if (entityName.equals(relatedEntityName)) continue
 
                 EntityDefinition reverseEd
                 try {
@@ -916,8 +933,11 @@ class EntityFacadeImpl implements EntityFacade {
         TreeSet<String> allNames = new TreeSet()
         // only add full entity names (with package in it, will always have at least one dot)
         // only include entities that have a non-empty List of locations in the cache (otherwise are invalid entities)
-        for (String en in entityLocationCache.keySet())
-            if (en.contains(".") && entityLocationCache.get(en)) allNames.add(en)
+        for (Map.Entry<String, List<String>> entry in entityLocationCache.entrySet()) {
+            String en = entry.key
+            List<String> locList = entry.value
+            if (en.contains(".") && locList != null && locList.size() > 0) allNames.add(en)
+        }
         return allNames
     }
 
@@ -1001,6 +1021,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
+    // used in tools screens
     ArrayList<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
                                                       boolean excludeViewEntities) {
         if (masterEntitiesOnly) createAllAutoReverseManyRelationships()
@@ -1024,7 +1045,7 @@ class EntityFacadeImpl implements EntityFacade {
                     isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 
-        if (orderByField) StupidUtilities.orderMapList(eil, [orderByField])
+        if (orderByField != null && !orderByField.isEmpty()) StupidUtilities.orderMapList(eil, [orderByField])
         return eil
     }
 
