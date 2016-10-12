@@ -22,15 +22,14 @@
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.jcache.MCacheToolFactory" init-priority="03" disabled="false"/>
-
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
         <!-- <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/> -->
-
+        <!-- H2 Database ToolFactory - if h2 database active runs the H2 server for external access (local only depending on conf) -->
         <tool-factory class="org.moqui.impl.tools.H2ServerToolFactory" init-priority="12" disabled="false"/>
-
+        <!-- Jackrabbit ToolFactory for running Jackrabbit if plugged in -->
         <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
-
-        <tool-factory class="org.moqui.impl.tools.SubEthaSmtpToolFactory" init-priority="50" disabled="false"/>
+        <!-- SubEtha SMTP ToolFactory starts an SMTP server using the MOQUI_LOCAL EmailServer settings, emails received trigger EMECA rules -->
+        <tool-factory class="org.moqui.impl.tools.SubEthaSmtpToolFactory" init-priority="50" disabled="true"/>
     </tools>
 
     <cache-list warm-on-start="true" local-factory="MCache" distributed-factory="MCache">
