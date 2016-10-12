@@ -80,7 +80,8 @@ class H2ServerToolFactory implements ToolFactory<Server> {
 
     @Override
     void destroy() {
-        if (h2Server != null && h2Server.isRunning(true)) h2Server.stop()
+        // don't stop the H2 server, shuts down the DB before important framework facades
+        // if (h2Server != null && h2Server.isRunning(true)) h2Server.stop()
     }
 
     ExecutionContextFactory getEcf() { return ecf }

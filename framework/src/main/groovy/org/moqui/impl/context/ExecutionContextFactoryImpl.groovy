@@ -602,15 +602,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // shutdown scheduled executor pool
         try {
-            scheduledExecutor.shutdown()
-            logger.info("Scheduled executor pool shut down")
         } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
 
-        // shutdown worker pool
+        // shutdown scheduled executor and worker pools
         try {
+            scheduledExecutor.shutdown()
             workerPool.shutdown()
+
+            scheduledExecutor.awaitTermination(30, TimeUnit.SECONDS)
+            logger.info("Scheduled executor pool shut down")
+            workerPool.awaitTermination(30, TimeUnit.SECONDS)
             logger.info("Worker pool shut down")
-        } catch (Throwable t) { logger.error("Error in workerPool shutdown", t) }
+        } catch (Throwable t) { logger.error("Error in workerPool/scheduledExecutor shutdown", t) }
 
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
