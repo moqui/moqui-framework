@@ -11,5 +11,5 @@ String[] getDirectoryProjects(String relativePath) {
 include 'framework'
 include getDirectoryProjects('base-component')
 include getDirectoryProjects('mantle')
-include getDirectoryProjects('component-lib')
 include getDirectoryProjects('component')
+include getDirectoryProjects('ecomponent')

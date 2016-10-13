@@ -126,7 +126,7 @@ class EntityEcaRule {
     }
 
     EntityValue getDbValue(Map fieldValues) {
-        EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(entityName)
+        EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
         EntityFind ef = ecfi.entity.find(entityName)
         for (String pkFieldName in ed.getPkFieldNames()) ef.condition(pkFieldName, fieldValues.get(pkFieldName))
         return ef.one()

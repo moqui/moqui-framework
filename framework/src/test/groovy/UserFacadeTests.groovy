@@ -32,7 +32,7 @@ class UserFacadeTests extends Specification {
 
     def "login user john.doe"() {
         expect:
-        ec.user.loginUser("john.doe", "moqui", null)
+        ec.user.loginUser("john.doe", "moqui")
     }
 
     def "check userId username currencyUomId locale userAccount.userFullName defaults"() {

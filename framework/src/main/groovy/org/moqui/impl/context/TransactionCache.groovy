@@ -258,7 +258,7 @@ class TransactionCache implements Synchronization {
             // if this has been deleted return a DeletedEntityValue instance so caller knows it was deleted and doesn't look in the DB for another record
             EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key)
             if (currentEwi != null && currentEwi.writeMode == WriteMode.DELETE)
-                return new EntityValueBase.DeletedEntityValue(efb.getEntityDef(), ecfi.getEntityFacade())
+                return new EntityValueBase.DeletedEntityValue(efb.getEntityDef(), ecfi.entityFacade)
         }
 
         // cloneValue() so that updates aren't in the read cache until an update is done
@@ -317,7 +317,7 @@ class TransactionCache implements Synchronization {
                     }
                 }
                 if (foundCreatedDependent) {
-                    EntityListImpl createdValueList = new EntityListImpl(ecfi.getEntityFacade())
+                    EntityListImpl createdValueList = new EntityListImpl(ecfi.entityFacade)
                     Map createMap = createByEntityRef.get(ed.getFullEntityName())
                     if (createMap != null) {
                         for (EntityValueBase createEvb in createMap.values())
@@ -382,8 +382,7 @@ class TransactionCache implements Synchronization {
         try {
             int writeInfoListSize = writeInfoList.size()
             if (writeInfoListSize > 0) {
-                ExecutionContextImpl eci = ecfi.getEci()
-                EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
+                EntityFacadeImpl efi = ecfi.entityFacade
 
                 long startTime = System.currentTimeMillis()
                 int createCount = 0

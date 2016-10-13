@@ -21,6 +21,7 @@ import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
 
 import org.moqui.BaseException
+import org.moqui.Moqui
 import org.moqui.context.*
 import org.moqui.context.ArtifactExecutionInfo.ArtifactType
 import org.moqui.entity.EntityDataLoader
@@ -45,6 +46,7 @@ import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.annotation.Nonnull
 import javax.servlet.ServletContext
 import javax.websocket.server.ServerContainer
 import java.sql.Timestamp
@@ -57,7 +59,9 @@ import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.jar.Attributes
 import java.util.jar.JarFile
+import java.util.jar.Manifest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -74,6 +78,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess")
     protected final MNode confXmlRoot
     protected MNode serverStatsNode
+    protected String moquiVersion = ""
 
     protected StupidClassLoader stupidClassLoader
     protected GroovyClassLoader groovyClassLoader
@@ -83,9 +88,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>()
     protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>()
 
-    protected final Map<String, EntityFacadeImpl> entityFacadeByTenantMap = new HashMap<>()
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final EntityFacadeImpl defaultEntityFacade
     protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
 
@@ -97,8 +99,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected long hitBinLengthMillis = 900000 // 15 minute default
     private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
     private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
-    final Map<String, ConcurrentLinkedQueue<ArtifactHitInfo>> deferredHitInfoQueueByTenant =
-            [DEFAULT:new ConcurrentLinkedQueue<ArtifactHitInfo>()]
+    final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
@@ -119,11 +120,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess")
     public final ResourceFacadeImpl resourceFacade
     @SuppressWarnings("GrFinalVariableAccess")
-    public final ScreenFacadeImpl screenFacade
+    public final TransactionFacadeImpl transactionFacade
+    @SuppressWarnings("GrFinalVariableAccess")
+    public final EntityFacadeImpl entityFacade
     @SuppressWarnings("GrFinalVariableAccess")
     public final ServiceFacadeImpl serviceFacade
     @SuppressWarnings("GrFinalVariableAccess")
-    public final TransactionFacadeImpl transactionFacade
+    public final ScreenFacadeImpl screenFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess")
@@ -202,8 +205,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Transaction Facade initialized")
-        // always init the EntityFacade for tenantId DEFAULT
-        defaultEntityFacade = initEntityFacade("DEFAULT")
+        entityFacade = new EntityFacadeImpl(this)
+        logger.info("Entity Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
@@ -253,8 +256,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         transactionFacade = new TransactionFacadeImpl(this)
         logger.info("Transaction Facade initialized")
-        // always init the EntityFacade for tenantId DEFAULT
-        defaultEntityFacade = initEntityFacade("DEFAULT")
+        entityFacade = new EntityFacadeImpl(this)
+        logger.info("Entity Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
@@ -271,12 +274,29 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
+        Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF")
+        while (resources.hasMoreElements()) {
+            try {
+                Manifest manifest = new Manifest(resources.nextElement().openStream())
+                Attributes attributes = manifest.getMainAttributes()
+                String implTitle = attributes.getValue("Implementation-Title")
+                String implVendor = attributes.getValue("Implementation-Vendor")
+                if ("Moqui Framework".equals(implTitle) && "Moqui Ecosystem".equals(implVendor)) {
+                    moquiVersion = attributes.getValue("Implementation-Version")
+                    break
+                }
+            } catch (IOException e) {
+                logger.info("Error reading manifest files", e)
+            }
+        }
+        System.setProperty("moqui.version", moquiVersion)
+
         // don't set the moqui.runtime and moqui.conf system properties as before, causes conflict with multiple moqui instances in one JVM
         // NOTE: moqui.runtime is set in MoquiStart and in MoquiContextListener (if there is an embedded runtime directory)
         // System.setProperty("moqui.runtime", runtimePath)
         // System.setProperty("moqui.conf", runtimeConfPath)
 
-        logger.info("Initializing Moqui ExecutionContextFactoryImpl\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
+        logger.info("Initializing Moqui Framework version ${moquiVersion ?: 'Unknown'}\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
@@ -316,9 +336,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // set default System properties now that all is merged
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
-            if (!System.getProperty(propName)) {
-                String propValue = SystemBinding.expand(defPropNode.attribute("value"))
-                System.setProperty(propName, propValue)
+            if (!System.getProperty(propName) && !System.getenv(propName)) {
+                String valueAttr = defPropNode.attribute("value")
+                if (valueAttr != null && !valueAttr.isEmpty()) System.setProperty(propName, SystemBinding.expand(valueAttr))
             }
         }
 
@@ -428,15 +448,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // load entity defs
         logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
-        EntityFacadeImpl defaultEfi = defaultEntityFacade
-        defaultEfi.loadAllEntityLocations()
-        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false, false)
-        // load/warm framework entities
-        defaultEfi.loadFrameworkEntities()
-        logger.info("Loaded ${entityInfoList.size()} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
+        entityFacade.loadAllEntityLocations()
+        int entityCount = entityFacade.loadAllEntityDefinitions()
+        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
+        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
 
         // now that everything is started up, if configured check all entity tables
-        defaultEfi.checkInitDatasourceTables()
+        entityFacade.checkInitDatasourceTables()
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
@@ -483,7 +501,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                stupidClassLoader.addJarFile(new JarFile(jarFile))
+                stupidClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -501,7 +519,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
+                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -521,6 +539,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
+    @Override
     boolean checkEmptyDb() {
         String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
         if (!emptyDbLoad || emptyDbLoad == 'none') return false
@@ -583,15 +602,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // shutdown scheduled executor pool
         try {
-            scheduledExecutor.shutdown()
-            logger.info("Scheduled executor pool shut down")
         } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
 
-        // shutdown worker pool
+        // shutdown scheduled executor and worker pools
         try {
+            scheduledExecutor.shutdown()
             workerPool.shutdown()
+
+            scheduledExecutor.awaitTermination(30, TimeUnit.SECONDS)
+            logger.info("Scheduled executor pool shut down")
+            workerPool.awaitTermination(30, TimeUnit.SECONDS)
             logger.info("Worker pool shut down")
-        } catch (Throwable t) { logger.error("Error in workerPool shutdown", t) }
+        } catch (Throwable t) { logger.error("Error in workerPool/scheduledExecutor shutdown", t) }
 
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
@@ -633,8 +655,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         super.finalize()
     }
 
+    /** Trigger ECF destroy and re-init in another thread, after short wait */
+    void triggerDynamicReInit() {
+        Thread riThread = Thread.start("EcfiReInit", {
+            sleep(2000) // wait 2 seconds
+            Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
+        })
+    }
+
     @Override
-    String getRuntimePath() { return runtimePath }
+    @Nonnull String getRuntimePath() { return runtimePath }
+    @Override
+    @Nonnull String getMoquiVersion() { return moquiVersion }
     MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
@@ -645,7 +677,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     InetAddress getLocalhostAddress() { return localhostAddress }
 
     @Override
-    void registerNotificationMessageListener(NotificationMessageListener nml) {
+    void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
         nml.init(this)
         registeredNotificationMessageListeners.add(nml)
     }
@@ -654,7 +686,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (notificationMessageTopic != null) {
             // send it to the topic, this will call notifyNotificationMessageListeners(nmi)
             notificationMessageTopic.publish(nmi)
-            // logger.warn("Sent nmi to distributed topic, topic=${nmi.topic}, tenant=${nmi.tenantId}")
+            // logger.warn("Sent nmi to distributed topic, topic=${nmi.topic}")
         } else {
             // run it locally
             notifyNotificationMessageListeners(nmi)
@@ -662,12 +694,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     /** This is called when message received from topic (possibly distributed) */
     void notifyNotificationMessageListeners(NotificationMessageImpl nmi) {
-        if (nmi.tenantId == null) {
-            logger.warn("Received NotificationMessageImpl message on topic ${nmi.topic} with null tenantId, ignoring")
-            return
-        }
         // process notifications in the worker thread pool
-        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(this, nmi.tenantId, null, {
+        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(this, null, {
             int nmlSize = registeredNotificationMessageListeners.size()
             for (int i = 0; i < nmlSize; i++) {
                 NotificationMessageListener nml = (NotificationMessageListener) registeredNotificationMessageListeners.get(i)
@@ -699,11 +727,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         return hcm
     }
+    // NOTE: may not be used
     static String getRandomSalt() { return StupidUtilities.getRandomString(8) }
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
+    // NOTE: used in UserServices.xml
     String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType()) }
     String getSimpleHash(String source, String salt, String hashType) {
         return new SimpleHash(hashType ?: getPasswordHashType(), source, salt).toString()
@@ -722,30 +752,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     CacheFacadeImpl getCacheFacade() { return this.cacheFacade }
 
-    Collection<EntityFacadeImpl> getAllEntityFacades() { entityFacadeByTenantMap.values() }
-    EntityFacadeImpl getEntityFacade() { return getEci().getEntityFacade() }
-    EntityFacadeImpl getEntityFacade(String tenantId) {
-        // this should never happen, may want to default to tenantId=DEFAULT, but to see if it happens anywhere throw for now
-        if (tenantId == null) throw new IllegalArgumentException("For getEntityFacade tenantId cannot be null")
-        EntityFacadeImpl efi = (EntityFacadeImpl) entityFacadeByTenantMap.get(tenantId)
-        if (efi == null) efi = initEntityFacade(tenantId)
-
-        return efi
-    }
-    synchronized EntityFacadeImpl initEntityFacade(String tenantId) {
-        EntityFacadeImpl efi = this.entityFacadeByTenantMap.get(tenantId)
-        if (efi != null) return efi
-
-        efi = new EntityFacadeImpl(this, tenantId)
-        this.entityFacadeByTenantMap.put(tenantId, efi)
-        logger.info("Entity Facade for tenant ${tenantId} initialized")
-        return efi
-    }
-
     // ========== Interface Implementations ==========
 
     @Override
-    ExecutionContext getExecutionContext() { return getEci() }
+    @Nonnull ExecutionContext getExecutionContext() { return getEci() }
     ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
         ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
@@ -775,12 +785,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    <V> ToolFactory<V> getToolFactory(String toolName) {
+    <V> ToolFactory<V> getToolFactory(@Nonnull String toolName) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         return toolFactory
     }
     @Override
-    <V> V getTool(String toolName, Class<V> instanceClass, Object... parameters) {
+    <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters) {
         ToolFactory<V> toolFactory = (ToolFactory<V>) toolFactoryMap.get(toolName)
         if (toolFactory == null) throw new IllegalArgumentException("No ToolFactory found with name ${toolName}")
         return toolFactory.getInstance(parameters)
@@ -1021,7 +1031,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
 
     @Override
-    LinkedHashMap<String, String> getComponentBaseLocations() {
+    @Nonnull LinkedHashMap<String, String> getComponentBaseLocations() {
         LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
         for (ComponentInfo componentInfo in componentInfoMap.values()) {
             compLocMap.put(componentInfo.name, componentInfo.location)
@@ -1030,33 +1040,32 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     @Override
-    L10nFacade getL10n() { getEci().l10nFacade }
+    @Nonnull L10nFacade getL10n() { getEci().l10nFacade }
     @Override
-    ResourceFacade getResource() { resourceFacade }
+    @Nonnull ResourceFacade getResource() { resourceFacade }
     @Override
-    LoggerFacade getLogger() { loggerFacade }
+    @Nonnull LoggerFacade getLogger() { loggerFacade }
     @Override
-    CacheFacade getCache() { this.cacheFacade }
+    @Nonnull CacheFacade getCache() { cacheFacade }
     @Override
-    TransactionFacade getTransaction() { transactionFacade }
+    @Nonnull TransactionFacade getTransaction() { transactionFacade }
     @Override
-    EntityFacade getEntity() { getEci().getEntity() }
+    @Nonnull EntityFacade getEntity() { entityFacade }
     @Override
-    EntityFacade getEntity(String tenantId) { getEntityFacade(tenantId) }
+    @Nonnull ServiceFacade getService() { serviceFacade }
     @Override
-    ServiceFacade getService() { serviceFacade }
-    @Override
-    ScreenFacade getScreen() { screenFacade }
+    @Nonnull ScreenFacade getScreen() { screenFacade }
 
     @Override
-    ClassLoader getClassLoader() { groovyClassLoader }
+    @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
     @Override
-    GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
+    @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
 
     @Override
-    ServletContext getServletContext() { internalServletContext }
+    @Nonnull ServletContext getServletContext() { internalServletContext }
     @Override
-    ServerContainer getServerContainer() { internalServerContainer }
+    @Nonnull ServerContainer getServerContainer() { internalServerContainer }
+    @Override
     void initServletContext(ServletContext sc) {
         internalServletContext = sc
         internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
@@ -1079,8 +1088,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final Set<String> entitiesToSkipHitCount = new HashSet([
             'moqui.server.ArtifactHit', 'create#moqui.server.ArtifactHit',
             'moqui.server.ArtifactHitBin', 'create#moqui.server.ArtifactHitBin',
-            'moqui.entity.SequenceValueItem', 'moqui.security.UserAccount', 'moqui.tenant.Tenant',
-            'moqui.tenant.TenantDataSource', 'moqui.tenant.TenantDataSourceXaProp',
+            'moqui.entity.SequenceValueItem', 'moqui.security.UserAccount',
             'moqui.entity.document.DataDocument', 'moqui.entity.document.DataDocumentField',
             'moqui.entity.document.DataDocumentCondition', 'moqui.entity.feed.DataFeedAndDocument',
             'moqui.entity.view.DbViewEntity', 'moqui.entity.view.DbViewEntityMember',
@@ -1129,23 +1137,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ExecutionContextImpl eci = getEci()
             ArtifactHitInfo ahi = new ArtifactHitInfo(eci, isSlowHit, artifactTypeEnum, artifactSubType, artifactName,
                     startTime, runningTimeMillis, parameters, outputSize)
-            getDeferredHitInfoQueue(eci.tenantId).add(ahi)
+            deferredHitInfoQueue.add(ahi)
         }
     }
 
-    ConcurrentLinkedQueue<ArtifactHitInfo> getDeferredHitInfoQueue(String tenantId) {
-        ConcurrentLinkedQueue<ArtifactHitInfo> queue = deferredHitInfoQueueByTenant.get(tenantId)
-        if (queue == null) {
-            synchronized (deferredHitInfoQueueByTenant) {
-                queue = deferredHitInfoQueueByTenant.get(tenantId)
-                if (queue == null) {
-                    queue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
-                    deferredHitInfoQueueByTenant.put(tenantId, queue)
-                }
-            }
-        }
-        return queue
-    }
     static class DeferredHitInfoFlush implements Runnable {
         // max creates per chunk, one transaction per chunk (unless error)
         final static int maxCreates = 1000
@@ -1156,20 +1151,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ExecutionContextImpl eci = ecfi.getEci()
             eci.artifactExecutionFacade.disableAuthz()
             try {
-                for (String tenantId in ecfi.deferredHitInfoQueueByTenant.keySet()) {
-                    try {
-                        ConcurrentLinkedQueue<ArtifactHitInfo> queue = ecfi.deferredHitInfoQueueByTenant.get(tenantId)
-                        if (queue == null) continue
-                        // split into maxCreates chunks, repeat based on initial size (may be added to while running)
-                        int remainingCreates = queue.size()
-                        if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
-                        while (remainingCreates > 0) {
-                            flushQueue(tenantId, queue)
-                            remainingCreates -= maxCreates
-                        }
-                    } catch (Throwable t) {
-                        logger.error("Error saving ArtifactHits in tenant ${tenantId}", t)
+                try {
+                    ConcurrentLinkedQueue<ArtifactHitInfo> queue = ecfi.deferredHitInfoQueue
+                    // split into maxCreates chunks, repeat based on initial size (may be added to while running)
+                    int remainingCreates = queue.size()
+                    if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
+                    while (remainingCreates > 0) {
+                        flushQueue(queue)
+                        remainingCreates -= maxCreates
                     }
+                } catch (Throwable t) {
+                    logger.error("Error saving ArtifactHits", t)
                 }
             } finally {
                 // no need, we're destroying the eci: if (!authzDisabled) eci.artifactExecution.enableAuthz()
@@ -1177,7 +1169,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
-        void flushQueue(String tenantId, ConcurrentLinkedQueue<ArtifactHitInfo> queue) {
+        void flushQueue(ConcurrentLinkedQueue<ArtifactHitInfo> queue) {
             ExecutionContextFactoryImpl localEcfi = ecfi
             ArrayList<ArtifactHitInfo> createList = new ArrayList<>(maxCreates)
             int createCount = 0
@@ -1193,7 +1185,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     int createListSize = createList.size()
                     if (createListSize == 0) break
                     long startTime = System.currentTimeMillis()
-                    ecfi.transactionFacade.runUseOrBegin(60, "Error saving ArtifactHits in tenant ${tenantId}", {
+                    ecfi.transactionFacade.runUseOrBegin(60, "Error saving ArtifactHits", {
                         for (int i = 0; i < createListSize; i++) {
                             ArtifactHitInfo ahi = (ArtifactHitInfo) createList.get(i)
                             try {
@@ -1209,7 +1201,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     if (isTraceEnabled) logger.trace("Created ${createListSize} ArtifactHit records in ${System.currentTimeMillis() - startTime}ms")
                     break
                 } catch (Throwable t) {
-                    logger.error("Error saving ArtifactHits in tenant ${tenantId}, retrying (${retryCount})", t)
+                    logger.error("Error saving ArtifactHits, retrying (${retryCount})", t)
                 }
             }
         }
@@ -1429,37 +1421,49 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction beforeShutdownActions = null
         Integer sessionTimeoutSeconds = null
 
+        String httpPort, httpHost, httpsPort, httpsHost
+        boolean httpsEnabled
+        boolean requireSessionToken
+
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
-            webappNode = ecfi.getWebappNode(webappName)
-            init(ecfi)
-        }
+            webappNode = ecfi.confXmlRoot.first("webapp-list").first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName })
+            if (webappNode == null) throw new BaseException("Could not find webapp element for name ${webappName}")
 
-        void init(ExecutionContextFactoryImpl ecfi) {
+            webappNode.setSystemExpandAttributes(true)
+            httpPort = webappNode.attribute("http-port") ?: null
+            httpHost = webappNode.attribute("http-host") ?: null
+            httpsPort = webappNode.attribute("https-port") ?: null
+            httpsHost = webappNode.attribute("https-host") ?: httpPort ?: null
+            httpsEnabled = "true".equals(webappNode.attribute("https-enabled"))
+            requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
+
+            logger.info("Initializing webapp ${webappName} http://${httpHost}:${httpPort} https://${httpsHost}:${httpsPort} https enabled? ${httpsEnabled}")
+
             // prep actions
             if (webappNode.hasChild("first-hit-in-visit"))
-                this.firstHitInVisitActions = new XmlAction(ecfi, webappNode.first("first-hit-in-visit").first("actions"),
+                firstHitInVisitActions = new XmlAction(ecfi, webappNode.first("first-hit-in-visit").first("actions"),
                         "webapp_${webappName}.first_hit_in_visit.actions")
 
             if (webappNode.hasChild("before-request"))
-                this.beforeRequestActions = new XmlAction(ecfi, webappNode.first("before-request").first("actions"),
+                beforeRequestActions = new XmlAction(ecfi, webappNode.first("before-request").first("actions"),
                         "webapp_${webappName}.before_request.actions")
             if (webappNode.hasChild("after-request"))
-                this.afterRequestActions = new XmlAction(ecfi, webappNode.first("after-request").first("actions"),
+                afterRequestActions = new XmlAction(ecfi, webappNode.first("after-request").first("actions"),
                         "webapp_${webappName}.after_request.actions")
 
             if (webappNode.hasChild("after-login"))
-                this.afterLoginActions = new XmlAction(ecfi, webappNode.first("after-login").first("actions"),
+                afterLoginActions = new XmlAction(ecfi, webappNode.first("after-login").first("actions"),
                         "webapp_${webappName}.after_login.actions")
             if (webappNode.hasChild("before-logout"))
-                this.beforeLogoutActions = new XmlAction(ecfi, webappNode.first("before-logout").first("actions"),
+                beforeLogoutActions = new XmlAction(ecfi, webappNode.first("before-logout").first("actions"),
                         "webapp_${webappName}.before_logout.actions")
 
             if (webappNode.hasChild("after-startup"))
-                this.afterStartupActions = new XmlAction(ecfi, webappNode.first("after-startup").first("actions"),
+                afterStartupActions = new XmlAction(ecfi, webappNode.first("after-startup").first("actions"),
                         "webapp_${webappName}.after_startup.actions")
             if (webappNode.hasChild("before-shutdown"))
-                this.beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
+                beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
 
             MNode sessionConfigNode = webappNode.first("session-config")

@@ -186,8 +186,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="serviceName" from="systemMessageType.receiveServiceName ?: 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'"/>
             <set field="inMap" from="[systemMessageTypeId:systemMessageType.systemMessageTypeId,
                     remoteMessageId:systemMessageId, messageText:systemMessage.messageText,
-                    authUsername:systemMessageRemote.username, authPassword:systemMessageRemote.password,
-                    authTenantId:systemMessageRemote.tenantId]"/>
+                    authUsername:systemMessageRemote.username, authPassword:systemMessageRemote.password]"/>
             <script>receiveOutMap = ec.service.callJsonRpc(systemMessageRemote.sendUrl, serviceName, inMap)</script>
             <set field="remoteMessageId" from="receiveOutMap?.systemMessageIdList?.first()"/>
         </actions>
@@ -205,8 +204,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="serviceName" from="systemMessageType.receiveServiceName ?: 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'"/>
             <set field="inMap" from="[systemMessageTypeId:systemMessageType.systemMessageTypeId,
                     remoteMessageId:systemMessageId, messageText:systemMessage.messageText,
-                    authUsername:systemMessageRemote.username, authPassword:systemMessageRemote.password,
-                    authTenantId:systemMessageRemote.tenantId]"/>
+                    authUsername:systemMessageRemote.username, authPassword:systemMessageRemote.password]"/>
             <script>receiveOutMap = ec.service.sync().name(serviceName).parameters(inMap).call()</script>
             <set field="remoteMessageId" from="receiveOutMap?.systemMessageIdList?.first()"/>
         </actions>

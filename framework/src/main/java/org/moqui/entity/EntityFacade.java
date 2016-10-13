@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+
+import org.moqui.util.MNode;
 import org.w3c.dom.Element;
 
 /** The main interface for general database operations in Moqui. */
@@ -49,6 +51,7 @@ public interface EntityFacade {
      * @return An EntityFind object.
      */
     EntityFind find(String entityName);
+    EntityFind find(MNode entityFindNode);
 
     /** Meant for processing entity REST requests, but useful more generally as a simple way to perform entity operations.
      *
@@ -86,7 +89,7 @@ public interface EntityFacade {
      * @param fromUpdateStamp The lastUpdatedStamp on at least one entity selected must be after (&gt;=) this Timestamp.
      * @param thruUpdatedStamp The lastUpdatedStamp on at least one entity selected must be before (&lt;) this Timestamp.
      * @return List of Maps with these entries:
-     *      - _index = tenantId + "__" + DataDocument.indexName
+     *      - _index = DataDocument.indexName
      *      - _type = dataDocumentId
      *      - _id = pk field values from primary entity, underscore separated
      *      - _timestamp = timestamp when the document was created

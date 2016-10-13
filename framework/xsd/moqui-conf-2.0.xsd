@@ -57,7 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="empty-db-load" type="xs:string" default="seed"><xs:annotation><xs:documentation>
                 Comma-separated list of data file types to load if database is empty (if there are no records in the
                 table for moqui.basic.Enumeration). Empty or 'none' means load nothing, use 'all' to load all found
-                data files regardless of type. This is for the DEFAULT tenant only.</xs:documentation></xs:annotation>
+                data files regardless of type.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="worker-queue" type="xs:integer"><xs:annotation><xs:documentation>
                 The maximum size of the worker queue.</xs:documentation></xs:annotation></xs:attribute>
@@ -109,7 +109,6 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
-            <xs:attribute name="tenants-share" type="boolean" default="false"/>
             <xs:attribute name="type" default="local">
                 <xs:simpleType>
                     <xs:restriction base="xs:token">
@@ -187,7 +186,7 @@ along with this software (see the LICENSE.md file). If not, see
                     param-name is "moqui-name".
                 </xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="https-enabled" default="true" type="boolean"/>
+            <xs:attribute name="https-enabled" default="false" type="xs:string"/>
             <xs:attribute name="https-port" type="xs:string"/>
             <xs:attribute name="https-host" type="xs:string"/>
             <xs:attribute name="http-port" type="xs:string"/>
@@ -592,7 +591,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="group-name" type="name-plain" use="required"/>
-            <xs:attribute name="database-conf-name" type="name-plain">
+            <xs:attribute name="database-conf-name" type="xs:string">
                 <xs:annotation><xs:documentation>This is only required for JDBC/SQL datasources.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="schema-name" type="xs:string"/>
@@ -686,6 +685,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="database-type"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="inline-jdbc"/>
             </xs:sequence>
 
             <xs:attribute name="name" type="name-plain" use="required"/>
@@ -758,9 +758,17 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="use-tm-join" default="true" type="boolean">
                 <xs:annotation><xs:documentation>For Bitronix set this to false to not use tm join (for Atomikos this is
                 set in the serial_jta_transactions property in jta.properties)</xs:documentation></xs:annotation></xs:attribute>
+
+            <!-- Defaults for inline-jdbc element -->
             <xs:attribute name="default-jdbc-driver" type="xs:string"/>
             <xs:attribute name="default-xa-ds-class" type="xs:string"/>
             <xs:attribute name="default-test-query" type="xs:string"/>
+
+            <!-- Defaults for datasource element -->
+            <xs:attribute name="default-startup-add-missing" type="boolean"/>
+            <xs:attribute name="default-runtime-add-missing" type="boolean"/>
+            <xs:attribute name="default-runtime-add-fks" type="boolean"/>
+            <xs:attribute name="default-start-server-args" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dictionary-type">

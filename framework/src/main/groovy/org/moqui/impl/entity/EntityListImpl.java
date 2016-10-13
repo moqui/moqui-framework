@@ -22,7 +22,6 @@ import java.util.*;
 public class EntityListImpl implements EntityList {
     protected static final Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class);
     private transient EntityFacadeImpl efiTransient;
-    protected String tenantId;
     private ArrayList<EntityValue> valueList;
     private boolean fromCache = false;
     protected Integer offset = null;
@@ -33,19 +32,16 @@ public class EntityListImpl implements EntityList {
 
     public EntityListImpl(EntityFacadeImpl efi) {
         this.efiTransient = efi;
-        tenantId = efi.getTenantId();
         valueList = new ArrayList<>(30);// default size, at least enough for common pagination
     }
 
     public EntityListImpl(EntityFacadeImpl efi, int initialCapacity) {
         this.efiTransient = efi;
-        tenantId = efi.getTenantId();
         valueList = new ArrayList<>(initialCapacity);
     }
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
-        out.writeObject(tenantId.toCharArray());
         out.writeObject(valueList);
         // don't serialize fromCache, will default back to false which is fine for a copy
     }
@@ -53,14 +49,13 @@ public class EntityListImpl implements EntityList {
     @Override
     @SuppressWarnings("unchecked")
     public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-        tenantId = new String((char[]) objectInput.readObject());
         valueList = (ArrayList<EntityValue>) objectInput.readObject();
     }
 
     @SuppressWarnings("unchecked")
     public EntityFacadeImpl getEfi() {
         if (efiTransient == null)
-            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).getEntityFacade(tenantId);
+            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).entityFacade;
         return efiTransient;
     }
 
@@ -148,8 +143,7 @@ public class EntityListImpl implements EntityList {
                 if (curValue == null) {
                     matches = compValue == null;
                     if (!matches) break;
-                }
-                if (!curValue.equals(compValue)) {
+                } else if (!curValue.equals(compValue)) {
                     matches = false;
                     break;
                 }
@@ -163,6 +157,7 @@ public class EntityListImpl implements EntityList {
         return this;
     }
 
+    @Override
     public EntityList filter(Closure<Boolean> closure, Boolean include) {
         if (fromCache) return this.cloneList().filter(closure, include);
         int valueIndex = 0;
@@ -178,6 +173,7 @@ public class EntityListImpl implements EntityList {
         return this;
     }
 
+    @Override
     public EntityValue find(Closure<Boolean> closure) {
         int valueListSize = valueList.size();
         for (int i = 0; i < valueListSize; i++) {
@@ -189,6 +185,7 @@ public class EntityListImpl implements EntityList {
         return null;
     }
 
+    @Override
     public EntityList findAll(Closure<Boolean> closure) {
         EntityListImpl newList = new EntityListImpl(getEfi());
         int valueListSize = valueList.size();
@@ -529,149 +526,146 @@ public class EntityListImpl implements EntityList {
     @SuppressWarnings("unused")
     public static class EmptyEntityList implements EntityList {
         public EmptyEntityList() { }
-        @Override
-        public void writeExternal(ObjectOutput out) throws IOException { }
-        @Override
-        public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException { }
-        public EntityValue getFirst() {
+        @Override public void writeExternal(ObjectOutput out) throws IOException { }
+        @Override public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException { }
+        @Override public EntityValue getFirst() {
             return null;
         }
-        public EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment) {
+        @Override public EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment) {
             return this;
         }
-        public EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment, boolean ignoreIfEmpty) {
-            return this; }
-        public EntityList filterByAnd(Map<String, Object> fields) {
+        @Override public EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment, boolean ignoreIfEmpty) { return this; }
+        @Override public EntityList filterByAnd(Map<String, Object> fields) {
             return this;
         }
-        public EntityList filterByAnd(Map<String, Object> fields, Boolean include) {
+        @Override public EntityList filterByAnd(Map<String, Object> fields, Boolean include) {
             return this;
         }
-        public EntityList removeByAnd(Map<String, Object> fields) {
+        @Override public EntityList removeByAnd(Map<String, Object> fields) {
             return this;
         }
-        public EntityList filterByCondition(EntityCondition condition, Boolean include) {
+        @Override public EntityList filterByCondition(EntityCondition condition, Boolean include) {
             return this;
         }
-        public EntityList filter(Closure<Boolean> closure, Boolean include) {
+        @Override public EntityList filter(Closure<Boolean> closure, Boolean include) {
             return this;
         }
-        public EntityValue find(Closure<Boolean> closure) {
+        @Override public EntityValue find(Closure<Boolean> closure) {
             return null;
         }
-        public EntityList findAll(Closure<Boolean> closure) {
+        @Override public EntityList findAll(Closure<Boolean> closure) {
             return this;
         }
-        public EntityList filterByLimit(Integer offset, Integer limit) {
+        @Override public EntityList filterByLimit(Integer offset, Integer limit) {
             this.offset = offset;
             this.limit = limit;
             return this;
         }
-        public EntityList filterByLimit(String inputFieldsMapName, boolean alwaysPaginate) {
+        @Override public EntityList filterByLimit(String inputFieldsMapName, boolean alwaysPaginate) {
             return this;
         }
-        public Integer getOffset() {
+        @Override public Integer getOffset() {
             return this.offset;
         }
-        public Integer getLimit() {
+        @Override public Integer getLimit() {
             return this.limit;
         }
-        public int getPageIndex() { return (offset != null ? offset : 0) / getPageSize(); }
-        public int getPageSize() { return limit != null ? limit : 20; }
-        public EntityList orderByFields(List<String> fieldNames) {
+        @Override public int getPageIndex() { return (offset != null ? offset : 0) / getPageSize(); }
+        @Override public int getPageSize() { return limit != null ? limit : 20; }
+        @Override public EntityList orderByFields(List<String> fieldNames) {
             return this;
         }
-        public int indexMatching(Map valueMap) {
+        @Override public int indexMatching(Map valueMap) {
             return -1;
         }
-        public void move(int fromIndex, int toIndex) {
+        @Override public void move(int fromIndex, int toIndex) {
             throw new IllegalArgumentException("EmptyEntityList does not support move"); }
-        public EntityList addIfMissing(EntityValue value) {
+        @Override public EntityList addIfMissing(EntityValue value) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
-        public EntityList addAllIfMissing(EntityList el) {
+        @Override public EntityList addAllIfMissing(EntityList el) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
-        public Iterator<EntityValue> iterator() {
+        @Override public Iterator<EntityValue> iterator() {
             return emptyIterator;
         }
-        public Object clone() {
+        @Override public Object clone() {
             return this.cloneList();
         }
-        public int writeXmlText(Writer writer, String prefix, int dependentLevels) {
+        @Override public int writeXmlText(Writer writer, String prefix, int dependentLevels) {
             return 0;
         }
-        public List<Map<String, Object>> getPlainValueList(int dependentLevels) {
+        @Override public List<Map<String, Object>> getPlainValueList(int dependentLevels) {
             return new ArrayList<>();
         }
-        public List<Map<String, Object>> getMasterValueList(String name) {
+        @Override public List<Map<String, Object>> getMasterValueList(String name) {
             return new ArrayList<>();
         }
-        public EntityList cloneList() {
+        @Override public EntityList cloneList() {
             return this;
         }
-        public void setFromCache() { }
-        public boolean isFromCache() {
+        @Override public void setFromCache() { }
+        @Override public boolean isFromCache() {
             return false;
         }
-        public int size() {
+        @Override public int size() {
             return 0;
         }
-        public boolean isEmpty() {
+        @Override public boolean isEmpty() {
             return true;
         }
-        public boolean contains(Object o) {
+        @Override public boolean contains(Object o) {
             return false;
         }
         @SuppressWarnings("unchecked")
-        public Object[] toArray() {
+        @Override public Object[] toArray() {
             return new Object[0];
         }
         @SuppressWarnings("unchecked")
-        public <T> T[] toArray(T[] ts) { return ((T[]) new EntityValue[0]); }
-        public boolean add(EntityValue e) {
+        @Override public <T> T[] toArray(T[] ts) { return ((T[]) new EntityValue[0]); }
+        @Override public boolean add(EntityValue e) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
-        public boolean remove(Object o) {
+        @Override public boolean remove(Object o) {
             return false;
         }
-        public boolean containsAll(Collection<?> objects) {
+        @Override public boolean containsAll(Collection<?> objects) {
             return false;
         }
-        public boolean addAll(Collection<? extends EntityValue> es) {
+        @Override public boolean addAll(Collection<? extends EntityValue> es) {
             throw new IllegalArgumentException("EmptyEntityList does not support addAll"); }
-        public boolean addAll(int i, Collection<? extends EntityValue> es) {
+        @Override public boolean addAll(int i, Collection<? extends EntityValue> es) {
             throw new IllegalArgumentException("EmptyEntityList does not support addAll"); }
-        public boolean removeAll(Collection<?> objects) {
+        @Override public boolean removeAll(Collection<?> objects) {
             return false;
         }
-        public boolean retainAll(Collection<?> objects) {
+        @Override public boolean retainAll(Collection<?> objects) {
             return false;
         }
-        public void clear() { }
-        public EntityValue get(int i) {
+        @Override public void clear() { }
+        @Override public EntityValue get(int i) {
             return null;
         }
-        public EntityValue set(int i, EntityValue e) {
+        @Override public EntityValue set(int i, EntityValue e) {
             throw new IllegalArgumentException("EmptyEntityList does not support set"); }
-        public void add(int i, EntityValue e) {
+        @Override public void add(int i, EntityValue e) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
-        public EntityValue remove(int i) {
+        @Override public EntityValue remove(int i) {
             return null;
         }
-        public int indexOf(Object o) {
+        @Override public int indexOf(Object o) {
             return -1;
         }
-        public int lastIndexOf(Object o) {
+        @Override public int lastIndexOf(Object o) {
             return -1;
         }
-        public ListIterator<EntityValue> listIterator() {
+        @Override public ListIterator<EntityValue> listIterator() {
             return emptyIterator;
         }
-        public ListIterator<EntityValue> listIterator(int i) {
+        @Override public ListIterator<EntityValue> listIterator(int i) {
             return emptyIterator;
         }
-        public List<EntityValue> subList(int start, int end) {
+        @Override public List<EntityValue> subList(int start, int end) {
             return this;
         }
-        public String toString() {
+        @Override public String toString() {
             return "[]";
         }
 

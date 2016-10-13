@@ -51,6 +51,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected boolean authzDisabled = false
     protected boolean tarpitDisabled = false
     protected boolean entityEcaDisabled = false
+    protected boolean entityAuditLogDisabled = false
 
     ArtifactExecutionFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -201,7 +202,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     boolean disableAuthz() { boolean alreadyDisabled = this.authzDisabled; this.authzDisabled = true; return alreadyDisabled }
     void enableAuthz() { this.authzDisabled = false }
-    // boolean getAuthzDisabled() { return authzDisabled }
+    boolean getAuthzDisabled() { return authzDisabled }
 
     boolean disableTarpit() { boolean alreadyDisabled = this.tarpitDisabled; this.tarpitDisabled = true; return alreadyDisabled }
     void enableTarpit() { this.tarpitDisabled = false }
@@ -210,6 +211,10 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     boolean disableEntityEca() { boolean alreadyDisabled = this.entityEcaDisabled; this.entityEcaDisabled = true; return alreadyDisabled }
     void enableEntityEca() { this.entityEcaDisabled = false }
     boolean entityEcaDisabled() { return this.entityEcaDisabled }
+
+    boolean disableEntityAuditLog() { boolean alreadyDisabled = this.entityAuditLogDisabled; this.entityAuditLogDisabled = true; return alreadyDisabled }
+    void enableEntityAuditLog() { this.entityAuditLogDisabled = false }
+    boolean entityAuditLogDisabled() { return this.entityAuditLogDisabled }
 
     /** Checks to see if username is permitted to access given resource.
      *
@@ -271,7 +276,9 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             return true
         }
 
+        // search entire list for deny and allow authz, then check for allow with no deny after
         ArtifactAuthzCheck denyAacv = (ArtifactAuthzCheck) null
+        ArtifactAuthzCheck allowAacv = (ArtifactAuthzCheck) null
 
         // see if there is a UserAccount for the username, and if so get its userId as a more permanent identifier
         String userId = ufi.getUserId()
@@ -339,12 +346,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     for (ArtifactExecutionInfoImpl ancestorAeii in artifactExecutionInfoStack)
                         if (ArtifactExecutionInfo.AUTHZT_DENY.is(ancestorAeii.getAuthorizedAuthzType())) ancestorDeny = true
 
-                    if (!ancestorDeny) {
-                        aeii.copyAacvInfo(aacv, userId, true)
-                        // if ("AT_XML_SCREEN" == aeii.typeEnumId && aeii.getName().contains("FOO"))
-                        //     logger.warn("TOREMOVE artifact isPermitted allow with no deny for user ${userId} - ${aeii}")
-                        return true
-                    }
+                    if (!ancestorDeny) allowAacv = aacv
                 }
             }
         } finally {
@@ -366,18 +368,18 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 for (def warnAei in this.stack) warning.append("\n").append(warnAei.toString())
                 logger.warn(warning.toString())
 
-                alreadyDisabled = disableAuthz()
-                try {
-                    eci.getService().sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
-                            [artifactName:aeii.getName(), artifactTypeEnumId:artifactTypeEnum.name(),
-                            authzActionEnumId:aeii.getActionEnum().name(), userId:userId,
-                            failureDate:new Timestamp(System.currentTimeMillis()), isDeny:"Y"]).call()
-                } finally {
-                    if (!alreadyDisabled) enableAuthz()
-                }
+                eci.getService().sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
+                        [artifactName:aeii.getName(), artifactTypeEnumId:artifactTypeEnum.name(),
+                        authzActionEnumId:aeii.getActionEnum().name(), userId:userId,
+                        failureDate:new Timestamp(System.currentTimeMillis()), isDeny:"Y"]).disableAuthz().call()
 
                 return false
             }
+        } else if (allowAacv != null) {
+            aeii.copyAacvInfo(allowAacv, userId, true)
+            // if ("AT_XML_SCREEN" == aeii.typeEnumId && aeii.getName().contains("FOO"))
+            //     logger.warn("TOREMOVE artifact isPermitted allow with no deny for user ${userId} - ${aeii}")
+            return true
         } else {
             // no perms found for this, only allow if the current AEI has inheritable auth and same user, and (ALL action or same action)
 
@@ -494,7 +496,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
                 // check the ArtifactTarpitLock for the current artifact attempt before seeing if there is a new lock to create
                 // NOTE: this only runs if we are recording a hit time for an artifact, so no performance impact otherwise
-                EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
+                EntityFacadeImpl efi = ecfi.entityFacade
                 EntityList tarpitLockList = efi.find('moqui.security.ArtifactTarpitLock')
                         .condition([userId:userId, artifactName:aeii.getName(), artifactTypeEnumId:artifactTypeEnum.name()] as Map<String, Object>)
                         .useCache(true).list()

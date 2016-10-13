@@ -28,28 +28,27 @@ import javax.sql.DataSource
 @CompileStatic
 class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDatasourceFactoryImpl.class)
+    protected final static int DS_RETRY_COUNT = 5
+    protected final static long DS_RETRY_SLEEP = 5000
 
-    protected EntityFacadeImpl efi
-    protected MNode datasourceNode
-    protected String tenantId
+    protected EntityFacadeImpl efi = null
+    protected MNode datasourceNode = null
 
-    protected DataSource dataSource
+    protected DataSource dataSource = null
+    EntityFacadeImpl.DatasourceInfo dsi = null
 
 
     EntityDatasourceFactoryImpl() { }
 
     @Override
-    EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode, String tenantId) {
+    EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode) {
         // local fields
         this.efi = (EntityFacadeImpl) ef
         this.datasourceNode = datasourceNode
-        this.tenantId = tenantId
 
         // init the DataSource
-
-        if (datasourceNode.hasChild("jndi-jdbc")) {
-            EntityFacadeImpl.DatasourceInfo dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
-
+        dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
+        if (dsi.jndiName != null && !dsi.jndiName.isEmpty()) {
             try {
                 InitialContext ic;
                 if (dsi.serverJndi) {
@@ -71,7 +70,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
             } catch (NamingException ne) {
                 logger.error("Error finding DataSource with name [${dsi.jndiName}] in JNDI server [${dsi.serverJndi ? dsi.serverJndi.attribute("context-provider-url") : "default"}] for datasource with group-name [${datasourceNode.attribute("group-name")}].", ne)
             }
-        } else if (datasourceNode.hasChild("inline-jdbc")) {
+        } else if (dsi.inlineJdbc != null) {
             // special thing for embedded derby, just set an system property; for derby.log, etc
             if (datasourceNode.attribute("database-conf-name") == "derby" && !System.getProperty("derby.system.home")) {
                 System.setProperty("derby.system.home", efi.ecfi.runtimePath + "/db/derby")
@@ -79,9 +78,24 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
             }
 
             TransactionInternal ti = efi.ecfi.transactionFacade.getTransactionInternal()
-            this.dataSource = ti.getDataSource(efi, datasourceNode, tenantId)
+            // init the DataSource, if it fails for any reason retry a few times
+            for (int retry = 1; retry <= DS_RETRY_COUNT; retry++) {
+                try {
+                    this.dataSource = ti.getDataSource(efi, datasourceNode)
+                    break
+                } catch (Throwable t) {
+                    if (retry < DS_RETRY_COUNT) {
+                        Throwable cause = t
+                        while (cause.getCause() != null) cause = cause.getCause()
+                        logger.error("Error connecting to DataSource ${datasourceNode.attribute("group-name")} (${datasourceNode.attribute("database-conf-name")}), try ${retry} of ${DS_RETRY_COUNT}: ${cause}")
+                        sleep(DS_RETRY_SLEEP)
+                    } else {
+                        throw t
+                    }
+                }
+            }
         } else {
-            throw new EntityException("Found datasource with no jdbc sub-element (in datasource with group-name [${datasourceNode.attribute("group-name")}])")
+            throw new EntityException("Found datasource with no jdbc sub-element (in datasource with group-name ${datasourceNode.attribute("group-name")})")
         }
 
         return this

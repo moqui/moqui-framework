@@ -24,36 +24,37 @@ import java.util.Map;
 import java.util.Set;
 
 public class BasicJoinCondition implements EntityConditionImplBase {
-    protected EntityConditionImplBase lhs;
+    private static final Class thisClass = BasicJoinCondition.class;
+    private EntityConditionImplBase lhsInternal;
     protected JoinOperator operator;
-    protected EntityConditionImplBase rhs;
+    private EntityConditionImplBase rhsInternal;
     private int curHashCode;
-    protected static final Class thisClass = BasicJoinCondition.class;
 
     public BasicJoinCondition(EntityConditionImplBase lhs, JoinOperator operator, EntityConditionImplBase rhs) {
-        this.lhs = lhs;
+        this.lhsInternal = lhs;
         this.operator = operator != null ? operator : AND;
-        this.rhs = rhs;
+        this.rhsInternal = rhs;
         curHashCode = createHashCode();
     }
 
     public JoinOperator getOperator() { return operator; }
-    public EntityConditionImplBase getLhs() { return lhs; }
-    public EntityConditionImplBase getRhs() { return rhs; }
+    public EntityConditionImplBase getLhs() { return lhsInternal; }
+    public EntityConditionImplBase getRhs() { return rhsInternal; }
 
     @Override
+    @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     public void makeSqlWhere(EntityQueryBuilder eqb) {
-        StringBuilder sql = eqb.getSqlTopLevel();
+        StringBuilder sql = eqb.sqlTopLevel;
         sql.append('(');
-        lhs.makeSqlWhere(eqb);
+        lhsInternal.makeSqlWhere(eqb);
         sql.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
-        rhs.makeSqlWhere(eqb);
+        rhsInternal.makeSqlWhere(eqb);
         sql.append(')');
     }
 
     @Override
     public boolean mapMatches(Map<String, Object> map) {
-        boolean lhsMatches = lhs.mapMatches(map);
+        boolean lhsMatches = lhsInternal.mapMatches(map);
 
         // handle cases where we don't need to evaluate rhs
         if (lhsMatches && operator == OR) return true;
@@ -62,22 +63,26 @@ public class BasicJoinCondition implements EntityConditionImplBase {
         // handle opposite cases since we know cases above aren't true (ie if OR then lhs=false, if AND then lhs=true
         // if rhs then result is true whether AND or OR
         // if !rhs then result is false whether AND or OR
-        return rhs.mapMatches(map);
+        return rhsInternal.mapMatches(map);
     }
     @Override
     public boolean mapMatchesAny(Map<String, Object> map) {
-        return lhs.mapMatchesAny(map) || rhs.mapMatchesAny(map);
+        return lhsInternal.mapMatchesAny(map) || rhsInternal.mapMatchesAny(map);
+    }
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) {
+        return lhsInternal.mapKeysNotContained(map) && rhsInternal.mapKeysNotContained(map);
     }
 
     @Override
     public boolean populateMap(Map<String, Object> map) {
-        if (operator != AND) return false;
-        return lhs.populateMap(map) && rhs.populateMap(map);
+        return operator == AND && lhsInternal.populateMap(map) && rhsInternal.populateMap(map);
     }
 
+    @Override
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
-        lhs.getAllAliases(entityAliasSet, fieldAliasSet);
-        rhs.getAllAliases(entityAliasSet, fieldAliasSet);
+        lhsInternal.getAllAliases(entityAliasSet, fieldAliasSet);
+        rhsInternal.getAllAliases(entityAliasSet, fieldAliasSet);
     }
 
     @Override
@@ -86,37 +91,35 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     @Override
     public String toString() {
         // general SQL where clause style text with values included
-        return "(" + lhs.toString() + ") " + EntityConditionFactoryImpl.getJoinOperatorString(this.operator) + " (" + rhs.toString() + ")";
+        return "(" + lhsInternal.toString() + ") " + EntityConditionFactoryImpl.getJoinOperatorString(this.operator) + " (" + rhsInternal.toString() + ")";
     }
 
     @Override
     public int hashCode() { return curHashCode; }
     private int createHashCode() {
-        return (lhs != null ? lhs.hashCode() : 0) + operator.hashCode() + (rhs != null ? rhs.hashCode() : 0);
+        return (lhsInternal != null ? lhsInternal.hashCode() : 0) + operator.hashCode() + (rhsInternal != null ? rhsInternal.hashCode() : 0);
     }
 
     @Override
     public boolean equals(Object o) {
         if (o == null || o.getClass() != thisClass) return false;
         BasicJoinCondition that = (BasicJoinCondition) o;
-        if (!this.lhs.equals(that.lhs)) return false;
+        if (!this.lhsInternal.equals(that.lhsInternal)) return false;
         // NOTE: for Java Enums the != is WAY faster than the .equals
-        if (this.operator != that.operator) return false;
-        if (!this.rhs.equals(that.rhs)) return false;
-        return true;
+        return this.operator == that.operator && this.rhsInternal.equals(that.rhsInternal);
     }
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
-        out.writeObject(lhs);
+        out.writeObject(lhsInternal);
         out.writeUTF(operator.name());
-        out.writeObject(rhs);
+        out.writeObject(rhsInternal);
     }
     @Override
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        lhs = (EntityConditionImplBase) in.readObject();
+        lhsInternal = (EntityConditionImplBase) in.readObject();
         operator = JoinOperator.valueOf(in.readUTF());
-        rhs = (EntityConditionImplBase) in.readObject();
+        rhsInternal = (EntityConditionImplBase) in.readObject();
         curHashCode = createHashCode();
     }
 }

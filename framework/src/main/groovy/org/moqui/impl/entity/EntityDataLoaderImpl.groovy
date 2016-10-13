@@ -15,12 +15,10 @@ package org.moqui.impl.entity
 
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
-import org.apache.commons.codec.binary.Base64
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVRecord
 import org.moqui.BaseException
-import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceReference
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityDataLoader
@@ -40,7 +38,10 @@ import org.xml.sax.*
 import org.xml.sax.helpers.DefaultHandler
 
 import javax.sql.rowset.serial.SerialBlob
+import javax.xml.parsers.SAXParser
 import javax.xml.parsers.SAXParserFactory
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 
 @CompileStatic
 class EntityDataLoaderImpl implements EntityDataLoader {
@@ -62,6 +63,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     boolean useTryInsert = false
     boolean dummyFks = false
     boolean disableEeca = false
+    boolean disableAuditLog = false
 
     char csvDelimiter = ','
     char csvCommentStart = '#'
@@ -78,59 +80,42 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     EntityFacadeImpl getEfi() { return efi }
 
-    @Override
-    EntityDataLoader location(String location) { this.locationList.add(location); return this }
-    @Override
-    EntityDataLoader locationList(List<String> ll) { this.locationList.addAll(ll); return this }
-    @Override
-    EntityDataLoader xmlText(String xmlText) { this.xmlText = xmlText; return this }
-    @Override
-    EntityDataLoader csvText(String csvText) { this.csvText = csvText; return this }
-    @Override
-    EntityDataLoader jsonText(String jsonText) { this.jsonText = jsonText; return this }
-    @Override
-    EntityDataLoader dataTypes(Set<String> dataTypes) {
+    @Override EntityDataLoader location(String location) { this.locationList.add(location); return this }
+    @Override EntityDataLoader locationList(List<String> ll) { this.locationList.addAll(ll); return this }
+    @Override EntityDataLoader xmlText(String xmlText) { this.xmlText = xmlText; return this }
+    @Override EntityDataLoader csvText(String csvText) { this.csvText = csvText; return this }
+    @Override EntityDataLoader jsonText(String jsonText) { this.jsonText = jsonText; return this }
+    @Override EntityDataLoader dataTypes(Set<String> dataTypes) {
         for (String dt in dataTypes) this.dataTypes.add(dt.trim())
         return this
     }
-    @Override
-    EntityDataLoader componentNameList(List<String> componentNames) {
+    @Override EntityDataLoader componentNameList(List<String> componentNames) {
         for (String cn in componentNames) this.componentNameList.add(cn.trim())
         return this
     }
 
-    @Override
-    EntityDataLoader transactionTimeout(int tt) { this.transactionTimeout = tt; return this }
-    @Override
-    EntityDataLoader useTryInsert(boolean useTryInsert) { this.useTryInsert = useTryInsert; return this }
-    @Override
-    EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
-    @Override
-    EntityDataLoader disableEntityEca(boolean disableEeca) { this.disableEeca = disableEeca; return this }
+    @Override EntityDataLoader transactionTimeout(int tt) { this.transactionTimeout = tt; return this }
+    @Override EntityDataLoader useTryInsert(boolean useTryInsert) { this.useTryInsert = useTryInsert; return this }
+    @Override EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
+    @Override EntityDataLoader disableEntityEca(boolean disable) { disableEeca = disable; return this }
+    @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
 
-    @Override
-    EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
-    @Override
-    EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
-    @Override
-    EntityDataLoader csvQuoteChar(char quoteChar) { this.csvQuoteChar = quoteChar; return this }
+    @Override EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
+    @Override EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
+    @Override EntityDataLoader csvQuoteChar(char quoteChar) { this.csvQuoteChar = quoteChar; return this }
 
-    @Override
-    EntityDataLoader csvEntityName(String entityName) {
+    @Override EntityDataLoader csvEntityName(String entityName) {
         if (!efi.isEntityDefined(entityName) && !sfi.isServiceDefined(entityName))
             throw new IllegalArgumentException("Name ${entityName} is not a valid entity or service name")
         this.csvEntityName = entityName
         return this
     }
-    @Override
-    EntityDataLoader csvFieldNames(List<String> fieldNames) { this.csvFieldNames = fieldNames; return this }
-    @Override
-    EntityDataLoader defaultValues(Map<String, Object> defaultValues) {
+    @Override EntityDataLoader csvFieldNames(List<String> fieldNames) { this.csvFieldNames = fieldNames; return this }
+    @Override EntityDataLoader defaultValues(Map<String, Object> defaultValues) {
         if (this.defaultValues == null) this.defaultValues = [:]
         this.defaultValues.putAll(defaultValues)
         return this
     }
-
 
     @Override
     List<String> check() {
@@ -180,9 +165,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     void internalRun(EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh) {
         // make sure reverse relationships exist
         efi.createAllAutoReverseManyRelationships()
+        ExecutionContextImpl eci = efi.ecfi.getEci()
 
         boolean reenableEeca = false
-        if (this.disableEeca) reenableEeca = !this.efi.ecfi.eci.artifactExecutionFacade.disableEntityEca()
+        if (this.disableEeca) reenableEeca = !eci.artifactExecutionFacade.disableEntityEca()
+        boolean reenableAuditLog = false
+        if (this.disableAuditLog) reenableAuditLog = !eci.artifactExecutionFacade.disableEntityAuditLog()
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -285,7 +273,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh)
         })
 
-        if (reenableEeca) this.efi.ecfi.eci.artifactExecution.enableEntityEca()
+        if (reenableEeca) eci.artifactExecutionFacade.enableEntityEca()
+        if (reenableAuditLog) eci.artifactExecutionFacade.enableEntityAuditLog()
 
         // logger.warn("========== Done loading, waiting for a long time so process is still running for profiler")
         // Thread.sleep(60*1000*100)
@@ -297,27 +286,51 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         try {
             InputStream inputStream = null
             try {
-                logger.info("Loading entity data from [${location}]")
+                logger.info("Loading entity data from ${location}")
                 long beforeTime = System.currentTimeMillis()
 
                 inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
 
                 if (location.endsWith(".xml")) {
                     long beforeRecords = exh.valuesRead ?: 0
-                    XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
                     exh.setLocation(location)
-                    reader.setContentHandler(exh)
-                    reader.parse(new InputSource(inputStream))
-                    logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from [${location}] in ${((System.currentTimeMillis() - beforeTime)/1000)} seconds")
+                    SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                    parser.parse(inputStream, exh)
+                    logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
                     long beforeRecords = ech.valuesRead ?: 0
                     if (ech.loadFile(location, inputStream)) {
-                        logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from [${location}] in ${((System.currentTimeMillis() - beforeTime)/1000)} seconds")
+                        logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".json")) {
                     long beforeRecords = ejh.valuesRead ?: 0
                     if (ejh.loadFile(location, inputStream)) {
-                        logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from [${location}] in ${((System.currentTimeMillis() - beforeTime)/1000)} seconds")
+                        logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                    }
+                } else if (location.endsWith(".zip")) {
+                    NoCloseZipStream zis = new NoCloseZipStream(inputStream)
+                    ZipEntry entry
+                    while((entry = zis.getNextEntry()) != null) {
+                        try {
+                            String entryFile = entry.getName()
+                            if (entryFile.endsWith(".xml")) {
+                                long beforeRecords = exh.valuesRead ?: 0
+                                beforeTime = System.currentTimeMillis()
+                                exh.setLocation(location)
+
+                                SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                                parser.parse(zis, exh)
+
+                                logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                            } else {
+                                logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
+                            }
+                        } catch (TypeToSkipException e) {
+                            // nothing to do, this just stops the parsing when we know the file is not in the types we want
+                        } catch (Throwable t) {
+                            tf.rollback(beganTransaction, "Error loading entity data", t)
+                            throw new BaseException("Error loading entity data from ${entry.getName()} in zip file ${location}", t)
+                        }
                     }
                 }
             } catch (TypeToSkipException e) {
@@ -327,7 +340,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         } catch (Throwable t) {
             tf.rollback(beganTransaction, "Error loading entity data", t)
-            throw new IllegalArgumentException("Error loading entity data file [${location}]", t)
+            throw new BaseException("Error loading entity data from ${location}", t)
         } finally {
             tf.commit(beganTransaction)
 
@@ -337,6 +350,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 ec.messageFacade.clearErrors()
             }
         }
+    }
+
+    private static class NoCloseZipStream extends ZipInputStream {
+        NoCloseZipStream(InputStream is) { super(is) }
+        @Override void close() throws IOException { /* do nothing, the point is to not get closed by SAXParser */ }
+        void reallyClose() { super.close() }
     }
 
     static abstract class ValueHandler {
@@ -369,16 +388,23 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             ec = edli.getEfi().ecfi.getEci()
         }
         void handleValue(EntityValue value) {
-            if (edli.dummyFks) value.checkFks(true)
             if (edli.useTryInsert) {
                 try {
                     value.create()
                 } catch (EntityException e) {
                     if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${e.toString()})")
+                    boolean noFksMissing = true
+                    if (edli.dummyFks) noFksMissing = value.checkFks(true)
                     // retry, then if this fails we have a real error so let the exception fall through
-                    value.update()
+                    // if there were no FKs missing then just do an update, if there were that may have been the error so createOrUpdate
+                    if (noFksMissing) {
+                        value.update()
+                    } else {
+                        value.createOrUpdate()
+                    }
                 }
             } else {
+                if (edli.dummyFks) value.checkFks(true)
                 value.createOrUpdate()
             }
         }
@@ -612,9 +638,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     if (currentEntityDef != null) {
                         if (currentEntityDef.isField(currentFieldName)) {
                             FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
-                            String type = fieldInfo.type
-                            if (type == "binary-very-long") {
-                                byte[] binData = Base64.decodeBase64(currentFieldValue.toString())
+                            if ("binary-very-long".equals(fieldInfo.type)) {
+                                byte[] binData = Base64.getDecoder().decode(currentFieldValue.toString())
                                 rootValueMap.put(currentFieldName, new SerialBlob(binData))
                             } else {
                                 rootValueMap.put(currentFieldName, currentFieldValue.toString())
@@ -635,15 +660,22 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 valuesRead++
             } else {
                 Map<String, Object> valueMap = [:]
-                if (edli.defaultValues) valueMap.putAll(edli.defaultValues)
+                if (edli.defaultValues != null && edli.defaultValues.size() > 0) valueMap.putAll(edli.defaultValues)
                 valueMap.putAll(rootValueMap)
 
                 if (currentEntityDef != null) {
                     if (entityOperation == null) {
                         try {
                             // if (currentEntityDef.getFullEntityName().contains("DbForm")) logger.warn("========= DbForm rootValueMap: ${rootValueMap}")
-                            valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
-                            valuesRead++
+                            if (edli.dummyFks || edli.useTryInsert) {
+                                EntityValue curValue = currentEntityDef.makeEntityValue()
+                                curValue.setAll(valueMap)
+                                valueHandler.handleValue(curValue)
+                                valuesRead++
+                            } else {
+                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
+                                valuesRead++
+                            }
                             currentEntityDef = (EntityDefinition) null
                         } catch (EntityException e) {
                             throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value (line ${locator?.lineNumber}): " + e.toString(), e)

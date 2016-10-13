@@ -45,11 +45,7 @@ class EntityDbMeta {
 
     protected EntityFacadeImpl efi
 
-    EntityDbMeta(EntityFacadeImpl efi) {
-        this.efi = efi
-        // this is nice as a cache but slower and checked MANY times with lots of entity/db traffic:
-        // entityTablesChecked = efi.ecfi.cacheFacade.getCache("entity.${efi.tenantId}.tables.checked")
-    }
+    EntityDbMeta(EntityFacadeImpl efi) { this.efi = efi }
 
     void checkTableRuntime(EntityDefinition ed) {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
@@ -61,7 +57,9 @@ class EntityDbMeta {
         Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
         if (runtimeAddMissing == null) {
             MNode datasourceNode = efi.getDatasourceNode(groupName)
-            runtimeAddMissing = datasourceNode == null || !"false".equals(datasourceNode.attribute("runtime-add-missing"))
+            MNode dbNode = efi.getDatabaseNode(groupName)
+            String ramAttr = datasourceNode?.attribute("runtime-add-missing")
+            runtimeAddMissing = ramAttr ? !"false".equals(ramAttr) : !"false".equals(dbNode.attribute("default-runtime-add-missing"))
             runtimeAddMissingMap.put(groupName, runtimeAddMissing)
         }
         if (!runtimeAddMissing.booleanValue()) return
@@ -122,7 +120,14 @@ class EntityDbMeta {
             int mcsSize = mcs.size()
             for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i))
             // create foreign keys after checking each to see if it already exists
-            if (startup || datasourceNode?.attribute('runtime-add-fks') == "true") createForeignKeys(ed, true)
+            if (startup) {
+                createForeignKeys(ed, true)
+            } else {
+                MNode dbNode = efi.getDatabaseNode(ed.getEntityGroupName())
+                String runtimeAddFks = datasourceNode.attribute("runtime-add-fks")
+                if ((!runtimeAddFks && "true".equals(dbNode.attribute("default-runtime-add-fks"))) || "true".equals(runtimeAddFks))
+                    createForeignKeys(ed, true)
+            }
         }
         entityTablesChecked.put(ed.getFullEntityName(), new Timestamp(System.currentTimeMillis()))
         entityTablesExist.put(ed.getFullEntityName(), true)

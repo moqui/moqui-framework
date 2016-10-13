@@ -33,7 +33,6 @@ import javax.xml.transform.stream.StreamSource
 Logger logger = LoggerFactory.getLogger("org.moqui.impl.sendEmailTemplate")
 
 try {
-
     ExecutionContextImpl ec = context.ec
 
     // logger.info("sendEmailTemplate with emailTemplateId [${emailTemplateId}], bodyParameters [${bodyParameters}]")
@@ -139,9 +138,9 @@ try {
     }
 
     // set the html message
-    email.setHtmlMsg(bodyHtml)
+    if (bodyHtml) email.setHtmlMsg(bodyHtml)
     // set the alternative plain text message
-    email.setTextMsg(bodyText)
+    if (bodyText) email.setTextMsg(bodyText)
     //email.setTextMsg("Your email client does not support HTML messages")
 
     for (def emailTemplateAttachment in emailTemplateAttachmentList) {
@@ -170,16 +169,19 @@ try {
         }
     }
 
-    logger.info("Sending email [${email.getSubject()}] from ${email.getFromAddress()} to ${email.getToAddresses()} cc ${email.getCcAddresses()} bcc ${email.getBccAddresses()} via ${emailServer.mailUsername}@${email.getHostName()}:${email.getSmtpPort()} SSL? ${email.isSSLOnConnect()}:${email.isSSLCheckServerIdentity()} TLS? ${email.isStartTLSEnabled()}:${email.isStartTLSRequired()} with bodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
+    if (logger.infoEnabled) logger.info("Sending email [${email.getSubject()}] from ${email.getFromAddress()} to ${email.getToAddresses()} cc ${email.getCcAddresses()} bcc ${email.getBccAddresses()} via ${emailServer.mailUsername}@${email.getHostName()}:${email.getSmtpPort()} SSL? ${email.isSSLOnConnect()}:${email.isSSLCheckServerIdentity()} TLS? ${email.isStartTLSEnabled()}:${email.isStartTLSRequired()}")
+    if (logger.traceEnabled) logger.trace("Sending email [${email.getSubject()}] to ${email.getToAddresses()} with bodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
     // email.setDebug(true)
 
     // send the email
     messageId = email.send()
 
     if (emailMessageId) {
-        Map uemParms = [emailMessageId:emailMessageId, statusId:"ES_SENT", messageId:messageId]
-        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").parameters(uemParms).disableAuthz().call()
+        ec.service.sync().name("update", "moqui.basic.email.EmailMessage")
+                .parameters([emailMessageId:emailMessageId, statusId:"ES_SENT", messageId:messageId]).disableAuthz().call()
     }
+
+    return
 } catch (Throwable t) {
     logger.info("Error in sendEmailTemplate groovy", t)
     throw new BaseException("Error in sendEmailTemplate", t)

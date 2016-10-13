@@ -43,7 +43,7 @@ class EntityDataFeed {
 
     EntityDataFeed(EntityFacadeImpl efi) {
         this.efi = efi
-        dataFeedEntityInfo = efi.ecfi.getCacheFacade().getCache("entity.data.feed.info", efi.tenantId)
+        dataFeedEntityInfo = efi.ecfi.getCacheFacade().getCache("entity.data.feed.info")
     }
 
     EntityFacadeImpl getEfi() { return efi }
@@ -216,7 +216,7 @@ class EntityDataFeed {
         // under load make sure waiting threads don't redo it, give it some time
         if (System.currentTimeMillis() < (lastRebuildTime + 60000)) return
 
-        // logger.info("Building entity.data.feed.info cache in tenant ${efi.tenantId}")
+        // logger.info("Building entity.data.feed.info cache")
         long startTime = System.currentTimeMillis()
 
         // rebuild from the DB for this and other entities, ie have to do it for all DataFeeds and
@@ -250,10 +250,10 @@ class EntityDataFeed {
 
         Set<String> entityNameSet = localInfo.keySet()
         if (entitiesWithDataFeed == null) {
-            logger.info("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
-            if (logger.isTraceEnabled()) logger.trace("Built entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
+            logger.info("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+            if (logger.isTraceEnabled()) logger.trace("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
         } else {
-            logger.info("Rebuilt entity.data.feed.info cache for tenant ${efi.tenantId} in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+            logger.info("Rebuilt entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
         }
         dataFeedEntityInfo.putAll(localInfo)
         entitiesWithDataFeed = entityNameSet

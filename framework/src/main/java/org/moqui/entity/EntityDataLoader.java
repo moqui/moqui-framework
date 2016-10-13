@@ -79,7 +79,8 @@ public interface EntityDataLoader {
      * in the system).
      * @return Reference to this for convenience.
      */
-    EntityDataLoader disableEntityEca(boolean disableEeca);
+    EntityDataLoader disableEntityEca(boolean disable);
+    EntityDataLoader disableAuditLog(boolean disable);
 
     EntityDataLoader csvDelimiter(char delimiter);
     EntityDataLoader csvCommentStart(char commentStart);

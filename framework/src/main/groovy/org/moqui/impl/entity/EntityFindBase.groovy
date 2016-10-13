@@ -14,7 +14,6 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
@@ -86,11 +85,8 @@ abstract class EntityFindBase implements EntityFind {
         txCache = tfi.getTransactionCache()
     }
 
-    @Override
-    EntityFind entity(String entityName) { this.entityName = entityName; return this }
-
-    @Override
-    String getEntity() { return this.entityName }
+    @Override EntityFind entity(String name) { entityName = name; return this }
+    @Override String getEntity() { return entityName }
 
     // ======================== Conditions (Where and Having) =================
 
@@ -178,7 +174,7 @@ abstract class EntityFindBase implements EntityFind {
         if (condClass == FieldValueCondition.class) {
             // if this is a basic field/value EQUALS condition, just add to simpleAndMap
             FieldValueCondition fvc = (FieldValueCondition) condition
-            if (fvc.getOperator() == EntityCondition.EQUALS && !fvc.getIgnoreCase()) {
+            if (EntityCondition.EQUALS.is(fvc.getOperator()) && !fvc.getIgnoreCase()) {
                 this.condition(fvc.getFieldName(), fvc.getValue())
                 return this
             }
@@ -188,13 +184,13 @@ abstract class EntityFindBase implements EntityFind {
             // if empty list add nothing
             if (condList.size() == 0) return this
             // if this is an AND list condition, just unroll it and add each one; could end up as another list, but may add to simpleAndMap
-            if (lc.getOperator() == EntityCondition.AND) {
+            if (EntityCondition.AND.is(lc.getOperator())) {
                 for (int i = 0; i < condList.size(); i++) this.condition(condList.get(i))
                 return this
             }
         } else if (condClass == BasicJoinCondition.class) {
             BasicJoinCondition basicCond = (BasicJoinCondition) condition
-            if (basicCond.getOperator() == EntityCondition.AND) {
+            if (EntityCondition.AND.is(basicCond.getOperator())) {
                 if (basicCond.getLhs() != null) this.condition(basicCond.getLhs())
                 if (basicCond.getRhs() != null) this.condition(basicCond.getRhs())
                 return this
@@ -231,8 +227,7 @@ abstract class EntityFindBase implements EntityFind {
         if (whereEntityCondition != null) return true
         return false
     }
-    @Override
-    boolean getHasHavingCondition() { havingEntityCondition != null }
+    @Override boolean getHasHavingCondition() { havingEntityCondition != null }
 
     @Override
     EntityFind havingCondition(EntityCondition condition) {
@@ -284,7 +279,7 @@ abstract class EntityFindBase implements EntityFind {
                 Class whereEntCondClass = whereEntityCondition.getClass()
                 if (whereEntCondClass == ListCondition.class) {
                     ListCondition listCond = (ListCondition) this.whereEntityCondition
-                    if (listCond.getOperator() == EntityCondition.AND) {
+                    if (EntityCondition.AND.is(listCond.getOperator())) {
                         condList.addAll(listCond.getConditionList())
                         return new ListCondition(condList, EntityCondition.AND)
                     } else {
@@ -297,7 +292,7 @@ abstract class EntityFindBase implements EntityFind {
                     return new ListCondition(condList, EntityCondition.AND)
                 } else if (whereEntCondClass == BasicJoinCondition.class) {
                     BasicJoinCondition basicCond = (BasicJoinCondition) this.whereEntityCondition
-                    if (basicCond.getOperator() == EntityCondition.AND) {
+                    if (EntityCondition.AND.is(basicCond.getOperator())) {
                         condList.add(basicCond.getLhs())
                         condList.add(basicCond.getRhs())
                         return new ListCondition(condList, EntityCondition.AND)
@@ -339,8 +334,7 @@ abstract class EntityFindBase implements EntityFind {
         return pks
     }
 
-    @Override
-    EntityCondition getHavingEntityCondition() { return havingEntityCondition }
+    @Override EntityCondition getHavingEntityCondition() { return havingEntityCondition }
 
     @Override
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate) {
@@ -489,58 +483,6 @@ abstract class EntityFindBase implements EntityFind {
         return addedConditions
     }
 
-    EntityFind findNode(MNode node) {
-        ExecutionContextImpl ec = efi.ecfi.getEci()
-
-        this.entity(node.attribute("entity-name"))
-        String cache = node.attribute("cache")
-        if (cache != null && !cache.isEmpty()) { this.useCache("true".equals(cache)) }
-        String forUpdate = node.attribute("for-update")
-        if (forUpdate != null && !forUpdate.isEmpty()) this.forUpdate("true".equals(forUpdate))
-        String distinct = node.attribute("distinct")
-        if (distinct != null && !distinct.isEmpty()) this.distinct("true".equals(distinct))
-        String offset = node.attribute("offset")
-        if (offset != null && !offset.isEmpty()) this.offset(Integer.valueOf(offset))
-        String limit = node.attribute("limit")
-        if (limit != null && !limit.isEmpty()) this.limit(Integer.valueOf(limit))
-        for (MNode sf in node.children("select-field")) this.selectField(sf.attribute("field-name"))
-        for (MNode ob in node.children("order-by")) this.orderBy(ob.attribute("field-name"))
-
-        if (node.hasChild("search-form-inputs")) {
-            MNode sfiNode = node.first("search-form-inputs")
-            boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
-            MNode defaultParametersNode = sfiNode.first("default-parameters")
-            searchFormInputs(sfiNode.attribute("input-fields-map"), defaultParametersNode.attributes as Map<String, Object>,
-                    sfiNode.attribute("default-order-by"), paginate)
-        }
-
-        // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
-        if (!this.shouldCache()) {
-            for (MNode df in node.children("date-filter"))
-                this.condition(efi.getConditionFactoryImpl().makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
-                        df.attribute("thru-field-name") ?: "thruDate",
-                        (df.attribute("valid-date") ? ec.resource.expression(df.attribute("valid-date"), null) as Timestamp : ec.user.nowTimestamp)))
-        }
-
-        for (MNode ecn in node.children("econdition")) {
-            EntityCondition econd = efi.getConditionFactoryImpl().makeActionCondition(ecn)
-            if (econd != null) this.condition(econd)
-        }
-        for (MNode ecs in node.children("econditions"))
-            this.condition(efi.getConditionFactoryImpl().makeActionConditions(ecs))
-        for (MNode eco in node.children("econdition-object"))
-            this.condition((EntityCondition) ec.resource.expression(eco.attribute("field"), null))
-
-        if (node.hasChild("having-econditions")) {
-            for (MNode havingCond in node.children("having-econditions"))
-                this.havingCondition(efi.getConditionFactoryImpl().makeActionCondition(havingCond))
-        }
-
-        // logger.info("TOREMOVE Added findNode\n${node}\n${this.toString()}")
-
-        return this
-    }
-
     // ======================== General/Common Options ========================
 
     @Override
@@ -557,16 +499,13 @@ abstract class EntityFindBase implements EntityFind {
         }
         return this
     }
-
     @Override
     EntityFind selectFields(Collection<String> selectFields) {
         if (!selectFields) return this
         for (String fieldToSelect in selectFields) selectField(fieldToSelect)
         return this
     }
-
-    @Override
-    List<String> getSelectFields() { return fieldsToSelect }
+    @Override List<String> getSelectFields() { return fieldsToSelect }
 
     @Override
     EntityFind orderBy(String orderByFieldName) {
@@ -584,7 +523,6 @@ abstract class EntityFindBase implements EntityFind {
         }
         return this
     }
-
     @Override
     EntityFind orderBy(List<String> orderByFieldNames) {
         if (!orderByFieldNames) return this
@@ -597,39 +535,25 @@ abstract class EntityFindBase implements EntityFind {
         }
         return this
     }
+    @Override List<String> getOrderBy() { return orderByFields != null ? Collections.unmodifiableList(orderByFields) : null }
 
-    @Override
-    List<String> getOrderBy() { return this.orderByFields != null ? Collections.unmodifiableList(this.orderByFields) : null }
-
-    @Override
-    EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
-
-    @Override
-    boolean getUseCache() { return this.useCache }
+    @Override EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
+    @Override boolean getUseCache() { return this.useCache }
 
     // ======================== Advanced Options ==============================
 
-    @Override
-    EntityFind distinct(boolean distinct) { this.distinct = distinct; return this }
-    @Override
-    boolean getDistinct() { return distinct }
+    @Override EntityFind distinct(boolean distinct) { this.distinct = distinct; return this }
+    @Override boolean getDistinct() { return distinct }
 
-    @Override
-    EntityFind offset(Integer offset) { this.offset = offset; return this }
-    @Override
-    EntityFind offset(int pageIndex, int pageSize) { offset(pageIndex * pageSize) }
-    @Override
-    Integer getOffset() { return offset }
+    @Override EntityFind offset(Integer offset) { this.offset = offset; return this }
+    @Override EntityFind offset(int pageIndex, int pageSize) { offset(pageIndex * pageSize) }
+    @Override Integer getOffset() { return offset }
 
-    @Override
-    EntityFind limit(Integer limit) { this.limit = limit; return this }
-    @Override
-    Integer getLimit() { return limit }
+    @Override EntityFind limit(Integer limit) { this.limit = limit; return this }
+    @Override Integer getLimit() { return limit }
 
-    @Override
-    int getPageIndex() { return offset == null ? 0 : (offset/getPageSize()).intValue() }
-    @Override
-    int getPageSize() { return limit != null ? limit : 20 }
+    @Override int getPageIndex() { return offset == null ? 0 : (offset/getPageSize()).intValue() }
+    @Override int getPageSize() { return limit != null ? limit : 20 }
 
     @Override
     EntityFind forUpdate(boolean forUpdate) {
@@ -637,33 +561,21 @@ abstract class EntityFindBase implements EntityFind {
         this.resultSetType = forUpdate ? ResultSet.TYPE_SCROLL_SENSITIVE : defaultResultSetType
         return this
     }
-    @Override
-    boolean getForUpdate() { return this.forUpdate }
+    @Override boolean getForUpdate() { return this.forUpdate }
 
     // ======================== JDBC Options ==============================
 
-    @Override
-    EntityFind resultSetType(int resultSetType) { this.resultSetType = resultSetType; return this }
-    @Override
-    int getResultSetType() { return this.resultSetType }
+    @Override EntityFind resultSetType(int resultSetType) { this.resultSetType = resultSetType; return this }
+    @Override int getResultSetType() { return this.resultSetType }
 
-    @Override
-    EntityFind resultSetConcurrency(int resultSetConcurrency) {
-        this.resultSetConcurrency = resultSetConcurrency
-        return this
-    }
-    @Override
-    int getResultSetConcurrency() { return this.resultSetConcurrency }
+    @Override EntityFind resultSetConcurrency(int rsc) { resultSetConcurrency = rsc; return this }
+    @Override int getResultSetConcurrency() { return this.resultSetConcurrency }
 
-    @Override
-    EntityFind fetchSize(Integer fetchSize) { this.fetchSize = fetchSize; return this }
-    @Override
-    Integer getFetchSize() { return this.fetchSize }
+    @Override EntityFind fetchSize(Integer fetchSize) { this.fetchSize = fetchSize; return this }
+    @Override Integer getFetchSize() { return this.fetchSize }
 
-    @Override
-    EntityFind maxRows(Integer maxRows) { this.maxRows = maxRows; return this }
-    @Override
-    Integer getMaxRows() { return this.maxRows }
+    @Override EntityFind maxRows(Integer maxRows) { this.maxRows = maxRows; return this }
+    @Override Integer getMaxRows() { return this.maxRows }
 
     // ======================== Misc Methods ========================
 
@@ -677,6 +589,9 @@ abstract class EntityFindBase implements EntityFind {
         return entityDef
     }
 
+    @Override EntityFind disableAuthz() { disableAuthz = true; return this }
+
+    @Override
     boolean shouldCache() {
         if (dynamicView != null) return false
         if (havingEntityCondition != null) return false
@@ -698,8 +613,6 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     // ======================== Find and Abstract Methods ========================
-
-    EntityFind disableAuthz() { disableAuthz = true; return this }
 
     abstract EntityDynamicView makeEntityDynamicView()
 
@@ -731,9 +644,6 @@ abstract class EntityFindBase implements EntityFind {
 
         boolean isViewEntity = ed.isViewEntity
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-
-        if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
-            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
@@ -972,9 +882,6 @@ abstract class EntityFindBase implements EntityFind {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
 
-        if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
-            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
-
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
@@ -1140,9 +1047,6 @@ abstract class EntityFindBase implements EntityFind {
         boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
-        if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
-            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
-
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
@@ -1263,9 +1167,6 @@ abstract class EntityFindBase implements EntityFind {
         boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
-        if (entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
-            throw new ArtifactAuthorizationException("Cannot view tenantcommon entities through tenant ${efi.tenantId}")
-
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                 ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
         aefi.pushInternal(aei, !entityInfo.authorizeSkipView)
@@ -1365,8 +1266,6 @@ abstract class EntityFindBase implements EntityFind {
 
         EntityDefinition ed = getEntityDef()
         if (ed.entityInfo.createOnly) throw new EntityException("Entity ${ed.getFullEntityName()} is create-only (immutable), cannot be updated.")
-        if (ed.entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
-            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${efi.ecfi.eci.tenantId}")
 
         this.useCache(false)
         long totalUpdated = 0
@@ -1402,8 +1301,6 @@ abstract class EntityFindBase implements EntityFind {
 
         EntityDefinition ed = getEntityDef()
         if (ed.entityInfo.createOnly) throw new EntityException("Entity ${ed.getFullEntityName()} is create-only (immutable), cannot be deleted.")
-        if (ed.entityInfo.isTenantcommon && !"DEFAULT".equals(efi.tenantId))
-            throw new ArtifactAuthorizationException("Cannot update tenantcommon entities through tenant ${efi.tenantId}")
 
         // if there are no EECAs for the entity OR there is a TransactionCache in place just call ev.delete() on each
         boolean useEvDelete = txCache != null || efi.hasEecaRules(ed.getFullEntityName())

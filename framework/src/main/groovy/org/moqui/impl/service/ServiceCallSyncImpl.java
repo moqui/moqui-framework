@@ -73,7 +73,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 if (sd != null) {
                     inParameterNames = sd.getInParameterNames();
                 } else if (isEntityAutoPattern()) {
-                    EntityDefinition ed = ecfi.getEntityFacade().getEntityDefinition(noun);
+                    EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(noun);
                     if (ed != null) inParameterNames = ed.getAllFieldNames();
                 }
 
@@ -108,12 +108,12 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
                     return new HashMap<>();
                 } catch (Throwable t) {
-                    eci.transactionFacade.rollback(beganTransaction, "Uncaught error running service [" + sd.serviceName + "] in multi mode", t);
+                    eci.transactionFacade.rollback(beganTransaction, "Uncaught error running service " + serviceName + " in multi mode", t);
                     throw t;
                 } finally {
                     if (eci.transactionFacade.isTransactionInPlace()) {
                         if (eci.messageFacade.hasError()) {
-                            eci.transactionFacade.rollback(beganTransaction, "Error message found running service [" + sd.serviceName + "] in multi mode", null);
+                            eci.transactionFacade.rollback(beganTransaction, "Error message found running service " + serviceName + " in multi mode", null);
                         } else {
                             eci.transactionFacade.commit(beganTransaction);
                         }
@@ -131,34 +131,31 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (ignorePreviousError) eci.messageFacade.pushErrors();
         // NOTE: checking this here because service won't generally run after input validation, etc anyway
         if (eci.messageFacade.hasError()) {
-            logger.warn("Found error(s) before service [" + serviceName + "], so not running service. Errors: " + eci.messageFacade.getErrorsString());
+            logger.warn("Found error(s) before service " + serviceName + ", so not running service. Errors: " + eci.messageFacade.getErrorsString());
             return null;
         }
 
         int transactionStatus = eci.transactionFacade.getStatus();
         if (!requireNewTransaction && transactionStatus == Status.STATUS_MARKED_ROLLBACK) {
-            logger.warn("Transaction marked for rollback, not running service [" + serviceName + "]. Errors: " + eci.messageFacade.getErrorsString());
+            logger.warn("Transaction marked for rollback, not running service " + serviceName + ". Errors: " + eci.messageFacade.getErrorsString());
             if (ignorePreviousError) eci.messageFacade.popErrors();
             return null;
         }
 
-        if (traceEnabled) logger.trace("Calling service [" + serviceName + "] initial input: " + currentParameters);
+        if (traceEnabled) logger.trace("Calling service " + serviceName + " initial input: " + currentParameters);
 
         // get these before cleaning up the parameters otherwise will be removed
         String userId = null;
         String password = null;
-        String tenantId = null;
         if (currentParameters.containsKey("authUsername")) {
             userId = (String) currentParameters.get("authUsername");
             password = (String) currentParameters.get("authPassword");
-            tenantId = (String) currentParameters.get("authTenantId");
         } else if (currentParameters.containsKey("authUserAccount")) {
             Map authUserAccount = (Map) currentParameters.get("authUserAccount");
             userId = (String) authUserAccount.get("userId");
             if (userId == null || userId.isEmpty()) userId = (String) currentParameters.get("authUsername");
             password = (String) authUserAccount.get("currentPassword");
             if (password == null || password.isEmpty()) password = (String) currentParameters.get("authPassword");
-            tenantId = (String) currentParameters.get("authTenantId");
         }
 
         final String serviceType = sd != null ? sd.serviceType : "entity-implicit";
@@ -170,7 +167,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (sd != null) currentParameters = sd.convertValidateCleanParameters(currentParameters, eci);
         // if error(s) in parameters, return now with no results
         if (eci.messageFacade.hasError()) {
-            StringBuilder errMsg = new StringBuilder("Found error(s) when validating input parameters for service [" + serviceName + "], so not running service. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
+            StringBuilder errMsg = new StringBuilder("Found error(s) when validating input parameters for service " + serviceName + ", so not running service. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
             for (ArtifactExecutionInfo stackItem : eci.artifactExecutionFacade.getStack()) {
                 errMsg.append(stackItem.toString()).append("\n");
             }
@@ -184,7 +181,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
         // always try to login the user if parameters are specified
         if (userId != null && password != null && userId.length() > 0 && password.length() > 0) {
-            userLoggedIn = eci.getUser().loginUser(userId, password, tenantId);
+            userLoggedIn = eci.getUser().loginUser(userId, password);
             // if user was not logged in we should already have an error message in place so just return
             if (!userLoggedIn) return null;
         }
@@ -240,7 +237,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if ("interface".equals(serviceType)) {
             eci.artifactExecutionFacade.pop(aei);
             if (ignorePreviousError) eci.messageFacade.popErrors();
-            throw new ServiceException("Cannot run interface service [" + serviceName + "]");
+            throw new ServiceException("Service " + serviceName + " is an interface and cannot be run");
         }
 
         ServiceRunner serviceRunner = sd.serviceRunner;
@@ -262,7 +259,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         try {
             // if error in auth or for other reasons, return now with no results
             if (eci.messageFacade.hasError()) {
-                logger.warn("Found error(s) when checking authc for service [" + serviceName + "], so not running service. Errors: " +
+                logger.warn("Found error(s) when checking authc for service " + serviceName + ", so not running service. Errors: " +
                         eci.messageFacade.getErrorsString() + "; the artifact stack is:\n " + eci.getArtifactExecution().getStack());
                 return null;
             }
@@ -311,7 +308,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 sfi.callRegisteredCallbacksThrowable(serviceName, currentParameters, t);
                 // rollback the transaction
                 ((TransactionFacadeImpl) tf).rollback(beganTransaction, "Error running service " + serviceName + " (Throwable)", t);
-                logger.warn("Error running service [" + serviceName + "] (Throwable)", t);
+                logger.warn("Error running service " + serviceName + " (Throwable)", t);
                 // add all exception messages to the error messages list
                 eci.messageFacade.addError(t.getMessage());
                 Throwable parent = t.getCause();
@@ -345,19 +342,17 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
 
             return result;
-        } catch (TransactionException e) {
-            throw e;
         } finally {
             try {
                 if (suspendedTransaction) tf.resume();
             } catch (Throwable t) {
-                logger.error("Error resuming parent transaction after call to service [" + serviceName + "]", t);
+                logger.error("Error resuming parent transaction after call to service " + serviceName, t);
             }
 
             try {
                 if (userLoggedIn) eci.getUser().logoutUser();
             } catch (Throwable t) {
-                logger.error("Error logging out user after call to service [" + serviceName + "]", t);
+                logger.error("Error logging out user after call to service " + serviceName, t);
             }
 
             if (loggedInAnonymous) ((UserFacadeImpl) eci.getUser()).logoutAnonymousOnly();
@@ -373,7 +368,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     }
 
-    protected void clearSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+    private void clearSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
         String semParameter = sd.semaphoreParameter;
         String parameterValue;
         if (semParameter == null || semParameter.isEmpty()) {
@@ -397,7 +392,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
     }
 
-    protected void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+    private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
         final String semaphore = sd.semaphore;
         String semaphoreParameter = sd.semaphoreParameter;
         final String parameterValue;
@@ -466,7 +461,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
     }
 
-    protected Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ArrayList<ServiceEcaRule> secaRules, ExecutionContextImpl eci) {
+    private Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ArrayList<ServiceEcaRule> secaRules, ExecutionContextImpl eci) {
         // NOTE: no authentication, assume not required for this; security settings can override this and require
         //     permissions, which will require authentication
         // done in calling method: sfi.runSecaRules(serviceName, currentParameters, null, "pre-auth")

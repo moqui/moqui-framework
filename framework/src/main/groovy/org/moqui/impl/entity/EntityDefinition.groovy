@@ -504,20 +504,42 @@ public class EntityDefinition {
 
     static Map<String, String> getRelationshipExpandedKeyMapInternal(MNode relationship, EntityDefinition relEd) {
         Map<String, String> eKeyMap = [:]
-        List<MNode> keyMapList = relationship.children("key-map")
-        if (!keyMapList && ((String) relationship.attribute('type')).startsWith('one')) {
+        ArrayList<MNode> keyMapList = relationship.children("key-map")
+        if (!keyMapList && ((String) relationship.attribute("type")).startsWith("one")) {
             // go through pks of related entity, assume field names match
-            for (String pkFieldName in relEd.getPkFieldNames()) eKeyMap.put(pkFieldName, pkFieldName)
+            ArrayList<String> relPkFields = relEd.getPkFieldNames()
+            int relPkFieldSize = relPkFields.size()
+            for (int i = 0; i < relPkFieldSize; i++) {
+                String pkFieldName = (String) relPkFields.get(i)
+                eKeyMap.put(pkFieldName, pkFieldName)
+            }
         } else {
-            for (MNode keyMap in keyMapList) {
-                String fieldName = keyMap.attribute('field-name')
-                String relFn = keyMap.attribute('related') ?: keyMap.attribute('related-field-name') ?: fieldName
-                if (!relEd.isField(relFn) && ((String) relationship.attribute('type')).startsWith("one")) {
-                    List<String> pks = relEd.getPkFieldNames()
-                    if (pks.size() == 1) relFn = pks.get(0)
-                    // if we don't match these constraints and get this default we'll get an error later...
+            int keyMapListSize = keyMapList.size()
+            if (keyMapListSize == 1) {
+                MNode keyMap = (MNode) keyMapList.get(0)
+                String fieldName = keyMap.attribute("field-name")
+                String relFn = keyMap.attribute("related") ?: keyMap.attribute("related-field-name")
+                if (relFn == null || relFn.isEmpty()) {
+                    ArrayList<String> relPks = relEd.getPkFieldNames()
+                    if (relationship.attribute("type").startsWith("one") && relPks.size() == 1) {
+                        relFn = (String) relPks.get(0)
+                    } else {
+                        relFn = fieldName
+                    }
                 }
                 eKeyMap.put(fieldName, relFn)
+            } else {
+                for (int i = 0; i < keyMapListSize; i++) {
+                    MNode keyMap = (MNode) keyMapList.get(i)
+                    String fieldName = keyMap.attribute("field-name")
+                    String relFn = keyMap.attribute("related") ?: keyMap.attribute("related-field-name") ?: fieldName
+                    if (!relEd.isField(relFn) && relationship.attribute("type").startsWith("one")) {
+                        ArrayList<String> pks = relEd.getPkFieldNames()
+                        if (pks.size() == 1) relFn = (String) pks.get(0)
+                        // if we don't match these constraints and get this default we'll get an error later...
+                    }
+                    eKeyMap.put(fieldName, relFn)
+                }
             }
         }
         return eKeyMap
@@ -935,33 +957,33 @@ public class EntityDefinition {
     Cache<EntityCondition, Long> internalCacheCount = null
 
     Cache<EntityCondition, EntityValueBase> getCacheOne(EntityCache ec) {
-        if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName), efi.tenantId)
+        if (internalCacheOne == null) internalCacheOne = ec.cfi.getCache(ec.oneKeyBase.concat(fullEntityName))
         return internalCacheOne
     }
     Cache<EntityCondition, Set<EntityCondition>> getCacheOneRa(EntityCache ec) {
-        if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName), efi.tenantId)
+        if (internalCacheOneRa == null) internalCacheOneRa = ec.cfi.getCache(ec.oneRaKeyBase.concat(fullEntityName))
         return internalCacheOneRa
     }
     Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheOneViewRa(EntityCache ec) {
-        if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName), efi.tenantId)
+        if (getCacheOneViewRa == null) getCacheOneViewRa = ec.cfi.getCache(ec.oneViewRaKeyBase.concat(fullEntityName))
         return getCacheOneViewRa
     }
 
     Cache<EntityCondition, EntityListImpl> getCacheList(EntityCache ec) {
-        if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName), efi.tenantId)
+        if (internalCacheList == null) internalCacheList = ec.cfi.getCache(ec.listKeyBase.concat(fullEntityName))
         return internalCacheList
     }
     Cache<EntityCondition, Set<EntityCondition>> getCacheListRa(EntityCache ec) {
-        if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName), efi.tenantId)
+        if (internalCacheListRa == null) internalCacheListRa = ec.cfi.getCache(ec.listRaKeyBase.concat(fullEntityName))
         return internalCacheListRa
     }
     Cache<EntityCondition, Set<EntityCache.ViewRaKey>> getCacheListViewRa(EntityCache ec) {
-        if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName), efi.tenantId)
+        if (internalCacheListViewRa == null) internalCacheListViewRa = ec.cfi.getCache(ec.listViewRaKeyBase.concat(fullEntityName))
         return internalCacheListViewRa
     }
 
     Cache<EntityCondition, Long> getCacheCount(EntityCache ec) {
-        if (internalCacheCount == null) internalCacheCount = ec.cfi.getCache(ec.countKeyBase.concat(fullEntityName), efi.tenantId)
+        if (internalCacheCount == null) internalCacheCount = ec.cfi.getCache(ec.countKeyBase.concat(fullEntityName))
         return internalCacheCount
     }
 

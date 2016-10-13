@@ -89,7 +89,7 @@ class ResourceFacadeTests extends Specification {
 
         where:
         expression | result
-        "ec.tenantId" | ec.tenantId
+        "ec.factory.moquiVersion" | ec.factory.moquiVersion
         "null" | null
         "undefinedVariable" | null
     }
@@ -101,7 +101,7 @@ class ResourceFacadeTests extends Specification {
 
         where:
         inputString | result
-        "Tenant: \${ec.tenantId}" | "Tenant: ${ec.tenantId}"
+        'Version: ${ec.factory.moquiVersion}' | "Version: ${ec.factory.moquiVersion}"
         "plain string" | "plain string"
     }
 }

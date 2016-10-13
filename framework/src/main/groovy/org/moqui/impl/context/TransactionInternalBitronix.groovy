@@ -62,7 +62,7 @@ class TransactionInternalBitronix implements TransactionInternal {
     UserTransaction getUserTransaction() { return ut }
 
     @Override
-    DataSource getDataSource(EntityFacade ef, MNode datasourceNode, String tenantId) {
+    DataSource getDataSource(EntityFacade ef, MNode datasourceNode) {
         // NOTE: this is called during EFI init, so use the passed one and don't try to get from ECFI
         EntityFacadeImpl efi = (EntityFacadeImpl) ef
 
@@ -123,9 +123,11 @@ class TransactionInternalBitronix implements TransactionInternal {
             pds.setTestQuery(dsi.database.attribute("default-test-query"))
         }
 
+        logger.info("Initializing DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) with properties: ${dsi.dsDetails}")
+
         // init the DataSource
         pds.init()
-        logger.info("Init DataSource ${dsi.uniqueName}: ${dsi.database.attribute('name')}, isolation ${pds.getIsolationLevel()} (${isolationInt}), max pool ${pds.getMaxPoolSize()}")
+        logger.info("Init DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) isolation ${pds.getIsolationLevel()} (${isolationInt}), max pool ${pds.getMaxPoolSize()}")
 
         pdsList.add(pds)
 

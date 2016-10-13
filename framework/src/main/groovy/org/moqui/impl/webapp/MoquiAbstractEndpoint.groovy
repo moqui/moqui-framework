@@ -44,7 +44,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
     private HandshakeRequest handshakeRequest = (HandshakeRequest) null
     private String userId = (String) null
     private String username = (String) null
-    private String tenantId = (String) null
 
     MoquiAbstractEndpoint() { super() }
 
@@ -54,7 +53,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
     Session getSession() { return session }
     String getUserId() { return userId }
     String getUsername() { return username }
-    String getTenantId() { return tenantId }
 
     @Override
     void onOpen(Session session, EndpointConfig config) {
@@ -73,7 +71,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
 
         userId = eci.user.userId
         username = eci.user.username
-        tenantId = eci.tenantId
 
         Long timeout = (Long) config.userProperties.get("maxIdleTimeout")
         if (timeout != null && session.getMaxIdleTimeout() > 0 && session.getMaxIdleTimeout() < timeout)
@@ -81,7 +78,7 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
 
         session.addMessageHandler(this)
 
-        if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), tenant: ${tenantId}, timeout: ${session.getMaxIdleTimeout()}ms")
+        if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), timeout: ${session.getMaxIdleTimeout()}ms")
 
         /*
         logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, username: ${session.getUserPrincipal()?.getName()}, config props: ${config.userProperties}")

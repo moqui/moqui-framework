@@ -511,7 +511,7 @@ class RestSchemaUtil {
         String entityName = parmNode.attribute("entity-name")
         String fieldName = parmNode.attribute("field-name")
         if (entityName && fieldName) {
-            EntityDefinition ed = sd.sfi.ecfi.getEntityFacade().getEntityDefinition(entityName)
+            EntityDefinition ed = sd.sfi.ecfi.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new ServiceException("Entity ${entityName} not found, from parameter ${parmNode.attribute('name')} of service ${sd.serviceName}")
             FieldInfo fi = ed.getFieldInfo(fieldName)
             if (fi == null) throw new ServiceException("Field ${fieldName} not found for entity ${entityName}, from parameter ${parmNode.attribute('name')} of service ${sd.serviceName}")
@@ -669,7 +669,7 @@ class RestSchemaUtil {
         EntityFacadeImpl efi = eci.entityFacade
 
         List<Map> schemasList = []
-        Map<String, Object> rootMap = [title:'Moqui Entity REST API', version:'v1', baseUri:linkPrefix,
+        Map<String, Object> rootMap = [title:'Moqui Entity REST API', version:eci.factory.moquiVersion, baseUri:linkPrefix,
                                        mediaType:'application/json', schemas:schemasList] as Map<String, Object>
         rootMap.put('traits', [[paged:[queryParameters:ramlPaginationParameters]]])
 
@@ -765,10 +765,10 @@ class RestSchemaUtil {
         String hostName = fullHost.substring(fullHost.indexOf("://") + 3)
         Map definitionsMap = new TreeMap()
         Map<String, Object> swaggerMap = [swagger:'2.0',
-            info:[title:("${filename} REST API"), version:'2.0.0'], host:hostName, basePath:basePath,
+            info:[title:("${filename} REST API"), version:eci.factory.moquiVersion], host:hostName, basePath:basePath,
             schemes:[scheme], consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
-                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key, also supports tenant_id header']],
+                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key']],
             paths:[:], definitions:definitionsMap
         ]
 
