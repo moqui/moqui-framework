@@ -26,6 +26,7 @@ import org.eclipse.jetty.client.util.BasicAuthentication
 import org.eclipse.jetty.client.util.StringContentProvider
 import org.eclipse.jetty.http.HttpField
 import org.eclipse.jetty.http.HttpHeader
+import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.moqui.BaseException
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -129,7 +130,8 @@ class RestClientImpl implements RestClient {
 
         ContentResponse response = null
 
-        HttpClient httpClient = new HttpClient()
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        HttpClient httpClient = new HttpClient(sslContextFactory)
         httpClient.start()
 
         try {
