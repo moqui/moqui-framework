@@ -568,7 +568,14 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="right"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
-            <xs:attribute name="aggregate" default="group-by">
+            <xs:attribute name="aggregate">
+                <xs:annotation><xs:documentation>
+                    For form-list only. Use to combine rows during render with summary fields (where this is a function), or in
+                    a sub-list under a row with values common among the combined rows.
+
+                    To use this at least one field must have at least one field with aggregate=group-by for efficiently finding
+                    rows to combine.
+                </xs:documentation></xs:annotation>
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="min"/><xs:enumeration value="max"/><xs:enumeration value="sum"/>
                     <xs:enumeration value="avg"/><xs:enumeration value="count"/>

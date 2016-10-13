@@ -1016,6 +1016,7 @@ class ScreenForm {
         }
     }
 
+    enum AggregateFunctions { MIN, MAX, SUM, AVG, COUNT }
     class FormInstance {
         private MNode formNode
         private FtlNodeWrapper ftlFormNode
@@ -1031,10 +1032,14 @@ class ScreenForm {
         private ArrayList<FtlNodeWrapper> hiddenFieldList = (ArrayList<FtlNodeWrapper>) null
         private ArrayList<ArrayList<FtlNodeWrapper>> formListColInfoList = (ArrayList<ArrayList<FtlNodeWrapper>>) null
 
+        private Set<String> showTotalFields = (Set<String>) null
+        private Set<String> aggregateGroupFields = (Set<String>) null
+        private Map<String, String> aggregateFieldFunctions = (Map<String, String>) null
+
         FormInstance() {
             formNode = getOrCreateFormNode()
             ftlFormNode = FtlNodeWrapper.wrapNode(formNode)
-            isListForm = formNode.getName() == "form-list"
+            isListForm = "form-list".equals(formNode.getName())
 
             // populate fieldNodeMap
             allFieldNodes = formNode.children("field")
@@ -1044,10 +1049,14 @@ class ScreenForm {
                 String fieldName = fieldNode.attribute("name")
                 fieldNodeMap.put(fieldName, fieldNode)
                 fieldFtlNodeMap.put(fieldName, FtlNodeWrapper.wrapNode(fieldNode))
+
+                if (isListForm) {
+
+                }
             }
 
-            isUploadForm = formNode.depthFirst({ MNode it -> it.name == "file" }).size() > 0
-            for (MNode hfNode in formNode.depthFirst({ MNode it -> it.name == "header-field" })) {
+            isUploadForm = formNode.depthFirst({ MNode it -> "file".equals(it.name) }).size() > 0
+            for (MNode hfNode in formNode.depthFirst({ MNode it -> "header-field".equals(it.name) })) {
                 if (hfNode.children.size() > 0) {
                     isFormHeaderFormVal = true
                     break
@@ -1072,10 +1081,11 @@ class ScreenForm {
                 EntityFind ef = ecfi.entityFacade.find(entityFindNode)
 
                 // if no select-field add one for each form field displayed in a column that is a valid entity field name
-                if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
-                    LinkedHashSet<String> fieldSet = getFieldsInFormListColumnInfo(curFormListColumnInfo)
-                    for (String fieldName in fieldSet) ef.selectField(fieldName)
-                }
+                // if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
+                // always do this even if there are some entity-find.select-field elements, support specifying some fields that are always selected
+                LinkedHashSet<String> fieldSet = getFieldsInFormListColumnInfo(curFormListColumnInfo)
+                for (String fieldName in fieldSet) ef.selectField(fieldName)
+
                 // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
 
                 // run the query
