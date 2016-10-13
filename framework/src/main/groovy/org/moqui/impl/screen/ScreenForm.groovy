@@ -1016,7 +1016,7 @@ class ScreenForm {
         }
     }
 
-    enum AggregateFunctions { MIN, MAX, SUM, AVG, COUNT }
+    enum AggregateFunction { MIN, MAX, SUM, AVG, COUNT }
     class FormInstance {
         private MNode formNode
         private FtlNodeWrapper ftlFormNode
@@ -1032,9 +1032,11 @@ class ScreenForm {
         private ArrayList<FtlNodeWrapper> hiddenFieldList = (ArrayList<FtlNodeWrapper>) null
         private ArrayList<ArrayList<FtlNodeWrapper>> formListColInfoList = (ArrayList<ArrayList<FtlNodeWrapper>>) null
 
-        private Set<String> showTotalFields = (Set<String>) null
-        private Set<String> aggregateGroupFields = (Set<String>) null
-        private Map<String, String> aggregateFieldFunctions = (Map<String, String>) null
+        private LinkedHashSet<String> showTotalFields = (LinkedHashSet<String>) null
+        boolean hasAggregate = false
+        private ArrayList<String> aggregateGroupFields = (ArrayList<String>) null
+        private ArrayList<String> aggregateSubListFields = (ArrayList<String>) null
+        private Map<String, AggregateFunction> aggregateFieldFunctions = (Map<String, AggregateFunction>) null
 
         FormInstance() {
             formNode = getOrCreateFormNode()
@@ -1051,9 +1053,35 @@ class ScreenForm {
                 fieldFtlNodeMap.put(fieldName, FtlNodeWrapper.wrapNode(fieldNode))
 
                 if (isListForm) {
+                    String aggregate = fieldNode.attribute("aggregate")
+                    if (aggregate != null && !aggregate.isEmpty()) {
+                        if ("group-by".equals(aggregate)) {
+                            if (aggregateGroupFields == null) aggregateGroupFields = new ArrayList<>()
+                            aggregateGroupFields.add(fieldName)
+                        } else if ("sub-list".equals(aggregate)) {
+                            if (aggregateSubListFields == null) aggregateSubListFields = new ArrayList<>()
+                            aggregateSubListFields.add(fieldName)
+                        } else {
+                            AggregateFunction af = AggregateFunction.valueOf(aggregate.toUpperCase())
+                            if (af != null) {
+                                if (aggregateFieldFunctions == null) aggregateFieldFunctions = new LinkedHashMap<>()
+                                aggregateFieldFunctions.put(fieldName, af)
+                            } else {
+                                logger.error("Ignoring aggregate ${aggregate} on field ${fieldName} in form ${formNode.attribute('name')}, not a valid function, group-by, or sub-list")
+                            }
+                        }
+                    }
 
+                    String showTotal = fieldNode.attribute("show-total")
+                    if ("true".equals(showTotal)) {
+                        if (showTotalFields == null) showTotalFields = new LinkedHashSet<>()
+                        showTotalFields.add(fieldName)
+                    }
                 }
             }
+            hasAggregate = aggregateGroupFields != null || aggregateSubListFields != null || aggregateFieldFunctions != null
+            if (hasAggregate && aggregateGroupFields == null)
+                throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
 
             isUploadForm = formNode.depthFirst({ MNode it -> "file".equals(it.name) }).size() > 0
             for (MNode hfNode in formNode.depthFirst({ MNode it -> "header-field".equals(it.name) })) {
