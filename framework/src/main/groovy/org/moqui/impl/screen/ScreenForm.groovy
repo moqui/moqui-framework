@@ -24,6 +24,8 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.*
+import org.moqui.impl.entity.AggregationUtil.AggregateFunction
+import org.moqui.impl.entity.AggregationUtil.AggregateField
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
@@ -1016,13 +1018,13 @@ class ScreenForm {
         }
     }
 
-    enum AggregateFunction { MIN, MAX, SUM, AVG, COUNT }
     class FormInstance {
         private MNode formNode
         private FtlNodeWrapper ftlFormNode
         private boolean isListForm
 
         private ArrayList<MNode> allFieldNodes
+        private ArrayList<String> allFieldNames
         private Map<String, MNode> fieldNodeMap = new LinkedHashMap<>()
         private Map<String, FtlNodeWrapper> fieldFtlNodeMap = new LinkedHashMap<>()
 
@@ -1032,34 +1034,40 @@ class ScreenForm {
         private ArrayList<FtlNodeWrapper> hiddenFieldList = (ArrayList<FtlNodeWrapper>) null
         private ArrayList<ArrayList<FtlNodeWrapper>> formListColInfoList = (ArrayList<ArrayList<FtlNodeWrapper>>) null
 
-        private LinkedHashSet<String> showTotalFields = (LinkedHashSet<String>) null
         boolean hasAggregate = false
-        private ArrayList<String> aggregateGroupFields = (ArrayList<String>) null
-        private ArrayList<String> aggregateSubListFields = (ArrayList<String>) null
-        private Map<String, AggregateFunction> aggregateFieldFunctions = (Map<String, AggregateFunction>) null
+        private String[] aggregateGroupFields = (String[]) null
+        private HashSet<String> showTotalFields = (HashSet<String>) null
+        private AggregateField[] aggregateFields = (AggregateField[]) null
 
         FormInstance() {
             formNode = getOrCreateFormNode()
             ftlFormNode = FtlNodeWrapper.wrapNode(formNode)
             isListForm = "form-list".equals(formNode.getName())
 
-            // populate fieldNodeMap
             allFieldNodes = formNode.children("field")
             int afnSize = allFieldNodes.size()
+            allFieldNames = new ArrayList<>(afnSize)
+
+            // populate fieldNodeMap, get aggregation details
+            ArrayList<String> aggregateGroupFieldList = (ArrayList<String>) null
+            HashSet<String> aggregateSubListFields = (HashSet<String>) null
+            Map<String, AggregateFunction> aggregateFieldFunctions = (Map<String, AggregateFunction>) null
+
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
                 String fieldName = fieldNode.attribute("name")
                 fieldNodeMap.put(fieldName, fieldNode)
                 fieldFtlNodeMap.put(fieldName, FtlNodeWrapper.wrapNode(fieldNode))
+                allFieldNames.add(fieldName)
 
                 if (isListForm) {
                     String aggregate = fieldNode.attribute("aggregate")
                     if (aggregate != null && !aggregate.isEmpty()) {
                         if ("group-by".equals(aggregate)) {
-                            if (aggregateGroupFields == null) aggregateGroupFields = new ArrayList<>()
-                            aggregateGroupFields.add(fieldName)
+                            if (aggregateGroupFieldList == null) aggregateGroupFieldList = new ArrayList<>()
+                            aggregateGroupFieldList.add(fieldName)
                         } else if ("sub-list".equals(aggregate)) {
-                            if (aggregateSubListFields == null) aggregateSubListFields = new ArrayList<>()
+                            if (aggregateSubListFields == null) aggregateSubListFields = new HashSet<>()
                             aggregateSubListFields.add(fieldName)
                         } else {
                             AggregateFunction af = AggregateFunction.valueOf(aggregate.toUpperCase())
@@ -1079,9 +1087,23 @@ class ScreenForm {
                     }
                 }
             }
-            hasAggregate = aggregateGroupFields != null || aggregateSubListFields != null || aggregateFieldFunctions != null
-            if (hasAggregate && aggregateGroupFields == null)
-                throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
+            hasAggregate = aggregateGroupFieldList != null || aggregateSubListFields != null || aggregateFieldFunctions != null
+            if (hasAggregate) {
+                if (aggregateGroupFieldList == null) {
+                    throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
+                } else {
+                    int groupFieldSize = aggregateGroupFieldList.size()
+                    aggregateGroupFields = new String[groupFieldSize]
+                    for (int i = 0; i < groupFieldSize; i++) aggregateGroupFields[i] = (String) aggregateGroupFieldList.get(i)
+
+                    aggregateFields = new AggregateField[afnSize]
+                    for (int i = 0; i < afnSize; i++) {
+                        String fieldName = (String) allFieldNames.get(i)
+                        aggregateFields[i] = new AggregateField(fieldName, aggregateFieldFunctions?.get(fieldName),
+                                aggregateSubListFields?.contains(fieldName), showTotalFields?.contains(fieldName))
+                    }
+                }
+            }
 
             isUploadForm = formNode.depthFirst({ MNode it -> "file".equals(it.name) }).size() > 0
             for (MNode hfNode in formNode.depthFirst({ MNode it -> "header-field".equals(it.name) })) {
@@ -1105,6 +1127,7 @@ class ScreenForm {
         String getFormLocation() { return location }
 
         Object getListObject(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
+            Object listObject
             if (entityFindNode != null) {
                 EntityFind ef = ecfi.entityFacade.find(entityFindNode)
 
@@ -1161,10 +1184,16 @@ class ScreenForm {
                     context.put(listName.concat("PageRangeHigh"), pageRangeHigh)
                 }
 
-                return efList
+                listObject = efList
             } else {
                 String listAttr = formNode.attribute("list")
-                return ecfi.resourceFacade.expression(listAttr, "")
+                listObject = ecfi.resourceFacade.expression(listAttr, "")
+            }
+
+            if (hasAggregate) {
+                return AggregationUtil.aggregateList(listObject, aggregateFields, aggregateGroupFields)
+            } else {
+                return listObject
             }
         }
 
