@@ -33,9 +33,15 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
 
     String getEntityName();
 
+    /** Returns true if any field has been modified */
     boolean isModified();
+    /** Returns true if the field has been modified */
     boolean isFieldModified(String name);
+    /** Returns true if a value for the field is set, even if it is null */
     boolean isFieldSet(String name);
+    /** Returns true if the name is a valid field name for the entity this is a value of,
+     * false otherwise (meaning get(), set(), etc calls with throw an exception with the field name) */
+    boolean isField(String name);
 
     boolean isMutable();
 

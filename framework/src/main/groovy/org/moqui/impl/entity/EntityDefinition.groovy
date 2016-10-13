@@ -428,9 +428,9 @@ public class EntityDefinition {
     ArrayList<String> getPkFieldNames() { return pkFieldNameList }
     ArrayList<String> getNonPkFieldNames() { return nonPkFieldNameList }
     ArrayList<String> getAllFieldNames() { return allFieldNameList }
-    boolean isField(String fieldName) { return getFieldInfo(fieldName) != null }
+    boolean isField(String fieldName) { return fieldInfoMap.containsKey(fieldName) }
     boolean isPkField(String fieldName) {
-        FieldInfo fieldInfo = getFieldInfo(fieldName)
+        FieldInfo fieldInfo = fieldInfoMap.get(fieldName)
         if (fieldInfo == null) return false
         return fieldInfo.isPk
     }
@@ -459,7 +459,6 @@ public class EntityDefinition {
 
     ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk) {
         ArrayList<String> baseList
-        // common case, do it fast
         if (includePk) {
             if (includeNonPk) baseList = getAllFieldNames()
             else baseList = getPkFieldNames()
@@ -491,16 +490,7 @@ public class EntityDefinition {
     }
 
     MNode getFieldNode(String fieldName) { return (MNode) fieldNodeMap.get(fieldName) }
-    FieldInfo getFieldInfo(String fieldName) {
-        // the FieldInfo cast here looks funny, but avoids Groovy using a slow castToType call
-        FieldInfo fi = (FieldInfo) fieldInfoMap.get(fieldName)
-        if (fi != null) return fi
-        MNode fieldNode = getFieldNode(fieldName)
-        if (fieldNode == null) return null
-        fi = new FieldInfo(this, fieldNode)
-        fieldInfoMap.put(fieldName, fi)
-        return fi
-    }
+    FieldInfo getFieldInfo(String fieldName) { return (FieldInfo) fieldInfoMap.get(fieldName) }
 
     static Map<String, String> getRelationshipExpandedKeyMapInternal(MNode relationship, EntityDefinition relEd) {
         Map<String, String> eKeyMap = [:]
