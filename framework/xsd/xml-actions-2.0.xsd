@@ -852,7 +852,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="iterate" substitutionGroup="ControlOperations">
         <xs:annotation><xs:documentation>
             The operations contained by the iterate tag will be executed for each of the entries in the list,
-            and will make the current entry available in the method environment by the entry-name specified.
+            and will make the current entry available in the method environment by the entry specified.
             This tag can contain any of the xml-action operations, including the conditional/if operations.
 
             Any xml-action operation can be nested under the iterate tag.

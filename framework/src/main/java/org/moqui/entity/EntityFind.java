@@ -245,9 +245,10 @@ public interface EntityFind extends java.io.Serializable {
     Integer getMaxRows();
 
 
-    // ======================== Run Find Methods ==============================
-
     EntityFind disableAuthz();
+    boolean shouldCache();
+
+    // ======================== Run Find Methods ==============================
 
     /** Runs a find with current options to get a single record by primary key. */
     EntityValue one() throws EntityException;

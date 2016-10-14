@@ -209,7 +209,9 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 String resultString = JsonOutput.toJson(results)
                 boolean hasError = threadEci.messageFacade.hasError()
                 String messages = threadEci.messageFacade.getMessagesString()
+                if (messages != null && messages.length() > 4000) messages = messages.substring(0, 4000)
                 String errors = hasError ? threadEci.messageFacade.getErrorsString() : null
+                if (errors != null && errors.length() > 4000) errors = errors.substring(0, 4000)
                 Timestamp nowTimestamp = threadEci.userFacade.nowTimestamp
 
                 // before calling other services clear out errors or they won't run

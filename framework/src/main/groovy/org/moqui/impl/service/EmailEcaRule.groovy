@@ -119,7 +119,7 @@ class EmailEcaRule {
         }
     }
 
-    protected List<Map> makeBodyPartList(Part part) {
+    static List<Map> makeBodyPartList(Part part) {
         List<Map> bodyPartList = []
         Object content = part.getContent()
         Map bpMap = [contentType:part.getContentType(), filename:part.getFileName(), disposition:part.getDisposition()?.toLowerCase()]

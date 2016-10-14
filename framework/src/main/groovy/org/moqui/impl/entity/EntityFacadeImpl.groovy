@@ -197,14 +197,12 @@ class EntityFacadeImpl implements EntityFacade {
     static class DatasourceInfo {
         EntityFacadeImpl efi
         MNode datasourceNode
-
         String uniqueName
+        Map<String, String> dsDetails = new LinkedHashMap<>()
 
         String jndiName
         MNode serverJndi
-
         String jdbcDriver = null, jdbcUri = null, jdbcUsername = null, jdbcPassword = null
-
         String xaDsClass = null
         Properties xaProps = null
 
@@ -242,6 +240,11 @@ class EntityFacadeImpl implements EntityFacade {
                     String propValue = xaProperties.attribute(key)
                     if (propValue) xaProps.setProperty(key, propValue)
                 }
+
+                for (String propName in xaProps.stringPropertyNames()) {
+                    if (propName.toLowerCase().contains("password")) continue
+                    dsDetails.put(propName, xaProps.getProperty(propName))
+                }
             } else {
                 inlineJdbc.setSystemExpandAttributes(true)
                 jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
@@ -249,6 +252,9 @@ class EntityFacadeImpl implements EntityFacade {
                 if (jdbcUri.contains('${')) jdbcUri = SystemBinding.expand(jdbcUri)
                 jdbcUsername = inlineJdbc.attribute("jdbc-username")
                 jdbcPassword = inlineJdbc.attribute("jdbc-password")
+
+                dsDetails.put("uri", jdbcUri)
+                dsDetails.put("user", jdbcUsername)
             }
         }
     }
@@ -465,7 +471,8 @@ class EntityFacadeImpl implements EntityFacade {
             int numEntities = 0
             for (MNode entity in entityRoot.children) {
                 String entityName = entity.attribute("entity-name")
-                String packageName = entity.attribute("package") ?: entity.attribute("package-name")
+                String packageName = entity.attribute("package")
+                if (packageName == null || packageName.isEmpty()) packageName = entity.attribute("package-name")
                 String shortAlias = entity.attribute("short-alias")
 
                 if (entityName == null || entityName.length() == 0) {
@@ -474,11 +481,12 @@ class EntityFacadeImpl implements EntityFacade {
                 }
 
                 if (packageName != null && packageName.length() > 0) {
-                    List<String> pkgList = (List<String>) entityLocationCache.get(packageName + "." + entityName)
+                    String fullEntityName = packageName.concat(".").concat(entityName)
+                    List<String> pkgList = (List<String>) entityLocationCache.get(fullEntityName)
                     if (pkgList == null) {
                         pkgList = new LinkedList<>()
                         pkgList.add(entityRr.location)
-                        entityLocationCache.put(packageName + "." + entityName, pkgList)
+                        entityLocationCache.put(fullEntityName, pkgList)
                     } else if (!pkgList.contains(entityRr.location)) {
                         pkgList.add(entityRr.location)
                     }
@@ -527,6 +535,21 @@ class EntityFacadeImpl implements EntityFacade {
             return existingNode
         }
     }
+
+    int loadAllEntityDefinitions() {
+        int entityCount = 0
+        for (String en in getAllEntityNames()) {
+            try {
+                getEntityDefinition(en)
+            } catch (EntityException e) {
+                logger.warn("Problem finding entity definition", e)
+                continue
+            }
+            entityCount++
+        }
+        return entityCount
+    }
+
 
     protected EntityDefinition loadEntityDefinition(String entityName) {
         if (entityName.contains("#")) {
@@ -751,7 +774,7 @@ class EntityFacadeImpl implements EntityFacade {
                 if (relatedEntityName == null || relatedEntityName.length() == 0) relatedEntityName = relNode.attribute("related-entity-name")
                 // don't create reverse relationships coming back to the same entity, since it will have the same title
                 //     it would create multiple relationships with the same name
-                if (entityName == relatedEntityName) continue
+                if (entityName.equals(relatedEntityName)) continue
 
                 EntityDefinition reverseEd
                 try {
@@ -910,8 +933,11 @@ class EntityFacadeImpl implements EntityFacade {
         TreeSet<String> allNames = new TreeSet()
         // only add full entity names (with package in it, will always have at least one dot)
         // only include entities that have a non-empty List of locations in the cache (otherwise are invalid entities)
-        for (String en in entityLocationCache.keySet())
-            if (en.contains(".") && entityLocationCache.get(en)) allNames.add(en)
+        for (Map.Entry<String, List<String>> entry in entityLocationCache.entrySet()) {
+            String en = entry.key
+            List<String> locList = entry.value
+            if (en.contains(".") && locList != null && locList.size() > 0) allNames.add(en)
+        }
         return allNames
     }
 
@@ -995,6 +1021,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
+    // used in tools screens
     ArrayList<Map<String, Object>> getAllEntitiesInfo(String orderByField, String filterRegexp, boolean masterEntitiesOnly,
                                                       boolean excludeViewEntities) {
         if (masterEntitiesOnly) createAllAutoReverseManyRelationships()
@@ -1018,7 +1045,7 @@ class EntityFacadeImpl implements EntityFacade {
                     isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 
-        if (orderByField) StupidUtilities.orderMapList(eil, [orderByField])
+        if (orderByField != null && !orderByField.isEmpty()) StupidUtilities.orderMapList(eil, [orderByField])
         return eil
     }
 
@@ -1211,6 +1238,20 @@ class EntityFacadeImpl implements EntityFacade {
         if (edf == null) throw new EntityException("Could not find EntityDatasourceFactory for entity group ${groupName}")
         return edf
     }
+    List<Map<String, Object>> getDataSourcesInfo() {
+        List<Map<String, Object>> dsiList = new LinkedList<>()
+        for (String groupName in datasourceFactoryByGroupMap.keySet()) {
+            EntityDatasourceFactory edf = datasourceFactoryByGroupMap.get(groupName)
+            if (edf instanceof EntityDatasourceFactoryImpl) {
+                EntityDatasourceFactoryImpl edfi = (EntityDatasourceFactoryImpl) edf
+                DatasourceInfo dsi = edfi.dsi
+                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails])
+            } else {
+                dsiList.add([group:groupName] as Map<String, Object>)
+            }
+        }
+        return dsiList
+    }
 
     @Override
     EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
@@ -1230,6 +1271,60 @@ class EntityFacadeImpl implements EntityFacade {
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityException("No entity found with name ${entityName}")
         return ed.makeEntityFind()
+    }
+    @Override
+    EntityFind find(MNode node) {
+        String entityName = node.attribute("entity-name")
+        // don't check entityName empty, getEntityDefinition() does it
+        EntityDefinition ed = getEntityDefinition(entityName)
+        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
+        EntityFind ef = ed.makeEntityFind()
+
+        String cache = node.attribute("cache")
+        if (cache != null && !cache.isEmpty()) { ef.useCache("true".equals(cache)) }
+        String forUpdate = node.attribute("for-update")
+        if (forUpdate != null && !forUpdate.isEmpty()) ef.forUpdate("true".equals(forUpdate))
+        String distinct = node.attribute("distinct")
+        if (distinct != null && !distinct.isEmpty()) ef.distinct("true".equals(distinct))
+        String offset = node.attribute("offset")
+        if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset))
+        String limit = node.attribute("limit")
+        if (limit != null && !limit.isEmpty()) ef.limit(Integer.valueOf(limit))
+        for (MNode sf in node.children("select-field")) ef.selectField(sf.attribute("field-name"))
+        for (MNode ob in node.children("order-by")) ef.orderBy(ob.attribute("field-name"))
+
+        if (node.hasChild("search-form-inputs")) {
+            MNode sfiNode = node.first("search-form-inputs")
+            boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
+            MNode defaultParametersNode = sfiNode.first("default-parameters")
+            String inputFieldsMapName = sfiNode.attribute("input-fields-map")
+            Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
+            ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("default-order-by"), paginate)
+        }
+
+        // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
+        if (!ef.shouldCache()) {
+            for (MNode df in node.children("date-filter"))
+                ef.condition(getConditionFactoryImpl().makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
+                        df.attribute("thru-field-name") ?: "thruDate",
+                        (df.attribute("valid-date") ? ecfi.resourceFacade.expression(df.attribute("valid-date"), null) as Timestamp : ecfi.eci.user.nowTimestamp)))
+        }
+
+        for (MNode ecn in node.children("econdition")) {
+            EntityCondition econd = getConditionFactoryImpl().makeActionCondition(ecn)
+            if (econd != null) ef.condition(econd)
+        }
+        for (MNode ecs in node.children("econditions"))
+            ef.condition(getConditionFactoryImpl().makeActionConditions(ecs))
+        for (MNode eco in node.children("econdition-object"))
+            ef.condition((EntityCondition) ecfi.resourceFacade.expression(eco.attribute("field"), null))
+
+        if (node.hasChild("having-econditions")) {
+            for (MNode havingCond in node.children("having-econditions"))
+                ef.havingCondition(getConditionFactoryImpl().makeActionCondition(havingCond))
+        }
+
+        return ef
     }
 
     final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']

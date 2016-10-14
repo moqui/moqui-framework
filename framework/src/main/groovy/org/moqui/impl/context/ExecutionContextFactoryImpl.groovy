@@ -449,10 +449,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
         entityFacade.loadAllEntityLocations()
-        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false)
-        // load/warm framework entities
-        entityFacade.loadFrameworkEntities()
-        logger.info("Loaded ${entityInfoList.size()} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
+        int entityCount = entityFacade.loadAllEntityDefinitions()
+        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
+        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
 
         // now that everything is started up, if configured check all entity tables
         entityFacade.checkInitDatasourceTables()
@@ -502,7 +501,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                stupidClassLoader.addJarFile(new JarFile(jarFile))
+                stupidClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -520,7 +519,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
+                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -603,15 +602,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // shutdown scheduled executor pool
         try {
-            scheduledExecutor.shutdown()
-            logger.info("Scheduled executor pool shut down")
         } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
 
-        // shutdown worker pool
+        // shutdown scheduled executor and worker pools
         try {
+            scheduledExecutor.shutdown()
             workerPool.shutdown()
+
+            scheduledExecutor.awaitTermination(30, TimeUnit.SECONDS)
+            logger.info("Scheduled executor pool shut down")
+            workerPool.awaitTermination(30, TimeUnit.SECONDS)
             logger.info("Worker pool shut down")
-        } catch (Throwable t) { logger.error("Error in workerPool shutdown", t) }
+        } catch (Throwable t) { logger.error("Error in workerPool/scheduledExecutor shutdown", t) }
 
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()

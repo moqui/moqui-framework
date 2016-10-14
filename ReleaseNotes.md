@@ -33,6 +33,9 @@ significant changes.
   - changed relationship.@related-entity-name to relationship.@related
   - changed key-map.@related-field-name to key-map.@related
   - UserField no longer supported (UserField and UserFieldValue entities)
+- XML Screen and Form
+  - field.@entry-name attribute replaced by field.@from attribute (more meaningful, matches attribute used on set element); the old
+    entry-name attribute is still supported, but removed from XSD
 - Service Job Scheduling
   - Quartz Scheduler has been removed, use new ServiceJob instead with more relevant options, much cleaner and more manageable
   - Removed ServiceFacade.getScheduler() method
@@ -92,7 +95,7 @@ significant changes.
   - See new configuration examples in MoquiDefaultConf.xml under the repository-list element
 - OWASP ESAPI and AntiSamy
   - ESAPI removed, now using simple StringEscapeUtils from commons-lang
-  - AntiSamy replaced by OWASP Java HTML Sanitizer
+  - AntiSamy replaced by Jsoup.clean()
 - Removed ServiceSemaphore entity, now using ServiceParameterSemaphore
 - Deprecated methods
   - These methods were deprecated (by methods with shorter names) long ago and with other API changes now removing them
@@ -181,6 +184,7 @@ significant changes.
   - Can send NotificationMessage, success or error, to configured topic
   - Run service job through ServiceCallJob interface, ec.service.job()
   - Replacement for Quartz Scheduler scheduled services
+- Added SubEtha SMTP server which receives email messages and calls EMECA rules, an alternative to polling IMAP and POP3 servers
 - Hazelcast Integration (moqui-hazelcast component)
   - These features are only enabled with this tool component in place
   - Added default Hazelcast web session replication config
@@ -438,6 +442,9 @@ Gradle tasks.
 
 
 ## Long Term To Do List - aka Informal Road Map
+
+- field.@aggregate: min, max, sum, avg, count, group-by, sub-list; default is group-by, if all are group-by no aggregation done
+- field.@show-total if sub-list show in sub-list, otherwise add bottom row with current list totals
 
 - form-list data prep, more self-contained
   - form-list.entity-find element support instead of form-list.@list attribute
