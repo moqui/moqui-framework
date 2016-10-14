@@ -720,12 +720,4 @@ class StupidUtilities {
         decimalText = decimalText.substring(decimalText.indexOf('.') + 1)
         return "${integerText} and ${decimalText}/100"
     }
-
-    static final String removeNonumericCharacters(String inputValue) {
-        return inputValue.replaceAll("[^\\d]", "")
-    }
-
-    static final String removeCommas(String inputValue) {
-        return inputValue.replaceAll(",", ".")
-    }
 }
