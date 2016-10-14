@@ -430,13 +430,21 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="mailUsername" type="text-medium"/>
         <field name="mailPassword" type="text-medium" encrypt="true"/>
         <seed-data>
+            <!-- The MOQUI_LOCAL EmailServer is used by SubEthaSmtpToolFactory for the local SMTP server to setup the server, and
+                for use by send#EmailTemplate if this emailServerId is used to send email -->
+            <moqui.basic.email.EmailServer emailServerId="MOQUI_LOCAL"
+                    smtpHost="localhost" smtpPort="2525" smtpStartTls="N" smtpSsl="N"
+                    storeHost="" storePort="" storeProtocol="" storeFolder=""
+                    storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
+                    mailUsername="email.root" mailPassword="EMAIL_CHANGEME"/>
+
             <!-- NOTE: these are skeleton settings and some fields need to be filled in (probably best with another data file)
                 for your specific installation in order to be functional -->
             <moqui.basic.email.EmailServer emailServerId="SYSTEM"
-                         smtpHost="" smtpPort="465" smtpStartTls="N" smtpSsl="Y"
-                         storeHost="" storePort="993" storeProtocol="imaps" storeFolder=""
-                         storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
-                         mailUsername="" mailPassword=""/>
+                    smtpHost="" smtpPort="465" smtpStartTls="N" smtpSsl="Y"
+                    storeHost="" storePort="993" storeProtocol="imaps" storeFolder=""
+                    storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
+                    mailUsername="" mailPassword=""/>
             <!-- Other common values:
                 smtpPort="25" (std) smtpPort="465" (ssmtp) smtpPort="587" (ssmtp?)
                 storeProtocol="imap" storePort="143" (std) storePort="585" (imap4-ssl) storePort="993" (imaps)

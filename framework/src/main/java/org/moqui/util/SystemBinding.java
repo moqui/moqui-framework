@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
 
 /** Simple class for evaluating expressions to get System properties and environment variables by string expansion */
 public class SystemBinding extends Binding {
-    protected final static Logger logger = LoggerFactory.getLogger(SystemBinding.class);
+    private final static Logger logger = LoggerFactory.getLogger(SystemBinding.class);
+    private final static boolean isTraceEnabled = logger.isTraceEnabled();
+
     private SystemBinding() { super(); }
 
     @Override
@@ -35,22 +37,23 @@ public class SystemBinding extends Binding {
 
         // start with System properties
         String value = System.getProperty(name);
-        if (value != null && value.length() > 0) return value;
+        if (value != null && !value.isEmpty()) return value;
         //  try environment variables
         value = System.getenv(name);
-        if (value != null && value.length() > 0) return value;
+        if (value != null && !value.isEmpty()) return value;
 
         // no luck? try replacing underscores with dots (dots used for map access in Groovy so need workaround)
         String dotName = null;
         if (name.contains("_")) {
             dotName = name.replace('_', '.');
             value = System.getProperty(dotName);
-            if (value != null && value.length() > 0) return value;
+            if (value != null && !value.isEmpty()) return value;
             value = System.getenv(dotName);
-            if (value != null && value.length() > 0) return value;
+            if (value != null && !value.isEmpty()) return value;
         }
 
-        logger.info("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") + " system property or environment variable found, returning empty string");
+        if (isTraceEnabled) logger.trace("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") +
+                " system property or environment variable found, using empty string");
         return "";
     }
 

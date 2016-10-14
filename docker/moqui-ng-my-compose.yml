@@ -1,13 +1,17 @@
 # A Docker Compose application with moqui, mysql, and virtual hosting through
 # nginx-proxy supporting multiple moqui instances on different hosts.
 
+# Run with something like one of these:
+# $ docker-compose -f moqui-ng-my-compose.yml -p moqui up -d
+# $ ./compose-run.sh moqui-ng-my-compose.yml
+# This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
+
 # Test locally by adding the virtual host to /etc/hosts or with something like:
 # $ curl -H "Host: moqui.local" localhost/Login
 
 # To run an additional instance of moqui run something like this (but with
 # many more arguments for volume mapping, db setup, etc):
-# $ docker run -e VIRTUAL_HOST=moqui2.local --name=moqui2_local moqui
-# NOTE: getting error from nginx with this like: "Error running notify command: nginx -s reload, exit status 1"
+# $ docker run -e VIRTUAL_HOST=moqui2.local --name moqui2_local --network moqui_default moqui
 
 version: "2"
 services:
@@ -16,7 +20,7 @@ services:
     # https://github.com/jwilder/nginx-proxy
     image: jwilder/nginx-proxy
     container_name: nginx-proxy
-    restart: always
+    restart: unless-stopped
     ports:
       - 80:80
       # - 443:443
@@ -26,25 +30,27 @@ services:
   moqui-server:
     image: moqui
     container_name: moqui-server
-    command: --conf=conf/MySQLConf.xml
-    restart: always
+    command: conf=conf/MoquiProductionConf.xml
+    restart: unless-stopped
     links:
-     - mysql-moqui
+     - moqui-database
     volumes:
      - ./runtime/conf:/opt/moqui/runtime/conf
      - ./runtime/lib:/opt/moqui/runtime/lib
      - ./runtime/classes:/opt/moqui/runtime/classes
+     - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
      - ./runtime/log:/opt/moqui/runtime/log
      - ./runtime/txlog:/opt/moqui/runtime/txlog
      # this one isn't needed: - ./runtime/db:/opt/moqui/runtime/db
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
-     - ds_transactional_host=mysql-moqui
-     - ds_transactional_port=3306
-     - ds_transactional_database=MoquiDEFAULT
-     - ds_transactional_user=moqui
-     - ds_transactional_password=moqui
-     # CHANGE ME
+     - entity_ds_db_conf=mysql
+     - entity_ds_host=moqui-database
+     - entity_ds_port=3306
+     - entity_ds_database=moqui
+     - entity_ds_user=moqui
+     - entity_ds_password=moqui
+     # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
      - VIRTUAL_HOST=moqui.local
      - webapp_http_host=moqui.local
      - webapp_http_port=80
@@ -53,9 +59,9 @@ services:
 
   mysql-moqui:
     image: mysql:5.7
-    container_name: mysql-moqui
-    restart: always
-    # uncomment this to expose the port for use outside other services
+    container_name: moqui-database
+    restart: unless-stopped
+    # uncomment this to expose the port for use outside other containers
     # ports:
     #  - 3306:3306
     # edit these as needed to map configuration and data storage
@@ -63,7 +69,7 @@ services:
      - ./db/mysql/data:/var/lib/mysql
      # - /my/mysql/conf.d:/etc/mysql/conf.d
     environment:
-     - MYSQL_ROOT_PASSWORD=moquitest
-     - MYSQL_DATABASE=MoquiDEFAULT
+     - MYSQL_ROOT_PASSWORD=moquiroot
+     - MYSQL_DATABASE=moqui
      - MYSQL_USER=moqui
      - MYSQL_PASSWORD=moqui

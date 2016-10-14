@@ -30,9 +30,7 @@ class WhereCondition implements EntityConditionImplBase {
     }
 
     @Override
-    void makeSqlWhere(EntityQueryBuilder eqb) {
-        eqb.getSqlTopLevel().append(this.sqlWhereClause)
-    }
+    void makeSqlWhere(EntityQueryBuilder eqb) { eqb.sqlTopLevel.append(this.sqlWhereClause) }
 
     @Override
     boolean mapMatches(Map<String, Object> map) {
@@ -43,10 +41,16 @@ class WhereCondition implements EntityConditionImplBase {
     }
     @Override
     boolean mapMatchesAny(Map<String, Object> map) {
-        // NOTE: always return false unless we eventually implement some sort of SQL parsing, for caching/etc
-        // always consider not matching
+        // NOTE: always return true unless we eventually implement some sort of SQL parsing, for caching/etc
+        // always consider matching so cache values are cleared
         logger.warn("The mapMatchesAny for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
-        return false
+        return true
+    }
+    @Override
+    public boolean mapKeysNotContained(Map<String, Object> map) {
+        // always consider matching so cache values are cleared
+        logger.warn("The mapMatchesAny for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
+        return true
     }
 
     @Override

@@ -123,18 +123,7 @@ class TransactionInternalBitronix implements TransactionInternal {
             pds.setTestQuery(dsi.database.attribute("default-test-query"))
         }
 
-        if (logger.isInfoEnabled()) {
-            StringBuilder dsDetails = new StringBuilder()
-            if (dsi.xaDsClass) {
-                for (String propName in dsi.xaProps.stringPropertyNames()) {
-                    if ("password".equals(propName)) continue
-                    dsDetails.append(propName).append(": ").append(dsi.xaProps.getProperty(propName)).append(", ")
-                }
-            } else {
-                dsDetails.append("uri: ").append(dsi.jdbcUri).append(", user: ").append(dsi.jdbcUsername)
-            }
-            logger.info("Initializing DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) with properties: ${dsDetails}")
-        }
+        logger.info("Initializing DataSource ${dsi.uniqueName} (${dsi.database.attribute('name')}) with properties: ${dsi.dsDetails}")
 
         // init the DataSource
         pds.init()

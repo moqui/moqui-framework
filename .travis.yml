@@ -9,9 +9,10 @@ env:
   - TERM=dumb
 
 script:
-  - gradle load
-  - gradle test --info
+  - ./gradlew load
+  - ./gradlew test --info
 
 cache:
   directories:
     - $HOME/.gradle/caches
+    - $HOME/.gradle/wrapper

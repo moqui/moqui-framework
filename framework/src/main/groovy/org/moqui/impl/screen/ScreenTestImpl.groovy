@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.util.ContextStack
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -74,11 +75,12 @@ class ScreenTestImpl implements ScreenTest {
         if (baseScreenPath.endsWith("/")) baseScreenPath = baseScreenPath.substring(0, baseScreenPath.length() - 1)
         if (baseScreenPath) {
             baseScreenPathList = ScreenUrlInfo.parseSubScreenPath(rootScreenDef, rootScreenDef, [], baseScreenPath, null, sfi)
+            if (baseScreenPathList == null) throw new BaseException("Error in baseScreenPath, could find not base screen path ${baseScreenPath} under ${rootScreenDef.location}")
             for (String screenName in baseScreenPathList) {
                 ScreenDefinition.SubscreensItem ssi = baseScreenDef.getSubscreensItem(screenName)
-                if (ssi == null) throw new IllegalArgumentException("Error in baseScreenPath, could not find ${screenName} under ${baseScreenDef.location}")
+                if (ssi == null) throw new BaseException("Error in baseScreenPath, could not find ${screenName} under ${baseScreenDef.location}")
                 baseScreenDef = sfi.getScreenDefinition(ssi.location)
-                if (baseScreenDef == null) throw new IllegalArgumentException("Error in baseScreenPath, could not find screen ${screenName} at ${ssi.location}")
+                if (baseScreenDef == null) throw new BaseException("Error in baseScreenPath, could not find screen ${screenName} at ${ssi.location}")
             }
         }
         return this
@@ -181,6 +183,7 @@ class ScreenTestImpl implements ScreenTest {
             // parse the screenPath
             ArrayList<String> screenPathList = ScreenUrlInfo.parseSubScreenPath(sti.rootScreenDef, sti.baseScreenDef,
                     sti.baseScreenPathList, stri.screenPath, stri.parameters, sti.sfi)
+            if (screenPathList == null) throw new BaseException("Could not find screen path ${stri.screenPath} under base screen ${sti.baseScreenDef.location}")
 
             // push the context
             ContextStack cs = eci.getContext()

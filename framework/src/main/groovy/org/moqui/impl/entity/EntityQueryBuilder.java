@@ -29,15 +29,15 @@ public class EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
     protected static final boolean isDebugEnabled = logger.isDebugEnabled();
 
-    protected final EntityFacadeImpl efi;
-    private final EntityDefinition mainEntityDefinition;
+    public final EntityFacadeImpl efi;
+    public final EntityDefinition mainEntityDefinition;
 
     private static final int sqlInitSize = 500;
-    protected StringBuilder sqlTopLevelInternal = new StringBuilder(sqlInitSize);
+    public final StringBuilder sqlTopLevel = new StringBuilder(sqlInitSize);
     protected String finalSql = (String) null;
 
     private static final int parametersInitSize = 20;
-    protected ArrayList<EntityConditionParameter> parameters = new ArrayList<>(parametersInitSize);
+    public final ArrayList<EntityConditionParameter> parameters = new ArrayList<>(parametersInitSize);
 
     protected PreparedStatement ps = null;
     private ResultSet rs = null;
@@ -50,12 +50,6 @@ public class EntityQueryBuilder {
     }
 
     public EntityDefinition getMainEd() { return mainEntityDefinition; }
-
-    /** @return StringBuilder meant to be appended to */
-    public StringBuilder getSqlTopLevel() { return sqlTopLevelInternal; }
-
-    /** returns List of EntityConditionParameter meant to be added to */
-    public ArrayList<EntityConditionParameter> getParameters() { return parameters; }
 
     Connection makeConnection() {
         connection = efi.getConnection(mainEntityDefinition.getEntityGroupName());
@@ -74,7 +68,7 @@ public class EntityQueryBuilder {
     public PreparedStatement makePreparedStatement() {
         if (connection == null)
             throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
-        finalSql = sqlTopLevelInternal.toString();
+        finalSql = sqlTopLevel.toString();
         // if (this.mainEntityDefinition.getFullEntityName().contains("foo")) logger.warn("========= making crud PreparedStatement for SQL: ${sql}")
         if (isDebugEnabled) logger.debug("making crud PreparedStatement for SQL: " + finalSql);
         try {
@@ -96,13 +90,13 @@ public class EntityQueryBuilder {
             long beforeQuery = queryStats ? System.nanoTime() : 0;
             rs = ps.executeQuery();
             if (queryStats) queryTime = System.nanoTime() - beforeQuery;
-            if (isDebugEnabled) logger.debug("Executed query with SQL [" + sqlTopLevelInternal +
+            if (isDebugEnabled) logger.debug("Executed query with SQL [" + sqlTopLevel +
                     "] and parameters [" + parameters + "] in [" +
                     ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
             return rs;
         } catch (SQLException sqle) {
             isError = true;
-            throw new EntityException("Error in query for:" + sqlTopLevelInternal, sqle);
+            throw new EntityException("Error in query for:" + sqlTopLevel, sqle);
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
         }
@@ -119,14 +113,14 @@ public class EntityQueryBuilder {
             final int rows = ps.executeUpdate();
             if (queryStats) queryTime = System.nanoTime() - beforeQuery;
 
-            if (isDebugEnabled) logger.debug("Executed update with SQL [" + sqlTopLevelInternal +
+            if (isDebugEnabled) logger.debug("Executed update with SQL [" + sqlTopLevel +
                     "] and parameters [" + parameters + "] in [" +
                     ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" +
                     rows + "] rows");
             return rows;
         } catch (SQLException sqle) {
             isError = true;
-            throw new EntityException("Error in update for:" + sqlTopLevelInternal, sqle);
+            throw new EntityException("Error in update for:" + sqlTopLevel, sqle);
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
         }
@@ -186,7 +180,7 @@ public class EntityQueryBuilder {
             if (fieldOptionsArray == null && mainEntityDefinition.entityInfo.allFieldInfoArray.length == size) {
                 String allFieldsSelect = mainEntityDefinition.entityInfo.allFieldsSqlSelect;
                 if (allFieldsSelect != null) {
-                    sqlTopLevelInternal.append(mainEntityDefinition.entityInfo.allFieldsSqlSelect);
+                    sqlTopLevel.append(mainEntityDefinition.entityInfo.allFieldsSqlSelect);
                     return;
                 }
             }
@@ -194,21 +188,21 @@ public class EntityQueryBuilder {
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 if (fi == null) break;
-                if (i > 0) sqlTopLevelInternal.append(", ");
+                if (i > 0) sqlTopLevel.append(", ");
                 boolean appendCloseParen = false;
                 if (fieldOptionsArray != null) {
                     FieldOrderOptions foo = fieldOptionsArray[i];
                     if (foo != null && foo.getCaseUpperLower() != null && fi.typeValue == 1) {
-                        sqlTopLevelInternal.append(foo.getCaseUpperLower() ? "UPPER(" : "LOWER(");
+                        sqlTopLevel.append(foo.getCaseUpperLower() ? "UPPER(" : "LOWER(");
                         appendCloseParen = true;
                     }
                 }
-                sqlTopLevelInternal.append(fi.getFullColumnName());
-                if (appendCloseParen) sqlTopLevelInternal.append(")");
+                sqlTopLevel.append(fi.getFullColumnName());
+                if (appendCloseParen) sqlTopLevel.append(")");
             }
 
         } else {
-            sqlTopLevelInternal.append("*");
+            sqlTopLevel.append("*");
         }
     }
 

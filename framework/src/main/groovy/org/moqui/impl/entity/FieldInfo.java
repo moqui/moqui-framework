@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity;
 
-import org.apache.commons.codec.binary.Base64;
 import org.moqui.BaseException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.StupidJavaUtilities;
@@ -224,7 +223,7 @@ public class FieldInfo {
                 case 11: outValue = value.toString(); break;
                 case 12:
                     if (value instanceof byte[]) {
-                        outValue = new String(Base64.encodeBase64((byte[]) value));
+                        outValue = Base64.getEncoder().encodeToString((byte[]) value);
                     } else {
                         logger.info("Field on entity is not of type byte[], is [" + value + "] so using plain toString() for field " + entityName + "." + name);
                         outValue = value.toString();

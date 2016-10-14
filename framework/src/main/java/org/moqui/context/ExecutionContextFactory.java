@@ -33,7 +33,9 @@ public interface ExecutionContextFactory {
     /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
     void destroyActiveExecutionContext();
 
-    /** Run after construction is complete and object is active in the Moqui class (called by Moqui.java) */
+    /** Called after construction but before registration with Moqui/Servlet, check for empty database and load configured data. */
+    boolean checkEmptyDb();
+    /** Called after construction and other init is complete and object is active in the Moqui class (called by Moqui.java) */
     void postInit();
     /** Destroy this ExecutionContextFactory and all resources it uses (all facades, tools, etc) */
     void destroy();
@@ -85,6 +87,8 @@ public interface ExecutionContextFactory {
     @Nonnull ServletContext getServletContext();
     /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
     @Nonnull ServerContainer getServerContainer();
+    /** For starting initialization only, tell the ECF about the ServletContext for getServletContext() and getServerContainer() */
+    void initServletContext(ServletContext sc);
 
     void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml);
 }

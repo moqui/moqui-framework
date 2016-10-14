@@ -21,6 +21,7 @@ import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
 
 import org.moqui.BaseException
+import org.moqui.Moqui
 import org.moqui.context.*
 import org.moqui.context.ArtifactExecutionInfo.ArtifactType
 import org.moqui.entity.EntityDataLoader
@@ -336,8 +337,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
             if (!System.getProperty(propName) && !System.getenv(propName)) {
-                String propValue = SystemBinding.expand(defPropNode.attribute("value"))
-                System.setProperty(propName, propValue)
+                String valueAttr = defPropNode.attribute("value")
+                if (valueAttr != null && !valueAttr.isEmpty()) System.setProperty(propName, SystemBinding.expand(valueAttr))
             }
         }
 
@@ -448,10 +449,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
         entityFacade.loadAllEntityLocations()
-        List<Map<String, Object>> entityInfoList = this.entityFacade.getAllEntitiesInfo(null, null, false, false)
-        // load/warm framework entities
-        entityFacade.loadFrameworkEntities()
-        logger.info("Loaded ${entityInfoList.size()} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
+        int entityCount = entityFacade.loadAllEntityDefinitions()
+        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
+        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
 
         // now that everything is started up, if configured check all entity tables
         entityFacade.checkInitDatasourceTables()
@@ -501,7 +501,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                stupidClassLoader.addJarFile(new JarFile(jarFile))
+                stupidClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -519,7 +519,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())))
+                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -539,6 +539,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
+    @Override
     boolean checkEmptyDb() {
         String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
         if (!emptyDbLoad || emptyDbLoad == 'none') return false
@@ -601,15 +602,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // shutdown scheduled executor pool
         try {
-            scheduledExecutor.shutdown()
-            logger.info("Scheduled executor pool shut down")
         } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
 
-        // shutdown worker pool
+        // shutdown scheduled executor and worker pools
         try {
+            scheduledExecutor.shutdown()
             workerPool.shutdown()
+
+            scheduledExecutor.awaitTermination(30, TimeUnit.SECONDS)
+            logger.info("Scheduled executor pool shut down")
+            workerPool.awaitTermination(30, TimeUnit.SECONDS)
             logger.info("Worker pool shut down")
-        } catch (Throwable t) { logger.error("Error in workerPool shutdown", t) }
+        } catch (Throwable t) { logger.error("Error in workerPool/scheduledExecutor shutdown", t) }
 
         // stop NotificationMessageListeners
         for (NotificationMessageListener nml in registeredNotificationMessageListeners) nml.destroy()
@@ -649,6 +653,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Error in destroy, called in finalize of ExecutionContextFactoryImpl", e)
         }
         super.finalize()
+    }
+
+    /** Trigger ECF destroy and re-init in another thread, after short wait */
+    void triggerDynamicReInit() {
+        Thread riThread = Thread.start("EcfiReInit", {
+            sleep(2000) // wait 2 seconds
+            Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
+        })
     }
 
     @Override
@@ -1053,6 +1065,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Nonnull ServletContext getServletContext() { internalServletContext }
     @Override
     @Nonnull ServerContainer getServerContainer() { internalServerContainer }
+    @Override
     void initServletContext(ServletContext sc) {
         internalServletContext = sc
         internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")

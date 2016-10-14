@@ -47,13 +47,11 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
     }
 
     @Override
-    boolean mapMatches(Map<String, Object> map) {
-        return conditionInternal.mapMatches(map)
-    }
+    boolean mapMatches(Map<String, Object> map) { return conditionInternal.mapMatches(map) }
     @Override
-    boolean mapMatchesAny(Map<String, Object> map) {
-        return conditionInternal.mapMatchesAny(map)
-    }
+    boolean mapMatchesAny(Map<String, Object> map) { return conditionInternal.mapMatchesAny(map) }
+    @Override
+    boolean mapKeysNotContained(Map<String, Object> map) { return conditionInternal.mapKeysNotContained(map) }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }
@@ -62,9 +60,7 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
     EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for DateCondition.") }
 
     @Override
-    String toString() {
-        return conditionInternal.toString()
-    }
+    String toString() { return conditionInternal.toString() }
 
     private EntityConditionImplBase makeConditionInternal() {
         ConditionField fromFieldCf = new ConditionField(fromFieldName)

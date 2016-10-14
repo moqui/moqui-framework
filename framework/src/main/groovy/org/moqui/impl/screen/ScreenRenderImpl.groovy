@@ -233,16 +233,20 @@ class ScreenRenderImpl implements ScreenRender {
         long renderStartTime = System.currentTimeMillis()
 
         rootScreenDef = sfi.getScreenDefinition(rootScreenLocation)
-        if (rootScreenDef == null) throw new BaseException("Could not find root screen at location [${rootScreenLocation}]")
+        if (rootScreenDef == null) throw new BaseException("Could not find root screen at location ${rootScreenLocation}")
 
-        if (logger.traceEnabled) logger.trace("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
+        if (logger.traceEnabled) logger.trace("Rendering screen ${rootScreenLocation} with path list ${originalScreenPathNameList}")
         // logger.info("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
 
         WebFacade web = ec.getWeb()
         String lastStandalone = web != null ? web.requestParameters.lastStandalone : null
         screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
                 "true".equals(lastStandalone))
+
+        // if the target of the url doesn't exist throw exception
+        screenUrlInfo.checkExists()
         screenUrlInstance = screenUrlInfo.getInstance(this, false)
+
         if (web != null) {
             // clear out the parameters used for special screen URL config
             if (lastStandalone != null && lastStandalone.length() > 0) web.requestParameters.lastStandalone = ""
@@ -1068,10 +1072,8 @@ class ScreenRenderImpl implements ScreenRender {
     }
     UrlInstance makeUrlByTypeGroovyNode(String origUrl, String urlType, MNode parameterParentNode,
                                 String expandTransitionUrlString) {
-        Boolean expandTransitionUrl = expandTransitionUrlString != null ? expandTransitionUrlString == "true" : null
-        /* TODO handle urlType=content
-            A content location (without the content://). URL will be one that can access that content.
-         */
+        Boolean expandTransitionUrl = expandTransitionUrlString != null ? "true".equals(expandTransitionUrlString) : null
+        /* TODO handle urlType=content: A content location (without the content://). URL will be one that can access that content. */
         ScreenUrlInfo suInfo
         String urlTypeExpanded = ec.resource.expand(urlType, "")
         switch (urlTypeExpanded) {
@@ -1091,8 +1093,8 @@ class ScreenRenderImpl implements ScreenRender {
         if (parameterParentNode != null) {
             String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
             if (parameterMapStr) {
-                def ctxParameterMap = ec.resource.expression(parameterMapStr, "")
-                if (ctxParameterMap) urli.addParameters((Map) ctxParameterMap)
+                Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
+                if (ctxParameterMap) urli.addParameters(ctxParameterMap)
             }
             for (MNode parameterNode in parameterParentNode.children("parameter")) {
                 String name = parameterNode.attribute("name")
@@ -1174,8 +1176,11 @@ class ScreenRenderImpl implements ScreenRender {
 
     Object getFieldValue(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
         MNode fieldNode = fieldNodeWrapper.getMNode()
-        String entryName = fieldNode.attribute("entry-name")
-        if (entryName != null && entryName.length() > 0) return ec.getResource().expression(entryName, null)
+
+        String fromAttr = fieldNode.attribute("from")
+        if (fromAttr == null || fromAttr.isEmpty()) fromAttr = fieldNode.attribute("entry-name")
+        if (fromAttr != null && fromAttr.length() > 0) return ec.resourceFacade.expression(fromAttr, null)
+
         String fieldName = fieldNode.attribute("name")
         Object value = null
 

@@ -97,8 +97,9 @@ class ScreenDefinition {
         // transition-include
         for (MNode transitionInclNode in screenNode.children("transition-include")) {
             ScreenDefinition includeScreen = ecfi.screenFacade.getScreenDefinition(transitionInclNode.attribute("location"))
+            if (includeScreen != null) dependsOnScreenLocations.add(includeScreen.location)
             MNode transitionNode = includeScreen?.getTransitionItem(transitionInclNode.attribute("name"), transitionInclNode.attribute("method"))?.transitionNode
-            if (transitionNode == null) throw new IllegalArgumentException("For transition-include could not find transition [${transitionInclNode.attribute("name")}] with method [${transitionInclNode.attribute("method")}] in screen at [${transitionInclNode.attribute("location")}]")
+            if (transitionNode == null) throw new IllegalArgumentException("For transition-include could not find transition ${transitionInclNode.attribute("name")} with method ${transitionInclNode.attribute("method")} in screen at ${transitionInclNode.attribute("location")}")
             TransitionItem ti = new TransitionItem(transitionNode, this)
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
@@ -434,20 +435,20 @@ class ScreenDefinition {
     ScreenSection getRootSection() { return rootSection }
     void render(ScreenRenderImpl sri, boolean isTargetScreen) {
         // NOTE: don't require authz if the screen doesn't require auth
-        String requireAuthentication = screenNode.attribute('require-authentication')
+        String requireAuthentication = screenNode.attribute("require-authentication")
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, sri.outputContentType)
-        if ("false".equals(screenNode.attribute('track-artifact-hit'))) aei.setTrackArtifactHit(false)
+        if ("false".equals(screenNode.attribute("track-artifact-hit"))) aei.setTrackArtifactHit(false)
         sri.ec.artifactExecutionFacade.pushInternal(aei, isTargetScreen ?
                 (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)
 
         boolean loggedInAnonymous = false
         if ("anonymous-all".equals(requireAuthentication)) {
             sri.ec.artifactExecutionFacade.setAnonymousAuthorizedAll()
-            loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
+            loggedInAnonymous = sri.ec.userFacade.loginAnonymousIfNoUser()
         } else if ("anonymous-view".equals(requireAuthentication)) {
             sri.ec.artifactExecutionFacade.setAnonymousAuthorizedView()
-            loggedInAnonymous = sri.ec.getUser().loginAnonymousIfNoUser()
+            loggedInAnonymous = sri.ec.userFacade.loginAnonymousIfNoUser()
         }
 
         // logger.info("Rendering screen ${location}, screenNode: \n${screenNode}")
@@ -456,23 +457,23 @@ class ScreenDefinition {
             rootSection.render(sri)
         } finally {
             sri.ec.artifactExecutionFacade.pop(aei)
-            if (loggedInAnonymous) ((UserFacadeImpl) sri.ec.getUser()).logoutAnonymousOnly()
+            if (loggedInAnonymous) sri.ec.userFacade.logoutAnonymousOnly()
         }
     }
 
     ScreenSection getSection(String sectionName) {
         ScreenSection ss = sectionByName.get(sectionName)
-        if (ss == null) throw new IllegalArgumentException("Could not find form [${sectionName}] in screen: ${getLocation()}")
+        if (ss == null) throw new BaseException("Could not find section ${sectionName} in screen ${getLocation()}")
         return ss
     }
     ScreenForm getForm(String formName) {
         ScreenForm sf = formByName.get(formName)
-        if (sf == null) throw new IllegalArgumentException("Could not find form [${formName}] in screen: ${getLocation()}")
+        if (sf == null) throw new BaseException("Could not find form ${formName} in screen ${getLocation()}")
         return sf
     }
     ScreenTree getTree(String treeName) {
         ScreenTree st = treeByName.get(treeName)
-        if (st == null) throw new IllegalArgumentException("Could not find tree [${treeName}] in screen: ${getLocation()}")
+        if (st == null) throw new BaseException("Could not find tree ${treeName} in screen ${getLocation()}")
         return st
     }
 

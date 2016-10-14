@@ -173,7 +173,11 @@ public class MNode {
     public Map<String, String> getAttributes() { return attributeMap; }
     public String attribute(String attrName) {
         String attrValue = attributeMap.get(attrName);
-        if (systemExpandAttributes) attrValue = SystemBinding.expand(attrValue);
+        if (systemExpandAttributes && attrValue != null && attrValue.contains("${")) {
+            attrValue = SystemBinding.expand(attrValue);
+            // system properties and environment variables don't generally change once initial init is done, so save expanded value
+            attributeMap.put(attrName, attrValue);
+        }
         return attrValue;
     }
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
@@ -411,6 +415,16 @@ public class MNode {
         }
         return null;
     }
+    public int firstIndex(String name) {
+        if (childList == null) return -1;
+        if (name == null) return childList.size() - 1;
+        int childListSize = childList.size();
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (name.equals(curChild.getName())) return i;
+        }
+        return -1;
+    }
     public int firstIndex(Closure<Boolean> condition) {
         if (childList == null) return -1;
         if (condition == null) return childList.size() - 1;
@@ -448,6 +462,13 @@ public class MNode {
         childList.add(child);
         child.parentNode = this;
     }
+    public void append(MNode child, int index) {
+        if (childrenByName != null) childrenByName.remove(child.nodeName);
+        if (childList == null) childList = new ArrayList<>();
+        if (index > childList.size()) index = childList.size();
+        childList.add(index, child);
+        child.parentNode = this;
+    }
     public MNode append(Node child) {
         MNode newNode = new MNode(child);
         append(newNode);
@@ -462,6 +483,12 @@ public class MNode {
         MNode newNode = new MNode(name, attributes, this, null, null);
         append(newNode);
         return newNode;
+    }
+
+    public MNode replace(int index, MNode child) {
+        if (childList == null || childList.size() < index)
+            throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
+        return childList.set(index, child);
     }
     public MNode replace(int index, String name, Map<String, String> attributes) {
         if (childList == null || childList.size() < index)

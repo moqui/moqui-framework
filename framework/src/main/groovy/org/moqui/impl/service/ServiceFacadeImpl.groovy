@@ -121,6 +121,8 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     ServiceRunner getServiceRunner(String type) { serviceRunners.get(type) }
+    // NOTE: this is used in the ServiceJobList screen
+    ScheduledJobRunner getJobRunner() { jobRunner }
 
     boolean isServiceDefined(String serviceName) {
         ServiceDefinition sd = getServiceDefinition(serviceName)

@@ -13,12 +13,15 @@
  */
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -43,7 +46,7 @@ public class MoquiStart {
         // now grab the first arg and see if it is a known command
         String firstArg = args.length > 0 ? args[0] : "";
 
-        if (firstArg.contains("-help") || "-?".equals(firstArg)) {
+        if (firstArg.endsWith("help") || "-?".equals(firstArg)) {
             // setup the class loader
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
@@ -60,21 +63,25 @@ public class MoquiStart {
             System.out.println("Current configuration file (moqui.conf): " + System.getProperty("moqui.conf"));
             System.out.println("To set these properties use something like: java -Dmoqui.conf=conf/MoquiProductionConf.xml -jar moqui.war ...");
             System.out.println("------------------------------------------------");
-            System.out.println("Usage: java -jar moqui.war [command] [arguments]");
-            System.out.println("-help, -? ---- Help (this text)");
-            System.out.println("-load -------- Run data loader");
-            System.out.println("    -types=<type>[,<type>] ------- Data types to load (can be anything, common are: seed, seed-initial, install, demo, ...)");
-            System.out.println("    -components=<name>[,<name>] -- Component names to load for data types; if none specified loads from all");
-            System.out.println("    -location=<location> --------- Location of data file to load");
-            System.out.println("    -timeout=<seconds> ----------- Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
-            System.out.println("    -dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
-            System.out.println("    -use-try-insert -------------- Try insert and update on error instead of checking for record first");
-            System.out.println("    -conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
+            System.out.println("Executable WAR : java -jar moqui.war [command] [arguments]");
+            System.out.println("Expanded WAR   : java -cp . MoquiStart [command] [arguments]");
+            System.out.println("help, -? ---- Help (this text)");
+            System.out.println("load -------- Run data loader");
+            System.out.println("    types=<type>[,<type>] ------- Data types to load (can be anything, common are: seed, seed-initial, install, demo, ...)");
+            System.out.println("    components=<name>[,<name>] -- Component names to load for data types; if none specified loads from all");
+            System.out.println("    location=<location> --------- Location of data file to load");
+            System.out.println("    timeout=<seconds> ----------- Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
+            System.out.println("    dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
+            System.out.println("    use-try-insert -------------- Try insert and update on error instead of checking for record first");
+            System.out.println("    disable-eeca ---------------- Disable Entity ECA rules");
+            System.out.println("    disable-audit-log ----------- Disable Entity Audit Log");
+            System.out.println("    raw ------------------------- Short for dummy-fks, use-try-insert, disable-eeca, disable-audit-log");
+            System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server");
-            System.out.println("    --port=<port> ---------------- The http listening port. Default is 8080");
-            System.out.println("    --threads=<max threads> ------ Maximum number of threads. Default is 100");
-            System.out.println("    --conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
+            System.out.println("    port=<port> ---------------- The http listening port. Default is 8080");
+            System.out.println("    threads=<max threads> ------ Maximum number of threads. Default is 100");
+            System.out.println("    conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("");
             System.exit(0);
         }
@@ -102,29 +109,31 @@ public class MoquiStart {
         }
 
         // make a list of arguments
-        List<String> argList = new ArrayList<>(Arrays.asList(args));
+        List<String> argList = Arrays.asList(args);
+        Map<String, String> argMap = new LinkedHashMap<>();
+        for (String arg: argList) {
+            // run twice to allow one or two dashes
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.contains("=")) {
+                argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
+            } else {
+                argMap.put(arg, "");
+            }
+        }
 
         // now run the command
-        if ("-load".equals(firstArg)) {
+        if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
-            Map<String, String> argMap = new HashMap<>();
-            for (String arg: argList) {
-                if (arg.startsWith("-")) arg = arg.substring(1);
-                if (arg.contains("=")) {
-                    argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
-                } else {
-                    argMap.put(arg, "");
-                }
-            }
             String overrideConf = argMap.get("conf");
             if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
 
             try {
-                System.out.println("Loading data with args [" + argMap + "]");
+                System.out.println("Loading data with args " + argMap);
                 Class<?> c = moquiStartLoader.loadClass("org.moqui.Moqui");
                 Method m = c.getMethod("loadData", Map.class);
                 m.invoke(null, argMap);
@@ -147,16 +156,6 @@ public class MoquiStart {
 
         initSystemProperties(moquiStartLoader, true);
 
-        Map<String, String> argMap = new HashMap<>();
-        for (String arg: argList) {
-            if (arg.startsWith("--")) arg = arg.substring(2);
-            int equalsIndex = arg.indexOf('=');
-            if (equalsIndex > 0) {
-                argMap.put(arg.substring(0, equalsIndex), arg.substring(equalsIndex+1));
-            } else {
-                argMap.put(arg, "");
-            }
-        }
         String overrideConf = argMap.get("conf");
         if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
 
@@ -174,7 +173,28 @@ public class MoquiStart {
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
 
-            Object server = serverClass.getConstructor(int.class).newInstance(port);
+            Class<?> httpConfigurationClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration");
+            Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
+            Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
+
+            Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
+            Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
+            Class<?> connectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ConnectionFactory");
+            Class<?> connectionFactoryArrayClass = Array.newInstance(connectionFactoryClass, 1).getClass();
+            Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
+
+            Object server = serverClass.getConstructor().newInstance();
+            Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
+            Object forwardedRequestCustomizer = forwardedRequestCustomizerClass.getConstructor().newInstance();
+            httpConfigurationClass.getMethod("addCustomizer", customizerClass).invoke(httpConfig, forwardedRequestCustomizer);
+
+            Object httpConnectionFactory = httpConnectionFactoryClass.getConstructor(httpConfigurationClass).newInstance(httpConfig);
+            Object connectionFactoryArray = Array.newInstance(connectionFactoryClass, 1);
+            Array.set(connectionFactoryArray, 0, httpConnectionFactory);
+            Object httpConnector = serverConnectorClass.getConstructor(serverClass, connectionFactoryArrayClass).newInstance(server, connectionFactoryArray);
+            serverConnectorClass.getMethod("setPort", int.class).invoke(httpConnector, port);
+
+            serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
             // WebApp
             Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
@@ -220,7 +240,15 @@ public class MoquiStart {
 
             /* The classpath dependent code we are running:
 
-            Server server = new Server(8080);
+            Server server = new Server();
+            HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
+            ForwardedRequestCustomizer forwardedRequestCustomizer = new ForwardedRequestCustomizer();
+            httpConfig.addCustomizer(forwardedRequestCustomizer);
+
+            HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory(httpConfig);
+            ServerConnector httpConnector = new ServerConnector(server, httpConnectionFactory);
+            httpConnector.setPort(port);
+            server.addConnector(httpConnector);
 
             // WebApp
             WebAppContext webapp = new WebAppContext();
@@ -259,10 +287,6 @@ public class MoquiStart {
             // see https://www.eclipse.org/jetty/documentation/9.3.x/http2.html
             // org.mortbay.jetty.alpn:alpn-boot:8.1.9.v20160720
             // http2-common, http2-hpack, http2-server
-
-            // try the Jetty HTTP client instead of Apache?
-            // see https://www.eclipse.org/jetty/documentation/9.3.x/http-client.html
-            // http2-client, http2-http-client-transport
 
             Server server = new Server();
             HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
@@ -406,6 +430,7 @@ public class MoquiStart {
         private URL wrapperUrl = null;
         private boolean isInWar = true;
         final ArrayList<JarFile> jarFileList = new ArrayList<>();
+        private final Map<String, URL> jarLocationByJarName = new HashMap<>();
         private final Map<String, Class<?>> classCache = new HashMap<>();
         private final Map<String, URL> resourceCache = new HashMap<>();
         private ProtectionDomain pd;
@@ -434,6 +459,7 @@ public class MoquiStart {
 
                     // allow for classes in the outerFile as well
                     jarFileList.add(outerFile);
+                    jarLocationByJarName.put(outerFile.getName(), wrapperUrl);
 
                     Enumeration<JarEntry> jarEntries = outerFile.entries();
                     while (jarEntries.hasMoreElements()) {
@@ -445,14 +471,18 @@ public class MoquiStart {
                         String jeName = je.getName().toLowerCase();
                         if (jeName.lastIndexOf(".jar") == jeName.length() - 4) {
                             File file = createTempFile(outerFile, je);
-                            jarFileList.add(new JarFile(file));
+                            JarFile newJarFile = new JarFile(file);
+                            jarFileList.add(newJarFile);
+                            jarLocationByJarName.put(newJarFile.getName(), file.toURI().toURL());
                         }
                     }
                 } else {
                     ArrayList<File> jarList = new ArrayList<>();
                     addJarFilesNested(wrapperFile, jarList, loadWebInf);
                     for (File jarFile : jarList) {
-                        jarFileList.add(new JarFile(jarFile));
+                        JarFile newJarFile = new JarFile(jarFile);
+                        jarFileList.add(newJarFile);
+                        jarLocationByJarName.put(newJarFile.getName(), jarFile.toURI().toURL());
                         // System.out.println("jar file: " + jarFile.getAbsolutePath());
                     }
                 }
@@ -461,6 +491,16 @@ public class MoquiStart {
             }
 
             if (reportJarsUnused) for (JarFile jf : jarFileList) jarsUnused.add(jf.getName());
+        }
+
+        private ConcurrentHashMap<URL, ProtectionDomain> protectionDomainByUrl = new ConcurrentHashMap<>();
+        private ProtectionDomain getProtectionDomain(URL jarLocation) {
+            ProtectionDomain curPd = protectionDomainByUrl.get(jarLocation);
+            if (curPd != null) return curPd;
+            CodeSource codeSource = new CodeSource(jarLocation, (Certificate[]) null);
+            ProtectionDomain newPd = new ProtectionDomain(codeSource, null, this, null);
+            ProtectionDomain existingPd = protectionDomainByUrl.putIfAbsent(jarLocation, newPd);
+            return existingPd != null ? existingPd : newPd;
         }
 
         private void addJarFilesNested(File file, List<File> jarList, boolean loadWebInf) {
@@ -630,7 +670,8 @@ public class MoquiStart {
                         continue;
                     }
                     // System.out.println("Class [" + classFileName + "] FOUND in jarFile [" + jarFile.getName() + "], size is " + (jeBytes == null ? "null" : jeBytes.length));
-                    c = defineClass(className, jeBytes, 0, jeBytes.length, pd);
+                    URL jarLocation = jarLocationByJarName.get(jarFile.getName());
+                    c = defineClass(className, jeBytes, 0, jeBytes.length, jarLocation != null ? getProtectionDomain(jarLocation) : pd);
                     break;
                 }
             }

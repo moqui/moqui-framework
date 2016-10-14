@@ -31,10 +31,11 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     protected final static int DS_RETRY_COUNT = 5
     protected final static long DS_RETRY_SLEEP = 5000
 
-    protected EntityFacadeImpl efi
-    protected MNode datasourceNode
+    protected EntityFacadeImpl efi = null
+    protected MNode datasourceNode = null
 
-    protected DataSource dataSource
+    protected DataSource dataSource = null
+    EntityFacadeImpl.DatasourceInfo dsi = null
 
 
     EntityDatasourceFactoryImpl() { }
@@ -46,10 +47,8 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
         this.datasourceNode = datasourceNode
 
         // init the DataSource
-
-        if (datasourceNode.hasChild("jndi-jdbc")) {
-            EntityFacadeImpl.DatasourceInfo dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
-
+        dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
+        if (dsi.jndiName != null && !dsi.jndiName.isEmpty()) {
             try {
                 InitialContext ic;
                 if (dsi.serverJndi) {
@@ -71,7 +70,7 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
             } catch (NamingException ne) {
                 logger.error("Error finding DataSource with name [${dsi.jndiName}] in JNDI server [${dsi.serverJndi ? dsi.serverJndi.attribute("context-provider-url") : "default"}] for datasource with group-name [${datasourceNode.attribute("group-name")}].", ne)
             }
-        } else if (datasourceNode.hasChild("inline-jdbc")) {
+        } else if (dsi.inlineJdbc != null) {
             // special thing for embedded derby, just set an system property; for derby.log, etc
             if (datasourceNode.attribute("database-conf-name") == "derby" && !System.getProperty("derby.system.home")) {
                 System.setProperty("derby.system.home", efi.ecfi.runtimePath + "/db/derby")

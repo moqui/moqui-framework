@@ -66,24 +66,7 @@ class MoquiContextListener implements ServletContextListener {
 
             logger.info("Loading Webapp '${moquiWebappName}' (${sc.getServletContextName()}) on ${webappId}, located at: ${webappRealPath}")
 
-            ecfi = new ExecutionContextFactoryImpl()
-
-            // check for an empty DB
-            if (ecfi.checkEmptyDb()) {
-                logger.warn("Data loaded into empty DB, re-initializing ExecutionContextFactory")
-                // destroy old ECFI
-                ecfi.destroy()
-                // create new ECFI to get framework init data from DB
-                ecfi = new ExecutionContextFactoryImpl()
-            }
-
-            // tell ECFI about the ServletContext
-            ecfi.initServletContext(sc)
-            // set SC attribute and Moqui class static reference
-            sc.setAttribute("executionContextFactory", ecfi)
-            // there should always be one ECF that is active for things like deserialize of EntityValue
-            // for a servlet that has a factory separate from the rest of the system DON'T call this (ie to have multiple ECFs on a single system)
-            Moqui.dynamicInit(ecfi)
+            ecfi = Moqui.dynamicInit(ExecutionContextFactoryImpl.class, sc)
 
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
 
