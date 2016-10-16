@@ -29,11 +29,11 @@ public class AggregationUtil {
     private static final BigDecimal BIG_DECIMAL_TWO = new BigDecimal(2);
 
     public static class AggregateField {
-        final String fieldName;
-        final AggregateFunction function;
-        final boolean subList, showTotal;
-        public AggregateField(String fn, AggregateFunction func, boolean sl, boolean st) {
-            fieldName = fn; function = func; subList = sl; showTotal = st;
+        public final String fieldName;
+        public final AggregateFunction function;
+        public final boolean groupBy, subList, showTotal;
+        public AggregateField(String fn, AggregateFunction func, boolean gb, boolean sl, boolean st) {
+            fieldName = fn; function = func; groupBy = gb; subList = sl; showTotal = st;
         }
     }
 

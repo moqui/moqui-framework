@@ -151,19 +151,6 @@ abstract class EntityFindBase implements EntityFind {
             getEntityDef().entityInfo.setFields(fields, simpleAndMap, true, null, null)
         }
         return this
-        /* maybe safer, not trying to do the single condition thing?
-        if (fields == null || fields.size() == 0) return this;
-        if (simpleAndMap == null) {
-            simpleAndMap = new LinkedHashMap<String, Object>()
-            if (singleCondField != null) {
-                simpleAndMap.put(singleCondField, singleCondValue)
-                singleCondField = (String) null
-                singleCondValue = null
-            }
-        }
-        getEntityDef().setFields(fields, simpleAndMap, true, null, null)
-        return this
-        */
     }
 
     @Override

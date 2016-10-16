@@ -1036,8 +1036,9 @@ class ScreenForm {
 
         boolean hasAggregate = false
         private String[] aggregateGroupFields = (String[]) null
-        private HashSet<String> showTotalFields = (HashSet<String>) null
         private AggregateField[] aggregateFields = (AggregateField[]) null
+        private Map<String, AggregateField> aggregateFieldMap = (Map<String, AggregateField>) null
+        private HashSet<String> showTotalFields = (HashSet<String>) null
 
         FormInstance() {
             formNode = getOrCreateFormNode()
@@ -1050,8 +1051,6 @@ class ScreenForm {
 
             // populate fieldNodeMap, get aggregation details
             ArrayList<String> aggregateGroupFieldList = (ArrayList<String>) null
-            HashSet<String> aggregateSubListFields = (HashSet<String>) null
-            Map<String, AggregateFunction> aggregateFieldFunctions = (Map<String, AggregateFunction>) null
 
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
@@ -1061,46 +1060,48 @@ class ScreenForm {
                 allFieldNames.add(fieldName)
 
                 if (isListForm) {
-                    String aggregate = fieldNode.attribute("aggregate")
-                    if (aggregate != null && !aggregate.isEmpty()) {
-                        if ("group-by".equals(aggregate)) {
-                            if (aggregateGroupFieldList == null) aggregateGroupFieldList = new ArrayList<>()
-                            aggregateGroupFieldList.add(fieldName)
-                        } else if ("sub-list".equals(aggregate)) {
-                            if (aggregateSubListFields == null) aggregateSubListFields = new HashSet<>()
-                            aggregateSubListFields.add(fieldName)
-                        } else {
-                            AggregateFunction af = AggregateFunction.valueOf(aggregate.toUpperCase())
-                            if (af != null) {
-                                if (aggregateFieldFunctions == null) aggregateFieldFunctions = new LinkedHashMap<>()
-                                aggregateFieldFunctions.put(fieldName, af)
-                            } else {
-                                logger.error("Ignoring aggregate ${aggregate} on field ${fieldName} in form ${formNode.attribute('name')}, not a valid function, group-by, or sub-list")
-                            }
-                        }
-                    }
-
-                    String showTotal = fieldNode.attribute("show-total")
-                    if ("true".equals(showTotal)) {
+                    boolean isShowTotal = "true".equals(fieldNode.attribute("show-total"))
+                    if (isShowTotal) {
                         if (showTotalFields == null) showTotalFields = new LinkedHashSet<>()
                         showTotalFields.add(fieldName)
                     }
+
+                    String aggregate = fieldNode.attribute("aggregate")
+                    if (aggregate != null && !aggregate.isEmpty()) {
+                        if (aggregateFieldMap == null) aggregateFieldMap = new HashMap<>()
+                        boolean isGroupBy = "group-by".equals(aggregate)
+                        boolean isSubList = !isGroupBy && "sub-list".equals(aggregate)
+                        AggregateFunction af = (AggregateFunction) null
+                        if (!isGroupBy && !isSubList) {
+                            af = AggregateFunction.valueOf(aggregate.toUpperCase())
+                            if (af == null) logger.error("Ignoring aggregate ${aggregate} on field ${fieldName} in form ${formNode.attribute('name')}, not a valid function, group-by, or sub-list")
+                        }
+                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, af, isGroupBy, isSubList, isShowTotal))
+                        if (isGroupBy) {
+                            if (aggregateGroupFieldList == null) aggregateGroupFieldList = new ArrayList<>()
+                            aggregateGroupFieldList.add(fieldName)
+                        }
+                    }
+
                 }
             }
-            hasAggregate = aggregateGroupFieldList != null || aggregateSubListFields != null || aggregateFieldFunctions != null
+            hasAggregate = aggregateFieldMap != null
             if (hasAggregate) {
                 if (aggregateGroupFieldList == null) {
                     throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
                 } else {
+                    // make group fields array
                     int groupFieldSize = aggregateGroupFieldList.size()
                     aggregateGroupFields = new String[groupFieldSize]
                     for (int i = 0; i < groupFieldSize; i++) aggregateGroupFields[i] = (String) aggregateGroupFieldList.get(i)
 
+                    // make AggregateField array for all fields
                     aggregateFields = new AggregateField[afnSize]
                     for (int i = 0; i < afnSize; i++) {
                         String fieldName = (String) allFieldNames.get(i)
-                        aggregateFields[i] = new AggregateField(fieldName, aggregateFieldFunctions?.get(fieldName),
-                                aggregateSubListFields?.contains(fieldName), showTotalFields?.contains(fieldName))
+                        AggregateField aggField = (AggregateField) aggregateFieldMap.get(fieldName)
+                        if (aggField == null) aggField = new AggregateField(fieldName, null, false, false, showTotalFields?.contains(fieldName))
+                        aggregateFields[i] = aggField
                     }
                 }
             }
@@ -1126,6 +1127,7 @@ class ScreenForm {
         boolean isHeaderForm() { return isFormHeaderFormVal }
         String getFormLocation() { return location }
 
+        FormListRenderInfo makeFormListRenderInfo() { return new FormListRenderInfo(this) }
         Object getListObject(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
             Object listObject
             if (entityFindNode != null) {
@@ -1699,6 +1701,59 @@ class ScreenForm {
             if (!formListFindId) return null
             return ec.entity.find("moqui.screen.form.FormListFind").condition("formListFindId", formListFindId).useCache(true).one()
         }
+    }
+    public static class FormListRenderInfo {
+        private final FormInstance formInstance
+        private ArrayList<ArrayList<FtlNodeWrapper>> allColInfo
+        private ArrayList<ArrayList<FtlNodeWrapper>> mainColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
+        private ArrayList<ArrayList<FtlNodeWrapper>> subColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
+        private boolean hasMainTotals = false
+        private boolean hasSubTotals = false
+
+        FormListRenderInfo(FormInstance formInstance) {
+            this.formInstance = formInstance
+            allColInfo = formInstance.getFormListColumnInfo()
+
+            if (formInstance.hasAggregate) {
+                subColInfo = new ArrayList<>()
+                int flciSize = allColInfo.size()
+                mainColInfo = new ArrayList<>(flciSize)
+                for (int i = 0; i < flciSize; i++) {
+                    ArrayList<FtlNodeWrapper> fieldList = (ArrayList<FtlNodeWrapper>) allColInfo.get(i)
+                    ArrayList<FtlNodeWrapper> newFieldList = new ArrayList<>()
+                    ArrayList<FtlNodeWrapper> subFieldList = (ArrayList<FtlNodeWrapper>) null
+                    int fieldListSize = fieldList.size()
+                    for (int fi = 0; fi < fieldListSize; fi++) {
+                        FtlNodeWrapper fieldNode = (FtlNodeWrapper) fieldList.get(fi)
+                        String fieldName = fieldNode.getMNode().attribute("name")
+                        AggregateField aggField = formInstance.aggregateFieldMap.get(fieldName)
+                        if (aggField != null && aggField.subList) {
+                            if (subFieldList == null) subFieldList = new ArrayList<>()
+                            subFieldList.add(fieldNode)
+                            if (aggField.showTotal) hasSubTotals = true
+                        } else {
+                            newFieldList.add(fieldNode)
+                            if (aggField.showTotal) hasMainTotals = true
+                        }
+                    }
+                    // if fieldList is not empty add to tempFormListColInfo
+                    if (newFieldList.size() > 0) mainColInfo.add(newFieldList)
+                    if (subFieldList != null) subColInfo.add(subFieldList)
+                }
+            } else {
+                // TODO set hasMainTotals
+            }
+        }
+
+        FormInstance getFormInstance() { return formInstance }
+        ArrayList<ArrayList<FtlNodeWrapper>> getAllColInfo() { return allColInfo }
+        ArrayList<ArrayList<FtlNodeWrapper>> getMainColInfo() { return mainColInfo }
+        ArrayList<ArrayList<FtlNodeWrapper>> getSubColInfo() { return subColInfo }
+
+        boolean getHasMainTotals() { return hasMainTotals }
+        boolean getHasSubTotals() { return hasSubTotals }
+
+        // TODO: move getFormListColumnCharWidths, getFieldsNotReferencedInFormListColumn, getFieldsInFormListColumnInfo methods here
     }
 
     static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
