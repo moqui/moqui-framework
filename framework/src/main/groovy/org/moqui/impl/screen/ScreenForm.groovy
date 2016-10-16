@@ -86,7 +86,7 @@ class ScreenForm {
             // setting parent to null so that this isn't found in addition to the literal form-* element
             internalFormNode = new MNode(baseFormNode.name, null)
             initForm(baseFormNode, internalFormNode)
-            internalFormInstance = new FormInstance()
+            internalFormInstance = new FormInstance(this)
         }
     }
 
@@ -1011,14 +1011,16 @@ class ScreenForm {
 
     FormInstance getFormInstance() {
         if (isDynamic || hasDbExtensions || isDisplayOnly()) {
-            return new FormInstance()
+            return new FormInstance(this)
         } else {
-            if (internalFormInstance == null) internalFormInstance = new FormInstance()
+            if (internalFormInstance == null) internalFormInstance = new FormInstance(this)
             return internalFormInstance
         }
     }
 
-    class FormInstance {
+    static class FormInstance {
+        private ScreenForm screenForm
+        private ExecutionContextFactoryImpl ecfi
         private MNode formNode
         private FtlNodeWrapper ftlFormNode
         private boolean isListForm
@@ -1040,8 +1042,10 @@ class ScreenForm {
         private Map<String, AggregateField> aggregateFieldMap = (Map<String, AggregateField>) null
         private HashSet<String> showTotalFields = (HashSet<String>) null
 
-        FormInstance() {
-            formNode = getOrCreateFormNode()
+        FormInstance(ScreenForm screenForm) {
+            this.screenForm = screenForm
+            ecfi = screenForm.ecfi
+            formNode = screenForm.getOrCreateFormNode()
             ftlFormNode = FtlNodeWrapper.wrapNode(formNode)
             isListForm = "form-list".equals(formNode.getName())
 
@@ -1119,85 +1123,12 @@ class ScreenForm {
                 formListColInfoList = makeFormListColumnInfo()
             }
         }
-        // MNode getFormMNode() { return formNode }
+
         FtlNodeWrapper getFtlFormNode() { return ftlFormNode }
         FtlNodeWrapper getFtlFieldNode(String fieldName) { return fieldFtlNodeMap.get(fieldName) }
-
-        boolean isUpload() { return isUploadForm }
-        boolean isHeaderForm() { return isFormHeaderFormVal }
-        String getFormLocation() { return location }
-
+        String getFormLocation() { return screenForm.location }
         FormListRenderInfo makeFormListRenderInfo() { return new FormListRenderInfo(this) }
-        Object getListObject(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
-            Object listObject
-            if (entityFindNode != null) {
-                EntityFind ef = ecfi.entityFacade.find(entityFindNode)
-
-                // if no select-field add one for each form field displayed in a column that is a valid entity field name
-                // if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
-                // always do this even if there are some entity-find.select-field elements, support specifying some fields that are always selected
-                LinkedHashSet<String> fieldSet = getFieldsInFormListColumnInfo(curFormListColumnInfo)
-                for (String fieldName in fieldSet) ef.selectField(fieldName)
-
-                // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
-
-                // run the query
-                EntityList efList = ef.list()
-                // if cached do the date filter after query
-                boolean useCache = ef.shouldCache()
-                if (useCache) for (MNode df in entityFindNode.children("date-filter")) {
-                    Timestamp validDate = (Timestamp) null
-                    String validDateAttr = df.attribute("valid-date")
-                    if (validDateAttr != null && !validDateAttr.isEmpty()) validDate = ecfi.resourceFacade.expression(validDateAttr, "") as Timestamp
-                    efList.filterByDate(df.attribute("from-field-name") ?: "fromDate", df.attribute("thru-field-name") ?: "thruDate",
-                            validDate, "true".equals(df.attribute("ignore-if-empty")))
-                }
-
-                // put in context for external use
-                ContextStack context = ecfi.getEci().contextStack
-                String listName = formNode.attribute("list")
-                context.put(listName, efList)
-
-                // handle pagination, etc parameters like XML Actions entity-find
-                MNode sfiNode = entityFindNode.first("search-form-inputs")
-                boolean doPaginate = sfiNode != null && !"false".equals(sfiNode.attribute("paginate"))
-                if (doPaginate) {
-                    long count, pageSize, pageIndex
-                    if (useCache) {
-                        count = efList.size()
-                        efList.filterByLimit(sfiNode.attribute("input-fields-map"), true)
-                        pageSize = efList.pageSize
-                        pageIndex = efList.pageIndex
-                    } else {
-                        count = ef.count()
-                        pageIndex = ef.pageIndex
-                        if (ef.limit == null) { pageSize = count } else { pageSize = ef.pageSize }
-                    }
-                    long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
-                    long pageRangeLow = (pageIndex * pageSize) + 1
-                    long pageRangeHigh = (pageIndex * pageSize) + pageSize
-                    if (pageRangeHigh > count) pageRangeHigh = count
-
-                    context.put(listName.concat("Count"), count)
-                    context.put(listName.concat("PageIndex"), pageIndex)
-                    context.put(listName.concat("PageSize"), pageSize)
-                    context.put(listName.concat("PageMaxIndex"), maxIndex)
-                    context.put(listName.concat("PageRangeLow"), pageRangeLow)
-                    context.put(listName.concat("PageRangeHigh"), pageRangeHigh)
-                }
-
-                listObject = efList
-            } else {
-                String listAttr = formNode.attribute("list")
-                listObject = ecfi.resourceFacade.expression(listAttr, "")
-            }
-
-            if (hasAggregate) {
-                return AggregationUtil.aggregateList(listObject, aggregateFields, aggregateGroupFields)
-            } else {
-                return listObject
-            }
-        }
+        boolean isUpload() { return isUploadForm }
 
         MNode getFieldValidateNode(String fieldName) {
             MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
@@ -1214,6 +1145,44 @@ class ScreenForm {
                 if (ed == null) throw new IllegalArgumentException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
                 MNode efNode = ed.getFieldNode((String) fieldNode.attribute('validate-field') ?: fieldName)
                 return efNode
+            }
+            return null
+        }
+        String getFieldValidationClasses(String fieldName) {
+            MNode validateNode = getFieldValidateNode(fieldName)
+            if (validateNode == null) return ""
+
+            Set<String> vcs = new HashSet()
+            if (validateNode.name == "parameter") {
+                MNode parameterNode = validateNode
+                if (parameterNode.attribute('required') == "true") vcs.add("required")
+                if (parameterNode.hasChild("number-integer")) vcs.add("number")
+                if (parameterNode.hasChild("number-decimal")) vcs.add("number")
+                if (parameterNode.hasChild("text-email")) vcs.add("email")
+                if (parameterNode.hasChild("text-url")) vcs.add("url")
+                if (parameterNode.hasChild("text-digits")) vcs.add("digits")
+                if (parameterNode.hasChild("credit-card")) vcs.add("creditcard")
+
+                String type = parameterNode.attribute('type')
+                if (type && (type.endsWith("BigDecimal") || type.endsWith("BigInteger") || type.endsWith("Long") ||
+                        type.endsWith("Integer") || type.endsWith("Double") || type.endsWith("Float") ||
+                        type.endsWith("Number"))) vcs.add("number")
+            } else if (validateNode.name == "field") {
+                MNode fieldNode = validateNode
+                String type = fieldNode.attribute('type')
+                if (type && (type.startsWith("number-") || type.startsWith("currency-"))) vcs.add("number")
+                // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
+            }
+
+            StringBuilder sb = new StringBuilder()
+            for (String vc in vcs) { if (sb) sb.append(" "); sb.append(vc); }
+            return sb.toString()
+        }
+        Map getFieldValidationRegexpInfo(String fieldName) {
+            MNode validateNode = getFieldValidateNode(fieldName)
+            if (validateNode?.hasChild("matches")) {
+                MNode matchesNode = validateNode.first("matches")
+                return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]
             }
             return null
         }
@@ -1278,13 +1247,13 @@ class ScreenForm {
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
             EntityValue fcu = ecfi.entityFacade.find("moqui.screen.form.FormConfigUser")
-                    .condition("userId", ec.user.userId).condition("formLocation", location).useCache(true).one()
+                    .condition("userId", ec.user.userId).condition("formLocation", screenForm.location).useCache(true).one()
             if (fcu != null) return (String) fcu.getNoCheckSimple("formConfigId")
 
             // Maybe not do this at all and let it be a future thing where the user selects an active one from options available through groups
             EntityList fcugvList = ecfi.entityFacade.find("moqui.screen.form.FormConfigUserGroupView")
                     .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
-                    .condition("formLocation", location).useCache(true).list()
+                    .condition("formLocation", screenForm.location).useCache(true).list()
             if (fcugvList.size() > 0) {
                 // FUTURE: somehow make a better choice than just the first? see note above too...
                 return (String) fcugvList.get(0).getNoCheckSimple("formConfigId")
@@ -1293,8 +1262,397 @@ class ScreenForm {
             return null
         }
 
-        ArrayList<Integer> getFormListColumnCharWidths(ArrayList<ArrayList<FtlNodeWrapper>> formListColumnInfo, int originalLineWidth) {
-            int numCols = formListColumnInfo.size()
+        ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
+            ExecutionContextImpl eci = ecfi.getEci()
+            String formConfigId = getUserActiveFormConfigId(eci)
+            if (formConfigId) {
+                // don't remember the results of this, is per-user so good only once (FormInstance is NOT per user!)
+                return makeDbFormListColumnInfo(formConfigId, eci)
+            }
+            return formListColInfoList
+        }
+        /** convert form-list-column elements into a list, if there are no form-list-column elements uses fields limiting
+         *    by logic about what actually gets rendered (so result can be used for display regardless of form def) */
+        private ArrayList<ArrayList<FtlNodeWrapper>> makeFormListColumnInfo() {
+            ArrayList<MNode> formListColumnList = formNode.children("form-list-column")
+            int flcListSize = formListColumnList != null ? formListColumnList.size() : 0
+
+            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
+
+            if (flcListSize > 0) {
+                // populate fields under columns
+                for (int ci = 0; ci < flcListSize; ci++) {
+                    MNode flcNode = (MNode) formListColumnList.get(ci)
+                    ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+                    ArrayList<MNode> fieldRefNodes = flcNode.children("field-ref")
+                    int fieldRefSize = fieldRefNodes.size()
+                    for (int fi = 0; fi < fieldRefSize; fi++) {
+                        MNode frNode = (MNode) fieldRefNodes.get(fi)
+                        String fieldName = frNode.attribute("name")
+                        MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
+                        if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${location}")
+                        // skip hidden fields, they are handled separately
+                        if (isListFieldHidden(fieldNode)) continue
+
+                        colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+                    }
+                    if (colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
+                }
+            } else {
+                // create a column for each displayed field
+                int afnSize = allFieldNodes.size()
+                for (int i = 0; i < afnSize; i++) {
+                    MNode fieldNode = (MNode) allFieldNodes.get(i)
+                    // skip hidden fields, they are handled separately
+                    if (isListFieldHidden(fieldNode)) continue
+
+                    ArrayList<FtlNodeWrapper> singleFieldColList = new ArrayList<>()
+                    singleFieldColList.add(FtlNodeWrapper.wrapNode(fieldNode))
+                    colInfoList.add(singleFieldColList)
+                }
+            }
+
+            return colInfoList
+        }
+        private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
+            EntityList formConfigFieldList = ecfi.entityFacade.find("moqui.screen.form.FormConfigField")
+                    .condition("formConfigId", formConfigId).orderBy("positionIndex").orderBy("positionSequence").useCache(true).list()
+
+            // NOTE: calling code checks to see if this is not empty
+            int fcfListSize = formConfigFieldList.size()
+
+            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
+            Set<String> tempFieldsInFormListColumns = new HashSet()
+
+            // populate fields under columns
+            int curColIndex = -1;
+            ArrayList<FtlNodeWrapper> colFieldNodes = null
+            for (int ci = 0; ci < fcfListSize; ci++) {
+                EntityValue fcfValue = (EntityValue) formConfigFieldList.get(ci)
+                int columnIndex = fcfValue.getNoCheckSimple("positionIndex") as int
+                if (columnIndex > curColIndex) {
+                    if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
+                    curColIndex = columnIndex
+                    colFieldNodes = new ArrayList<>()
+                }
+                String fieldName = (String) fcfValue.getNoCheckSimple("fieldName")
+                MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
+                if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${location}")
+                // skip hidden fields, they are handled separately
+                if (isListFieldHidden(fieldNode)) continue
+
+                tempFieldsInFormListColumns.add(fieldName)
+                colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+            }
+            // Add the final field (if defined)
+            if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
+
+            return colInfoList
+        }
+
+        ArrayList<EntityValue> makeFormListFindFields(String formListFindId, ExecutionContext ec) {
+            ContextStack cs = ec.context
+            List<EntityValue> valueList = new ArrayList<>()
+            for (MNode fieldNode in allFieldNodes) {
+                // skip submit
+                if (isHeaderSubmitField(fieldNode)) continue
+
+                String fn = fieldNode.attribute("name")
+
+                if (cs.containsKey(fn) || cs.containsKey(fn + "_op")) {
+                    // this will handle text-line, text-find, etc
+                    Object value = cs.get(fn)
+                    if (value != null && StupidJavaUtilities.isEmpty(value)) value = null
+                    String op = cs.get(fn + "_op") ?: "equals"
+                    boolean not = (cs.get(fn + "_not") == "Y" || cs.get(fn + "_not") == "true")
+                    boolean ic = (cs.get(fn + "_ic") == "Y" || cs.get(fn + "_ic") == "true")
+
+                    // for all operators other than empty skip this if there is no value
+                    if (value == null && op != "empty") continue
+
+                    EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
+                    ev.formListFindId = formListFindId
+                    ev.fieldName = fn
+                    ev.fieldValue = value
+                    ev.fieldOperator = op
+                    ev.fieldNot = not ? "Y" : "N"
+                    ev.fieldIgnoreCase = ic ? "Y" : "N"
+                    valueList.add(ev)
+                } else if (cs.get(fn + "_period")) {
+                    EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
+                    ev.formListFindId = formListFindId
+                    ev.fieldName = fn
+                    ev.fieldPeriod = cs.get(fn + "_period")
+                    ev.fieldPerOffset = (cs.get(fn + "_poffset") ?: "0") as Long
+                    valueList.add(ev)
+                } else {
+                    // these will handle range-find and date-find
+                    String fromValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_from"))
+                    String thruValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_thru"))
+                    if (fromValue || thruValue) {
+                        EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
+                        ev.formListFindId = formListFindId
+                        ev.fieldName = fn
+                        ev.fieldFrom = fromValue
+                        ev.fieldThru = thruValue
+                        valueList.add(ev)
+                    }
+                }
+            }
+            /* always look for an orderByField parameter too
+            String orderByString = cs?.get("orderByField") ?: defaultOrderBy
+            if (orderByString != null && orderByString.length() > 0) {
+                ec.context.put("orderByField", orderByString)
+                this.orderBy(orderByString)
+            }
+            */
+            return valueList
+        }
+    }
+    public static class FormListRenderInfo {
+        private final FormInstance formInstance
+        private final ScreenForm screenForm
+        private ExecutionContextFactoryImpl ecfi
+        private ArrayList<ArrayList<FtlNodeWrapper>> allColInfo
+        private ArrayList<ArrayList<FtlNodeWrapper>> mainColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
+        private ArrayList<ArrayList<FtlNodeWrapper>> subColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
+        private boolean hasMainTotals = false
+        private boolean hasSubTotals = false
+        private LinkedHashSet<String> displayedFieldSet
+
+        FormListRenderInfo(FormInstance formInstance) {
+            this.formInstance = formInstance
+            screenForm = formInstance.screenForm
+            ecfi = formInstance.ecfi
+            // NOTE: this can be different for each form rendering depending on user settings
+            allColInfo = formInstance.getFormListColumnInfo()
+            // make a set of fields actually displayed
+            displayedFieldSet = new LinkedHashSet<>()
+            int outerSize = allColInfo.size()
+            for (int oi = 0; oi < outerSize; oi++) {
+                ArrayList<FtlNodeWrapper> innerList = (ArrayList<FtlNodeWrapper>) allColInfo.get(oi)
+                if (innerList == null) continue
+                int innerSize = innerList.size()
+                for (int ii = 0; ii < innerSize; ii++) {
+                    FtlNodeWrapper ftlNode = (FtlNodeWrapper) innerList.get(ii)
+                    if (ftlNode != null) displayedFieldSet.add(ftlNode.getMNode().attribute("name"))
+                }
+            }
+
+            if (formInstance.hasAggregate) {
+                subColInfo = new ArrayList<>()
+                int flciSize = allColInfo.size()
+                mainColInfo = new ArrayList<>(flciSize)
+                for (int i = 0; i < flciSize; i++) {
+                    ArrayList<FtlNodeWrapper> fieldList = (ArrayList<FtlNodeWrapper>) allColInfo.get(i)
+                    ArrayList<FtlNodeWrapper> newFieldList = new ArrayList<>()
+                    ArrayList<FtlNodeWrapper> subFieldList = (ArrayList<FtlNodeWrapper>) null
+                    int fieldListSize = fieldList.size()
+                    for (int fi = 0; fi < fieldListSize; fi++) {
+                        FtlNodeWrapper fieldNode = (FtlNodeWrapper) fieldList.get(fi)
+                        String fieldName = fieldNode.getMNode().attribute("name")
+                        AggregateField aggField = formInstance.aggregateFieldMap.get(fieldName)
+                        if (aggField != null && aggField.subList) {
+                            if (subFieldList == null) subFieldList = new ArrayList<>()
+                            subFieldList.add(fieldNode)
+                            if (formInstance.showTotalFields.contains(fieldName)) hasSubTotals = true
+                        } else {
+                            newFieldList.add(fieldNode)
+                            if (formInstance.showTotalFields.contains(fieldName)) hasMainTotals = true
+                        }
+                    }
+                    // if fieldList is not empty add to tempFormListColInfo
+                    if (newFieldList.size() > 0) mainColInfo.add(newFieldList)
+                    if (subFieldList != null) subColInfo.add(subFieldList)
+                }
+            } else {
+                hasMainTotals = formInstance.showTotalFields != null && formInstance.showTotalFields.size() > 0
+            }
+        }
+
+        FtlNodeWrapper getFtlFormNode() { return formInstance.ftlFormNode }
+        FtlNodeWrapper getFtlFieldNode(String fieldName) { return formInstance.fieldFtlNodeMap.get(fieldName) }
+
+        boolean isHeaderForm() { return formInstance.isFormHeaderFormVal }
+        String getFormLocation() { return formInstance.screenForm.location }
+
+        FormInstance getFormInstance() { return formInstance }
+        ArrayList<ArrayList<FtlNodeWrapper>> getAllColInfo() { return allColInfo }
+        ArrayList<ArrayList<FtlNodeWrapper>> getMainColInfo() { return mainColInfo ?: allColInfo }
+        ArrayList<ArrayList<FtlNodeWrapper>> getSubColInfo() { return subColInfo }
+        ArrayList<FtlNodeWrapper> getListHiddenFieldList() { return formInstance.getListHiddenFieldList() }
+        LinkedHashSet<String> getDisplayedFields() { return displayedFieldSet }
+
+        boolean getHasMainTotals() { return hasMainTotals }
+        boolean getHasSubTotals() { return hasSubTotals }
+
+        Object getListObject() {
+            Object listObject
+            String listName = formInstance.formNode.attribute("list")
+            MNode entityFindNode = screenForm.entityFindNode
+            if (entityFindNode != null) {
+                EntityFind ef = ecfi.entityFacade.find(entityFindNode)
+
+                // if no select-field add one for each form field displayed in a column that is a valid entity field name
+                // if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
+                // always do this even if there are some entity-find.select-field elements, support specifying some fields that are always selected
+                for (String fieldName in displayedFieldSet) ef.selectField(fieldName)
+
+                // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
+
+                // run the query
+                EntityList efList = ef.list()
+                // if cached do the date filter after query
+                boolean useCache = ef.shouldCache()
+                if (useCache) for (MNode df in entityFindNode.children("date-filter")) {
+                    Timestamp validDate = (Timestamp) null
+                    String validDateAttr = df.attribute("valid-date")
+                    if (validDateAttr != null && !validDateAttr.isEmpty()) validDate = ecfi.resourceFacade.expression(validDateAttr, "") as Timestamp
+                    efList.filterByDate(df.attribute("from-field-name") ?: "fromDate", df.attribute("thru-field-name") ?: "thruDate",
+                            validDate, "true".equals(df.attribute("ignore-if-empty")))
+                }
+
+                // put in context for external use
+                ContextStack context = ecfi.getEci().contextStack
+                context.put(listName, efList)
+
+                // handle pagination, etc parameters like XML Actions entity-find
+                MNode sfiNode = entityFindNode.first("search-form-inputs")
+                boolean doPaginate = sfiNode != null && !"false".equals(sfiNode.attribute("paginate"))
+                if (doPaginate) {
+                    long count, pageSize, pageIndex
+                    if (useCache) {
+                        count = efList.size()
+                        efList.filterByLimit(sfiNode.attribute("input-fields-map"), true)
+                        pageSize = efList.pageSize
+                        pageIndex = efList.pageIndex
+                    } else {
+                        count = ef.count()
+                        pageIndex = ef.pageIndex
+                        if (ef.limit == null) { pageSize = count } else { pageSize = ef.pageSize }
+                    }
+                    long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
+                    long pageRangeLow = (pageIndex * pageSize) + 1
+                    long pageRangeHigh = (pageIndex * pageSize) + pageSize
+                    if (pageRangeHigh > count) pageRangeHigh = count
+
+                    context.put(listName.concat("Count"), count)
+                    context.put(listName.concat("PageIndex"), pageIndex)
+                    context.put(listName.concat("PageSize"), pageSize)
+                    context.put(listName.concat("PageMaxIndex"), maxIndex)
+                    context.put(listName.concat("PageRangeLow"), pageRangeLow)
+                    context.put(listName.concat("PageRangeHigh"), pageRangeHigh)
+                }
+
+                listObject = efList
+            } else {
+                listObject = ecfi.resourceFacade.expression(listName, "")
+            }
+
+            if (formInstance.hasAggregate) {
+                return AggregationUtil.aggregateList(listObject, formInstance.aggregateFields, formInstance.aggregateGroupFields)
+            } else {
+                return listObject
+            }
+        }
+
+        void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
+            // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
+            MNode formNode = formInstance.formNode
+            String listEntryStr = formNode.attribute('list-entry')
+            ExecutionContextImpl eci = sri.ec
+            ContextStack context = eci.contextStack
+            if (listEntryStr) {
+                context.put(listEntryStr, listEntry)
+                context.put(listEntryStr + "_index", index)
+                context.put(listEntryStr + "_has_next", hasNext)
+            } else {
+                if (listEntry instanceof EntityValueBase) {
+                    context.putAll(((EntityValueBase) listEntry).getValueMap())
+                } else if (listEntry instanceof Map) {
+                    context.putAll((Map) listEntry)
+                } else {
+                    context.put("listEntry", listEntry)
+                }
+                String listStr = formNode.attribute('list')
+                context.put(listStr + "_index", index)
+                context.put(listStr + "_has_next", hasNext)
+                context.put(listStr + "_entry", listEntry)
+            }
+            if (screenForm.rowActions != null) screenForm.rowActions.run(eci)
+        }
+
+        List<Map<String, Object>> getUserFormListFinds(ExecutionContext ec) {
+            EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUser")
+                    .condition("userId", ec.user.userId).useCache(true).list()
+            EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
+                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet).useCache(true).list()
+            Set<String> userOnlyFlfIdSet = new HashSet<>()
+            Set<String> formListFindIdSet = new HashSet<>()
+            for (EntityValue ev in flfuList) {
+                userOnlyFlfIdSet.add((String) ev.formListFindId)
+                formListFindIdSet.add((String) ev.formListFindId)
+            }
+            for (EntityValue ev in flfugList) formListFindIdSet.add((String) ev.formListFindId)
+
+
+            // get info for each formListFindId
+            List<Map<String, Object>> flfInfoList = new LinkedList<>()
+            for (String formListFindId in formListFindIdSet)
+                flfInfoList.add(getFormListFindInfo(formListFindId, ec, userOnlyFlfIdSet))
+
+            // sort by description
+            StupidUtilities.orderMapList(flfInfoList, ["description"])
+
+            return flfInfoList
+        }
+        EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
+            if (ec.web == null) return null
+            String formListFindId = ec.web.requestParameters.get("formListFindId")
+            if (!formListFindId) return null
+            return ec.entity.find("moqui.screen.form.FormListFind").condition("formListFindId", formListFindId).useCache(true).one()
+        }
+        String getOrderByActualJsString(String originalOrderBy) {
+            if (originalOrderBy == null || originalOrderBy.length() == 0) return "";
+            // strip square braces if there are any
+            if (originalOrderBy.startsWith("[")) originalOrderBy = originalOrderBy.substring(1, originalOrderBy.length() - 1)
+            originalOrderBy = originalOrderBy.replace(" ", "")
+            List<String> orderByList = Arrays.asList(originalOrderBy.split(","))
+            StringBuilder sb = new StringBuilder()
+            for (String obf in orderByList) {
+                if (sb.length() > 0) sb.append(",")
+                EntityJavaUtil.FieldOrderOptions foo = EntityJavaUtil.makeFieldOrderOptions(obf)
+                MNode curFieldNode = formInstance.fieldNodeMap.get(foo.getFieldName())
+                if (curFieldNode == null) continue
+                MNode headerFieldNode = curFieldNode.first("header-field")
+                if (headerFieldNode == null) continue
+                String showOrderBy = headerFieldNode.attribute("show-order-by")
+                sb.append("'").append(foo.descending ? "-" : "+")
+                if ("case-insensitive".equals(showOrderBy)) sb.append("^")
+                sb.append(foo.getFieldName()).append("'")
+            }
+            if (sb.length() == 0) return ""
+            return "[" + sb.toString() + "]"
+        }
+
+        ArrayList<FtlNodeWrapper> getFieldsNotReferencedInFormListColumn() {
+            ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+            ArrayList<MNode> allFieldNodes = formInstance.allFieldNodes
+            int afnSize = allFieldNodes.size()
+            for (int i = 0; i < afnSize; i++) {
+                MNode fieldNode = (MNode) allFieldNodes.get(i)
+                // skip hidden fields, they are handled separately
+                if (formInstance.isListFieldHidden(fieldNode)) continue
+                String fieldName = fieldNode.attribute("name")
+                if (!displayedFieldSet.contains(fieldName))
+                    colFieldNodes.add(formInstance.fieldFtlNodeMap.get(fieldName))
+            }
+
+            return colFieldNodes
+        }
+
+        ArrayList<Integer> getFormListColumnCharWidths(int originalLineWidth) {
+            int numCols = allColInfo.size()
             ArrayList<Integer> charWidths = new ArrayList<>(numCols)
             for (int i = 0; i < numCols; i++) charWidths.add(null)
             if (originalLineWidth == 0) originalLineWidth = 132
@@ -1308,7 +1666,7 @@ class ScreenForm {
             int fixedColsWidth = 0
             int fixedColsCount = 0
             for (int i = 0; i < numCols; i++) {
-                ArrayList<FtlNodeWrapper> colNodes = (ArrayList<FtlNodeWrapper>) formListColumnInfo.get(i)
+                ArrayList<FtlNodeWrapper> colNodes = (ArrayList<FtlNodeWrapper>) allColInfo.get(i)
                 int charWidth = -1
                 BigDecimal percentWidth = null
                 for (int j = 0; j < colNodes.size(); j++) {
@@ -1400,360 +1758,6 @@ class ScreenForm {
             logger.info("Text mode form-list: numCols=${numCols}, percentColsUsed=${percentColsUsed}, widthForPercentCols=${widthForPercentCols}, percentColsCount=${percentColsCount}\npercentWidths: ${percentWidths}\ncharWidths: ${charWidths}")
             return charWidths
         }
-
-        ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
-            ExecutionContextImpl eci = ecfi.getEci()
-            String formConfigId = getUserActiveFormConfigId(eci)
-            if (formConfigId) {
-                // don't remember the results of this, is per-user so good only once (FormInstance is NOT per user!)
-                return makeDbFormListColumnInfo(formConfigId, eci)
-            }
-            return formListColInfoList
-        }
-        /** convert form-list-column elements into a list, if there are no form-list-column elements uses fields limiting
-         *    by logic about what actually gets rendered (so result can be used for display regardless of form def) */
-        private ArrayList<ArrayList<FtlNodeWrapper>> makeFormListColumnInfo() {
-            ArrayList<MNode> formListColumnList = formNode.children("form-list-column")
-            int flcListSize = formListColumnList != null ? formListColumnList.size() : 0
-
-            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
-
-            if (flcListSize > 0) {
-                // populate fields under columns
-                for (int ci = 0; ci < flcListSize; ci++) {
-                    MNode flcNode = (MNode) formListColumnList.get(ci)
-                    ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
-                    ArrayList<MNode> fieldRefNodes = flcNode.children("field-ref")
-                    int fieldRefSize = fieldRefNodes.size()
-                    for (int fi = 0; fi < fieldRefSize; fi++) {
-                        MNode frNode = (MNode) fieldRefNodes.get(fi)
-                        String fieldName = frNode.attribute("name")
-                        MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-                        if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${location}")
-                        // skip hidden fields, they are handled separately
-                        if (isListFieldHidden(fieldNode)) continue
-
-                        colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
-                    }
-                    if (colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
-                }
-            } else {
-                // create a column for each displayed field
-                int afnSize = allFieldNodes.size()
-                for (int i = 0; i < afnSize; i++) {
-                    MNode fieldNode = (MNode) allFieldNodes.get(i)
-                    // skip hidden fields, they are handled separately
-                    if (isListFieldHidden(fieldNode)) continue
-
-                    ArrayList<FtlNodeWrapper> singleFieldColList = new ArrayList<>()
-                    singleFieldColList.add(FtlNodeWrapper.wrapNode(fieldNode))
-                    colInfoList.add(singleFieldColList)
-                }
-            }
-
-            return colInfoList
-        }
-        private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
-            EntityList formConfigFieldList = ecfi.entityFacade.find("moqui.screen.form.FormConfigField")
-                    .condition("formConfigId", formConfigId).orderBy("positionIndex").orderBy("positionSequence").useCache(true).list()
-
-            // NOTE: calling code checks to see if this is not empty
-            int fcfListSize = formConfigFieldList.size()
-
-            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
-            Set<String> tempFieldsInFormListColumns = new HashSet()
-
-            // populate fields under columns
-            int curColIndex = -1;
-            ArrayList<FtlNodeWrapper> colFieldNodes = null
-            for (int ci = 0; ci < fcfListSize; ci++) {
-                EntityValue fcfValue = (EntityValue) formConfigFieldList.get(ci)
-                int columnIndex = fcfValue.getNoCheckSimple("positionIndex") as int
-                if (columnIndex > curColIndex) {
-                    if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
-                    curColIndex = columnIndex
-                    colFieldNodes = new ArrayList<>()
-                }
-                String fieldName = (String) fcfValue.getNoCheckSimple("fieldName")
-                MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-                if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${location}")
-                // skip hidden fields, they are handled separately
-                if (isListFieldHidden(fieldNode)) continue
-
-                tempFieldsInFormListColumns.add(fieldName)
-                colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
-            }
-            // Add the final field (if defined)
-            if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
-
-            return colInfoList
-        }
-
-        ArrayList<FtlNodeWrapper> getFieldsNotReferencedInFormListColumn(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
-            LinkedHashSet<String> fieldSet = getFieldsInFormListColumnInfo(curFormListColumnInfo)
-
-            ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
-            int afnSize = allFieldNodes.size()
-            for (int i = 0; i < afnSize; i++) {
-                MNode fieldNode = (MNode) allFieldNodes.get(i)
-                // skip hidden fields, they are handled separately
-                if (isListFieldHidden(fieldNode)) continue
-                String fieldName = fieldNode.attribute("name")
-                if (!fieldSet.contains(fieldName))
-                    colFieldNodes.add(fieldFtlNodeMap.get(fieldName))
-            }
-
-            return colFieldNodes
-        }
-        LinkedHashSet<String> getFieldsInFormListColumnInfo(ArrayList<ArrayList<FtlNodeWrapper>> curFormListColumnInfo) {
-            if (curFormListColumnInfo == null) curFormListColumnInfo = this.getFormListColumnInfo()
-            LinkedHashSet<String> fieldSet = new LinkedHashSet<>()
-
-            int outerSize = curFormListColumnInfo.size()
-            for (int oi = 0; oi < outerSize; oi++) {
-                ArrayList<FtlNodeWrapper> innerList = (ArrayList<FtlNodeWrapper>) curFormListColumnInfo.get(oi)
-                if (innerList == null) continue
-                int innerSize = innerList.size()
-                for (int ii = 0; ii < innerSize; ii++) {
-                    FtlNodeWrapper ftlNode = (FtlNodeWrapper) innerList.get(ii)
-                    if (ftlNode != null) fieldSet.add(ftlNode.getMNode().attribute("name"))
-                }
-            }
-
-            return fieldSet
-        }
-
-        String getFieldValidationClasses(String fieldName) {
-            MNode validateNode = getFieldValidateNode(fieldName)
-            if (validateNode == null) return ""
-
-            Set<String> vcs = new HashSet()
-            if (validateNode.name == "parameter") {
-                MNode parameterNode = validateNode
-                if (parameterNode.attribute('required') == "true") vcs.add("required")
-                if (parameterNode.hasChild("number-integer")) vcs.add("number")
-                if (parameterNode.hasChild("number-decimal")) vcs.add("number")
-                if (parameterNode.hasChild("text-email")) vcs.add("email")
-                if (parameterNode.hasChild("text-url")) vcs.add("url")
-                if (parameterNode.hasChild("text-digits")) vcs.add("digits")
-                if (parameterNode.hasChild("credit-card")) vcs.add("creditcard")
-
-                String type = parameterNode.attribute('type')
-                if (type && (type.endsWith("BigDecimal") || type.endsWith("BigInteger") || type.endsWith("Long") ||
-                        type.endsWith("Integer") || type.endsWith("Double") || type.endsWith("Float") ||
-                        type.endsWith("Number"))) vcs.add("number")
-            } else if (validateNode.name == "field") {
-                MNode fieldNode = validateNode
-                String type = fieldNode.attribute('type')
-                if (type && (type.startsWith("number-") || type.startsWith("currency-"))) vcs.add("number")
-                // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
-            }
-
-            StringBuilder sb = new StringBuilder()
-            for (String vc in vcs) { if (sb) sb.append(" "); sb.append(vc); }
-            return sb.toString()
-        }
-
-        Map getFieldValidationRegexpInfo(String fieldName) {
-            MNode validateNode = getFieldValidateNode(fieldName)
-            if (validateNode?.hasChild("matches")) {
-                MNode matchesNode = validateNode.first("matches")
-                return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]
-            }
-            return null
-        }
-
-        String getOrderByActualJsString(String originalOrderBy) {
-            if (originalOrderBy == null || originalOrderBy.length() == 0) return "";
-            // strip square braces if there are any
-            if (originalOrderBy.startsWith("[")) originalOrderBy = originalOrderBy.substring(1, originalOrderBy.length() - 1)
-            originalOrderBy = originalOrderBy.replace(" ", "")
-            List<String> orderByList = Arrays.asList(originalOrderBy.split(","))
-            StringBuilder sb = new StringBuilder()
-            for (String obf in orderByList) {
-                if (sb.length() > 0) sb.append(",")
-                EntityJavaUtil.FieldOrderOptions foo = EntityJavaUtil.makeFieldOrderOptions(obf)
-                MNode curFieldNode = fieldNodeMap.get(foo.getFieldName())
-                if (curFieldNode == null) continue
-                MNode headerFieldNode = curFieldNode.first("header-field")
-                if (headerFieldNode == null) continue
-                String showOrderBy = headerFieldNode.attribute("show-order-by")
-                sb.append("'").append(foo.descending ? "-" : "+")
-                if ("case-insensitive".equals(showOrderBy)) sb.append("^")
-                sb.append(foo.getFieldName()).append("'")
-            }
-            if (sb.length() == 0) return ""
-            return "[" + sb.toString() + "]"
-        }
-
-        void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
-            // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
-            String listEntryStr = formNode.attribute('list-entry')
-            ExecutionContextImpl eci = sri.ec
-            ContextStack context = eci.contextStack
-            if (listEntryStr) {
-                context.put(listEntryStr, listEntry)
-                context.put(listEntryStr + "_index", index)
-                context.put(listEntryStr + "_has_next", hasNext)
-            } else {
-                if (listEntry instanceof EntityValueBase) {
-                    context.putAll(((EntityValueBase) listEntry).getValueMap())
-                } else if (listEntry instanceof Map) {
-                    context.putAll((Map) listEntry)
-                } else {
-                    context.put("listEntry", listEntry)
-                }
-                String listStr = formNode.attribute('list')
-                context.put(listStr + "_index", index)
-                context.put(listStr + "_has_next", hasNext)
-                context.put(listStr + "_entry", listEntry)
-            }
-            if (rowActions != null) rowActions.run(eci)
-        }
-
-        ArrayList<EntityValue> makeFormListFindFields(String formListFindId, ExecutionContext ec) {
-            ContextStack cs = ec.context
-            List<EntityValue> valueList = new ArrayList<>()
-            for (MNode fieldNode in allFieldNodes) {
-                // skip submit
-                if (isHeaderSubmitField(fieldNode)) continue
-
-                String fn = fieldNode.attribute("name")
-
-                if (cs.containsKey(fn) || cs.containsKey(fn + "_op")) {
-                    // this will handle text-line, text-find, etc
-                    Object value = cs.get(fn)
-                    if (value != null && StupidJavaUtilities.isEmpty(value)) value = null
-                    String op = cs.get(fn + "_op") ?: "equals"
-                    boolean not = (cs.get(fn + "_not") == "Y" || cs.get(fn + "_not") == "true")
-                    boolean ic = (cs.get(fn + "_ic") == "Y" || cs.get(fn + "_ic") == "true")
-
-                    // for all operators other than empty skip this if there is no value
-                    if (value == null && op != "empty") continue
-
-                    EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
-                    ev.formListFindId = formListFindId
-                    ev.fieldName = fn
-                    ev.fieldValue = value
-                    ev.fieldOperator = op
-                    ev.fieldNot = not ? "Y" : "N"
-                    ev.fieldIgnoreCase = ic ? "Y" : "N"
-                    valueList.add(ev)
-                } else if (cs.get(fn + "_period")) {
-                    EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
-                    ev.formListFindId = formListFindId
-                    ev.fieldName = fn
-                    ev.fieldPeriod = cs.get(fn + "_period")
-                    ev.fieldPerOffset = (cs.get(fn + "_poffset") ?: "0") as Long
-                    valueList.add(ev)
-                } else {
-                    // these will handle range-find and date-find
-                    String fromValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_from"))
-                    String thruValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_thru"))
-                    if (fromValue || thruValue) {
-                        EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
-                        ev.formListFindId = formListFindId
-                        ev.fieldName = fn
-                        ev.fieldFrom = fromValue
-                        ev.fieldThru = thruValue
-                        valueList.add(ev)
-                    }
-                }
-            }
-            /* always look for an orderByField parameter too
-            String orderByString = cs?.get("orderByField") ?: defaultOrderBy
-            if (orderByString != null && orderByString.length() > 0) {
-                ec.context.put("orderByField", orderByString)
-                this.orderBy(orderByString)
-            }
-            */
-            return valueList
-        }
-
-        List<Map<String, Object>> getUserFormListFinds(ExecutionContext ec) {
-            EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUser")
-                    .condition("userId", ec.user.userId).useCache(true).list()
-            EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
-                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet).useCache(true).list()
-            Set<String> userOnlyFlfIdSet = new HashSet<>()
-            Set<String> formListFindIdSet = new HashSet<>()
-            for (EntityValue ev in flfuList) {
-                userOnlyFlfIdSet.add((String) ev.formListFindId)
-                formListFindIdSet.add((String) ev.formListFindId)
-            }
-            for (EntityValue ev in flfugList) formListFindIdSet.add((String) ev.formListFindId)
-
-
-            // get info for each formListFindId
-            List<Map<String, Object>> flfInfoList = new LinkedList<>()
-            for (String formListFindId in formListFindIdSet)
-                flfInfoList.add(getFormListFindInfo(formListFindId, ec, userOnlyFlfIdSet))
-
-            // sort by description
-            StupidUtilities.orderMapList(flfInfoList, ["description"])
-
-            return flfInfoList
-        }
-
-        EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
-            if (ec.web == null) return null
-            String formListFindId = ec.web.requestParameters.get("formListFindId")
-            if (!formListFindId) return null
-            return ec.entity.find("moqui.screen.form.FormListFind").condition("formListFindId", formListFindId).useCache(true).one()
-        }
-    }
-    public static class FormListRenderInfo {
-        private final FormInstance formInstance
-        private ArrayList<ArrayList<FtlNodeWrapper>> allColInfo
-        private ArrayList<ArrayList<FtlNodeWrapper>> mainColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
-        private ArrayList<ArrayList<FtlNodeWrapper>> subColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
-        private boolean hasMainTotals = false
-        private boolean hasSubTotals = false
-
-        FormListRenderInfo(FormInstance formInstance) {
-            this.formInstance = formInstance
-            allColInfo = formInstance.getFormListColumnInfo()
-
-            if (formInstance.hasAggregate) {
-                subColInfo = new ArrayList<>()
-                int flciSize = allColInfo.size()
-                mainColInfo = new ArrayList<>(flciSize)
-                for (int i = 0; i < flciSize; i++) {
-                    ArrayList<FtlNodeWrapper> fieldList = (ArrayList<FtlNodeWrapper>) allColInfo.get(i)
-                    ArrayList<FtlNodeWrapper> newFieldList = new ArrayList<>()
-                    ArrayList<FtlNodeWrapper> subFieldList = (ArrayList<FtlNodeWrapper>) null
-                    int fieldListSize = fieldList.size()
-                    for (int fi = 0; fi < fieldListSize; fi++) {
-                        FtlNodeWrapper fieldNode = (FtlNodeWrapper) fieldList.get(fi)
-                        String fieldName = fieldNode.getMNode().attribute("name")
-                        AggregateField aggField = formInstance.aggregateFieldMap.get(fieldName)
-                        if (aggField != null && aggField.subList) {
-                            if (subFieldList == null) subFieldList = new ArrayList<>()
-                            subFieldList.add(fieldNode)
-                            if (aggField.showTotal) hasSubTotals = true
-                        } else {
-                            newFieldList.add(fieldNode)
-                            if (aggField.showTotal) hasMainTotals = true
-                        }
-                    }
-                    // if fieldList is not empty add to tempFormListColInfo
-                    if (newFieldList.size() > 0) mainColInfo.add(newFieldList)
-                    if (subFieldList != null) subColInfo.add(subFieldList)
-                }
-            } else {
-                // TODO set hasMainTotals
-            }
-        }
-
-        FormInstance getFormInstance() { return formInstance }
-        ArrayList<ArrayList<FtlNodeWrapper>> getAllColInfo() { return allColInfo }
-        ArrayList<ArrayList<FtlNodeWrapper>> getMainColInfo() { return mainColInfo }
-        ArrayList<ArrayList<FtlNodeWrapper>> getSubColInfo() { return subColInfo }
-
-        boolean getHasMainTotals() { return hasMainTotals }
-        boolean getHasSubTotals() { return hasSubTotals }
-
-        // TODO: move getFormListColumnCharWidths, getFieldsNotReferencedInFormListColumn, getFieldsInFormListColumnInfo methods here
     }
 
     static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {

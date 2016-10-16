@@ -921,9 +921,9 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    String startFormListRow(FormInstance formInstance, Object listEntry, int index, boolean hasNext) {
+    String startFormListRow(ScreenForm.FormListRenderInfo listRenderInfo, Object listEntry, int index, boolean hasNext) {
         ec.context.push()
-        formInstance.runFormListRowActions(this, listEntry, index, hasNext)
+        listRenderInfo.runFormListRowActions(this, listEntry, index, hasNext)
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
