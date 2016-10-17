@@ -1487,7 +1487,7 @@ class ScreenForm {
         boolean getHasMainTotals() { return hasMainTotals }
         boolean getHasSubTotals() { return hasSubTotals }
 
-        Object getListObject() {
+        Object getListObject(boolean aggregateList) {
             Object listObject
             String listName = formInstance.formNode.attribute("list")
             MNode entityFindNode = screenForm.entityFindNode
@@ -1550,7 +1550,7 @@ class ScreenForm {
                 listObject = ecfi.resourceFacade.expression(listName, "")
             }
 
-            if (formInstance.hasAggregate) {
+            if (aggregateList && formInstance.hasAggregate) {
                 return AggregationUtil.aggregateList(listObject, formInstance.aggregateFields, formInstance.aggregateGroupFields)
             } else {
                 return listObject
