@@ -68,7 +68,7 @@ public class AggregationUtil {
         }
 
         if (logger.isInfoEnabled()) logger.info("Aggregated list from " + originalCount + " items to " + resultList.size() + " items in " + (System.currentTimeMillis() - startTime) + "ms");
-        for (Map<String, Object> result : resultList) logger.warn("Aggregate Result: " + result.toString());
+        // for (Map<String, Object> result : resultList) logger.warn("Aggregate Result: " + result.toString());
 
         return resultList;
     }
