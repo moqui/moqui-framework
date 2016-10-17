@@ -1,0 +1,56 @@
+<addons>
+    <!--
+    ========== MODIFYING THIS FILE NOT RECOMMENDED ==========
+    Contains known open source Moqui components, those in the GitHub 'moqui' group and others.
+    To add or override repository, runtime, and component elements use a "myaddons.xml" file.
+    -->
+
+    <repository name="github">
+        <location type="current" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/${component.'@branch'}.zip"/>
+        <location type="release" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/v${component.'@version'}.zip"/>
+        <location type="git" url="https://github.com/${component.'@group'}/${component.'@name'}.git"/>
+    </repository>
+    <repository name="github-ssh">
+        <location type="current" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/${component.'@branch'}.zip"/>
+        <location type="release" url="https://github.com/${component.'@group'}/${component.'@name'}/archive/v${component.'@version'}.zip"/>
+        <location type="git" url="git@github.com:${component.'@group'}/${component.'@name'}.git"/>
+    </repository>
+
+    <!-- Where to get runtime directory if not present -->
+    <runtime name="moqui-runtime" group="mrovnanik" version="1.6.2" branch="develop" repository="github-ssh"/>
+
+    <!-- Example Component -->
+    <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
+
+    <!-- Moqui Tool Components -->
+    <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+    <component name="moqui-camel" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+    <component name="moqui-elasticsearch" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+    <component name="moqui-fop" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+    <component name="moqui-hazelcast" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+    <component name="moqui-kie" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+    <component name="moqui-orientdb" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+    <component name="moqui-wikitext" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
+
+    <!-- Mantle Components -->
+    <component name="mantle-udm" group="mrovnanik" version="1.0.1" branch="master" repository="github-ssh"/>
+    <component name="mantle-usl" group="mrovnanik" version="1.0.1" branch="master" repository="github-ssh"/>
+    <component name="mantle-edi" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="mantle-ubpl" group="moqui" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="mantle-oagis" group="moqui" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="SimpleScreens" group="mrovnanik" version="1.0.2" branch="master" repository="github-ssh"/>
+
+    <!-- Moqui Applications -->
+    <component name="HiveMind" group="mrovnanik" version="1.1.5" branch="master" repository="github-ssh"/>
+    <component name="PopCommerce" group="mrovnanik" version="1.0.3" branch="master" repository="github-ssh"/>
+
+    <!-- Third Party Components -->
+    <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
+	
+	<!-- rovnanik.sk Components -->
+    <component name="economy-setup" group="mrovnanik" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
+    <component name="hris-setup" group="mrovnanik" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
+    <component name="Kinekus-data" group="mrovnanik" version="" branch="master" repository="github-ssh"/>       <!-- no releases -->
+    <component name="HotelSlovan-data" group="mrovnanik" version="" branch="master" repository="github-ssh"/>       <!-- no releases -->
+</addons>
