@@ -1470,6 +1470,7 @@ class ScreenForm {
             }
         }
 
+        MNode getFormNode() { return formInstance.formNode }
         FtlNodeWrapper getFtlFormNode() { return formInstance.ftlFormNode }
         FtlNodeWrapper getFtlFieldNode(String fieldName) { return formInstance.fieldFtlNodeMap.get(fieldName) }
 

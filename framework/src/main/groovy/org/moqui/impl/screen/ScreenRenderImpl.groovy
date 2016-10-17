@@ -932,6 +932,28 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
+    String startFormListSubRow(ScreenForm.FormListRenderInfo listRenderInfo, Object subListEntry, int index, boolean hasNext) {
+        ec.context.push()
+        MNode formNode = listRenderInfo.formNode
+        if (subListEntry instanceof EntityValueBase) {
+            ec.context.putAll(((EntityValueBase) subListEntry).getValueMap())
+        } else if (subListEntry instanceof Map) {
+            ec.context.putAll((Map) subListEntry)
+        } else {
+            ec.context.put("subListEntry", subListEntry)
+        }
+        String listStr = formNode.attribute('list')
+        ec.context.put(listStr + "_sub_index", index)
+        ec.context.put(listStr + "_sub_has_next", hasNext)
+        ec.context.put(listStr + "_sub_entry", subListEntry)
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    String endFormListSubRow() {
+        ec.context.pop()
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
     static String safeCloseList(Object listObject) {
         if (listObject instanceof EntityListIterator) ((EntityListIterator) listObject).close()
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
