@@ -103,7 +103,7 @@ class ScreenForm {
                 if (screenLocation == sd.getLocation()) {
                     ScreenForm esf = sd.getForm(formName)
                     formNode = esf?.getOrCreateFormNode()
-                } else if (screenLocation == "moqui.screen.form.DbForm" || screenLocation == "DbForm") {
+                } else if ("moqui.screen.form.DbForm".equals(screenLocation) || "DbForm".equals(screenLocation)) {
                     formNode = getDbFormNode(formName, ecfi)
                 } else {
                     ScreenDefinition esd = ecfi.screenFacade.getScreenDefinition(screenLocation)
@@ -117,9 +117,10 @@ class ScreenForm {
                             this.sd.sectionByName.put(inclRefNode.attribute("name"), esd.getSection(inclRefNode.attribute("name")))
                         for (MNode inclRefNode in descMap.get("section-iterate"))
                             this.sd.sectionByName.put(inclRefNode.attribute("name"), esd.getSection(inclRefNode.attribute("name")))
+
+                        extendsScreenLocation = screenLocation
                     }
                 }
-                extendsScreenLocation = screenLocation
             } else {
                 ScreenForm esf = sd.getForm(extendsForm)
                 formNode = esf?.getOrCreateFormNode()
