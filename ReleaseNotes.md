@@ -229,6 +229,10 @@ significant changes.
   - significant macro cleanups and improvements
   - csv render macros now improved to support more screen elements, more intelligently handle links (only include anchor/text), etc
   - text render macros now use fixed width output (number of characters) along with new field attributes to specify print settings
+  - added field.@aggregate attribute for use in form-list with options to aggregate field values across multiple results or
+    display fields in a sub-list under a row with the common fields for the group of rows
+  - added form-single.@owner-form attribute to skip HTML form element and add the HTML form attribute to fields so they are owned
+    by a different form elsewhere in the web page
 - New /status now a transition instead of a screen and return JSON with more server status information
 
 ### Bug Fixes
