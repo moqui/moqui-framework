@@ -82,6 +82,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>The location and name separated by a hash/pound sign (#) of the form to
                     extend. If there is no location it is treated as a form name in the current screen.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="owner-form" type="xs:string">
+                <xs:annotation><xs:documentation>The name (HTML id) of a form that will own the fields in this form. When used no
+                    form elements are generated, only fields, and each will have the form attribute populated with the value of this
+                    attribute.</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="transition" type="xs:string">
                 <xs:annotation><xs:documentation>The transition in the current screen to submit the form to.</xs:documentation></xs:annotation>
             </xs:attribute>

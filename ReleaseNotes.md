@@ -449,6 +449,10 @@ Gradle tasks.
 - allow different aggregate/show-total/etc options in select-columns, more complex but makes sense?
 - add form-list presets in xml file, like saved finds but perhaps more options? allow different aggregate settings in presets?
 
+- make form-list aggregate, etc more useful by running row-actions and field.@form for each record before aggregating
+  - also do for non-aggregate form-list, eliminate need for start form row method call, do more data prep to keep rendering lighter
+  - will be useful for future Angular/whatever based XML screens
+
 - field.@show-total if sub-list show in sub-list, otherwise add bottom row with current list totals
 
 - form-list data prep, more self-contained
