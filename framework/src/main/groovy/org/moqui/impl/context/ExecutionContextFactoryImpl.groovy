@@ -638,6 +638,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Facades destroyed")
 
         activeContext.remove()
+
+        // use System.out directly for this as logger may already be stopped
+        System.out.println("Moqui ExecutionContextFactory Destroyed")
     }
     @Override
     boolean isDestroyed() { return destroyed }
