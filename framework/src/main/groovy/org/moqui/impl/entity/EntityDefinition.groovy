@@ -829,6 +829,8 @@ public class EntityDefinition {
             logger.warn("Not all primary-key fields in view-entity [${fullEntityName}] for member-entity [${memberEntityNode.attribute("entity-name")}], skipping cache reverse-association, and note that if this record is updated the cache won't automatically clear; pkFieldNames=${pkFieldNames}; partial mePkFieldToAliasNameMap=${mePkFieldToAliasNameMap}")
         }
 
+        mePkFieldToAliasNameMapMap.put(entityAlias, mePkFieldToAliasNameMap)
+
         return mePkFieldToAliasNameMap
     }
 

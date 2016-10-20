@@ -1040,8 +1040,9 @@ class ScreenForm {
         boolean hasAggregate = false
         private String[] aggregateGroupFields = (String[]) null
         private AggregateField[] aggregateFields = (AggregateField[]) null
-        private Map<String, AggregateField> aggregateFieldMap = (Map<String, AggregateField>) null
+        private Map<String, AggregateField> aggregateFieldMap = new HashMap<>()
         private HashSet<String> showTotalFields = (HashSet<String>) null
+        private AggregationUtil aggregationUtil = (AggregationUtil) null
 
         FormInstance(ScreenForm screenForm) {
             this.screenForm = screenForm
@@ -1073,7 +1074,8 @@ class ScreenForm {
 
                     String aggregate = fieldNode.attribute("aggregate")
                     if (aggregate != null && !aggregate.isEmpty()) {
-                        if (aggregateFieldMap == null) aggregateFieldMap = new HashMap<>()
+                        hasAggregate = true
+
                         boolean isGroupBy = "group-by".equals(aggregate)
                         boolean isSubList = !isGroupBy && "sub-list".equals(aggregate)
                         AggregateFunction af = (AggregateFunction) null
@@ -1081,16 +1083,19 @@ class ScreenForm {
                             af = AggregateFunction.valueOf(aggregate.toUpperCase())
                             if (af == null) logger.error("Ignoring aggregate ${aggregate} on field ${fieldName} in form ${formNode.attribute('name')}, not a valid function, group-by, or sub-list")
                         }
-                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, af, isGroupBy, isSubList, isShowTotal))
+
+                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, af, isGroupBy, isSubList, isShowTotal,
+                                ecfi.resourceFacade.getGroovyClass(fieldNode.attribute("from"))))
                         if (isGroupBy) {
                             if (aggregateGroupFieldList == null) aggregateGroupFieldList = new ArrayList<>()
                             aggregateGroupFieldList.add(fieldName)
                         }
+                    } else {
+                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, null, false, false, isShowTotal,
+                                ecfi.resourceFacade.getGroovyClass(fieldNode.attribute("from"))))
                     }
-
                 }
             }
-            hasAggregate = aggregateFieldMap != null
             if (hasAggregate) {
                 if (aggregateGroupFieldList == null) {
                     throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
@@ -1099,18 +1104,24 @@ class ScreenForm {
                     int groupFieldSize = aggregateGroupFieldList.size()
                     aggregateGroupFields = new String[groupFieldSize]
                     for (int i = 0; i < groupFieldSize; i++) aggregateGroupFields[i] = (String) aggregateGroupFieldList.get(i)
-
-                    // make AggregateField array for all fields
-                    aggregateFields = new AggregateField[afnSize]
-                    for (int i = 0; i < afnSize; i++) {
-                        String fieldName = (String) allFieldNames.get(i)
-                        AggregateField aggField = (AggregateField) aggregateFieldMap.get(fieldName)
-                        if (aggField == null) aggField = new AggregateField(fieldName, null, false, false, showTotalFields?.contains(fieldName))
-                        aggregateFields[i] = aggField
-                    }
                 }
             }
+            // make AggregateField array for all fields
+            aggregateFields = new AggregateField[afnSize]
+            for (int i = 0; i < afnSize; i++) {
+                String fieldName = (String) allFieldNames.get(i)
+                AggregateField aggField = (AggregateField) aggregateFieldMap.get(fieldName)
+                if (aggField == null) {
+                    MNode fieldNode = fieldNodeMap.get(fieldName)
+                    aggField = new AggregateField(fieldName, null, false, false, showTotalFields?.contains(fieldName),
+                            ecfi.resourceFacade.getGroovyClass(fieldNode.attribute("from")))
+                }
+                aggregateFields[i] = aggField
+            }
+            aggregationUtil = new AggregationUtil(formNode.attribute("list"), formNode.attribute("list-entry"),
+                    aggregateFields, aggregateGroupFields, screenForm.rowActions)
 
+            // determine isUploadForm and isFormHeaderFormVal
             isUploadForm = formNode.depthFirst({ MNode it -> "file".equals(it.name) }).size() > 0
             for (MNode hfNode in formNode.depthFirst({ MNode it -> "header-field".equals(it.name) })) {
                 if (hfNode.children.size() > 0) {
@@ -1551,37 +1562,9 @@ class ScreenForm {
                 listObject = ecfi.resourceFacade.expression(listName, "")
             }
 
-            if (aggregateList && formInstance.hasAggregate) {
-                return AggregationUtil.aggregateList(listObject, formInstance.aggregateFields, formInstance.aggregateGroupFields)
-            } else {
-                return listObject
-            }
-        }
-
-        void runFormListRowActions(ScreenRenderImpl sri, Object listEntry, int index, boolean hasNext) {
-            // NOTE: this runs in a pushed-/sub-context, so just drop it in and it'll get cleaned up automatically
-            MNode formNode = formInstance.formNode
-            String listEntryStr = formNode.attribute('list-entry')
-            ExecutionContextImpl eci = sri.ec
-            ContextStack context = eci.contextStack
-            if (listEntryStr) {
-                context.put(listEntryStr, listEntry)
-                context.put(listEntryStr + "_index", index)
-                context.put(listEntryStr + "_has_next", hasNext)
-            } else {
-                if (listEntry instanceof EntityValueBase) {
-                    context.putAll(((EntityValueBase) listEntry).getValueMap())
-                } else if (listEntry instanceof Map) {
-                    context.putAll((Map) listEntry)
-                } else {
-                    context.put("listEntry", listEntry)
-                }
-                String listStr = formNode.attribute('list')
-                context.put(listStr + "_index", index)
-                context.put(listStr + "_has_next", hasNext)
-                context.put(listStr + "_entry", listEntry)
-            }
-            if (screenForm.rowActions != null) screenForm.rowActions.run(eci)
+            // NOTE: always call AggregationUtil.aggregateList, passing aggregateList to tell it to do sub-lists or not
+            // this does the pre-processing for all form-list renders, handles row-actions, field.@from, etc
+            return formInstance.aggregationUtil.aggregateList(listObject, aggregateList, ecfi.getEci())
         }
 
         List<Map<String, Object>> getUserFormListFinds(ExecutionContext ec) {

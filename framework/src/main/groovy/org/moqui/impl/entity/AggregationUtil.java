@@ -13,8 +13,16 @@
  */
 package org.moqui.impl.entity;
 
+import groovy.lang.MissingPropertyException;
+import groovy.lang.Script;
+import org.codehaus.groovy.runtime.DefaultGroovyMethods;
+import org.codehaus.groovy.runtime.InvokerHelper;
+import org.moqui.BaseException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.StupidJavaUtilities;
+import org.moqui.impl.actions.XmlAction;
+import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.util.ContextStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,75 +40,158 @@ public class AggregationUtil {
         public final String fieldName;
         public final AggregateFunction function;
         public final boolean groupBy, subList, showTotal;
-        public AggregateField(String fn, AggregateFunction func, boolean gb, boolean sl, boolean st) {
-            fieldName = fn; function = func; groupBy = gb; subList = sl; showTotal = st;
+        public final Class fromExpr;
+        public AggregateField(String fn, AggregateFunction func, boolean gb, boolean sl, boolean st, Class from) {
+            fieldName = fn; function = func; groupBy = gb; subList = sl; showTotal = st; fromExpr = from;
         }
     }
 
+    private String listName, listEntryName;
+    private AggregateField[] aggregateFields;
+    private boolean hasFromExpr = false;
+    private String[] groupFields;
+    private XmlAction rowActions;
+
+    public AggregationUtil(String listName, String listEntryName, AggregateField[] aggregateFields, String[] groupFields, XmlAction rowActions) {
+        this.listName = listName;
+        this.listEntryName = listEntryName;
+        if (this.listEntryName != null && this.listEntryName.isEmpty()) this.listEntryName = null;
+        this.aggregateFields = aggregateFields;
+        this.groupFields = groupFields;
+        this.rowActions = rowActions;
+        for (int i = 0; i < aggregateFields.length; i++) {
+            AggregateField aggField = aggregateFields[i];
+            if (aggField.fromExpr != null) { hasFromExpr = true; break; }
+        }
+    }
+
+
     @SuppressWarnings("unchecked")
-    public static ArrayList<Map<String, Object>> aggregateList(Object listObj, AggregateField[] aggregateFields, String[] groupFields) {
-        long startTime = System.currentTimeMillis();
+    public ArrayList<Map<String, Object>> aggregateList(Object listObj, boolean makeSubList, ExecutionContextImpl eci) {
+        if (groupFields == null || groupFields.length == 0) makeSubList = false;
         ArrayList<Map<String, Object>> resultList = new ArrayList<>();
+        if (listObj == null) return resultList;
+
+        long startTime = System.currentTimeMillis();
         Map<Map<String, Object>, Map<String, Object>> groupRows = new HashMap<>();
         int originalCount = 0;
         if (listObj instanceof List) {
-            List<Map<String, Object>> listList = (List<Map<String, Object>>) listObj;
+            List listList = (List) listObj;
+            int listSize = listList.size();
             if (listObj instanceof RandomAccess) {
-                int listSize = listList.size();
                 for (int i = 0; i < listSize; i++) {
-                    Map<String, Object> origMap = listList.get(i);
-                    processAggregateOriginal(origMap, aggregateFields, groupFields, resultList, groupRows);
+                    Object curObject = listList.get(i);
+                    processAggregateOriginal(curObject, resultList, groupRows, i, (i < (listSize - 1)), makeSubList, eci);
                     originalCount++;
                 }
             } else {
-                for (Map<String, Object> origMap : listList) {
-                    processAggregateOriginal(origMap, aggregateFields, groupFields, resultList, groupRows);
+                int i = 0;
+                for (Object curObject : listList) {
+                    processAggregateOriginal(curObject, resultList, groupRows, i, (i < (listSize - 1)), makeSubList, eci);
+                    i++;
                     originalCount++;
                 }
             }
         } else if (listObj instanceof Iterator) {
-            Iterator<Map<String, Object>> listIter = (Iterator<Map<String, Object>>) listObj;
+            Iterator listIter = (Iterator) listObj;
+            int i = 0;
             while (listIter.hasNext()) {
-                Map<String, Object> origMap = listIter.next();
-                processAggregateOriginal(origMap, aggregateFields, groupFields, resultList, groupRows);
+                Object curObject = listIter.next();
+                processAggregateOriginal(curObject, resultList, groupRows, i, listIter.hasNext(), makeSubList, eci);
+                i++;
                 originalCount++;
             }
+        } else if (listObj.getClass().isArray()) {
+            Object[] listArray = (Object[]) listObj;
+            int listSize = listArray.length;
+            for (int i = 0; i < listSize; i++) {
+                Object curObject = listArray[i];
+                processAggregateOriginal(curObject, resultList, groupRows, i, (i < (listSize - 1)), makeSubList, eci);
+                originalCount++;
+            }
+        } else {
+            throw new BaseException("form-list list " + listName + " is a type we don't know how to iterate: " + listObj.getClass().getName());
         }
 
-        if (logger.isInfoEnabled()) logger.info("Aggregated list from " + originalCount + " items to " + resultList.size() + " items in " + (System.currentTimeMillis() - startTime) + "ms");
+        if (logger.isInfoEnabled()) logger.info("Processed list " + listName + ", from " + originalCount + " items to " + resultList.size() + " items, in " + (System.currentTimeMillis() - startTime) + "ms");
         // for (Map<String, Object> result : resultList) logger.warn("Aggregate Result: " + result.toString());
 
         return resultList;
     }
 
     @SuppressWarnings("unchecked")
-    private static void processAggregateOriginal(Map<String, Object> origMap, AggregateField[] aggregateFields, String[] groupFields,
-                ArrayList<Map<String, Object>> resultList, Map<Map<String, Object>, Map<String, Object>> groupRows) {
-        Map<String, Object> groupByMap = new HashMap<>();
-        for (int i = 0; i < groupFields.length; i++) {
-            String groupBy = groupFields[i];
-            groupByMap.put(groupBy, origMap.get(groupBy));
+    private void processAggregateOriginal(Object curObject, ArrayList<Map<String, Object>> resultList,
+                                          Map<Map<String, Object>, Map<String, Object>> groupRows, int index, boolean hasNext,
+                                          boolean makeSubList, ExecutionContextImpl eci) {
+
+        Map curMap = null;
+        if (curObject instanceof EntityValue) {
+            curMap = ((EntityValue) curObject).getMap();
+        } else if (curObject instanceof Map) {
+            curMap = (Map) curObject;
+        }
+        boolean curIsMap = curMap != null;
+
+        ContextStack context = eci.contextStack;
+        Map<String, Object> contextTopMap;
+        if (curMap != null) { contextTopMap = new HashMap<>(curMap); } else { contextTopMap = new HashMap<>(); }
+        context.push(contextTopMap);
+
+        if (listEntryName != null) {
+            context.put(listEntryName, curObject);
+            context.put(listEntryName + "_index", index);
+            context.put(listEntryName + "_has_next", hasNext);
+        } else {
+            context.put(listName + "_index", index);
+            context.put(listName + "_has_next", hasNext);
+            context.put(listName + "_entry", curObject);
         }
 
-        EntityValue origEv = null;
-        if (origMap instanceof EntityValue) origEv = (EntityValue) origMap;
+        // if there are row actions run them
+        if (rowActions != null || hasFromExpr) {
+            if (rowActions != null) rowActions.run(eci);
 
-        Map<String, Object> resultMap = groupRows.get(groupByMap);
+            // if any fields have a fromExpr get the value from that
+            for (int i = 0; i < aggregateFields.length; i++) {
+                AggregateField aggField = aggregateFields[i];
+                if (aggField.fromExpr != null) {
+                    Script script = InvokerHelper.createScript(aggField.fromExpr, eci.contextBindingInternal);
+                    Object newValue = script.run();
+                    context.put(aggField.fieldName, newValue);
+                }
+            }
+        }
+
+        Map<String, Object> resultMap = null;
+        Map<String, Object> groupByMap = null;
+        if (makeSubList) {
+            groupByMap = new HashMap<>();
+            for (int i = 0; i < groupFields.length; i++) {
+                String groupBy = groupFields[i];
+                groupByMap.put(groupBy, getField(groupBy, context, curObject, curIsMap));
+            }
+            resultMap = groupRows.get(groupByMap);
+        }
+
         Map<String, Object> subListMap = null;
         if (resultMap == null) {
-            resultMap = new HashMap<>();
+            resultMap = contextTopMap;
             for (int i = 0; i < aggregateFields.length; i++) {
                 AggregateField aggField = aggregateFields[i];
                 String fieldName = aggField.fieldName;
-                if (origEv != null && !origEv.isField(fieldName)) continue;
+                Object fieldValue = getField(fieldName, context, curObject, curIsMap);
+                // don't want to put null values, a waste of time/space; if count aggregate continue so it isn't counted
+                if (fieldValue == null) continue;
 
-                if (aggField.subList) {
+                if (makeSubList && aggField.subList) {
+                    // NOTE: may have an issue here not using contextTopMap as starting point for sub-list entry, ie row-actions values lost if not referenced in a field name/from
+                    // NOTE2: if we start with contextTopMap should clone and perhaps remove aggregateFields that are not sub-list
                     if (subListMap == null) subListMap = new HashMap<>();
-                    subListMap.put(fieldName, origMap.get(fieldName));
+                    subListMap.put(fieldName, fieldValue);
                 } else if (aggField.function == AggregateFunction.COUNT) {
                     resultMap.put(fieldName, 1);
                 } else {
-                    resultMap.put(fieldName, origMap.get(fieldName));
+                    resultMap.put(fieldName, fieldValue);
                 }
                 // TODO: handle showTotal
             }
@@ -110,22 +201,23 @@ public class AggregationUtil {
                 resultMap.put("aggregateSubList", subList);
             }
             resultList.add(resultMap);
-            groupRows.put(groupByMap, resultMap);
+            if (makeSubList) groupRows.put(groupByMap, resultMap);
         } else {
+            // NOTE: if makeSubList == false this will never run
             for (int i = 0; i < aggregateFields.length; i++) {
                 AggregateField aggField = aggregateFields[i];
                 String fieldName = aggField.fieldName;
-                if (origEv != null && !origEv.isField(fieldName)) continue;
 
                 if (aggField.subList) {
+                    // NOTE: may have an issue here not using contextTopMap as starting point for sub-list entry, ie row-actions values lost if not referenced in a field name/from
                     if (subListMap == null) subListMap = new HashMap<>();
-                    subListMap.put(fieldName, origMap.get(fieldName));
+                    subListMap.put(fieldName, getField(fieldName, context, curObject, curIsMap));
                 } else if (aggField.function != null) {
                     switch (aggField.function) {
                         case MIN:
                         case MAX:
                             Comparable existingComp = (Comparable) resultMap.get(fieldName);
-                            Comparable newComp = (Comparable) origMap.get(fieldName);
+                            Comparable newComp = (Comparable) getField(fieldName, context, curObject, curIsMap);
                             if (existingComp == null) {
                                 if (newComp != null) resultMap.put(fieldName, newComp);
                             } else {
@@ -136,11 +228,11 @@ public class AggregationUtil {
                             }
                             break;
                         case SUM:
-                            Number sumNum = StupidJavaUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) origMap.get(fieldName));
+                            Number sumNum = StupidJavaUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) getField(fieldName, context, curObject, curIsMap));
                             if (sumNum != null) resultMap.put(fieldName, sumNum);
                             break;
                         case AVG:
-                            Number newNum = (Number) origMap.get(fieldName);
+                            Number newNum = (Number) getField(fieldName, context, curObject, curIsMap);
                             if (newNum != null) {
                                 Number existingNum = (Number) resultMap.get(fieldName);
                                 if (existingNum == null) {
@@ -175,5 +267,22 @@ public class AggregationUtil {
                 subList.add(subListMap);
             }
         }
+
+        // all done, pop the row context to clean up
+        context.pop();
+    }
+
+    private Object getField(String fieldName, ContextStack context, Object curObject, boolean curIsMap) {
+        Object value = context.getByString(fieldName);
+        if (StupidJavaUtilities.isEmpty(value) && !curIsMap) {
+            // try Groovy getAt for property access
+            try {
+                value = DefaultGroovyMethods.getAt(curObject, fieldName);
+            } catch (MissingPropertyException e) {
+                // ignore exception, we know this may not be a real property of the object
+                if (isTraceEnabled) logger.trace("Field " + fieldName + " is not a property of list-entry " + listEntryName + " in list " + listName + ": " + e.toString());
+            }
+        }
+        return value;
     }
 }

@@ -921,45 +921,6 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    String startFormListRow(ScreenForm.FormListRenderInfo listRenderInfo, Object listEntry, int index, boolean hasNext) {
-        ec.context.push()
-        listRenderInfo.runFormListRowActions(this, listEntry, index, hasNext)
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-    String endFormListRow() {
-        ec.context.pop()
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-    String startFormListSubRow(ScreenForm.FormListRenderInfo listRenderInfo, Object subListEntry, int index, boolean hasNext) {
-        ec.context.push()
-        MNode formNode = listRenderInfo.formNode
-        if (subListEntry instanceof EntityValueBase) {
-            ec.context.putAll(((EntityValueBase) subListEntry).getValueMap())
-        } else if (subListEntry instanceof Map) {
-            ec.context.putAll((Map) subListEntry)
-        } else {
-            ec.context.put("subListEntry", subListEntry)
-        }
-        String listStr = formNode.attribute('list')
-        ec.context.put(listStr + "_sub_index", index)
-        ec.context.put(listStr + "_sub_has_next", hasNext)
-        ec.context.put(listStr + "_sub_entry", subListEntry)
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-    String endFormListSubRow() {
-        ec.context.pop()
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-    static String safeCloseList(Object listObject) {
-        if (listObject instanceof EntityListIterator) ((EntityListIterator) listObject).close()
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-
     FtlNodeWrapper getFtlFormNode(String formName) {
         FormInstance fi = getFormInstance(formName)
         if (fi == null) return null
@@ -1162,6 +1123,67 @@ class ScreenRenderImpl implements ScreenRender {
 
         return ""
     }
+    String startFormListRow(ScreenForm.FormListRenderInfo listRenderInfo, Object listEntry, int index, boolean hasNext) {
+        ec.contextStack.push()
+
+        if (listEntry instanceof Map) {
+            ec.contextStack.putAll((Map) listEntry)
+        } else {
+            throw new IllegalArgumentException("Found form-list ${listRenderInfo.getFormNode().attribute('name')} list entry that is not a Map, is a ${listEntry.class.name} which should never happen after running list through list pre-processor")
+        }
+        /* old code, needs more testing to make sure we need none of this, AggregationUtil now returns a pure list of maps so we just want context.addAll
+        MNode formNode = listRenderInfo.formNode
+        String listEntryStr = formNode.attribute('list-entry')
+        if (listEntryStr != null && !listEntryStr.isEmpty()) {
+            ec.contextStack.put(listEntryStr, listEntry)
+            ec.contextStack.put(listEntryStr + "_index", index)
+            ec.contextStack.put(listEntryStr + "_has_next", hasNext)
+        } else {
+            if (listEntry instanceof Map) {
+                ec.contextStack.putAll((Map) listEntry)
+            } else {
+                ec.contextStack.put("listEntry", listEntry)
+            }
+            String listStr = formNode.attribute('list')
+            ec.contextStack.put(listStr + "_index", index)
+            ec.contextStack.put(listStr + "_has_next", hasNext)
+            ec.contextStack.put(listStr + "_entry", listEntry)
+        }
+        */
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    String endFormListRow() {
+        ec.contextStack.pop()
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    String startFormListSubRow(ScreenForm.FormListRenderInfo listRenderInfo, Object subListEntry, int index, boolean hasNext) {
+        ec.contextStack.push()
+        MNode formNode = listRenderInfo.formNode
+        if (subListEntry instanceof Map) {
+            ec.contextStack.putAll((Map) subListEntry)
+        } else {
+            ec.contextStack.put("subListEntry", subListEntry)
+        }
+        String listStr = formNode.attribute('list')
+        ec.contextStack.put(listStr + "_sub_index", index)
+        ec.contextStack.put(listStr + "_sub_has_next", hasNext)
+        ec.contextStack.put(listStr + "_sub_entry", subListEntry)
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    String endFormListSubRow() {
+        ec.contextStack.pop()
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    static String safeCloseList(Object listObject) {
+        if (listObject instanceof EntityListIterator) ((EntityListIterator) listObject).close()
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+
     String getFieldValueString(FtlNodeWrapper widgetNodeWrapper) {
         FtlNodeWrapper fieldNodeWrapper = widgetNodeWrapper.parentNodeWrapper.parentNodeWrapper
         MNode widgetNode = widgetNodeWrapper.getMNode()
@@ -1176,21 +1198,21 @@ class ScreenRenderImpl implements ScreenRender {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
         if (obj instanceof String) return (String) obj
-        String strValue = ec.l10n.format(obj, format)
+        String strValue = ec.l10nFacade.format(obj, format)
         return strValue
     }
     String getFieldValueString(FtlNodeWrapper fieldNodeWrapper, String defaultValue, String format) {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
         if (obj instanceof String) return (String) obj
-        String strValue = ec.l10n.format(obj, format)
+        String strValue = ec.l10nFacade.format(obj, format)
         return strValue
     }
     String getFieldValuePlainString(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
         if (StupidJavaUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
-            return ec.getResource().expand(defaultValue, "")
+            return ec.resourceFacade.expand(defaultValue, "")
         return StupidJavaUtilities.toPlainString(obj)
         // NOTE: this approach causes problems with currency fields, but kills the string expand for default-value... a better approach?
         //return obj ? obj.toString() : (defaultValue ? ec.getResource().expand(defaultValue, null) : "")
@@ -1199,24 +1221,23 @@ class ScreenRenderImpl implements ScreenRender {
     Object getFieldValue(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
         MNode fieldNode = fieldNodeWrapper.getMNode()
 
-        String fromAttr = fieldNode.attribute("from")
-        if (fromAttr == null || fromAttr.isEmpty()) fromAttr = fieldNode.attribute("entry-name")
-        if (fromAttr != null && fromAttr.length() > 0) return ec.resourceFacade.expression(fromAttr, null)
-
         String fieldName = fieldNode.attribute("name")
         Object value = null
 
-        // if this is an error situation try parameters first, otherwise try parameters last
-        Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
-        if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute("name"))) {
-            value = errorParameters.get(fieldName)
-            if (!StupidJavaUtilities.isEmpty(value)) return value
-        }
-
         MNode formNode = fieldNode.parent
-        boolean isFormList = "form-list".equals(formNode.name)
-        boolean isFormSingle = !isFormList && "form-single".equals(formNode.name)
-        if (isFormSingle) {
+        if ("form-single".equals(formNode.name)) {
+            // if this is an error situation try error parameters first
+            Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
+            if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute("name"))) {
+                value = errorParameters.get(fieldName)
+                if (!StupidJavaUtilities.isEmpty(value)) return value
+            }
+
+            // NOTE: field.@from attribute is handled for form-list in pre-processing done by AggregationUtil
+            String fromAttr = fieldNode.attribute("from")
+            if (fromAttr == null || fromAttr.isEmpty()) fromAttr = fieldNode.attribute("entry-name")
+            if (fromAttr != null && fromAttr.length() > 0) return ec.resourceFacade.expression(fromAttr, null)
+
             String mapAttr = formNode.attribute("map")
             String mapName = mapAttr != null && mapAttr.length() > 0 ? mapAttr : "fieldValues"
             Map valueMap = (Map) ec.resource.expression(mapName, "")
@@ -1235,35 +1256,15 @@ class ScreenRenderImpl implements ScreenRender {
                     if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
             }
-        } else if (isFormList) {
-            String listEntryAttr = formNode.attribute("list-entry")
-            if (listEntryAttr != null && listEntryAttr.length() > 0) {
-                // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
-                //     putting all Map entries in the context for each row)
-                Object entryObj = ec.getContext().getByString(listEntryAttr)
-                if (entryObj != null && !(entryObj instanceof Map)) {
-                    if (entryObj instanceof Map) {
-                        value = ((Map) entryObj).get(fieldName)
-                    } else {
-                        try {
-                            value = entryObj.getAt(fieldName)
-                        } catch (MissingPropertyException e) {
-                            // ignore exception, we know this may not be a real property of the object
-                            if (isTraceEnabled) logger.trace("Field ${fieldName} is not a property of list-entry ${listEntryAttr} in form ${formNode.attribute("name")}: ${e.toString()}")
-                        }
-                    }
-                }
-            }
         }
 
         // the value == null check here isn't necessary but is the most common case so
         if (value == null || StupidJavaUtilities.isEmpty(value)) {
-            value = ec.getContext().getByString(fieldName)
+            value = ec.contextStack.getByString(fieldName)
             if (!StupidJavaUtilities.isEmpty(value)) return value
         } else {
             return value
         }
-        // this isn't needed since the parameters are copied to the context: if (!isError && isWebAndSameForm && !value) value = ec.getWeb().parameters.get(fieldName)
 
         String defaultStr = ec.getResource().expand(defaultValue, null)
         if (defaultStr != null && defaultStr.length() > 0) return defaultStr

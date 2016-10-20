@@ -524,18 +524,22 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         Script script = (Script) curScriptByExpr.get(expression)
         if (script == null) {
-            Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
-            if (groovyClass == null) {
-                groovyClass = ecfi.getGroovyClassLoader().parseClass(expression)
-                scriptGroovyExpressionCache.put(expression, groovyClass)
-            }
-            script = InvokerHelper.createScript(groovyClass, curBinding)
+            script = InvokerHelper.createScript(getGroovyClass(expression), curBinding)
             curScriptByExpr.put(expression, script)
         } else {
             script.setBinding(curBinding)
         }
 
         return script
+    }
+    Class getGroovyClass(String expression) {
+        if (expression == null || expression.isEmpty()) return null
+        Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
+        if (groovyClass == null) {
+            groovyClass = ecfi.getGroovyClassLoader().parseClass(expression)
+            scriptGroovyExpressionCache.put(expression, groovyClass)
+        }
+        return groovyClass
     }
 
     static String stripLocationPrefix(String location) {
