@@ -229,6 +229,10 @@ significant changes.
   - significant macro cleanups and improvements
   - csv render macros now improved to support more screen elements, more intelligently handle links (only include anchor/text), etc
   - text render macros now use fixed width output (number of characters) along with new field attributes to specify print settings
+  - added field.@aggregate attribute for use in form-list with options to aggregate field values across multiple results or
+    display fields in a sub-list under a row with the common fields for the group of rows
+  - added form-single.@owner-form attribute to skip HTML form element and add the HTML form attribute to fields so they are owned
+    by a different form elsewhere in the web page
 - New /status now a transition instead of a screen and return JSON with more server status information
 
 ### Bug Fixes
@@ -443,19 +447,17 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
-- field.@aggregate: min, max, sum, avg, count, group-by, sub-list; default is group-by, if all are group-by no aggregation done
+- save select columns configuration with form-list saved finds
+- allow different aggregate/show-total/etc options in select-columns, more complex but makes sense?
+- add form-list presets in xml file, like saved finds but perhaps more options? allow different aggregate settings in presets?
+
 - field.@show-total if sub-list show in sub-list, otherwise add bottom row with current list totals
 
 - form-list data prep, more self-contained
-  - form-list.entity-find element support instead of form-list.@list attribute
-  - form-list.service-call
-  - also more general form-list.actions element?
+  - X form-list.entity-find element support instead of form-list.@list attribute
+  - _ form-list.service-call
+  - _ also more general form-list.actions element?
 - form-single.entity-find-one element support, maybe form-single.actions too
-- form-list reporting like features
-  - field attribute to show total (for current page only...)
-  - field attribute for grouping
-    - aggregation functions (like sum) and option to show in nested table (full width cell with columns for nested fields)
-    - if any set with function or nest all others are 'group by' fields
 
 - Instance Provisioning and Management
   - external instance management

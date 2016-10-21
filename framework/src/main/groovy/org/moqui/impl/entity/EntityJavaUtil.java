@@ -451,11 +451,7 @@ public class EntityJavaUtil {
                         }
                     } else if (src.containsKey(fieldName)) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
-                        if (value != null && isCharSequence) {
-                            dest.putNoCheck(fieldName, null);
-                        } else {
-                            dest.putNoCheck(fieldName, value);
-                        }
+                        dest.putNoCheck(fieldName, null);
                     }
                 }
             }

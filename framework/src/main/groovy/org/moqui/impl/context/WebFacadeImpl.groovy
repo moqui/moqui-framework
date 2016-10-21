@@ -452,7 +452,7 @@ class WebFacadeImpl implements WebFacade {
          */
 
         // cache the root URLs just within the request, common to generate various URLs in a single request
-        String cacheKey = null
+        String cacheKey = (String) null
         if (request != null) {
             StringBuilder keyBuilder = new StringBuilder(200)
             keyBuilder.append(webappName).append(servletContextPath)
@@ -474,8 +474,8 @@ class WebFacadeImpl implements WebFacade {
         if (webappInfo == null) return ""
 
         StringBuilder urlBuilder = new StringBuilder()
-        HttpServletRequest request = webFacade.getRequest()
-        if ("https".equals(request.getScheme()) || (requireEncryption && webappInfo.httpsEnabled)) {
+        HttpServletRequest request = webFacade?.getRequest()
+        if ("https".equals(request?.getScheme()) || (requireEncryption && webappInfo.httpsEnabled)) {
             urlBuilder.append("https://")
             if (webappInfo.httpsHost != null) {
                 urlBuilder.append(webappInfo.httpsHost)
@@ -489,27 +489,25 @@ class WebFacadeImpl implements WebFacade {
             }
             String httpsPort = webappInfo.httpsPort
             // try the local port; this won't work when switching from http to https, conf required for that
-            if (httpsPort == null && webFacade != null && request.isSecure())
-                httpsPort = request.getServerPort() as String
-            if (httpsPort && httpsPort != "443") urlBuilder.append(":").append(httpsPort)
+            if (httpsPort == null && request != null && request.isSecure()) httpsPort = request.getServerPort() as String
+            if (httpsPort != null && !httpsPort.isEmpty() && !"443".equals(httpsPort)) urlBuilder.append(":").append(httpsPort)
         } else {
             urlBuilder.append("http://")
             if (webappInfo.httpHost != null) {
                 urlBuilder.append(webappInfo.httpHost)
             } else {
-                if (webFacade) {
+                if (webFacade != null) {
                     urlBuilder.append(webFacade.getHostName(false))
                 } else {
                     // uh-oh, no web context, default to localhost
                     urlBuilder.append("localhost")
-                    logger.trace("No webFacade in place, defaulting to localhost for hostName")
+                    logger.trace("No webapp http-host and no webFacade in place, defaulting to localhost for hostName")
                 }
             }
             String httpPort = webappInfo.httpPort
             // try the server port; this won't work when switching from https to http, conf required for that
-            if (!httpPort && webFacade != null && !request.isSecure())
-                httpPort = request.getServerPort() as String
-            if (httpPort && httpPort != "80") urlBuilder.append(":").append(httpPort)
+            if (!httpPort && request != null && !request.isSecure()) httpPort = request.getServerPort() as String
+            if (httpPort != null && !httpPort.isEmpty() && !"80".equals(httpPort)) urlBuilder.append(":").append(httpPort)
         }
         return urlBuilder.toString()
     }

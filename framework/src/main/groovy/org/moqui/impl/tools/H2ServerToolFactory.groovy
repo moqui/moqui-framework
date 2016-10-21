@@ -23,12 +23,13 @@ import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.lang.reflect.Field
+
 
 /** Initializes H2 Database server if any datasource is configured to use H2. */
 @CompileStatic
 class H2ServerToolFactory implements ToolFactory<Server> {
     protected final static Logger logger = LoggerFactory.getLogger(H2ServerToolFactory.class)
-    final static String TOOL_NAME = "H2Server"
 
     protected ExecutionContextFactoryImpl ecfi = null
 
@@ -39,11 +40,7 @@ class H2ServerToolFactory implements ToolFactory<Server> {
     H2ServerToolFactory() { }
 
     @Override
-    String getName() { return TOOL_NAME }
-    @Override
-    void init(ExecutionContextFactory ecf) { }
-    @Override
-    void preFacadeInit(ExecutionContextFactory ecf) {
+    void init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
 
         for (MNode datasourceNode in ecfi.getConfXmlRoot().first("entity-facade").children("datasource")) {
@@ -70,6 +67,20 @@ class H2ServerToolFactory implements ToolFactory<Server> {
                 }
             }
         }
+
+        // a hack, disable the H2 shutdown hook (org.h2.engine.DatabaseCloser) so it doesn't shut down before the rest of framework
+        if (h2Server != null) {
+            Class clazz = Class.forName("java.lang.ApplicationShutdownHooks")
+            Field field = clazz.getDeclaredField("hooks")
+            field.setAccessible(true)
+            IdentityHashMap<Thread, Thread> hooks = (IdentityHashMap<Thread, Thread>) field.get(null)
+            List<Thread> hookList = new ArrayList<>(hooks.keySet())
+            for (Thread hook in hookList) {
+                String clazzName = hook.class.name
+                logger.info("Found shutdown hook: ${clazzName} ${hook}")
+                if ("org.h2.engine.DatabaseCloser".equals(clazzName)) Runtime.getRuntime().removeShutdownHook(hook)
+            }
+        }
     }
 
     @Override
@@ -79,10 +90,11 @@ class H2ServerToolFactory implements ToolFactory<Server> {
     }
 
     @Override
-    void destroy() {
-        // don't stop the H2 server, shuts down the DB before important framework facades
-        // if (h2Server != null && h2Server.isRunning(true)) h2Server.stop()
+    void postFacadeDestroy() {
+        // NOTE: using shutdown() instead of stop() so it shuts down the DB and stops the TCP server
+        if (h2Server != null) {
+            h2Server.shutdown()
+            System.out.println("Shut down H2 Server")
+        }
     }
-
-    ExecutionContextFactory getEcf() { return ecf }
 }

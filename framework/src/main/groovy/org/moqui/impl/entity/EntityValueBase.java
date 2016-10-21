@@ -143,6 +143,8 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
     @Override
+    public boolean isField(String name) { return getEntityDefinition().isField(name); }
+    @Override
     public boolean isMutable() { return mutable; }
     public void setFromCache() { mutable = false; }
 

@@ -108,6 +108,32 @@ public class StupidJavaUtilities {
         return theClass.isInstance(theObjectInQuestion);
     }
 
+    public static Number addNumbers(Number a, Number b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        Class<?> aClass = a.getClass();
+        Class<?> bClass = b.getClass();
+        // handle BigDecimal as a special case, most common case
+        if (aClass == BigDecimal.class) {
+            if (bClass == BigDecimal.class) return ((BigDecimal) a).add((BigDecimal) b);
+            else return ((BigDecimal) a).add(new BigDecimal(b.toString()));
+        }
+        if (bClass == BigDecimal.class) {
+            if (aClass == BigDecimal.class) return ((BigDecimal) b).add((BigDecimal) a);
+            else return ((BigDecimal) b).add(new BigDecimal(a.toString()));
+        }
+        // handle other numbers in descending order of most to least precision
+        if (aClass == Double.class || bClass == Double.class) {
+            return a.doubleValue() + b.doubleValue();
+        } else if (aClass == Float.class || bClass == Float.class) {
+            return a.floatValue() + b.floatValue();
+        } else if (aClass == Long.class || bClass == Long.class) {
+            return a.longValue() + b.longValue();
+        } else {
+            return a.intValue() + b.intValue();
+        }
+    }
+
     public static String removeChar(String orig, char ch) {
         // NOTE: this seems to run pretty slow, plain replace might be faster, but avoiding its use anyway (in ServiceFacadeImpl for SECA rules)
         char[] newChars = new char[orig.length()];

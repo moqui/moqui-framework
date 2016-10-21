@@ -122,7 +122,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
             return (checkSd != null)
         } catch (Throwable t) {
             // ignore the error, just checking to see if it is a screen
-            if (logger.isInfoEnabled()) logger.info("Error when checking to see if [${location}] is a XML Screen: ${t.toString()}")
+            if (logger.isInfoEnabled()) logger.info("Error when checking to see if [${location}] is a XML Screen: ${t.toString()}", t)
             return false
         }
     }
