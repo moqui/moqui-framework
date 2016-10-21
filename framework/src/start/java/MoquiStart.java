@@ -128,7 +128,7 @@ public class MoquiStart {
         if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
-            Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
+            // Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
             String overrideConf = argMap.get("conf");
