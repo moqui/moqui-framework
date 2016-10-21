@@ -600,10 +600,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         } finally { if (enableAuthz) aefi.enableAuthz() }
         logger.info("ArtifactHitBins stored")
 
-        // shutdown scheduled executor pool
-        try {
-        } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
-
         // shutdown scheduled executor and worker pools
         try {
             scheduledExecutor.shutdown()
@@ -623,6 +619,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Collections.reverse(toolFactoryList)
         for (ToolFactory tf in toolFactoryList) {
             logger.info("Destroying ToolFactory: ${tf.getName()}")
+            // NOTE: also calling System.out.println because log4j gets often gets closed before this completes
+            System.out.println("Destroying ToolFactory: ${tf.getName()}")
             try {
                 tf.destroy()
             } catch (Throwable t) {
@@ -636,6 +634,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (this.transactionFacade != null) this.transactionFacade.destroy()
         if (this.cacheFacade != null) this.cacheFacade.destroy()
         logger.info("Facades destroyed")
+        System.out.println("Facades destroyed")
 
         for (ToolFactory tf in toolFactoryList) {
             try {
