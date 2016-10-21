@@ -637,6 +637,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (this.cacheFacade != null) this.cacheFacade.destroy()
         logger.info("Facades destroyed")
 
+        for (ToolFactory tf in toolFactoryList) {
+            try {
+                tf.postFacadeDestroy()
+            } catch (Throwable t) {
+                logger.error("Error in post-facade destroy of ToolFactory ${tf.getName()}", t)
+            }
+        }
+
         activeContext.remove()
 
         // use System.out directly for this as logger may already be stopped
