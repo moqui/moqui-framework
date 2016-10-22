@@ -39,7 +39,6 @@ import org.moqui.impl.screen.ScreenDefinition.ResponseItem
 import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenForm.FormInstance
 import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
-import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.screen.ScreenRender
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
@@ -921,7 +920,7 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    FtlNodeWrapper getFtlFormNode(String formName) {
+    MNode getFtlFormNode(String formName) {
         FormInstance fi = getFormInstance(formName)
         if (fi == null) return null
         return fi.getFtlFormNode()
@@ -1049,9 +1048,10 @@ class ScreenRenderImpl implements ScreenRender {
         return ui.getInstance(this, null)
     }
 
-    UrlInstance makeUrlByType(String origUrl, String urlType, FtlNodeWrapper parameterParentNodeWrapper,
+    // TODO: these two are now redundant, eliminate longer name one
+    UrlInstance makeUrlByType(String origUrl, String urlType, MNode parameterParentNodeWrapper,
                                 String expandTransitionUrlString) {
-        return makeUrlByTypeGroovyNode(origUrl, urlType, parameterParentNodeWrapper?.getMNode(), expandTransitionUrlString)
+        return makeUrlByTypeGroovyNode(origUrl, urlType, parameterParentNodeWrapper, expandTransitionUrlString)
     }
     UrlInstance makeUrlByTypeGroovyNode(String origUrl, String urlType, MNode parameterParentNode,
                                 String expandTransitionUrlString) {
@@ -1098,8 +1098,7 @@ class ScreenRenderImpl implements ScreenRender {
             return ""
         }
     }
-    String setInContext(FtlNodeWrapper setNodeWrapper) {
-        MNode setNode = setNodeWrapper.getMNode()
+    String setInContext(MNode setNode) {
         ((ResourceFacadeImpl) ec.resource).setInContext(setNode.attribute("field"),
                 setNode.attribute("from"), setNode.attribute("value"),
                 setNode.attribute("default-value"), setNode.attribute("type"),
@@ -1110,9 +1109,8 @@ class ScreenRenderImpl implements ScreenRender {
     String popContext() { ec.getContext().pop(); return "" }
 
     /** Call this at the beginning of a form-single. Always call popContext() at the end of the form! */
-    String pushSingleFormMapContext(FtlNodeWrapper formNodeWrapper) {
+    String pushSingleFormMapContext(MNode formNode) {
         ContextStack cs = ec.getContext()
-        MNode formNode = formNodeWrapper.getMNode()
         String mapName = formNode.attribute("map") ?: "fieldValues"
         Map valueMap = (Map) cs.getByString(mapName)
 
@@ -1184,9 +1182,8 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    String getFieldValueString(FtlNodeWrapper widgetNodeWrapper) {
-        FtlNodeWrapper fieldNodeWrapper = widgetNodeWrapper.parentNodeWrapper.parentNodeWrapper
-        MNode widgetNode = widgetNodeWrapper.getMNode()
+    String getFieldValueString(MNode widgetNode) {
+        MNode fieldNodeWrapper = widgetNode.parent.parent
         String defaultValue = widgetNode.attribute("default-value")
         if (defaultValue == null) defaultValue = ""
         String format = widgetNode.attribute("format")
@@ -1201,14 +1198,14 @@ class ScreenRenderImpl implements ScreenRender {
         String strValue = ec.l10nFacade.format(obj, format)
         return strValue
     }
-    String getFieldValueString(FtlNodeWrapper fieldNodeWrapper, String defaultValue, String format) {
+    String getFieldValueString(MNode fieldNodeWrapper, String defaultValue, String format) {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
         if (obj instanceof String) return (String) obj
         String strValue = ec.l10nFacade.format(obj, format)
         return strValue
     }
-    String getFieldValuePlainString(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
+    String getFieldValuePlainString(MNode fieldNodeWrapper, String defaultValue) {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
         if (StupidJavaUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
@@ -1218,9 +1215,7 @@ class ScreenRenderImpl implements ScreenRender {
         //return obj ? obj.toString() : (defaultValue ? ec.getResource().expand(defaultValue, null) : "")
     }
 
-    Object getFieldValue(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
-        MNode fieldNode = fieldNodeWrapper.getMNode()
-
+    Object getFieldValue(MNode fieldNode, String defaultValue) {
         String fieldName = fieldNode.attribute("name")
         Object value = null
 
@@ -1270,15 +1265,14 @@ class ScreenRenderImpl implements ScreenRender {
         if (defaultStr != null && defaultStr.length() > 0) return defaultStr
         return value
     }
-    String getFieldValueClass(FtlNodeWrapper fieldNodeWrapper) {
+    String getFieldValueClass(MNode fieldNodeWrapper) {
         Object fieldValue = getFieldValue(fieldNodeWrapper, null)
         return fieldValue != null ? fieldValue.getClass().getSimpleName() : "String"
     }
 
-    String getFieldEntityValue(FtlNodeWrapper widgetNodeWrapper) {
-        MNode widgetNode = widgetNodeWrapper.getMNode()
-        FtlNodeWrapper fieldNodeWrapper = (FtlNodeWrapper) widgetNodeWrapper.parentNode.parentNode
-        Object fieldValue = getFieldValue(fieldNodeWrapper, "")
+    String getFieldEntityValue(MNode widgetNode) {
+        MNode fieldNode = widgetNode.parent.parent
+        Object fieldValue = getFieldValue(fieldNode, "")
         if (fieldValue == null) return getDefaultText(widgetNode)
         String entityName = widgetNode.attribute("entity-name")
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName)
@@ -1318,8 +1312,8 @@ class ScreenRenderImpl implements ScreenRender {
         }
     }
 
-    LinkedHashMap<String, String> getFieldOptions(FtlNodeWrapper widgetNodeWrapper) {
-        return ScreenForm.getFieldOptions(widgetNodeWrapper.getMNode(), ec)
+    LinkedHashMap<String, String> getFieldOptions(MNode widgetNode) {
+        return ScreenForm.getFieldOptions(widgetNode, ec)
     }
 
     boolean isInCurrentScreenPath(List<String> pathNameList) {

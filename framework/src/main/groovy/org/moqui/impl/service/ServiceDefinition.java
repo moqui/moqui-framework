@@ -23,7 +23,6 @@ import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.util.FtlNodeWrapper;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,7 +147,7 @@ public class ServiceDefinition {
         if (serviceNode.hasChild("out-parameters")) serviceNode.remove("out-parameters");
         serviceNode.append(outParameters);
 
-        if (logger.isTraceEnabled()) logger.trace("After merge for service " + serviceName + " node is:\n" + FtlNodeWrapper.prettyPrintNode(serviceNode));
+        if (logger.isTraceEnabled()) logger.trace("After merge for service " + serviceName + " node is:\n" + serviceNode.toString());
 
         // if this is an inline service, get that now
         if (serviceNode.hasChild("actions")) {

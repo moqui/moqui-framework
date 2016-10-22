@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.screen
 
-import freemarker.template.TemplateModel
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
@@ -30,7 +29,6 @@ import org.moqui.impl.entity.AggregationUtil.AggregateField
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
-import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -221,8 +219,8 @@ class ScreenForm {
             }
         }
 
-        if (logger.traceEnabled) logger.trace("Form [${location}] resulted in expanded def: " + FtlNodeWrapper.wrapNode(newFormNode).toString())
-        // if (location.contains("FOO")) logger.warn("======== Form [${location}] resulted in expanded def: " + FtlNodeWrapper.wrapNode(newFormNode).toString())
+        if (logger.traceEnabled) logger.trace("Form [${location}] resulted in expanded def: " + newFormNode.toString())
+        // if (location.contains("FOO")) logger.warn("======== Form [${location}] resulted in expanded def: " + newFormNode.toString())
 
         entityFindNode = newFormNode.first("entity-find")
         // prep row-actions
@@ -1025,19 +1023,17 @@ class ScreenForm {
         private ScreenForm screenForm
         private ExecutionContextFactoryImpl ecfi
         private MNode formNode
-        private FtlNodeWrapper ftlFormNode
         private boolean isListForm
 
         private ArrayList<MNode> allFieldNodes
         private ArrayList<String> allFieldNames
         private Map<String, MNode> fieldNodeMap = new LinkedHashMap<>()
-        private Map<String, FtlNodeWrapper> fieldFtlNodeMap = new LinkedHashMap<>()
 
         private boolean isUploadForm = false
         private boolean isFormHeaderFormVal = false
-        private ArrayList<FtlNodeWrapper> nonReferencedFieldList = (ArrayList<FtlNodeWrapper>) null
-        private ArrayList<FtlNodeWrapper> hiddenFieldList = (ArrayList<FtlNodeWrapper>) null
-        private ArrayList<ArrayList<FtlNodeWrapper>> formListColInfoList = (ArrayList<ArrayList<FtlNodeWrapper>>) null
+        private ArrayList<MNode> nonReferencedFieldList = (ArrayList<MNode>) null
+        private ArrayList<MNode> hiddenFieldList = (ArrayList<MNode>) null
+        private ArrayList<ArrayList<MNode>> formListColInfoList = (ArrayList<ArrayList<MNode>>) null
 
         boolean hasAggregate = false
         private String[] aggregateGroupFields = (String[]) null
@@ -1050,7 +1046,6 @@ class ScreenForm {
             this.screenForm = screenForm
             ecfi = screenForm.ecfi
             formNode = screenForm.getOrCreateFormNode()
-            ftlFormNode = FtlNodeWrapper.wrapNode(formNode)
             isListForm = "form-list".equals(formNode.getName())
 
             allFieldNodes = formNode.children("field")
@@ -1097,16 +1092,6 @@ class ScreenForm {
                     }
                 }
             }
-            // make fieldFtlNodeMap in separate pass to get FtlNodeWrapper objects already created
-            TemplateModel ftlFieldNodeList = ftlFormNode.get("field")
-            if (ftlFieldNodeList instanceof FtlNodeWrapper.FtlNodeListWrapper) {
-                FtlNodeWrapper.FtlNodeListWrapper fnlw = (FtlNodeWrapper.FtlNodeListWrapper) ftlFieldNodeList
-                int fnlwSize = fnlw.size()
-                for (int i = 0; i < fnlwSize; i++) {
-                    FtlNodeWrapper ftlFieldNode = (FtlNodeWrapper) fnlw.get(i)
-                    fieldFtlNodeMap.put(ftlFieldNode.get("@name") as String, ftlFieldNode)
-                }
-            }
 
             // check aggregate defs
             if (hasAggregate) {
@@ -1149,8 +1134,8 @@ class ScreenForm {
             }
         }
 
-        FtlNodeWrapper getFtlFormNode() { return ftlFormNode }
-        FtlNodeWrapper getFtlFieldNode(String fieldName) { return fieldFtlNodeMap.get(fieldName) }
+        MNode getFtlFormNode() { return formNode }
+        MNode getFtlFieldNode(String fieldName) { return fieldNodeMap.get(fieldName) }
         String getFormLocation() { return screenForm.location }
         FormListRenderInfo makeFormListRenderInfo() { return new FormListRenderInfo(this) }
         boolean isUpload() { return isUploadForm }
@@ -1212,15 +1197,15 @@ class ScreenForm {
             return null
         }
 
-        ArrayList<FtlNodeWrapper> getFieldLayoutNonReferencedFieldList() {
+        ArrayList<MNode> getFieldLayoutNonReferencedFieldList() {
             if (nonReferencedFieldList != null) return nonReferencedFieldList
-            ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
+            ArrayList<MNode> fieldList = new ArrayList<>()
 
             if (formNode.hasChild("field-layout")) for (MNode fieldNode in formNode.children("field")) {
                 MNode fieldLayoutNode = formNode.first("field-layout")
                 String fieldName = fieldNode.attribute("name")
                 if (!fieldLayoutNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldName }))
-                    fieldList.add(fieldFtlNodeMap.get(fieldName))
+                    fieldList.add(fieldNodeMap.get(fieldName))
             }
 
             nonReferencedFieldList = fieldList
@@ -1254,14 +1239,14 @@ class ScreenForm {
             return true
         }
 
-        ArrayList<FtlNodeWrapper> getListHiddenFieldList() {
+        ArrayList<MNode> getListHiddenFieldList() {
             if (hiddenFieldList != null) return hiddenFieldList
 
-            ArrayList<FtlNodeWrapper> fieldList = new ArrayList<>()
+            ArrayList<MNode> fieldList = new ArrayList<>()
             int afnSize = allFieldNodes.size()
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
-                if (isListFieldHiddenWidget(fieldNode) && !isListFieldHiddenAttr(fieldNode)) fieldList.add(FtlNodeWrapper.wrapNode(fieldNode))
+                if (isListFieldHiddenWidget(fieldNode) && !isListFieldHiddenAttr(fieldNode)) fieldList.add(fieldNode)
             }
 
             hiddenFieldList = fieldList
@@ -1287,7 +1272,7 @@ class ScreenForm {
             return null
         }
 
-        ArrayList<ArrayList<FtlNodeWrapper>> getFormListColumnInfo() {
+        ArrayList<ArrayList<MNode>> getFormListColumnInfo() {
             ExecutionContextImpl eci = ecfi.getEci()
             String formConfigId = getUserActiveFormConfigId(eci)
             if (formConfigId) {
@@ -1298,26 +1283,26 @@ class ScreenForm {
         }
         /** convert form-list-column elements into a list, if there are no form-list-column elements uses fields limiting
          *    by logic about what actually gets rendered (so result can be used for display regardless of form def) */
-        private ArrayList<ArrayList<FtlNodeWrapper>> makeFormListColumnInfo() {
+        private ArrayList<ArrayList<MNode>> makeFormListColumnInfo() {
             ArrayList<MNode> formListColumnList = formNode.children("form-list-column")
             int flcListSize = formListColumnList != null ? formListColumnList.size() : 0
 
-            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
+            ArrayList<ArrayList<MNode>> colInfoList = new ArrayList<>()
 
             if (flcListSize > 0) {
                 // populate fields under columns
                 for (int ci = 0; ci < flcListSize; ci++) {
                     MNode flcNode = (MNode) formListColumnList.get(ci)
-                    ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+                    ArrayList<MNode> colFieldNodes = new ArrayList<>()
                     ArrayList<MNode> fieldRefNodes = flcNode.children("field-ref")
                     int fieldRefSize = fieldRefNodes.size()
                     for (int fi = 0; fi < fieldRefSize; fi++) {
                         MNode frNode = (MNode) fieldRefNodes.get(fi)
                         String fieldName = frNode.attribute("name")
-                        FtlNodeWrapper fieldNode = (FtlNodeWrapper) fieldFtlNodeMap.get(fieldName)
+                        MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
                         if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${screenForm.location}")
                         // skip hidden fields, they are handled separately
-                        if (isListFieldHidden(fieldNode.getMNode())) continue
+                        if (isListFieldHidden(fieldNode)) continue
 
                         colFieldNodes.add(fieldNode)
                     }
@@ -1331,27 +1316,27 @@ class ScreenForm {
                     // skip hidden fields, they are handled separately
                     if (isListFieldHidden(fieldNode)) continue
 
-                    ArrayList<FtlNodeWrapper> singleFieldColList = new ArrayList<>()
-                    singleFieldColList.add(FtlNodeWrapper.wrapNode(fieldNode))
+                    ArrayList<MNode> singleFieldColList = new ArrayList<>()
+                    singleFieldColList.add(fieldNode)
                     colInfoList.add(singleFieldColList)
                 }
             }
 
             return colInfoList
         }
-        private ArrayList<ArrayList<FtlNodeWrapper>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
+        private ArrayList<ArrayList<MNode>> makeDbFormListColumnInfo(String formConfigId, ExecutionContextImpl eci) {
             EntityList formConfigFieldList = ecfi.entityFacade.find("moqui.screen.form.FormConfigField")
                     .condition("formConfigId", formConfigId).orderBy("positionIndex").orderBy("positionSequence").useCache(true).list()
 
             // NOTE: calling code checks to see if this is not empty
             int fcfListSize = formConfigFieldList.size()
 
-            ArrayList<ArrayList<FtlNodeWrapper>> colInfoList = new ArrayList<>()
+            ArrayList<ArrayList<MNode>> colInfoList = new ArrayList<>()
             Set<String> tempFieldsInFormListColumns = new HashSet()
 
             // populate fields under columns
             int curColIndex = -1;
-            ArrayList<FtlNodeWrapper> colFieldNodes = null
+            ArrayList<MNode> colFieldNodes = null
             for (int ci = 0; ci < fcfListSize; ci++) {
                 EntityValue fcfValue = (EntityValue) formConfigFieldList.get(ci)
                 int columnIndex = fcfValue.getNoCheckSimple("positionIndex") as int
@@ -1367,7 +1352,7 @@ class ScreenForm {
                 if (isListFieldHidden(fieldNode)) continue
 
                 tempFieldsInFormListColumns.add(fieldName)
-                colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+                colFieldNodes.add(fieldNode)
             }
             // Add the final field (if defined)
             if (colFieldNodes != null && colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
@@ -1439,9 +1424,9 @@ class ScreenForm {
         private final FormInstance formInstance
         private final ScreenForm screenForm
         private ExecutionContextFactoryImpl ecfi
-        private ArrayList<ArrayList<FtlNodeWrapper>> allColInfo
-        private ArrayList<ArrayList<FtlNodeWrapper>> mainColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
-        private ArrayList<ArrayList<FtlNodeWrapper>> subColInfo = (ArrayList<ArrayList<FtlNodeWrapper>>) null
+        private ArrayList<ArrayList<MNode>> allColInfo
+        private ArrayList<ArrayList<MNode>> mainColInfo = (ArrayList<ArrayList<MNode>>) null
+        private ArrayList<ArrayList<MNode>> subColInfo = (ArrayList<ArrayList<MNode>>) null
         private boolean hasMainTotals = false
         private boolean hasSubTotals = false
         private LinkedHashSet<String> displayedFieldSet
@@ -1456,12 +1441,12 @@ class ScreenForm {
             displayedFieldSet = new LinkedHashSet<>()
             int outerSize = allColInfo.size()
             for (int oi = 0; oi < outerSize; oi++) {
-                ArrayList<FtlNodeWrapper> innerList = (ArrayList<FtlNodeWrapper>) allColInfo.get(oi)
+                ArrayList<MNode> innerList = (ArrayList<MNode>) allColInfo.get(oi)
                 if (innerList == null) continue
                 int innerSize = innerList.size()
                 for (int ii = 0; ii < innerSize; ii++) {
-                    FtlNodeWrapper ftlNode = (FtlNodeWrapper) innerList.get(ii)
-                    if (ftlNode != null) displayedFieldSet.add(ftlNode.getMNode().attribute("name"))
+                    MNode ftlNode = (MNode) innerList.get(ii)
+                    if (ftlNode != null) displayedFieldSet.add(ftlNode.attribute("name"))
                 }
             }
 
@@ -1470,13 +1455,13 @@ class ScreenForm {
                 int flciSize = allColInfo.size()
                 mainColInfo = new ArrayList<>(flciSize)
                 for (int i = 0; i < flciSize; i++) {
-                    ArrayList<FtlNodeWrapper> fieldList = (ArrayList<FtlNodeWrapper>) allColInfo.get(i)
-                    ArrayList<FtlNodeWrapper> newFieldList = new ArrayList<>()
-                    ArrayList<FtlNodeWrapper> subFieldList = (ArrayList<FtlNodeWrapper>) null
+                    ArrayList<MNode> fieldList = (ArrayList<MNode>) allColInfo.get(i)
+                    ArrayList<MNode> newFieldList = new ArrayList<>()
+                    ArrayList<MNode> subFieldList = (ArrayList<MNode>) null
                     int fieldListSize = fieldList.size()
                     for (int fi = 0; fi < fieldListSize; fi++) {
-                        FtlNodeWrapper fieldNode = (FtlNodeWrapper) fieldList.get(fi)
-                        String fieldName = fieldNode.getMNode().attribute("name")
+                        MNode fieldNode = (MNode) fieldList.get(fi)
+                        String fieldName = fieldNode.attribute("name")
                         AggregateField aggField = formInstance.aggregateFieldMap.get(fieldName)
                         if (aggField != null && aggField.subList) {
                             if (subFieldList == null) subFieldList = new ArrayList<>()
@@ -1497,17 +1482,17 @@ class ScreenForm {
         }
 
         MNode getFormNode() { return formInstance.formNode }
-        FtlNodeWrapper getFtlFormNode() { return formInstance.ftlFormNode }
-        FtlNodeWrapper getFtlFieldNode(String fieldName) { return formInstance.fieldFtlNodeMap.get(fieldName) }
+        MNode getFtlFormNode() { return formInstance.ftlFormNode }
+        MNode getFtlFieldNode(String fieldName) { return formInstance.fieldNodeMap.get(fieldName) }
 
         boolean isHeaderForm() { return formInstance.isFormHeaderFormVal }
         String getFormLocation() { return formInstance.screenForm.location }
 
         FormInstance getFormInstance() { return formInstance }
-        ArrayList<ArrayList<FtlNodeWrapper>> getAllColInfo() { return allColInfo }
-        ArrayList<ArrayList<FtlNodeWrapper>> getMainColInfo() { return mainColInfo ?: allColInfo }
-        ArrayList<ArrayList<FtlNodeWrapper>> getSubColInfo() { return subColInfo }
-        ArrayList<FtlNodeWrapper> getListHiddenFieldList() { return formInstance.getListHiddenFieldList() }
+        ArrayList<ArrayList<MNode>> getAllColInfo() { return allColInfo }
+        ArrayList<ArrayList<MNode>> getMainColInfo() { return mainColInfo ?: allColInfo }
+        ArrayList<ArrayList<MNode>> getSubColInfo() { return subColInfo }
+        ArrayList<MNode> getListHiddenFieldList() { return formInstance.getListHiddenFieldList() }
         LinkedHashSet<String> getDisplayedFields() { return displayedFieldSet }
 
         boolean getHasMainTotals() { return hasMainTotals }
@@ -1634,8 +1619,8 @@ class ScreenForm {
             return "[" + sb.toString() + "]"
         }
 
-        ArrayList<FtlNodeWrapper> getFieldsNotReferencedInFormListColumn() {
-            ArrayList<FtlNodeWrapper> colFieldNodes = new ArrayList<>()
+        ArrayList<MNode> getFieldsNotReferencedInFormListColumn() {
+            ArrayList<MNode> colFieldNodes = new ArrayList<>()
             ArrayList<MNode> allFieldNodes = formInstance.allFieldNodes
             int afnSize = allFieldNodes.size()
             for (int i = 0; i < afnSize; i++) {
@@ -1644,7 +1629,7 @@ class ScreenForm {
                 if (formInstance.isListFieldHidden(fieldNode)) continue
                 String fieldName = fieldNode.attribute("name")
                 if (!displayedFieldSet.contains(fieldName))
-                    colFieldNodes.add(formInstance.fieldFtlNodeMap.get(fieldName))
+                    colFieldNodes.add(formInstance.fieldNodeMap.get(fieldName))
             }
 
             return colFieldNodes
@@ -1665,12 +1650,11 @@ class ScreenForm {
             int fixedColsWidth = 0
             int fixedColsCount = 0
             for (int i = 0; i < numCols; i++) {
-                ArrayList<FtlNodeWrapper> colNodes = (ArrayList<FtlNodeWrapper>) allColInfo.get(i)
+                ArrayList<MNode> colNodes = (ArrayList<MNode>) allColInfo.get(i)
                 int charWidth = -1
                 BigDecimal percentWidth = null
                 for (int j = 0; j < colNodes.size(); j++) {
-                    FtlNodeWrapper fieldFtlNode = (FtlNodeWrapper) colNodes.get(j)
-                    MNode fieldNode = fieldFtlNode.getMNode()
+                    MNode fieldNode = (MNode) colNodes.get(j)
                     String pwAttr = fieldNode.attribute("print-width")
                     if (pwAttr == null || pwAttr.isEmpty()) continue
                     BigDecimal curWidth = new BigDecimal(pwAttr)

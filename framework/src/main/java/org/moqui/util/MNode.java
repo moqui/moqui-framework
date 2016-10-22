@@ -13,6 +13,9 @@
  */
 package org.moqui.util;
 
+import freemarker.ext.beans.BeansWrapper;
+import freemarker.ext.beans.BeansWrapperBuilder;
+import freemarker.template.*;
 import groovy.lang.Closure;
 import groovy.util.Node;
 import groovy.util.NodeList;
@@ -30,13 +33,15 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /** An alternative to groovy.util.Node with methods more type safe and generally useful in Moqui. */
 @SuppressWarnings("unused")
-public class MNode {
+public class MNode implements TemplateNodeModel, TemplateSequenceModel, TemplateHashModelEx, AdapterTemplateModel, TemplateScalarModel {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
+    public static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
     public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
@@ -112,7 +117,7 @@ public class MNode {
     private ArrayList<MNode> childList = null;
     private HashMap<String, ArrayList<MNode>> childrenByName = null;
     private String childText = null;
-    protected long lastModified = 0;
+    private long lastModified = 0;
     private boolean systemExpandAttributes = false;
 
     /* ========== Constructors ========== */
@@ -160,7 +165,7 @@ public class MNode {
     /* ========== Get Methods ========== */
 
     /** If name starts with an ampersand (@) then get an attribute, otherwise get a list of child nodes with the given name. */
-    public Object get(String name) {
+    public Object getObject(String name) {
         if (name != null && name.length() > 0 && name.charAt(0) == '@') {
             return attribute(name.substring(1));
         } else {
@@ -645,7 +650,6 @@ public class MNode {
         }
     }
 
-
     /* ========== String Methods ========== */
 
     @Override
@@ -750,5 +754,166 @@ public class MNode {
 
         @Override
         public void setDocumentLocator(Locator locator) { this.locator = locator; }
+    }
+
+    /* ============================================================== */
+    /* ========== FreeMarker (FTL) Fields Methods, Classes ========== */
+    /* ============================================================== */
+
+    private static final BeansWrapper wrapper = new BeansWrapperBuilder(FTL_VERSION).build();
+    private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
+    private FtlNodeListWrapper allChildren = null;
+    private ConcurrentHashMap<String, TemplateModel> attrAndChildrenByName = null;
+
+    public Object getAdaptedObject(Class aClass) { return this; }
+
+    // TemplateHashModel methods
+    @Override public TemplateModel get(String s) {
+        if (s == null) return null;
+        // first try the attribute and children caches, then if not found in either pick it apart and create what is needed
+        if (attrAndChildrenByName != null) {
+            TemplateModel attrOrChildWrapper = attrAndChildrenByName.get(s);
+            if (attrOrChildWrapper != null) return attrOrChildWrapper;
+        }
+
+        // at this point we got a null value but attributes and child nodes were pre-loaded so return null or empty list
+        if (s.startsWith("@")) {
+            if ("@@text".equals(s)) {
+                // if we got this once will get it again so add @@text always, always want wrapper though may be null
+                FtlTextWrapper textWrapper = new FtlTextWrapper(childText, this);
+                if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
+                attrAndChildrenByName.put("@@text", textWrapper);
+                return textWrapper;
+                // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
+            } else {
+                String attrName = s.substring(1, s.length());
+                String attrValue = attributeMap.get(attrName);
+                if (attrValue == null) return null;
+                FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
+                if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
+                attrAndChildrenByName.putIfAbsent(s, attrWrapper);
+                return attrAndChildrenByName.get(s);
+            }
+        } else {
+            if (hasChild(s)) {
+                FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(children(s), this);
+                if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
+                attrAndChildrenByName.putIfAbsent(s, nodeListWrapper);
+                return attrAndChildrenByName.get(s);
+            } else {
+                return emptyNodeListWrapper;
+            }
+        }
+    }
+    @Override public boolean isEmpty() {
+        return attributeMap.isEmpty() && (childList == null || childList.isEmpty()) && (childText == null || childText.length() == 0);
+    }
+
+    // TemplateHashModelEx methods
+    @Override public TemplateCollectionModel keys() throws TemplateModelException { return new SimpleCollection(attributeMap.keySet(), wrapper); }
+    @Override public TemplateCollectionModel values() throws TemplateModelException { return new SimpleCollection(attributeMap.values(), wrapper); }
+
+    // TemplateNodeModel methods
+    @Override public TemplateNodeModel getParentNode() { return parentNode; }
+    @Override public TemplateSequenceModel getChildNodes() { return this; }
+    @Override public String getNodeName() { return getName(); }
+    @Override public String getNodeType() { return "element"; }
+    @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
+
+    // TemplateSequenceModel methods
+    @Override public TemplateModel get(int i) { return getSequenceList().get(i); }
+    @Override public int size() { return getSequenceList().size(); }
+    private FtlNodeListWrapper getSequenceList() {
+        // Looks like attributes should NOT go in the FTL children list, so just use the node.children()
+        if (allChildren == null) allChildren = (childText != null && childText.length() > 0) ?
+                new FtlNodeListWrapper(childText, this) : new FtlNodeListWrapper(childList, this);
+        return allChildren;
+    }
+
+    // TemplateScalarModel methods
+    @Override public String getAsString() { return childText != null ? childText : ""; }
+
+    public static class FtlAttributeWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel,
+            TemplateScalarModel {
+        protected String key;
+        protected String value;
+        MNode parentNode;
+        FtlAttributeWrapper(String key, String value, MNode parentNode) {
+            this.key = key;
+            this.value = value;
+            this.parentNode = parentNode;
+        }
+
+        @Override public Object getAdaptedObject(Class aClass) { return value; }
+
+        // TemplateNodeModel methods
+        @Override public TemplateNodeModel getParentNode() { return parentNode; }
+        @Override public TemplateSequenceModel getChildNodes() { return this; }
+        @Override public String getNodeName() { return key; }
+        @Override public String getNodeType() { return "attribute"; }
+        @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
+
+        // TemplateSequenceModel methods
+        @Override public TemplateModel get(int i) {
+            if (i == 0) try {
+                return wrapper.wrap(value);
+            } catch (TemplateModelException e) {
+                throw new BaseException("Error wrapping object for FreeMarker", e);
+            }
+            throw new IndexOutOfBoundsException("Attribute node only has 1 value. Tried to get index [${i}] for attribute [${key}]");
+        }
+        @Override public int size() { return 1; }
+
+        // TemplateScalarModel methods
+        @Override public String getAsString() { return value; }
+        @Override public String toString() { return value; }
+    }
+
+    public static class FtlTextWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel, TemplateScalarModel {
+        protected String text;
+        MNode parentNode;
+        FtlTextWrapper(String text, MNode parentNode) {
+            this.text = text;
+            this.parentNode = parentNode;
+        }
+
+        @Override public Object getAdaptedObject(Class aClass) { return text; }
+
+        // TemplateNodeModel methods
+        @Override public TemplateNodeModel getParentNode() { return parentNode; }
+        @Override public TemplateSequenceModel getChildNodes() { return this; }
+        @Override public String getNodeName() { return "@text"; }
+        @Override public String getNodeType() { return "text"; }
+        @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
+
+        // TemplateSequenceModel methods
+        @Override public TemplateModel get(int i) {
+            if (i == 0) try {
+                return wrapper.wrap(getAsString());
+            } catch (TemplateModelException e) {
+                throw new BaseException("Error wrapping object for FreeMarker", e);
+            }
+            throw new IndexOutOfBoundsException("Text node only has 1 value. Tried to get index [${i}]");
+        }
+        @Override public int size() { return 1; }
+
+        // TemplateScalarModel methods
+        @Override public String getAsString() { return text != null ? text : ""; }
+        @Override public String toString() { return getAsString(); }
+    }
+
+    public static class FtlNodeListWrapper implements TemplateSequenceModel {
+        ArrayList<TemplateModel> nodeList = new ArrayList<>();
+        FtlNodeListWrapper(ArrayList<MNode> mnodeList, MNode parentNode) {
+            if (mnodeList != null) for (int i = 0; i < mnodeList.size(); i++)
+                nodeList.add(mnodeList.get(i));
+        }
+        FtlNodeListWrapper(String text, MNode parentNode) {
+            nodeList.add(new FtlTextWrapper(text, parentNode));
+        }
+
+        @Override public TemplateModel get(int i) { return nodeList.get(i); }
+        @Override public int size() { return nodeList.size(); }
+        @Override public String toString() { return nodeList.toString(); }
     }
 }
