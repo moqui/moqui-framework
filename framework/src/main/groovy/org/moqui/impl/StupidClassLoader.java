@@ -83,6 +83,8 @@ public class StupidClassLoader extends ClassLoader {
     private final Map<String, URL> jarLocationByJarName = new HashMap<>();
     private final ArrayList<File> classesDirectoryList = new ArrayList<>();
 
+    // don't track known: with a few tool components in place uses 20MB memory and really doesn't help start/etc time much:
+    private final boolean trackKnown = false;
     private final HashMap<String, File> knownClassFiles = new HashMap<>();
     private final HashMap<String, JarEntryInfo> knownClassJarEntries = new HashMap<>();
     private static class JarEntryInfo {
@@ -128,7 +130,7 @@ public class StupidClassLoader extends ClassLoader {
                 System.out.println("Ignoring duplicate class " + className + " in jar " + jfName);
                 continue;
             }
-            knownClassJarEntries.put(className, new JarEntryInfo(je, jf, jarLocation));
+            if (trackKnown) knownClassJarEntries.put(className, new JarEntryInfo(je, jf, jarLocation));
 
             /* NOTE: can't do this as classes are defined out of order, end up with NoClassDefFoundError for dependencies:
             Class<?> cls = makeClass(className, jf, je);
@@ -173,7 +175,7 @@ public class StupidClassLoader extends ClassLoader {
                     System.out.println("Ignoring duplicate class " + className + " at " + child.getPath());
                     continue;
                 }
-                knownClassFiles.put(className, child);
+                if (trackKnown) knownClassFiles.put(className, child);
 
                 /* NOTE: can't do this as classes are defined out of order, end up with NoClassDefFoundError for dependencies:
                 Class<?> cls = makeClass(className, child);
@@ -355,15 +357,17 @@ public class StupidClassLoader extends ClassLoader {
 
             if (c == null) {
                 try {
-                    File classFile = knownClassFiles.get(className);
-                    if (classFile != null) c = makeClass(className, classFile);
-                    if (c == null) {
-                        JarEntryInfo jei = knownClassJarEntries.get(className);
-                        if (jei != null) c = makeClass(className, jei.file, jei.entry, jei.jarLocation);
+                    if (trackKnown) {
+                        File classFile = knownClassFiles.get(className);
+                        if (classFile != null) c = makeClass(className, classFile);
+                        if (c == null) {
+                            JarEntryInfo jei = knownClassJarEntries.get(className);
+                            if (jei != null) c = makeClass(className, jei.file, jei.entry, jei.jarLocation);
+                        }
                     }
 
-                    // old approach search through all class dirs and jars
-                    // c = findJarClass(className);
+                    // not found in known? search through all
+                    c = findJarClass(className);
                 } catch (Exception e) {
                     System.out.println("Error loading class [" + className + "] from additional jars: " + e.toString());
                     e.printStackTrace();

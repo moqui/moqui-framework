@@ -518,23 +518,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    protected Map<String, MNode> entityFileRootMap = new HashMap<>()
-    protected MNode getEntityFileRoot(ResourceReference entityRr) {
-        MNode existingNode = entityFileRootMap.get(entityRr.getLocation())
-        if (existingNode != null && existingNode.attribute("_loadedTime")) {
-            long loadedTime = existingNode.attribute("_loadedTime") as Long
-            long lastModified = entityRr.getLastModified()
-            if (lastModified > loadedTime) existingNode = null
-        }
-        if (existingNode == null) {
-            MNode entityRoot = MNode.parse(entityRr)
-            entityRoot.attributes.put("_loadedTime", entityRr.getLastModified() as String)
-            entityFileRootMap.put(entityRr.getLocation(), entityRoot)
-            return entityRoot
-        } else {
-            return existingNode
-        }
-    }
+    protected static MNode getEntityFileRoot(ResourceReference entityRr) { return MNode.parse(entityRr) }
 
     int loadAllEntityDefinitions() {
         int entityCount = 0

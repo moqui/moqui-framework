@@ -44,9 +44,7 @@ public class JavaServiceRunner implements ServiceRunner {
     }
 
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
-        if (!sd.serviceNode.attribute("location") || !sd.serviceNode.attribute("method")) {
-            throw new ServiceException("Service [" + sd.serviceName + "] is missing location and/or method attributes and they are required for running a java service.")
-        }
+        if (!sd.location || !sd.method) throw new ServiceException("Service [" + sd.serviceName + "] is missing location and/or method attributes and they are required for running a java service.")
 
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
@@ -62,7 +60,7 @@ public class JavaServiceRunner implements ServiceRunner {
             Class c = (Class) StupidJavaUtilities.getClass(sd.location)
             if (c == null) c = Thread.currentThread().getContextClassLoader().loadClass(sd.location)
 
-            Method m = c.getMethod(sd.serviceNode.attribute("method"), ExecutionContext.class)
+            Method m = c.getMethod(sd.method, ExecutionContext.class)
             if (Modifier.isStatic(m.getModifiers())) {
                 result = (Map<String, Object>) m.invoke(null, ec)
             } else {
@@ -71,7 +69,7 @@ public class JavaServiceRunner implements ServiceRunner {
         } catch (ClassNotFoundException e) {
             throw new ServiceException("Could not find class for java service [${sd.serviceName}]", e)
         } catch (NoSuchMethodException e) {
-            throw new ServiceException("Java Service [${sd.serviceName}] specified method [${sd.serviceNode.attribute("method")}] that does not exist in class [${sd.location}]", e)
+            throw new ServiceException("Java Service [${sd.serviceName}] specified method [${sd.method}] that does not exist in class [${sd.location}]", e)
         } catch (SecurityException e) {
             throw new ServiceException("Access denied in service [${sd.serviceName}]", e)
         } catch (IllegalAccessException e) {

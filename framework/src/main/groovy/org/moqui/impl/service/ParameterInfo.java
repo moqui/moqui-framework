@@ -113,13 +113,17 @@ public class ParameterInfo {
             parmNameList.add(name);
         }
         int parmNameListSize = parmNameList.size();
-        childParameterInfoArray = new ParameterInfo[parmNameListSize];
         boolean childHasDefault = false;
-        for (int i = 0; i < parmNameListSize; i++) {
-            String parmName = parmNameList.get(i);
-            ParameterInfo pi = childParameterInfoMap.get(parmName);
-            childParameterInfoArray[i] = pi;
-            if (pi.thisOrChildHasDefault) childHasDefault = true;
+        if (parmNameListSize > 0) {
+            childParameterInfoArray = new ParameterInfo[parmNameListSize];
+            for (int i = 0; i < parmNameListSize; i++) {
+                String parmName = parmNameList.get(i);
+                ParameterInfo pi = childParameterInfoMap.get(parmName);
+                childParameterInfoArray[i] = pi;
+                if (pi.thisOrChildHasDefault) childHasDefault = true;
+            }
+        } else {
+            childParameterInfoArray = null;
         }
         thisOrChildHasDefault = hasDefault || childHasDefault;
 

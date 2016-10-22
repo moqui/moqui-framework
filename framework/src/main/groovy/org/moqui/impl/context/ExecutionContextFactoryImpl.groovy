@@ -477,6 +477,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // Warm cache on start if configured to do so
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
+
+        // all config loaded, save memory by clearing the parsed MNode cache, especially for production mode
+        MNode.clearParsedNodeCache()
+        // bunch of junk in memory, trigger gc (to happen soon, when JVM decides, not immediate)
+        System.gc()
     }
 
     void warmCache() {

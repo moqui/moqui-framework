@@ -39,8 +39,6 @@ public class ServiceDefinition {
 
     public final ServiceFacadeImpl sfi;
     public final MNode serviceNode;
-    public final MNode inParametersNode;
-    public final MNode outParametersNode;
 
     private final LinkedHashMap<String, ParameterInfo> inParameterInfoMap = new LinkedHashMap<>();
     private final ParameterInfo[] inParameterInfoArray;
@@ -69,6 +67,7 @@ public class ServiceDefinition {
     public final boolean noTxCache;
     public final Integer txTimeout;
     public final boolean validate;
+    public final boolean allowRemote;
 
     public final boolean hasSemaphore;
     public final String semaphore, semaphoreParameter;
@@ -99,16 +98,18 @@ public class ServiceDefinition {
                     " not found, specified in service.implements in service " + serviceName);
 
             // these are the first params to be set, so just deep copy them over
-            if (sd.serviceNode.first("in-parameters").hasChild("parameter")) {
-                for (MNode parameter : sd.serviceNode.first("in-parameters").children("parameter")) {
+            MNode implInParms = sd.serviceNode.first("in-parameters");
+            if (implInParms != null && implInParms.hasChild("parameter")) {
+                for (MNode parameter : implInParms.children("parameter")) {
                     MNode newParameter = parameter.deepCopy(null);
                     if (implRequired != null) newParameter.getAttributes().put("required", implRequired);
                     inParameters.append(newParameter);
                 }
             }
 
-            if (sd.serviceNode.first("out-parameters").hasChild("parameter")) {
-                for (MNode parameter : sd.serviceNode.first("out-parameters").children("parameter")) {
+            MNode implOutParms = sd.serviceNode.first("out-parameters");
+            if (implOutParms != null && implOutParms.hasChild("parameter")) {
+                for (MNode parameter : implOutParms.children("parameter")) {
                     MNode newParameter = parameter.deepCopy(null);
                     if (implRequired != null) newParameter.getAttributes().put("required", implRequired);
                     outParameters.append(newParameter);
@@ -189,9 +190,10 @@ public class ServiceDefinition {
 
         // validate defaults to true
         validate = !"false".equals(serviceNode.attribute("validate"));
+        allowRemote = "true".equals(serviceNode.attribute("allow-remote"));
 
-        inParametersNode = serviceNode.first("in-parameters");
-        outParametersNode = serviceNode.first("out-parameters");
+        MNode inParametersNode = serviceNode.first("in-parameters");
+        MNode outParametersNode = serviceNode.first("out-parameters");
 
         if (inParametersNode != null) for (MNode parameter : inParametersNode.children("parameter")) {
             String parameterName = parameter.attribute("name");
@@ -516,7 +518,7 @@ public class ServiceDefinition {
                         }
                     }
                 }
-                if (isMap && parameterInfo.childParameterInfoArray.length > 0) {
+                if (isMap && parameterInfo.childParameterInfoArray != null && parameterInfo.childParameterInfoArray.length > 0) {
                     parameterValue = nestedParameterClean(namePrefix + parameterName + ".",
                             (Map<String, Object>) parameterValue, parameterInfo.childParameterInfoArray, eci);
                 }

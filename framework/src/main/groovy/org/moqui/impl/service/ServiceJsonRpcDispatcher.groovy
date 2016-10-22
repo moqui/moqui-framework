@@ -82,7 +82,7 @@ public class ServiceJsonRpcDispatcher {
             // We expect named parameters (JSON object)
             errorMessage = "Parameters must be named parameters (JSON object, Java Map), got type [${paramsObj.class.getName()}]"
             errorCode = INVALID_PARAMS
-        } else if (sd.serviceNode.attribute("allow-remote") != "true") {
+        } else if (!sd.allowRemote) {
             errorMessage = "Service [${sd.serviceName}] does not allow remote calls"
             errorCode = METHOD_NOT_FOUND
         }

@@ -107,7 +107,7 @@ public class ServiceCallImpl implements ServiceCall {
             throw new IllegalArgumentException("Could not find service with name [" + getServiceName() + "]");
 
         if (sd != null) {
-            String serviceType = sd.serviceNode.attribute("type");
+            String serviceType = sd.serviceType;
             if (serviceType == null || serviceType.isEmpty()) serviceType = "inline";
             if ("interface".equals(serviceType)) throw new IllegalArgumentException("Cannot run interface service [" + getServiceName() + "]");
             ServiceRunner sr = sfi.getServiceRunner(serviceType);

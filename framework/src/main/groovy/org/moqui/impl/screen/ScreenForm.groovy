@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.screen
 
+import freemarker.template.TemplateModel
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
@@ -1019,6 +1020,7 @@ class ScreenForm {
         }
     }
 
+    @CompileStatic
     static class FormInstance {
         private ScreenForm screenForm
         private ExecutionContextFactoryImpl ecfi
@@ -1062,7 +1064,6 @@ class ScreenForm {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
                 String fieldName = fieldNode.attribute("name")
                 fieldNodeMap.put(fieldName, fieldNode)
-                fieldFtlNodeMap.put(fieldName, FtlNodeWrapper.wrapNode(fieldNode))
                 allFieldNames.add(fieldName)
 
                 if (isListForm) {
@@ -1096,6 +1097,18 @@ class ScreenForm {
                     }
                 }
             }
+            // make fieldFtlNodeMap in separate pass to get FtlNodeWrapper objects already created
+            TemplateModel ftlFieldNodeList = ftlFormNode.get("field")
+            if (ftlFieldNodeList instanceof FtlNodeWrapper.FtlNodeListWrapper) {
+                FtlNodeWrapper.FtlNodeListWrapper fnlw = (FtlNodeWrapper.FtlNodeListWrapper) ftlFieldNodeList
+                int fnlwSize = fnlw.size()
+                for (int i = 0; i < fnlwSize; i++) {
+                    FtlNodeWrapper ftlFieldNode = (FtlNodeWrapper) fnlw.get(i)
+                    fieldFtlNodeMap.put(ftlFieldNode.get("@name") as String, ftlFieldNode)
+                }
+            }
+
+            // check aggregate defs
             if (hasAggregate) {
                 if (aggregateGroupFieldList == null) {
                     throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
@@ -1301,12 +1314,12 @@ class ScreenForm {
                     for (int fi = 0; fi < fieldRefSize; fi++) {
                         MNode frNode = (MNode) fieldRefNodes.get(fi)
                         String fieldName = frNode.attribute("name")
-                        MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-                        if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${location}")
+                        FtlNodeWrapper fieldNode = (FtlNodeWrapper) fieldFtlNodeMap.get(fieldName)
+                        if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${screenForm.location}")
                         // skip hidden fields, they are handled separately
-                        if (isListFieldHidden(fieldNode)) continue
+                        if (isListFieldHidden(fieldNode.getMNode())) continue
 
-                        colFieldNodes.add(FtlNodeWrapper.wrapNode(fieldNode))
+                        colFieldNodes.add(fieldNode)
                     }
                     if (colFieldNodes.size() > 0) colInfoList.add(colFieldNodes)
                 }
@@ -1421,6 +1434,7 @@ class ScreenForm {
             return valueList
         }
     }
+    @CompileStatic
     public static class FormListRenderInfo {
         private final FormInstance formInstance
         private final ScreenForm screenForm

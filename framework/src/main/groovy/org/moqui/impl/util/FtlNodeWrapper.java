@@ -35,25 +35,23 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
     /** Factory method for null-sensitive Node wrapping. */
     // public static FtlNodeWrapper wrapNode(Node groovyNode) { return groovyNode != null ? new FtlNodeWrapper(new MNode(groovyNode)) : null }
     public static FtlNodeWrapper wrapNode(MNode mNode) { return mNode != null ? new FtlNodeWrapper(mNode) : null; }
-    public static FtlNodeWrapper makeFromText(String location, String xmlText) { return wrapNode(MNode.parseText(location, xmlText)); }
+    // public static FtlNodeWrapper makeFromText(String location, String xmlText) { return wrapNode(MNode.parseText(location, xmlText)); }
 
     private MNode mNode;
     private FtlNodeWrapper parentNode = null;
     private FtlNodeListWrapper allChildren = null;
 
     private final HashMap<String, TemplateModel> attrAndChildrenByName = new HashMap<>();
-    private final FtlNodeListWrapper emptyNodeListWrapper;
+    private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
 
     private FtlNodeWrapper(MNode wrapNode) {
         this.mNode = wrapNode;
         wrapDetails();
-        emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
     }
     private FtlNodeWrapper(MNode wrapNode, FtlNodeWrapper parentNode) {
         this.mNode = wrapNode;
         this.parentNode = parentNode;
         wrapDetails();
-        emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), this);
     }
     private void wrapDetails() {
         // add all attributes
@@ -65,9 +63,6 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
         // add all sub-nodes
         for (Map.Entry<String, ArrayList<MNode>> childrenEntry: mNode.getChildrenByName().entrySet())
             attrAndChildrenByName.put(childrenEntry.getKey(), new FtlNodeListWrapper(childrenEntry.getValue(), this));
-        // add @@text always, always want wrapper though may be null
-        attrAndChildrenByName.put("@@text", new FtlTextWrapper(mNode.getText(), this));
-        // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
     }
 
     public MNode getMNode() { return mNode; }
@@ -82,7 +77,15 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
 
         // at this point we got a null value but attributes and child nodes were pre-loaded so return null or empty list
         if (s.startsWith("@")) {
-            return null;
+            if ("@@text".equals(s)) {
+                // if we got this once will get it again so add @@text always, always want wrapper though may be null
+                FtlTextWrapper textWrapper = new FtlTextWrapper(mNode.getText(), this);
+                attrAndChildrenByName.put("@@text", textWrapper);
+                return textWrapper;
+                // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
+            } else {
+                return null;
+            }
         } else {
             return emptyNodeListWrapper;
         }
@@ -129,7 +132,7 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
     @Override public String toString() { return prettyPrintNode(mNode); }
     public static String prettyPrintNode(MNode nd) { return nd.toString(); }
 
-    private static class FtlAttributeWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel,
+    public static class FtlAttributeWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel,
             TemplateScalarModel {
         protected String key;
         protected String value;
@@ -167,7 +170,7 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
     }
 
 
-    private static class FtlTextWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel,
+    public static class FtlTextWrapper implements TemplateNodeModel, TemplateSequenceModel, AdapterTemplateModel,
             TemplateScalarModel {
         protected String text;
         FtlNodeWrapper parentNode;
@@ -202,7 +205,7 @@ public class FtlNodeWrapper implements TemplateNodeModel, TemplateSequenceModel,
         @Override public String toString() { return getAsString(); }
     }
 
-    private static class FtlNodeListWrapper implements TemplateSequenceModel {
+    public static class FtlNodeListWrapper implements TemplateSequenceModel {
         ArrayList<TemplateModel> nodeList = new ArrayList<>();
         FtlNodeListWrapper(ArrayList<MNode> mnodeList, FtlNodeWrapper parentNode) {
             for (int i = 0; i < mnodeList.size(); i++)

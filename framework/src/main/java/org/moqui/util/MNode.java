@@ -39,6 +39,7 @@ public class MNode {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
+    public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
 
     /* ========== Factories (XML Parsing) ========== */
 

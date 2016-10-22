@@ -38,8 +38,8 @@ public class RemoteJsonRpcServiceRunner implements ServiceRunner {
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
         ExecutionContext ec = sfi.ecfi.getExecutionContext()
 
-        String location = sd.serviceNode.attribute("location")
-        String method = sd.serviceNode.attribute("method")
+        String location = sd.location
+        String method = sd.method
         if (!location) throw new IllegalArgumentException("Cannot call remote service [${sd.serviceName}] because it has no location specified.")
         if (!method) throw new IllegalArgumentException("Cannot call remote service [${sd.serviceName}] because it has no method specified.")
 
