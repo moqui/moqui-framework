@@ -1134,8 +1134,8 @@ class ScreenForm {
             }
         }
 
-        MNode getFtlFormNode() { return formNode }
-        MNode getFtlFieldNode(String fieldName) { return fieldNodeMap.get(fieldName) }
+        MNode getFormNode() { return formNode }
+        MNode getFieldNode(String fieldName) { return fieldNodeMap.get(fieldName) }
         String getFormLocation() { return screenForm.location }
         FormListRenderInfo makeFormListRenderInfo() { return new FormListRenderInfo(this) }
         boolean isUpload() { return isUploadForm }
@@ -1482,8 +1482,7 @@ class ScreenForm {
         }
 
         MNode getFormNode() { return formInstance.formNode }
-        MNode getFtlFormNode() { return formInstance.ftlFormNode }
-        MNode getFtlFieldNode(String fieldName) { return formInstance.fieldNodeMap.get(fieldName) }
+        MNode getFieldNode(String fieldName) { return formInstance.fieldNodeMap.get(fieldName) }
 
         boolean isHeaderForm() { return formInstance.isFormHeaderFormVal }
         String getFormLocation() { return formInstance.screenForm.location }

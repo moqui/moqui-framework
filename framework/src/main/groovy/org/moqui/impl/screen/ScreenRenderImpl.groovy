@@ -920,10 +920,10 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    MNode getFtlFormNode(String formName) {
+    MNode getFormNode(String formName) {
         FormInstance fi = getFormInstance(formName)
         if (fi == null) return null
-        return fi.getFtlFormNode()
+        return fi.getFormNode()
     }
     FormInstance getFormInstance(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
@@ -1041,20 +1041,13 @@ class ScreenRenderImpl implements ScreenRender {
     UrlInstance buildUrl(String subscreenPath) {
         return buildUrlInfo(subscreenPath).getInstance(this, null)
     }
-
     UrlInstance buildUrl(ScreenDefinition fromSd, ArrayList<String> fromPathList, String subscreenPathOrig) {
         String subscreenPath = subscreenPathOrig?.contains("\${") ? ec.resource.expand(subscreenPathOrig, "") : subscreenPathOrig
         ScreenUrlInfo ui = ScreenUrlInfo.getScreenUrlInfo(this, fromSd, fromPathList, subscreenPath, null)
         return ui.getInstance(this, null)
     }
 
-    // TODO: these two are now redundant, eliminate longer name one
-    UrlInstance makeUrlByType(String origUrl, String urlType, MNode parameterParentNodeWrapper,
-                                String expandTransitionUrlString) {
-        return makeUrlByTypeGroovyNode(origUrl, urlType, parameterParentNodeWrapper, expandTransitionUrlString)
-    }
-    UrlInstance makeUrlByTypeGroovyNode(String origUrl, String urlType, MNode parameterParentNode,
-                                String expandTransitionUrlString) {
+    UrlInstance makeUrlByType(String origUrl, String urlType, MNode parameterParentNode, String expandTransitionUrlString) {
         Boolean expandTransitionUrl = expandTransitionUrlString != null ? "true".equals(expandTransitionUrlString) : null
         /* TODO handle urlType=content: A content location (without the content://). URL will be one that can access that content. */
         ScreenUrlInfo suInfo

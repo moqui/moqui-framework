@@ -112,7 +112,7 @@ class ScreenTree {
                     String id = eci.getResource().expand((String) tn.linkNode.attribute("id"), tn.location + ".id")
                     String text = eci.getResource().expand((String) tn.linkNode.attribute("text"), tn.location + ".text")
                     ScreenUrlInfo.UrlInstance urlInstance = ((ScreenRenderImpl) cs.get("sri"))
-                            .makeUrlByTypeGroovyNode((String) tn.linkNode.attribute("url"), (String) tn.linkNode.attribute("url-type") ?: "transition",
+                            .makeUrlByType((String) tn.linkNode.attribute("url"), (String) tn.linkNode.attribute("url-type") ?: "transition",
                                 tn.linkNode, (String) tn.linkNode.attribute("expand-transition-url") ?: "true")
 
                     // now get children to check if has some, and if in treeOpenPath include them
