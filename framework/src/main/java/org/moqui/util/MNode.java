@@ -764,6 +764,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
     private FtlNodeListWrapper allChildren = null;
     private ConcurrentHashMap<String, TemplateModel> attrAndChildrenByName = null;
+    private Set<String> knownNullAttributes = null;
 
     public Object getAdaptedObject(Class aClass) { return this; }
 
@@ -775,6 +776,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             TemplateModel attrOrChildWrapper = attrAndChildrenByName.get(s);
             if (attrOrChildWrapper != null) return attrOrChildWrapper;
         }
+        if (knownNullAttributes != null && knownNullAttributes.contains(s)) return null;
 
         // at this point we got a null value but attributes and child nodes were pre-loaded so return null or empty list
         if (s.startsWith("@")) {
@@ -788,11 +790,16 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             } else {
                 String attrName = s.substring(1, s.length());
                 String attrValue = attributeMap.get(attrName);
-                if (attrValue == null) return null;
-                FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
-                if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
-                attrAndChildrenByName.putIfAbsent(s, attrWrapper);
-                return attrAndChildrenByName.get(s);
+                if (attrValue == null) {
+                    if (knownNullAttributes == null) knownNullAttributes = new HashSet<>();
+                    knownNullAttributes.add(s);
+                    return null;
+                } else {
+                    FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
+                    if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
+                    attrAndChildrenByName.putIfAbsent(s, attrWrapper);
+                    return attrAndChildrenByName.get(s);
+                }
             }
         } else {
             if (hasChild(s)) {
@@ -821,8 +828,14 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     @Override public String getNodeNamespace() { return null; } /* Namespace not supported for now. */
 
     // TemplateSequenceModel methods
-    @Override public TemplateModel get(int i) { return getSequenceList().get(i); }
-    @Override public int size() { return getSequenceList().size(); }
+    @Override public TemplateModel get(int i) {
+        if (allChildren == null) return getSequenceList().get(i);
+        return allChildren.get(i);
+    }
+    @Override public int size() {
+        if (allChildren == null) return getSequenceList().size();
+        return allChildren.size();
+    }
     private FtlNodeListWrapper getSequenceList() {
         // Looks like attributes should NOT go in the FTL children list, so just use the node.children()
         if (allChildren == null) allChildren = (childText != null && childText.length() > 0) ?
