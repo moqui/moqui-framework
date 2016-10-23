@@ -1427,8 +1427,6 @@ class ScreenForm {
         private ArrayList<ArrayList<MNode>> allColInfo
         private ArrayList<ArrayList<MNode>> mainColInfo = (ArrayList<ArrayList<MNode>>) null
         private ArrayList<ArrayList<MNode>> subColInfo = (ArrayList<ArrayList<MNode>>) null
-        private boolean hasMainTotals = false
-        private boolean hasSubTotals = false
         private LinkedHashSet<String> displayedFieldSet
 
         FormListRenderInfo(FormInstance formInstance) {
@@ -1466,18 +1464,14 @@ class ScreenForm {
                         if (aggField != null && aggField.subList) {
                             if (subFieldList == null) subFieldList = new ArrayList<>()
                             subFieldList.add(fieldNode)
-                            if (formInstance.showTotalFields.contains(fieldName)) hasSubTotals = true
                         } else {
                             newFieldList.add(fieldNode)
-                            if (formInstance.showTotalFields.contains(fieldName)) hasMainTotals = true
                         }
                     }
                     // if fieldList is not empty add to tempFormListColInfo
                     if (newFieldList.size() > 0) mainColInfo.add(newFieldList)
                     if (subFieldList != null) subColInfo.add(subFieldList)
                 }
-            } else {
-                hasMainTotals = formInstance.showTotalFields != null && formInstance.showTotalFields.size() > 0
             }
         }
 
@@ -1493,9 +1487,6 @@ class ScreenForm {
         ArrayList<ArrayList<MNode>> getSubColInfo() { return subColInfo }
         ArrayList<MNode> getListHiddenFieldList() { return formInstance.getListHiddenFieldList() }
         LinkedHashSet<String> getDisplayedFields() { return displayedFieldSet }
-
-        boolean getHasMainTotals() { return hasMainTotals }
-        boolean getHasSubTotals() { return hasSubTotals }
 
         Object getListObject(boolean aggregateList) {
             Object listObject
