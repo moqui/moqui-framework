@@ -54,7 +54,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="responseMap">
                 <set field="formNode" from="ec.screen.getFormNode(formLocation)"/>
-                <iterate list="formNode.field" entry="fieldNode">
+                <iterate list="formNode.children('field')" entry="fieldNode">
                     <set field="fieldName" from="fieldNode.attribute('name')"/>
                     <if condition="responseMap.containsKey(fieldName)">
                         <service-call name="create#moqui.screen.form.FormResponseAnswer"
