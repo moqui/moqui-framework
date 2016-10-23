@@ -1122,25 +1122,6 @@ class ScreenRenderImpl implements ScreenRender {
         } else {
             throw new IllegalArgumentException("Found form-list ${listRenderInfo.getFormNode().attribute('name')} list entry that is not a Map, is a ${listEntry.class.name} which should never happen after running list through list pre-processor")
         }
-        /* old code, needs more testing to make sure we need none of this, AggregationUtil now returns a pure list of maps so we just want context.addAll
-        MNode formNode = listRenderInfo.formNode
-        String listEntryStr = formNode.attribute('list-entry')
-        if (listEntryStr != null && !listEntryStr.isEmpty()) {
-            ec.contextStack.put(listEntryStr, listEntry)
-            ec.contextStack.put(listEntryStr + "_index", index)
-            ec.contextStack.put(listEntryStr + "_has_next", hasNext)
-        } else {
-            if (listEntry instanceof Map) {
-                ec.contextStack.putAll((Map) listEntry)
-            } else {
-                ec.contextStack.put("listEntry", listEntry)
-            }
-            String listStr = formNode.attribute('list')
-            ec.contextStack.put(listStr + "_index", index)
-            ec.contextStack.put(listStr + "_has_next", hasNext)
-            ec.contextStack.put(listStr + "_entry", listEntry)
-        }
-        */
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
@@ -1155,7 +1136,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (subListEntry instanceof Map) {
             ec.contextStack.putAll((Map) subListEntry)
         } else {
-            ec.contextStack.put("subListEntry", subListEntry)
+            throw new IllegalArgumentException("Found form-list ${listRenderInfo.getFormNode().attribute('name')} sub-list entry that is not a Map, is a ${subListEntry.class.name} which should never happen after running list through list pre-processor")
         }
         String listStr = formNode.attribute('list')
         ec.contextStack.put(listStr + "_sub_index", index)
