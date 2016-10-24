@@ -35,8 +35,6 @@ public interface ExecutionContextFactory {
 
     /** Called after construction but before registration with Moqui/Servlet, check for empty database and load configured data. */
     boolean checkEmptyDb();
-    /** Called after construction and other init is complete and object is active in the Moqui class (called by Moqui.java) */
-    void postInit();
     /** Destroy this ExecutionContextFactory and all resources it uses (all facades, tools, etc) */
     void destroy();
     boolean isDestroyed();

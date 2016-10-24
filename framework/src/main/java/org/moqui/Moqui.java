@@ -45,7 +45,6 @@ public class Moqui {
             // initialize the activeExecutionContextFactory from configuration using java.util.ServiceLoader
             // the implementation class name should be in: "META-INF/services/org.moqui.context.ExecutionContextFactory"
             activeExecutionContextFactory = executionContextFactoryLoader.iterator().next();
-            activeExecutionContextFactory.postInit();
         }
     }
 
@@ -53,7 +52,6 @@ public class Moqui {
         if (activeExecutionContextFactory != null && !activeExecutionContextFactory.isDestroyed())
             throw new IllegalStateException("Active ExecutionContextFactory already in place, cannot set one dynamically.");
         activeExecutionContextFactory = executionContextFactory;
-        activeExecutionContextFactory.postInit();
     }
     public static <K extends ExecutionContextFactory> K dynamicInit(Class<K> ecfClass, ServletContext sc)
             throws InstantiationException, IllegalAccessException {
@@ -70,12 +68,12 @@ public class Moqui {
             newEcf = ecfClass.newInstance();
         }
 
-        // tell ECF about the ServletContext
-        if (sc != null) newEcf.initServletContext(sc);
-        // init otherwise fully complete, call postInit()
-        newEcf.postInit();
-        // set SC attribute and Moqui class static reference
-        if (sc != null) sc.setAttribute("executionContextFactory", newEcf);
+        if (sc != null) {
+            // tell ECF about the ServletContext
+            newEcf.initServletContext(sc);
+            // set SC attribute and Moqui class static reference
+            sc.setAttribute("executionContextFactory", newEcf);
+        }
 
         activeExecutionContextFactory = newEcf;
         return newEcf;

@@ -40,14 +40,12 @@ import javax.servlet.http.HttpServletResponse
 class RestApi {
     protected final static Logger logger = LoggerFactory.getLogger(RestApi.class)
 
-    @SuppressWarnings("GrFinalVariableAccess")
-    protected final ExecutionContextFactoryImpl ecfi
-    @SuppressWarnings("GrFinalVariableAccess")
-    final MCache<String, ResourceNode> rootResourceCache
+    @SuppressWarnings("GrFinalVariableAccess") protected final ExecutionContextFactoryImpl ecfi
+    @SuppressWarnings("GrFinalVariableAccess") final MCache<String, ResourceNode> rootResourceCache
 
     RestApi(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        rootResourceCache = ecfi.getCacheFacade().getLocalCache("service.rest.api")
+        rootResourceCache = ecfi.cacheFacade.getLocalCache("service.rest.api")
         loadRootResourceNode(null)
     }
 

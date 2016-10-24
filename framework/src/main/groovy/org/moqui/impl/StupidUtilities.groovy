@@ -171,12 +171,14 @@ class StupidUtilities {
         filterMapListByDate(theList, fromDateName, thruDateName, compareStamp)
     }
 
-    static void orderMapList(List<Map<String, Object>> theList, List<String> fieldNames) {
+    /** Order list elements in place (modifies the list passed in), returns the list for convenience */
+    static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<String> fieldNames) {
         if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list")
         // this seems unnecessary, but is because Groovy allows a GString even in a List<String>, but MapOrderByComparator in Java blows up
         ArrayList<String> fieldNameArray = new ArrayList<>()
         for (String fieldName in fieldNames) fieldNameArray.add(fieldName.toString())
         if (theList && fieldNames) Collections.sort(theList, new StupidJavaUtilities.MapOrderByComparator(fieldNameArray))
+        return theList
     }
 
     /** For a list of Map find the entry that best matches the fieldsByPriority Ordered Map; null field values in a Map
