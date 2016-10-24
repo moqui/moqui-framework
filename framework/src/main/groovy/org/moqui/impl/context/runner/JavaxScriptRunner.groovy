@@ -46,7 +46,7 @@ class JavaxScriptRunner implements ScriptRunner {
 
     ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.scriptLocationCache = ecfi.getCacheFacade().getCache("resource.${engineName}.location")
+        this.scriptLocationCache = ecfi.cacheFacade.getCache("resource.${engineName}.location")
         return this
     }
 

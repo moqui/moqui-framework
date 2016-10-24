@@ -55,7 +55,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     ServiceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        serviceLocationCache = ecfi.getCacheFacade().getCache("service.location", String.class, ServiceDefinition.class)
+        serviceLocationCache = ecfi.cacheFacade.getCache("service.location", String.class, ServiceDefinition.class)
 
         // load Service ECA rules
         loadSecaRulesAll()
@@ -98,10 +98,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         } else {
             jobRunner = null
         }
-    }
-
-    void postInit() {
-        // no longer used, was used to start Quartz Scheduler
     }
 
     void warmCache()  {

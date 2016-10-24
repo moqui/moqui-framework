@@ -85,9 +85,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
         xmlActionsScriptRunner = new XmlActionsScriptRunner()
         xmlActionsScriptRunner.init(ecfi)
 
-        textLocationCache = ecfi.getCacheFacade().getCache("resource.text.location", String.class, String.class)
-        // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
-        resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location", String.class, ResourceReference.class)
+        textLocationCache = ecfi.cacheFacade.getCache("resource.text.location", String.class, String.class)
+        // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.cacheFacade.getCache("resource.groovy.expression")
+        resourceReferenceByLocation = ecfi.cacheFacade.getCache("resource.reference.location", String.class, ResourceReference.class)
 
         MNode resourceFacadeNode = ecfi.confXmlRoot.first("resource-facade")
 
@@ -207,8 +207,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return newSession
     }
 
-    @Override
-    ResourceReference getLocationReference(String location) {
+    @Override ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
         ResourceReference cachedRr = resourceReferenceByLocation.get(location)
@@ -235,15 +234,13 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return scheme
     }
 
-    @Override
-    InputStream getLocationStream(String location) {
+    @Override InputStream getLocationStream(String location) {
         ResourceReference rr = getLocationReference(location)
         if (rr == null) return null
         return rr.openStream()
     }
 
-    @Override
-    String getLocationText(String location, boolean cache) {
+    @Override String getLocationText(String location, boolean cache) {
         ResourceReference textRr = getLocationReference(location)
         if (textRr == null) {
             logger.info("Cound not get resource reference for location [${location}], returning empty location text String")
@@ -269,8 +266,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return text
     }
 
-    @Override
-    DataSource getLocationDataSource(String location) {
+    @Override DataSource getLocationDataSource(String location) {
         ResourceReference fileResourceRef = getLocationReference(location)
 
         TemplateRenderer tr = getTemplateRendererByLocation(fileResourceRef.location)
@@ -297,8 +293,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override
-    void template(String location, Writer writer) {
+    @Override void template(String location, Writer writer) {
         TemplateRenderer tr = getTemplateRendererByLocation(location)
         if (tr != null) {
             tr.render(location, writer)
@@ -345,8 +340,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return tr
     }
 
-    @Override
-    Object script(String location, String method) {
+    @Override Object script(String location, String method) {
         ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
         ScriptRunner sr = scriptRunners.get(extension)
@@ -357,14 +351,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
             // see if the extension is known
             ScriptEngine engine = scriptEngineManager.getEngineByExtension(extension)
             if (engine == null) throw new IllegalArgumentException("Cannot run script [${location}], unknown extension (not in Moqui Conf file, and unkown to Java ScriptEngineManager).")
-
-            return JavaxScriptRunner.bindAndRun(location, ec, engine,
-                    ecfi.getCacheFacade().getCache("resource.script${extension}.location"))
+            return JavaxScriptRunner.bindAndRun(location, ec, engine, ecfi.cacheFacade.getCache("resource.script${extension}.location"))
         }
-
     }
-    @Override
-    Object script(String location, String method, Map additionalContext) {
+    @Override Object script(String location, String method, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -395,8 +385,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return tempValue
     }
 
-    @Override
-    boolean condition(String expression, String debugLocation) {
+    @Override boolean condition(String expression, String debugLocation) {
         return conditionInternal(expression, debugLocation, ecfi.getEci())
     }
     protected boolean conditionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
@@ -410,8 +399,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             throw new IllegalArgumentException("Error in condition [${expression}] from [${debugLocation}]", e)
         }
     }
-    @Override
-    boolean condition(String expression, String debugLocation, Map additionalContext) {
+    @Override boolean condition(String expression, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -428,10 +416,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override
-    Object expression(String expression, String debugLocation) {
-        return expressionInternal(expression, debugLocation, ecfi.getEci())
-    }
+    @Override Object expression(String expression, String debugLocation) {
+        return expressionInternal(expression, debugLocation, ecfi.getEci()) }
     protected Object expressionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
         if (expression == null || expression.isEmpty()) return null
         try {
@@ -443,8 +429,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
         }
     }
-    @Override
-    Object expression(String expr, String debugLocation, Map additionalContext) {
+    @Override Object expression(String expr, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -462,17 +447,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
 
-    @Override
-    String expandNoL10n(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, false) }
-    @Override
-    String expand(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, true) }
-    @Override
-    String expand(String inputString, String debugLocation, Map additionalContext) {
-        return expand(inputString, debugLocation, additionalContext, true)
-    }
-
-    @Override
-    String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
+    @Override String expandNoL10n(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, false) }
+    @Override String expand(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, true) }
+    @Override String expand(String inputString, String debugLocation, Map additionalContext) {
+        return expand(inputString, debugLocation, additionalContext, true) }
+    @Override String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
         if (inputString == null) return ""
         int inputStringLength = inputString.length()
         if (inputStringLength == 0) return ""
@@ -572,8 +551,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override
-    String getContentType(String filename) {
+    @Override String getContentType(String filename) {
         // need to check this, or type mapper handles it fine? || !filename.contains(".")
         if (filename == null || filename.length() == 0) return null
         String type = mimetypesFileTypeMap.getContentType(filename)

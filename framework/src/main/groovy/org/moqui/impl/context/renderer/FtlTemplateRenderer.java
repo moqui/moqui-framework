@@ -49,7 +49,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
     public TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf;
         defaultFtlConfiguration = makeFtlConfiguration(ecfi);
-        templateFtlLocationCache = ecfi.getCacheFacade().getCache("resource.ftl.location", String.class, Template.class);
+        templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class);
         return this;
     }
 

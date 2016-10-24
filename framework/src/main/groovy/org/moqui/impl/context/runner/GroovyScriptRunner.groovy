@@ -37,7 +37,7 @@ class GroovyScriptRunner implements ScriptRunner {
 
     ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.scriptGroovyLocationCache = ecfi.getCacheFacade().getCache("resource.groovy.location", String.class, Class.class)
+        this.scriptGroovyLocationCache = ecfi.cacheFacade.getCache("resource.groovy.location", String.class, Class.class)
         return this
     }
 

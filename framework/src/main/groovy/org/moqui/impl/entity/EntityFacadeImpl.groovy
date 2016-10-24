@@ -111,10 +111,10 @@ class EntityFacadeImpl implements EntityFacade {
         databaseTzLcCalendar = Calendar.getInstance(databaseTimeZone, databaseLocale)
 
         // init entity meta-data
-        entityDefinitionCache = ecfi.getCacheFacade().getCache("entity.definition")
-        entityLocationSingleCache = ecfi.getCacheFacade().getCache("entity.location")
+        entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition")
+        entityLocationSingleCache = ecfi.cacheFacade.getCache("entity.location")
         // NOTE: don't try to load entity locations before constructor is complete; this.loadAllEntityLocations()
-        entitySequenceBankCache = ecfi.getCacheFacade().getCache("entity.sequence.bank")
+        entitySequenceBankCache = ecfi.cacheFacade.getCache("entity.sequence.bank")
 
         // init connection pool (DataSource) for each group
         initAllDatasources()

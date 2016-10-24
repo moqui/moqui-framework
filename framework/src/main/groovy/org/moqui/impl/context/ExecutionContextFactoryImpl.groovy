@@ -73,10 +73,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private boolean destroyed = false
     
     protected String runtimePath
-    @SuppressWarnings("GrFinalVariableAccess")
-    protected final String runtimeConfPath
-    @SuppressWarnings("GrFinalVariableAccess")
-    protected final MNode confXmlRoot
+    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot
     protected MNode serverStatsNode
     protected String moquiVersion = ""
 
@@ -113,24 +111,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
 
     // ======== Permanent Delegated Facades ========
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final CacheFacadeImpl cacheFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final LoggerFacadeImpl loggerFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ResourceFacadeImpl resourceFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final TransactionFacadeImpl transactionFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final EntityFacadeImpl entityFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ServiceFacadeImpl serviceFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ScreenFacadeImpl screenFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final CacheFacadeImpl cacheFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final ResourceFacadeImpl resourceFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final TransactionFacadeImpl transactionFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final EntityFacadeImpl entityFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ExecutorService workerPool
+    @SuppressWarnings("GrFinalVariableAccess") public final ExecutorService workerPool
     /** An executor for the scheduled job runner */
     public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
 
@@ -266,11 +256,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
-    }
-
-    @Override
-    void postInit() {
-        this.serviceFacade.postInit()
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
@@ -445,7 +430,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     private void postFacadeInit() {
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
-        // load entity defs
+        // load entity definitions
         logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
         entityFacade.loadAllEntityLocations()
@@ -544,8 +529,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
-    @Override
-    boolean checkEmptyDb() {
+    @Override boolean checkEmptyDb() {
         String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
         if (!emptyDbLoad || emptyDbLoad == 'none') return false
 
@@ -582,8 +566,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    @Override
-    synchronized void destroy() {
+    @Override synchronized void destroy() {
         if (destroyed) {
             logger.warn("Not destroying ExecutionContextFactory, already destroyed (or destroying)")
             return
@@ -654,11 +637,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // use System.out directly for this as logger may already be stopped
         System.out.println("Moqui ExecutionContextFactory Destroyed")
     }
-    @Override
-    boolean isDestroyed() { return destroyed }
+    @Override boolean isDestroyed() { return destroyed }
 
-    @Override
-    protected void finalize() throws Throwable {
+    @Override protected void finalize() throws Throwable {
         try {
             if (!this.destroyed) {
                 this.destroy()
@@ -672,16 +653,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Trigger ECF destroy and re-init in another thread, after short wait */
     void triggerDynamicReInit() {
-        Thread riThread = Thread.start("EcfiReInit", {
+        Thread.start("EcfiReInit", {
             sleep(2000) // wait 2 seconds
             Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
         })
     }
 
-    @Override
-    @Nonnull String getRuntimePath() { return runtimePath }
-    @Override
-    @Nonnull String getMoquiVersion() { return moquiVersion }
+    @Override @Nonnull String getRuntimePath() { return runtimePath }
+    @Override @Nonnull String getMoquiVersion() { return moquiVersion }
     MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
@@ -691,8 +670,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     InetAddress getLocalhostAddress() { return localhostAddress }
 
-    @Override
-    void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
+    @Override void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
         nml.init(this)
         registeredNotificationMessageListeners.add(nml)
     }
@@ -763,14 +741,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return (loginKeyNode.attribute("expire-hours") ?: "144") as int
     }
 
-    // ========== Getters ==========
+    // ====================================================
+    // ========== Main Interface Implementations ==========
+    // ====================================================
 
-    CacheFacadeImpl getCacheFacade() { return this.cacheFacade }
-
-    // ========== Interface Implementations ==========
-
-    @Override
-    @Nonnull ExecutionContext getExecutionContext() { return getEci() }
+    @Override @Nonnull ExecutionContext getExecutionContext() { return getEci() }
     ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
         ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
@@ -811,18 +786,42 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return toolFactory.getInstance(parameters)
     }
 
-    /*
-    @Deprecated
-    void initComponent(String location) {
-        ComponentInfo componentInfo = new ComponentInfo(location, this)
-        // check dependencies
-        if (componentInfo.dependsOnNames) for (String dependsOnName in componentInfo.dependsOnNames) {
-            if (!componentInfoMap.containsKey(dependsOnName))
-                throw new IllegalArgumentException("Component [${componentInfo.name}] depends on component [${dependsOnName}] which is not initialized")
-        }
-        addComponent(componentInfo)
+    @Override @Nonnull LinkedHashMap<String, String> getComponentBaseLocations() {
+        LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
+        for (ComponentInfo componentInfo in componentInfoMap.values()) compLocMap.put(componentInfo.name, componentInfo.location)
+        return compLocMap
     }
-    */
+
+    @Override @Nonnull L10nFacade getL10n() { getEci().l10nFacade }
+    @Override @Nonnull ResourceFacade getResource() { resourceFacade }
+    @Override @Nonnull LoggerFacade getLogger() { loggerFacade }
+    @Override @Nonnull CacheFacade getCache() { cacheFacade }
+    @Override @Nonnull TransactionFacade getTransaction() { transactionFacade }
+    @Override @Nonnull EntityFacade getEntity() { entityFacade }
+    @Override @Nonnull ServiceFacade getService() { serviceFacade }
+    @Override @Nonnull ScreenFacade getScreen() { screenFacade }
+
+    @Override @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
+    @Override @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
+
+    @Override @Nonnull ServletContext getServletContext() { internalServletContext }
+    @Override @Nonnull ServerContainer getServerContainer() { internalServerContainer }
+    @Override void initServletContext(ServletContext sc) {
+        internalServletContext = sc
+        internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+    }
+
+    // ==========================================
+    // ========== Component Management ==========
+    // ==========================================
+
+    // called in System dashboard
+    List<Map<String, Object>> getComponentInfoList() {
+        List<Map<String, Object>> infoList = new ArrayList<>(componentInfoMap.size())
+        for (ComponentInfo ci in componentInfoMap.values())
+            infoList.add([name:ci.name, location:ci.location, version:ci.version, dependsOnNames:ci.dependsOnNames] as Map<String, Object>)
+        return infoList
+    }
 
     protected void checkSortDependentComponents() {
         // we have an issue here where not all dependencies are declared, most are implied by component load order
@@ -925,7 +924,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
     protected ResourceReference getResourceReference(String location) {
-        // TODO: somehow support other resource location types
+        // NOTE: somehow support other resource location types?
         // the ResourceFacade inits after components are loaded (so it is aware of initial components), so we can't get ResourceReferences from it
         ResourceReference rr = new UrlResourceReference()
         rr.init(location, this)
@@ -934,8 +933,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     static class ComponentInfo {
         ExecutionContextFactoryImpl ecfi
-        String name
-        String location
+        String name, location, version
         ResourceReference componentRr
         Set<String> dependsOnNames = new LinkedHashSet<String>()
         ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
@@ -1000,8 +998,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 location = ecfi.runtimePath + '/' + location
                 lastSlashIndex = location.lastIndexOf('/')
             }
-            // set the default component name
+            // set the default component name, version
             name = location.substring(lastSlashIndex+1)
+            version = "unknown"
 
             // make sure directory exists
             componentRr = ecfi.getResourceReference(location)
@@ -1011,19 +1010,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // see if there is a component.xml file, if so use that as the componentNode instead of origNode
             ResourceReference compXmlRr = componentRr.getChild("component.xml")
-            MNode componentNode
-            if (compXmlRr.getExists()) {
-                componentNode = MNode.parse(compXmlRr)
-            } else {
-                componentNode = origNode
-            }
-
+            MNode componentNode = compXmlRr.getExists() ? MNode.parse(compXmlRr) : origNode
             if (componentNode != null) {
                 String nameAttr = componentNode.attribute("name")
                 if (nameAttr) name = nameAttr
-                if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on")) {
+                String versionAttr = componentNode.attribute("version")
+                if (versionAttr) version = versionAttr
+                if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on"))
                     dependsOnNames.add(dependsOnNode.attribute("name"))
-                }
             }
         }
 
@@ -1031,62 +1025,33 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             List<String> dependsOnList = []
             for (String dependsOnName in dependsOnNames) {
                 ComponentInfo depCompInfo = ecfi.componentInfoMap.get(dependsOnName)
-                if (depCompInfo == null)
-                    throw new IllegalArgumentException("Component ${name} depends on component ${dependsOnName} which is not initialized; try running 'gradle getDepends'")
+                if (depCompInfo == null) throw new IllegalArgumentException("Component ${name} depends on component ${dependsOnName} which is not initialized; try running 'gradle getDepends'")
                 List<String> childDepList = depCompInfo.getRecursiveDependencies()
-                for (String childDep in childDepList)
-                    if (!dependsOnList.contains(childDep)) dependsOnList.add(childDep)
-
+                for (String childDep in childDepList) if (!dependsOnList.contains(childDep)) dependsOnList.add(childDep)
                 if (!dependsOnList.contains(dependsOnName)) dependsOnList.add(dependsOnName)
             }
             return dependsOnList
         }
     }
 
-    // void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
-
-    @Override
-    @Nonnull LinkedHashMap<String, String> getComponentBaseLocations() {
-        LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
-        for (ComponentInfo componentInfo in componentInfoMap.values()) {
-            compLocMap.put(componentInfo.name, componentInfo.location)
+    /*
+    @Deprecated
+    void initComponent(String location) {
+        ComponentInfo componentInfo = new ComponentInfo(location, this)
+        // check dependencies
+        if (componentInfo.dependsOnNames) for (String dependsOnName in componentInfo.dependsOnNames) {
+            if (!componentInfoMap.containsKey(dependsOnName))
+                throw new IllegalArgumentException("Component [${componentInfo.name}] depends on component [${dependsOnName}] which is not initialized")
         }
-        return compLocMap
+        addComponent(componentInfo)
     }
+    void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
+    */
 
-    @Override
-    @Nonnull L10nFacade getL10n() { getEci().l10nFacade }
-    @Override
-    @Nonnull ResourceFacade getResource() { resourceFacade }
-    @Override
-    @Nonnull LoggerFacade getLogger() { loggerFacade }
-    @Override
-    @Nonnull CacheFacade getCache() { cacheFacade }
-    @Override
-    @Nonnull TransactionFacade getTransaction() { transactionFacade }
-    @Override
-    @Nonnull EntityFacade getEntity() { entityFacade }
-    @Override
-    @Nonnull ServiceFacade getService() { serviceFacade }
-    @Override
-    @Nonnull ScreenFacade getScreen() { screenFacade }
 
-    @Override
-    @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
-    @Override
-    @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
-
-    @Override
-    @Nonnull ServletContext getServletContext() { internalServletContext }
-    @Override
-    @Nonnull ServerContainer getServerContainer() { internalServerContainer }
-    @Override
-    void initServletContext(ServletContext sc) {
-        internalServletContext = sc
-        internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
-    }
-
+    // ==========================================
     // ========== Server Stat Tracking ==========
+    // ==========================================
 
     protected MNode getArtifactStatsNode(String artifactType, String artifactSubType) {
         // find artifact-stats node by type AND sub-type, if not found find by just the type
@@ -1161,8 +1126,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         final static int maxCreates = 1000
         final ExecutionContextFactoryImpl ecfi
         DeferredHitInfoFlush(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi }
-        @Override
-        synchronized void run() {
+        @Override synchronized void run() {
             ExecutionContextImpl eci = ecfi.getEci()
             eci.artifactExecutionFacade.disableAuthz()
             try {
@@ -1246,7 +1210,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
     }
 
+    // ========================================================
     // ========== Configuration File Merging Methods ==========
+    // ========================================================
 
     protected static void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
         baseNode.mergeChildrenByKey(overrideNode, "default-property", "name", null)
@@ -1492,6 +1458,5 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    @Override
-    String toString() { return "ExecutionContextFactory" }
+    @Override String toString() { return "ExecutionContextFactory " + moquiVersion }
 }
