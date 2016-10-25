@@ -758,11 +758,15 @@ class ScreenDefinition {
             super(parentScreen)
             name = "formSelectColumns"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
             transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false;
-            defaultResponse = new ResponseItem(new MNode("default-response", [url:"."]), this, parentScreen)
+            defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
             ScreenForm.saveFormConfig(sri.ec)
+            ScreenUrlInfo.UrlInstance redirectUrl = sri.buildUrl(sri.rootScreenDef, sri.screenUrlInfo.preTransitionPathNameList, ".")
+            redirectUrl.addParameters(sri.getCurrentScreenUrl().getParameterMap()).removeParameter("columnsTree")
+                    .removeParameter("formLocation").removeParameter("ResetColumns").removeParameter("SaveColumns")
+            sri.sendRedirectAndStopRender(redirectUrl.getUrlWithParams())
             return defaultResponse
         }
     }
