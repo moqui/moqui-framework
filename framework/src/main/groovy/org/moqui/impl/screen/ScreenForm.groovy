@@ -1271,11 +1271,20 @@ class ScreenForm {
 
             return null
         }
+        EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
+            if (ec.web == null) return null
+            String formListFindId = ec.web.requestParameters.get("formListFindId")
+            if (!formListFindId) return null
+            return ec.entity.find("moqui.screen.form.FormListFind").condition("formListFindId", formListFindId).useCache(true).one()
+        }
 
         ArrayList<ArrayList<MNode>> getFormListColumnInfo() {
             ExecutionContextImpl eci = ecfi.getEci()
-            String formConfigId = getUserActiveFormConfigId(eci)
-            if (formConfigId) {
+            String formConfigId = (String) null
+            EntityValue activeFormListFind = getActiveFormListFind(eci)
+            if (activeFormListFind != null) formConfigId = activeFormListFind.getNoCheckSimple("formConfigId")
+            if (formConfigId == null || formConfigId.isEmpty()) formConfigId = getUserActiveFormConfigId(eci)
+            if (formConfigId != null && !formConfigId.isEmpty()) {
                 // don't remember the results of this, is per-user so good only once (FormInstance is NOT per user!)
                 return makeDbFormListColumnInfo(formConfigId, eci)
             }
@@ -1580,12 +1589,6 @@ class ScreenForm {
 
             return flfInfoList
         }
-        EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
-            if (ec.web == null) return null
-            String formListFindId = ec.web.requestParameters.get("formListFindId")
-            if (!formListFindId) return null
-            return ec.entity.find("moqui.screen.form.FormListFind").condition("formListFindId", formListFindId).useCache(true).one()
-        }
         String getOrderByActualJsString(String originalOrderBy) {
             if (originalOrderBy == null || originalOrderBy.length() == 0) return "";
             // strip square braces if there are any
@@ -1743,21 +1746,22 @@ class ScreenForm {
         int flffSize = flffList.size()
         for (int i = 0; i < flffSize; i++) {
             EntityValue flff = (EntityValue) flffList.get(i)
-            String fn = flff.fieldName
-            if (flff.fieldValue) {
-                parmMap.put(fn, (String) flff.fieldValue)
-                String op = (String) flff.fieldOperator
+            String fn = (String) flff.getNoCheckSimple("fieldName")
+            String fieldValue = (String) flff.getNoCheckSimple("fieldValue")
+            if (fieldValue != null && !fieldValue.isEmpty()) {
+                parmMap.put(fn, fieldValue)
+                String op = (String) flff.getNoCheckSimple("fieldOperator")
                 if (op && !"equals".equals(op)) parmMap.put(fn + "_op", op)
-                String not = (String) flff.fieldNot
+                String not = (String) flff.getNoCheckSimple("fieldNot")
                 if ("Y".equals(not)) parmMap.put(fn + "_not", "Y")
-                String ic = (String) flff.fieldIgnoreCase
+                String ic = (String) flff.getNoCheckSimple("fieldIgnoreCase")
                 if ("Y".equals(ic)) parmMap.put(fn + "_ic", "Y")
-            } else if (flff.fieldPeriod) {
-                parmMap.put(fn + "_period", (String) flff.fieldPeriod)
-                parmMap.put(fn + "_poffset", flff.fieldPerOffset as String)
-            } else if (flff.fieldFrom || flff.fieldThru) {
-                if (flff.fieldFrom) parmMap.put(fn + "_from", (String) flff.fieldFrom)
-                if (flff.fieldThru) parmMap.put(fn + "_thru", (String) flff.fieldThru)
+            } else if (flff.getNoCheckSimple("fieldPeriod")) {
+                parmMap.put(fn + "_period", (String) flff.getNoCheckSimple("fieldPeriod"))
+                parmMap.put(fn + "_poffset", flff.getNoCheckSimple("fieldPerOffset") as String)
+            } else if (flff.getNoCheckSimple("fieldFrom") || flff.getNoCheckSimple("fieldThru")) {
+                if (flff.fieldFrom) parmMap.put(fn + "_from", (String) flff.getNoCheckSimple("fieldFrom"))
+                if (flff.fieldThru) parmMap.put(fn + "_thru", (String) flff.getNoCheckSimple("fieldThru"))
             }
         }
         return parmMap
@@ -1834,7 +1838,7 @@ class ScreenForm {
         // see if there is an existing FormListFind record
         if (flf != null) {
             // make sure the FormListFind.formLocation matches the current formLocation
-            if (formLocation != flf.formLocation) {
+            if (!formLocation.equals(flf.getNoCheckSimple("formLocation"))) {
                 ec.message.addError("Specified form location did not match form on Saved Find ${formListFindId}, not updating")
                 return null
             }
@@ -1854,15 +1858,15 @@ class ScreenForm {
 
             // save the FormConfig fields if needed, create a new FormConfig for the FormListFind or removing existing as needed
             if (formConfigFieldList != null && formConfigFieldList.size() > 0) {
-                if (flf.formConfigId) {
-                    ec.entity.find("moqui.screen.form.FormConfigField")
-                            .condition("formConfigId", flf.formConfigId).deleteAll()
+                String flfFormConfigId = (String) flf.getNoCheckSimple("formConfigId")
+                if (flfFormConfigId != null && !flfFormConfigId.isEmpty()) {
+                    ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", flfFormConfigId).deleteAll()
                 } else {
                     EntityValue formConfig = ec.entity.makeValue("moqui.screen.form.FormConfig").set("formLocation", formLocation)
                             .setSequencedIdPrimary().create()
-                    flf.formConfigId = formConfig.formConfigId
+                    flf.formConfigId = formConfig.getNoCheckSimple("formConfigId")
                 }
-                for (EntityValue fcf in formConfigFieldList) fcf.cloneValue().set("formConfigId", flf.formConfigId).create()
+                for (EntityValue fcf in formConfigFieldList) fcf.cloneValue().set("formConfigId", flfFormConfigId).create()
             }
 
             if (cs.description) flf.description = cs.description
@@ -1870,8 +1874,7 @@ class ScreenForm {
             if (flf.isModified()) flf.update()
 
             // remove all FormListFindField records and create new ones
-            ec.entity.find("moqui.screen.form.FormListFindField")
-                    .condition("formListFindId", formListFindId).deleteAll()
+            ec.entity.find("moqui.screen.form.FormListFindField").condition("formListFindId", formListFindId).deleteAll()
             ArrayList<EntityValue> flffList = formInstance.makeFormListFindFields(formListFindId, ec)
             for (EntityValue flff in flffList) flff.create()
         } else {
