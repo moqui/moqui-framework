@@ -447,9 +447,12 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
-- save select columns configuration with form-list saved finds
-- allow different aggregate/show-total/etc options in select-columns, more complex but makes sense?
-- add form-list presets in xml file, like saved finds but perhaps more options? allow different aggregate settings in presets?
+- Option for transition to only mount if all response URLs for screen paths exist
+
+- Saved form-list Finds
+  - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
+  - allow different aggregate/show-total/etc options in select-columns, more complex but makes sense?
+  - add form-list presets in xml file, like saved finds but perhaps more options? allow different aggregate settings in presets?
 
 - form-list data prep, more self-contained
   - X form-list.entity-find element support instead of form-list.@list attribute
@@ -469,8 +472,6 @@ Gradle tasks.
       - https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket
       - https://docs.docker.com/engine/security/https/
       - https://docs.docker.com/engine/reference/api/docker_remote_api/
-
-- Option for transition to only mount if all response URLs for screen paths exist
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 - Support seek for faster pagination like jOOQ: https://blog.jooq.org/2013/10/26/faster-sql-paging-with-jooq-using-the-seek-method/
@@ -501,9 +502,6 @@ Gradle tasks.
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine
   - do in moqui-caffeine tool component
   - add multiple threads to SpeedTest.xml?
-
-- Saved form-list Finds
-  - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
 - WebSocket Notifications
   - Increment message, event, task count labels in header?
