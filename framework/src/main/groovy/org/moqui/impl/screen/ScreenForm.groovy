@@ -1824,7 +1824,14 @@ class ScreenForm {
         if (screenForm == null) { ec.message.addError("Form ${formName} not found in screen at ${screenLocation}, cannot process saved find"); return null; }
         FormInstance formInstance = screenForm.getFormInstance()
 
-        // see if there is an existing FormConfig record
+        String formConfigId = formInstance.getUserActiveFormConfigId(ec)
+        EntityList formConfigFieldList = null
+        if (formConfigId) {
+            formConfigFieldList = ec.entityFacade.find("moqui.screen.form.FormConfigField")
+                    .condition("formConfigId", formConfigId).useCache(true).list()
+        }
+
+        // see if there is an existing FormListFind record
         if (flf != null) {
             // make sure the FormListFind.formLocation matches the current formLocation
             if (formLocation != flf.formLocation) {
@@ -1845,6 +1852,19 @@ class ScreenForm {
                 }
             }
 
+            // save the FormConfig fields if needed, create a new FormConfig for the FormListFind or removing existing as needed
+            if (formConfigFieldList != null && formConfigFieldList.size() > 0) {
+                if (flf.formConfigId) {
+                    ec.entity.find("moqui.screen.form.FormConfigField")
+                            .condition("formConfigId", flf.formConfigId).deleteAll()
+                } else {
+                    EntityValue formConfig = ec.entity.makeValue("moqui.screen.form.FormConfig").set("formLocation", formLocation)
+                            .setSequencedIdPrimary().create()
+                    flf.formConfigId = formConfig.formConfigId
+                }
+                for (EntityValue fcf in formConfigFieldList) fcf.cloneValue().set("formConfigId", flf.formConfigId).create()
+            }
+
             if (cs.description) flf.description = cs.description
             if (cs.orderByField) flf.orderByField = cs.orderByField
             if (flf.isModified()) flf.update()
@@ -1852,14 +1872,22 @@ class ScreenForm {
             // remove all FormListFindField records and create new ones
             ec.entity.find("moqui.screen.form.FormListFindField")
                     .condition("formListFindId", formListFindId).deleteAll()
-
             ArrayList<EntityValue> flffList = formInstance.makeFormListFindFields(formListFindId, ec)
             for (EntityValue flff in flffList) flff.create()
         } else {
+            // if there are FormConfig fields save in a new FormConfig first so we can set the formConfigId later
+            EntityValue formConfig = null
+            if (formConfigFieldList != null && formConfigFieldList.size() > 0) {
+                formConfig = ec.entity.makeValue("moqui.screen.form.FormConfig").set("formLocation", formLocation)
+                        .setSequencedIdPrimary().create()
+                for (EntityValue fcf in formConfigFieldList) fcf.cloneValue().set("formConfigId", formConfig.formConfigId).create()
+            }
+
             flf = ec.entity.makeValue("moqui.screen.form.FormListFind")
             flf.formLocation = formLocation
             flf.description = cs.description ?: "${ec.user.username} - ${ec.l10n.format(ec.user.nowTimestamp, "yyyy-MM-dd HH:mm")}"
             if (cs.orderByField) flf.orderByField = cs.orderByField
+            if (formConfig != null) flf.formConfigId = formConfig.formConfigId
             flf.setSequencedIdPrimary()
             flf.create()
 
