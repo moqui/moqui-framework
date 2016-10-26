@@ -573,7 +573,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
                     Object filterMapObjEval = eci.resourceFacade.expression((String) entityFilter.getNoCheckSimple('filterMap'), null)
                     Map<String, Object> filterMapObj
-                    if (filterMapObjEval instanceof Map<String, Object>) {
+                    if (filterMapObjEval instanceof Map) {
                         filterMapObj = filterMapObjEval as Map<String, Object>
                     } else {
                         logger.error("EntityFiler filterMap did not evaluate to a Map<String, Object>: ${entityFilter.getString('filterMap')}")
@@ -600,7 +600,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         // logger.info("Query on ${findEntityName} added authz filter conditions: ${entCond}")
                         // logger.info("Query on ${findEntityName} find: ${efb.toString()}")
                     } catch (Exception e) {
-                        logger.warn("Error adding authz entity filter condition: ${e.toString()}")
+                        logger.warn("Error adding authz entity filter ${entityFilter.getNoCheckSimple("entityFilterId")} condition: ${e.toString()}")
                     }
                 }
             }
