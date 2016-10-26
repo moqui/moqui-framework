@@ -1015,7 +1015,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 String nameAttr = componentNode.attribute("name")
                 if (nameAttr) name = nameAttr
                 String versionAttr = componentNode.attribute("version")
-                if (versionAttr) version = versionAttr
+                if (versionAttr) version = SystemBinding.expand(versionAttr)
                 if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on"))
                     dependsOnNames.add(dependsOnNode.attribute("name"))
             }

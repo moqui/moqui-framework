@@ -212,7 +212,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
 
             if (excludeNulls && value == null) {
-                if (logger.isTraceEnabled()) logger.trace("Tried to filter find on entity [${findEd.fullEntityName}] on field ${key} but value was null, not adding condition")
+                if (logger.isTraceEnabled()) logger.trace("Tried to filter find on entity ${findEd.fullEntityName} on field ${key} but value was null, not adding condition")
                 continue
             }
 
