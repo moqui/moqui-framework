@@ -29,7 +29,6 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -39,15 +38,15 @@ import org.slf4j.LoggerFactory
 class ScreenDefinition {
     private final static Logger logger = LoggerFactory.getLogger(ScreenDefinition.class)
 
-    protected final ScreenFacadeImpl sfi
-    protected final MNode screenNode
-    protected final MNode subscreensNode
-    protected final MNode webSettingsNode
-    protected final String location
-    protected final String screenName
+    @SuppressWarnings("GrFinalVariableAccess") protected final ScreenFacadeImpl sfi
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode screenNode
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode subscreensNode
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode webSettingsNode
+    @SuppressWarnings("GrFinalVariableAccess") protected final String location
+    @SuppressWarnings("GrFinalVariableAccess") protected final String screenName
+    @SuppressWarnings("GrFinalVariableAccess") final long screenLoadedTime
     protected boolean standalone = false
     Long sourceLastModified = null
-    final long screenLoadedTime
 
     protected Map<String, ParameterItem> parameterByName = new HashMap<>()
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
