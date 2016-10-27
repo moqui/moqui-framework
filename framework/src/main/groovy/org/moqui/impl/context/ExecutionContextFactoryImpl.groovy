@@ -26,8 +26,9 @@ import org.moqui.context.*
 import org.moqui.context.ArtifactExecutionInfo.ArtifactType
 import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidClassLoader
+import org.moqui.util.MClassLoader
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
@@ -41,6 +42,7 @@ import org.moqui.impl.webapp.NotificationWebSocketListener
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
+import org.moqui.util.ResourceReference
 import org.moqui.util.SimpleTopic
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
@@ -80,7 +82,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected MNode serverStatsNode
     protected String moquiVersion = ""
 
-    protected StupidClassLoader stupidClassLoader
+    protected MClassLoader moquiClassLoader
     protected GroovyClassLoader groovyClassLoader
     protected InetAddress localhostAddress = null
 
@@ -479,21 +481,26 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
     private void initClassLoader() {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis()
+        MClassLoader.addCommonClass("org.moqui.entity.EntityValue", EntityValue.class)
+        MClassLoader.addCommonClass("EntityValue", EntityValue.class)
+        MClassLoader.addCommonClass("org.moqui.entity.EntityList", EntityList.class)
+        MClassLoader.addCommonClass("EntityList", EntityList.class)
+
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
-        stupidClassLoader = new StupidClassLoader(pcl)
-        groovyClassLoader = new GroovyClassLoader(stupidClassLoader)
+        moquiClassLoader = new MClassLoader(pcl)
+        groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
 
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
-            stupidClassLoader.addClassesDirectory(runtimeClassesFile)
+            moquiClassLoader.addClassesDirectory(runtimeClassesFile)
         }
         // add runtime/lib jar files to the class loader
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                stupidClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
+                moquiClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -502,7 +509,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ComponentInfo ci in componentInfoMap.values()) {
             ResourceReference classesRr = ci.componentRr.getChild("classes")
             if (classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
-                stupidClassLoader.addClassesDirectory(new File(classesRr.getUri()))
+                moquiClassLoader.addClassesDirectory(new File(classesRr.getUri()))
             }
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
@@ -511,7 +518,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
+                            moquiClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -523,7 +530,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // clear not found info just in case anything was falsely added
-        stupidClassLoader.clearNotFoundInfo()
+        moquiClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(groovyClassLoader)
 

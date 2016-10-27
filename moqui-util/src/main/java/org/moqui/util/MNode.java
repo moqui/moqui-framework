@@ -19,8 +19,8 @@ import freemarker.template.*;
 import groovy.lang.Closure;
 import groovy.util.Node;
 import groovy.util.NodeList;
+
 import org.moqui.BaseException;
-import org.moqui.context.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;

@@ -15,7 +15,7 @@ package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
-import org.moqui.context.ResourceReference
+import org.moqui.util.ResourceReference
 import org.moqui.impl.context.ResourceFacadeImpl
 
 @CompileStatic

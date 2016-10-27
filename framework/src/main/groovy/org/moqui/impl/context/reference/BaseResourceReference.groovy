@@ -15,7 +15,7 @@ package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
-import org.moqui.context.ResourceReference
+import org.moqui.util.ResourceReference
 import org.moqui.impl.context.ResourceFacadeImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -31,7 +31,7 @@ abstract class BaseResourceReference implements ResourceReference {
 
     BaseResourceReference() { }
 
-    @Override
+    @Override void init(String location) { init(location, null) }
     abstract ResourceReference init(String location, ExecutionContextFactory ecf)
 
     protected Map<String, ResourceReference> getSubContentRefByPath() {
@@ -39,8 +39,37 @@ abstract class BaseResourceReference implements ResourceReference {
         return subContentRefByPath
     }
 
-    @Override
-    abstract String getLocation();
+    @Override abstract String getLocation();
+
+    @Override abstract InputStream openStream();
+    @Override abstract OutputStream getOutputStream();
+    @Override abstract String getText();
+
+    @Override abstract boolean supportsAll();
+    @Override abstract boolean supportsUrl();
+    @Override abstract URL getUrl();
+
+    @Override abstract boolean supportsDirectory();
+    @Override abstract boolean isFile();
+    @Override abstract boolean isDirectory();
+    @Override abstract List<ResourceReference> getDirectoryEntries();
+
+    @Override abstract boolean supportsExists()
+    @Override abstract boolean getExists()
+
+    @Override abstract boolean supportsLastModified()
+    @Override abstract long getLastModified()
+
+    @Override abstract boolean supportsSize()
+    @Override abstract long getSize()
+
+    @Override abstract boolean supportsWrite()
+    @Override abstract void putText(String text)
+    @Override abstract void putStream(InputStream stream)
+    @Override abstract void move(String newLocation)
+    @Override abstract ResourceReference makeDirectory(String name)
+    @Override abstract ResourceReference makeFile(String name)
+    @Override abstract boolean delete()
 
     @Override
     URI getUri() {
@@ -68,35 +97,10 @@ abstract class BaseResourceReference implements ResourceReference {
     }
 
     @Override
-    abstract InputStream openStream();
-    @Override
-    abstract OutputStream getOutputStream();
-
-    @Override
-    abstract String getText();
-
-    @Override
     String getContentType() {
         String fn = getFileName()
         return fn != null && fn.length() > 0 ? ecf.getResource().getContentType(fn) : (String) null
     }
-
-    @Override
-    abstract boolean supportsAll();
-
-    @Override
-    abstract boolean supportsUrl();
-    @Override
-    abstract URL getUrl();
-
-    @Override
-    abstract boolean supportsDirectory();
-    @Override
-    abstract boolean isFile();
-    @Override
-    abstract boolean isDirectory();
-    @Override
-    abstract List<ResourceReference> getDirectoryEntries();
 
     @Override
     ResourceReference getParent() {
@@ -382,39 +386,7 @@ abstract class BaseResourceReference implements ResourceReference {
         // TODO: walk child directories somehow or just stick with files with matching directories?
     }
 
-    @Override
-    abstract boolean supportsExists()
-    @Override
-    abstract boolean getExists()
+    @Override void destroy() { }
 
-    @Override
-    abstract boolean supportsLastModified()
-    @Override
-    abstract long getLastModified()
-
-    @Override
-    abstract boolean supportsSize()
-    @Override
-    abstract long getSize()
-
-    @Override
-    abstract boolean supportsWrite()
-    @Override
-    abstract void putText(String text)
-    @Override
-    abstract void putStream(InputStream stream)
-    @Override
-    abstract void move(String newLocation)
-    @Override
-    abstract ResourceReference makeDirectory(String name)
-    @Override
-    abstract ResourceReference makeFile(String name)
-    @Override
-    abstract boolean delete()
-
-    @Override
-    void destroy() { }
-
-    @Override
-    String toString() { return getLocation() ?: "[no location (${this.class.getName()})]" }
+    @Override String toString() { return getLocation() ?: "[no location (${this.class.getName()})]" }
 }

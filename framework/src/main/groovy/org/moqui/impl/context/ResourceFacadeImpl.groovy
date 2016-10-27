@@ -18,6 +18,7 @@ import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.impl.StupidUtilities
+import org.moqui.impl.context.reference.BaseResourceReference
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
@@ -26,6 +27,7 @@ import org.moqui.jcache.MCache
 import org.moqui.util.ContextBinding
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
+import org.moqui.util.ResourceReference
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -218,7 +220,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
         if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
 
         ResourceReference rr = (ResourceReference) rrClass.newInstance()
-        rr.init(location, ecfi)
+        if (rr instanceof BaseResourceReference) {
+            ((BaseResourceReference) rr).init(location, ecfi)
+        } else {
+            rr.init(location)
+        }
         resourceReferenceByLocation.put(location, rr)
         return rr
     }

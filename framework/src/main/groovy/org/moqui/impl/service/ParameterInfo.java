@@ -16,7 +16,7 @@ package org.moqui.impl.service;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Whitelist;
-import org.moqui.impl.StupidClassLoader;
+import org.moqui.util.MClassLoader;
 import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
@@ -81,7 +81,7 @@ public class ParameterInfo {
         String typeAttr = parameterNode.attribute("type");
         type = typeAttr == null || typeAttr.isEmpty() ? "String" : typeAttr;
         parmType = typeEnumByString.get(type);
-        parmClass = StupidClassLoader.commonJavaClassesMap.get(type);
+        parmClass = MClassLoader.getCommonClass(type);
 
         format = parameterNode.attribute("format");
         entityName = parameterNode.attribute("entity-name");

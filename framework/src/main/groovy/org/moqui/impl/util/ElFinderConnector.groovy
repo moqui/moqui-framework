@@ -11,11 +11,11 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.context.reference
+package org.moqui.impl.util
 
 import org.apache.commons.fileupload.FileItem
 import org.moqui.context.ExecutionContext
-import org.moqui.context.ResourceReference
+import org.moqui.util.ResourceReference
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 

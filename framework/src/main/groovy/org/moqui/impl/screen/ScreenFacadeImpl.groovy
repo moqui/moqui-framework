@@ -16,7 +16,7 @@ package org.moqui.impl.screen
 import freemarker.template.Template
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
-import org.moqui.context.ResourceReference
+import org.moqui.util.ResourceReference
 import org.moqui.screen.ScreenFacade
 import org.moqui.screen.ScreenRender
 import org.moqui.impl.context.ExecutionContextFactoryImpl

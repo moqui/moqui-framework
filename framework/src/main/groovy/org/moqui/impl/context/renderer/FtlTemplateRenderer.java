@@ -22,7 +22,7 @@ import groovy.transform.CompileStatic;
 
 import org.moqui.BaseException;
 import org.moqui.context.ExecutionContextFactory;
-import org.moqui.context.ResourceReference;
+import org.moqui.util.ResourceReference;
 import org.moqui.context.TemplateRenderer;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.jcache.MCache;

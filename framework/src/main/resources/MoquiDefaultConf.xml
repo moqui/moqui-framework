@@ -90,7 +90,7 @@
         <cache name="resource.markdown.location" value-type="String" type="local"/>
         <cache name="resource.text.location" value-type="String" type="local"/>
 
-        <cache name="resource.reference.location" value-type="org.moqui.context.ResourceReference"/>
+        <cache name="resource.reference.location" value-type="org.moqui.util.ResourceReference"/>
 
         <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String"/>
 
@@ -178,7 +178,7 @@
     </transaction-facade>
 
     <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl">
-        <!-- resource reference class needs to implement the org.moqui.context.ResourceReference interface -->
+        <!-- resource reference class needs to implement the org.moqui.util.ResourceReference interface -->
         <resource-reference scheme="http" class="org.moqui.impl.context.reference.UrlResourceReference"/>
         <resource-reference scheme="https" class="org.moqui.impl.context.reference.UrlResourceReference"/>
         <resource-reference scheme="file" class="org.moqui.impl.context.reference.UrlResourceReference"/>

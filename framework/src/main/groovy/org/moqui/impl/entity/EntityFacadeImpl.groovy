@@ -16,7 +16,7 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseException
-import org.moqui.context.ResourceReference
+import org.moqui.util.ResourceReference
 import org.moqui.entity.*
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities

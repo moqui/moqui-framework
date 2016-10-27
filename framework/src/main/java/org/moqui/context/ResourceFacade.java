@@ -13,6 +13,8 @@
  */
 package org.moqui.context;
 
+import org.moqui.util.ResourceReference;
+
 import javax.activation.DataSource;
 import javax.xml.transform.stream.StreamSource;
 import java.io.InputStream;

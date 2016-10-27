@@ -16,10 +16,8 @@ package org.moqui.impl
 import groovy.transform.CompileStatic
 import groovy.transform.TypeChecked
 import groovy.transform.TypeCheckingMode
-import org.moqui.context.ExecutionContext
-import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.util.MClassLoader
 
-import java.lang.management.ManagementFactory
 import java.nio.charset.Charset
 import java.security.SecureRandom
 import java.sql.Time
@@ -47,7 +45,7 @@ class StupidUtilities {
     static Object basicConvert(Object value, String javaType) {
         if (value == null) return null
 
-        Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType)
+        Class theClass = MClassLoader.getCommonClass(javaType)
         // only support the classes we have pre-configured
         if (theClass == null) return value
         try {
