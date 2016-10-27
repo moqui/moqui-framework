@@ -20,7 +20,7 @@ import javax.jcr.Session
 import javax.jcr.Property
 
 import org.moqui.context.ExecutionContextFactory
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ResourceFacadeImpl
 

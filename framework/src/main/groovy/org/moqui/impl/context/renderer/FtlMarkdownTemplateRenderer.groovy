@@ -16,7 +16,7 @@ package org.moqui.impl.context.renderer
 import freemarker.template.Template
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.jcache.MCache

@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.util;
+package org.moqui.resource;
 
 import java.io.InputStream;
 import java.io.OutputStream;

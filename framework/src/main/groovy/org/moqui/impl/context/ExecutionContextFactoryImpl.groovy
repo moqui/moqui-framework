@@ -42,7 +42,7 @@ import org.moqui.impl.webapp.NotificationWebSocketListener
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.util.SimpleTopic
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger

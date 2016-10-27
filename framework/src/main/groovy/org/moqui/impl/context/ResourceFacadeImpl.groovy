@@ -27,7 +27,7 @@ import org.moqui.jcache.MCache
 import org.moqui.util.ContextBinding
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 

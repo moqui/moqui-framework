@@ -16,7 +16,7 @@ import spock.lang.*
 
 import org.moqui.context.ExecutionContext
 import org.moqui.Moqui
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 
 class ResourceFacadeTests extends Specification {
     @Shared

@@ -15,7 +15,7 @@ package org.moqui.impl.util
 
 import org.apache.commons.fileupload.FileItem
 import org.moqui.context.ExecutionContext
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 

@@ -17,7 +17,7 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidJavaUtilities

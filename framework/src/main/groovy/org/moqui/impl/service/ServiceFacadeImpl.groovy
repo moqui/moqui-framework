@@ -14,7 +14,7 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
-import org.moqui.util.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
 import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.StupidUtilities
