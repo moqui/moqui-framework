@@ -1033,6 +1033,7 @@ class ScreenForm {
         private boolean isFormHeaderFormVal = false
         private ArrayList<MNode> nonReferencedFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenFieldList = (ArrayList<MNode>) null
+        private ArrayList<String> hiddenFieldNameList = (ArrayList<String>) null
         private ArrayList<ArrayList<MNode>> formListColInfoList = (ArrayList<ArrayList<MNode>>) null
 
         boolean hasAggregate = false
@@ -1051,6 +1052,10 @@ class ScreenForm {
             allFieldNodes = formNode.children("field")
             int afnSize = allFieldNodes.size()
             allFieldNames = new ArrayList<>(afnSize)
+            if (isListForm) {
+                hiddenFieldList = new ArrayList<>()
+                hiddenFieldNameList = new ArrayList<>()
+            }
 
             // populate fieldNodeMap, get aggregation details
             ArrayList<String> aggregateGroupFieldList = (ArrayList<String>) null
@@ -1062,6 +1067,11 @@ class ScreenForm {
                 allFieldNames.add(fieldName)
 
                 if (isListForm) {
+                    if (isListFieldHidden(fieldNode)) {
+                        hiddenFieldList.add(fieldNode)
+                        if (!hiddenFieldNameList.contains(fieldName)) hiddenFieldNameList.add(fieldName)
+                    }
+
                     boolean isShowTotal = "true".equals(fieldNode.attribute("show-total"))
                     if (isShowTotal) {
                         if (showTotalFields == null) showTotalFields = new LinkedHashSet<>()
@@ -1212,7 +1222,7 @@ class ScreenForm {
             return fieldList
         }
 
-        boolean isHeaderSubmitField(MNode fieldNode) {
+        static boolean isHeaderSubmitField(MNode fieldNode) {
             MNode headerField = fieldNode.first("header-field")
             if (headerField == null) return false
             return headerField.hasChild("submit")
@@ -1230,7 +1240,7 @@ class ScreenForm {
             return false
         }
 
-        private boolean isListFieldHiddenWidget(MNode fieldNode) {
+        private static boolean isListFieldHiddenWidget(MNode fieldNode) {
             // if default-field or any conditional-field don't have hidden or ignored elements then it's not hidden
             MNode defaultField = fieldNode.first("default-field")
             if (defaultField != null && !defaultField.hasChild("hidden") && !defaultField.hasChild("ignored")) return false
@@ -1239,20 +1249,8 @@ class ScreenForm {
             return true
         }
 
-        ArrayList<MNode> getListHiddenFieldList() {
-            if (hiddenFieldList != null) return hiddenFieldList
-
-            ArrayList<MNode> fieldList = new ArrayList<>()
-            int afnSize = allFieldNodes.size()
-            for (int i = 0; i < afnSize; i++) {
-                MNode fieldNode = (MNode) allFieldNodes.get(i)
-                if (isListFieldHiddenWidget(fieldNode) && !isListFieldHiddenAttr(fieldNode)) fieldList.add(fieldNode)
-            }
-
-            hiddenFieldList = fieldList
-            return fieldList
-        }
-
+        ArrayList<MNode> getListHiddenFieldList() { return hiddenFieldList }
+        ArrayList<String> getListHiddenFieldNameList() { return hiddenFieldNameList }
         boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
@@ -1271,7 +1269,7 @@ class ScreenForm {
 
             return null
         }
-        EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
+        static EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
             if (ec.web == null) return null
             String formListFindId = ec.web.requestParameters.get("formListFindId")
             if (!formListFindId) return null
@@ -1508,6 +1506,9 @@ class ScreenForm {
                 // if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
                 // always do this even if there are some entity-find.select-field elements, support specifying some fields that are always selected
                 for (String fieldName in displayedFieldSet) ef.selectField(fieldName)
+                ArrayList<String> hiddenNames = formInstance.getListHiddenFieldNameList()
+                int hiddenNamesSize = hiddenNames.size()
+                for (int i = 0; i < hiddenNamesSize; i++) { String fn = (String) hiddenNames.get(i); ef.selectField(fn); }
 
                 // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
 
