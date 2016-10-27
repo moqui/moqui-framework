@@ -18,7 +18,7 @@ import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
-import org.moqui.context.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
@@ -29,7 +29,6 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -39,15 +38,15 @@ import org.slf4j.LoggerFactory
 class ScreenDefinition {
     private final static Logger logger = LoggerFactory.getLogger(ScreenDefinition.class)
 
-    protected final ScreenFacadeImpl sfi
-    protected final MNode screenNode
-    protected final MNode subscreensNode
-    protected final MNode webSettingsNode
-    protected final String location
-    protected final String screenName
+    @SuppressWarnings("GrFinalVariableAccess") protected final ScreenFacadeImpl sfi
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode screenNode
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode subscreensNode
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode webSettingsNode
+    @SuppressWarnings("GrFinalVariableAccess") protected final String location
+    @SuppressWarnings("GrFinalVariableAccess") protected final String screenName
+    @SuppressWarnings("GrFinalVariableAccess") final long screenLoadedTime
     protected boolean standalone = false
     Long sourceLastModified = null
-    final long screenLoadedTime
 
     protected Map<String, ParameterItem> parameterByName = new HashMap<>()
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
@@ -758,11 +757,15 @@ class ScreenDefinition {
             super(parentScreen)
             name = "formSelectColumns"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
             transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false;
-            defaultResponse = new ResponseItem(new MNode("default-response", [url:"."]), this, parentScreen)
+            defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
 
         ResponseItem run(ScreenRenderImpl sri) {
             ScreenForm.saveFormConfig(sri.ec)
+            ScreenUrlInfo.UrlInstance redirectUrl = sri.buildUrl(sri.rootScreenDef, sri.screenUrlInfo.preTransitionPathNameList, ".")
+            redirectUrl.addParameters(sri.getCurrentScreenUrl().getParameterMap()).removeParameter("columnsTree")
+                    .removeParameter("formLocation").removeParameter("ResetColumns").removeParameter("SaveColumns")
+            sri.sendRedirectAndStopRender(redirectUrl.getUrlWithParams())
             return defaultResponse
         }
     }

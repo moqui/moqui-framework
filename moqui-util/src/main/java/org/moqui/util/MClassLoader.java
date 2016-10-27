@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl;
+package org.moqui.util;
 
 import java.io.*;
 import java.net.MalformedURLException;
@@ -34,12 +34,15 @@ import java.util.jar.Manifest;
  *
  * This loads classes from the parent first, then its class directories and JAR files.
  */
-public class StupidClassLoader extends ClassLoader {
+public class MClassLoader extends ClassLoader {
     private static final boolean checkJars = false;
+    // rememberClassNotFound causes problems with Groovy that tries to load variations on class names, then creates them, then tries again
     private static final boolean rememberClassNotFound = false;
     private static final boolean rememberResourceNotFound = true;
+    // don't track known: with a few tool components in place uses 20MB memory and really doesn't help start/etc time much:
+    private static boolean trackKnown = false;
 
-    public static final Map<String, Class<?>> commonJavaClassesMap = createCommonJavaClassesMap();
+    private static final Map<String, Class<?>> commonJavaClassesMap = createCommonJavaClassesMap();
     private static Map<String, Class<?>> createCommonJavaClassesMap() {
         Map<String, Class<?>> m = new HashMap<>();
         m.put("java.lang.String",java.lang.String.class); m.put("String", java.lang.String.class);
@@ -73,18 +76,18 @@ public class StupidClassLoader extends ClassLoader {
         m.put(Integer.TYPE.getName(), Integer.TYPE); m.put(Long.TYPE.getName(), Long.TYPE);
         m.put(Float.TYPE.getName(), Float.TYPE); m.put(Double.TYPE.getName(), Double.TYPE);
         m.put(Byte.TYPE.getName(), Byte.TYPE); m.put(Character.TYPE.getName(), Character.TYPE);
-        m.put("org.moqui.entity.EntityValue", org.moqui.entity.EntityValue.class); m.put("EntityValue", org.moqui.entity.EntityValue.class);
-        m.put("org.moqui.entity.EntityList", org.moqui.entity.EntityList.class); m.put("EntityList", org.moqui.entity.EntityList.class);
         m.put("long[]", long[].class); m.put("char[]", char[].class);
         return m;
     }
 
+    public static Class<?> getCommonClass(String className) { return commonJavaClassesMap.get(className); }
+    public static void addCommonClass(String className, Class<?> cls) { commonJavaClassesMap.putIfAbsent(className, cls); }
+
     private final ArrayList<JarFile> jarFileList = new ArrayList<>();
     private final Map<String, URL> jarLocationByJarName = new HashMap<>();
     private final ArrayList<File> classesDirectoryList = new ArrayList<>();
+    private final Map<String, String> jarByClass = new HashMap<>();
 
-    // don't track known: with a few tool components in place uses 20MB memory and really doesn't help start/etc time much:
-    private final boolean trackKnown = false;
     private final HashMap<String, File> knownClassFiles = new HashMap<>();
     private final HashMap<String, JarEntryInfo> knownClassJarEntries = new HashMap<>();
     private static class JarEntryInfo {
@@ -101,7 +104,7 @@ public class StupidClassLoader extends ClassLoader {
     private final Set<String> resourcesNotFound = new HashSet<>();
     private ProtectionDomain pd;
 
-    public StupidClassLoader(ClassLoader parent) {
+    public MClassLoader(ClassLoader parent) {
         super(parent);
 
         if (parent == null) throw new IllegalArgumentException("Parent ClassLoader cannot be null");
@@ -112,7 +115,6 @@ public class StupidClassLoader extends ClassLoader {
             classCache.put(commonClassEntry.getKey(), commonClassEntry.getValue());
     }
 
-    private static final Map<String, String> jarByClass = new HashMap<>();
     public void addJarFile(JarFile jf, URL jarLocation) {
         jarFileList.add(jf);
         jarLocationByJarName.put(jf.getName(), jarLocation);

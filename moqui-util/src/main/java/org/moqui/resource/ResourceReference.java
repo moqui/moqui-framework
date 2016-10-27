@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.context;
+package org.moqui.resource;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -21,7 +21,7 @@ import java.net.URL;
 import java.util.List;
 
 public interface ResourceReference extends Serializable {
-    ResourceReference init(String location, ExecutionContextFactory ecf);
+    void init(String location);
 
     String getLocation();
 

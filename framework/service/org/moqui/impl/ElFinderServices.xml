@@ -29,7 +29,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="fileInline" type="Boolean"/>
         </out-parameters>
         <actions>
-            <set field="elFinderConnector" from="new org.moqui.impl.context.reference.ElFinderConnector(ec, resourceRoot, volumeId)"/>
+            <set field="elFinderConnector" from="new org.moqui.impl.util.ElFinderConnector(ec, resourceRoot, volumeId)"/>
             <log level="info" message="elFinder cmd=${cmd}, target=${target}:${elFinderConnector.unhash(target)}:${elFinderConnector.getLocation(target)}"/>
             <!-- <log message="elFinder otherParameters: ${otherParameters}"/> -->
             <script>elFinderConnector.runCommand()</script>

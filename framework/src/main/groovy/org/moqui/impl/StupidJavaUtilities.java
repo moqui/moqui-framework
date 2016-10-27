@@ -13,13 +13,13 @@
  */
 package org.moqui.impl;
 
-import groovy.lang.GString;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.screen.ScreenRenderImpl;
 import org.moqui.util.ContextStack;
+import org.moqui.util.MClassLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +89,7 @@ public class StupidJavaUtilities {
     }
 
     public static Class getClass(String javaType) {
-        Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
+        Class theClass = MClassLoader.getCommonClass(javaType);
         if (theClass == null) {
             try {
                 theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);
@@ -98,7 +98,7 @@ public class StupidJavaUtilities {
         return theClass;
     }
     public static boolean isInstanceOf(Object theObjectInQuestion, String javaType) {
-        Class theClass = StupidClassLoader.commonJavaClassesMap.get(javaType);
+        Class theClass = MClassLoader.getCommonClass(javaType);
         if (theClass == null) {
             try {
                 theClass = Thread.currentThread().getContextClassLoader().loadClass(javaType);

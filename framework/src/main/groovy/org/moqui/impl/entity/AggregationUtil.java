@@ -20,6 +20,7 @@ import org.codehaus.groovy.runtime.InvokerHelper;
 import org.moqui.BaseException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.StupidJavaUtilities;
+import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.ContextStack;
@@ -49,6 +50,7 @@ public class AggregationUtil {
     private String listName, listEntryName;
     private AggregateField[] aggregateFields;
     private boolean hasFromExpr = false;
+    private boolean hasSubListTotals = false;
     private String[] groupFields;
     private XmlAction rowActions;
 
@@ -61,7 +63,8 @@ public class AggregationUtil {
         this.rowActions = rowActions;
         for (int i = 0; i < aggregateFields.length; i++) {
             AggregateField aggField = aggregateFields[i];
-            if (aggField.fromExpr != null) { hasFromExpr = true; break; }
+            if (aggField.fromExpr != null) hasFromExpr = true;
+            if (aggField.subList && aggField.showTotal) hasSubListTotals = true;
         }
     }
 
@@ -74,6 +77,7 @@ public class AggregationUtil {
 
         long startTime = System.currentTimeMillis();
         Map<Map<String, Object>, Map<String, Object>> groupRows = new HashMap<>();
+        Map<String, BigDecimal> totalsMap = new HashMap<>();
         int originalCount = 0;
         if (listObj instanceof List) {
             List listList = (List) listObj;
@@ -81,13 +85,13 @@ public class AggregationUtil {
             if (listObj instanceof RandomAccess) {
                 for (int i = 0; i < listSize; i++) {
                     Object curObject = listList.get(i);
-                    processAggregateOriginal(curObject, resultList, groupRows, i, (i < (listSize - 1)), makeSubList, eci);
+                    processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                     originalCount++;
                 }
             } else {
                 int i = 0;
                 for (Object curObject : listList) {
-                    processAggregateOriginal(curObject, resultList, groupRows, i, (i < (listSize - 1)), makeSubList, eci);
+                    processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                     i++;
                     originalCount++;
                 }
@@ -97,7 +101,7 @@ public class AggregationUtil {
             int i = 0;
             while (listIter.hasNext()) {
                 Object curObject = listIter.next();
-                processAggregateOriginal(curObject, resultList, groupRows, i, listIter.hasNext(), makeSubList, eci);
+                processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, eci);
                 i++;
                 originalCount++;
             }
@@ -106,12 +110,25 @@ public class AggregationUtil {
             int listSize = listArray.length;
             for (int i = 0; i < listSize; i++) {
                 Object curObject = listArray[i];
-                processAggregateOriginal(curObject, resultList, groupRows, i, (i < (listSize - 1)), makeSubList, eci);
+                processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                 originalCount++;
             }
         } else {
             throw new BaseException("form-list list " + listName + " is a type we don't know how to iterate: " + listObj.getClass().getName());
         }
+
+        if (hasSubListTotals) {
+            int resultSize = resultList.size();
+            for (int i = 0; i < resultSize; i++) {
+                Map<String, Object> resultMap = resultList.get(i);
+                ArrayList aggregateSubList = (ArrayList) resultMap.get("aggregateSubList");
+                if (aggregateSubList != null) {
+                    Map aggregateSubListTotals = (Map) resultMap.get("aggregateSubListTotals");
+                    if (aggregateSubListTotals != null) aggregateSubList.add(aggregateSubListTotals);
+                }
+            }
+        }
+        if (totalsMap.size() > 0) resultList.add(new HashMap<>(totalsMap));
 
         if (logger.isInfoEnabled()) logger.info("Processed list " + listName + ", from " + originalCount + " items to " + resultList.size() + " items, in " + (System.currentTimeMillis() - startTime) + "ms");
         // for (Map<String, Object> result : resultList) logger.warn("Aggregate Result: " + result.toString());
@@ -121,9 +138,8 @@ public class AggregationUtil {
 
     @SuppressWarnings("unchecked")
     private void processAggregateOriginal(Object curObject, ArrayList<Map<String, Object>> resultList,
-                                          Map<Map<String, Object>, Map<String, Object>> groupRows, int index, boolean hasNext,
-                                          boolean makeSubList, ExecutionContextImpl eci) {
-
+                                          Map<Map<String, Object>, Map<String, Object>> groupRows, Map<String, BigDecimal> totalsMap,
+                                          int index, boolean hasNext, boolean makeSubList, ExecutionContextImpl eci) {
         Map curMap = null;
         if (curObject instanceof EntityValue) {
             curMap = ((EntityValue) curObject).getMap();
@@ -173,51 +189,70 @@ public class AggregationUtil {
             resultMap = groupRows.get(groupByMap);
         }
 
-        Map<String, Object> subListMap = null;
         if (resultMap == null) {
             resultMap = contextTopMap;
+            Map<String, Object> subListMap = null;
+            Map<String, BigDecimal> subListTotalsMap = null;
             for (int i = 0; i < aggregateFields.length; i++) {
                 AggregateField aggField = aggregateFields[i];
                 String fieldName = aggField.fieldName;
                 Object fieldValue = getField(fieldName, context, curObject, curIsMap);
                 // don't want to put null values, a waste of time/space; if count aggregate continue so it isn't counted
                 if (fieldValue == null) continue;
-
+                // handle subList
                 if (makeSubList && aggField.subList) {
                     // NOTE: may have an issue here not using contextTopMap as starting point for sub-list entry, ie row-actions values lost if not referenced in a field name/from
                     // NOTE2: if we start with contextTopMap should clone and perhaps remove aggregateFields that are not sub-list
                     if (subListMap == null) subListMap = new HashMap<>();
                     subListMap.put(fieldName, fieldValue);
+                    resultMap.remove(fieldName);
                 } else if (aggField.function == AggregateFunction.COUNT) {
                     resultMap.put(fieldName, 1);
                 } else {
                     resultMap.put(fieldName, fieldValue);
                 }
-                // TODO: handle showTotal
+                // handle showTotal
+                if (aggField.showTotal) {
+                    BigDecimal bdValue = (fieldValue instanceof BigDecimal) ? (BigDecimal) fieldValue : new BigDecimal(fieldValue.toString());
+                    if (aggField.subList) {
+                        if (subListTotalsMap == null) subListTotalsMap = new HashMap<>();
+                        subListTotalsMap.put(fieldName, bdValue);
+                    } else {
+                        BigDecimal curVal = totalsMap.get(fieldName);
+                        if (curVal == null) totalsMap.put(fieldName, bdValue);
+                        else totalsMap.put(fieldName, curVal.add(bdValue));
+                    }
+                }
             }
+
             if (subListMap != null) {
                 ArrayList<Map<String, Object>> subList = new ArrayList<>();
                 subList.add(subListMap);
                 resultMap.put("aggregateSubList", subList);
             }
+            if (subListTotalsMap != null) resultMap.put("aggregateSubListTotals", subListTotalsMap);
+
             resultList.add(resultMap);
             if (makeSubList) groupRows.put(groupByMap, resultMap);
         } else {
             // NOTE: if makeSubList == false this will never run
+            Map<String, Object> subListMap = null;
+            Map<String, BigDecimal> subListTotalsMap = (Map<String, BigDecimal>) resultMap.get("aggregateSubListTotals");
             for (int i = 0; i < aggregateFields.length; i++) {
                 AggregateField aggField = aggregateFields[i];
                 String fieldName = aggField.fieldName;
+                Object fieldValue = getField(fieldName, context, curObject, curIsMap);
 
                 if (aggField.subList) {
                     // NOTE: may have an issue here not using contextTopMap as starting point for sub-list entry, ie row-actions values lost if not referenced in a field name/from
                     if (subListMap == null) subListMap = new HashMap<>();
-                    subListMap.put(fieldName, getField(fieldName, context, curObject, curIsMap));
+                    subListMap.put(fieldName, fieldValue);
                 } else if (aggField.function != null) {
                     switch (aggField.function) {
                         case MIN:
                         case MAX:
                             Comparable existingComp = (Comparable) resultMap.get(fieldName);
-                            Comparable newComp = (Comparable) getField(fieldName, context, curObject, curIsMap);
+                            Comparable newComp = (Comparable) fieldValue;
                             if (existingComp == null) {
                                 if (newComp != null) resultMap.put(fieldName, newComp);
                             } else {
@@ -228,11 +263,11 @@ public class AggregationUtil {
                             }
                             break;
                         case SUM:
-                            Number sumNum = StupidJavaUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) getField(fieldName, context, curObject, curIsMap));
+                            Number sumNum = StupidJavaUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) fieldValue);
                             if (sumNum != null) resultMap.put(fieldName, sumNum);
                             break;
                         case AVG:
-                            Number newNum = (Number) getField(fieldName, context, curObject, curIsMap);
+                            Number newNum = (Number) fieldValue;
                             if (newNum != null) {
                                 Number existingNum = (Number) resultMap.get(fieldName);
                                 if (existingNum == null) {
@@ -260,7 +295,23 @@ public class AggregationUtil {
                             break;
                     }
                 }
-                // TODO: handle showTotal
+                // handle showTotal
+                if (aggField.showTotal) {
+                    BigDecimal bdValue = (fieldValue instanceof BigDecimal) ? (BigDecimal) fieldValue : new BigDecimal(fieldValue.toString());
+                    if (aggField.subList) {
+                        if (subListTotalsMap == null) {
+                            subListTotalsMap = new HashMap<>();
+                            resultMap.put("aggregateSubListTotals", subListTotalsMap);
+                        }
+                        BigDecimal curVal = subListTotalsMap.get(fieldName);
+                        if (curVal == null) subListTotalsMap.put(fieldName, bdValue);
+                        else subListTotalsMap.put(fieldName, curVal.add(bdValue));
+                    } else {
+                        BigDecimal curVal = totalsMap.get(fieldName);
+                        if (curVal == null) totalsMap.put(fieldName, bdValue);
+                        else totalsMap.put(fieldName, curVal.add(bdValue));
+                    }
+                }
             }
             if (subListMap != null) {
                 ArrayList<Map<String, Object>> subList = (ArrayList<Map<String, Object>>) resultMap.get("aggregateSubList");

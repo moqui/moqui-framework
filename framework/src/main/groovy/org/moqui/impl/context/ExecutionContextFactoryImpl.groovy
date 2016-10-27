@@ -26,8 +26,9 @@ import org.moqui.context.*
 import org.moqui.context.ArtifactExecutionInfo.ArtifactType
 import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidClassLoader
+import org.moqui.util.MClassLoader
 import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
@@ -41,6 +42,7 @@ import org.moqui.impl.webapp.NotificationWebSocketListener
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
+import org.moqui.resource.ResourceReference
 import org.moqui.util.SimpleTopic
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
@@ -48,7 +50,9 @@ import org.slf4j.LoggerFactory
 
 import javax.annotation.Nonnull
 import javax.servlet.ServletContext
+import javax.servlet.http.HttpServletRequest
 import javax.websocket.server.ServerContainer
+import java.lang.management.ManagementFactory
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -78,7 +82,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected MNode serverStatsNode
     protected String moquiVersion = ""
 
-    protected StupidClassLoader stupidClassLoader
+    protected MClassLoader moquiClassLoader
     protected GroovyClassLoader groovyClassLoader
     protected InetAddress localhostAddress = null
 
@@ -477,21 +481,26 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
     private void initClassLoader() {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis()
+        MClassLoader.addCommonClass("org.moqui.entity.EntityValue", EntityValue.class)
+        MClassLoader.addCommonClass("EntityValue", EntityValue.class)
+        MClassLoader.addCommonClass("org.moqui.entity.EntityList", EntityList.class)
+        MClassLoader.addCommonClass("EntityList", EntityList.class)
+
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
-        stupidClassLoader = new StupidClassLoader(pcl)
-        groovyClassLoader = new GroovyClassLoader(stupidClassLoader)
+        moquiClassLoader = new MClassLoader(pcl)
+        groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
 
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
-            stupidClassLoader.addClassesDirectory(runtimeClassesFile)
+            moquiClassLoader.addClassesDirectory(runtimeClassesFile)
         }
         // add runtime/lib jar files to the class loader
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                stupidClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
+                moquiClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -500,7 +509,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ComponentInfo ci in componentInfoMap.values()) {
             ResourceReference classesRr = ci.componentRr.getChild("classes")
             if (classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
-                stupidClassLoader.addClassesDirectory(new File(classesRr.getUri()))
+                moquiClassLoader.addClassesDirectory(new File(classesRr.getUri()))
             }
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
@@ -509,7 +518,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
+                            moquiClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -521,7 +530,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // clear not found info just in case anything was falsely added
-        stupidClassLoader.clearNotFoundInfo()
+        moquiClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(groovyClassLoader)
 
@@ -809,6 +818,69 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override void initServletContext(ServletContext sc) {
         internalServletContext = sc
         internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+    }
+
+
+    Map<String, Object> getStatusMap() {
+        def memoryMXBean = ManagementFactory.getMemoryMXBean()
+        def heapMemoryUsage = memoryMXBean.getHeapMemoryUsage()
+        def nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage()
+
+        def runtimeFile = new File(runtimePath)
+
+        def osMXBean = ManagementFactory.getOperatingSystemMXBean()
+        def runtimeMXBean = ManagementFactory.getRuntimeMXBean()
+        def uptimeHours = runtimeMXBean.getUptime() / (1000*60*60)
+        def startTimestamp = new Timestamp(runtimeMXBean.getStartTime())
+
+        def gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans()
+        def gcCount = 0
+        def gcTime = 0
+        for (def gcMXBean in gcMXBeans) {
+            gcCount += gcMXBean.getCollectionCount()
+            gcTime += gcMXBean.getCollectionTime()
+        }
+        def jitMXBean = ManagementFactory.getCompilationMXBean()
+        def classMXBean = ManagementFactory.getClassLoadingMXBean()
+
+        def threadMXBean = ManagementFactory.getThreadMXBean()
+
+        BigDecimal loadAvg = new BigDecimal(osMXBean.getSystemLoadAverage()).setScale(2, BigDecimal.ROUND_HALF_UP)
+        int processors = osMXBean.getAvailableProcessors()
+        BigDecimal loadPercent = ((loadAvg / processors) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        long heapUsed = heapMemoryUsage.getUsed()
+        long heapMax = heapMemoryUsage.getMax()
+        BigDecimal heapPercent = ((heapUsed / heapMax) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        long diskFreeSpace = runtimeFile.getFreeSpace()
+        long diskTotalSpace = runtimeFile.getTotalSpace()
+        BigDecimal diskPercent = (((diskTotalSpace - diskFreeSpace) / diskTotalSpace) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        HttpServletRequest request = getEci().getWeb()?.getRequest()
+        Map<String, Object> statusMap = [ MoquiFramework:moquiVersion,
+            Utilization: [LoadPercent:loadPercent, HeapPercent:heapPercent, DiskPercent:diskPercent],
+            Web: [ LocalAddr:request?.getLocalAddr(), LocalPort:request?.getLocalPort(), LocalName:request?.getLocalName(),
+                     ServerName:request?.getServerName(), ServerPort:request?.getServerPort() ],
+            Heap: [ Used:(heapUsed/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Max:(heapMax/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            NonHeap: [ Used:(nonHeapMemoryUsage.getUsed()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                         Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            Disk: [ Free:(diskFreeSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Total:(diskTotalSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            System: [ Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(),
+                        OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion() ],
+            JavaRuntime: [ SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(),
+                             VmVersion:runtimeMXBean.getVmVersion(), Start:startTimestamp, UptimeHours:uptimeHours ],
+            JavaStats: [ GcCount:gcCount, GcTimeSeconds:gcTime/1000, JIT:jitMXBean.getName(), CompileTimeSeconds:jitMXBean.getTotalCompilationTime()/1000,
+                           ClassesLoaded:classMXBean.getLoadedClassCount(), ClassesTotalLoaded:classMXBean.getTotalLoadedClassCount(),
+                           ClassesUnloaded:classMXBean.getUnloadedClassCount(), ThreadCount:threadMXBean.getThreadCount(),
+                           PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>,
+            DataSources: entityFacade.getDataSourcesInfo()
+        ]
+        return statusMap
     }
 
     // ==========================================

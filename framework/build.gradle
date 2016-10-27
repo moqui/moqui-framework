@@ -60,6 +60,8 @@ groovydoc {
 }
 
 dependencies {
+    compile project(':moqui-util')
+
     // Groovy
     compile 'org.codehaus.groovy:groovy:2.4.7' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.4.7' // Apache 2.0
