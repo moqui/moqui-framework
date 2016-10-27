@@ -116,7 +116,7 @@ significant changes.
 - Now using Jetty embedded for the executable WAR instead of Winstone
   - using Jetty 9 which requires Java 8
   - now internally using Servlet API 3.1.0
-- Various library updates, cleanup of classes found in multiple jar files (ElasticSearch JarHell checks pass; nice in general)
+- Many library updates, cleanup of classes found in multiple jar files (ElasticSearch JarHell checks pass; nice in general)
 - Configuration
   - Added default-property element to set Java System properties from the configuration file
   - Added Groovy string expansion to various configuration attributes
@@ -233,7 +233,8 @@ significant changes.
     display fields in a sub-list under a row with the common fields for the group of rows
   - added form-single.@owner-form attribute to skip HTML form element and add the HTML form attribute to fields so they are owned
     by a different form elsewhere in the web page
-- New /status now a transition instead of a screen and return JSON with more server status information
+- The /status path now a transition instead of a screen and returns JSON with more server status information
+- XML Actions now statically import all StupidUtilities methods so 'StupidUtilities.' is no longer needed
 
 ### Bug Fixes
 
