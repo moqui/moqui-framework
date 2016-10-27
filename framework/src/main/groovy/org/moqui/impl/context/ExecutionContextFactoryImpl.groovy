@@ -48,7 +48,9 @@ import org.slf4j.LoggerFactory
 
 import javax.annotation.Nonnull
 import javax.servlet.ServletContext
+import javax.servlet.http.HttpServletRequest
 import javax.websocket.server.ServerContainer
+import java.lang.management.ManagementFactory
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -809,6 +811,69 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override void initServletContext(ServletContext sc) {
         internalServletContext = sc
         internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+    }
+
+
+    Map<String, Object> getStatusMap() {
+        def memoryMXBean = ManagementFactory.getMemoryMXBean()
+        def heapMemoryUsage = memoryMXBean.getHeapMemoryUsage()
+        def nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage()
+
+        def runtimeFile = new File(runtimePath)
+
+        def osMXBean = ManagementFactory.getOperatingSystemMXBean()
+        def runtimeMXBean = ManagementFactory.getRuntimeMXBean()
+        def uptimeHours = runtimeMXBean.getUptime() / (1000*60*60)
+        def startTimestamp = new Timestamp(runtimeMXBean.getStartTime())
+
+        def gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans()
+        def gcCount = 0
+        def gcTime = 0
+        for (def gcMXBean in gcMXBeans) {
+            gcCount += gcMXBean.getCollectionCount()
+            gcTime += gcMXBean.getCollectionTime()
+        }
+        def jitMXBean = ManagementFactory.getCompilationMXBean()
+        def classMXBean = ManagementFactory.getClassLoadingMXBean()
+
+        def threadMXBean = ManagementFactory.getThreadMXBean()
+
+        BigDecimal loadAvg = new BigDecimal(osMXBean.getSystemLoadAverage()).setScale(2, BigDecimal.ROUND_HALF_UP)
+        int processors = osMXBean.getAvailableProcessors()
+        BigDecimal loadPercent = ((loadAvg / processors) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        long heapUsed = heapMemoryUsage.getUsed()
+        long heapMax = heapMemoryUsage.getMax()
+        BigDecimal heapPercent = ((heapUsed / heapMax) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        long diskFreeSpace = runtimeFile.getFreeSpace()
+        long diskTotalSpace = runtimeFile.getTotalSpace()
+        BigDecimal diskPercent = (((diskTotalSpace - diskFreeSpace) / diskTotalSpace) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        HttpServletRequest request = getEci().getWeb()?.getRequest()
+        Map<String, Object> statusMap = [ MoquiFramework:moquiVersion,
+            Utilization: [LoadPercent:loadPercent, HeapPercent:heapPercent, DiskPercent:diskPercent],
+            Web: [ LocalAddr:request?.getLocalAddr(), LocalPort:request?.getLocalPort(), LocalName:request?.getLocalName(),
+                     ServerName:request?.getServerName(), ServerPort:request?.getServerPort() ],
+            Heap: [ Used:(heapUsed/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Max:(heapMax/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            NonHeap: [ Used:(nonHeapMemoryUsage.getUsed()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                         Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            Disk: [ Free:(diskFreeSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Total:(diskTotalSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            System: [ Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(),
+                        OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion() ],
+            JavaRuntime: [ SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(),
+                             VmVersion:runtimeMXBean.getVmVersion(), Start:startTimestamp, UptimeHours:uptimeHours ],
+            JavaStats: [ GcCount:gcCount, GcTimeSeconds:gcTime/1000, JIT:jitMXBean.getName(), CompileTimeSeconds:jitMXBean.getTotalCompilationTime()/1000,
+                           ClassesLoaded:classMXBean.getLoadedClassCount(), ClassesTotalLoaded:classMXBean.getTotalLoadedClassCount(),
+                           ClassesUnloaded:classMXBean.getUnloadedClassCount(), ThreadCount:threadMXBean.getThreadCount(),
+                           PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>,
+            DataSources: entityFacade.getDataSourcesInfo()
+        ]
+        return statusMap
     }
 
     // ==========================================

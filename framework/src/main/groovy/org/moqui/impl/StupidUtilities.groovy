@@ -33,6 +33,8 @@ import org.w3c.dom.Element
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import static org.moqui.impl.StupidJavaUtilities.*
+
 /** These are utilities that should exist elsewhere, but I can't find a good simple library for them, and they are
  * stupid but necessary for certain things. 
  */
@@ -177,7 +179,7 @@ class StupidUtilities {
         // this seems unnecessary, but is because Groovy allows a GString even in a List<String>, but MapOrderByComparator in Java blows up
         ArrayList<String> fieldNameArray = new ArrayList<>()
         for (String fieldName in fieldNames) fieldNameArray.add(fieldName.toString())
-        if (theList && fieldNames) Collections.sort(theList, new StupidJavaUtilities.MapOrderByComparator(fieldNameArray))
+        if (theList && fieldNames) Collections.sort(theList, new MapOrderByComparator(fieldNameArray))
         return theList
     }
 
@@ -728,66 +730,5 @@ class StupidUtilities {
         String decimalText = value.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString()
         decimalText = decimalText.substring(decimalText.indexOf('.') + 1)
         return "${integerText} and ${decimalText}/100"
-    }
-
-    static Map<String, Object> getStatusMap(ExecutionContext ec) {
-        def memoryMXBean = ManagementFactory.getMemoryMXBean()
-        def heapMemoryUsage = memoryMXBean.getHeapMemoryUsage()
-        def nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage()
-
-        def runtimeFile = new File(ec.factory.runtimePath)
-
-        def osMXBean = ManagementFactory.getOperatingSystemMXBean()
-        def runtimeMXBean = ManagementFactory.getRuntimeMXBean()
-        def uptimeHours = runtimeMXBean.getUptime() / (1000*60*60)
-        def startTimestamp = new Timestamp(runtimeMXBean.getStartTime())
-
-        def gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans()
-        def gcCount = 0
-        def gcTime = 0
-        for (def gcMXBean in gcMXBeans) {
-            gcCount += gcMXBean.getCollectionCount()
-            gcTime += gcMXBean.getCollectionTime()
-        }
-        def jitMXBean = ManagementFactory.getCompilationMXBean()
-        def classMXBean = ManagementFactory.getClassLoadingMXBean()
-
-        def threadMXBean = ManagementFactory.getThreadMXBean()
-
-        BigDecimal loadAvg = new BigDecimal(osMXBean.getSystemLoadAverage()).setScale(2, BigDecimal.ROUND_HALF_UP)
-        int processors = osMXBean.getAvailableProcessors()
-        BigDecimal loadPercent = ((loadAvg / processors) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
-
-        long heapUsed = heapMemoryUsage.getUsed()
-        long heapMax = heapMemoryUsage.getMax()
-        BigDecimal heapPercent = ((heapUsed / heapMax) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
-
-        long diskFreeSpace = runtimeFile.getFreeSpace()
-        long diskTotalSpace = runtimeFile.getTotalSpace()
-        BigDecimal diskPercent = (((diskTotalSpace - diskFreeSpace) / diskTotalSpace) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
-
-        Map<String, Object> statusMap = [ MoquiFramework:ec.factory.moquiVersion,
-            Utilization: [LoadPercent:loadPercent, HeapPercent:heapPercent, DiskPercent:diskPercent],
-            Web: [ LocalAddr:ec.web.request.getLocalAddr(), LocalPort:ec.web.request.getLocalPort(), LocalName:ec.web.request.getLocalName(),
-                   ServerName:ec.web.request.getServerName(), ServerPort:ec.web.request.getServerPort() ],
-            Heap: [ Used:(heapUsed/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                    Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                    Max:(heapMax/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
-            NonHeap: [ Used:(nonHeapMemoryUsage.getUsed()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                       Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
-            Disk: [ Free:(diskFreeSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                    Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                    Total:(diskTotalSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
-            System: [ Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(),
-                      OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion() ],
-            JavaRuntime: [ SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(),
-                           VmVersion:runtimeMXBean.getVmVersion(), Start:startTimestamp, UptimeHours:uptimeHours ],
-            JavaStats: [ GcCount:gcCount, GcTimeSeconds:gcTime/1000, JIT:jitMXBean.getName(), CompileTimeSeconds:jitMXBean.getTotalCompilationTime()/1000,
-                ClassesLoaded:classMXBean.getLoadedClassCount(), ClassesTotalLoaded:classMXBean.getTotalLoadedClassCount(),
-                ClassesUnloaded:classMXBean.getUnloadedClassCount(), ThreadCount:threadMXBean.getThreadCount(),
-                PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>,
-            DataSources: ((EntityFacadeImpl) ec.entity).getDataSourcesInfo()
-        ]
-        return statusMap
     }
 }
