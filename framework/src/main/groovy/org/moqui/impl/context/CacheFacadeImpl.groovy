@@ -18,7 +18,7 @@ import org.moqui.impl.StupidJavaUtilities
 import org.moqui.jcache.MCache
 import org.moqui.jcache.MCacheConfiguration
 import org.moqui.jcache.MCacheManager
-import org.moqui.jcache.MCacheToolFactory
+import org.moqui.impl.tools.MCacheToolFactory
 import org.moqui.jcache.MEntry
 import org.moqui.jcache.MStats
 import org.moqui.util.MNode

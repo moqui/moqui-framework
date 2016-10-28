@@ -21,7 +21,7 @@
     <default-property name="entity_ds_password" value="sa"/>
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
-        <tool-factory class="org.moqui.jcache.MCacheToolFactory" init-priority="03" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
         <!-- <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/> -->
         <!-- H2 Database ToolFactory - if h2 database active runs the H2 server for external access (local only depending on conf) -->
