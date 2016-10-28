@@ -16,16 +16,16 @@ package org.moqui.impl.service
 import groovy.transform.CompileStatic
 import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.reference.ClasspathResourceReference
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.*
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -274,7 +274,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             String name = lastDotIndex == -1 ? serviceName : serviceName.substring(0, lastDotIndex)
             Map curInfo = serviceInfoMap.get(name)
             if (curInfo) {
-                StupidUtilities.addToBigDecimalInMap("services", 1.0, curInfo)
+                CollectionUtilities.addToBigDecimalInMap("services", 1.0, curInfo)
             } else {
                 serviceInfoMap.put(name, [name:name, services:1])
             }
@@ -347,7 +347,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             ServiceEcaRule ser = new ServiceEcaRule(ecfi, secaNode, rr.location)
             String serviceName = ser.serviceName
             // remove the hash if there is one to more consistently match the service name
-            serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
+            serviceName = StringUtilities.removeChar(serviceName, (char) '#')
             List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
             if (lst == null) {
                 lst = new ArrayList<>()

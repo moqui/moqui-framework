@@ -19,11 +19,10 @@ import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.moqui.BaseException;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.StupidJavaUtilities;
-import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.ContextStack;
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -263,7 +262,7 @@ public class AggregationUtil {
                             }
                             break;
                         case SUM:
-                            Number sumNum = StupidJavaUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) fieldValue);
+                            Number sumNum = ObjectUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) fieldValue);
                             if (sumNum != null) resultMap.put(fieldName, sumNum);
                             break;
                         case AVG:
@@ -325,7 +324,7 @@ public class AggregationUtil {
 
     private Object getField(String fieldName, ContextStack context, Object curObject, boolean curIsMap) {
         Object value = context.getByString(fieldName);
-        if (StupidJavaUtilities.isEmpty(value) && !curIsMap) {
+        if (ObjectUtilities.isEmpty(value) && !curIsMap) {
             // try Groovy getAt for property access
             try {
                 value = DefaultGroovyMethods.getAt(curObject, fieldName);

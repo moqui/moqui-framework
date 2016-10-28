@@ -15,8 +15,8 @@ package org.moqui.impl.context;
 
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.entity.EntityValueBase;
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -194,7 +194,7 @@ public class ContextJavaUtil {
                 StringBuilder ps = new StringBuilder();
                 for (Map.Entry<String, Object> pme: parameters.entrySet()) {
                     Object value = pme.getValue();
-                    if (StupidJavaUtilities.isEmpty(value)) continue;
+                    if (ObjectUtilities.isEmpty(value)) continue;
                     String key = pme.getKey();
                     if (key != null && key.contains("password")) continue;
                     if (ps.length() > 0) ps.append(",");

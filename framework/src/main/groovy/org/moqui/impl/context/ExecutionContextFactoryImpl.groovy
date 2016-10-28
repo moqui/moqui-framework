@@ -28,8 +28,8 @@ import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MClassLoader
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.reference.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
@@ -43,7 +43,9 @@ import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
 import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
 import org.moqui.util.SimpleTopic
+import org.moqui.util.StringUtilities
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -418,7 +420,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
             toolFactoryAttrsList.add(toolFactoryNode.getAttributes())
         }
-        StupidUtilities.orderMapList(toolFactoryAttrsList as List<Map>, ["init-priority", "class"])
+        CollectionUtilities.orderMapList(toolFactoryAttrsList as List<Map>, ["init-priority", "class"])
         for (Map<String, String> toolFactoryAttrs in toolFactoryAttrsList) {
             String tfClass = toolFactoryAttrs.get("class")
             logger.info("Loading ToolFactory with class: ${tfClass}")
@@ -730,7 +732,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return hcm
     }
     // NOTE: may not be used
-    static String getRandomSalt() { return StupidUtilities.getRandomString(8) }
+    static String getRandomSalt() { return StringUtilities.getRandomString(8) }
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
@@ -1048,7 +1050,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                                 dir.mkdir()
                             } else {
                                 OutputStream os = new FileOutputStream(filePath)
-                                StupidUtilities.copyStream(zipIn, os)
+                                ObjectUtilities.copyStream(zipIn, os)
                             }
                             zipIn.closeEntry()
                             entry = zipIn.getNextEntry()

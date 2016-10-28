@@ -17,7 +17,6 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.*
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.reference.BaseResourceReference
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
@@ -28,6 +27,7 @@ import org.moqui.util.ContextBinding
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -111,7 +111,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
         for (String ext in templateRenderers.keySet()) {
             templateRendererExtensions.add(ext)
-            templateRendererExtensionsDots.add(StupidUtilities.countChars(ext, (char) '.'))
+            templateRendererExtensionsDots.add(ObjectUtilities.countChars(ext, (char) '.'))
         }
 
         // Setup script runners
@@ -267,7 +267,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
         InputStream locStream = textRr.openStream()
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
-        String text = StupidUtilities.getStreamText(locStream)
+        String text = ObjectUtilities.getStreamText(locStream)
         if (cache) textLocationCache.put(location, text)
         return text
     }
@@ -387,7 +387,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     Object getValueFromContext(String from, String value, String defaultValue, String type) {
         def tempValue = from ? expression(from, "") : expand(value, "", null, false)
         if (!tempValue && defaultValue) tempValue = expand(defaultValue, "", null, false)
-        if (type) tempValue = StupidUtilities.basicConvert(tempValue, type)
+        if (type) tempValue = ObjectUtilities.basicConvert(tempValue, type)
         return tempValue
     }
 

@@ -14,14 +14,15 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.jcache.MCache
 import org.moqui.jcache.MCacheConfiguration
 import org.moqui.jcache.MCacheManager
 import org.moqui.impl.tools.MCacheToolFactory
 import org.moqui.jcache.MEntry
 import org.moqui.jcache.MStats
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 
 import javax.cache.Cache
 import javax.cache.CacheManager
@@ -38,8 +39,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
 import org.moqui.context.CacheFacade
-import org.moqui.impl.StupidUtilities
-
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -177,7 +176,7 @@ public class CacheFacadeImpl implements CacheFacade {
                 logger.warn("Cannot get detailed info for cache ${cn} which is of type ${co.class.name}")
             }
         }
-        if (orderByField) StupidUtilities.orderMapList(ci, [orderByField])
+        if (orderByField) CollectionUtilities.orderMapList(ci, [orderByField])
         return ci
     }
 
@@ -200,8 +199,8 @@ public class CacheFacadeImpl implements CacheFacade {
         if (cacheNode != null) {
             String keyTypeName = cacheNode.attribute("key-type") ?: "String"
             String valueTypeName = cacheNode.attribute("value-type") ?: "Object"
-            Class keyType = StupidJavaUtilities.getClass(keyTypeName)
-            Class valueType = StupidJavaUtilities.getClass(valueTypeName)
+            Class keyType = ObjectUtilities.getClass(keyTypeName)
+            Class valueType = ObjectUtilities.getClass(valueTypeName)
 
             Factory<ExpiryPolicy> expiryPolicyFactory
             if (cacheNode.attribute("expire-time-idle") && cacheNode.attribute("expire-time-idle") != "0") {
@@ -311,7 +310,7 @@ public class CacheFacadeImpl implements CacheFacade {
                 if (entry.getLastAccessTime()) im.lastAccessTime = new Timestamp(entry.getLastAccessTime())
                 elementInfoList.add(im)
             }
-            if (orderByField) StupidUtilities.orderMapList(elementInfoList, [orderByField])
+            if (orderByField) CollectionUtilities.orderMapList(elementInfoList, [orderByField])
             return elementInfoList
         } else {
             return new ArrayList<Map>()

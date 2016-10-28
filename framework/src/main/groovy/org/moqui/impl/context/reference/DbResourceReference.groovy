@@ -17,10 +17,9 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
-import org.moqui.impl.StupidUtilities
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
-
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -72,7 +71,7 @@ class DbResourceReference extends BaseResourceReference {
     }
 
     @Override
-    String getText() { return StupidUtilities.getStreamText(openStream()) }
+    String getText() { return ObjectUtilities.getStreamText(openStream()) }
 
     @Override
     boolean supportsAll() { true }
@@ -149,7 +148,7 @@ class DbResourceReference extends BaseResourceReference {
     void putStream(InputStream stream) {
         if (stream == null) return
         ByteArrayOutputStream baos = new ByteArrayOutputStream()
-        StupidUtilities.copyStream(stream, baos)
+        ObjectUtilities.copyStream(stream, baos)
         SerialBlob sblob = new SerialBlob(baos.toByteArray())
         this.putObject(sblob)
     }

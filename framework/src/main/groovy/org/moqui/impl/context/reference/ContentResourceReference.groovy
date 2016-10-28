@@ -14,6 +14,7 @@
 package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
+import org.moqui.util.ObjectUtilities
 
 import javax.jcr.NodeIterator
 import javax.jcr.Session
@@ -21,7 +22,6 @@ import javax.jcr.Property
 
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ResourceFacadeImpl
 
 import org.slf4j.Logger
@@ -83,7 +83,7 @@ class ContentResourceReference extends BaseResourceReference {
     }
 
     @Override
-    String getText() { return StupidUtilities.getStreamText(openStream()) }
+    String getText() { return ObjectUtilities.getStreamText(openStream()) }
 
     @Override
     boolean supportsAll() { true }

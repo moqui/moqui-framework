@@ -16,9 +16,8 @@ package org.moqui.impl.context.reference
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
-import org.moqui.impl.StupidUtilities
 import org.moqui.BaseException
-
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -85,7 +84,7 @@ class UrlResourceReference extends BaseResourceReference {
     }
 
     @Override
-    String getText() { return StupidUtilities.getStreamText(openStream()) }
+    String getText() { return ObjectUtilities.getStreamText(openStream()) }
 
     @Override
     boolean supportsAll() { isFileProtocol }
@@ -190,7 +189,7 @@ class UrlResourceReference extends BaseResourceReference {
         // first make sure the directory exists that this is in
         if (!getFile().parentFile.exists()) getFile().parentFile.mkdirs()
         OutputStream os = new FileOutputStream(getFile())
-        StupidUtilities.copyStream(stream, os)
+        ObjectUtilities.copyStream(stream, os)
         stream.close()
         os.close()
         this.exists = null

@@ -59,7 +59,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="responseMap.containsKey(fieldName)">
                         <service-call name="create#moqui.screen.form.FormResponseAnswer"
                                 in-map="[formResponseId:formResponseId, formId:formId, fieldName:fieldName,
-                                    valueText:org.moqui.impl.StupidJavaUtilities.toPlainString(responseMap.get(fieldName))]"/>
+                                    valueText:org.moqui.util.ObjectUtilities.toPlainString(responseMap.get(fieldName))]"/>
                     </if>
                 </iterate>
             </if>
@@ -85,11 +85,11 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="answer">
                         <service-call name="update#moqui.screen.form.FormResponseAnswer"
                                 in-map="[formResponseAnswerId:answer.formResponseAnswerId,
-                                    valueText:org.moqui.impl.StupidJavaUtilities.toPlainString(responseMap.get(fieldName))]"/>
+                                    valueText:org.moqui.util.ObjectUtilities.toPlainString(responseMap.get(fieldName))]"/>
                         <else>
                             <service-call name="create#moqui.screen.form.FormResponseAnswer"
                                     in-map="[formResponseId:formResponseId, fieldName:fieldName,
-                                        valueText:org.moqui.impl.StupidJavaUtilities.toPlainString(responseMap.get(fieldName))]"/>
+                                        valueText:org.moqui.util.ObjectUtilities.toPlainString(responseMap.get(fieldName))]"/>
                         </else>
                     </if>
                 </if>

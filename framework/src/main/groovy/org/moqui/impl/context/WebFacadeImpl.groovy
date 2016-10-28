@@ -24,7 +24,6 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload
 import org.moqui.context.*
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValueNotFoundException
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.impl.screen.ScreenDefinition
@@ -34,6 +33,8 @@ import org.moqui.impl.service.ServiceJsonRpcDispatcher
 import org.moqui.impl.service.ServiceXmlRpcDispatcher
 import org.moqui.util.ContextStack
 import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -168,7 +169,7 @@ class WebFacadeImpl implements WebFacade {
         // create the session token if needed (protection against CSRF/XSRF attacks; see ScreenRenderImpl)
         String sessionToken = session.getAttribute("moqui.session.token")
         if (sessionToken == null || sessionToken.length() == 0) {
-            sessionToken = StupidUtilities.getRandomString(20)
+            sessionToken = StringUtilities.getRandomString(20)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
         }
@@ -685,7 +686,7 @@ class WebFacadeImpl implements WebFacade {
         if (!filename) {
             response.addHeader("Content-Disposition", "inline")
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StupidUtilities.encodeAsciiFilename(filename)}")
+            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
         }
 
         try {
@@ -716,7 +717,7 @@ class WebFacadeImpl implements WebFacade {
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StupidUtilities.encodeAsciiFilename(rr.getFileName())}")
+            response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
         String contentType = rr.getContentType()
         if (!contentType || ResourceFacadeImpl.isBinaryContentType(contentType)) {
@@ -724,7 +725,7 @@ class WebFacadeImpl implements WebFacade {
             try {
                 OutputStream os = response.outputStream
                 try {
-                    int totalLen = StupidUtilities.copyStream(is, os)
+                    int totalLen = ObjectUtilities.copyStream(is, os)
                     logger.info("Streamed ${totalLen} bytes from location ${location}")
                 } finally {
                     os.close()

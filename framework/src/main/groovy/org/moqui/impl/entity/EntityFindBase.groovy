@@ -16,8 +16,6 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -25,7 +23,9 @@ import org.moqui.impl.context.TransactionCache
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.condition.*
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -315,7 +315,7 @@ abstract class EntityFindBase implements EntityFind {
             if (samSize > 0) value = simpleAndMap.get(fieldName)
             if (value == null && !scfNull && singleCondField.equals(fieldName)) value = singleCondValue
             // if any fields have no value we don't have a full PK so bye bye
-            if (StupidJavaUtilities.isEmpty(value)) return null
+            if (ObjectUtilities.isEmpty(value)) return null
             pks.put(fieldName, value)
         }
         return pks
@@ -638,7 +638,7 @@ abstract class EntityFindBase implements EntityFind {
 
         boolean hasEmptyPk = false
         boolean hasFullPk = true
-        if (singleCondField != null && ed.isPkField(singleCondField) && StupidJavaUtilities.isEmpty(singleCondValue)) {
+        if (singleCondField != null && ed.isPkField(singleCondField) && ObjectUtilities.isEmpty(singleCondValue)) {
             hasEmptyPk = true; hasFullPk = false; }
         ArrayList<String> pkNameList = ed.getPkFieldNames()
         int pkSize = pkNameList.size()
@@ -647,7 +647,7 @@ abstract class EntityFindBase implements EntityFind {
             for (int i = 0; i < pkSize; i++) {
                 String fieldName = (String) pkNameList.get(i)
                 Object fieldValue = simpleAndMap.get(fieldName)
-                if (StupidJavaUtilities.isEmpty(fieldValue)) {
+                if (ObjectUtilities.isEmpty(fieldValue)) {
                     if (simpleAndMap.containsKey(fieldName)) hasEmptyPk = true
                     hasFullPk = false
                     break
@@ -757,7 +757,7 @@ abstract class EntityFindBase implements EntityFind {
                         Map<String, Object> txDbValueMap = txcValue.getDbValueMap()
                         Map<String, Object> fuDbValueMap = fuDbValue.getValueMap()
                         if (txDbValueMap != null && txDbValueMap.size() > 0 &&
-                                !StupidUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
+                                !CollectionUtilities.mapMatchesFields(fuDbValueMap, txDbValueMap)) {
                             StringBuilder fieldDiffBuilder = new StringBuilder()
                             for (Map.Entry<String, Object> entry in txDbValueMap.entrySet()) {
                                 Object compareObj = txDbValueMap.get(entry.getKey())

@@ -18,6 +18,7 @@ import org.eclipse.jetty.client.HttpClient
 import org.eclipse.jetty.client.api.ContentResponse
 import org.eclipse.jetty.client.api.Request
 import org.eclipse.jetty.client.util.StringContentProvider
+import org.moqui.util.StringUtilities
 
 import java.nio.charset.StandardCharsets
 import javax.servlet.ServletRequest
@@ -290,7 +291,7 @@ class StupidWebUtilities {
             Request request = httpClient.POST(location)
             if (requestBody) request.content(new StringContentProvider(contentType, requestBody, StandardCharsets.UTF_8), contentType)
             ContentResponse response = request.send()
-            resultString = StupidUtilities.toStringCleanBom(response.getContent())
+            resultString = StringUtilities.toStringCleanBom(response.getContent())
 
         } finally {
             httpClient.stop()
@@ -310,7 +311,7 @@ class StupidWebUtilities {
             if (requestMap) for (Map.Entry requestEntry in requestMap.entrySet())
                 request.param(requestEntry.key as String, requestEntry.value as String)
             ContentResponse response = request.send()
-            resultString = StupidUtilities.toStringCleanBom(response.getContent())
+            resultString = StringUtilities.toStringCleanBom(response.getContent())
         } finally {
             httpClient.stop()
         }

@@ -14,8 +14,9 @@
 package org.moqui.impl.context;
 
 import org.moqui.context.ArtifactExecutionInfo;
-import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.entity.EntityValueBase;
+import org.moqui.util.CollectionUtilities;
+import org.moqui.util.StringUtilities;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -188,13 +189,13 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public void print(Writer writer, int level, boolean children) {
         try {
             for (int i = 0; i < (level * 2); i++) writer.append(" ");
-            writer.append("[").append(parentAeii != null ? StupidUtilities.paddedString(getPercentOfParentTime().toPlainString(), 5, false) : "     ").append("%]");
-            writer.append("[").append(StupidUtilities.paddedString(getRunningTimeMillis().toPlainString(), 5, false)).append("]");
-            writer.append("[").append(StupidUtilities.paddedString(getThisRunningTimeMillis().toPlainString(), 3, false)).append("]");
-            writer.append("[").append(childList != null ? StupidUtilities.paddedString(getChildrenRunningTimeMillis().toPlainString(), 3, false) : "   ").append("] ");
-            writer.append(StupidUtilities.paddedString(getTypeDescription(), 10, true)).append(" ");
-            writer.append(StupidUtilities.paddedString(getActionDescription(), 7, true)).append(" ");
-            writer.append(StupidUtilities.paddedString(actionDetail, 5, true)).append(" ");
+            writer.append("[").append(parentAeii != null ? StringUtilities.paddedString(getPercentOfParentTime().toPlainString(), 5, false) : "     ").append("%]");
+            writer.append("[").append(StringUtilities.paddedString(getRunningTimeMillis().toPlainString(), 5, false)).append("]");
+            writer.append("[").append(StringUtilities.paddedString(getThisRunningTimeMillis().toPlainString(), 3, false)).append("]");
+            writer.append("[").append(childList != null ? StringUtilities.paddedString(getChildrenRunningTimeMillis().toPlainString(), 3, false) : "   ").append("] ");
+            writer.append(StringUtilities.paddedString(getTypeDescription(), 10, true)).append(" ");
+            writer.append(StringUtilities.paddedString(getActionDescription(), 7, true)).append(" ");
+            writer.append(StringUtilities.paddedString(actionDetail, 5, true)).append(" ");
             writer.append(nameInternal).append("\n");
 
             if (children && childList != null)
@@ -242,7 +243,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
         List<String> obList = new LinkedList<>();
         if (orderBy != null && orderBy.length() > 0) obList.add(orderBy); else obList.add("-time");
-        StupidUtilities.orderMapList(hotSpotList, obList);
+        CollectionUtilities.orderMapList(hotSpotList, obList);
         return hotSpotList;
     }
     @SuppressWarnings("unchecked")
@@ -283,14 +284,14 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     static void printHotSpotList(Writer writer, List<Map> infoList) throws IOException {
         // "[${time}:${timeMin}:${timeAvg}:${timeMax}][${count}] ${type} ${action} ${actionDetail} ${name}"
         for (Map info: infoList) {
-            writer.append("[").append(StupidUtilities.paddedString(((BigDecimal) info.get("time")).toPlainString(), 8, false)).append(":");
-            writer.append(StupidUtilities.paddedString(((BigDecimal) info.get("timeMin")).toPlainString(), 7, false)).append(":");
-            writer.append(StupidUtilities.paddedString(((BigDecimal) info.get("timeAvg")).toPlainString(), 7, false)).append(":");
-            writer.append(StupidUtilities.paddedString(((BigDecimal) info.get("timeMax")).toPlainString(), 7, false)).append("]");
-            writer.append("[").append(StupidUtilities.paddedString(((BigDecimal) info.get("count")).toPlainString(), 4, false)).append("] ");
-            writer.append(StupidUtilities.paddedString((String) info.get("type"), 10, true)).append(" ");
-            writer.append(StupidUtilities.paddedString((String) info.get("action"), 7, true)).append(" ");
-            writer.append(StupidUtilities.paddedString((String) info.get("actionDetail"), 5, true)).append(" ");
+            writer.append("[").append(StringUtilities.paddedString(((BigDecimal) info.get("time")).toPlainString(), 8, false)).append(":");
+            writer.append(StringUtilities.paddedString(((BigDecimal) info.get("timeMin")).toPlainString(), 7, false)).append(":");
+            writer.append(StringUtilities.paddedString(((BigDecimal) info.get("timeAvg")).toPlainString(), 7, false)).append(":");
+            writer.append(StringUtilities.paddedString(((BigDecimal) info.get("timeMax")).toPlainString(), 7, false)).append("]");
+            writer.append("[").append(StringUtilities.paddedString(((BigDecimal) info.get("count")).toPlainString(), 4, false)).append("] ");
+            writer.append(StringUtilities.paddedString((String) info.get("type"), 10, true)).append(" ");
+            writer.append(StringUtilities.paddedString((String) info.get("action"), 7, true)).append(" ");
+            writer.append(StringUtilities.paddedString((String) info.get("actionDetail"), 5, true)).append(" ");
             writer.append((String) info.get("name")).append("\n");
         }
     }
@@ -344,13 +345,13 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         // "[${time}:${thisTime}:${childrenTime}][${count}] ${type} ${action} ${actionDetail} ${name}"
         for (Map info: infoList) {
             for (int i = 0; i < level; i++) writer.append("|").append(" ");
-            writer.append("[").append(StupidUtilities.paddedString(((BigDecimal) info.get("time")).toPlainString(), 8, false)).append(":");
-            writer.append(StupidUtilities.paddedString(((BigDecimal) info.get("thisTime")).toPlainString(), 6, false)).append(":");
-            writer.append(StupidUtilities.paddedString(((BigDecimal) info.get("childrenTime")).toPlainString(), 6, false)).append("]");
-            writer.append("[").append(StupidUtilities.paddedString(((BigDecimal) info.get("count")).toPlainString(), 4, false)).append("] ");
-            writer.append(StupidUtilities.paddedString((String) info.get("type"), 10, true)).append(" ");
-            writer.append(StupidUtilities.paddedString((String) info.get("action"), 7, true)).append(" ");
-            writer.append(StupidUtilities.paddedString((String) info.get("actionDetail"), 5, true)).append(" ");
+            writer.append("[").append(StringUtilities.paddedString(((BigDecimal) info.get("time")).toPlainString(), 8, false)).append(":");
+            writer.append(StringUtilities.paddedString(((BigDecimal) info.get("thisTime")).toPlainString(), 6, false)).append(":");
+            writer.append(StringUtilities.paddedString(((BigDecimal) info.get("childrenTime")).toPlainString(), 6, false)).append("]");
+            writer.append("[").append(StringUtilities.paddedString(((BigDecimal) info.get("count")).toPlainString(), 4, false)).append("] ");
+            writer.append(StringUtilities.paddedString((String) info.get("type"), 10, true)).append(" ");
+            writer.append(StringUtilities.paddedString((String) info.get("action"), 7, true)).append(" ");
+            writer.append(StringUtilities.paddedString((String) info.get("actionDetail"), 5, true)).append(" ");
             writer.append((String) info.get("name")).append("\n");
             // if we get past level 25 just give up, probably a loop in the tree
             if (level < 25) {

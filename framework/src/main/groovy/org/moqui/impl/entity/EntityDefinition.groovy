@@ -15,9 +15,9 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityFind
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
+import org.moqui.util.ObjectUtilities
 
 import javax.cache.Cache
 import java.sql.Timestamp
@@ -442,7 +442,7 @@ public class EntityDefinition {
         for (int i = 0; i < size; i++) {
             String fieldName = (String) fieldNameList.get(i)
             Object fieldValue = fields.get(fieldName)
-            if (StupidJavaUtilities.isEmpty(fieldValue)) return false
+            if (ObjectUtilities.isEmpty(fieldValue)) return false
         }
         return true
     }

@@ -25,7 +25,6 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.StupidWebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -43,6 +42,8 @@ import org.moqui.screen.ScreenRender
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -522,7 +523,7 @@ class ScreenRenderImpl implements ScreenRender {
                     try {
                         is = fileResourceRef.openStream()
                         OutputStream os = response.outputStream
-                        int totalLen = StupidUtilities.copyStream(is, os)
+                        int totalLen = ObjectUtilities.copyStream(is, os)
 
                         if (screenUrlInfo.targetScreen.screenNode.attribute("track-artifact-hit") != "false") {
                             sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
@@ -640,7 +641,7 @@ class ScreenRenderImpl implements ScreenRender {
 
                 String filename = ec.context.saveFilename as String
                 if (filename) {
-                    String utfFilename = StupidUtilities.encodeAsciiFilename(filename)
+                    String utfFilename = StringUtilities.encodeAsciiFilename(filename)
                     response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
                 }
             }
@@ -1182,9 +1183,9 @@ class ScreenRenderImpl implements ScreenRender {
     String getFieldValuePlainString(MNode fieldNodeWrapper, String defaultValue) {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
-        if (StupidJavaUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
+        if (ObjectUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
             return ec.resourceFacade.expand(defaultValue, "")
-        return StupidJavaUtilities.toPlainString(obj)
+        return ObjectUtilities.toPlainString(obj)
         // NOTE: this approach causes problems with currency fields, but kills the string expand for default-value... a better approach?
         //return obj ? obj.toString() : (defaultValue ? ec.getResource().expand(defaultValue, null) : "")
     }
@@ -1199,7 +1200,7 @@ class ScreenRenderImpl implements ScreenRender {
             Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
             if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute("name"))) {
                 value = errorParameters.get(fieldName)
-                if (!StupidJavaUtilities.isEmpty(value)) return value
+                if (!ObjectUtilities.isEmpty(value)) return value
             }
 
             // NOTE: field.@from attribute is handled for form-list in pre-processing done by AggregationUtil
@@ -1228,9 +1229,9 @@ class ScreenRenderImpl implements ScreenRender {
         }
 
         // the value == null check here isn't necessary but is the most common case so
-        if (value == null || StupidJavaUtilities.isEmpty(value)) {
+        if (value == null || ObjectUtilities.isEmpty(value)) {
             value = ec.contextStack.getByString(fieldName)
-            if (!StupidJavaUtilities.isEmpty(value)) return value
+            if (!ObjectUtilities.isEmpty(value)) return value
         } else {
             return value
         }

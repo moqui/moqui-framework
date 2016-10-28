@@ -19,11 +19,10 @@ import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
 import org.moqui.entity.EntityConditionFactory
 import org.moqui.entity.EntityException
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidJavaUtilities.KeyValue
-import org.moqui.impl.StupidUtilities
+import org.moqui.util.CollectionUtilities.KeyValue
 import org.moqui.impl.entity.condition.*
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -320,7 +319,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             } else {
                 condValue = fromObj
             }
-            if (ignoreIfEmpty && StupidJavaUtilities.isEmpty(condValue)) return null
+            if (ignoreIfEmpty && ObjectUtilities.isEmpty(condValue)) return null
 
             EntityCondition mainEc = makeCondition(fieldName, getComparisonOperator(operator), condValue)
             if (ignoreCase) mainEc.ignoreCase()
@@ -442,20 +441,20 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         case ComparisonOperator.NOT_EQUAL:
             return value1 != value2
         case ComparisonOperator.LESS_THAN:
-            Comparable comp1 = StupidUtilities.makeComparable(value1)
-            Comparable comp2 = StupidUtilities.makeComparable(value2)
+            Comparable comp1 = ObjectUtilities.makeComparable(value1)
+            Comparable comp2 = ObjectUtilities.makeComparable(value2)
             return comp1 < comp2
         case ComparisonOperator.GREATER_THAN:
-            Comparable comp1 = StupidUtilities.makeComparable(value1)
-            Comparable comp2 = StupidUtilities.makeComparable(value2)
+            Comparable comp1 = ObjectUtilities.makeComparable(value1)
+            Comparable comp2 = ObjectUtilities.makeComparable(value2)
             return comp1 > comp2
         case ComparisonOperator.LESS_THAN_EQUAL_TO:
-            Comparable comp1 = StupidUtilities.makeComparable(value1)
-            Comparable comp2 = StupidUtilities.makeComparable(value2)
+            Comparable comp1 = ObjectUtilities.makeComparable(value1)
+            Comparable comp2 = ObjectUtilities.makeComparable(value2)
             return comp1 <= comp2
         case ComparisonOperator.GREATER_THAN_EQUAL_TO:
-            Comparable comp1 = StupidUtilities.makeComparable(value1)
-            Comparable comp2 = StupidUtilities.makeComparable(value2)
+            Comparable comp1 = ObjectUtilities.makeComparable(value1)
+            Comparable comp2 = ObjectUtilities.makeComparable(value2)
             return comp1 >= comp2
         case ComparisonOperator.IN:
             if (value2 instanceof Collection) {
@@ -473,28 +472,28 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             }
         case ComparisonOperator.BETWEEN:
             if (value2 instanceof Collection && ((Collection) value2).size() == 2) {
-                Comparable comp1 = StupidUtilities.makeComparable(value1)
+                Comparable comp1 = ObjectUtilities.makeComparable(value1)
                 Iterator iterator = ((Collection) value2).iterator()
-                Comparable lowObj = StupidUtilities.makeComparable(iterator.next())
-                Comparable highObj = StupidUtilities.makeComparable(iterator.next())
+                Comparable lowObj = ObjectUtilities.makeComparable(iterator.next())
+                Comparable highObj = ObjectUtilities.makeComparable(iterator.next())
                 return lowObj <= comp1 && comp1 < highObj
             } else {
                 return false
             }
         case ComparisonOperator.NOT_BETWEEN:
             if (value2 instanceof Collection && ((Collection) value2).size() == 2) {
-                Comparable comp1 = StupidUtilities.makeComparable(value1)
+                Comparable comp1 = ObjectUtilities.makeComparable(value1)
                 Iterator iterator = ((Collection) value2).iterator()
-                Comparable lowObj = StupidUtilities.makeComparable(iterator.next())
-                Comparable highObj = StupidUtilities.makeComparable(iterator.next())
+                Comparable lowObj = ObjectUtilities.makeComparable(iterator.next())
+                Comparable highObj = ObjectUtilities.makeComparable(iterator.next())
                 return lowObj > comp1 && comp1 >= highObj
             } else {
                 return false
             }
         case ComparisonOperator.LIKE:
-            return StupidUtilities.compareLike(value1, value2)
+            return ObjectUtilities.compareLike(value1, value2)
         case ComparisonOperator.NOT_LIKE:
-            return !StupidUtilities.compareLike(value1, value2)
+            return !ObjectUtilities.compareLike(value1, value2)
         case ComparisonOperator.IS_NULL:
             return value2 == null
         case ComparisonOperator.IS_NOT_NULL:

@@ -315,7 +315,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             if (appInstance.jsonConfig) {
                 Map baseConfigMap = (Map) new JsonSlurper().parseText((String) appInstance.jsonConfig)
-                org.moqui.impl.StupidJavaUtilities.mergeNestedMap(baseConfigMap, jsonBody, false)
+                org.moqui.util.CollectionUtilities.mergeNestedMap(baseConfigMap, jsonBody, false)
                 jsonBody = baseConfigMap
             }
 

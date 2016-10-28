@@ -20,7 +20,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ScriptRunner
 import org.moqui.impl.context.ExecutionContextFactoryImpl
-import org.moqui.impl.StupidUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -63,7 +63,7 @@ class GroovyScriptRunner implements ScriptRunner {
         Class gc = (Class) scriptGroovyLocationCache.get(location)
         if (!gc) {
             String groovyText = ecfi.resourceFacade.getLocationText(location, false)
-            gc = ecfi.getGroovyClassLoader().parseClass(groovyText, StupidUtilities.cleanStringForJavaName(location))
+            gc = ecfi.getGroovyClassLoader().parseClass(groovyText, StringUtilities.cleanStringForJavaName(location))
             scriptGroovyLocationCache.put(location, gc)
         }
         return gc

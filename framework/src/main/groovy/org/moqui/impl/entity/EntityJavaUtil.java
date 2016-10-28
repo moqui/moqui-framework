@@ -18,10 +18,10 @@ import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityDatasourceFactory;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityNotFoundException;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
 
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -541,7 +541,7 @@ public class EntityJavaUtil {
             Map<String, Object> targetParameterMap = new HashMap<>();
             for (Map.Entry<String, String> keyEntry: keyMap.entrySet()) {
                 Object value = valueSource.get(keyEntry.getKey());
-                if (!StupidJavaUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
+                if (!ObjectUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
             }
             return targetParameterMap;
         }
