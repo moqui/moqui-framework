@@ -25,6 +25,7 @@ import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.*
 import org.moqui.util.MNode
+import org.moqui.util.RestClient
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -436,7 +437,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     @Override
-    RestClient rest() { return new RestClientImpl(ecfi) }
+    RestClient rest() { return new RestClient() }
 
     @Override
     void registerCallback(String serviceName, ServiceCallback serviceCallback) {
