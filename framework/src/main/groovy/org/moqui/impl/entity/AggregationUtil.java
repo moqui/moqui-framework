@@ -130,7 +130,7 @@ public class AggregationUtil {
         }
         if (totalsMap.size() > 0) resultList.add(new HashMap<>(totalsMap));
 
-        if (logger.isInfoEnabled()) logger.info("Processed list " + listName + ", from " + originalCount + " items to " + resultList.size() + " items, in " + (System.currentTimeMillis() - startTime) + "ms");
+        if (logger.isTraceEnabled()) logger.trace("Processed list " + listName + ", from " + originalCount + " items to " + resultList.size() + " items, in " + (System.currentTimeMillis() - startTime) + "ms");
         // for (Map<String, Object> result : resultList) logger.warn("Aggregate Result: " + result.toString());
 
         return resultList;
