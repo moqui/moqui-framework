@@ -32,6 +32,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
+import java.util.concurrent.atomic.AtomicInteger
 
 @CompileStatic
 class EntityDataDocument {
@@ -153,7 +154,7 @@ class EntityDataDocument {
         // add member entities and field aliases to dynamic view
         dynamicView.addMemberEntity("PRIM_ENT", primaryEntityName, null, null, null)
         fieldTree.put("_ALIAS", "PRIM_ENT")
-        StupidUtilities.Incrementer incrementer = new StupidUtilities.Incrementer()
+        AtomicInteger incrementer = new AtomicInteger()
         addDataDocRelatedEntity(dynamicView, "PRIM_ENT", fieldTree, incrementer)
 
         // logger.warn("=========== ${dataDocumentId} ViewEntityNode=${((EntityDynamicViewImpl) dynamicView).getViewEntityNode()}")
@@ -389,7 +390,7 @@ class EntityDataDocument {
     }
 
     protected void addDataDocRelatedEntity(EntityDynamicView dynamicView, String parentEntityAlias,
-                                           Map fieldTreeCurrent, StupidUtilities.Incrementer incrementer) {
+                                           Map fieldTreeCurrent, AtomicInteger incrementer) {
         for (Map.Entry fieldTreeEntry in fieldTreeCurrent.entrySet()) {
             if (fieldTreeEntry.getKey() instanceof String && fieldTreeEntry.getKey() == "_ALIAS") continue
             if (fieldTreeEntry.getValue() instanceof Map) {
