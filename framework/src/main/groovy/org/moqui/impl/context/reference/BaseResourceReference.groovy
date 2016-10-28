@@ -72,31 +72,6 @@ abstract class BaseResourceReference implements ResourceReference {
     @Override abstract boolean delete()
 
     @Override
-    URI getUri() {
-        String loc = getLocation()
-        if (!loc) return (URI) null
-        if (supportsUrl()) {
-            URL locUrl = getUrl()
-            // use the multi-argument constructor to have it do character encoding and avoid an exception
-            // WARNING: a String from this URI may not equal the String from the URL (ie if characters are encoded)
-            // NOTE: this doesn't seem to work on Windows for local files: when protocol is plain "file" and path starts
-            //     with a drive letter like "C:\moqui\..." it produces a parse error showing the URI as "file://C:/..."
-            return new URI(locUrl.getProtocol(), locUrl.getUserInfo(), locUrl.getHost(),
-                    locUrl.getPort(), locUrl.getPath(), locUrl.getQuery(), locUrl.getRef())
-        } else {
-            // TODO: handle encoding for URI to avoid errors
-            return new URI(loc)
-        }
-    }
-    @Override
-    String getFileName() {
-        String loc = getLocation()
-        if (loc == null || loc.length() == 0) return null
-        int slashIndex = loc.lastIndexOf("/")
-        return slashIndex >= 0 ? loc.substring(slashIndex + 1) : loc
-    }
-
-    @Override
     String getContentType() {
         String fn = getFileName()
         return fn != null && fn.length() > 0 ? ecf.getResource().getContentType(fn) : (String) null
