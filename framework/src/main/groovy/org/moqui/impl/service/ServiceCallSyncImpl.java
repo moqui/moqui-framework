@@ -127,7 +127,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         }
     }
 
-    public Map<String, Object> callSingle(Map<String, Object> currentParameters, ServiceDefinition sd, final ExecutionContextImpl eci) {
+    private Map<String, Object> callSingle(Map<String, Object> currentParameters, ServiceDefinition sd, final ExecutionContextImpl eci) {
         if (ignorePreviousError) eci.messageFacade.pushErrors();
         // NOTE: checking this here because service won't generally run after input validation, etc anyway
         if (eci.messageFacade.hasError()) {
@@ -135,7 +135,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             return null;
         }
 
-        int transactionStatus = eci.transactionFacade.getStatus();
+        TransactionFacadeImpl tf = eci.transactionFacade;
+        int transactionStatus = tf.getStatus();
         if (!requireNewTransaction && transactionStatus == Status.STATUS_MARKED_ROLLBACK) {
             logger.warn("Transaction marked for rollback, not running service " + serviceName + ". Errors: " + eci.messageFacade.getErrorsString());
             if (ignorePreviousError) eci.messageFacade.popErrors();
@@ -217,10 +218,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (sd == null) {
             if (sfi.isEntityAutoPattern(path, verb, noun)) {
                 try {
-                    Map<String, Object> result = runImplicitEntityAuto(currentParameters, secaRules, eci);
-                    // double runningTimeMillis = (System.nanoTime() - startTimeNanos)/1E6
-                    // if (traceEnabled) logger.trace("Finished call to service [${serviceName}] in ${(runningTimeMillis)/1000} seconds")
-                    return result;
+                    return runImplicitEntityAuto(currentParameters, secaRules, eci);
                 } finally {
                     eci.artifactExecutionFacade.pop(aei);
                     if (ignorePreviousError) eci.messageFacade.popErrors();
@@ -253,7 +251,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (ignoreTransaction || sd.txIgnore) beginTransactionIfNeeded = false;
         if (requireNewTransaction || sd.txForceNew) pauseResumeIfNeeded = true;
 
-        TransactionFacade tf = eci.transactionFacade;
         boolean suspendedTransaction = false;
         Map<String, Object> result = null;
         try {
@@ -264,10 +261,15 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 return null;
             }
 
-            if (pauseResumeIfNeeded && ((TransactionFacadeImpl) tf).isTransactionInPlace())
-                suspendedTransaction = ((TransactionFacadeImpl) tf).suspend();
-            boolean beganTransaction = beginTransactionIfNeeded && transactionStatus != Status.STATUS_ACTIVE &&
-                    tf.begin(transactionTimeout != null ? transactionTimeout : sd.txTimeout);
+            if (pauseResumeIfNeeded && transactionStatus != Status.STATUS_NO_TRANSACTION) {
+                suspendedTransaction = tf.suspend();
+                transactionStatus = tf.getStatus();
+            }
+            boolean beganTransaction = false;
+            if (beginTransactionIfNeeded && transactionStatus != Status.STATUS_ACTIVE) {
+                beganTransaction = tf.begin(transactionTimeout != null ? transactionTimeout : sd.txTimeout);
+                transactionStatus = tf.getStatus();
+            }
             if (sd.noTxCache) {
                 tf.flushAndDisableTransactionCache();
             } else {
@@ -289,13 +291,13 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 }
 
                 // post-service SECA rules
-                if (hasSecaRules)
-                    ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, result, "post-service", secaRules, eci);
+                if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, result, "post-service", secaRules, eci);
                 // registered callbacks, no Throwable
                 sfi.callRegisteredCallbacks(serviceName, currentParameters, result);
                 // if we got any errors added to the message list in the service, rollback for that too
                 if (eci.messageFacade.hasError()) {
                     tf.rollback(beganTransaction, "Error running service " + serviceName + " (message): " + eci.messageFacade.getErrorsString(), null);
+                    transactionStatus = tf.getStatus();
                 }
 
                 if (traceEnabled) logger.trace("Calling service " + serviceName + " result: " + result);
@@ -307,7 +309,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 // registered callbacks with Throwable
                 sfi.callRegisteredCallbacksThrowable(serviceName, currentParameters, t);
                 // rollback the transaction
-                ((TransactionFacadeImpl) tf).rollback(beganTransaction, "Error running service " + serviceName + " (Throwable)", t);
+                tf.rollback(beganTransaction, "Error running service " + serviceName + " (Throwable)", t);
+                transactionStatus = tf.getStatus();
                 logger.warn("Error running service " + serviceName + " (Throwable)", t);
                 // add all exception messages to the error messages list
                 eci.messageFacade.addError(t.getMessage());
@@ -316,14 +319,12 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                     eci.messageFacade.addError(parent.getMessage());
                     parent = parent.getCause();
                 }
-
             } finally {
                 // clear the semaphore
                 if (sd.hasSemaphore) clearSemaphore(eci, currentParameters);
 
                 try {
-                    if (beganTransaction && ((TransactionFacadeImpl) tf).isTransactionInPlace())
-                        ((TransactionFacadeImpl) tf).commit();
+                    if (beganTransaction && transactionStatus == Status.STATUS_ACTIVE) tf.commit();
                 } catch (Throwable t) {
                     logger.warn("Error committing transaction for service " + serviceName, t);
                     // add all exception messages to the error messages list
@@ -336,10 +337,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
                 }
 
-                if (hasSecaRules)
-                    ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, result, "post-commit", secaRules, eci);
+                if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, result, "post-commit", secaRules, eci);
             }
-
 
             return result;
         } finally {
@@ -355,7 +354,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 logger.error("Error logging out user after call to service " + serviceName, t);
             }
 
-            if (loggedInAnonymous) ((UserFacadeImpl) eci.getUser()).logoutAnonymousOnly();
+            if (loggedInAnonymous) eci.userFacade.logoutAnonymousOnly();
 
             // all done so pop the artifact info
             eci.artifactExecutionFacade.pop(aei);
@@ -363,11 +362,13 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             if (ignorePreviousError) eci.messageFacade.popErrors();
 
             if (traceEnabled) logger.trace("Finished call to service " + serviceName +
-                    (eci.messageFacade.hasError() ? " with " + (eci.messageFacade.getErrors().size() + eci.messageFacade.getValidationErrors().size()) + " error messages" : ", was successful"));
+                    (eci.messageFacade.hasError() ? " with " + (eci.messageFacade.getErrors().size() +
+                            eci.messageFacade.getValidationErrors().size()) + " error messages" : ", was successful"));
         }
 
     }
 
+    @SuppressWarnings("unused")
     private void clearSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
         String semParameter = sd.semaphoreParameter;
         String parameterValue;
@@ -379,7 +380,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         }
 
         eci.transactionFacade.runRequireNew(null, "Error in clear service semaphore", new Closure<EntityValue>(this, this) {
-            public EntityValue doCall(Object it) {
+            EntityValue doCall(Object it) {
                 boolean authzDisabled = eci.artifactExecutionFacade.disableAuthz();
                 try {
                     return eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
@@ -392,6 +393,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
     }
 
+    @SuppressWarnings("unused")
     private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
         final String semaphore = sd.semaphore;
         String semaphoreParameter = sd.semaphoreParameter;
@@ -411,7 +413,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         final String lockThreadName = Thread.currentThread().getName();
 
         eci.transactionFacade.runRequireNew(null, "Error in check/add service semaphore", new Closure<EntityValue>(this, this) {
-            public EntityValue doCall(Object it) {
+            EntityValue doCall(Object it) {
                 boolean authzDisabled = eci.artifactExecutionFacade.disableAuthz();
                 try {
                     EntityValue serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore").condition("serviceName", serviceName).condition("parameterValue", parameterValue).useCache(false).one();
@@ -520,7 +522,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 }
             } finally {
                 try {
-                    if (beganTransaction && tf.isTransactionInPlace()) tf.commit();
+                    if (beganTransaction && tf.isTransactionActive()) tf.commit();
                 } catch (Throwable t) {
                     logger.warn("Error committing transaction for entity-auto service " + serviceName, t);
                     // add all exception messages to the error messages list
@@ -534,8 +536,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, result, "post-commit", secaRules, eci);
             }
-        } catch (TransactionException e) {
-            throw e;
         } finally {
             if (suspendedTransaction) tf.resume();
         }
