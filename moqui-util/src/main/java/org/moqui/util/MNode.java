@@ -172,7 +172,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         }
     }
     /** Groovy specific method for square brace syntax */
-    public Object getAt(String name) { return get(name); }
+    public Object getAt(String name) { return getObject(name); }
 
     public String getName() { return nodeName; }
     public Map<String, String> getAttributes() { return attributeMap; }
