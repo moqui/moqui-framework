@@ -67,7 +67,7 @@ public class EntityDefinition {
     private List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
     private Map<String, RelationshipInfo> relationshipInfoMap = null
-    private List<RelationshipInfo> relationshipInfoList = null
+    private ArrayList<RelationshipInfo> relationshipInfoList = null
     private boolean hasReverseRelationships = false
     private Map<String, MasterDefinition> masterDefinitionMap = null
 
@@ -558,12 +558,12 @@ public class EntityDefinition {
         relationshipInfoMap = relInfoMap
     }
 
-    List<RelationshipInfo> getRelationshipsInfo(boolean dependentsOnly) {
+    ArrayList<RelationshipInfo> getRelationshipsInfo(boolean dependentsOnly) {
         if (relationshipInfoList == null) makeRelInfoList()
 
         if (!dependentsOnly) return new ArrayList(relationshipInfoList)
         // just get dependents
-        List<RelationshipInfo> infoListCopy = []
+        ArrayList<RelationshipInfo> infoListCopy = new ArrayList<>()
         for (RelationshipInfo info in relationshipInfoList) if (info.dependent) infoListCopy.add(info)
         return infoListCopy
     }
@@ -576,7 +576,7 @@ public class EntityDefinition {
             this.expandedRelationshipList = this.internalEntityNode.children("relationship")
         }
 
-        List<RelationshipInfo> infoList = []
+        ArrayList<RelationshipInfo> infoList = new ArrayList<>()
         for (MNode relNode in this.expandedRelationshipList) {
             RelationshipInfo relInfo = new RelationshipInfo(relNode, this, efi)
             infoList.add(relInfo)
