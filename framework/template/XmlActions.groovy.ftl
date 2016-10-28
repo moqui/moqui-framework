@@ -265,8 +265,8 @@ return;
 </#macro>
 
 <#-- NOTE: if there is an error message (in ec.messages.errors) then the actions result is an error, otherwise it is not, so we need a default error message here -->
-<#macro return><#assign returnMessage = .node["@message"]!""/><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${returnMessage?trim}''' ?: "Error in actions",''))<#else>    if (returnMessage) ec.message.addMessage(ec.resource.expand('''${returnMessage?trim}''',''))</#if>
-    return
+<#macro return><#assign returnMessage = .node["@message"]!""/><#if returnMessage?has_content><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${returnMessage?trim}''' ?: "Error in actions",''))<#else>    ec.message.addMessage(ec.resource.expand('''${returnMessage?trim}''',''))</#if></#if>
+    return;
 </#macro>
 <#macro assert><#list .node["*"] as childCond>
     if (!(<#visit childCond/>)) ec.message.addError(ec.resource.expand('''<#if .node["@title"]?has_content>[${.node["@title"]}] </#if> Assert failed: <#visit childCond/>''',''))</#list>
@@ -301,14 +301,14 @@ return;
 <#macro and>(<#list .node.children as childNode><#visit childNode/><#if childNode_has_next> && </#if></#list>)</#macro>
 <#macro not>!<#visit .node.children[0]/></#macro>
 
-<#macro "compare">    <#if (.node?size > 0)>if (compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)) {
+<#macro compare>    <#if (.node?size > 0)>if (compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)) {
         <#recurse .node/>
     }<#if .node.else?has_content> else {
         <#recurse .node.else[0]/>
     }</#if>
     <#else>compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)</#if>
 </#macro>
-<#macro "expression">${.node}
+<#macro expression>${.node}
 </#macro>
 
 <#-- =================== other elements =================== -->
