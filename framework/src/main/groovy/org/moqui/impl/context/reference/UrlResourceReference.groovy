@@ -39,8 +39,7 @@ class UrlResourceReference extends BaseResourceReference {
         locationUrl = file.toURI().toURL()
     }
 
-    @Override
-    ResourceReference init(String location, ExecutionContextFactory ecf) {
+    @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
         this.ecf = ecf
         if (!location) throw new BaseException("Cannot create URL Resource Reference with empty location")
         if (location.startsWith("/") || location.indexOf(":") < 0) {
@@ -69,13 +68,15 @@ class UrlResourceReference extends BaseResourceReference {
         return localFile
     }
 
-    @Override
-    String getLocation() { return locationUrl?.toString() }
+    @Override ResourceReference createNew(String location) {
+        UrlResourceReference resRef = new UrlResourceReference();
+        resRef.init(location, ecf);
+        return resRef;
+    }
+    @Override String getLocation() { return locationUrl?.toString() }
 
-    @Override
-    InputStream openStream() { return locationUrl?.openStream() }
-    @Override
-    OutputStream getOutputStream() {
+    @Override InputStream openStream() { return locationUrl?.openStream() }
+    @Override OutputStream getOutputStream() {
         if (!isFileProtocol) throw new IllegalArgumentException("Write not supported for resource [${getLocation()}] with protocol [${locationUrl?.protocol}]")
         // first make sure the directory exists that this is in
         if (!getFile().parentFile.exists()) getFile().parentFile.mkdirs()
@@ -83,37 +84,29 @@ class UrlResourceReference extends BaseResourceReference {
         return os
     }
 
-    @Override
-    String getText() { return ObjectUtilities.getStreamText(openStream()) }
+    @Override String getText() { return ObjectUtilities.getStreamText(openStream()) }
 
-    @Override
-    boolean supportsAll() { isFileProtocol }
+    @Override boolean supportsAll() { isFileProtocol }
 
-    @Override
-    boolean supportsUrl() { return true }
-    @Override
-    URL getUrl() { return locationUrl }
+    @Override boolean supportsUrl() { return true }
+    @Override URL getUrl() { return locationUrl }
 
-    @Override
-    boolean supportsDirectory() { isFileProtocol }
-    @Override
-    boolean isFile() {
+    @Override boolean supportsDirectory() { isFileProtocol }
+    @Override boolean isFile() {
         if (isFileProtocol) {
             return getFile().isFile()
         } else {
             throw new IllegalArgumentException("Is file not supported for resource with protocol [${locationUrl.protocol}]")
         }
     }
-    @Override
-    boolean isDirectory() {
+    @Override boolean isDirectory() {
         if (isFileProtocol) {
             return getFile().isDirectory()
         } else {
             throw new IllegalArgumentException("Is directory not supported for resource with protocol [${locationUrl.protocol}]")
         }
     }
-    @Override
-    List<ResourceReference> getDirectoryEntries() {
+    @Override List<ResourceReference> getDirectoryEntries() {
         if (isFileProtocol) {
             File f = getFile()
             List<ResourceReference> children = new LinkedList<ResourceReference>()
@@ -126,8 +119,7 @@ class UrlResourceReference extends BaseResourceReference {
             throw new IllegalArgumentException("Children not supported for resource with protocol [${locationUrl.protocol}]")
         }
     }
-    @Override
-    ResourceReference getChild(String childName) {
+    @Override ResourceReference getChild(String childName) {
         if (childName == null || childName.length() == 0) return null
         if (ecf.getResource() != null) {
             return super.getChild(childName)
@@ -139,10 +131,8 @@ class UrlResourceReference extends BaseResourceReference {
     }
 
 
-    @Override
-    boolean supportsExists() { return isFileProtocol || exists != null }
-    @Override
-    boolean getExists() {
+    @Override boolean supportsExists() { return isFileProtocol || exists != null }
+    @Override boolean getExists() {
         // only count exists if true
         if (exists) return true
 
@@ -154,10 +144,8 @@ class UrlResourceReference extends BaseResourceReference {
         }
     }
 
-    @Override
-    boolean supportsLastModified() { isFileProtocol }
-    @Override
-    long getLastModified() {
+    @Override boolean supportsLastModified() { isFileProtocol }
+    @Override long getLastModified() {
         if (isFileProtocol) {
             return getFile().lastModified()
         } else {
@@ -165,15 +153,11 @@ class UrlResourceReference extends BaseResourceReference {
         }
     }
 
-    @Override
-    boolean supportsSize() { isFileProtocol }
-    @Override
-    long getSize() { isFileProtocol ? getFile().length() : 0 }
+    @Override boolean supportsSize() { isFileProtocol }
+    @Override long getSize() { isFileProtocol ? getFile().length() : 0 }
 
-    @Override
-    boolean supportsWrite() { isFileProtocol }
-    @Override
-    void putText(String text) {
+    @Override boolean supportsWrite() { isFileProtocol }
+    @Override void putText(String text) {
         if (!isFileProtocol) throw new IllegalArgumentException("Write not supported for resource [${getLocation()}] with protocol [${locationUrl?.protocol}]")
         // first make sure the directory exists that this is in
         if (!getFile().parentFile.exists()) getFile().parentFile.mkdirs()
@@ -183,8 +167,7 @@ class UrlResourceReference extends BaseResourceReference {
         fw.close()
         this.exists = null
     }
-    @Override
-    void putStream(InputStream stream) {
+    @Override void putStream(InputStream stream) {
         if (!isFileProtocol) throw new IllegalArgumentException("Write not supported for resource [${getLocation()}] with protocol [${locationUrl?.protocol}]")
         // first make sure the directory exists that this is in
         if (!getFile().parentFile.exists()) getFile().parentFile.mkdirs()
@@ -195,8 +178,7 @@ class UrlResourceReference extends BaseResourceReference {
         this.exists = null
     }
 
-    @Override
-    void move(String newLocation) {
+    @Override void move(String newLocation) {
         if (!newLocation) throw new IllegalArgumentException("No location specified, not moving resource at ${getLocation()}")
         ResourceReference newRr = ecf.resource.getLocationReference(newLocation)
 
@@ -214,15 +196,13 @@ class UrlResourceReference extends BaseResourceReference {
         curFile.renameTo(newFile)
     }
 
-    @Override
-    ResourceReference makeDirectory(String name) {
+    @Override ResourceReference makeDirectory(String name) {
         if (!isFileProtocol) throw new IllegalArgumentException("Write not supported for resource [${getLocation()}] with protocol [${locationUrl?.protocol}]")
         UrlResourceReference newRef = (UrlResourceReference) new UrlResourceReference().init("${location}/${name}", ecf)
         newRef.getFile().mkdirs()
         return newRef
     }
-    @Override
-    ResourceReference makeFile(String name) {
+    @Override ResourceReference makeFile(String name) {
         if (!isFileProtocol) throw new IllegalArgumentException("Write not supported for resource [${getLocation()}] with protocol [${locationUrl?.protocol}]")
         UrlResourceReference newRef = (UrlResourceReference) new UrlResourceReference().init("${location}/${name}", ecf)
         // first make sure the directory exists that this is in
@@ -230,8 +210,7 @@ class UrlResourceReference extends BaseResourceReference {
         newRef.getFile().createNewFile()
         return newRef
     }
-    @Override
-    boolean delete() {
+    @Override boolean delete() {
         if (!isFileProtocol) throw new IllegalArgumentException("Write not supported for resource [${getLocation()}] with protocol [${locationUrl?.protocol}]")
         return getFile().delete()
     }

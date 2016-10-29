@@ -23,12 +23,45 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
 
-public interface ResourceReference extends Serializable {
-    void init(String location);
+public abstract class ResourceReference implements Serializable {
+    public abstract void init(String location);
 
-    String getLocation();
+    public abstract ResourceReference createNew(String location);
 
-    default URI getUri() {
+    public abstract String getLocation();
+    public abstract InputStream openStream();
+    public abstract OutputStream getOutputStream();
+    public abstract String getText();
+
+    public abstract boolean supportsAll();
+    public abstract boolean supportsUrl();
+    public abstract URL getUrl();
+
+    public abstract boolean supportsDirectory();
+    public abstract boolean isFile();
+    public abstract boolean isDirectory();
+
+    public abstract boolean supportsExists();
+    public abstract boolean getExists();
+
+    public abstract boolean supportsLastModified();
+    public abstract long getLastModified();
+
+    public abstract boolean supportsSize();
+    public abstract long getSize();
+
+    public abstract boolean supportsWrite();
+    public abstract void putText(String text);
+    public abstract void putStream(InputStream stream);
+    public abstract void move(String newLocation);
+    public abstract ResourceReference makeDirectory(String name);
+    public abstract ResourceReference makeFile(String name);
+    public abstract boolean delete();
+
+    /** Get the entries of a directory */
+    public abstract List<ResourceReference> getDirectoryEntries();
+
+    public URI getUri() {
         try {
             if (supportsUrl()) {
                 URL locUrl = getUrl();
@@ -50,61 +83,30 @@ public interface ResourceReference extends Serializable {
     }
 
     /** One part of the URI not easy to get from the URI object, basically the last part of the path. */
-    default String getFileName() {
+    public String getFileName() {
         String loc = getLocation();
         if (loc == null || loc.length() == 0) return null;
         int slashIndex = loc.lastIndexOf("/");
         return slashIndex >= 0 ? loc.substring(slashIndex + 1) : loc;
     }
 
-    InputStream openStream();
-    OutputStream getOutputStream();
-    String getText();
 
     /** The content (MIME) type for this content, if known or can be determined. */
-    String getContentType();
+    public abstract String getContentType();
 
-    boolean supportsAll();
-
-    boolean supportsUrl();
-    URL getUrl();
-
-    boolean supportsDirectory();
-    boolean isFile();
-    boolean isDirectory();
-
-    /** Get the entries of a directory */
-    List<ResourceReference> getDirectoryEntries();
     /** Get the parent directory, null if it is the root (no parent). */
-    ResourceReference getParent();
+    public abstract ResourceReference getParent();
 
     /** Find the directory with a name that matches the current filename (minus the extension) */
-    ResourceReference findMatchingDirectory();
+    public abstract ResourceReference findMatchingDirectory();
     /** Get a reference to the child of this directory or this file in the matching directory */
-    ResourceReference getChild(String name);
+    public abstract ResourceReference getChild(String name);
     /** Get a list of references to all files in this directory or for a file in the matching directory */
-    List<ResourceReference> getChildren();
+    public abstract List<ResourceReference> getChildren();
     /** Find a file by path (can be single name) in the matching directory and child matching directories */
-    ResourceReference findChildFile(String relativePath);
+    public abstract ResourceReference findChildFile(String relativePath);
     /** Find a directory by path (can be single name) in the matching directory and child matching directories */
-    ResourceReference findChildDirectory(String relativePath);
+    public abstract ResourceReference findChildDirectory(String relativePath);
 
-    boolean supportsExists();
-    boolean getExists();
-
-    boolean supportsLastModified();
-    long getLastModified();
-
-    boolean supportsSize();
-    long getSize();
-
-    boolean supportsWrite();
-    void putText(String text);
-    void putStream(InputStream stream);
-    void move(String newLocation);
-    ResourceReference makeDirectory(String name);
-    ResourceReference makeFile(String name);
-    boolean delete();
-
-    void destroy();
+    public void destroy() { }
 }

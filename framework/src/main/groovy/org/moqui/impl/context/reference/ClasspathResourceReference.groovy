@@ -25,7 +25,7 @@ class ClasspathResourceReference extends UrlResourceReference {
 
     ClasspathResourceReference() { super() }
 
-    ResourceReference init(String location, ExecutionContextFactory ecf) {
+    @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
         this.ecf = ecf
         strippedLocation = ResourceFacadeImpl.stripLocationPrefix(location)
         // first try the current thread's context ClassLoader
@@ -45,6 +45,10 @@ class ClasspathResourceReference extends UrlResourceReference {
         return this
     }
 
-    @Override
-    String getLocation() { return "classpath://" + strippedLocation }
+    @Override ResourceReference createNew(String location) {
+        ClasspathResourceReference resRef = new ClasspathResourceReference();
+        resRef.init(location, ecf);
+        return resRef;
+    }
+    @Override String getLocation() { return "classpath://" + strippedLocation }
 }

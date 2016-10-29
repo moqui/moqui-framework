@@ -55,6 +55,11 @@ class ComponentResourceReference extends WrapperResourceReference {
         return this
     }
 
+    @Override ResourceReference createNew(String location) {
+        ComponentResourceReference resRef = new ComponentResourceReference();
+        resRef.init(location, ecf);
+        return resRef;
+    }
     @Override
     String getLocation() { return componentLocation?.toString() }
 

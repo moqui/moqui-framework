@@ -21,7 +21,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @CompileStatic
-abstract class BaseResourceReference implements ResourceReference {
+abstract class BaseResourceReference extends ResourceReference {
     protected final static Logger logger = LoggerFactory.getLogger(BaseResourceReference.class)
 
     ExecutionContextFactory ecf = (ExecutionContextFactory) null
@@ -39,8 +39,9 @@ abstract class BaseResourceReference implements ResourceReference {
         return subContentRefByPath
     }
 
-    @Override abstract String getLocation();
+    @Override abstract ResourceReference createNew(String location);
 
+    @Override abstract String getLocation();
     @Override abstract InputStream openStream();
     @Override abstract OutputStream getOutputStream();
     @Override abstract String getText();
@@ -360,8 +361,6 @@ abstract class BaseResourceReference implements ResourceReference {
 
         // TODO: walk child directories somehow or just stick with files with matching directories?
     }
-
-    @Override void destroy() { }
 
     @Override String toString() { return getLocation() ?: "[no location (${this.class.getName()})]" }
 }
