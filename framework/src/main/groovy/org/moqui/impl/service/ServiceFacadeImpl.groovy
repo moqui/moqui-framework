@@ -215,7 +215,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
         // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
         if (serviceNode == null) {
-            ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation, ecfi)
+            ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation)
             if (serviceComponentRr.supportsExists() && serviceComponentRr.exists)
                 serviceNode = findServiceNode(serviceComponentRr, verb, noun)
         }

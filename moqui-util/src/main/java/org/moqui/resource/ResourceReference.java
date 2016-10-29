@@ -22,15 +22,15 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class ResourceReference implements Serializable {
-    protected ResourceReference childOfResource = null;
+    private static final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap();
 
-    public abstract void init(String location);
+    protected ResourceReference childOfResource = null;
+    private Map<String, ResourceReference> subContentRefByPath = null;
+
+    public abstract ResourceReference init(String location);
 
     public abstract ResourceReference createNew(String location);
 
@@ -154,11 +154,194 @@ public abstract class ResourceReference implements Serializable {
         for (ResourceReference childRef : directoryRef.getDirectoryEntries()) if (childRef.isFile()) children.add(childRef);
         return children;
     }
-    /** Find a file by path (can be single name) in the matching directory and child matching directories */
-    public abstract ResourceReference findChildFile(String relativePath);
-    /** Find a directory by path (can be single name) in the matching directory and child matching directories */
-    public abstract ResourceReference findChildDirectory(String relativePath);
 
+    /** Find a file by path (can be single name) in the matching directory and child matching directories */
+    public ResourceReference findChildFile(String relativePath) {
+        // no path to child? that means this resource
+        if (relativePath == null || relativePath.length() == 0) return this;
+
+        if (!supportsAll()) {
+            throw new BaseException("Not looking for child file at " + relativePath + " under space root page " +
+                    getLocation() + " because exists, isFile, etc are not supported");
+        }
+
+        // logger.warn("============= finding child resource of [${toString()}] path [${relativePath}]")
+
+        // check the cache first
+        ResourceReference childRef = getSubContentRefByPath().get(relativePath);
+        if (childRef != null && childRef.getExists()) return childRef;
+
+        // this finds a file in a directory with the same name as this resource, unless this resource is a directory
+        ResourceReference directoryRef = findMatchingDirectory();
+
+        // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}]")
+        if (directoryRef.getExists()) {
+            StringBuilder fileLoc = new StringBuilder(directoryRef.getLocation());
+            if (fileLoc.charAt(fileLoc.length() - 1) == '/') fileLoc.deleteCharAt(fileLoc.length() - 1);
+            if (relativePath.charAt(0) != '/') fileLoc.append('/');
+            fileLoc.append(relativePath);
+
+            ResourceReference theFile = createNew(fileLoc.toString());
+            if (theFile.getExists() && theFile.isFile()) childRef = theFile;
+
+            // logger.warn("============= finding child resource path [${relativePath}] childRef 1 [${childRef}]")
+            /* this approach is no longer needed; the more flexible approach below will handle this and more:
+            if (childRef == null) {
+                // try adding known extensions
+                for (String extToTry in ecf.resource.templateRenderers.keySet()) {
+                    if (childRef != null) break
+                    theFile = createNew(fileLoc.toString() + extToTry)
+                    if (theFile.exists && theFile.isFile()) childRef = theFile
+                    // logger.warn("============= finding child resource path [${relativePath}] fileLoc [${fileLoc}] extToTry [${extToTry}] childRef [${theFile}]")
+                }
+            }
+            */
+
+            // logger.warn("============= finding child resource path [${relativePath}] childRef 2 [${childRef}]")
+            if (childRef == null) {
+                // didn't find it at a literal path, try searching for it in all subdirectories
+                int lastSlashIdx = relativePath.lastIndexOf("/");
+                String directoryPath = lastSlashIdx > 0 ? relativePath.substring(0, lastSlashIdx) : "";
+                String childFilename = lastSlashIdx >= 0 ? relativePath.substring(lastSlashIdx + 1) : relativePath;
+
+                // first find the most matching directory
+                ResourceReference childDirectoryRef = directoryRef.findChildDirectory(directoryPath);
+
+                // recursively walk the directory tree and find the childFilename
+                childRef = internalFindChildFile(childDirectoryRef, childFilename);
+                // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}] childFilename [${childFilename}] childRef [${childRef}]")
+            }
+
+            // logger.warn("============= finding child resource path [${relativePath}] childRef 3 [${childRef}]")
+
+            if (childRef != null) childRef.childOfResource = directoryRef;
+        }
+
+
+        if (childRef == null) {
+            // still nothing? treat the path to the file as a literal and return it (exists will be false)
+            if (directoryRef.getExists()) {
+                childRef = createNew(directoryRef.getLocation() + "/" + relativePath);
+                childRef.childOfResource = directoryRef;
+
+            } else {
+                String newDirectoryLoc = getLocation();
+                // pop off the extension, everything past the first dot after the last slash
+                int lastSlashLoc = newDirectoryLoc.lastIndexOf("/");
+                if (newDirectoryLoc.contains("."))
+                    newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc));
+                childRef = createNew(newDirectoryLoc + "/" + relativePath);
+            }
+
+        } else {
+            // put it in the cache before returning, but don't cache the literal reference
+            getSubContentRefByPath().put(relativePath, childRef);
+        }
+
+        // logger.warn("============= finding child resource of [${toString()}] path [${relativePath}] got [${childRef}]")
+        return childRef;
+    }
+
+    /** Find a directory by path (can be single name) in the matching directory and child matching directories */
+    public ResourceReference findChildDirectory(String relativePath) {
+        if (relativePath == null || relativePath.isEmpty()) return this;
+
+        if (!supportsAll()) {
+            throw new BaseException("Not looking for child file at " + relativePath + " under space root page " +
+                    getLocation() + " because exists, isFile, etc are not supported");
+        }
+
+
+        // check the cache first
+        ResourceReference childRef = getSubContentRefByPath().get(relativePath);
+        if (childRef != null && childRef.getExists()) return childRef;
+
+        List<String> relativePathNameList = Arrays.asList(relativePath.split("/"));
+
+        ResourceReference childDirectoryRef = this;
+        if (this.isFile()) childDirectoryRef = this.findMatchingDirectory();
+
+        // search remaining relativePathNameList, ie partial directories leading up to filename
+        for (String relativePathName : relativePathNameList) {
+            childDirectoryRef = internalFindChildDir(childDirectoryRef, relativePathName);
+            if (childDirectoryRef == null) break;
+        }
+
+
+        if (childDirectoryRef == null) {
+            // still nothing? treat the path to the file as a literal and return it (exists will be false)
+            String newDirectoryLoc = getLocation();
+            if (this.isFile()) {
+                // pop off the extension, everything past the first dot after the last slash
+                int lastSlashLoc = newDirectoryLoc.lastIndexOf("/");
+                if (newDirectoryLoc.contains("."))
+                    newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc));
+            }
+
+            childDirectoryRef = createNew(newDirectoryLoc + "/" + relativePath);
+        } else {
+            // put it in the cache before returning, but don't cache the literal reference
+            getSubContentRefByPath().put(relativePath, childRef);
+        }
+
+        return childDirectoryRef;
+    }
+
+    private ResourceReference internalFindChildDir(ResourceReference directoryRef, String childDirName) {
+        if (directoryRef == null || !directoryRef.getExists()) return null;
+        // no child dir name, means this/current dir
+        if (childDirName == null || childDirName.isEmpty()) return directoryRef;
+
+        // try a direct sub-directory, if it is there it's more efficient than a brute-force search
+        StringBuilder dirLocation = new StringBuilder(directoryRef.getLocation());
+        if (dirLocation.charAt(dirLocation.length() - 1) == '/') dirLocation.deleteCharAt(dirLocation.length() - 1);
+        if (childDirName.charAt(0) != '/') dirLocation.append('/');
+        dirLocation.append(childDirName);
+        ResourceReference directRef = createNew(dirLocation.toString());
+        if (directRef != null && directRef.getExists()) return directRef;
+
+        // if no direct reference is found, try the more flexible search
+        for (ResourceReference childRef : directoryRef.getDirectoryEntries()) {
+            if (childRef.isDirectory() && (childRef.getFileName().equals(childDirName) || childRef.getFileName().contains(childDirName + "."))) {
+                // matching directory name, use it
+                return childRef;
+            } else if (childRef.isDirectory()) {
+                // non-matching directory name, recurse into it
+                ResourceReference subRef = internalFindChildDir(childRef, childDirName);
+                if (subRef != null) return subRef;
+            }
+
+        }
+
+        return null;
+    }
+
+    private ResourceReference internalFindChildFile(ResourceReference directoryRef, String childFilename) {
+        if (directoryRef == null || !directoryRef.getExists()) return null;
+
+        // find check exact filename first
+        ResourceReference exactMatchRef = directoryRef.getChild(childFilename);
+        if (exactMatchRef.isFile() && exactMatchRef.getExists()) return exactMatchRef;
+
+        List<ResourceReference> childEntries = directoryRef.getDirectoryEntries();
+        // look through all files first, ie do a breadth-first search
+        for (ResourceReference childRef : childEntries) {
+            if (childRef.isFile() && (childRef.getFileName().equals(childFilename) || childRef.getFileName().startsWith(childFilename + "."))) {
+                return childRef;
+            }
+
+        }
+
+        for (ResourceReference childRef : childEntries) {
+            if (childRef.isDirectory()) {
+                ResourceReference subRef = internalFindChildFile(childRef, childFilename);
+                if (subRef != null) return subRef;
+            }
+
+        }
+
+        return null;
+    }
 
     public String getActualChildPath() {
         if (childOfResource == null) return null;
@@ -180,8 +363,7 @@ public abstract class ResourceReference implements Serializable {
             childRef.walkChildFileTree(this, "", allChildFileFlatList, childResourceList);
         }
     }
-
-    void walkChildFileTree(ResourceReference rootResource, String pathFromRoot,
+    private void walkChildFileTree(ResourceReference rootResource, String pathFromRoot,
                            List<Map> allChildFileFlatList, List<Map> childResourceList) {
         // logger.warn("================ walkChildFileTree rootResource=${rootResource} pathFromRoot=${pathFromRoot} curLocation=${getLocation()}")
         String childPathBase = pathFromRoot != null && !pathFromRoot.isEmpty() ? pathFromRoot + '/' : "";
@@ -220,7 +402,11 @@ public abstract class ResourceReference implements Serializable {
         return loc != null && !loc.isEmpty() ? loc : ("[no location (" + getClass().getName() + ")]");
     }
 
-    private static final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap();
+    private Map<String, ResourceReference> getSubContentRefByPath() {
+        if (subContentRefByPath == null) subContentRefByPath = new HashMap<>();
+        return subContentRefByPath;
+    }
+
     public static String getContentType(String filename) {
         // need to check this, or type mapper handles it fine? || !filename.contains(".")
         if (filename == null || filename.length() == 0) return null;
@@ -258,7 +444,6 @@ public abstract class ResourceReference implements Serializable {
 
         // delete all leading forward slashes
         while (strippedLocation.length() > 0 && strippedLocation.charAt(0) == '/') strippedLocation.deleteCharAt(0);
-
         return strippedLocation.toString();
     }
     public static String getLocationPrefix(String location) {

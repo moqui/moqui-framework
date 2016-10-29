@@ -997,12 +997,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             return name
         }
     }
-    protected ResourceReference getResourceReference(String location) {
+    protected static ResourceReference getResourceReference(String location) {
         // NOTE: somehow support other resource location types?
         // the ResourceFacade inits after components are loaded (so it is aware of initial components), so we can't get ResourceReferences from it
-        ResourceReference rr = new UrlResourceReference()
-        rr.init(location, this)
-        return rr
+        return new UrlResourceReference().init(location)
     }
 
     static class ComponentInfo {
