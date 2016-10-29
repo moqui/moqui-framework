@@ -73,8 +73,7 @@ public class UrlResourceReference extends ResourceReference {
     }
 
     public File getFile() {
-        if (!isFileProtocol)
-            throw new IllegalArgumentException("File not supported for resource with protocol [" + locationUrl.getProtocol() + "]");
+        if (!isFileProtocol) throw new IllegalArgumentException("File not supported for resource with protocol [" + locationUrl.getProtocol() + "]");
         if (localFile != null) return localFile;
         // NOTE: using toExternalForm().substring(5) instead of toURI because URI does not allow spaces in a filename
         localFile = new File(locationUrl.toExternalForm().substring(5));
@@ -142,7 +141,8 @@ public class UrlResourceReference extends ResourceReference {
             List<ResourceReference> children = new ArrayList<>();
             String baseLocation = getLocation();
             if (baseLocation.endsWith("/")) baseLocation = baseLocation.substring(0, baseLocation.length() - 1);
-            for (File dirFile : f.listFiles())
+            File[] listFiles = f.listFiles();
+            if (listFiles != null) for (File dirFile : listFiles)
                 children.add(new UrlResourceReference().init(baseLocation + "/" + dirFile.getName()));
             return children;
         } else {
@@ -155,7 +155,7 @@ public class UrlResourceReference extends ResourceReference {
 
     @Override public boolean getExists() {
         // only count exists if true
-        if (exists) return true;
+        if (exists != null && exists) return true;
 
         if (isFileProtocol) {
             exists = getFile().exists();
