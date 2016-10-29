@@ -47,8 +47,9 @@ archivesBaseName = 'moqui-util'
 
 dependencies {
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
-    // JCache API
+    // JCache, Servlet APIs
     compile 'javax.cache:cache-api:1.0.0'
+    compile 'javax.servlet:javax.servlet-api:3.1.0'
     // SLF4J
     compile 'org.slf4j:slf4j-api:1.7.21'
     // Freemarker
