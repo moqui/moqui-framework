@@ -15,15 +15,21 @@ package org.moqui.resource;
 
 import org.moqui.BaseException;
 
+import javax.activation.MimetypesFileTypeMap;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public abstract class ResourceReference implements Serializable {
+    protected ResourceReference childOfResource = null;
+
     public abstract void init(String location);
 
     public abstract ResourceReference createNew(String location);
@@ -92,21 +98,178 @@ public abstract class ResourceReference implements Serializable {
 
 
     /** The content (MIME) type for this content, if known or can be determined. */
-    public abstract String getContentType();
+    public String getContentType() {
+        String fn = getFileName();
+        return fn != null && fn.length() > 0 ? getContentType(fn) : null;
+    }
 
     /** Get the parent directory, null if it is the root (no parent). */
-    public abstract ResourceReference getParent();
+    public ResourceReference getParent() {
+        String curLocation = getLocation();
+        if (curLocation.endsWith("/")) curLocation = curLocation.substring(0, curLocation.length() - 1);
+        String strippedLocation = stripLocationPrefix(curLocation);
+        if (strippedLocation.isEmpty()) return null;
+        if (strippedLocation.startsWith("/")) strippedLocation = strippedLocation.substring(1);
+        if (strippedLocation.contains("/")) {
+            return createNew(curLocation.substring(0, curLocation.lastIndexOf("/")));
+        } else {
+            String prefix = getLocationPrefix(curLocation);
+            if (prefix != null && !prefix.isEmpty()) return createNew(prefix);
+            return null;
+        }
+    }
 
     /** Find the directory with a name that matches the current filename (minus the extension) */
-    public abstract ResourceReference findMatchingDirectory();
+    public ResourceReference findMatchingDirectory() {
+        if (this.isDirectory()) return this;
+        StringBuilder dirLoc = new StringBuilder(getLocation());
+        ResourceReference directoryRef = this;
+        while (!(directoryRef.getExists() && directoryRef.isDirectory()) && dirLoc.lastIndexOf(".") > 0) {
+            // get rid of one suffix at a time (for screens probably .xml but use .* for other files, etc)
+            dirLoc.delete(dirLoc.lastIndexOf("."), dirLoc.length());
+            directoryRef = createNew(dirLoc.toString());
+            // directoryRef = ecf.resource.getLocationReference(dirLoc.toString())
+        }
+        return directoryRef;
+    }
+
     /** Get a reference to the child of this directory or this file in the matching directory */
-    public abstract ResourceReference getChild(String name);
+    public ResourceReference getChild(String childName) {
+        if (childName == null || childName.length() == 0) return null;
+        ResourceReference directoryRef = findMatchingDirectory();
+        StringBuilder fileLoc = new StringBuilder(directoryRef.getLocation());
+        if (fileLoc.charAt(fileLoc.length()-1) == '/') fileLoc.deleteCharAt(fileLoc.length()-1);
+        if (childName.charAt(0) != '/') fileLoc.append('/');
+        fileLoc.append(childName);
+
+        // NOTE: don't really care if it exists or not at this point
+        return createNew(fileLoc.toString());
+    }
+
     /** Get a list of references to all files in this directory or for a file in the matching directory */
-    public abstract List<ResourceReference> getChildren();
+    public List<ResourceReference> getChildren() {
+        List<ResourceReference> children = new LinkedList<>();
+        ResourceReference directoryRef = findMatchingDirectory();
+        if (directoryRef == null || !directoryRef.getExists()) return null;
+        for (ResourceReference childRef : directoryRef.getDirectoryEntries()) if (childRef.isFile()) children.add(childRef);
+        return children;
+    }
     /** Find a file by path (can be single name) in the matching directory and child matching directories */
     public abstract ResourceReference findChildFile(String relativePath);
     /** Find a directory by path (can be single name) in the matching directory and child matching directories */
     public abstract ResourceReference findChildDirectory(String relativePath);
 
+
+    public String getActualChildPath() {
+        if (childOfResource == null) return null;
+        String parentLocation = childOfResource.getLocation();
+        String childLocation = getLocation();
+        // this should be true, but just in case:
+        if (childLocation.startsWith(parentLocation)) {
+            String childPath = childLocation.substring(parentLocation.length());
+            if (childPath.startsWith("/")) return childPath.substring(1);
+            else return childPath;
+        }
+        // if not, what to do?
+        return null;
+    }
+
+    public void walkChildTree(List<Map> allChildFileFlatList, List<Map> childResourceList) {
+        if (this.isFile()) walkChildFileTree(this, "", allChildFileFlatList, childResourceList);
+        if (this.isDirectory()) for (ResourceReference childRef : getDirectoryEntries()) {
+            childRef.walkChildFileTree(this, "", allChildFileFlatList, childResourceList);
+        }
+    }
+
+    void walkChildFileTree(ResourceReference rootResource, String pathFromRoot,
+                           List<Map> allChildFileFlatList, List<Map> childResourceList) {
+        // logger.warn("================ walkChildFileTree rootResource=${rootResource} pathFromRoot=${pathFromRoot} curLocation=${getLocation()}")
+        String childPathBase = pathFromRoot != null && !pathFromRoot.isEmpty() ? pathFromRoot + '/' : "";
+
+        if (this.isFile()) {
+            List<Map> curChildResourceList = new LinkedList<>();
+
+            String curFileName = getFileName();
+            if (curFileName.contains(".")) curFileName = curFileName.substring(0, curFileName.indexOf('.'));
+            String curPath = childPathBase + curFileName;
+
+            if (allChildFileFlatList != null) {
+                Map<String, String> infoMap = new HashMap<>(3);
+                infoMap.put("path", curPath); infoMap.put("name", curFileName); infoMap.put("location", getLocation());
+                allChildFileFlatList.add(infoMap);
+            }
+            if (childResourceList != null) {
+                Map<String, Object> infoMap = new HashMap<>(4);
+                infoMap.put("path", curPath); infoMap.put("name", curFileName); infoMap.put("location", getLocation());
+                infoMap.put("childResourceList", curChildResourceList);
+                childResourceList.add(infoMap);
+            }
+
+            ResourceReference matchingDirReference = this.findMatchingDirectory();
+            String childPath = childPathBase + matchingDirReference.getFileName();
+            for (ResourceReference childRef : matchingDirReference.getDirectoryEntries()) {
+                childRef.walkChildFileTree(rootResource, childPath, allChildFileFlatList, curChildResourceList);
+            }
+        }
+        // TODO: walk child directories somehow or just stick with files with matching directories?
+    }
+
     public void destroy() { }
+    @Override public String toString() {
+        String loc = getLocation();
+        return loc != null && !loc.isEmpty() ? loc : ("[no location (" + getClass().getName() + ")]");
+    }
+
+    private static final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap();
+    public static String getContentType(String filename) {
+        // need to check this, or type mapper handles it fine? || !filename.contains(".")
+        if (filename == null || filename.length() == 0) return null;
+        String type = mimetypesFileTypeMap.getContentType(filename);
+        // strip any parameters, ie after the ;
+        int semicolonIndex = type.indexOf(";");
+        if (semicolonIndex >= 0) type = type.substring(0, semicolonIndex);
+        return type;
+    }
+    public static boolean isBinaryContentType(String contentType) {
+        if (contentType == null || contentType.length() == 0) return false;
+        if (contentType.startsWith("text/")) return false;
+        // aside from text/*, a few notable exceptions:
+        if ("application/javascript".equals(contentType)) return false;
+        if ("application/json".equals(contentType)) return false;
+        if (contentType.endsWith("+json")) return false;
+        if ("application/rtf".equals(contentType)) return false;
+        if (contentType.startsWith("application/xml")) return false;
+        if (contentType.endsWith("+xml")) return false;
+        if (contentType.startsWith("application/yaml")) return false;
+        if (contentType.endsWith("+yaml")) return false;
+        return true;
+    }
+    public static String stripLocationPrefix(String location) {
+        if (location == null || location.isEmpty()) return "";
+
+        // first remove colon (:) and everything before it
+        StringBuilder strippedLocation = new StringBuilder(location);
+        int colonIndex = strippedLocation.indexOf(":");
+        if (colonIndex == 0) {
+            strippedLocation.deleteCharAt(0);
+        } else if (colonIndex > 0) {
+            strippedLocation.delete(0, colonIndex+1);
+        }
+
+        // delete all leading forward slashes
+        while (strippedLocation.length() > 0 && strippedLocation.charAt(0) == '/') strippedLocation.deleteCharAt(0);
+
+        return strippedLocation.toString();
+    }
+    public static String getLocationPrefix(String location) {
+        if (location == null || location.isEmpty()) return "";
+
+        if (location.contains("://")) {
+            return location.substring(0, location.indexOf(":")) + "://";
+        } else if (location.contains(":")) {
+            return location.substring(0, location.indexOf(":")) + ":";
+        } else {
+            return "";
+        }
+    }
 }

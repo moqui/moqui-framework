@@ -53,8 +53,6 @@ import javax.xml.transform.stream.StreamSource
 public class ResourceFacadeImpl implements ResourceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
 
-    protected final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap()
-
     protected final ExecutionContextFactoryImpl ecfi
 
     final FtlTemplateRenderer ftlTemplateRenderer
@@ -281,7 +279,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // strip template extension(s) to avoid problems with trying to find content types based on them
         String fileContentType = getContentType(tr != null ? tr.stripTemplateExtension(fileName) : fileName)
 
-        boolean isBinary = isBinaryContentType(fileContentType)
+        boolean isBinary = ResourceReference.isBinaryContentType(fileContentType)
 
         if (isBinary) {
             return new ByteArrayDataSource(fileResourceRef.openStream(), fileContentType)
@@ -527,60 +525,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return groovyClass
     }
 
-    static String stripLocationPrefix(String location) {
-        if (!location) return ""
-
-        // first remove colon (:) and everything before it
-        StringBuilder strippedLocation = new StringBuilder(location)
-        int colonIndex = strippedLocation.indexOf(":")
-        if (colonIndex == 0) {
-            strippedLocation.deleteCharAt(0)
-        } else if (colonIndex > 0) {
-            strippedLocation.delete(0, colonIndex+1)
-        }
-
-        // delete all leading forward slashes
-        while (strippedLocation.length() > 0 && strippedLocation.charAt(0) == (char) '/') strippedLocation.deleteCharAt(0)
-
-        return strippedLocation.toString()
-    }
-
-    static String getLocationPrefix(String location) {
-        if (!location) return ""
-
-        if (location.contains("://")) {
-            return location.substring(0, location.indexOf(":")) + "://"
-        } else if (location.contains(":")) {
-            return location.substring(0, location.indexOf(":")) + ":"
-        } else {
-            return ""
-        }
-    }
-
-    @Override String getContentType(String filename) {
-        // need to check this, or type mapper handles it fine? || !filename.contains(".")
-        if (filename == null || filename.length() == 0) return null
-        String type = mimetypesFileTypeMap.getContentType(filename)
-        // strip any parameters, ie after the ;
-        int semicolonIndex = type.indexOf(";")
-        if (semicolonIndex >= 0) type = type.substring(0, semicolonIndex)
-        return type
-    }
-
-    static boolean isBinaryContentType(String contentType) {
-        if (contentType == null || contentType.length() == 0) return false
-        if (contentType.startsWith("text/")) return false
-        // aside from text/*, a few notable exceptions:
-        if ("application/javascript".equals(contentType)) return false
-        if ("application/json".equals(contentType)) return false
-        if (contentType.endsWith("+json")) return false
-        if ("application/rtf".equals(contentType)) return false
-        if (contentType.startsWith("application/xml")) return false
-        if (contentType.endsWith("+xml")) return false
-        if (contentType.startsWith("application/yaml")) return false
-        if (contentType.endsWith("+yaml")) return false
-        return true
-    }
+    @Override String getContentType(String filename) { return ResourceReference.getContentType(filename) }
 
     @Override
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {

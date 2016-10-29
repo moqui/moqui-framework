@@ -31,7 +31,7 @@ class ComponentResourceReference extends WrapperResourceReference {
         if (location.endsWith("/")) location = location.substring(0, location.length()-1)
         this.componentLocation = location
 
-        String strippedLocation = ResourceFacadeImpl.stripLocationPrefix(location)
+        String strippedLocation = stripLocationPrefix(location)
 
         // turn this into another URL using the component location
         StringBuffer baseLocation = new StringBuffer(strippedLocation)

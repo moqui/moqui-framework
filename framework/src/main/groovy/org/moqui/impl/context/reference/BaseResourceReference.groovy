@@ -27,7 +27,6 @@ abstract class BaseResourceReference extends ResourceReference {
     ExecutionContextFactory ecf = (ExecutionContextFactory) null
     protected Map<String, ResourceReference> subContentRefByPath = (Map<String, ResourceReference>) null
 
-    ResourceReference childOfResource = (ResourceReference) null
 
     BaseResourceReference() { }
 
@@ -73,55 +72,6 @@ abstract class BaseResourceReference extends ResourceReference {
     @Override abstract boolean delete()
 
     @Override
-    String getContentType() {
-        String fn = getFileName()
-        return fn != null && fn.length() > 0 ? ecf.getResource().getContentType(fn) : (String) null
-    }
-
-    @Override
-    ResourceReference getParent() {
-        String curLocation = getLocation()
-        if (curLocation.endsWith("/")) curLocation = curLocation.substring(0, curLocation.length() - 1)
-        String strippedLocation = ResourceFacadeImpl.stripLocationPrefix(curLocation)
-        if (!strippedLocation) return null
-        if (strippedLocation.startsWith("/")) strippedLocation = strippedLocation.substring(1)
-        if (strippedLocation.contains("/")) {
-            return ecf.getResource().getLocationReference(curLocation.substring(0, curLocation.lastIndexOf("/")))
-        } else {
-            String prefix = ResourceFacadeImpl.getLocationPrefix(curLocation)
-            if (prefix) return ecf.getResource().getLocationReference(prefix)
-            return null
-        }
-    }
-
-    @Override
-    ResourceReference getChild(String childName) {
-        if (childName == null || childName.length() == 0) return null
-        ResourceReference directoryRef = findMatchingDirectory()
-        StringBuilder fileLoc = new StringBuilder(directoryRef.getLocation())
-        if (fileLoc.charAt(fileLoc.length()-1) == (char) '/') fileLoc.deleteCharAt(fileLoc.length()-1)
-        if (childName.charAt(0) != (char) '/') fileLoc.append('/')
-        fileLoc.append(childName)
-
-        // NOTE: don't really care if it exists or not at this point
-        ResourceReference childRef = ecf.resource.getLocationReference(fileLoc.toString())
-        return childRef
-    }
-
-    @Override
-    List<ResourceReference> getChildren() {
-        List<ResourceReference> children = []
-
-        ResourceReference directoryRef = findMatchingDirectory()
-        if (!directoryRef?.exists) return null
-
-        for (ResourceReference childRef in directoryRef.getDirectoryEntries())
-            if (childRef.isFile()) children.add(childRef)
-
-        return children
-    }
-
-    @Override
     ResourceReference findChildFile(String relativePath) {
         // no path to child? that means this resource
         if (relativePath == null || relativePath.length() == 0) return this
@@ -146,7 +96,7 @@ abstract class BaseResourceReference extends ResourceReference {
             if (relativePath.charAt(0) != (char) '/') fileLoc.append('/')
             fileLoc.append(relativePath)
 
-            ResourceReference theFile = ecf.resource.getLocationReference(fileLoc.toString())
+            ResourceReference theFile = createNew(fileLoc.toString())
             if (theFile.exists && theFile.isFile()) childRef = theFile
 
             // logger.warn("============= finding child resource path [${relativePath}] childRef 1 [${childRef}]")
@@ -155,7 +105,7 @@ abstract class BaseResourceReference extends ResourceReference {
                 // try adding known extensions
                 for (String extToTry in ecf.resource.templateRenderers.keySet()) {
                     if (childRef != null) break
-                    theFile = ecf.resource.getLocationReference(fileLoc.toString() + extToTry)
+                    theFile = createNew(fileLoc.toString() + extToTry)
                     if (theFile.exists && theFile.isFile()) childRef = theFile
                     // logger.warn("============= finding child resource path [${relativePath}] fileLoc [${fileLoc}] extToTry [${extToTry}] childRef [${theFile}]")
                 }
@@ -186,7 +136,7 @@ abstract class BaseResourceReference extends ResourceReference {
         if (childRef == null) {
             // still nothing? treat the path to the file as a literal and return it (exists will be false)
             if (directoryRef.exists) {
-                childRef = ecf.resource.getLocationReference(directoryRef.getLocation() + '/' + relativePath)
+                childRef = createNew(directoryRef.getLocation() + '/' + relativePath)
                 if (childRef instanceof BaseResourceReference) {
                     ((BaseResourceReference) childRef).childOfResource = directoryRef
                 }
@@ -195,7 +145,7 @@ abstract class BaseResourceReference extends ResourceReference {
                 // pop off the extension, everything past the first dot after the last slash
                 int lastSlashLoc = newDirectoryLoc.lastIndexOf("/")
                 if (newDirectoryLoc.contains(".")) newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc))
-                childRef = ecf.resource.getLocationReference(newDirectoryLoc + '/' + relativePath)
+                childRef = createNew(newDirectoryLoc + '/' + relativePath)
             }
         } else {
             // put it in the cache before returning, but don't cache the literal reference
@@ -206,6 +156,7 @@ abstract class BaseResourceReference extends ResourceReference {
         return childRef
     }
 
+    @Override
     ResourceReference findChildDirectory(String relativePath) {
         if (!relativePath) return this
 
@@ -237,7 +188,7 @@ abstract class BaseResourceReference extends ResourceReference {
                 int lastSlashLoc = newDirectoryLoc.lastIndexOf("/")
                 if (newDirectoryLoc.contains(".")) newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc))
             }
-            childDirectoryRef = ecf.resource.getLocationReference(newDirectoryLoc + '/' + relativePath)
+            childDirectoryRef = createNew(newDirectoryLoc + '/' + relativePath)
         } else {
             // put it in the cache before returning, but don't cache the literal reference
             getSubContentRefByPath().put(relativePath, childRef)
@@ -245,19 +196,7 @@ abstract class BaseResourceReference extends ResourceReference {
         return childDirectoryRef
     }
 
-    ResourceReference findMatchingDirectory() {
-        if (this.isDirectory()) return this
-        StringBuilder dirLoc = new StringBuilder(getLocation())
-        ResourceReference directoryRef = this
-        while (!(directoryRef.exists && directoryRef.isDirectory()) && dirLoc.lastIndexOf(".") > 0) {
-            // get rid of one suffix at a time (for screens probably .xml but use .* for other files, etc)
-            dirLoc.delete(dirLoc.lastIndexOf("."), dirLoc.length())
-            directoryRef = ecf.resource.getLocationReference(dirLoc.toString())
-        }
-        return directoryRef
-    }
-
-    ResourceReference internalFindChildDir(ResourceReference directoryRef, String childDirName) {
+    private ResourceReference internalFindChildDir(ResourceReference directoryRef, String childDirName) {
         if (directoryRef == null || !directoryRef.exists) return null
         // no child dir name, means this/current dir
         if (!childDirName) return directoryRef
@@ -267,7 +206,7 @@ abstract class BaseResourceReference extends ResourceReference {
         if (dirLocation.charAt(dirLocation.length()-1) == (char) '/') dirLocation.deleteCharAt(dirLocation.length()-1)
         if (childDirName.charAt(0) != (char) '/') dirLocation.append('/')
         dirLocation.append(childDirName)
-        ResourceReference directRef = ecf.resource.getLocationReference(dirLocation.toString())
+        ResourceReference directRef = createNew(dirLocation.toString())
         if (directRef != null && directRef.exists) return directRef
 
         // if no direct reference is found, try the more flexible search
@@ -284,7 +223,7 @@ abstract class BaseResourceReference extends ResourceReference {
         return null
     }
 
-    ResourceReference internalFindChildFile(ResourceReference directoryRef, String childFilename) {
+    private ResourceReference internalFindChildFile(ResourceReference directoryRef, String childFilename) {
         if (directoryRef == null || !directoryRef.exists) return null
 
         // find check exact filename first
@@ -306,61 +245,4 @@ abstract class BaseResourceReference extends ResourceReference {
         }
         return null
     }
-
-    String getActualChildPath() {
-        if (childOfResource == null) return null
-        String parentLocation = childOfResource.getLocation()
-        String childLocation = getLocation()
-        // this should be true, but just in case:
-        if (childLocation.startsWith(parentLocation)) {
-            String childPath = childLocation.substring(parentLocation.length())
-            if (childPath.startsWith("/")) return childPath.substring(1)
-            else return childPath
-        }
-        // if not, what to do?
-        return null
-    }
-
-    void walkChildTree(List<Map> allChildFileFlatList, List<Map> childResourceList) {
-        if (this.isFile()) {
-            walkChildFileTree(this, "", allChildFileFlatList, childResourceList)
-        }
-
-        if (this.isDirectory()) {
-            for (ResourceReference childRef in this.getDirectoryEntries()) {
-                ((BaseResourceReference) childRef).walkChildFileTree(this, "", allChildFileFlatList, childResourceList)
-            }
-        }
-    }
-
-    void walkChildFileTree(ResourceReference rootResource, String pathFromRoot,
-                       List<Map> allChildFileFlatList, List<Map> childResourceList) {
-        // logger.warn("================ walkChildFileTree rootResource=${rootResource} pathFromRoot=${pathFromRoot} curLocation=${getLocation()}")
-
-        String childPathBase = pathFromRoot ? pathFromRoot + '/' : ''
-
-        if (this.isFile()) {
-            List<Map> curChildResourceList = []
-
-            String curFileName = this.getFileName()
-            if (curFileName.contains(".")) curFileName = curFileName.substring(0, curFileName.indexOf('.'))
-            String curPath = childPathBase + curFileName
-
-            if (allChildFileFlatList != null)
-                allChildFileFlatList.add([path:curPath, name:curFileName, location:this.getLocation()])
-            if (childResourceList != null)
-                childResourceList.add([path:curPath, name:curFileName, location:this.getLocation(),
-                    childResourceList:curChildResourceList])
-
-            ResourceReference matchingDirReference = this.findMatchingDirectory()
-            String childPath = childPathBase + matchingDirReference.fileName
-            for (ResourceReference childRef in matchingDirReference.getDirectoryEntries()) {
-                ((BaseResourceReference) childRef).walkChildFileTree(rootResource, childPath, allChildFileFlatList, curChildResourceList)
-            }
-        }
-
-        // TODO: walk child directories somehow or just stick with files with matching directories?
-    }
-
-    @Override String toString() { return getLocation() ?: "[no location (${this.class.getName()})]" }
 }

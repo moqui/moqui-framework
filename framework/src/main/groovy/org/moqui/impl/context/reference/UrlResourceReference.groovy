@@ -41,7 +41,7 @@ class UrlResourceReference extends BaseResourceReference {
 
     @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
         this.ecf = ecf
-        if (!location) throw new BaseException("Cannot create URL Resource Reference with empty location")
+        if (location == null || location.isEmpty()) throw new BaseException("Cannot create URL Resource Reference with empty location")
         if (location.startsWith("/") || location.indexOf(":") < 0) {
             // no prefix, local file: if starts with '/' is absolute, otherwise is relative to runtime path
             if (location.charAt(0) != '/') location = ecf.runtimePath + '/' + location
@@ -55,7 +55,7 @@ class UrlResourceReference extends BaseResourceReference {
                 // special case for Windows, try going through a file:
                 locationUrl = new URL("file:/" + location)
             }
-            isFileProtocol = (locationUrl?.protocol == "file")
+            isFileProtocol = locationUrl != null && "file".equals(locationUrl?.protocol)
         }
         return this
     }

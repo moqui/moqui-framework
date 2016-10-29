@@ -720,7 +720,7 @@ class WebFacadeImpl implements WebFacade {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
         String contentType = rr.getContentType()
-        if (!contentType || ResourceFacadeImpl.isBinaryContentType(contentType)) {
+        if (!contentType || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
             try {
                 OutputStream os = response.outputStream

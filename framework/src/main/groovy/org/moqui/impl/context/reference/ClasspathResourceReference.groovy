@@ -27,7 +27,7 @@ class ClasspathResourceReference extends UrlResourceReference {
 
     @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
         this.ecf = ecf
-        strippedLocation = ResourceFacadeImpl.stripLocationPrefix(location)
+        strippedLocation = stripLocationPrefix(location)
         // first try the current thread's context ClassLoader
         locationUrl = Thread.currentThread().getContextClassLoader().getResource(strippedLocation)
         // next try the ClassLoader that loaded this class
