@@ -81,14 +81,71 @@ public class CollectionUtilities {
     /**
      * Order list elements in place (modifies the list passed in), returns the list for convenience
      */
-    public static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<String> fieldNames) {
+    public static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<? extends CharSequence> fieldNames) {
         if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list");
         // this seems unnecessary, but is because Groovy allows a GString even in a List<String>, but MapOrderByComparator in Java blows up
-        ArrayList<String> fieldNameArray = new ArrayList<>();
-        for (String fieldName : fieldNames) fieldNameArray.add(fieldName);
-        if (theList != null && fieldNames.size() > 0)
-            Collections.sort(theList, new MapOrderByComparator(fieldNameArray));
+        if (theList != null && fieldNames.size() > 0) Collections.sort(theList, new MapOrderByComparator(fieldNames));
         return theList;
+    }
+
+    public static class MapOrderByComparator implements Comparator<Map> {
+        String[] fieldNameArray;
+
+        public MapOrderByComparator(List<? extends CharSequence> fieldNameList) {
+            fieldNameArray = new String[fieldNameList.size()];
+            int i = 0;
+            for (CharSequence fieldName : fieldNameList) {
+                fieldNameArray[i] = fieldName.toString();
+                i++;
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override public int compare(Map map1, Map map2) {
+            if (map1 == null) return -1;
+            if (map2 == null) return 1;
+            for (int i = 0; i < fieldNameArray.length; i++) {
+                String fieldName = fieldNameArray[i];
+                boolean ascending = true;
+                boolean ignoreCase = false;
+                if (fieldName.charAt(0) == '-') {
+                    ascending = false;
+                    fieldName = fieldName.substring(1);
+                } else if (fieldName.charAt(0) == '+') {
+                    fieldName = fieldName.substring(1);
+                }
+                if (fieldName.charAt(0) == '^') {
+                    ignoreCase = true;
+                    fieldName = fieldName.substring(1);
+                }
+                Comparable value1 = (Comparable) map1.get(fieldName);
+                Comparable value2 = (Comparable) map2.get(fieldName);
+                // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
+                if (value1 == null) {
+                    if (value2 != null) return ascending ? 1 : -1;
+                } else {
+                    if (value2 == null) {
+                        return ascending ? -1 : 1;
+                    } else {
+                        if (ignoreCase && value1 instanceof String && value2 instanceof String) {
+                            int comp = ((String) value1).compareToIgnoreCase((String) value2);
+                            if (comp != 0) return ascending ? comp : -comp;
+                        } else {
+                            int comp = value1.compareTo(value2);
+                            if (comp != 0) return ascending ? comp : -comp;
+                        }
+                    }
+                }
+            }
+            // all evaluated to 0, so is the same, so return 0
+            return 0;
+        }
+
+        @Override public boolean equals(Object obj) {
+            return obj instanceof MapOrderByComparator && fieldNameArray.equals(((MapOrderByComparator) obj).fieldNameArray);
+        }
+
+        @Override public String toString() { return fieldNameArray.toString(); }
     }
 
     /**
@@ -390,62 +447,5 @@ public class CollectionUtilities {
         context.put(pageListName + "PageMaxIndex", maxIndex);
         context.put(pageListName + "PageRangeLow", pageRangeLow);
         context.put(pageListName + "PageRangeHigh", pageRangeHigh);
-    }
-
-    public static class MapOrderByComparator implements Comparator<Map> {
-        ArrayList<String> fieldNameList;
-        int fieldNameListSize;
-
-        public MapOrderByComparator(List<String> fieldNameList) {
-            this.fieldNameList = fieldNameList instanceof ArrayList ? (ArrayList<String>) fieldNameList : new ArrayList<>(fieldNameList);
-            fieldNameListSize = fieldNameList.size();
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override public int compare(Map map1, Map map2) {
-            if (map1 == null) return -1;
-            if (map2 == null) return 1;
-            for (int i = 0; i < fieldNameListSize; i++) {
-                String fieldName = fieldNameList.get(i);
-                boolean ascending = true;
-                boolean ignoreCase = false;
-                if (fieldName.charAt(0) == '-') {
-                    ascending = false;
-                    fieldName = fieldName.substring(1);
-                } else if (fieldName.charAt(0) == '+') {
-                    fieldName = fieldName.substring(1);
-                }
-                if (fieldName.charAt(0) == '^') {
-                    ignoreCase = true;
-                    fieldName = fieldName.substring(1);
-                }
-                Comparable value1 = (Comparable) map1.get(fieldName);
-                Comparable value2 = (Comparable) map2.get(fieldName);
-                // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
-                if (value1 == null) {
-                    if (value2 != null) return ascending ? 1 : -1;
-                } else {
-                    if (value2 == null) {
-                        return ascending ? -1 : 1;
-                    } else {
-                        if (ignoreCase && value1 instanceof String && value2 instanceof String) {
-                            int comp = ((String) value1).compareToIgnoreCase((String) value2);
-                            if (comp != 0) return ascending ? comp : -comp;
-                        } else {
-                            int comp = value1.compareTo(value2);
-                            if (comp != 0) return ascending ? comp : -comp;
-                        }
-                    }
-                }
-            }
-            // all evaluated to 0, so is the same, so return 0
-            return 0;
-        }
-
-        @Override public boolean equals(Object obj) {
-            return obj instanceof MapOrderByComparator && fieldNameList.equals(((MapOrderByComparator) obj).fieldNameList);
-        }
-
-        @Override public String toString() { return fieldNameList.toString(); }
     }
 }
