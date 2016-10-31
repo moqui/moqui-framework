@@ -14,6 +14,8 @@
 package org.moqui.resource;
 
 import org.moqui.BaseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.activation.MimetypesFileTypeMap;
 import java.io.InputStream;
@@ -25,6 +27,7 @@ import java.net.URL;
 import java.util.*;
 
 public abstract class ResourceReference implements Serializable {
+    private static final Logger logger = LoggerFactory.getLogger(ResourceReference.class);
     private static final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap();
 
     protected ResourceReference childOfResource = null;
@@ -76,6 +79,7 @@ public abstract class ResourceReference implements Serializable {
                 // WARNING: a String from this URI may not equal the String from the URL (ie if characters are encoded)
                 // NOTE: this doesn't seem to work on Windows for local files: when protocol is plain "file" and path starts
                 //     with a drive letter like "C:\moqui\..." it produces a parse error showing the URI as "file://C:/..."
+                if (logger.isTraceEnabled()) logger.trace("Getting URI for URL " + locUrl.toExternalForm());
                 return new URI(locUrl.getProtocol(), locUrl.getUserInfo(), locUrl.getHost(),
                         locUrl.getPort(), locUrl.getPath(), locUrl.getQuery(), locUrl.getRef());
             } else {

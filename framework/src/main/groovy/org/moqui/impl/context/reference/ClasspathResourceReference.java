@@ -14,8 +14,11 @@
 package org.moqui.impl.context.reference;
 
 import org.moqui.resource.ResourceReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ClasspathResourceReference extends UrlResourceReference {
+    private static final Logger logger = LoggerFactory.getLogger(ClasspathResourceReference.class);
     private String strippedLocation;
 
     public ClasspathResourceReference() { super(); }

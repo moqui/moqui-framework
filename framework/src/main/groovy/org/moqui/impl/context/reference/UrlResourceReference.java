@@ -26,11 +26,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class UrlResourceReference extends ResourceReference {
-    protected static final Logger logger = LoggerFactory.getLogger(UrlResourceReference.class);
-    protected URL locationUrl = null;
-    protected Boolean exists = null;
-    protected boolean isFileProtocol = false;
-    protected transient File localFile = null;
+    private static final Logger logger = LoggerFactory.getLogger(UrlResourceReference.class);
+    URL locationUrl = null;
+    Boolean exists = null;
+    boolean isFileProtocol = false;
+    private transient File localFile = null;
 
     public UrlResourceReference() { }
     public UrlResourceReference(File file) {
@@ -48,7 +48,10 @@ public class UrlResourceReference extends ResourceReference {
             // no prefix, local file: if starts with '/' is absolute, otherwise is relative to runtime path
             if (location.charAt(0) != '/') {
                 String moquiRuntime = System.getProperty("moqui.runtime");
-                if (moquiRuntime != null && !moquiRuntime.isEmpty()) location = moquiRuntime + "/" + location;
+                if (moquiRuntime != null && !moquiRuntime.isEmpty()) {
+                    File runtimeFile = new File(moquiRuntime);
+                    location = runtimeFile.getAbsolutePath() + "/" + location;
+                }
             }
 
             try { locationUrl = new URL("file:" + location); }

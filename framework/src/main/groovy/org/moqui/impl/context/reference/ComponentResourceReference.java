@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ComponentResourceReference extends WrapperResourceReference {
-    protected String componentLocation;
+    private String componentLocation;
 
     public ComponentResourceReference() { super(); }
 
