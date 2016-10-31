@@ -19,11 +19,11 @@ import org.apache.commons.validator.routines.UrlValidator;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 import org.moqui.context.ArtifactExecutionInfo;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.util.MNode;
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -457,7 +457,7 @@ public class ServiceDefinition {
                         if (parameterInfo.parmClass != null) {
                             typeMatches = parameterClass == parameterInfo.parmClass || parameterInfo.parmClass.isInstance(parameterValue);
                         } else {
-                            typeMatches = StupidJavaUtilities.isInstanceOf(parameterValue, parameterInfo.type);
+                            typeMatches = ObjectUtilities.isInstanceOf(parameterValue, parameterInfo.type);
                         }
                         if (!typeMatches) parameterValue = null;
                     }
@@ -472,7 +472,7 @@ public class ServiceDefinition {
                 if (parameterInfo.parmClass != null) {
                     typeMatches = parameterClass == parameterInfo.parmClass || parameterInfo.parmClass.isInstance(parameterValue);
                 } else {
-                    typeMatches = StupidJavaUtilities.isInstanceOf(parameterValue, parameterInfo.type);
+                    typeMatches = ObjectUtilities.isInstanceOf(parameterValue, parameterInfo.type);
                 }
                 if (!typeMatches) {
                     // convert type, at this point parameterValue is not empty and doesn't match parameter type

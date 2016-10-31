@@ -18,10 +18,10 @@ import groovy.lang.Script;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.moqui.BaseException;
-import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
+import org.moqui.util.StringUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,7 +96,7 @@ public class XmlAction {
         String curGroovy = getGroovyString();
         // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
         try {
-            groovyClassInternal = ecfi.getGroovyClassLoader().parseClass(curGroovy, StupidUtilities.cleanStringForJavaName(location));
+            groovyClassInternal = ecfi.getGroovyClassLoader().parseClass(curGroovy, StringUtilities.cleanStringForJavaName(location));
         } catch (Throwable t) {
             groovyClassInternal = null;
             logger.error("Error parsing groovy String at [" + location + "]:\n" + writeGroovyWithLines() + "\n");

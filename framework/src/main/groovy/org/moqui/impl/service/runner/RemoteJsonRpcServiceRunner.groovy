@@ -17,7 +17,7 @@ import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContext
-import org.moqui.impl.StupidWebUtilities
+import org.moqui.util.WebUtilities
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.ServiceRunner
@@ -55,7 +55,7 @@ public class RemoteJsonRpcServiceRunner implements ServiceRunner {
 
         // logger.warn("======== JSON-RPC remote service request to location [${location}]: ${jsonRequest}")
 
-        String jsonResponse = StupidWebUtilities.simpleHttpStringRequest(location, jsonRequest, "application/json")
+        String jsonResponse = WebUtilities.simpleHttpStringRequest(location, jsonRequest, "application/json")
 
         // logger.info("JSON-RPC remote service [${sd.getServiceName()}] request: ${httpPost.getRequestLine()}, ${httpPost.getAllHeaders()}, ${httpPost.getEntity().contentLength} bytes")
         // logger.warn("======== JSON-RPC remote service request entity [length:${httpPost.getEntity().contentLength}]: ${EntityUtils.toString(httpPost.getEntity())}")

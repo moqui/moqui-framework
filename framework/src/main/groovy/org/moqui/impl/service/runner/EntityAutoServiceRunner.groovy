@@ -18,7 +18,6 @@ import org.moqui.BaseException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityDefinition
@@ -30,7 +29,7 @@ import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.ServiceRunner
 import org.moqui.service.ServiceException
-
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -121,7 +120,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         for (int i = 0; i < pkSize; i++) {
             FieldInfo fieldInfo = pkFieldInfos[i]
             Object pkValue = parameters.get(fieldInfo.name)
-            if (StupidJavaUtilities.isEmpty(pkValue) && (fieldInfo.defaultStr == null || fieldInfo.defaultStr.isEmpty())) {
+            if (ObjectUtilities.isEmpty(pkValue) && (fieldInfo.defaultStr == null || fieldInfo.defaultStr.isEmpty())) {
                 allPksIn = false
             }
         }
@@ -136,7 +135,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
             FieldInfo singlePkField = pkFieldInfos[0]
 
             Object pkValue = parameters.get(singlePkField.name)
-            if (!StupidJavaUtilities.isEmpty(pkValue)) {
+            if (!ObjectUtilities.isEmpty(pkValue)) {
                 newEntityValue.set(singlePkField.name, pkValue)
             } else {
                 // if it has a default value don't sequence the PK

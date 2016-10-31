@@ -14,9 +14,9 @@
 package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.util.ObjectUtilities
 
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -57,7 +57,7 @@ public class JavaServiceRunner implements ServiceRunner {
             // now add the parameters to this service call; copy instead of pushing, faster with newer ContextStack
             cs.putAll(parameters)
 
-            Class c = (Class) StupidJavaUtilities.getClass(sd.location)
+            Class c = (Class) ObjectUtilities.getClass(sd.location)
             if (c == null) c = Thread.currentThread().getContextClassLoader().loadClass(sd.location)
 
             Method m = c.getMethod(sd.method, ExecutionContext.class)

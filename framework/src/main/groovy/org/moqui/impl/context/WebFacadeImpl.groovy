@@ -24,8 +24,7 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload
 import org.moqui.context.*
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValueNotFoundException
-import org.moqui.impl.StupidUtilities
-import org.moqui.impl.StupidWebUtilities
+import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.impl.screen.ScreenDefinition
 import org.moqui.impl.screen.ScreenUrlInfo
@@ -34,6 +33,8 @@ import org.moqui.impl.service.ServiceJsonRpcDispatcher
 import org.moqui.impl.service.ServiceXmlRpcDispatcher
 import org.moqui.util.ContextStack
 import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -168,7 +169,7 @@ class WebFacadeImpl implements WebFacade {
         // create the session token if needed (protection against CSRF/XSRF attacks; see ScreenRenderImpl)
         String sessionToken = session.getAttribute("moqui.session.token")
         if (sessionToken == null || sessionToken.length() == 0) {
-            sessionToken = StupidUtilities.getRandomString(20)
+            sessionToken = StringUtilities.getRandomString(20)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
         }
@@ -348,7 +349,7 @@ class WebFacadeImpl implements WebFacade {
     @Override
     Map<String, Object> getRequestAttributes() {
         if (requestAttributes != null) return requestAttributes
-        requestAttributes = new StupidWebUtilities.RequestAttributeMap(request)
+        requestAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.ServletRequestContainer(request))
         return requestAttributes
     }
     @Override
@@ -359,14 +360,14 @@ class WebFacadeImpl implements WebFacade {
         if (savedParameters != null) cs.push(savedParameters)
         if (multiPartParameters != null) cs.push(multiPartParameters)
         if (jsonParameters != null) cs.push(jsonParameters)
-        if (declaredPathParameters != null) cs.push(new StupidWebUtilities.CanonicalizeMap(declaredPathParameters))
+        if (declaredPathParameters != null) cs.push(new WebUtilities.CanonicalizeMap(declaredPathParameters))
 
-        // no longer uses StupidWebUtilities.CanonicalizeMap, search Map for String[] of size 1 and change to String
-        Map<String, Object> reqParmMap = StupidWebUtilities.simplifyRequestParameters(request)
+        // no longer uses CanonicalizeMap, search Map for String[] of size 1 and change to String
+        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
         if (reqParmMap.size() > 0) cs.push(reqParmMap)
 
         // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
-        Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getRequestURI())
+        Map<String, Object> pathInfoParameterMap = WebUtilities.getPathInfoParameterMap(request.getRequestURI())
         if (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0) cs.push(pathInfoParameterMap)
         // NOTE: the CanonicalizeMap cleans up character encodings, and unwraps lists of values with a single entry
 
@@ -382,7 +383,7 @@ class WebFacadeImpl implements WebFacade {
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
         if (!request.getQueryString()) {
-            Map<String, Object> reqParmMap = StupidWebUtilities.simplifyRequestParameters(request)
+            Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
             if (reqParmMap.size() > 0) cs.push(reqParmMap)
         }
         return cs
@@ -416,7 +417,7 @@ class WebFacadeImpl implements WebFacade {
     @Override
     Map<String, Object> getSessionAttributes() {
         if (sessionAttributes) return sessionAttributes
-        sessionAttributes = new StupidWebUtilities.SessionAttributeMap(getSession())
+        sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(getSession()))
         return sessionAttributes
     }
 
@@ -425,7 +426,7 @@ class WebFacadeImpl implements WebFacade {
     @Override
     Map<String, Object> getApplicationAttributes() {
         if (applicationAttributes) return applicationAttributes
-        applicationAttributes = new StupidWebUtilities.ServletContextAttributeMap(getSession().getServletContext())
+        applicationAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.ServletContextContainer(getServletContext()))
         return applicationAttributes
     }
 
@@ -685,7 +686,7 @@ class WebFacadeImpl implements WebFacade {
         if (!filename) {
             response.addHeader("Content-Disposition", "inline")
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StupidUtilities.encodeAsciiFilename(filename)}")
+            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
         }
 
         try {
@@ -716,15 +717,15 @@ class WebFacadeImpl implements WebFacade {
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StupidUtilities.encodeAsciiFilename(rr.getFileName())}")
+            response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
         String contentType = rr.getContentType()
-        if (!contentType || ResourceFacadeImpl.isBinaryContentType(contentType)) {
+        if (!contentType || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
             try {
                 OutputStream os = response.outputStream
                 try {
-                    int totalLen = StupidUtilities.copyStream(is, os)
+                    int totalLen = ObjectUtilities.copyStream(is, os)
                     logger.info("Streamed ${totalLen} bytes from location ${location}")
                 } finally {
                     os.close()

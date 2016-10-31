@@ -17,10 +17,9 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
-import org.moqui.impl.StupidUtilities
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
-
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -36,8 +35,7 @@ class DbResourceReference extends BaseResourceReference {
 
     DbResourceReference() { }
     
-    @Override
-    ResourceReference init(String location, ExecutionContextFactory ecf) {
+    @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
         this.ecf = ecf
         this.location = location
         return this
@@ -50,8 +48,12 @@ class DbResourceReference extends BaseResourceReference {
         return this
     }
 
-    @Override
-    String getLocation() { location }
+    @Override ResourceReference createNew(String location) {
+        DbResourceReference resRef = new DbResourceReference();
+        resRef.init(location, ecf);
+        return resRef;
+    }
+    @Override String getLocation() { location }
 
     String getPath() {
         if (!location) return ""
@@ -59,41 +61,31 @@ class DbResourceReference extends BaseResourceReference {
         return location.substring(locationPrefix.length())
     }
 
-    @Override
-    InputStream openStream() {
+    @Override InputStream openStream() {
         EntityValue dbrf = getDbResourceFile()
         if (dbrf == null) return null
         return dbrf.getSerialBlob("fileData")?.getBinaryStream()
     }
 
-    @Override
-    OutputStream getOutputStream() {
+    @Override OutputStream getOutputStream() {
         throw new UnsupportedOperationException("The getOutputStream method is not supported for DB resources, use putStream() instead")
     }
 
-    @Override
-    String getText() { return StupidUtilities.getStreamText(openStream()) }
+    @Override String getText() { return ObjectUtilities.getStreamText(openStream()) }
 
-    @Override
-    boolean supportsAll() { true }
+    @Override boolean supportsAll() { true }
 
-    @Override
-    boolean supportsUrl() { false }
-    @Override
-    URL getUrl() { return null }
+    @Override boolean supportsUrl() { false }
+    @Override URL getUrl() { return null }
 
-    @Override
-    boolean supportsDirectory() { true }
-    @Override
-    boolean isFile() { return getDbResource(true)?.isFile == "Y" }
-    @Override
-    boolean isDirectory() {
+    @Override boolean supportsDirectory() { true }
+    @Override boolean isFile() { return getDbResource(true)?.isFile == "Y" }
+    @Override boolean isDirectory() {
         if (!getPath()) return true // consider root a directory
         EntityValue dbr = getDbResource(true)
         return dbr != null && dbr.isFile != "Y"
     }
-    @Override
-    List<ResourceReference> getDirectoryEntries() {
+    @Override List<ResourceReference> getDirectoryEntries() {
         List<ResourceReference> dirEntries = new LinkedList()
         EntityValue dbr = getDbResource(true)
         if (getPath() && dbr == null) return dirEntries
@@ -108,15 +100,11 @@ class DbResourceReference extends BaseResourceReference {
         return dirEntries
     }
 
-    @Override
-    boolean supportsExists() { true }
-    @Override
-    boolean getExists() { return getDbResource(true) != null }
+    @Override boolean supportsExists() { true }
+    @Override boolean getExists() { return getDbResource(true) != null }
 
-    @Override
-    boolean supportsLastModified() { true }
-    @Override
-    long getLastModified() {
+    @Override boolean supportsLastModified() { true }
+    @Override long getLastModified() {
         EntityValue dbr = getDbResource(true)
         if (dbr == null) return 0
         if (dbr.isFile == "Y") {
@@ -129,27 +117,22 @@ class DbResourceReference extends BaseResourceReference {
         return dbr.getTimestamp("lastUpdatedStamp").getTime()
     }
 
-    @Override
-    boolean supportsSize() { true }
-    @Override
-    long getSize() {
+    @Override boolean supportsSize() { true }
+    @Override long getSize() {
         EntityValue dbrf = getDbResourceFile()
         if (dbrf == null) return 0
         return dbrf.getSerialBlob("fileData")?.length() ?: 0
     }
 
-    @Override
-    boolean supportsWrite() { true }
-    @Override
-    void putText(String text) {
+    @Override boolean supportsWrite() { true }
+    @Override void putText(String text) {
         SerialBlob sblob = text ? new SerialBlob(text.getBytes()) : null
         this.putObject(sblob)
     }
-    @Override
-    void putStream(InputStream stream) {
+    @Override void putStream(InputStream stream) {
         if (stream == null) return
         ByteArrayOutputStream baos = new ByteArrayOutputStream()
-        StupidUtilities.copyStream(stream, baos)
+        ObjectUtilities.copyStream(stream, baos)
         SerialBlob sblob = new SerialBlob(baos.toByteArray())
         this.putObject(sblob)
     }
@@ -239,8 +222,7 @@ class DbResourceReference extends BaseResourceReference {
         return finalParentResourceId
     }
 
-    @Override
-    void move(String newLocation) {
+    @Override void move(String newLocation) {
         EntityValue dbr = getDbResource(false)
         // if the current resource doesn't exist, nothing to move
         if (!dbr) {
@@ -264,19 +246,16 @@ class DbResourceReference extends BaseResourceReference {
         }
     }
 
-    @Override
-    ResourceReference makeDirectory(String name) {
+    @Override ResourceReference makeDirectory(String name) {
         findDirectoryId([name], true)
         return new DbResourceReference().init("${location}/${name}", ecf)
     }
-    @Override
-    ResourceReference makeFile(String name) {
+    @Override ResourceReference makeFile(String name) {
         DbResourceReference newRef = (DbResourceReference) new DbResourceReference().init("${location}/${name}", ecf)
         newRef.putObject(null)
         return newRef
     }
-    @Override
-    boolean delete() {
+    @Override boolean delete() {
         EntityValue dbr = getDbResource(false)
         if (dbr == null) return false
         if (dbr.isFile == "Y") {

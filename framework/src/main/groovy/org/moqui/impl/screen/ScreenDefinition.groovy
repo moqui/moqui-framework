@@ -18,19 +18,19 @@ import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
+import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -513,13 +513,13 @@ class ScreenDefinition {
             if (parameterNode.attribute("required") == "true") required = true
 
             if (parameterNode.attribute("from")) fromFieldGroovy = ecfi.getGroovyClassLoader().parseClass(
-                    parameterNode.attribute("from"), StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.from_field"))
+                    parameterNode.attribute("from"), StringUtilities.cleanStringForJavaName("${location}.parameter_${name}.from_field"))
 
             valueString = parameterNode.attribute("value")
             if (valueString != null && valueString.length() == 0) valueString = null
             if (valueString != null && valueString.contains('${')) {
                 valueGroovy = ecfi.getGroovyClassLoader().parseClass(('"""' + parameterNode.attribute("value") + '"""'),
-                        StupidUtilities.cleanStringForJavaName("${location}.parameter_${name}.value"))
+                        StringUtilities.cleanStringForJavaName("${location}.parameter_${name}.value"))
             }
         }
         String getName() { return name }
@@ -573,7 +573,7 @@ class ScreenDefinition {
             this.transitionNode = transitionNode
             name = transitionNode.attribute("name")
             method = transitionNode.attribute("method") ?: "any"
-            location = "${parentScreen.location}.transition\$${StupidUtilities.cleanStringForJavaName(name)}"
+            location = "${parentScreen.location}.transition\$${StringUtilities.cleanStringForJavaName(name)}"
             beginTransaction = transitionNode.attribute("begin-transaction") != "false"
             readOnly = transitionNode.attribute("read-only") == "true"
             requireSessionToken = transitionNode.attribute("require-session-token") != "false"
@@ -742,7 +742,7 @@ class ScreenDefinition {
                 ec.contextStack.put("sri", sri)
                 actions.run(ec)
                 // use entire ec.context to get values from always-actions and pre-actions
-                wf.sendJsonResponse(StupidJavaUtilities.unwrapMap(ec.contextStack))
+                wf.sendJsonResponse(ContextJavaUtil.unwrapMap(ec.contextStack))
             } else {
                 wf.sendJsonResponse(new HashMap())
             }

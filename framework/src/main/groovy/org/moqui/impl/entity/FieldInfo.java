@@ -15,10 +15,10 @@ package org.moqui.impl.entity;
 
 import org.moqui.BaseException;
 import org.moqui.entity.EntityException;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.impl.entity.condition.ConditionField;
 import org.moqui.util.MNode;
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -378,7 +378,7 @@ public class FieldInfo {
                                           EntityDefinition ed, EntityFacadeImpl efi) throws EntityException {
         int localTypeValue = typeValue;
         if (value != null) {
-            if (checkPreparedStatementValueType && !StupidJavaUtilities.isInstanceOf(value, javaType)) {
+            if (checkPreparedStatementValueType && !ObjectUtilities.isInstanceOf(value, javaType)) {
                 // this is only an info level message because under normal operation for most JDBC
                 // drivers this will be okay, but if not then the JDBC driver will throw an exception
                 // and when lower debug levels are on this should help give more info on what happened

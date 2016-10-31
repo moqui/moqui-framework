@@ -14,6 +14,7 @@
 package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
+import org.moqui.util.ObjectUtilities
 
 import javax.jcr.NodeIterator
 import javax.jcr.Session
@@ -21,7 +22,6 @@ import javax.jcr.Property
 
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ResourceFacadeImpl
 
 import org.slf4j.Logger
@@ -40,8 +40,7 @@ class ContentResourceReference extends BaseResourceReference {
 
     ContentResourceReference() { }
     
-    @Override
-    ResourceReference init(String location, ExecutionContextFactory ecf) {
+    @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
         this.ecf = ecf
 
         this.location = location
@@ -63,11 +62,14 @@ class ContentResourceReference extends BaseResourceReference {
         return this
     }
 
-    @Override
-    String getLocation() { location }
+    @Override ResourceReference createNew(String location) {
+        ContentResourceReference resRef = new ContentResourceReference();
+        resRef.init(location, ecf);
+        return resRef;
+    }
+    @Override String getLocation() { location }
 
-    @Override
-    InputStream openStream() {
+    @Override InputStream openStream() {
         javax.jcr.Node node = getNode()
         if (node == null) return null
         javax.jcr.Node contentNode = node.getNode("jcr:content")
@@ -77,38 +79,29 @@ class ContentResourceReference extends BaseResourceReference {
         return dataProperty.binary.stream
     }
 
-    @Override
-    OutputStream getOutputStream() {
+    @Override OutputStream getOutputStream() {
         throw new UnsupportedOperationException("The getOutputStream method is not supported for JCR, use putStream() instead")
     }
 
-    @Override
-    String getText() { return StupidUtilities.getStreamText(openStream()) }
+    @Override String getText() { return ObjectUtilities.getStreamText(openStream()) }
 
-    @Override
-    boolean supportsAll() { true }
+    @Override boolean supportsAll() { true }
 
-    @Override
-    boolean supportsUrl() { false }
-    @Override
-    URL getUrl() { return null }
+    @Override boolean supportsUrl() { false }
+    @Override URL getUrl() { return null }
 
-    @Override
-    boolean supportsDirectory() { true }
-    @Override
-    boolean isFile() {
+    @Override boolean supportsDirectory() { true }
+    @Override boolean isFile() {
         javax.jcr.Node node = getNode()
         if (node == null) return false
         return node.isNodeType("nt:file")
     }
-    @Override
-    boolean isDirectory() {
+    @Override boolean isDirectory() {
         javax.jcr.Node node = getNode()
         if (node == null) return false
         return node.isNodeType("nt:folder")
     }
-    @Override
-    List<ResourceReference> getDirectoryEntries() {
+    @Override List<ResourceReference> getDirectoryEntries() {
         List<ResourceReference> dirEntries = new LinkedList()
         javax.jcr.Node node = getNode()
         if (node == null) return dirEntries
@@ -123,39 +116,25 @@ class ContentResourceReference extends BaseResourceReference {
     // TODO: consider overriding findChildFile() to let the JCR impl do the query
     // ResourceReference findChildFile(String relativePath)
 
-    @Override
-    boolean supportsExists() { true }
-    @Override
-    boolean getExists() {
+    @Override boolean supportsExists() { true }
+    @Override boolean getExists() {
         if (theNode != null) return true
         Session session = ((ResourceFacadeImpl) ecf.resource).getContentRepositorySession(repositoryName)
         return session.nodeExists(nodePath)
     }
 
-    @Override
-    boolean supportsLastModified() { true }
-    @Override
-    long getLastModified() {
+    @Override boolean supportsLastModified() { true }
+    @Override long getLastModified() {
         return getNode()?.getProperty("jcr:lastModified")?.getDate()?.getTimeInMillis() ?: System.currentTimeMillis()
     }
 
-    @Override
-    boolean supportsSize() { true }
-    @Override
-    long getSize() { getNode()?.getProperty("jcr:content/jcr:data")?.getLength() ?: 0 }
+    @Override boolean supportsSize() { true }
+    @Override long getSize() { getNode()?.getProperty("jcr:content/jcr:data")?.getLength() ?: 0 }
 
-    @Override
-    boolean supportsWrite() { true }
+    @Override boolean supportsWrite() { true }
 
-    @Override
-    void putText(String text) {
-        putObject(text)
-    }
-    @Override
-    void putStream(InputStream stream) {
-        putObject(stream)
-    }
-
+    @Override void putText(String text) { putObject(text) }
+    @Override void putStream(InputStream stream) { putObject(stream) }
     protected void putObject(Object obj) {
         if (obj == null) {
             logger.warn("Data was null, not saving to resource [${getLocation()}]")
@@ -238,20 +217,17 @@ class ContentResourceReference extends BaseResourceReference {
         this.theNode = null
     }
 
-    @Override
-    ResourceReference makeDirectory(String name) {
+    @Override ResourceReference makeDirectory(String name) {
         Session session = ((ResourceFacadeImpl) ecf.resource).getContentRepositorySession(repositoryName)
         findDirectoryNode(session, [name], true)
         return new ContentResourceReference().init("${location}/${name}", ecf)
     }
-    @Override
-    ResourceReference makeFile(String name) {
+    @Override ResourceReference makeFile(String name) {
         ContentResourceReference newRef = (ContentResourceReference) new ContentResourceReference().init("${location}/${name}", ecf)
         newRef.putObject(null)
         return newRef
     }
-    @Override
-    boolean delete() {
+    @Override boolean delete() {
         javax.jcr.Node curNode = getNode()
         if (curNode == null) return false
         curNode.remove()

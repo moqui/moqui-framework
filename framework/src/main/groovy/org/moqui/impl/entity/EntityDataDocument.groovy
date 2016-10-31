@@ -22,16 +22,17 @@ import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
+import java.util.concurrent.atomic.AtomicInteger
 
 @CompileStatic
 class EntityDataDocument {
@@ -153,7 +154,7 @@ class EntityDataDocument {
         // add member entities and field aliases to dynamic view
         dynamicView.addMemberEntity("PRIM_ENT", primaryEntityName, null, null, null)
         fieldTree.put("_ALIAS", "PRIM_ENT")
-        StupidUtilities.Incrementer incrementer = new StupidUtilities.Incrementer()
+        AtomicInteger incrementer = new AtomicInteger()
         addDataDocRelatedEntity(dynamicView, "PRIM_ENT", fieldTree, incrementer)
 
         // logger.warn("=========== ${dataDocumentId} ViewEntityNode=${((EntityDynamicViewImpl) dynamicView).getViewEntityNode()}")
@@ -266,7 +267,7 @@ class EntityDataDocument {
             boolean allPassed = true
             for (EntityValue dataDocumentCondition in dataDocumentConditionList) if (dataDocumentCondition.postQuery == "Y") {
                 Set<Object> valueSet = new HashSet<Object>()
-                StupidUtilities.findAllFieldsNestedMap((String) dataDocumentCondition.fieldNameAlias, docMap, valueSet)
+                CollectionUtilities.findAllFieldsNestedMap((String) dataDocumentCondition.fieldNameAlias, docMap, valueSet)
                 if (!valueSet) {
                     if (!dataDocumentCondition.fieldValue) { continue }
                     else { allPassed = false; break }
@@ -389,7 +390,7 @@ class EntityDataDocument {
     }
 
     protected void addDataDocRelatedEntity(EntityDynamicView dynamicView, String parentEntityAlias,
-                                           Map fieldTreeCurrent, StupidUtilities.Incrementer incrementer) {
+                                           Map fieldTreeCurrent, AtomicInteger incrementer) {
         for (Map.Entry fieldTreeEntry in fieldTreeCurrent.entrySet()) {
             if (fieldTreeEntry.getKey() instanceof String && fieldTreeEntry.getKey() == "_ALIAS") continue
             if (fieldTreeEntry.getValue() instanceof Map) {

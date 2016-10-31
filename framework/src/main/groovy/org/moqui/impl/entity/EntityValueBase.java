@@ -22,10 +22,11 @@ import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.StupidJavaUtilities;
-import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.context.*;
+import org.moqui.util.CollectionUtilities;
 import org.moqui.util.MNode;
+import org.moqui.util.ObjectUtilities;
+import org.moqui.util.StringUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -253,7 +254,7 @@ public abstract class EntityValueBase implements EntityValue {
                             EntityValue lefValue = lefFind.useCache(true).one();
                             if (lefValue != null) {
                                 String localized = (String) lefValue.get("localized");
-                                StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                 return localized;
                             }
 
@@ -263,7 +264,7 @@ public abstract class EntityValueBase implements EntityValue {
                                 lefValue = lefFind.useCache(true).one();
                                 if (lefValue != null) {
                                     String localized = (String) lefValue.get("localized");
-                                    StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                                    CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                     return localized;
                                 }
                             }
@@ -273,7 +274,7 @@ public abstract class EntityValueBase implements EntityValue {
                             lefValue = lefFind.useCache(true).one();
                             if (lefValue != null) {
                                 String localized = (String) lefValue.get("localized");
-                                StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                 return localized;
                             }
                         }
@@ -286,7 +287,7 @@ public abstract class EntityValueBase implements EntityValue {
                     EntityValue lmValue = lmFind.useCache(true).one();
                     if (lmValue != null) {
                         String localized = (String) lmValue.get("localized");
-                        StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                         return localized;
                     }
 
@@ -295,7 +296,7 @@ public abstract class EntityValueBase implements EntityValue {
                         lmValue = lmFind.useCache(true).one();
                         if (lmValue != null) {
                             String localized = (String) lmValue.get("localized");
-                            StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                            CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                             return localized;
                         }
                     }
@@ -304,12 +305,12 @@ public abstract class EntityValueBase implements EntityValue {
                     lmValue = lmFind.useCache(true).one();
                     if (lmValue != null) {
                         String localized = (String) lmValue.get("localized");
-                        StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                         return localized;
                     }
 
                     // we didn't find a localized value, remember that so we don't do the queries again (common case)
-                    StupidUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
+                    CollectionUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
                     // logger.warn("======== field ${name}:${internalValue} remembering no localized, localizedByLocaleByField=${localizedByLocaleByField}")
                 }
 
@@ -493,7 +494,7 @@ public abstract class EntityValueBase implements EntityValue {
         }
 
         int seqValToUse = highestSeqVal != null ? highestSeqVal + 1 : 1;
-        this.set(seqFieldName, StupidUtilities.paddedNumber(seqValToUse, paddedLength));
+        this.set(seqFieldName, StringUtilities.paddedNumber(seqValToUse, paddedLength));
         return this;
     }
 
@@ -601,7 +602,7 @@ public abstract class EntityValueBase implements EntityValue {
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
                 parms.put("changedFieldName", fieldName);
-                parms.put("newValueText", StupidJavaUtilities.toPlainString(value));
+                parms.put("newValueText", ObjectUtilities.toPlainString(value));
                 parms.put("changedDate", nowTimestamp);
                 parms.put("changedByUserId", ec.getUser().getUserId());
                 parms.put("changedInVisitId", ec.getUser().getVisitId());
@@ -889,7 +890,7 @@ public abstract class EntityValueBase implements EntityValue {
                 continue;
             }
 
-            String valueStr = StupidJavaUtilities.toPlainString(fieldValue);
+            String valueStr = ObjectUtilities.toPlainString(fieldValue);
             if (valueStr == null || valueStr.isEmpty()) continue;
             if (valueStr.contains("\n") || valueStr.contains("\r") || valueStr.length() > 255) {
                 cdataMap.put(fieldName, valueStr);
@@ -897,7 +898,7 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             pw.append(" ").append(fieldName).append("=\"");
-            pw.append(StupidUtilities.encodeForXmlAttribute(valueStr)).append("\"");
+            pw.append(StringUtilities.encodeForXmlAttribute(valueStr)).append("\"");
         }
 
 
@@ -947,7 +948,7 @@ public abstract class EntityValueBase implements EntityValue {
 
     private Map<String, Object> internalPlainValueMap(int dependentLevels, Set<String> parentPkFields) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
-        StupidUtilities.removeNullsFromMap(vMap);
+        CollectionUtilities.removeNullsFromMap(vMap);
         if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
         EntityDefinition ed = getEntityDefinition();
         vMap.put("_entity", ed.getShortOrFullEntityName());
@@ -992,7 +993,7 @@ public abstract class EntityValueBase implements EntityValue {
 
     private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
-        StupidUtilities.removeNullsFromMap(vMap);
+        CollectionUtilities.removeNullsFromMap(vMap);
         if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
         EntityDefinition ed = getEntityDefinition();
         vMap.put("_entity", ed.getShortOrFullEntityName());
@@ -1143,7 +1144,7 @@ public abstract class EntityValueBase implements EntityValue {
             curVal = dbValueMap.get(fieldName);
         }
 
-        if (StupidJavaUtilities.isEmpty(curVal)) {
+        if (ObjectUtilities.isEmpty(curVal)) {
             if (dbValueMap != null) ec.getContext().push(dbValueMap);
             ec.getContext().push(valueMapInternal);
             try {

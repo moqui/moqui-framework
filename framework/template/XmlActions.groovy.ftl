@@ -11,8 +11,9 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-import org.moqui.impl.StupidUtilities
-import static org.moqui.impl.StupidUtilities.*
+import static org.moqui.util.ObjectUtilities.*
+import static org.moqui.util.CollectionUtilities.*
+import static org.moqui.util.StringUtilities.*
 import java.sql.Timestamp
 // these are in the context by default: ExecutionContext ec, Map<String, Object> context, Map<String, Object> result
 <#visit xmlActionsRoot/>

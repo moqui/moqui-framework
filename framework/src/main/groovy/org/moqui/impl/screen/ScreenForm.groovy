@@ -18,8 +18,6 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -29,8 +27,10 @@ import org.moqui.impl.entity.AggregationUtil.AggregateField
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -951,7 +951,7 @@ class ScreenForm {
                         if (listOption instanceof Map) {
                             addFieldOption(options, fieldNode, childNode, (Map) listOption, ec)
                         } else {
-                            String loString = StupidJavaUtilities.toPlainString(listOption)
+                            String loString = ObjectUtilities.toPlainString(listOption)
                             if (loString != null) options.put(loString, loString)
                             // addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
                         }
@@ -1379,7 +1379,7 @@ class ScreenForm {
                 if (cs.containsKey(fn) || cs.containsKey(fn + "_op")) {
                     // this will handle text-line, text-find, etc
                     Object value = cs.get(fn)
-                    if (value != null && StupidJavaUtilities.isEmpty(value)) value = null
+                    if (value != null && ObjectUtilities.isEmpty(value)) value = null
                     String op = cs.get(fn + "_op") ?: "equals"
                     boolean not = (cs.get(fn + "_not") == "Y" || cs.get(fn + "_not") == "true")
                     boolean ic = (cs.get(fn + "_ic") == "Y" || cs.get(fn + "_ic") == "true")
@@ -1404,8 +1404,8 @@ class ScreenForm {
                     valueList.add(ev)
                 } else {
                     // these will handle range-find and date-find
-                    String fromValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_from"))
-                    String thruValue = StupidJavaUtilities.toPlainString(cs.get(fn + "_thru"))
+                    String fromValue = ObjectUtilities.toPlainString(cs.get(fn + "_from"))
+                    String thruValue = ObjectUtilities.toPlainString(cs.get(fn + "_thru"))
                     if (fromValue || thruValue) {
                         EntityValue ev = ec.entity.makeValue("moqui.screen.form.FormListFindField")
                         ev.formListFindId = formListFindId
@@ -1586,7 +1586,7 @@ class ScreenForm {
                 flfInfoList.add(getFormListFindInfo(formListFindId, ec, userOnlyFlfIdSet))
 
             // sort by description
-            StupidUtilities.orderMapList(flfInfoList, ["description"])
+            CollectionUtilities.orderMapList(flfInfoList, ["description"])
 
             return flfInfoList
         }
@@ -1977,12 +1977,12 @@ class ScreenForm {
         JsonSlurper slurper = new JsonSlurper()
         List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
 
-        StupidUtilities.orderMapList(columnsTree, ['order'])
+        CollectionUtilities.orderMapList(columnsTree, ['order'])
         int columnIndex = 0
         for (Map columnMap in columnsTree) {
             if (columnMap.get("id") == "hidden") continue
             List<Map> children = (List<Map>) columnMap.get("children")
-            StupidUtilities.orderMapList(children, ['order'])
+            CollectionUtilities.orderMapList(children, ['order'])
             int columnSequence = 0
             for (Map fieldMap in children) {
                 String fieldName = (String) fieldMap.get("id")

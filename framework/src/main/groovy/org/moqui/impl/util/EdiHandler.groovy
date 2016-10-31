@@ -15,8 +15,8 @@ package org.moqui.impl.util
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContext
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
+import org.moqui.util.CollectionUtilities
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -147,11 +147,11 @@ class EdiHandler {
                     Iterator compIter = element.iterator()
                     while (compIter.hasNext()) {
                         Object curComp = compIter.next()
-                        if (curComp != null) sb.append(escape(StupidJavaUtilities.toPlainString(curComp)))
+                        if (curComp != null) sb.append(escape(ObjectUtilities.toPlainString(curComp)))
                         if (compIter.hasNext()) sb.append(componentDelimiter)
                     }
                 } else {
-                    String elementString = StupidJavaUtilities.toPlainString(element)
+                    String elementString = ObjectUtilities.toPlainString(element)
                     if (!noEscape) elementString = escape(elementString)
                     sb.append(elementString)
                     if (elementSize != null) {
@@ -260,7 +260,7 @@ class EdiHandler {
         String segmentId = elements[0]
         // if segmentId is in the current levelDefList add as child to current segment, increment index, recurse
         Map<String, List<Object>> newSegment = [elements:elements] as Map<String, List>
-        StupidUtilities.addToListInMap(segmentId, newSegment, currentSegment)
+        CollectionUtilities.addToListInMap(segmentId, newSegment, currentSegment)
 
         int nextSegmentIndex = segmentIndex + 1
         // current segment has children (ie LEVEL entry)? then recurse otherwise just return to handle siblings/parents

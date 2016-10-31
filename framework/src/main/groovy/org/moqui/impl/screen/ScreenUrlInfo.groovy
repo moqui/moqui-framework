@@ -20,7 +20,6 @@ import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -32,6 +31,7 @@ import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.webapp.ScreenResourceNotFoundException
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -345,13 +345,13 @@ class ScreenUrlInfo {
 
     ScreenUrlInfo addParameter(Object name, Object value) {
         if (!name || value == null) return this
-        pathParameterMap.put(name as String, StupidJavaUtilities.toPlainString(value))
+        pathParameterMap.put(name as String, ObjectUtilities.toPlainString(value))
         return this
     }
     ScreenUrlInfo addParameters(Map manualParameters) {
         if (!manualParameters) return this
         for (Map.Entry mpEntry in manualParameters.entrySet()) {
-            pathParameterMap.put(mpEntry.getKey() as String, StupidJavaUtilities.toPlainString(mpEntry.getValue()))
+            pathParameterMap.put(mpEntry.getKey() as String, ObjectUtilities.toPlainString(mpEntry.getValue()))
         }
         return this
     }
@@ -818,7 +818,7 @@ class ScreenUrlInfo {
             if (sui.targetScreen != null) {
                 for (ParameterItem pi in (Collection<ParameterItem>) sui.targetScreen.getParameterMap().values()) {
                     Object value = pi.getValue(ec)
-                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                    String valueStr = ObjectUtilities.toPlainString(value)
                     if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
                 }
             }
@@ -828,7 +828,7 @@ class ScreenUrlInfo {
                 Map<String, ParameterItem> transParameterMap = targetTrans.getParameterMap()
                 for (ParameterItem pi in (Collection<ParameterItem>) transParameterMap.values()) {
                     Object value = pi.getValue(ec)
-                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                    String valueStr = ObjectUtilities.toPlainString(value)
                     if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
                 }
                 String targetServiceName = targetTransition.getSingleServiceName()
@@ -842,9 +842,9 @@ class ScreenUrlInfo {
                         for (int i = 0; i < inParameterNamesSize; i++) {
                             String pn = (String) inParameterNames.get(i)
                             Object value = csMap.get(pn)
-                            if (StupidJavaUtilities.isEmpty(value) && wfParameters != null)
+                            if (ObjectUtilities.isEmpty(value) && wfParameters != null)
                                 value = wfParameters.get(pn)
-                            String valueStr = StupidJavaUtilities.toPlainString(value)
+                            String valueStr = ObjectUtilities.toPlainString(value)
                             if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pn, valueStr)
                         }
                     } else if (targetServiceName.contains("#")) {
@@ -856,9 +856,9 @@ class ScreenUrlInfo {
                             if (ed != null) {
                                 for (String fn in ed.getPkFieldNames()) {
                                     Object value = csMap.get(fn)
-                                    if (StupidJavaUtilities.isEmpty(value) && wfParameters != null)
+                                    if (ObjectUtilities.isEmpty(value) && wfParameters != null)
                                         value = wfParameters.get(fn)
-                                    String valueStr = StupidJavaUtilities.toPlainString(value)
+                                    String valueStr = ObjectUtilities.toPlainString(value)
                                     if (valueStr != null && valueStr.length() > 0) allParameterMap.put(fn, valueStr)
                                 }
                             }
@@ -902,7 +902,7 @@ class ScreenUrlInfo {
         UrlInstance addParameter(Object nameObj, Object value) {
             String name = nameObj.toString()
             if (name == null || name.length() == 0 || value == null) return this
-            String parmValue = StupidJavaUtilities.toPlainString(value)
+            String parmValue = ObjectUtilities.toPlainString(value)
             otherParameterMap.put(name, parmValue)
             if (allParameterMap != null) allParameterMap.put(name, parmValue)
             return this
@@ -913,7 +913,7 @@ class ScreenUrlInfo {
                 String parmKey = mpEntry.getKey().toString()
                 // just in case a ContextStack with the context entry used is passed
                 if ("context".equals(parmKey)) continue
-                String parmValue = StupidJavaUtilities.toPlainString(mpEntry.getValue())
+                String parmValue = ObjectUtilities.toPlainString(mpEntry.getValue())
                 otherParameterMap.put(parmKey, parmValue)
                 if (allParameterMap != null) allParameterMap.put(parmKey, parmValue)
             }

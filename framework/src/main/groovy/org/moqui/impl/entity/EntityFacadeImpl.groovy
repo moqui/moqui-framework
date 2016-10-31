@@ -18,13 +18,14 @@ import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseException
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.*
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -957,8 +958,8 @@ class EntityFacadeImpl implements EntityFacade {
             String name = lastDotIndex == -1 ? entityName : entityName.substring(0, lastDotIndex)
             Map curInfo = entityInfoMap.get(name)
             if (curInfo) {
-                if (isView) StupidUtilities.addToBigDecimalInMap("viewEntities", 1.0, curInfo)
-                else StupidUtilities.addToBigDecimalInMap("entities", 1.0, curInfo)
+                if (isView) CollectionUtilities.addToBigDecimalInMap("viewEntities", 1.0, curInfo)
+                else CollectionUtilities.addToBigDecimalInMap("entities", 1.0, curInfo)
             } else {
                 entityInfoMap.put(name, [name:name, entities:(isView ? 0 : 1), viewEntities:(isView ? 1 : 0)])
             }
@@ -1029,7 +1030,7 @@ class EntityFacadeImpl implements EntityFacade {
                     isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 
-        if (orderByField != null && !orderByField.isEmpty()) StupidUtilities.orderMapList(eil, [orderByField])
+        if (orderByField != null && !orderByField.isEmpty()) CollectionUtilities.orderMapList(eil, [orderByField])
         return eil
     }
 
@@ -1091,7 +1092,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
         }
 
-        if (orderByField) StupidUtilities.orderMapList(efl, [orderByField])
+        if (orderByField) CollectionUtilities.orderMapList(efl, [orderByField])
         return efl
     }
 
@@ -1349,7 +1350,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (localPath.size() > 0) {
             for (String pkFieldName in firstEd.getPkFieldNames()) {
                 String pkValue = localPath.remove(0)
-                if (!StupidJavaUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
+                if (!ObjectUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
                 if (localPath.size() == 0) break
             }
         }
@@ -1378,7 +1379,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (parameters.containsKey(pkFieldName)) continue
 
                     String pkValue = localPath.remove(0)
-                    if (!StupidJavaUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
+                    if (!ObjectUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
                     if (localPath.size() == 0) break
                 }
             }
@@ -1463,13 +1464,13 @@ class EntityFacadeImpl implements EntityFacade {
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             Object relParmObj = value.get(relInfo.shortAlias)
             String relKey = null
-            if (relParmObj != null && !StupidJavaUtilities.isEmpty(relParmObj)) {
+            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
                 relKey = relInfo.shortAlias
             } else {
                 relParmObj = value.get(relInfo.relationshipName)
                 if (relParmObj) relKey = relInfo.relationshipName
             }
-            if (relParmObj != null && !StupidJavaUtilities.isEmpty(relParmObj)) {
+            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
                 if (relParmObj instanceof Map) {
                     // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
                     //     allow them to be left out of related records
@@ -1727,7 +1728,7 @@ class EntityFacadeImpl implements EntityFacade {
             } else {
                 org.w3c.dom.NodeList seList = element.getElementsByTagName(fieldName)
                 Element subElement = seList.getLength() > 0 ? (Element) seList.item(0) : null
-                if (subElement) newValue.setString(fieldName, StupidUtilities.elementValue(subElement))
+                if (subElement) newValue.setString(fieldName, StringUtilities.elementValue(subElement))
             }
         }
 
@@ -1852,7 +1853,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (hasSqlFilter && !qsi.sql.matches("(?i).*" + sqlFilter + ".*")) continue
             qsl.add(qsi.makeDisplayMap())
         }
-        if (orderByField) StupidUtilities.orderMapList(qsl, [orderByField])
+        if (orderByField) CollectionUtilities.orderMapList(qsl, [orderByField])
         return qsl
     }
     void clearQueryStats() { queryStatsInfoMap.clear() }

@@ -18,7 +18,7 @@ import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
 
 @CompileStatic
-class WrapperResourceReference extends BaseResourceReference {
+abstract class WrapperResourceReference extends BaseResourceReference {
     ResourceReference rr = null
 
     WrapperResourceReference() { }
@@ -33,6 +33,8 @@ class WrapperResourceReference extends BaseResourceReference {
         this.ecf = ecf
         return this
     }
+
+    @Override abstract ResourceReference createNew(String location);
 
     String getLocation() { return rr.getLocation() }
 

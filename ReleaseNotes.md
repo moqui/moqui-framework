@@ -234,7 +234,9 @@ significant changes.
   - added form-single.@owner-form attribute to skip HTML form element and add the HTML form attribute to fields so they are owned
     by a different form elsewhere in the web page
 - The /status path now a transition instead of a screen and returns JSON with more server status information
-- XML Actions now statically import all StupidUtilities methods so 'StupidUtilities.' is no longer needed
+- XML Actions now statically import all the old StupidUtilities methods so 'StupidUtilities.' is no longer needed, shouldn't be used
+- StupidUtilities and StupidJavaUtilities reorganized into the new ObjectUtilities, CollectionUtilities, and StringUtilities
+  classes in the moqui.util package (in the moqui-util project)
 
 ### Bug Fixes
 
