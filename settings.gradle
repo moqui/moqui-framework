@@ -8,6 +8,7 @@ String[] getDirectoryProjects(String relativePath) {
             .collect { "runtime/${relativePath}/${it.getName()}" } as String[]
 }
 
+include 'moqui-util'
 include 'framework'
 include getDirectoryProjects('base-component')
 include getDirectoryProjects('mantle')

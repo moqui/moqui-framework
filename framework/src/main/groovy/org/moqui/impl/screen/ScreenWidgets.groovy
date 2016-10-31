@@ -17,7 +17,6 @@ import groovy.transform.CompileStatic
 import org.moqui.util.MNode
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
-import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.util.ContextStack
 
 @CompileStatic
@@ -25,13 +24,11 @@ class ScreenWidgets {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenWidgets.class)
 
     protected MNode widgetsNode
-    protected FtlNodeWrapper widgetsFtlNode
     protected String location
 
     ScreenWidgets(MNode widgetsNode, String location) {
         this.widgetsNode = widgetsNode
         this.location = location
-        this.widgetsFtlNode = FtlNodeWrapper.wrapNode(widgetsNode)
     }
 
     void render(ScreenRenderImpl sri) {
@@ -39,7 +36,7 @@ class ScreenWidgets {
         cs.push()
         try {
             cs.sri = sri
-            cs.widgetsNode = widgetsFtlNode
+            cs.widgetsNode = widgetsNode
             sri.template.createProcessingEnvironment(cs, sri.writer).process()
         } finally {
             cs.pop()

@@ -16,10 +16,10 @@ package org.moqui.impl.service;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Whitelist;
-import org.moqui.impl.StupidClassLoader;
-import org.moqui.impl.StupidUtilities;
+import org.moqui.util.MClassLoader;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +81,7 @@ public class ParameterInfo {
         String typeAttr = parameterNode.attribute("type");
         type = typeAttr == null || typeAttr.isEmpty() ? "String" : typeAttr;
         parmType = typeEnumByString.get(type);
-        parmClass = StupidClassLoader.commonJavaClassesMap.get(type);
+        parmClass = MClassLoader.getCommonClass(type);
 
         format = parameterNode.attribute("format");
         entityName = parameterNode.attribute("entity-name");
@@ -113,13 +113,17 @@ public class ParameterInfo {
             parmNameList.add(name);
         }
         int parmNameListSize = parmNameList.size();
-        childParameterInfoArray = new ParameterInfo[parmNameListSize];
         boolean childHasDefault = false;
-        for (int i = 0; i < parmNameListSize; i++) {
-            String parmName = parmNameList.get(i);
-            ParameterInfo pi = childParameterInfoMap.get(parmName);
-            childParameterInfoArray[i] = pi;
-            if (pi.thisOrChildHasDefault) childHasDefault = true;
+        if (parmNameListSize > 0) {
+            childParameterInfoArray = new ParameterInfo[parmNameListSize];
+            for (int i = 0; i < parmNameListSize; i++) {
+                String parmName = parmNameList.get(i);
+                ParameterInfo pi = childParameterInfoMap.get(parmName);
+                childParameterInfoArray[i] = pi;
+                if (pi.thisOrChildHasDefault) childHasDefault = true;
+            }
+        } else {
+            childParameterInfoArray = null;
         }
         thisOrChildHasDefault = hasDefault || childHasDefault;
 
@@ -140,7 +144,7 @@ public class ParameterInfo {
         // no need to check for null, only called with parameterValue not empty
         // if (parameterValue == null) return null;
         // no need to check for type match, only called when types don't match
-        // if (StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
+        // if (ObjectUtilities.isInstanceOf(parameterValue, type)) {
 
         // do type conversion if possible
         Object converted = null;
@@ -216,7 +220,7 @@ public class ParameterInfo {
 
         // fallback to a really simple type conversion
         // TODO: how to detect conversion failed to add validation error?
-        if (converted == null && !isEmptyString) converted = StupidUtilities.basicConvert(parameterValue, type);
+        if (converted == null && !isEmptyString) converted = ObjectUtilities.basicConvert(parameterValue, type);
 
         return converted;
     }

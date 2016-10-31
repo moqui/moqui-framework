@@ -76,7 +76,8 @@ class NotificationWebSocketListener implements NotificationMessageListener {
             ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUser.get(userId)
             if (registeredEndPoints == null) continue
             for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
-                if (endpoint.session.isOpen() && (endpoint.subscribedTopics.contains("ALL") || endpoint.subscribedTopics.contains(nm.topic))) {
+                if (endpoint.session != null && endpoint.session.isOpen() &&
+                        (endpoint.subscribedTopics.contains("ALL") || endpoint.subscribedTopics.contains(nm.topic))) {
                     endpoint.session.asyncRemote.sendText(messageWrapperJson)
                     nm.markSent(userId)
                 }

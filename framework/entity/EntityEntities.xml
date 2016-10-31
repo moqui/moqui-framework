@@ -94,7 +94,7 @@ along with this software (see the LICENSE.md file). If not, see
             results and such.</description></field>
         <field name="documentTitle" type="text-medium"><description>A title for each document instance for display in
             search results or other places. Meant to be string expanded using a "flattened" version of the document
-            (see the StupidUtilities.flattenNestedMap() method).</description></field>
+            (see the CollectionUtilities.flattenNestedMap() method).</description></field>
         <field name="indexName" type="text-medium"><description>This should be specified for documents that will be indexed by
             ElasticSearch and must be lower-case (ElasticSearch requires all lower-case).</description></field>
         <field name="primaryEntityName" type="text-medium"/>

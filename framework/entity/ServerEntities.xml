@@ -215,7 +215,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <envs envName="entity_ds_database" envValue="${appInstance.hostName.replace('.', '_')}"/>
                 <!-- <envs envName="entity_ds_schema" envValue=""/> -->
                 <envs envName="entity_ds_user" envValue="${appInstance.hostName.replace('.', '_')}"/>
-                <envs envName="entity_ds_password" envValue="${org.moqui.impl.StupidUtilities.getRandomString(15)}"/>
+                <envs envName="entity_ds_password" envValue="${org.moqui.util.StringUtilities.getRandomString(15)}"/>
 
                 <links instanceName="moqui-database"/>
             </moqui.server.instance.InstanceImageType>

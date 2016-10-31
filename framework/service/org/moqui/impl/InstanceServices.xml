@@ -171,7 +171,7 @@ along with this software (see the LICENSE.md file). If not, see
             import groovy.json.JsonSlurper
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
-            import org.moqui.service.RestClient
+            import org.moqui.util.RestClient
             ExecutionContext ec = context.ec
 
             EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
@@ -274,7 +274,7 @@ along with this software (see the LICENSE.md file). If not, see
             import groovy.json.JsonSlurper
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
-            import org.moqui.service.RestClient
+            import org.moqui.util.RestClient
 
             connectSuccess = null
             instanceCreated = false
@@ -315,7 +315,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             if (appInstance.jsonConfig) {
                 Map baseConfigMap = (Map) new JsonSlurper().parseText((String) appInstance.jsonConfig)
-                org.moqui.impl.StupidJavaUtilities.mergeNestedMap(baseConfigMap, jsonBody, false)
+                org.moqui.util.CollectionUtilities.mergeNestedMap(baseConfigMap, jsonBody, false)
                 jsonBody = baseConfigMap
             }
 
@@ -361,7 +361,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
-            import org.moqui.service.RestClient
+            import org.moqui.util.RestClient
 
             instanceStarted = false
             instanceRunning = null
@@ -406,7 +406,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
-            import org.moqui.service.RestClient
+            import org.moqui.util.RestClient
 
             instanceStopped = false
             instanceRunning = null
@@ -452,7 +452,7 @@ along with this software (see the LICENSE.md file). If not, see
             <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
-            import org.moqui.service.RestClient
+            import org.moqui.util.RestClient
 
             instanceRemoved = false
             instanceExists = null
@@ -494,7 +494,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
-            import org.moqui.service.RestClient
+            import org.moqui.util.RestClient
 
             connectSuccess = null
             instanceExists = null

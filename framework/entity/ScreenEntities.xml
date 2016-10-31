@@ -140,7 +140,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="formLocation" type="text-medium"/>
         <field name="orderByField" type="text-medium"/>
+        <field name="formConfigId" type="id"/>
         <!-- may be useful for certain search backed forms: <field name="searchString" type="text-medium"/> -->
+        <relationship type="one" related="moqui.screen.form.FormConfig"/>
     </entity>
     <entity entity-name="FormListFindField" package="moqui.screen.form" use="configuration">
         <description>Has fields for the various options in search-form-inputs/searchFormInputs()/searchFormMap()</description>

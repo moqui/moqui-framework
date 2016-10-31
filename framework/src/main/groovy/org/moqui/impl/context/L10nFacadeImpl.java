@@ -16,7 +16,6 @@ package org.moqui.impl.context;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityValue;
 import org.moqui.entity.EntityFind;
-import org.moqui.impl.StupidUtilities;
 
 import javax.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
@@ -29,6 +28,7 @@ import java.util.*;
 import org.apache.commons.validator.routines.BigDecimalValidator;
 import org.apache.commons.validator.routines.CalendarValidator;
 
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -225,7 +225,7 @@ public class L10nFacadeImpl implements L10nFacade {
 
         // long values are pretty common, so if there are no special characters try that first (fast to check)
         if (cal == null) {
-            int nonDigits = StupidUtilities.countChars(input, false, true, true);
+            int nonDigits = ObjectUtilities.countChars(input, false, true, true);
             if (nonDigits == 0) {
                 try {
                     Long lng = Long.valueOf(input);

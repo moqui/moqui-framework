@@ -53,11 +53,13 @@ public class MoquiStart {
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
+            /* nice for debugging, messy otherwise:
             System.out.println("Internal Class Path Jars:");
             for (JarFile jf: moquiStartLoader.jarFileList) {
                 String fn = jf.getName();
                 System.out.println(fn.contains("moqui_temp") ? fn.substring(fn.indexOf("moqui_temp")) : fn);
             }
+            */
             System.out.println("------------------------------------------------");
             System.out.println("Current runtime directory (moqui.runtime): " + System.getProperty("moqui.runtime"));
             System.out.println("Current configuration file (moqui.conf): " + System.getProperty("moqui.conf"));
@@ -126,7 +128,7 @@ public class MoquiStart {
         if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
-            Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
+            // Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
             String overrideConf = argMap.get("conf");
@@ -149,10 +151,12 @@ public class MoquiStart {
         // Get a start loader with loadWebInf=false since the container will load those we don't want to here (would be on classpath twice)
         StartClassLoader moquiStartLoader = new StartClassLoader(reportJarsUnused);
         Thread.currentThread().setContextClassLoader(moquiStartLoader);
-        // NOTE: using shutdown hook to close files only:
-        Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader);
-        shutdownHook.setDaemon(true);
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+        // NOTE: not using MoquiShutdown hook any more, let Jetty stop everything
+        //   may need to add back for jar file close, cleaner delete on exit
+        // Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader);
+        // shutdownHook.setDaemon(true);
+        // Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         initSystemProperties(moquiStartLoader, true);
 
@@ -233,6 +237,10 @@ public class MoquiStart {
             int minThreads = (int) sizedThreadPoolClass.getMethod("getMinThreads").invoke(threadPool);
             int maxThreads = (int) sizedThreadPoolClass.getMethod("getMaxThreads").invoke(threadPool);
             System.out.println("Jetty min threads " + minThreads + ", max threads " + maxThreads);
+
+            // Tell Jetty to stop on JVM shutdown
+            serverClass.getMethod("setStopAtShutdown", boolean.class).invoke(server, true);
+            serverClass.getMethod("setStopTimeout", long.class).invoke(server, 30000L);
 
             // Start
             serverClass.getMethod("start").invoke(server);

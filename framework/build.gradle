@@ -16,7 +16,7 @@
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '2.0.0'
+version = '2.0.0-SNAPSHOT'
 
 apply plugin: 'groovy'
 apply plugin: 'war'
@@ -60,6 +60,8 @@ groovydoc {
 }
 
 dependencies {
+    compile project(':moqui-util')
+
     // Groovy
     compile 'org.codehaus.groovy:groovy:2.4.7' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.4.7' // Apache 2.0
@@ -84,11 +86,9 @@ dependencies {
     // Apache Commons
     compile 'org.apache.commons:commons-csv:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.4' // Apache 2.0
-    compile 'org.apache.commons:commons-lang3:3.4' // Apache 2.0; used by cron-utils, may use internally
+    compile 'org.apache.commons:commons-lang3:3.5' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
-    // compile 'commons-codec:commons-codec:1.10' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
-    // not currently needed/used: compile module('commons-configuration:commons-configuration:1.10') // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
     compile 'commons-fileupload:commons-fileupload:1.3.2' // Apache 2.0
     compile 'commons-io:commons-io:2.5' // Apache 2.0
@@ -119,7 +119,7 @@ dependencies {
     // compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
 
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.3.12.v20160915' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.3.13.v20161014' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
@@ -136,9 +136,10 @@ dependencies {
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.21'
-    runtime 'org.apache.logging.log4j:log4j-core:2.7'
-    runtime 'org.apache.logging.log4j:log4j-api:2.7'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.7'
+    runtime 'org.apache.logging.log4j:log4j-core:2.6.2'
+    runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
+    // NOTE: ElasticSearch 5.0.0-rc1 extends the ThrowableProxy class in a way that depends on 2.6.2, can't use 2.7 for now see issue #140
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
@@ -174,14 +175,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.12.v20160915' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.12.v20160915' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.12.v20160915' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.12.v20160915') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.12.v20160915') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.12.v20160915') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.13.v20161014' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.13.v20161014' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.13.v20161014' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.13.v20161014') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.13.v20161014') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.13.v20161014') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.12.v20160915') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.13.v20161014') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

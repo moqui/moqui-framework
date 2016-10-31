@@ -55,7 +55,7 @@ public class ScriptServiceRunner implements ServiceRunner {
             Map<String, Object> autoResult = new HashMap<>();
             cs.put("result", autoResult);
 
-            Object result = ec.getResource().script(sd.serviceNode.attribute("location"), sd.serviceNode.attribute("method"));
+            Object result = ec.getResource().script(sd.location, sd.method);
 
             if (result instanceof Map) {
                 return (Map<String, Object>) result;

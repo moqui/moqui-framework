@@ -4,12 +4,12 @@ import groovy.lang.Closure;
 import org.moqui.BaseException;
 import org.moqui.context.*;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.*;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.service.runner.EntityAutoServiceRunner;
 import org.moqui.service.ServiceCallSync;
 import org.moqui.service.ServiceException;
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,7 +96,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                         // now that we have checked the per-row parameters, add in others available
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = inParameterNames.get(paramIndex);
-                            if (StupidJavaUtilities.isEmpty(currentParms.get(ipn)) && !StupidJavaUtilities.isEmpty(parameters.get(ipn)))
+                            if (ObjectUtilities.isEmpty(currentParms.get(ipn)) && !ObjectUtilities.isEmpty(parameters.get(ipn)))
                                 currentParms.put(ipn, parameters.get(ipn));
                         }
 

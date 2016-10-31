@@ -15,7 +15,7 @@ package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactTarpitException
-import org.moqui.impl.StupidUtilities
+import org.moqui.util.StringUtilities
 
 import javax.servlet.ServletException
 import javax.servlet.http.HttpServlet
@@ -80,7 +80,7 @@ class MoquiFopServlet extends HttpServlet {
             response.setContentType(contentType)
 
             if (filename) {
-                String utfFilename = StupidUtilities.encodeAsciiFilename(filename)
+                String utfFilename = StringUtilities.encodeAsciiFilename(filename)
                 response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
             } else {
                 response.addHeader("Content-Disposition", "inline")

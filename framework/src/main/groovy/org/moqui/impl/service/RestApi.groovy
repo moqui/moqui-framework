@@ -18,7 +18,7 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
-import org.moqui.context.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -40,14 +40,12 @@ import javax.servlet.http.HttpServletResponse
 class RestApi {
     protected final static Logger logger = LoggerFactory.getLogger(RestApi.class)
 
-    @SuppressWarnings("GrFinalVariableAccess")
-    protected final ExecutionContextFactoryImpl ecfi
-    @SuppressWarnings("GrFinalVariableAccess")
-    final MCache<String, ResourceNode> rootResourceCache
+    @SuppressWarnings("GrFinalVariableAccess") protected final ExecutionContextFactoryImpl ecfi
+    @SuppressWarnings("GrFinalVariableAccess") final MCache<String, ResourceNode> rootResourceCache
 
     RestApi(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        rootResourceCache = ecfi.getCacheFacade().getLocalCache("service.rest.api")
+        rootResourceCache = ecfi.cacheFacade.getLocalCache("service.rest.api")
         loadRootResourceNode(null)
     }
 
