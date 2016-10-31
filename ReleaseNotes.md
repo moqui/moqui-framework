@@ -1,22 +1,43 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.0.0 - TBD
+## Release 2.0.0 - Not Yet Released
 
 Moqui Framework 2.0.0 is a major new feature and bug fix release, with
 various non backward compatible API and other changes.
 
-This version is not yet released. The notes below are for the changes
-currently in place in the source repository. If you plan to go into
-production in the near future (before this version is released) it is
-better to use the last released version (1.6.2) as 2.0.0 contains
-significant changes.
+This is the first release since 1.0.0 with significant and non backwards compatible changes to the framework API. Various deprecated
+methods have been removed. The Cache Facade now uses the standard javax.cache interfaces and the Service Facade now uses standard 
+java.util.concurrent interfaces for async and scheduled services. Ehcache and Quartz Scheduler have been replaced by direct, 
+efficient interfaces implementations.
+
+This release includes significant improvements in configuration and with the new ToolFactory functionality is more modular with
+more internals exposed through interfaces and extendable through components. Larger and less universally used tool are now in 
+separate components including Apache Camel, Apache FOP, ElasticSearch, JBoss KIE and Drools, and OrientDB.
+
+Multi-server instances are far better supported by using Hazelcast for distributed entity cache invalidation, notifications,
+caching, background service execution, and for web session replication. The moqui-hazelcast component is pre-configured to enable
+all of this functionality in its MoquiConf.xml file. To use add the component and add a hazelcast.xml file to the classpath with
+settings for your cluster (auto-discover details, etc).
+
+Moqui now scales up better with performance improvements, concurrency fixes, and Hazelcast support (through interfaces other 
+distributed system libraries like Apache Ignite could also be used). Moqui also now scales down better with improved memory 
+efficiency and through more modular tools much smaller runtime footprints are possible.
+
+The multi-tenant functionality has been removed and replaced with the multi-instance approach. There is now a Dockerfile included
+with the recommended approach to run Moqui in Docker containers and Docker Compose files for various scenarios including an
+automatic reverse proxy using nginx-proxy. There are now service interfaces and screens in the System application for managing
+multiple Moqui instances from a master instance. Instances with their own database can be automatically provisioned using 
+configurable services, with initial support for Docker containers and MySQL databases. Provisioning services will be added over time
+to support other instance hosts and databases, and you can write your own for whatever infrastructure you prefer to use.
+
+TODO write release summary
 
 ### Non Backward Compatible Changes
 
 - Java JDK 8 now required (Java 7 no longer supported)
 - Now requires Servlet Container supporting the Servlet 3.1 specification
-- No longer using Winstone embedded web server, now using Jetty
+- No longer using Winstone embedded web server, now using Jetty 9
 - Multi-Tenant Functionality Removed
   - ExecutionContext.getTenant() and getTenantId() removed
   - UserFacade.loginUser() third parameter (tenantId) removed
