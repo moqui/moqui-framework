@@ -31,7 +31,7 @@ import org.moqui.entity.EntityValue
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MClassLoader
 import org.moqui.impl.actions.XmlAction
-import org.moqui.impl.context.reference.UrlResourceReference
+import org.moqui.resource.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactStatsInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactHitInfo

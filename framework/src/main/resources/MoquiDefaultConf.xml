@@ -179,14 +179,14 @@
 
     <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl">
         <!-- resource reference class needs to implement the org.moqui.resource.ResourceReference interface -->
-        <resource-reference scheme="http" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="https" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="file" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="ftp" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="jar" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="bundleresource" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="wsjar" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="classpath" class="org.moqui.impl.context.reference.ClasspathResourceReference"/>
+        <resource-reference scheme="http" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="https" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="file" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="ftp" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="jar" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="bundleresource" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="wsjar" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="classpath" class="org.moqui.resource.ClasspathResourceReference"/>
         <resource-reference scheme="component" class="org.moqui.impl.context.reference.ComponentResourceReference"/>
         <resource-reference scheme="content" class="org.moqui.impl.context.reference.ContentResourceReference"/>
         <resource-reference scheme="dbresource" class="org.moqui.impl.context.reference.DbResourceReference"/>

@@ -18,7 +18,7 @@ import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.reference.ClasspathResourceReference
+import org.moqui.resource.ClasspathResourceReference
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.*
