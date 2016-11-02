@@ -390,6 +390,8 @@ class UserFacadeImpl implements UserFacade {
             fromCal.add(Calendar.DAY_OF_YEAR, offset * 7)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.DAY_OF_YEAR, 7)
+            // have last 7d also include today (like 30d)
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
         } else if (period == "month") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             fromCal.add(Calendar.MONTH, offset)
@@ -399,6 +401,8 @@ class UserFacadeImpl implements UserFacade {
             fromCal.add(Calendar.DAY_OF_YEAR, offset * 30)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.DAY_OF_YEAR, 30)
+            // have last 30d also include today to make it a more useful default
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
         } else if (period == "year") {
             fromCal.set(Calendar.DAY_OF_YEAR, fromCal.getActualMinimum(Calendar.DAY_OF_YEAR))
             fromCal.add(Calendar.YEAR, offset)
