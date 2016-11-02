@@ -84,26 +84,49 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="parentEnumId" required="true"/>
             <parameter name="includeParent" type="Boolean" default="true"/>
+            <parameter name="includeNested" type="Boolean" default="false"/>
             <parameter name="orderByField" default-value="description"/>
         </in-parameters>
         <out-parameters>
             <parameter name="enumerationList" type="List"/>
             <parameter name="enumIdSet" type="Set"/>
         </out-parameters>
-        <actions>
-            <entity-find entity-name="moqui.basic.Enumeration" list="enumerationList" cache="true">
-                <econdition field-name="parentEnumId"/>
-                <order-by field-name="${orderByField}"/>
-            </entity-find>
-            <if condition="includeParent">
-                <set field="enumerationList" from="enumerationList.cloneList()"/>
-                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="parentEnum">
-                    <field-map field-name="enumId" from="parentEnumId"/></entity-find-one>
-                <script>enumerationList.add(0, parentEnum)</script>
-            </if>
-            <set field="enumIdSet" from="new TreeSet()"/>
-            <iterate list="enumerationList" entry="enumeration"><script>enumIdSet.add(enumeration.enumId)</script></iterate>
-        </actions>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityList
+            import org.moqui.entity.EntityValue
+            import org.moqui.impl.entity.EntityListImpl
+
+            ExecutionContext ec = context.ec
+            enumerationList = new EntityListImpl(ec.entity)
+            enumIdSet = new TreeSet()
+
+            if (includeParent) {
+                EntityValue parentEnum = ec.entity.find("moqui.basic.Enumeration").condition("enumId", parentEnumId).useCache(true).one()
+                enumerationList.add(0, parentEnum)
+                enumIdSet.add(parentEnumId)
+            }
+
+            findChildren(parentEnumId, enumerationList, enumIdSet, ec)
+            enumerationList.orderByFields([orderByField])
+
+            void findChildren(String parentEnumId, EntityList enumerationList, Set enumIdSet, ExecutionContext ec) {
+                EntityList curList = ec.entity.find("moqui.basic.Enumeration").condition("parentEnumId", parentEnumId).useCache(true).list()
+                if (curList.size() == 0) return
+                if (includeNested) {
+                    int curListSize = curList.size()
+                    for (int i = 0; i < curListSize; i++) {
+                        EntityValue curEnum = curList.get(i)
+                        enumerationList.add(curEnum)
+                        enumIdSet.add(curEnum.enumId)
+                        // recurse to find nested
+                        findChildren((String) curEnum.enumId, enumerationList, enumIdSet, ec)
+                    }
+                } else {
+                    enumerationList.addAll(curList)
+                }
+            }
+        ]]></script></actions>
     </service>
     <service verb="get" noun="EnumsByTypeForDropDown" allow-remote="true">
         <in-parameters><parameter name="enumTypeId"/></in-parameters>
