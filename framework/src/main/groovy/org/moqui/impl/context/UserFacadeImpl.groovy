@@ -387,18 +387,18 @@ class UserFacadeImpl implements UserFacade {
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.WEEK_OF_YEAR, 1)
         } else if (period == "7d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, (offset+1) * 7)
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 7)
             thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 30)
+            thruCal.add(Calendar.DAY_OF_YEAR, 8)
         } else if (period == "month") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             fromCal.add(Calendar.MONTH, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.MONTH, 1)
         } else if (period == "30d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, (offset+1) * 30)
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 30)
             thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 30)
+            thruCal.add(Calendar.DAY_OF_YEAR, 31)
         } else if (period == "year") {
             fromCal.set(Calendar.DAY_OF_YEAR, fromCal.getActualMinimum(Calendar.DAY_OF_YEAR))
             fromCal.add(Calendar.YEAR, offset)
