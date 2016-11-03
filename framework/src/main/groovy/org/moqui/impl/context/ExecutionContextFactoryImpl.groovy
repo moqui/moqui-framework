@@ -91,6 +91,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected GroovyClassLoader groovyClassLoader
     protected CompilerConfiguration groovyCompilerConf
     // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
+    // also issue with how to support recompile of actions on change, could just use for expressions but that only helps so much
+    // maybe some way to load from disk only if timestamp newer for XmlActions and GroovyScriptRunner
+    // this could be driven by setting in Moqui Conf XML file
+    // also need to clean out runtime/script-classes in gradle cleanAll
     protected boolean groovyCompileCacheToDisk = false
 
     protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>()
