@@ -56,7 +56,7 @@ class ServiceEcaRule {
         }
         // prep actions
         if (secaNode.hasChild("actions")) {
-            actions = new XmlAction(ecfi, secaNode.first("actions"), location + ".actions")
+            actions = new XmlAction(ecfi, secaNode.first("actions"), null) // was location + ".actions" but no unique!
         } else {
             actions = (XmlAction) null
         }

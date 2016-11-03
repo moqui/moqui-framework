@@ -19,7 +19,9 @@ import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
-
+import org.codehaus.groovy.control.CompilationUnit
+import org.codehaus.groovy.control.CompilerConfiguration
+import org.codehaus.groovy.tools.GroovyClass
 import org.moqui.BaseException
 import org.moqui.Moqui
 import org.moqui.context.*
@@ -83,10 +85,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot
     protected MNode serverStatsNode
     protected String moquiVersion = ""
+    protected InetAddress localhostAddress = null
 
     protected MClassLoader moquiClassLoader
     protected GroovyClassLoader groovyClassLoader
-    protected InetAddress localhostAddress = null
+    protected CompilerConfiguration groovyCompilerConf
+    // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
+    protected boolean groovyCompileCacheToDisk = false
 
     protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>()
     public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>()
@@ -493,6 +498,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         moquiClassLoader = new MClassLoader(pcl)
         groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
 
+        File scriptClassesDir = new File(runtimePath + "/script-classes")
+        scriptClassesDir.mkdirs()
+        if (groovyCompileCacheToDisk) moquiClassLoader.addClassesDirectory(scriptClassesDir)
+        groovyCompilerConf = new CompilerConfiguration()
+        groovyCompilerConf.setTargetDirectory(scriptClassesDir)
+
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
@@ -814,6 +825,45 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @Override @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
     @Override @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
+
+    synchronized Class compileGroovy(String script, String className) {
+        boolean hasClassName = className != null && !className.isEmpty()
+        if (groovyCompileCacheToDisk && hasClassName) {
+            // if the className already exists just return it
+            try {
+                Class existingClass = groovyClassLoader.loadClass(className)
+                if (existingClass != null) return existingClass
+            } catch (ClassNotFoundException e) { /* ignore */ }
+
+            CompilationUnit compileUnit = new CompilationUnit(groovyCompilerConf, null, groovyClassLoader)
+            compileUnit.addSource(className, script)
+            compileUnit.compile() // just through Phases.CLASS_GENERATION?
+
+            List compiledClasses = compileUnit.getClasses()
+            if (compiledClasses.size() > 1) logger.warn("WARNING: compiled groovy class ${className} got ${compiledClasses.size()} classes")
+            Class returnClass = null
+            for (Object compiledClass in compiledClasses) {
+                GroovyClass groovyClass = (GroovyClass) compiledClass
+                String compiledName = groovyClass.getName()
+                byte[] compiledBytes = groovyClass.getBytes()
+                // NOTE: this is the same step we'd use when getting bytes from disk
+                Class curClass = null
+                try { curClass = groovyClassLoader.loadClass(compiledName) } catch (ClassNotFoundException e) { /* ignore */ }
+                if (curClass == null) curClass = groovyClassLoader.defineClass(compiledName, compiledBytes)
+                if (compiledName.equals(className)) {
+                    returnClass = curClass
+                } else {
+                    logger.warn("Got compiled groovy class with name ${compiledName} not same as original class name ${className}")
+                }
+            }
+
+            if (returnClass == null) logger.error("No errors in groovy compilation but got null Class for ${className}")
+            return returnClass
+        } else {
+            // the simple approach, groovy compiles internally and don't save to disk/etc
+            return hasClassName ? groovyClassLoader.parseClass(script, className) : groovyClassLoader.parseClass(script)
+        }
+    }
 
     @Override @Nonnull ServletContext getServletContext() { internalServletContext }
     @Override @Nonnull ServerContainer getServerContainer() { internalServerContainer }

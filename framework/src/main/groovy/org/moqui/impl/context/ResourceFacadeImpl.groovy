@@ -28,11 +28,11 @@ import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.moqui.resource.ResourceReference
 import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.activation.DataSource
-import javax.activation.MimetypesFileTypeMap
 import javax.cache.Cache
 import javax.jcr.Repository
 import javax.jcr.RepositoryFactory
@@ -519,8 +519,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
         if (expression == null || expression.isEmpty()) return null
         Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
         if (groovyClass == null) {
-            groovyClass = ecfi.getGroovyClassLoader().parseClass(expression)
+            groovyClass = ecfi.compileGroovy(expression, StringUtilities.getExpressionClassName(expression))
             scriptGroovyExpressionCache.put(expression, groovyClass)
+            // logger.warn("class ${groovyClass.getName()} parsed expression ${expression}")
         }
         return groovyClass
     }
@@ -539,7 +540,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         final org.xml.sax.ContentHandler contentHandler = xslFoHandlerFactory.getInstance(out, contentType)
 
-        // There's a ThreadLocal memory leak in XANLANJ, reported in 2005 but still not fixed in 2016
+        // There's a ThreadLocal memory leak in XALANJ, reported in 2005 but still not fixed in 2016
         // The memory it prevent GC depend on the fo file size and the thread pool size. So use a separate thread to workaround.
         // https://issues.apache.org/jira/browse/XALANJ-2195
         BaseException transformException = null
