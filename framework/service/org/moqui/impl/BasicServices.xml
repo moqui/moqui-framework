@@ -92,6 +92,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="enumIdSet" type="Set"/>
         </out-parameters>
         <actions><script><![CDATA[
+            import groovy.transform.CompileStatic
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityList
             import org.moqui.entity.EntityValue
@@ -107,26 +108,23 @@ along with this software (see the LICENSE.md file). If not, see
                 enumIdSet.add(parentEnumId)
             }
 
-            findChildren(parentEnumId, enumerationList, enumIdSet, ec)
+            findChildren(parentEnumId, enumerationList, enumIdSet, includeNested, ec)
             enumerationList.orderByFields([orderByField])
 
-            void findChildren(String parentEnumId, EntityList enumerationList, Set enumIdSet, ExecutionContext ec) {
+            @CompileStatic
+            void findChildren(String parentEnumId, EntityList enumerationList, Set enumIdSet, Boolean includeNested, ExecutionContext ec) {
                 EntityList curList = ec.entity.find("moqui.basic.Enumeration").condition("parentEnumId", parentEnumId).useCache(true).list()
                 if (curList.size() == 0) return
-                if (includeNested) {
-                    int curListSize = curList.size()
-                    for (int i = 0; i < curListSize; i++) {
-                        EntityValue curEnum = curList.get(i)
-                        enumerationList.add(curEnum)
-                        enumIdSet.add(curEnum.enumId)
-                        // recurse to find nested
-                        findChildren((String) curEnum.enumId, enumerationList, enumIdSet, ec)
-                    }
-                } else {
-                    enumerationList.addAll(curList)
+                int curListSize = curList.size()
+                for (int i = 0; i < curListSize; i++) {
+                    EntityValue curEnum = curList.get(i)
+                    enumerationList.add(curEnum)
+                    enumIdSet.add(curEnum.enumId)
+                    // recurse to find nested
+                    if (includeNested) findChildren((String) curEnum.enumId, enumerationList, enumIdSet, true, ec)
                 }
             }
-        ]]></script></actions>
+            ]]></script></actions>
     </service>
     <service verb="get" noun="EnumsByTypeForDropDown" allow-remote="true">
         <in-parameters><parameter name="enumTypeId"/></in-parameters>
