@@ -31,7 +31,26 @@ multiple Moqui instances from a master instance. Instances with their own databa
 configurable services, with initial support for Docker containers and MySQL databases. Provisioning services will be added over time
 to support other instance hosts and databases, and you can write your own for whatever infrastructure you prefer to use.
 
-TODO write release summary
+To support WebSocket a more recent Servlet API the embedded servlet container is now Jetty 9 instead of Winstone. When running 
+behind a proxy such as nginx or httpd running in the embedded mode (executable WAR file) is now adequate for production use.
+
+If you are upgrading from an earlier version of Moqui Framework please read all notes about Non Backward Compatible Changes. Code,
+configuration, and database meta data changes may be necessary depending on which features of the framework you are using.
+
+In this version Moqui Framework starts and runs faster, uses less memory, is more flexible, configuration is easier, and there are
+new and better ways to deploy and manage multiple instances. A decent machine ($1800 USD Linux workstation, i7-6800K 6 core CPU) 
+generated around 350 screens per second with an average response time under 200ms. This was running Moqui and MySQL on the same 
+machine with a JMeter script running on a separate machine doing a 23 step order to ship/bill process that included 2 reports 
+(one MySQL based, one ElasticSearch based) and all the GL posting, etc. The load simulated entering and shipping (by internal users) 
+around 1000 orders/minute which would support thousands of concurrent internal or ecommerce users. On larger server hardware and 
+with some lower level tuning (this was on stock/default Linux, Java 8, and MySQL 5.7 settings) a single machine could handle 
+significantly more traffic.  
+
+With the latest framework code and the new Hazelcast plugin Moqui supports high performance clusters to handle massive loads. The 
+most significant limit is now database performance as we need a transactional SQL database for this sort of business process 
+(with locking on inventory reservations and issuances, GL posting, etc as currently implemented in Mantle USL).
+
+Enjoy!
 
 ### Non Backward Compatible Changes
 
@@ -261,6 +280,7 @@ TODO write release summary
 
 ### Bug Fixes
 
+- Fixed issues with clean shutdown running with the embedded Servlet container and with gradle test
 - Fixed issue with REST and other requests using various HTTP request methods that were not handled, MoquiServlet now uses the
   HttpServlet.service() method instead of the various do*() methods
 - Fixed issue with REST and other JSON request body parameters where single entry lists were unwrapped to just the entry
