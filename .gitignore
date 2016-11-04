@@ -4,6 +4,7 @@
 # gradle/build files
 build
 .gradle
+.shelf
 /framework/dependencies
 
 # build generated files
