@@ -11,7 +11,9 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-import org.moqui.impl.StupidUtilities
+import static org.moqui.util.ObjectUtilities.*
+import static org.moqui.util.CollectionUtilities.*
+import static org.moqui.util.StringUtilities.*
 import java.sql.Timestamp
 // these are in the context by default: ExecutionContext ec, Map<String, Object> context, Map<String, Object> result
 <#visit xmlActionsRoot/>
@@ -79,15 +81,15 @@ return;
 
 <#macro set>
     <#if .node["@set-if-empty"]?has_content && .node["@set-if-empty"] == "false">
-    _temp_internal = <#if .node["@type"]?has_content>StupidUtilities.basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node.@value}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
+    _temp_internal = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node.@value}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
     if (_temp_internal) ${.node["@field"]} = _temp_internal
     <#else>
-    ${.node["@field"]} = <#if .node["@type"]?has_content>StupidUtilities.basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node["@value"]}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
+    ${.node["@field"]} = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node["@value"]}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
     </#if>
 </#macro>
 
 <#macro "order-map-list">
-    StupidUtilities.orderMapList(${.node["@list"]}, [<#list .node["order-by"] as ob>"${ob["@field-name"]}"<#if ob_has_next>, </#if></#list>])
+    orderMapList(${.node["@list"]}, [<#list .node["order-by"] as ob>"${ob["@field-name"]}"<#if ob_has_next>, </#if></#list>])
 </#macro>
 <#macro "filter-map-list">
     if (${.node["@list"]} != null) {
@@ -98,10 +100,10 @@ return;
         def _listToFilter = ${.node["@list"]}
     </#if>
     <#if .node["field-map"]?has_content>
-        StupidUtilities.filterMapList(_listToFilter, [<#list .node["field-map"] as fm>"${fm["@field-name"]}":<#if fm["@value"]?has_content>"""${fm["@value"]}"""<#elseif fm["@from"]?has_content>${fm["@from"]}<#else>${fm["@field-name"]}</#if><#if fm_has_next>, </#if></#list>])
+        filterMapList(_listToFilter, [<#list .node["field-map"] as fm>"${fm["@field-name"]}":<#if fm["@value"]?has_content>"""${fm["@value"]}"""<#elseif fm["@from"]?has_content>${fm["@from"]}<#else>${fm["@field-name"]}</#if><#if fm_has_next>, </#if></#list>])
     </#if>
     <#list .node["date-filter"] as df>
-        StupidUtilities.filterMapListByDate(_listToFilter, "${df["@from-field-name"]?default("fromDate")}", "${df["@thru-field-name"]?default("thruDate")}", <#if df["@valid-date"]?has_content>${df["@valid-date"]} ?: ec.user.nowTimestamp<#else>null</#if>, ${df["@ignore-if-empty"]?default("false")})
+        filterMapListByDate(_listToFilter, "${df["@from-field-name"]?default("fromDate")}", "${df["@thru-field-name"]?default("thruDate")}", <#if df["@valid-date"]?has_content>${df["@valid-date"]} ?: ec.user.nowTimestamp<#else>null</#if>, ${df["@ignore-if-empty"]?default("false")})
     </#list>
     }
 </#macro>
@@ -146,7 +148,7 @@ return;
         <#else>
         Map efSfiDefParms = null
         </#if>
-        ${listName}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
+        ${listName}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@skip-fields"]!("")}", "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
     }
     </#if>
     <#if .node["limit-range"]?has_content && !useCache>
@@ -264,8 +266,8 @@ return;
 </#macro>
 
 <#-- NOTE: if there is an error message (in ec.messages.errors) then the actions result is an error, otherwise it is not, so we need a default error message here -->
-<#macro return><#assign returnMessage = .node["@message"]!""/><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${returnMessage?trim}''' ?: "Error in actions",''))<#else>    if (returnMessage) ec.message.addMessage(ec.resource.expand('''${returnMessage?trim}''',''))</#if>
-    return
+<#macro return><#assign returnMessage = .node["@message"]!""/><#if returnMessage?has_content><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${returnMessage?trim}''' ?: "Error in actions",''))<#else>    ec.message.addMessage(ec.resource.expand('''${returnMessage?trim}''',''))</#if></#if>
+    return;
 </#macro>
 <#macro assert><#list .node["*"] as childCond>
     if (!(<#visit childCond/>)) ec.message.addError(ec.resource.expand('''<#if .node["@title"]?has_content>[${.node["@title"]}] </#if> Assert failed: <#visit childCond/>''',''))</#list>
@@ -300,14 +302,14 @@ return;
 <#macro and>(<#list .node.children as childNode><#visit childNode/><#if childNode_has_next> && </#if></#list>)</#macro>
 <#macro not>!<#visit .node.children[0]/></#macro>
 
-<#macro "compare">    <#if (.node?size > 0)>if (StupidUtilities.compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)) {
+<#macro compare>    <#if (.node?size > 0)>if (compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)) {
         <#recurse .node/>
     }<#if .node.else?has_content> else {
         <#recurse .node.else[0]/>
     }</#if>
-    <#else>StupidUtilities.compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)</#if>
+    <#else>compare(${.node["@field"]}, <#if .node["@operator"]?has_content>"${.node["@operator"]}"<#else>"equals"</#if>, <#if .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if>, <#if .node["@to-field"]?has_content>${.node["@to-field"]}<#else>null</#if>, <#if .node["@format"]?has_content>"${.node["@format"]}"<#else>null</#if>, <#if .node["@type"]?has_content>"${.node["@type"]}"<#else>"Object"</#if>)</#if>
 </#macro>
-<#macro "expression">${.node}
+<#macro expression>${.node}
 </#macro>
 
 <#-- =================== other elements =================== -->

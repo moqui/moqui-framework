@@ -15,7 +15,7 @@ package org.moqui.impl.util
 
 import groovy.transform.CompileStatic
 import org.apache.commons.validator.routines.CalendarValidator
-import org.moqui.impl.StupidUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -122,7 +122,7 @@ class SimpleSgmlReader {
         if (ltIndex > pos) {
             value = sgml.substring(pos, ltIndex).trim()
             if (value) {
-                value = StupidUtilities.decodeFromXml(value)
+                value = StringUtilities.decodeFromXml(value)
                 curNode.setValue(value)
             }
             pos = ltIndex

@@ -16,26 +16,31 @@ package org.moqui.entity;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import javax.annotation.Nonnull;
 import javax.sql.rowset.serial.SerialBlob;
 import java.io.Externalizable;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
-/**
- * Entity Value Interface - Represents a single database record.
- *
- */
+/** Entity Value Interface - Represents a single database record. */
 @SuppressWarnings("unused")
 public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable {
 
     String getEntityName();
 
+    /** Returns true if any field has been modified */
     boolean isModified();
+    /** Returns true if the field has been modified */
     boolean isFieldModified(String name);
+    /** Returns true if a value for the field is set, even if it is null */
     boolean isFieldSet(String name);
+    /** Returns true if the name is a valid field name for the entity this is a value of,
+     * false otherwise (meaning get(), set(), etc calls with throw an exception with the field name) */
+    boolean isField(String name);
 
     boolean isMutable();
 
@@ -203,11 +208,17 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      */
     EntityValue findRelatedOne(String relationshipName, Boolean useCache, Boolean forUpdate) throws EntityException;
 
+    long findRelatedCount(final String relationshipName, Boolean useCache);
+
     /** Remove the named Related Entity for the EntityValue from the persistent store
      * @param relationshipName String containing the relationship name which is the combination of relationship.title
      *   and relationship.related-entity-name as specified in the entity XML definition file
      */
     void deleteRelated(String relationshipName) throws EntityException;
+
+    /** Delete this record plus records for all relationships specified. If any records exist for other relationships not specified
+     * that depend on this record returns false and does not delete anything. Otherwise returns true. */
+    boolean deleteWithRelated(Set<String> relationshipsToDelete);
 
     /**
      * Checks to see if all foreign key records exist in the database. Will create a dummy value for
@@ -215,7 +226,6 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      *
      * @param insertDummy Create a dummy record using the provided fields
      * @return true if all FKs exist (or when all missing are created)
-     * @throws EntityException
      */
     boolean checkFks(boolean insertDummy) throws EntityException;
 

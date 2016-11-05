@@ -22,10 +22,11 @@ import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.StupidJavaUtilities;
-import org.moqui.impl.StupidUtilities;
 import org.moqui.impl.context.*;
+import org.moqui.util.CollectionUtilities;
 import org.moqui.util.MNode;
+import org.moqui.util.ObjectUtilities;
+import org.moqui.util.StringUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -75,17 +76,15 @@ public abstract class EntityValueBase implements EntityValue {
         // NOTE: not serializing modified, mutable, isFromDb... if it is a copy we don't care if it gets modified, etc
     }
 
-    @Override
-    public void writeExternal(ObjectOutput out) throws IOException {
+    @Override public void writeExternal(ObjectOutput out) throws IOException {
         // NOTE: found that the serializer in Hazelcast is REALLY slow with writeUTF(), uses String.chatAt() in a for loop, crazy
         // NOTE2: in Groovy this results in castToType() overhead anyway, so for now use writeUTF/readUTF as other serialization might be more efficient
         out.writeUTF(entityName);
         out.writeObject(valueMapInternal);
     }
 
-    @Override
     @SuppressWarnings("unchecked")
-    public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+    @Override public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         entityName = objectInput.readUTF();
         valueMapInternal.putAll((Map<String, Object>) objectInput.readObject());
     }
@@ -128,22 +127,18 @@ public abstract class EntityValueBase implements EntityValue {
     }
     public boolean getIsFromDb() { return isFromDb; }
 
-    @Override
-    public String getEntityName() { return entityName; }
-    @Override
-    public boolean isModified() { return modified; }
-    @Override
-    public boolean isFieldModified(String name) {
+    @Override public String getEntityName() { return entityName; }
+    @Override public boolean isModified() { return modified; }
+    @Override public boolean isFieldModified(String name) {
         if (!valueMapInternal.containsKey(name)) return false;
         if (dbValueMap == null || !dbValueMap.containsKey(name)) return true;
         Object valueMapValue = valueMapInternal.get(name);
         Object dbValue = dbValueMap.get(name);
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
     }
-    @Override
-    public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
-    @Override
-    public boolean isMutable() { return mutable; }
+    @Override public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
+    @Override public boolean isField(String name) { return getEntityDefinition().isField(name); }
+    @Override public boolean isMutable() { return mutable; }
     public void setFromCache() { mutable = false; }
 
     @Override
@@ -259,7 +254,7 @@ public abstract class EntityValueBase implements EntityValue {
                             EntityValue lefValue = lefFind.useCache(true).one();
                             if (lefValue != null) {
                                 String localized = (String) lefValue.get("localized");
-                                StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                 return localized;
                             }
 
@@ -269,7 +264,7 @@ public abstract class EntityValueBase implements EntityValue {
                                 lefValue = lefFind.useCache(true).one();
                                 if (lefValue != null) {
                                     String localized = (String) lefValue.get("localized");
-                                    StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                                    CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                     return localized;
                                 }
                             }
@@ -279,7 +274,7 @@ public abstract class EntityValueBase implements EntityValue {
                             lefValue = lefFind.useCache(true).one();
                             if (lefValue != null) {
                                 String localized = (String) lefValue.get("localized");
-                                StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                                CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                                 return localized;
                             }
                         }
@@ -292,7 +287,7 @@ public abstract class EntityValueBase implements EntityValue {
                     EntityValue lmValue = lmFind.useCache(true).one();
                     if (lmValue != null) {
                         String localized = (String) lmValue.get("localized");
-                        StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                         return localized;
                     }
 
@@ -301,7 +296,7 @@ public abstract class EntityValueBase implements EntityValue {
                         lmValue = lmFind.useCache(true).one();
                         if (lmValue != null) {
                             String localized = (String) lmValue.get("localized");
-                            StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                            CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                             return localized;
                         }
                     }
@@ -310,12 +305,12 @@ public abstract class EntityValueBase implements EntityValue {
                     lmValue = lmFind.useCache(true).one();
                     if (lmValue != null) {
                         String localized = (String) lmValue.get("localized");
-                        StupidUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
+                        CollectionUtilities.addToMapInMap(name, localeStr, localized, localizedByLocaleByField);
                         return localized;
                     }
 
                     // we didn't find a localized value, remember that so we don't do the queries again (common case)
-                    StupidUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
+                    CollectionUtilities.addToMapInMap(name, localeStr, null, localizedByLocaleByField);
                     // logger.warn("======== field ${name}:${internalValue} remembering no localized, localizedByLocaleByField=${localizedByLocaleByField}")
                 }
 
@@ -327,28 +322,18 @@ public abstract class EntityValueBase implements EntityValue {
         return valueMapInternal.get(name);
     }
 
-    @Override
-    public Object getNoCheckSimple(String name) {
-        return valueMapInternal.get(name);
-    }
+    @Override public Object getNoCheckSimple(String name) { return valueMapInternal.get(name); }
 
-    @Override
-    public Object getOriginalDbValue(String name) {
+    @Override public Object getOriginalDbValue(String name) {
         return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMapInternal.get(name);
     }
-
     protected Object getOldDbValue(String name) {
         if (oldDbValueMap != null && oldDbValueMap.containsKey(name)) return oldDbValueMap.get(name);
         return getOriginalDbValue(name);
     }
 
-    @Override
-    public boolean containsPrimaryKey() {
-        return this.getEntityDefinition().containsPrimaryKey(valueMapInternal);
-    }
-
-    @Override
-    public Map<String, Object> getPrimaryKeys() {
+    @Override public boolean containsPrimaryKey() { return this.getEntityDefinition().containsPrimaryKey(valueMapInternal); }
+    @Override public Map<String, Object> getPrimaryKeys() {
         if (internalPkMap != null) return new HashMap<>(internalPkMap);
         internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMapInternal);
         return new HashMap<>(internalPkMap);
@@ -381,21 +366,13 @@ public abstract class EntityValueBase implements EntityValue {
         return allMatch;
     }
 
-    @Override
-    public EntityValue set(String name, Object value) {
-        put(name, value);
-        return this;
-    }
-
-    @Override
-    public EntityValue setAll(Map<String, Object> fields) {
+    @Override public EntityValue set(String name, Object value) { put(name, value); return this; }
+    @Override public EntityValue setAll(Map<String, Object> fields) {
         if (!mutable) throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
         getEntityDefinition().entityInfo.setFieldsEv(fields, this, null);
         return this;
     }
-
-    @Override
-    public EntityValue setString(String name, String value) {
+    @Override public EntityValue setString(String name, String value) {
         // this will do a field name check
         ExecutionContextImpl eci = getEntityFacadeImpl().ecfi.getEci();
         Object converted = getEntityDefinition().convertFieldString(name, value, eci);
@@ -403,31 +380,22 @@ public abstract class EntityValueBase implements EntityValue {
         return this;
     }
 
-    @Override
-    public Boolean getBoolean(String name) { return DefaultGroovyMethods.asType(get(name), Boolean.class); }
-    @Override
-    public String getString(String name) {
+    @Override public Boolean getBoolean(String name) { return DefaultGroovyMethods.asType(get(name), Boolean.class); }
+    @Override public String getString(String name) {
         EntityDefinition ed = getEntityDefinition();
         FieldInfo fieldInfo = ed.getFieldInfo(name);
 
         Object valueObj = getKnownField(fieldInfo);
         return fieldInfo.convertToString(valueObj);
     }
-    @Override
-    public Timestamp getTimestamp(String name) { return DefaultGroovyMethods.asType(get(name), Timestamp.class); }
-    @Override
-    public Time getTime(String name) { return DefaultGroovyMethods.asType(this.get(name), Time.class); }
-    @Override
-    public java.sql.Date getDate(String name) { return DefaultGroovyMethods.asType(this.get(name), Date.class); }
-    @Override
-    public Long getLong(String name) { return DefaultGroovyMethods.asType(this.get(name), Long.class); }
-    @Override
-    public Double getDouble(String name) { return DefaultGroovyMethods.asType(this.get(name), Double.class); }
-    @Override
-    public BigDecimal getBigDecimal(String name) { return DefaultGroovyMethods.asType(this.get(name), BigDecimal.class); }
+    @Override public Timestamp getTimestamp(String name) { return DefaultGroovyMethods.asType(get(name), Timestamp.class); }
+    @Override public Time getTime(String name) { return DefaultGroovyMethods.asType(this.get(name), Time.class); }
+    @Override public java.sql.Date getDate(String name) { return DefaultGroovyMethods.asType(this.get(name), Date.class); }
+    @Override public Long getLong(String name) { return DefaultGroovyMethods.asType(this.get(name), Long.class); }
+    @Override public Double getDouble(String name) { return DefaultGroovyMethods.asType(this.get(name), Double.class); }
+    @Override public BigDecimal getBigDecimal(String name) { return DefaultGroovyMethods.asType(this.get(name), BigDecimal.class); }
 
-    @Override
-    public byte[] getBytes(String name) {
+    @Override public byte[] getBytes(String name) {
         Object o = this.get(name);
         if (o == null) return null;
         if (o instanceof SerialBlob) {
@@ -443,9 +411,7 @@ public abstract class EntityValueBase implements EntityValue {
         // try groovy...
         return DefaultGroovyMethods.asType(o, byte[].class);
     }
-
-    @Override
-    public EntityValue setBytes(String name, byte[] theBytes) {
+    @Override public EntityValue setBytes(String name, byte[] theBytes) {
         try {
             if (theBytes != null) set(name, new SerialBlob(theBytes));
         } catch (Exception e) {
@@ -453,9 +419,7 @@ public abstract class EntityValueBase implements EntityValue {
         }
         return this;
     }
-
-    @Override
-    public SerialBlob getSerialBlob(String name) {
+    @Override public SerialBlob getSerialBlob(String name) {
         Object o = this.get(name);
         if (o == null) return null;
         if (o instanceof SerialBlob) return (SerialBlob) o;
@@ -468,8 +432,7 @@ public abstract class EntityValueBase implements EntityValue {
         return DefaultGroovyMethods.asType(o, SerialBlob.class);
     }
 
-    @Override
-    public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks) {
+    @Override public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks) {
         if (!setIfEmpty && (namePrefix == null || namePrefix.length() == 0)) {
             getEntityDefinition().entityInfo.setFields(fields, this, false, namePrefix, pks);
         } else {
@@ -531,7 +494,7 @@ public abstract class EntityValueBase implements EntityValue {
         }
 
         int seqValToUse = highestSeqVal != null ? highestSeqVal + 1 : 1;
-        this.set(seqFieldName, StupidUtilities.paddedNumber(seqValToUse, paddedLength));
+        this.set(seqFieldName, StringUtilities.paddedNumber(seqValToUse, paddedLength));
         return this;
     }
 
@@ -639,7 +602,7 @@ public abstract class EntityValueBase implements EntityValue {
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
                 parms.put("changedFieldName", fieldName);
-                parms.put("newValueText", StupidJavaUtilities.toPlainString(value));
+                parms.put("newValueText", ObjectUtilities.toPlainString(value));
                 parms.put("changedDate", nowTimestamp);
                 parms.put("changedByUserId", ec.getUser().getUserId());
                 parms.put("changedInVisitId", ec.getUser().getVisitId());
@@ -719,10 +682,59 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override
+    public long findRelatedCount(final String relationshipName, Boolean useCache) {
+        EntityJavaUtil.RelationshipInfo relInfo = getEntityDefinition().getRelationshipInfo(relationshipName);
+        if (relInfo == null) throw new EntityException("Relationship " + relationshipName + " not found in entity " + entityName);
+
+        String relatedEntityName = relInfo.relatedEntityName;
+        Map<String, String> keyMap = relInfo.keyMap;
+        if (keyMap == null || keyMap.size() == 0) throw new EntityException("Relationship " + relInfo.relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
+
+        // make a Map where the key is the related entity's field name, and the value is the value from this entity
+        Map<String, Object> condMap = new HashMap<>();
+        for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+
+        EntityFind find = getEntityFacadeImpl().find(relatedEntityName);
+        return find.condition(condMap).useCache(useCache).count();
+    }
+
+    @Override
     public void deleteRelated(String relationshipName) {
         // NOTE: this does a select for update, may consider not doing that by default
         EntityList relatedList = findRelated(relationshipName, null, null, false, true);
         for (EntityValue relatedValue : relatedList) relatedValue.delete();
+    }
+
+    @Override
+    public boolean deleteWithRelated(Set<String> relationshipsToDelete) {
+        if (relationshipsToDelete == null) relationshipsToDelete = new HashSet<>();
+        ArrayList<EntityJavaUtil.RelationshipInfo> relInfoList = getEntityDefinition().getRelationshipsInfo(false);
+        int relInfoListSize = relInfoList.size();
+
+        // look for related records that exist and that we won't delete, if any return true
+        boolean foundNonDeleteRelated = false;
+        for (int i = 0; i < relInfoListSize; i++) {
+            EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(i);
+            if (relInfo.isTypeOne) continue;
+            if (relationshipsToDelete.contains(relInfo.shortAlias) || relationshipsToDelete.contains(relInfo.relationshipName)) continue;
+
+            if (findRelatedCount(relInfo.relationshipName, false) > 0) {
+                if (logger.isInfoEnabled()) logger.info("Not deleting entity " + entityName + " value with PK " + getPrimaryKeys() + ", found record in relationship " + relInfo.relationshipName);
+                foundNonDeleteRelated = true;
+                break;
+            }
+        }
+        if (foundNonDeleteRelated) return false;
+
+        // delete related records to delete
+        for (String delRelName : relationshipsToDelete) {
+            deleteRelated(delRelName);
+        }
+
+        // delete this record
+        delete();
+
+        return true;
     }
 
     @Override
@@ -878,7 +890,7 @@ public abstract class EntityValueBase implements EntityValue {
                 continue;
             }
 
-            String valueStr = StupidJavaUtilities.toPlainString(fieldValue);
+            String valueStr = ObjectUtilities.toPlainString(fieldValue);
             if (valueStr == null || valueStr.isEmpty()) continue;
             if (valueStr.contains("\n") || valueStr.contains("\r") || valueStr.length() > 255) {
                 cdataMap.put(fieldName, valueStr);
@@ -886,7 +898,7 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             pw.append(" ").append(fieldName).append("=\"");
-            pw.append(StupidUtilities.encodeForXmlAttribute(valueStr)).append("\"");
+            pw.append(StringUtilities.encodeForXmlAttribute(valueStr)).append("\"");
         }
 
 
@@ -936,7 +948,7 @@ public abstract class EntityValueBase implements EntityValue {
 
     private Map<String, Object> internalPlainValueMap(int dependentLevels, Set<String> parentPkFields) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
-        StupidUtilities.removeNullsFromMap(vMap);
+        CollectionUtilities.removeNullsFromMap(vMap);
         if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
         EntityDefinition ed = getEntityDefinition();
         vMap.put("_entity", ed.getShortOrFullEntityName());
@@ -981,7 +993,7 @@ public abstract class EntityValueBase implements EntityValue {
 
     private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
-        StupidUtilities.removeNullsFromMap(vMap);
+        CollectionUtilities.removeNullsFromMap(vMap);
         if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
         EntityDefinition ed = getEntityDefinition();
         vMap.put("_entity", ed.getShortOrFullEntityName());
@@ -1020,16 +1032,11 @@ public abstract class EntityValueBase implements EntityValue {
         return vMap;
     }
 
-    @Override
-    public int size() { return valueMapInternal.size(); }
-    @Override
-    public boolean isEmpty() { return valueMapInternal.isEmpty(); }
-    @Override
-    public boolean containsKey(Object o) { return o instanceof CharSequence && valueMapInternal.containsKey(o.toString()); }
-    @Override
-    public boolean containsValue(Object o) { return values().contains(o); }
-    @Override
-    public Object get(Object o) {
+    @Override public int size() { return valueMapInternal.size(); }
+    @Override public boolean isEmpty() { return valueMapInternal.isEmpty(); }
+    @Override public boolean containsKey(Object o) { return o instanceof CharSequence && valueMapInternal.containsKey(o.toString()); }
+    @Override public boolean containsValue(Object o) { return values().contains(o); }
+    @Override public Object get(Object o) {
         if (o instanceof CharSequence) {
             // This may throw an exception, and let it; the Map interface doesn't provide for EntityException
             //   but it is far more useful than a log message that is likely to be ignored.
@@ -1038,8 +1045,7 @@ public abstract class EntityValueBase implements EntityValue {
             return null;
         }
     }
-    @Override
-    public Object put(final String name, Object value) {
+    @Override public Object put(final String name, Object value) {
         if (!getEntityDefinition().isField(name)) throw new EntityException("The field name " + name + " is not valid for entity " + entityName);
         return putNoCheck(name, value);
     }
@@ -1065,8 +1071,7 @@ public abstract class EntityValueBase implements EntityValue {
         return curValue;
     }
 
-    @Override
-    public Object remove(Object o) {
+    @Override public Object remove(Object o) {
         if (o instanceof CharSequence) {
             String name = o.toString();
             if (valueMapInternal.containsKey(name)) modified = true;
@@ -1076,26 +1081,13 @@ public abstract class EntityValueBase implements EntityValue {
         }
     }
 
-    @Override
-    public void putAll(Map<? extends String, ?> map) {
+    @Override public void putAll(Map<? extends String, ?> map) {
         for (Entry entry : map.entrySet()) put((String) entry.getKey(), entry.getValue());
     }
 
-    @Override
-    public void clear() {
-        modified = true;
-        valueMapInternal.clear();
-    }
-
-    @Override
-    public Set<String> keySet() {
-        // Was this way through 1.1.0, only showing currently populated fields (not good for User Fields or other
-        //     convenient things): return Collections.unmodifiableSet(valueMap.keySet())
-        return new HashSet<>(getEntityDefinition().getAllFieldNames());
-    }
-
-    @Override
-    public Collection<Object> values() {
+    @Override public void clear() { modified = true; valueMapInternal.clear(); }
+    @Override public Set<String> keySet() { return new HashSet<>(getEntityDefinition().getAllFieldNames()); }
+    @Override public Collection<Object> values() {
         // everything needs to go through the get method, so iterate through the fields and get the values
         List<String> allFieldNames = getEntityDefinition().getAllFieldNames();
         List<Object> values = new ArrayList<>(allFieldNames.size());
@@ -1103,8 +1095,7 @@ public abstract class EntityValueBase implements EntityValue {
         return values;
     }
 
-    @Override
-    public Set<Entry<String, Object>> entrySet() {
+    @Override public Set<Entry<String, Object>> entrySet() {
         // everything needs to go through the get method, so iterate through the fields and get the values
         FieldInfo[] allFieldInfos = getEntityDefinition().entityInfo.allFieldInfoArray;
         Set<Entry<String, Object>> entries = new HashSet<>();
@@ -1116,24 +1107,16 @@ public abstract class EntityValueBase implements EntityValue {
         return entries;
     }
 
-    @Override
-    public boolean equals(Object obj) {
+    @Override public boolean equals(Object obj) {
         if (obj == null || !obj.getClass().equals(this.getClass())) return false;
         // reuse the compare method
         return this.compareTo((EntityValue) obj) == 0;
     }
 
-    @Override
-    public int hashCode() {
-        // NOTE: consider caching the hash code in the future for performance
-        return entityName.hashCode() + valueMapInternal.hashCode();
-    }
-
-    @Override
-    public String toString() { return "[" + entityName + ": " + valueMapInternal.toString() + "]"; }
-
-    @Override
-    public Object clone() { return this.cloneValue(); }
+    // NOTE: consider caching the hash code in the future for performance
+    @Override public int hashCode() { return entityName.hashCode() + valueMapInternal.hashCode(); }
+    @Override public String toString() { return "[" + entityName + ": " + valueMapInternal.toString() + "]"; }
+    @Override public Object clone() { return cloneValue(); }
     @Override public abstract EntityValue cloneValue();
     public abstract EntityValue cloneDbValue(boolean getOld);
 
@@ -1161,7 +1144,7 @@ public abstract class EntityValueBase implements EntityValue {
             curVal = dbValueMap.get(fieldName);
         }
 
-        if (StupidJavaUtilities.isEmpty(curVal)) {
+        if (ObjectUtilities.isEmpty(curVal)) {
             if (dbValueMap != null) ec.getContext().push(dbValueMap);
             ec.getContext().push(valueMapInternal);
             try {
@@ -1474,7 +1457,6 @@ public abstract class EntityValueBase implements EntityValue {
 
         return retVal;
     }
-
     public abstract boolean refreshExtended();
 
     private static class EntityFieldEntry implements Entry<String, Object> {
@@ -1487,13 +1469,11 @@ public abstract class EntityValueBase implements EntityValue {
         @Override public String getKey() { return fi.name; }
         @Override public Object getValue() { return evb.getKnownField(fi); }
         @Override public Object setValue(Object v) { return evb.set(fi.name, v); }
-        @Override
-        public int hashCode() {
+        @Override public int hashCode() {
             Object val = getValue();
             return fi.name.hashCode() + (val != null ? val.hashCode() : 0);
         }
-        @Override
-        public boolean equals(Object obj) {
+        @Override public boolean equals(Object obj) {
             if (obj instanceof EntityFieldEntry) {
                 EntityFieldEntry other = (EntityFieldEntry) obj;
                 return fi.name.equals(other.fi.name) && getValue().equals(other.getValue());
@@ -1505,19 +1485,13 @@ public abstract class EntityValueBase implements EntityValue {
 
     public static class DeletedEntityValue extends EntityValueBase {
         public DeletedEntityValue(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip); }
-        @Override
-        public EntityValue cloneValue() { return this; }
-        @Override
-        public EntityValue cloneDbValue(boolean getOld) { return this; }
-        @Override
-        public void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
+        @Override public EntityValue cloneValue() { return this; }
+        @Override public EntityValue cloneDbValue(boolean getOld) { return this; }
+        @Override public void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
             throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
-        @Override
-        public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
+        @Override public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
             throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
-        @Override
-        public void deleteExtended(Connection con) { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
-        @Override
-        public boolean refreshExtended() { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
+        @Override public void deleteExtended(Connection con) { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
+        @Override public boolean refreshExtended() { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
     }
 }

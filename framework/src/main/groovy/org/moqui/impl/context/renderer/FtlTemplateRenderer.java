@@ -22,7 +22,7 @@ import groovy.transform.CompileStatic;
 
 import org.moqui.BaseException;
 import org.moqui.context.ExecutionContextFactory;
-import org.moqui.context.ResourceReference;
+import org.moqui.resource.ResourceReference;
 import org.moqui.context.TemplateRenderer;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.jcache.MCache;
@@ -49,7 +49,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
     public TemplateRenderer init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf;
         defaultFtlConfiguration = makeFtlConfiguration(ecfi);
-        templateFtlLocationCache = ecfi.getCacheFacade().getCache("resource.ftl.location", String.class, Template.class);
+        templateFtlLocationCache = ecfi.cacheFacade.getCache("resource.ftl.location", String.class, Template.class);
         return this;
     }
 

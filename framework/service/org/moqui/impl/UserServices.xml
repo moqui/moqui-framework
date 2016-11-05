@@ -143,12 +143,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <message error="true">Password shorter than ${minLength} characters</message></if>
 
             <set field="minDigits" from="passwordNode.attribute('min-digits')" default-value="1" type="Integer"/>
-            <set field="digits" from="StupidUtilities.countChars(newPassword, true, false, false)"/>
+            <set field="digits" from="countChars(newPassword, true, false, false)"/>
             <if condition="digits &lt; minDigits">
                 <message error="true">Password needs ${minDigits} digit/number characters</message></if>
 
             <set field="minOthers" from="passwordNode.attribute('min-others')" default-value="1" type="Integer"/>
-            <set field="others" from="StupidUtilities.countChars(newPassword, false, false, true)"/>
+            <set field="others" from="countChars(newPassword, false, false, true)"/>
             <if condition="others &lt; minOthers">
                 <message error="true">Password needs ${minOthers} other characters (not letter or digit)</message></if>
 
@@ -230,7 +230,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <return message="Account with username ${username} does not have an email address" error="true"/></if>
 
             <!-- reset the password to a random value -->
-            <set field="resetPassword" from="org.moqui.impl.StupidUtilities.getRandomString(12)"/>
+            <set field="resetPassword" from="getRandomString(12)"/>
             <set field="passwordNode" from="ec.ecfi.confXmlRoot.first('user-facade').first('password')"/>
             <set field="userAccount.resetPassword" from="ec.ecfi.getSimpleHash(resetPassword, userAccount.passwordSalt, userAccount.passwordHashType)"/>
             <set field="userAccount.requirePasswordChange" from="(passwordNode.attribute('email-require-change') == 'false') ? 'N' : 'Y'"/>

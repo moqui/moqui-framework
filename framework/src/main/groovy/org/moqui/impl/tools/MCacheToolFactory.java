@@ -11,10 +11,11 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.jcache;
+package org.moqui.impl.tools;
 
 import org.moqui.context.ExecutionContextFactory;
 import org.moqui.context.ToolFactory;
+import org.moqui.jcache.MCacheManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

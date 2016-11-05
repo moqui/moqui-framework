@@ -82,6 +82,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>The location and name separated by a hash/pound sign (#) of the form to
                     extend. If there is no location it is treated as a form name in the current screen.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="owner-form" type="xs:string">
+                <xs:annotation><xs:documentation>The name (HTML id) of a form that will own the fields in this form. When used no
+                    form elements are generated, only fields, and each will have the form attribute populated with the value of this
+                    attribute.</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="transition" type="xs:string">
                 <xs:annotation><xs:documentation>The transition in the current screen to submit the form to.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -568,7 +573,14 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="right"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
-            <xs:attribute name="aggregate" default="group-by">
+            <xs:attribute name="aggregate">
+                <xs:annotation><xs:documentation>
+                    For form-list only. Use to combine rows during render with summary fields (where this is a function), or in
+                    a sub-list under a row with values common among the combined rows.
+
+                    To use this at least one field must have at least one field with aggregate=group-by for efficiently finding
+                    rows to combine.
+                </xs:documentation></xs:annotation>
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="min"/><xs:enumeration value="max"/><xs:enumeration value="sum"/>
                     <xs:enumeration value="avg"/><xs:enumeration value="count"/>

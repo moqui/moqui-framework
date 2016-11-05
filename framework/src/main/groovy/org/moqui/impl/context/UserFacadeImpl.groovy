@@ -16,15 +16,14 @@ package org.moqui.impl.context
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.EntityCondition
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
 
 import javax.websocket.server.HandshakeRequest
-import java.security.SecureRandom
 import java.sql.Timestamp
 import javax.servlet.http.Cookie
 import javax.servlet.http.HttpServletRequest
@@ -387,11 +386,23 @@ class UserFacadeImpl implements UserFacade {
             fromCal.add(Calendar.WEEK_OF_YEAR, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.WEEK_OF_YEAR, 1)
+        } else if (period == "7d") {
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 7)
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, 7)
+            // have last 7d also include today (like 30d)
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
         } else if (period == "month") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             fromCal.add(Calendar.MONTH, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.MONTH, 1)
+        } else if (period == "30d") {
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 30)
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, 30)
+            // have last 30d also include today to make it a more useful default
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
         } else if (period == "year") {
             fromCal.set(Calendar.DAY_OF_YEAR, fromCal.getActualMinimum(Calendar.DAY_OF_YEAR))
             fromCal.add(Calendar.YEAR, offset)
@@ -528,7 +539,7 @@ class UserFacadeImpl implements UserFacade {
         if (!userId) throw new IllegalStateException("No active user, cannot get login key")
 
         // generate login key
-        String loginKey = StupidUtilities.getRandomString(40)
+        String loginKey = StringUtilities.getRandomString(40)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())

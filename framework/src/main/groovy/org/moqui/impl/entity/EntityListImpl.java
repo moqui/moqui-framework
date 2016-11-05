@@ -6,8 +6,8 @@ import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
+import org.moqui.util.CollectionUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -285,7 +285,7 @@ public class EntityListImpl implements EntityList {
     public EntityList orderByFields(List<String> fieldNames) {
         if (fromCache) return this.cloneList().orderByFields(fieldNames);
         if (fieldNames != null && fieldNames.size() > 0)
-            Collections.sort(valueList, new StupidJavaUtilities.MapOrderByComparator(fieldNames));
+            Collections.sort(valueList, new CollectionUtilities.MapOrderByComparator(fieldNames));
         return this;
     }
 

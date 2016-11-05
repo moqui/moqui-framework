@@ -38,7 +38,7 @@ class XmlActionsScriptRunner implements ScriptRunner {
 
     ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.scriptXmlActionLocationCache = ecfi.getCacheFacade().getCache("resource.xml-actions.location", String.class, XmlAction.class)
+        this.scriptXmlActionLocationCache = ecfi.cacheFacade.getCache("resource.xml-actions.location", String.class, XmlAction.class)
         return this
     }
 

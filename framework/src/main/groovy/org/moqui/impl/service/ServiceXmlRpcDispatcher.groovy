@@ -105,10 +105,8 @@ public class ServiceXmlRpcDispatcher extends XmlRpcHttpServer {
             String methodName = xmlRpcReq.getMethodName()
 
             ServiceDefinition sd = eci.serviceFacade.getServiceDefinition(methodName)
-            if (sd == null)
-                throw new XmlRpcException("Received XML-RPC service call for unknown service [${methodName}]")
-            if (sd.serviceNode.attribute("allow-remote") != "true")
-                throw new XmlRpcException("Received XML-RPC service call to service [${sd.serviceName}] that does not allow remote calls.")
+            if (sd == null) throw new XmlRpcException("Received XML-RPC service call for unknown service [${methodName}]")
+            if (!sd.allowRemote) throw new XmlRpcException("Received XML-RPC service call to service [${sd.serviceName}] that does not allow remote calls.")
 
             Map params = this.getParameters(xmlRpcReq, methodName)
 
