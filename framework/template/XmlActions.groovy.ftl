@@ -148,7 +148,7 @@ return;
         <#else>
         Map efSfiDefParms = null
         </#if>
-        ${listName}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
+        ${listName}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@skip-fields"]!("")}", "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
     }
     </#if>
     <#if .node["limit-range"]?has_content && !useCache>

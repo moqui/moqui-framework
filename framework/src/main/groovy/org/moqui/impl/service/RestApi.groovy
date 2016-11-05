@@ -354,14 +354,14 @@ class RestApi {
 
             try {
                 if (operation == 'one') {
-                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     if (masterName) {
                         return new RestResult(ef.oneMaster(masterName), null)
                     } else {
                         return new RestResult(ef.one(), null)
                     }
                 } else if (operation == 'list') {
-                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
                     if (!ef.getLimit()) ef.limit(100)
 
@@ -381,7 +381,7 @@ class RestApi {
                         return new RestResult(ef.list(), headers)
                     }
                 } else if (operation == 'count') {
-                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     long count = ef.count()
                     Map<String, Object> headers = ['X-Total-Count':count] as Map<String, Object>
                     return new RestResult([count:count], headers)
