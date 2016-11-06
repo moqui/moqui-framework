@@ -232,10 +232,13 @@ public class CollectionUtilities {
     @SuppressWarnings("unchecked")
     public static void addToBigDecimalInMap(Object key, BigDecimal value, Map theMap) {
         if (value == null || theMap == null) return;
-        BigDecimal curVal = (BigDecimal) theMap.get(key);
-        if (curVal == null) {
+        Object curObj = theMap.get(key);
+        if (curObj == null) {
             theMap.put(key, value);
         } else {
+            BigDecimal curVal;
+            if (curObj instanceof BigDecimal) curVal = (BigDecimal) curObj;
+            else curVal = new BigDecimal(curObj.toString());
             theMap.put(key, curVal.add(value));
         }
     }

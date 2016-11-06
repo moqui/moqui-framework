@@ -21,30 +21,28 @@ import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.ScriptRunner
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.StringUtilities
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
 
 @CompileStatic
 class GroovyScriptRunner implements ScriptRunner {
-    protected final static Logger logger = LoggerFactory.getLogger(GroovyScriptRunner.class)
-
-    protected ExecutionContextFactoryImpl ecfi
-    protected Cache<String, Class> scriptGroovyLocationCache
+    private ExecutionContextFactoryImpl ecfi
+    private Cache<String, Class> scriptGroovyLocationCache
 
     GroovyScriptRunner() { }
 
+    @Override
     ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
         this.scriptGroovyLocationCache = ecfi.cacheFacade.getCache("resource.groovy.location", String.class, Class.class)
         return this
     }
 
+    @Override
     Object run(String location, String method, ExecutionContext ec) {
         Script script = InvokerHelper.createScript(getGroovyByLocation(location), ec.contextBinding)
         Object result
-        if (method) {
+        if (method != null && !method.isEmpty()) {
             result = script.invokeMethod(method, {})
         } else {
             result = script.run()
@@ -52,18 +50,19 @@ class GroovyScriptRunner implements ScriptRunner {
         return result
     }
 
+    @Override
     void destroy() { }
 
     Class getGroovyByLocation(String location) {
         Class gc = (Class) scriptGroovyLocationCache.get(location)
-        if (!gc) gc = loadGroovy(location)
+        if (gc == null) gc = loadGroovy(location)
         return gc
     }
-    protected Class loadGroovy(String location) {
+    private synchronized Class loadGroovy(String location) {
         Class gc = (Class) scriptGroovyLocationCache.get(location)
-        if (!gc) {
+        if (gc == null) {
             String groovyText = ecfi.resourceFacade.getLocationText(location, false)
-            gc = ecfi.getGroovyClassLoader().parseClass(groovyText, StringUtilities.cleanStringForJavaName(location))
+            gc = ecfi.compileGroovy(groovyText, StringUtilities.cleanStringForJavaName(location))
             scriptGroovyLocationCache.put(location, gc)
         }
         return gc

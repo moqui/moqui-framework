@@ -96,7 +96,7 @@ public class XmlAction {
         String curGroovy = getGroovyString();
         // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
         try {
-            groovyClassInternal = ecfi.getGroovyClassLoader().parseClass(curGroovy, StringUtilities.cleanStringForJavaName(location));
+            groovyClassInternal = ecfi.compileGroovy(curGroovy, StringUtilities.cleanStringForJavaName(location));
         } catch (Throwable t) {
             groovyClassInternal = null;
             logger.error("Error parsing groovy String at [" + location + "]:\n" + writeGroovyWithLines() + "\n");

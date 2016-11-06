@@ -325,28 +325,37 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate) {
-        return searchFormInputs(inputFieldsMapName, null, defaultOrderBy, alwaysPaginate)
+        return searchFormInputs(inputFieldsMapName, null, null, defaultOrderBy, alwaysPaginate)
     }
-    EntityFind searchFormInputs(String inputFieldsMapName, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
+    EntityFind searchFormInputs(String inputFieldsMapName, Map<String, Object> defaultParameters, String skipFields,
+                                String defaultOrderBy, boolean alwaysPaginate) {
         ExecutionContextImpl ec = efi.ecfi.getEci()
         Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ec.resource.expression(inputFieldsMapName, "") : ec.context
-        return searchFormMap(inf, defaultParameters, defaultOrderBy, alwaysPaginate)
+        return searchFormMap(inf, defaultParameters, skipFields, defaultOrderBy, alwaysPaginate)
     }
 
     @Override
-    EntityFind searchFormMap(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters, String defaultOrderBy, boolean alwaysPaginate) {
+    EntityFind searchFormMap(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters, String skipFields,
+                             String defaultOrderBy, boolean alwaysPaginate) {
         ExecutionContextImpl ec = efi.ecfi.getEci()
 
         // to avoid issues with entities that have cache=true, if no cache value is specified for this set it to false (avoids pagination errors, etc)
         if (useCache == null) useCache(false)
 
+        Set<String> skipFieldSet = new HashSet<>()
+        if (skipFields != null && !skipFields.isEmpty()) {
+            String[] skipFieldArray = skipFields.split(",")
+            for (int i = 0; i < skipFieldArray.length; i++) {
+                String skipField = skipFieldArray[i].trim()
+                if (skipField.length() > 0) skipFieldSet.add(skipField)
+            }
+        }
+
         boolean addedConditions = false
-        if (inputFieldsMap != null && inputFieldsMap.size() > 0)
-            addedConditions = processInputFields(inputFieldsMap, ec)
+        if (inputFieldsMap != null && inputFieldsMap.size() > 0) addedConditions = processInputFields(inputFieldsMap, skipFieldSet, ec)
         if (!addedConditions && defaultParameters != null && defaultParameters.size() > 0) {
-            processInputFields(defaultParameters, ec)
-            for (Map.Entry<String, Object> dpEntry in defaultParameters.entrySet())
-                ec.contextStack.put(dpEntry.key, dpEntry.value)
+            processInputFields(defaultParameters, skipFieldSet, ec)
+            for (Map.Entry<String, Object> dpEntry in defaultParameters.entrySet()) ec.contextStack.put(dpEntry.key, dpEntry.value)
         }
 
         // always look for an orderByField parameter too
@@ -373,10 +382,11 @@ abstract class EntityFindBase implements EntityFind {
         return this
     }
 
-    protected boolean processInputFields(Map<String, Object> inputFieldsMap, ExecutionContextImpl ec) {
+    protected boolean processInputFields(Map<String, Object> inputFieldsMap, Set<String> skipFieldSet, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDef()
         boolean addedConditions = false
         for (String fn in ed.getAllFieldNames()) {
+            if (skipFieldSet.contains(fn)) continue
             // NOTE: do we need to do type conversion here?
 
             // this will handle text-find
