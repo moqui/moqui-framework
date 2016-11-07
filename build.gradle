@@ -22,7 +22,7 @@ import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
 
-def tomcatHome = '../apache-tomcat-8.0.21'
+def tomcatHome = '../apache-tomcat-8.5.6'
 // no longer include version in war file name: def getWarName() { 'moqui-' + childProjects.framework.version + '.war' }
 def getWarName() { 'moqui.war' }
 def plusRuntimeName = 'moqui-plus-runtime.war'
