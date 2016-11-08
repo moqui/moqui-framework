@@ -958,7 +958,7 @@ class ScreenForm {
                     }
                 }
             } else if ("option".equals(childNode.name)) {
-                String key = ec.resource.expand(childNode.attribute('key'), null)
+                String key = ec.resource.expandNoL10n(childNode.attribute('key'), null)
                 String text = ec.resource.expand(childNode.attribute('text'), null)
                 options.put(key, text ?: key)
             }
@@ -978,7 +978,7 @@ class ScreenForm {
             String key = null
             String keyAttr = childNode.attribute('key')
             if (keyAttr != null && keyAttr.length() > 0) {
-                key = ec.resource.expand(keyAttr, null)
+                key = ec.resource.expandNoL10n(keyAttr, null)
                 // we just did a string expand, if it evaluates to a literal "null" then there was no value
                 if (key == "null") key = null
             } else if (listOptionEvb != null) {
