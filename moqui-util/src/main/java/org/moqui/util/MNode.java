@@ -763,7 +763,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
     private FtlNodeListWrapper allChildren = null;
     private ConcurrentHashMap<String, TemplateModel> attrAndChildrenByName = null;
-    private Set<String> knownNullAttributes = null;
+    private ConcurrentHashMap<String, Boolean> knownNullAttributes = null;
 
     public Object getAdaptedObject(Class aClass) { return this; }
 
@@ -775,7 +775,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             TemplateModel attrOrChildWrapper = attrAndChildrenByName.get(s);
             if (attrOrChildWrapper != null) return attrOrChildWrapper;
         }
-        if (knownNullAttributes != null && knownNullAttributes.contains(s)) return null;
+        if (knownNullAttributes != null && knownNullAttributes.containsKey(s)) return null;
 
         // at this point we got a null value but attributes and child nodes were pre-loaded so return null or empty list
         if (s.startsWith("@")) {
@@ -790,8 +790,8 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                 String attrName = s.substring(1, s.length());
                 String attrValue = attributeMap.get(attrName);
                 if (attrValue == null) {
-                    if (knownNullAttributes == null) knownNullAttributes = new HashSet<>();
-                    knownNullAttributes.add(s);
+                    if (knownNullAttributes == null) knownNullAttributes = new ConcurrentHashMap<>();
+                    knownNullAttributes.put(s, Boolean.TRUE);
                     return null;
                 } else {
                     FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
