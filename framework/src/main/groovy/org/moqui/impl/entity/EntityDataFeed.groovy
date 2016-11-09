@@ -266,8 +266,7 @@ class EntityDataFeed {
         EntityList dataDocumentConditionList = null
         boolean alreadyDisabled = efi.ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
         try {
-            dataDocument = efi.find("moqui.entity.document.DataDocument")
-                    .condition("dataDocumentId", dataDocumentId).useCache(true).one()
+            dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
             if (dataDocument == null) throw new EntityException("No DataDocument found with ID [${dataDocumentId}]")
             dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
             dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
@@ -455,8 +454,7 @@ class EntityDataFeed {
                     boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
                     try {
                         // for each DataDocument go through feedValues and get the primary entity's PK field(s) for each
-                        dataDocument = efi.find("moqui.entity.document.DataDocument")
-                                .condition("dataDocumentId", dataDocumentId).useCache(true).one()
+                        dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
                         dataDocumentFieldList =
                             dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
                     } finally {

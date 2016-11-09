@@ -325,8 +325,7 @@ class UserFacadeImpl implements UserFacade {
     }
 
     String getPreference(String preferenceKey, String userId) {
-        EntityValue up = eci.getEntity().find("moqui.security.UserPreference").condition("userId", userId)
-                .condition("preferenceKey", preferenceKey).useCache(true).disableAuthz().one()
+        EntityValue up = eci.entityFacade.fastFindOne("moqui.security.UserPreference", true, true, userId, preferenceKey)
         if (up == null) {
             // try UserGroupPreference
             EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
@@ -573,8 +572,8 @@ class UserFacadeImpl implements UserFacade {
     boolean hasPermission(String userPermissionId) { return hasPermissionById(getUserId(), userPermissionId, getNowTimestamp(), eci) }
 
     static boolean hasPermission(String username, String userPermissionId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
-        EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).disableAuthz().one()
-        if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
+        EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
+        if (ua == null) ua = eci.entityFacade.find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
         if (ua == null) return false
         hasPermissionById((String) ua.userId, userPermissionId, whenTimestamp, eci)
     }
@@ -591,8 +590,8 @@ class UserFacadeImpl implements UserFacade {
     boolean isInGroup(String userGroupId) { return isInGroup(getUserId(), userGroupId, getNowTimestamp(), eci) }
 
     static boolean isInGroup(String username, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
-        EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).disableAuthz().one()
-        if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
+        EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
+        if (ua == null) ua = eci.entityFacade.find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
         return isInGroupById((String) ua?.userId, userGroupId, whenTimestamp, eci)
     }
     static boolean isInGroupById(String userId, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
@@ -672,9 +671,8 @@ class UserFacadeImpl implements UserFacade {
 
     @Override
     EntityValue getVisit() {
-        if (!visitId) return null
-        EntityValue vst = eci.getEntity().find("moqui.server.Visit").condition("visitId", visitId).useCache(true).disableAuthz().one()
-        return vst
+        if (visitId == null || visitId.isEmpty()) return null
+        return eci.entityFacade.fastFindOne("moqui.server.Visit", true, true, visitId)
     }
 
     // ========== UserInfo ==========

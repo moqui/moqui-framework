@@ -14,7 +14,7 @@
 package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ExecutionContextFactory
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.resource.ResourceReference
 
 @CompileStatic
@@ -22,13 +22,13 @@ abstract class WrapperResourceReference extends BaseResourceReference {
     ResourceReference rr = null
 
     WrapperResourceReference() { }
-    
-    ResourceReference init(String location, ExecutionContextFactory ecf) {
+
+    @Override
+    ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
         return this
     }
-
-    ResourceReference init(ResourceReference rr, ExecutionContextFactory ecf) {
+    ResourceReference init(ResourceReference rr, ExecutionContextFactoryImpl ecf) {
         this.rr = rr
         this.ecf = ecf
         return this

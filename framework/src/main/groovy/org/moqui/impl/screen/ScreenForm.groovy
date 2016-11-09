@@ -258,7 +258,7 @@ class ScreenForm {
 
             boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
             try {
-                EntityValue dbForm = ecfi.entityFacade.find("moqui.screen.form.DbForm").condition("formId", formId).useCache(true).one()
+                EntityValue dbForm = ecfi.entityFacade.fastFindOne("moqui.screen.form.DbForm", true, false, formId)
                 if (dbForm == null) throw new BaseException("Could not find DbForm record with ID [${formId}]")
                 dbFormNode = new MNode((dbForm.isListForm == "Y" ? "form-list" : "form-single"), null)
 
@@ -1254,8 +1254,7 @@ class ScreenForm {
         boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
-            EntityValue fcu = ecfi.entityFacade.find("moqui.screen.form.FormConfigUser")
-                    .condition("userId", ec.user.userId).condition("formLocation", screenForm.location).useCache(true).one()
+            EntityValue fcu = ecfi.entityFacade.fastFindOne("moqui.screen.form.FormConfigUser", true, false, screenForm.location, ec.user.userId)
             if (fcu != null) return (String) fcu.getNoCheckSimple("formConfigId")
 
             // Maybe not do this at all and let it be a future thing where the user selects an active one from options available through groups
@@ -1273,7 +1272,7 @@ class ScreenForm {
             if (ec.web == null) return null
             String formListFindId = ec.web.requestParameters.get("formListFindId")
             if (!formListFindId) return null
-            return ec.entity.find("moqui.screen.form.FormListFind").condition("formListFindId", formListFindId).useCache(true).one()
+            return ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, false, formListFindId)
         }
 
         ArrayList<ArrayList<MNode>> getFormListColumnInfo() {
@@ -1566,7 +1565,7 @@ class ScreenForm {
             return formInstance.aggregationUtil.aggregateList(listObject, aggregateList, ecfi.getEci())
         }
 
-        List<Map<String, Object>> getUserFormListFinds(ExecutionContext ec) {
+        List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
             EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUser")
                     .condition("userId", ec.user.userId).useCache(true).list()
             EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
@@ -1768,9 +1767,8 @@ class ScreenForm {
         return parmMap
     }
 
-    static Map<String, Object> getFormListFindInfo(String formListFindId, ExecutionContext ec, Set<String> userOnlyFlfIdSet) {
-        EntityValue formListFind = ec.entity.find("moqui.screen.form.FormListFind")
-                .condition("formListFindId", formListFindId).useCache(true).one()
+    static Map<String, Object> getFormListFindInfo(String formListFindId, ExecutionContextImpl ec, Set<String> userOnlyFlfIdSet) {
+        EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, false, formListFindId)
         Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
         flfParameters.put("formListFindId", formListFindId)
         if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)

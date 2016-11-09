@@ -244,7 +244,14 @@ abstract class EntityFindBase implements EntityFind {
         EntityConditionImplBase singleCond = (EntityConditionImplBase) null
         if (singleCondField != null) {
             if (samSize > 0) logger.warn("simpleAndMap size ${samSize} and singleCondField not null!")
-            ConditionField cf = localEd != null ? localEd.getFieldInfo(singleCondField).conditionField : new ConditionField(singleCondField)
+            ConditionField cf
+            if (localEd != null) {
+                FieldInfo fi = localEd.getFieldInfo(singleCondField)
+                if (fi == null) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
+                cf = fi.conditionField
+            } else {
+                cf = new ConditionField(singleCondField)
+            }
             singleCond = new FieldValueCondition(cf, EntityCondition.EQUALS, singleCondValue)
         }
         // special case, frequent operation: find by single key

@@ -124,8 +124,7 @@ class EntityDataDocument {
                                Timestamp thruUpdatedStamp) {
         ExecutionContextImpl eci = efi.ecfi.getEci()
 
-        EntityValue dataDocument = efi.find("moqui.entity.document.DataDocument")
-                .condition("dataDocumentId", dataDocumentId).useCache(true).one()
+        EntityValue dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
         if (dataDocument == null) throw new EntityException("No DataDocument found with ID [${dataDocumentId}]")
         EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
         EntityList dataDocumentRelAliasList = dataDocument.findRelated("moqui.entity.document.DataDocumentRelAlias", null, null, true, false)
