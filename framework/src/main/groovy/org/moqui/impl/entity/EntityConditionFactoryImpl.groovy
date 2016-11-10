@@ -264,12 +264,12 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     @Override
     EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         return new DateCondition(fromFieldName, thruFieldName,
-                compareStamp ?: efi.ecfi.getEci().userFacade.getNowTimestamp())
+                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
     EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty) {
         if (ignoreIfEmpty && (Object) compareStamp == null) return null
         return new DateCondition(fromFieldName, thruFieldName,
-                compareStamp ?: efi.ecfi.getEci().userFacade.getNowTimestamp())
+                (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
 
     @Override

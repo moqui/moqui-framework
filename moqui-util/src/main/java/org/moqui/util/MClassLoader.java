@@ -101,6 +101,7 @@ public class MClassLoader extends ClassLoader {
     private final ConcurrentHashMap<String, Class> classCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ClassNotFoundException> notFoundCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, URL> resourceCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ArrayList<URL>> resourceAllCache = new ConcurrentHashMap<>();
     private final Set<String> resourcesNotFound = new HashSet<>();
     private ProtectionDomain pd;
 
@@ -253,6 +254,7 @@ public class MClassLoader extends ClassLoader {
 
         if (resourceUrl == null) resourceUrl = getParent().getResource(resourceName);
         if (resourceUrl != null) {
+            // System.out.println("finding resource " + resourceName + " got " + resourceUrl.toExternalForm());
             URL existingUrl = resourceCache.putIfAbsent(resourceName, resourceUrl);
             if (existingUrl != null) return existingUrl;
             else return resourceUrl;
@@ -267,7 +269,10 @@ public class MClassLoader extends ClassLoader {
     /** @see java.lang.ClassLoader#findResources(java.lang.String) */
     @Override
     public Enumeration<URL> findResources(String resourceName) throws IOException {
-        List<URL> urlList = new ArrayList<>();
+        ArrayList<URL> cachedUrls = resourceAllCache.get(resourceName);
+        if (cachedUrls != null) return Collections.enumeration(cachedUrls);
+
+        ArrayList<URL> urlList = new ArrayList<>();
         int classesDirectoryListSize = classesDirectoryList.size();
         for (int i = 0; i < classesDirectoryListSize; i++) {
             File classesDir = classesDirectoryList.get(i);
@@ -295,6 +300,8 @@ public class MClassLoader extends ClassLoader {
         // add all resources found in parent loader too
         Enumeration<URL> superResources = getParent().getResources(resourceName);
         while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
+        resourceAllCache.putIfAbsent(resourceName, urlList);
+        // System.out.println("finding all resources with name " + resourceName + " got " + urlList);
         return Collections.enumeration(urlList);
     }
 

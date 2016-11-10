@@ -254,20 +254,22 @@ class ScreenDefinition {
     boolean isStandalone() { return standalone }
 
     String getDefaultMenuName() {
-        String menuName = screenNode.attribute("default-menu-title")
-        if (!menuName) {
+        return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, sfi.ecfi);
+    }
+    static String getPrettyMenuName(String menuName, String location, ExecutionContextFactoryImpl ecfi) {
+        if (menuName == null || menuName.isEmpty()) {
             String filename = location.substring(location.lastIndexOf("/")+1, location.length()-4)
             StringBuilder prettyName = new StringBuilder()
             for (String part in filename.split("(?=[A-Z])")) {
                 if (prettyName) prettyName.append(" ")
                 prettyName.append(part)
             }
-            Character firstChar = prettyName.charAt(0) as Character
-            if (firstChar.isLowerCase()) prettyName.setCharAt(0, firstChar.toUpperCase())
+            char firstChar = prettyName.charAt(0)
+            if (Character.isLowerCase(firstChar)) prettyName.setCharAt(0, Character.toUpperCase(firstChar))
             menuName = prettyName.toString()
         }
 
-        return sfi.getEcfi().getExecutionContext().getL10n().localize(menuName)
+        return ecfi.getEci().l10nFacade.localize(menuName)
     }
 
     /** Get macro template location specific to screen from marco-template elements */
@@ -906,12 +908,10 @@ class ScreenDefinition {
         }
 
         String getDefaultTitle() {
-            ScreenDefinition sd = parentScreen.sfi.getScreenDefinition(location)
-            if (sd != null) {
-                return sd.getDefaultMenuName()
-            } else {
-                return location.substring(location.lastIndexOf("/")+1, location.length()-4)
-            }
+            ExecutionContextFactoryImpl ecfi = parentScreen.sfi.ecfi
+            ResourceReference screenRr = ecfi.resourceFacade.getLocationReference(location)
+            MNode screenNode = MNode.parseRootOnly(screenRr)
+            return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, ecfi)
         }
 
         String getName() { return name }

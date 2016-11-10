@@ -280,8 +280,9 @@ class UserFacadeImpl implements UserFacade {
     TimeZone getTimeZone() { return currentInfo.tzCache }
 
     Calendar getCalendarSafe() {
-        return Calendar.getInstance(currentInfo.tzCache ?: TimeZone.getDefault(),
-                currentInfo.localeCache ?: (request ? request.getLocale() : Locale.getDefault()))
+        return Calendar.getInstance(currentInfo.tzCache != null ? currentInfo.tzCache : TimeZone.getDefault(),
+                currentInfo.localeCache != null ? currentInfo.localeCache :
+                        (request != null ? request.getLocale() : Locale.getDefault()))
     }
 
     @Override

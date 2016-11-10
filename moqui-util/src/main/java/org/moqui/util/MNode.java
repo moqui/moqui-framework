@@ -98,7 +98,30 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     public static MNode parse(String location, InputSource isrc) {
         try {
-            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(false);
+            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            reader.setContentHandler(xmlHandler);
+            reader.parse(isrc);
+            return xmlHandler.getRootNode();
+        } catch (Exception e) {
+            throw new BaseException("Error parsing XML from " + location, e);
+        }
+    }
+
+    public static MNode parseRootOnly(ResourceReference rr) {
+        InputStream is = rr.openStream();
+        try {
+            return parseRootOnly(rr.getLocation(), new InputSource(is));
+        } finally {
+            if (is != null) {
+                try { is.close(); }
+                catch (IOException e) { logger.error("Error closing XML stream from " + rr.getLocation(), e); }
+            }
+        }
+    }
+    public static MNode parseRootOnly(String location, InputSource isrc) {
+        try {
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(true);
             XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
@@ -712,12 +735,17 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         MNode curNode = null;
         StringBuilder curText = null;
 
-        MNodeXmlHandler() { }
+        final boolean rootOnly;
+        private boolean stopParse = false;
+
+        MNodeXmlHandler(boolean rootOnly) { this.rootOnly = rootOnly; }
         MNode getRootNode() { return rootNode; }
         long getNodesRead() { return nodesRead; }
 
         @Override
         public void startElement(String ns, String localName, String qName, Attributes attributes) {
+            if (stopParse) return;
+
             // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
             if (curNode == null) {
                 curNode = new MNode(qName, null);
@@ -733,15 +761,21 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                 if (name == null || name.length() == 0) name = attributes.getQName(i);
                 curNode.attributeMap.put(name, value);
             }
+
+            if (rootOnly) stopParse = true;
         }
 
         @Override
         public void characters(char[] chars, int offset, int length) {
+            if (stopParse) return;
+
             if (curText == null) curText = new StringBuilder();
             curText.append(chars, offset, length);
         }
         @Override
         public void endElement(String ns, String localName, String qName) {
+            if (stopParse) return;
+
             if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
             if (curText != null) {
                 String curString = curText.toString().trim();
@@ -793,15 +827,17 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                     return null;
                 } else {
                     FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
-                    localAttrAndChildren.putIfAbsent(s, attrWrapper);
-                    return localAttrAndChildren.get(s);
+                    TemplateModel existingAttr = localAttrAndChildren.putIfAbsent(s, attrWrapper);
+                    if (existingAttr != null) return existingAttr;
+                    return attrWrapper;
                 }
             }
         } else {
             if (hasChild(s)) {
                 FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(children(s), this);
-                localAttrAndChildren.putIfAbsent(s, nodeListWrapper);
-                return localAttrAndChildren.get(s);
+                TemplateModel existingNodeList = localAttrAndChildren.putIfAbsent(s, nodeListWrapper);
+                if (existingNodeList != null) return existingNodeList;
+                return nodeListWrapper;
             } else {
                 return emptyNodeListWrapper;
             }

@@ -323,12 +323,13 @@ class EntityDataFeed {
                     currentEntityInfo = entityInfoMap.get(relEntityName)
                     currentEd = relEd
                 } else {
-                    currentTree.put(fieldPathElement, dataDocumentField.fieldNameAlias ?: fieldPathElement)
+                    String ddfFieldNameAlias = (String) dataDocumentField.fieldNameAlias
+                    currentTree.put(fieldPathElement, ddfFieldNameAlias != null && !ddfFieldNameAlias.isEmpty() ? ddfFieldNameAlias : fieldPathElement)
                     // save the current field name (not the alias)
                     currentEntityInfo.fields.add(fieldPathElement)
                     // see if there are any conditions for this alias, if so add the fieldName/value to the entity conditions Map
                     for (EntityValue dataDocumentCondition in dataDocumentConditionList) {
-                        if (dataDocumentCondition.fieldNameAlias == dataDocumentField.fieldNameAlias)
+                        if (dataDocumentCondition.fieldNameAlias == ddfFieldNameAlias)
                             currentEntityInfo.conditions.put(fieldPathElement, (String) dataDocumentCondition.fieldValue)
                     }
                 }
