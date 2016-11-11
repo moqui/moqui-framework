@@ -14,7 +14,7 @@
 
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 
-version = '1.0.0-rc1'
+version = '1.0.0-SNAPSHOT'
 
 apply plugin: 'java'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
