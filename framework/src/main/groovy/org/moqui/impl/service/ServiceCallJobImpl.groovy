@@ -49,8 +49,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
         // get ServiceJob, make sure exists
         this.jobName = jobName
-        serviceJob = eci.entity.find("moqui.service.job.ServiceJob").condition("jobName", jobName)
-                .useCache(true).disableAuthz().one()
+        serviceJob = eci.entityFacade.fastFindOne("moqui.service.job.ServiceJob", true, true, jobName)
         if (serviceJob == null) throw new IllegalArgumentException("No ServiceJob record found for jobName ${jobName}")
 
         // set ServiceJobParameter values

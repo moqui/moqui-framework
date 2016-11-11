@@ -484,8 +484,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
     @Override
     public PreparedStatement makePreparedStatement() {
-        if (connection == null)
-            throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
+        if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
         finalSql = sqlTopLevel.toString();
         // if (this.mainEntityDefinition.entityName.equals("Foo")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
         if (isDebugEnabled) logger.debug("making find PreparedStatement for SQL: " + finalSql);

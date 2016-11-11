@@ -215,7 +215,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         String scheme = getLocationScheme(location)
         Class rrClass = resourceReferenceClasses.get(scheme)
-        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
+        if (rrClass == null) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
 
         ResourceReference rr = (ResourceReference) rrClass.newInstance()
         if (rr instanceof BaseResourceReference) {

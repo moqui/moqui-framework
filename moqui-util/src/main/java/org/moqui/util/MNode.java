@@ -98,7 +98,30 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     public static MNode parse(String location, InputSource isrc) {
         try {
-            MNodeXmlHandler xmlHandler = new MNodeXmlHandler();
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(false);
+            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            reader.setContentHandler(xmlHandler);
+            reader.parse(isrc);
+            return xmlHandler.getRootNode();
+        } catch (Exception e) {
+            throw new BaseException("Error parsing XML from " + location, e);
+        }
+    }
+
+    public static MNode parseRootOnly(ResourceReference rr) {
+        InputStream is = rr.openStream();
+        try {
+            return parseRootOnly(rr.getLocation(), new InputSource(is));
+        } finally {
+            if (is != null) {
+                try { is.close(); }
+                catch (IOException e) { logger.error("Error closing XML stream from " + rr.getLocation(), e); }
+            }
+        }
+    }
+    public static MNode parseRootOnly(String location, InputSource isrc) {
+        try {
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(true);
             XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
@@ -712,12 +735,17 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         MNode curNode = null;
         StringBuilder curText = null;
 
-        MNodeXmlHandler() { }
+        final boolean rootOnly;
+        private boolean stopParse = false;
+
+        MNodeXmlHandler(boolean rootOnly) { this.rootOnly = rootOnly; }
         MNode getRootNode() { return rootNode; }
         long getNodesRead() { return nodesRead; }
 
         @Override
         public void startElement(String ns, String localName, String qName, Attributes attributes) {
+            if (stopParse) return;
+
             // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
             if (curNode == null) {
                 curNode = new MNode(qName, null);
@@ -733,15 +761,21 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                 if (name == null || name.length() == 0) name = attributes.getQName(i);
                 curNode.attributeMap.put(name, value);
             }
+
+            if (rootOnly) stopParse = true;
         }
 
         @Override
         public void characters(char[] chars, int offset, int length) {
+            if (stopParse) return;
+
             if (curText == null) curText = new StringBuilder();
             curText.append(chars, offset, length);
         }
         @Override
         public void endElement(String ns, String localName, String qName) {
+            if (stopParse) return;
+
             if (!qName.equals(curNode.nodeName)) throw new IllegalStateException("Invalid close element " + qName + ", was expecting " + curNode.nodeName);
             if (curText != null) {
                 String curString = curText.toString().trim();
@@ -762,7 +796,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     private static final BeansWrapper wrapper = new BeansWrapperBuilder(FTL_VERSION).build();
     private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
     private FtlNodeListWrapper allChildren = null;
-    private ConcurrentHashMap<String, TemplateModel> attrAndChildrenByName = null;
+    private ConcurrentHashMap<String, TemplateModel> ftlAttrAndChildren = null;
     private ConcurrentHashMap<String, Boolean> knownNullAttributes = null;
 
     public Object getAdaptedObject(Class aClass) { return this; }
@@ -771,10 +805,9 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     @Override public TemplateModel get(String s) {
         if (s == null) return null;
         // first try the attribute and children caches, then if not found in either pick it apart and create what is needed
-        if (attrAndChildrenByName != null) {
-            TemplateModel attrOrChildWrapper = attrAndChildrenByName.get(s);
-            if (attrOrChildWrapper != null) return attrOrChildWrapper;
-        }
+        ConcurrentHashMap<String, TemplateModel> localAttrAndChildren = ftlAttrAndChildren != null ? ftlAttrAndChildren : makeAttrAndChildrenByName();
+        TemplateModel attrOrChildWrapper = localAttrAndChildren.get(s);
+        if (attrOrChildWrapper != null) return attrOrChildWrapper;
         if (knownNullAttributes != null && knownNullAttributes.containsKey(s)) return null;
 
         // at this point we got a null value but attributes and child nodes were pre-loaded so return null or empty list
@@ -782,9 +815,8 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             if ("@@text".equals(s)) {
                 // if we got this once will get it again so add @@text always, always want wrapper though may be null
                 FtlTextWrapper textWrapper = new FtlTextWrapper(childText, this);
-                if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
-                attrAndChildrenByName.put("@@text", textWrapper);
-                return textWrapper;
+                localAttrAndChildren.putIfAbsent("@@text", textWrapper);
+                return localAttrAndChildren.get("@@text");
                 // TODO: handle other special hashes? (see http://www.freemarker.org/docs/xgui_imperative_formal.html)
             } else {
                 String attrName = s.substring(1, s.length());
@@ -795,21 +827,25 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                     return null;
                 } else {
                     FtlAttributeWrapper attrWrapper = new FtlAttributeWrapper(attrName, attrValue, this);
-                    if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
-                    attrAndChildrenByName.putIfAbsent(s, attrWrapper);
-                    return attrAndChildrenByName.get(s);
+                    TemplateModel existingAttr = localAttrAndChildren.putIfAbsent(s, attrWrapper);
+                    if (existingAttr != null) return existingAttr;
+                    return attrWrapper;
                 }
             }
         } else {
             if (hasChild(s)) {
                 FtlNodeListWrapper nodeListWrapper = new FtlNodeListWrapper(children(s), this);
-                if (attrAndChildrenByName == null) attrAndChildrenByName = new ConcurrentHashMap<>();
-                attrAndChildrenByName.putIfAbsent(s, nodeListWrapper);
-                return attrAndChildrenByName.get(s);
+                TemplateModel existingNodeList = localAttrAndChildren.putIfAbsent(s, nodeListWrapper);
+                if (existingNodeList != null) return existingNodeList;
+                return nodeListWrapper;
             } else {
                 return emptyNodeListWrapper;
             }
         }
+    }
+    private synchronized ConcurrentHashMap<String, TemplateModel> makeAttrAndChildrenByName() {
+        if (ftlAttrAndChildren == null) ftlAttrAndChildren = new ConcurrentHashMap<>();
+        return ftlAttrAndChildren;
     }
     @Override public boolean isEmpty() {
         return attributeMap.isEmpty() && (childList == null || childList.isEmpty()) && (childText == null || childText.length() == 0);
