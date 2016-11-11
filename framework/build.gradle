@@ -79,7 +79,10 @@ dependencies {
     // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
     compile 'org.javassist:javassist:3.21.0-GA' // Apache 2.0
 
+    // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
+    // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
+    compile 'org.apache.httpcomponents:httpclient:4.5.2'
 
     // ========== Libraries from jcenter ==========
 
