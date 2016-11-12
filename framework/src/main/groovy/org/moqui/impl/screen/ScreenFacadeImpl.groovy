@@ -118,8 +118,17 @@ public class ScreenFacadeImpl implements ScreenFacade {
         if (screenLocationCache.containsKey(location)) return true
 
         try {
-            ScreenDefinition checkSd = getScreenDefinition(location)
-            return (checkSd != null)
+            // we checked the screenLocationCache above, so now do a quick file parse to see if it is a XML file with 'screen' root
+            //     element; this is faster and more reliable when a screen is not loaded, screen doesn't have to be fully valid
+            //     which is important as with the old approach if there was an error parsing or compiling the screen it was a false
+            //     negative and the screen source would be sent in response
+            ResourceReference screenRr = ecfi.resourceFacade.getLocationReference(location)
+            MNode screenNode = MNode.parseRootOnly(screenRr)
+            return screenNode != null && "screen".equals(screenNode.getName())
+
+            // old approach
+            // ScreenDefinition checkSd = getScreenDefinition(location)
+            // return (checkSd != null)
         } catch (Throwable t) {
             // ignore the error, just checking to see if it is a screen
             if (logger.isInfoEnabled()) logger.info("Error when checking to see if [${location}] is a XML Screen: ${t.toString()}", t)
