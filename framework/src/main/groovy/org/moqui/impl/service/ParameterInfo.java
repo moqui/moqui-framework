@@ -249,32 +249,36 @@ public class ParameterInfo {
 
     private static Document.OutputSettings outputSettings = new Document.OutputSettings().charset("UTF-8").prettyPrint(true).indentAmount(4);
     private String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterValue, ExecutionContextImpl eci) {
-        int indexOfEscape = -1;
+        // NOTE DEJ20161114 Jsoup.clean() does not have a way to tell us if anything was filtered, so to avoid reformatting other
+        //     text this method now only calls Jsoup if a '<' is found
+        // int indexOfEscape = -1;
         int indexOfLessThan = -1;
         char[] valueCharArray = parameterValue.toCharArray();
         int valueLength = valueCharArray.length;
         for (int i = 0; i < valueLength; i++) {
             char curChar = valueCharArray[i];
-            if (curChar == '%' || curChar == '&') {
+            /* if (curChar == '%' || curChar == '&') {
                 indexOfEscape = i;
                 if (indexOfLessThan >= 0) break;
-            } else if (curChar == '<') {
+            } else */
+            if (curChar == '<') {
                 indexOfLessThan = i;
-                if (indexOfEscape >= 0) break;
+                // if (indexOfEscape >= 0) break;
             }
         }
-        if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
+        // if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
 
-        if (allowSafe) {
-            return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
-        } else {
-            // check for "<"; this will protect against HTML/JavaScript injection
-            if (indexOfLessThan >= 0) {
+        if (indexOfLessThan >= 0) {
+            if (allowSafe) {
+                return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
+            } else {
+                // check for "<"; this will protect against HTML/JavaScript injection
                 eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
             }
-            // nothing changed, return null
-            return null;
         }
+
+        // nothing changed, return null
+        return null;
     }
     /*
     Old OWASP HTML Sanitizer code (removed because heavy, depends on Guava):

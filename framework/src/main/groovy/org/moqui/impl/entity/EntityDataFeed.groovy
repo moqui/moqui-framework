@@ -266,8 +266,7 @@ class EntityDataFeed {
         EntityList dataDocumentConditionList = null
         boolean alreadyDisabled = efi.ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
         try {
-            dataDocument = efi.find("moqui.entity.document.DataDocument")
-                    .condition("dataDocumentId", dataDocumentId).useCache(true).one()
+            dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
             if (dataDocument == null) throw new EntityException("No DataDocument found with ID [${dataDocumentId}]")
             dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
             dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
@@ -324,12 +323,13 @@ class EntityDataFeed {
                     currentEntityInfo = entityInfoMap.get(relEntityName)
                     currentEd = relEd
                 } else {
-                    currentTree.put(fieldPathElement, dataDocumentField.fieldNameAlias ?: fieldPathElement)
+                    String ddfFieldNameAlias = (String) dataDocumentField.fieldNameAlias
+                    currentTree.put(fieldPathElement, ddfFieldNameAlias != null && !ddfFieldNameAlias.isEmpty() ? ddfFieldNameAlias : fieldPathElement)
                     // save the current field name (not the alias)
                     currentEntityInfo.fields.add(fieldPathElement)
                     // see if there are any conditions for this alias, if so add the fieldName/value to the entity conditions Map
                     for (EntityValue dataDocumentCondition in dataDocumentConditionList) {
-                        if (dataDocumentCondition.fieldNameAlias == dataDocumentField.fieldNameAlias)
+                        if (dataDocumentCondition.fieldNameAlias == ddfFieldNameAlias)
                             currentEntityInfo.conditions.put(fieldPathElement, (String) dataDocumentCondition.fieldValue)
                     }
                 }
@@ -455,8 +455,7 @@ class EntityDataFeed {
                     boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
                     try {
                         // for each DataDocument go through feedValues and get the primary entity's PK field(s) for each
-                        dataDocument = efi.find("moqui.entity.document.DataDocument")
-                                .condition("dataDocumentId", dataDocumentId).useCache(true).one()
+                        dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
                         dataDocumentFieldList =
                             dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
                     } finally {

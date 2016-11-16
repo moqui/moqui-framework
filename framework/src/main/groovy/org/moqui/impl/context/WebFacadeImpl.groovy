@@ -962,9 +962,12 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void saveMessagesToSession() {
-        if (eci.message.messages) session.setAttribute("moqui.message.messages", eci.message.messages)
-        if (eci.message.errors) session.setAttribute("moqui.message.errors", eci.message.errors)
-        if (eci.message.validationErrors) session.setAttribute("moqui.message.validationErrors", eci.message.validationErrors)
+        List<String> messages = eci.messageFacade.getMessages()
+        if (messages != null && messages.size() > 0) session.setAttribute("moqui.message.messages", messages)
+        List<String> errors = eci.messageFacade.getErrors()
+        if (errors != null && errors.size() > 0) session.setAttribute("moqui.message.errors", errors)
+        List<ValidationError> validationErrors = eci.messageFacade.validationErrors
+        if (validationErrors != null && validationErrors.size() > 0) session.setAttribute("moqui.message.validationErrors", validationErrors)
     }
 
     /** Save passed parameters Map to a Map in the moqui.saved.parameters session attribute */

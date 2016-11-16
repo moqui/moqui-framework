@@ -321,21 +321,15 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         ExecutionContextFactoryImpl ecfi = eci.ecfi
         EntityFacadeImpl efi = eci.getEntityFacade()
 
-        EntityValue lookedUpValue = preLookedUpValue ?:
-                efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
+        EntityValue lookedUpValue = preLookedUpValue ?: efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
         // this is much slower, and we don't need to do the query: sfi.getEcfi().getEntityFacade().find(ed.entityName).condition(parameters).useCache(false).one()
-        if (lookedUpValue == null) {
-            throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
-        }
+        if (lookedUpValue == null) throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
 
         if (parameters.containsKey("statusId") && ed.isField("statusId")) {
             // do the actual query so we'll have the current statusId
             Map<String, Object> pkParms = ed.getPrimaryKeys(parameters)
-            lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName())
-                    .condition(pkParms).useCache(false).one()
-            if (lookedUpValue == null) {
-                throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
-            }
+            lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName()).condition(pkParms).useCache(false).one()
+            if (lookedUpValue == null) throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
 
             checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
         }

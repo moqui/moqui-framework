@@ -24,6 +24,7 @@ import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
+import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ContextJavaUtil
@@ -1184,10 +1185,8 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
         if (ObjectUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
-            return ec.resourceFacade.expand(defaultValue, "")
+            return ec.resourceFacade.expandNoL10n(defaultValue, "")
         return ObjectUtilities.toPlainString(obj)
-        // NOTE: this approach causes problems with currency fields, but kills the string expand for default-value... a better approach?
-        //return obj ? obj.toString() : (defaultValue ? ec.getResource().expand(defaultValue, null) : "")
     }
 
     Object getFieldValue(MNode fieldNode, String defaultValue) {
@@ -1254,8 +1253,8 @@ class ScreenRenderImpl implements ScreenRender {
 
         // find the entity value
         String keyFieldName = widgetNode.attribute("key-field-name")
-        if (!keyFieldName) keyFieldName = widgetNode.attribute("entity-key-name")
-        if (!keyFieldName) keyFieldName = ed.getPkFieldNames().get(0)
+        if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = widgetNode.attribute("entity-key-name")
+        if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = ed.getPkFieldNames().get(0)
         String useCache = widgetNode.attribute("use-cache") ?: widgetNode.attribute("entity-use-cache") ?: "true"
         EntityValue ev = ec.entity.find(entityName).condition(keyFieldName, fieldValue)
                 .useCache(useCache == "true").one()
@@ -1336,15 +1335,12 @@ class ScreenRenderImpl implements ScreenRender {
         // if no setting default to STT_INTERNAL
         if (stteId == null) stteId = "STT_INTERNAL"
 
-        EntityFacade entityFacade = sfi.ecfi.entityFacade
+        EntityFacadeImpl entityFacade = sfi.ecfi.entityFacade
         // see if there is a user setting for the theme
-        String themeId = entityFacade.find("moqui.security.UserScreenTheme")
-                .condition("userId", ec.userFacade.userId).condition("screenThemeTypeEnumId", stteId)
-                .useCache(true).disableAuthz().one()?.screenThemeId
+        String themeId = entityFacade.fastFindOne("moqui.security.UserScreenTheme", true, true, ec.userFacade.userId, stteId)?.screenThemeId
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {
-            EntityValue themeTypeEnum = entityFacade.find("moqui.basic.Enumeration")
-                    .condition("enumId", stteId).useCache(true).disableAuthz().one()
+            EntityValue themeTypeEnum = entityFacade.fastFindOne("moqui.basic.Enumeration", true, true, stteId)
             if (themeTypeEnum?.enumCode) themeId = themeTypeEnum.enumCode
         }
         // theme with "DEFAULT" in the ID

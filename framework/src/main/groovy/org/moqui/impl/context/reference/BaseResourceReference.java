@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.context.reference;
 
-import org.moqui.context.ExecutionContextFactory;
+import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.resource.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,13 +25,13 @@ import java.util.*;
 
 public abstract class BaseResourceReference extends ResourceReference {
     protected static final Logger logger = LoggerFactory.getLogger(BaseResourceReference.class);
-    private ExecutionContextFactory ecf = (ExecutionContextFactory) null;
+    protected ExecutionContextFactoryImpl ecf = (ExecutionContextFactoryImpl) null;
 
     public BaseResourceReference() { }
 
     @Override
     public ResourceReference init(String location) { return init(location, null); }
-    public abstract ResourceReference init(String location, ExecutionContextFactory ecf);
+    public abstract ResourceReference init(String location, ExecutionContextFactoryImpl ecf);
 
     @Override public abstract ResourceReference createNew(String location);
     @Override public abstract String getLocation();
@@ -62,11 +62,4 @@ public abstract class BaseResourceReference extends ResourceReference {
     @Override public abstract ResourceReference makeDirectory(String name);
     @Override public abstract ResourceReference makeFile(String name);
     @Override public abstract boolean delete();
-
-    public ExecutionContextFactory getEcf() {
-        return ecf;
-    }
-    public void setEcf(ExecutionContextFactory ecf) {
-        this.ecf = ecf;
-    }
 }

@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.context.reference;
 
-import org.moqui.context.ExecutionContextFactory;
+import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.resource.ResourceReference;
 
 import java.util.ArrayList;
@@ -24,8 +24,8 @@ public class ComponentResourceReference extends WrapperResourceReference {
 
     public ComponentResourceReference() { super(); }
 
-    public ResourceReference init(String location, ExecutionContextFactory ecf) {
-        this.setEcf(ecf);
+    public ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
+        this.ecf = ecf;
 
         if (location.endsWith("/")) location = location.substring(0, location.length() - 1);
         this.componentLocation = location;
@@ -56,7 +56,7 @@ public class ComponentResourceReference extends WrapperResourceReference {
     @Override
     public ResourceReference createNew(String location) {
         ComponentResourceReference resRef = new ComponentResourceReference();
-        resRef.init(location, getEcf());
+        resRef.init(location, ecf);
         return resRef;
     }
 
@@ -72,7 +72,7 @@ public class ComponentResourceReference extends WrapperResourceReference {
             String entryLoc = entryRr.getLocation();
             if (entryLoc.endsWith("/")) entryLoc = entryLoc.substring(0, entryLoc.length() - 1);
             String newLocation = this.componentLocation + "/" + entryLoc.substring(entryLoc.lastIndexOf("/") + 1);
-            newList.add(new ComponentResourceReference().init(newLocation, getEcf()));
+            newList.add(new ComponentResourceReference().init(newLocation, ecf));
         }
 
         return newList;

@@ -16,6 +16,14 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseException
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.TransactionCache
+import org.moqui.impl.entity.condition.ConditionField
+import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.condition.FieldValueCondition
+import org.moqui.impl.entity.condition.ListCondition
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.*
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
@@ -1310,6 +1318,160 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         return ef
+    }
+
+    /** Simple, fast find by primary key; doesn't filter find based on authz; doesn't use TransactionCache
+     * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
+    EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
+        ExecutionContextImpl ec = ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
+        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
+        try {
+            EntityDefinition ed = getEntityDefinition(entityName)
+            if (ed == null) throw new EntityException("Entity not found with name ${entityName}")
+            EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
+            FieldInfo[] pkFieldInfoArray = entityInfo.pkFieldInfoArray
+
+            if (ed.isViewEntity || !entityInfo.isEntityDatasourceFactoryImpl) {
+                if (logger.infoEnabled) logger.info("fastFindOne used with entity ${entityName} which is view entity (${ed.isViewEntity}) or not from EntityDatasourceFactoryImpl (${entityInfo.isEntityDatasourceFactoryImpl})")
+                EntityFind ef = find(entityName)
+                if (useCache) ef.useCache(true)
+                if (disableAuthz) ef.disableAuthz()
+                for (int i = 0; i < pkFieldInfoArray.length; i++) {
+                    FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+                    Object fieldValue = values[i]
+                    ef.condition(fi.name, fieldValue)
+                }
+                return ef.one()
+            }
+
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
+            // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+
+            try {
+                boolean doCache = useCache != null ? (useCache.booleanValue() ? !entityInfo.neverCache : false) : "true".equals(entityInfo.useCache)
+
+                boolean hasEmptyPk = false
+                int pkSize = pkFieldInfoArray.length
+                if (values.length != pkSize) throw new EntityException("Cannot do fastFindOne for entity ${entityName} with ${pkSize} primary key fields and ${values.length} values")
+                EntityConditionImplBase whereCondition = (EntityConditionImplBase) null
+                if (pkSize == 1) {
+                    Object fieldValue = values[0]
+                    if (ObjectUtilities.isEmpty(fieldValue)) {
+                        hasEmptyPk = true
+                    } else if (doCache) {
+                        FieldInfo fi = (FieldInfo) pkFieldInfoArray[0]
+                        whereCondition = new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue)
+                    }
+                } else {
+                    ListCondition listCond = doCache ? new ListCondition(null, EntityCondition.AND) : (ListCondition) null
+                    for (int i = 0; i < pkSize; i++) {
+                        Object fieldValue = values[i]
+                        if (ObjectUtilities.isEmpty(fieldValue)) {
+                            hasEmptyPk = true
+                            break
+                        }
+                        if (doCache) {
+                            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+                            listCond.addCondition(new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue))
+                        }
+                    }
+                    if (doCache) whereCondition = listCond
+                }
+                // if any PK fields are null, for whatever reason in calling code, the result is null so no need to send to DB or cache or anything
+                if (hasEmptyPk) return (EntityValue) null
+
+                Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
+                        ed.getCacheOne(entityCache) : (Cache<EntityCondition, EntityValueBase>) null
+                EntityValueBase cacheHit = doCache ? (EntityValueBase) entityOneCache.get(whereCondition) : (EntityValueBase) null
+
+                EntityValueBase newEntityValue
+                if (cacheHit != null) {
+                    if (cacheHit instanceof EntityCache.EmptyRecord) newEntityValue = (EntityValueBase) null
+                    else newEntityValue = cacheHit
+                } else {
+                    newEntityValue = fastFindOneExtended(ed, values)
+                    // put it in whether null or not (already know cacheHit is null)
+                    if (doCache) entityCache.putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
+                }
+
+                return newEntityValue
+            } finally {
+                // pop the ArtifactExecutionInfo
+                aefi.pop(aei)
+            }
+        } finally {
+            if (enableAuthz) aefi.enableAuthz()
+        }
+    }
+    public EntityValueBase fastFindOneExtended(EntityDefinition ed, Object... values) throws EntityException {
+        // table doesn't exist, just return null
+        if (!ed.tableExistsDbMetaOnly()) return null
+
+        FieldInfo[] fieldInfoArray = ed.entityInfo.allFieldInfoArray
+        FieldInfo[] pkFieldInfoArray = ed.entityInfo.pkFieldInfoArray
+        int pkSize = pkFieldInfoArray.length
+
+        final StringBuilder sqlTopLevel = new StringBuilder(500)
+        sqlTopLevel.append("SELECT ").append(ed.entityInfo.allFieldsSqlSelect)
+
+        // FROM Clause
+        sqlTopLevel.append(" FROM ")
+        sqlTopLevel.append(ed.getFullTableName())
+
+        // WHERE clause; whereCondition will always be FieldValueCondition or ListCondition with FieldValueCondition
+        sqlTopLevel.append(" WHERE ")
+        for (int i = 0; i < pkSize; i++) {
+            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+            // Object fieldValue = values[i]
+            if (i > 0) sqlTopLevel.append(" AND ")
+            sqlTopLevel.append(fi.getFullColumnName()).append(" = ?")
+        }
+
+        String finalSql = sqlTopLevel.toString()
+
+        // run the SQL now that it is built
+        EntityValueBase newEntityValue = (EntityValueBase) null
+        Connection connection = (Connection) null
+        PreparedStatement ps = (PreparedStatement) null
+        ResultSet rs = (ResultSet) null
+        try {
+            connection = getConnection(ed.getEntityGroupName())
+            ps = connection.prepareStatement(finalSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
+            for (int i = 0; i < pkSize; i++) {
+                FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+                Object fieldValue = values[i]
+                fi.setPreparedStatementValue(ps, i + 1, fieldValue, ed, this);
+            }
+
+            boolean queryStats = getQueryStats()
+            long beforeQuery = queryStats ? System.nanoTime() : 0
+            rs = ps.executeQuery()
+            if (queryStats) saveQueryStats(ed, finalSql, System.nanoTime() - beforeQuery, false)
+
+            if (rs.next()) {
+                newEntityValue = new EntityValueImpl(ed, this)
+                HashMap<String, Object> valueMap = newEntityValue.getValueMap()
+                int size = fieldInfoArray.length;
+                for (int i = 0; i < size; i++) {
+                    FieldInfo fi = fieldInfoArray[i];
+                    if (fi == null) break;
+                    fi.getResultSetValue(rs, i + 1, valueMap, this)
+                }
+            }
+        } catch (SQLException e) {
+            throw new EntityException("Error finding value", e);
+        } finally {
+            try {
+                if (ps != null) ps.close()
+                if (rs != null) rs.close()
+                if (connection != null) connection.close();
+            } catch (SQLException sqle) { throw new EntityException("Error finding value", sqle); }
+        }
+
+        return newEntityValue;
     }
 
     final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']

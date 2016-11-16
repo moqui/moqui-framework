@@ -15,7 +15,7 @@ package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
-import org.moqui.context.ExecutionContextFactory
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
@@ -35,13 +35,13 @@ class DbResourceReference extends BaseResourceReference {
 
     DbResourceReference() { }
     
-    @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
+    @Override ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
         this.location = location
         return this
     }
 
-    ResourceReference init(String location, EntityValue dbResource, ExecutionContextFactory ecf) {
+    ResourceReference init(String location, EntityValue dbResource, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
         this.location = location
         resourceId = dbResource.resourceId
@@ -273,8 +273,8 @@ class DbResourceReference extends BaseResourceReference {
         List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
         String lastResourceId = null
         for (String filename in filenameList) {
-            EntityValue curDbr = ecf.entity.find("moqui.resource.DbResource").condition("parentResourceId", lastResourceId).condition("filename", filename)
-                    .useCache(true).one()
+            EntityValue curDbr = ecf.entity.find("moqui.resource.DbResource").condition("parentResourceId", lastResourceId)
+                    .condition("filename", filename).useCache(true).one()
             if (curDbr == null) return null
             lastResourceId = curDbr.resourceId
         }
@@ -286,12 +286,12 @@ class DbResourceReference extends BaseResourceReference {
     EntityValue getDbResource(boolean useCache) {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
-        return ecf.entity.find("moqui.resource.DbResource").condition("resourceId", resourceId).useCache(useCache).one()
+        return ecf.entityFacade.fastFindOne("moqui.resource.DbResource", useCache, false, resourceId)
     }
     EntityValue getDbResourceFile() {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
         // don't cache this, can be big and will be cached below this as text if needed
-        return ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", resourceId).useCache(false).one()
+        return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFile", false, false, resourceId)
     }
 }

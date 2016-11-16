@@ -536,7 +536,7 @@ public class EntityDefinition {
     }
 
     RelationshipInfo getRelationshipInfo(String relationshipName) {
-        if (!relationshipName) return null
+        if (relationshipName == null || relationshipName.isEmpty()) return null
         return getRelationshipInfoMap().get(relationshipName)
     }
     Map<String, RelationshipInfo> getRelationshipInfoMap() {

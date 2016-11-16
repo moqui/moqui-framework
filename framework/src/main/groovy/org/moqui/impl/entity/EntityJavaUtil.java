@@ -220,7 +220,7 @@ public class EntityJavaUtil {
 
         public final FieldInfo[] pkFieldInfoArray, nonPkFieldInfoArray, allFieldInfoArray;
         final FieldInfo lastUpdatedStampInfo;
-        final String allFieldsSqlSelect;
+        public final String allFieldsSqlSelect;
         final Map<String, String> pkFieldDefaults, nonPkFieldDefaults;
 
 
