@@ -243,8 +243,8 @@ war {
             'Implementation-Version': version, 'Main-Class': 'MoquiStart' }
 }
 
-task copyDependencies << {
+task copyDependencies { doLast {
     delete file(projectDir.absolutePath + '/dependencies')
     copy { from configurations.runtime; into file(projectDir.absolutePath + '/dependencies') }
     copy { from configurations.testCompile; into file(projectDir.absolutePath + '/dependencies') }
-}
+} }
