@@ -1048,8 +1048,25 @@ along with this software (see the LICENSE.md file). If not, see
              note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
          <xs:complexType>
              <xs:attribute name="value" type="xs:string"/>
+             <xs:attribute name="size" type="xs:integer"/>
          </xs:complexType>
-     </xs:element>
+    </xs:element>
+    <xs:element name="bootstrap-tagsinput-typeahead" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="value" type="xs:string"/>
+            <xs:attribute name="size" type="xs:integer"/>
+            <xs:attribute name="fetch-transition-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:integer"/>
+        </xs:complexType>
+    </xs:element>
 
     <!-- ================== Field Sub-Sub-Elements ==================== -->
     <xs:element name="entity-options">
