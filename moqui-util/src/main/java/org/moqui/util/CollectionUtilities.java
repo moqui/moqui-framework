@@ -163,10 +163,10 @@ public class CollectionUtilities {
         }
 
         @Override public boolean equals(Object obj) {
-            return obj instanceof MapOrderByComparator && fieldNameArray.equals(((MapOrderByComparator) obj).fieldNameArray);
+            return obj instanceof MapOrderByComparator && Arrays.equals(fieldNameArray, ((MapOrderByComparator) obj).fieldNameArray);
         }
 
-        @Override public String toString() { return fieldNameArray.toString(); }
+        @Override public String toString() { return Arrays.toString(fieldNameArray); }
     }
 
     /**
@@ -324,9 +324,7 @@ public class CollectionUtilities {
     @SuppressWarnings("unchecked")
     public static void mergeNestedMap(Map<Object, Object> baseMap, Map<Object, Object> overrideMap, boolean overrideEmpty) {
         if (baseMap == null || overrideMap == null) return;
-        Iterator<Map.Entry<Object, Object>> mapIter = overrideMap.entrySet().iterator();
-        while (mapIter.hasNext()) {
-            Map.Entry entry = mapIter.next();
+        for (Map.Entry<Object, Object> entry : overrideMap.entrySet()) {
             Object key = entry.getKey();
             Object value = entry.getValue();
             if (baseMap.containsKey(key)) {
@@ -365,14 +363,16 @@ public class CollectionUtilities {
         }
     }
 
+    public final static Collection<Object> singleNullCollection;
+    static {
+        singleNullCollection = new ArrayList<>();
+        singleNullCollection.add(null);
+    }
     /** Removes entries with a null value from the Map, returns the passed in Map for convenience (does not clone before removes!). */
     @SuppressWarnings("unchecked")
     public static Map removeNullsFromMap(Map theMap) {
-        Iterator<Map.Entry> iterator = theMap.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry entry = iterator.next();
-            if (entry.getValue() == null) iterator.remove();
-        }
+        if (theMap == null) return null;
+        theMap.values().removeAll(singleNullCollection);
         return theMap;
     }
 
