@@ -71,6 +71,18 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="Enumeration Group" enumTypeId="EnumGroup"/>
         </seed-data>
     </entity>
+    <view-entity entity-name="EnumAndGroup" package="moqui.basic" cache="true">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="EGM" entity-name="moqui.basic.EnumGroupMember" join-from-alias="ENUM"/>
+        <alias entity-alias="ENUM" name="enumId"/>
+        <alias entity-alias="ENUM" name="enumTypeId"/>
+        <alias entity-alias="ENUM" name="parentEnumId"/>
+        <alias entity-alias="ENUM" name="enumCode"/>
+        <alias entity-alias="ENUM" name="sequenceNum"/>
+        <alias entity-alias="ENUM" name="description"/>
+        <alias entity-alias="ENUM" name="relatedEnumId"/>
+        <alias entity-alias="EGM" name="enumGroupEnumId"/>
+    </view-entity>
 
     <!-- ========== Geo ========== -->
     <entity entity-name="Geo" package="moqui.basic" use="configuration" short-alias="geos" cache="true">
@@ -348,6 +360,15 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="UOM Group" enumTypeId="UomGroup"/>
         </seed-data>
     </entity>
+    <view-entity entity-name="UomAndGroup" package="moqui.basic" cache="true">
+        <member-entity entity-alias="UOM" entity-name="moqui.basic.Uom"/>
+        <member-entity entity-alias="UGM" entity-name="moqui.basic.UomGroupMember" join-from-alias="UOM"/>
+        <alias entity-alias="UOM" name="uomId"/>
+        <alias entity-alias="UOM" name="uomTypeEnumId"/>
+        <alias entity-alias="UOM" name="description"/>
+        <alias entity-alias="UOM" name="abbreviation"/>
+        <alias entity-alias="UGM" name="uomGroupEnumId"/>
+    </view-entity>
 
     <!-- ========================================================= -->
     <!-- moqui.basic.email -->
