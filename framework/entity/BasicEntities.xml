@@ -61,6 +61,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
+    <entity entity-name="EnumGroupMember" package="moqui.basic">
+        <field name="enumGroupEnumId" type="id" is-pk="true"/>
+        <field name="enumId" type="id" is-pk="true"/>
+        <relationship type="one" title="EnumGroup" related="moqui.basic.Enumeration">
+            <key-map field-name="enumGroupEnumId"/></relationship>
+        <relationship type="one" related="moqui.basic.Enumeration"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Enumeration Group" enumTypeId="EnumGroup"/>
+        </seed-data>
+    </entity>
 
     <!-- ========== Geo ========== -->
     <entity entity-name="Geo" package="moqui.basic" use="configuration" short-alias="geos" cache="true">
@@ -327,6 +337,17 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="UOMC"/>
         <alias-all entity-alias="UOMFR"><exclude field="uomId"/></alias-all>
     </view-entity>
+
+    <entity entity-name="UomGroupMember" package="moqui.basic">
+        <field name="uomGroupEnumId" type="id" is-pk="true"/>
+        <field name="uomId" type="id" is-pk="true"/>
+        <relationship type="one" title="UomGroup" related="moqui.basic.Enumeration">
+            <key-map field-name="uomGroupEnumId"/></relationship>
+        <relationship type="one" related="moqui.basic.Uom"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="UOM Group" enumTypeId="UomGroup"/>
+        </seed-data>
+    </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.basic.email -->
