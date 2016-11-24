@@ -142,7 +142,7 @@ dependencies {
     runtime 'org.apache.logging.log4j:log4j-core:2.6.2'
     runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
-    // NOTE: ElasticSearch 5.0.0-rc1 extends the ThrowableProxy class in a way that depends on 2.6.2, can't use 2.7 for now see issue #140
+    // NOTE: ElasticSearch 5.0.1 extends the ThrowableProxy class in a way that depends on 2.6.2, can't use 2.7 for now see issue #140
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
