@@ -1,7 +1,7 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.0.0 - Not Yet Released
+## Release 2.0.0 - 24 Nov 2016
 
 Moqui Framework 2.0.0 is a major new feature and bug fix release, with
 various non backward compatible API and other changes.
