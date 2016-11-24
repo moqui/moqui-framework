@@ -183,9 +183,17 @@ public class MoquiStart {
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
+            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+
             Class<?> connectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ConnectionFactory");
             Class<?> connectionFactoryArrayClass = Array.newInstance(connectionFactoryClass, 1).getClass();
             Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
+
+            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
+            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
+
+            Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
+            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
 
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
@@ -201,12 +209,12 @@ public class MoquiStart {
             serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
             // WebApp
-            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
             Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm() + "/WEB-INF/web.xml");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
+            webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
             if (isInWar) {
                 webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
                 webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
@@ -218,14 +226,10 @@ public class MoquiStart {
             if (reportJarsUnused) webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
 
             // WebSocket
-            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
-            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
             Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
             webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
 
             // GzipHandler
-            Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
-            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
             Object gzipHandler = gzipHandlerClass.getConstructor().newInstance();
             // use defaults, should include all except certain excludes:
             // gzipHandlerClass.getMethod("setIncludedMimeTypes", String[].class).invoke(gzipHandler, new Object[] { new String[] {"text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript"} });

@@ -38,15 +38,37 @@ public class CollectionUtilities {
     }
 
     public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues) {
-        if (theList == null || theList.size() == 0 || fieldValues == null || fieldValues.size() == 0) return;
+        if (theList == null || theList.size() == 0 || fieldValues == null) return;
+        int numFields = fieldValues.size();
+        if (numFields == 0) return;
+
+        String[] fieldNameArray = new String[numFields];
+        Object[] fieldValueArray = new Object[numFields];
+        int index = 0;
+        for (Map.Entry<String, Object> entry : fieldValues.entrySet()) {
+            fieldNameArray[index] = entry.getKey();
+            fieldValueArray[index] = entry.getValue();
+            index++;
+        }
 
         Iterator<Map> theIterator = theList.iterator();
         while (theIterator.hasNext()) {
             Map curMap = theIterator.next();
-            for (Map.Entry<String, Object> entry : fieldValues.entrySet()) {
-                if (!curMap.get(entry.getKey()).equals(entry.getValue())) {
-                    theIterator.remove();
-                    break;
+            for (int i = 0; i < numFields; i++) {
+                String fieldName = fieldNameArray[i];
+                Object curObj = curMap.get(fieldName);
+                Object compareObj = fieldValueArray[i];
+
+                if (compareObj == null) {
+                    if (curObj != null) {
+                        theIterator.remove();
+                        break;
+                    }
+                } else {
+                    if (!compareObj.equals(curObj)) {
+                        theIterator.remove();
+                        break;
+                    }
                 }
             }
         }
@@ -83,8 +105,7 @@ public class CollectionUtilities {
      */
     public static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<? extends CharSequence> fieldNames) {
         if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list");
-        // this seems unnecessary, but is because Groovy allows a GString even in a List<String>, but MapOrderByComparator in Java blows up
-        if (theList != null && fieldNames.size() > 0) Collections.sort(theList, new MapOrderByComparator(fieldNames));
+        if (theList != null && fieldNames.size() > 0) theList.sort(new MapOrderByComparator(fieldNames));
         return theList;
     }
 
@@ -142,10 +163,10 @@ public class CollectionUtilities {
         }
 
         @Override public boolean equals(Object obj) {
-            return obj instanceof MapOrderByComparator && fieldNameArray.equals(((MapOrderByComparator) obj).fieldNameArray);
+            return obj instanceof MapOrderByComparator && Arrays.equals(fieldNameArray, ((MapOrderByComparator) obj).fieldNameArray);
         }
 
-        @Override public String toString() { return fieldNameArray.toString(); }
+        @Override public String toString() { return Arrays.toString(fieldNameArray); }
     }
 
     /**
@@ -156,7 +177,7 @@ public class CollectionUtilities {
     public static Map<String, Object> findMaximalMatch(List<Map<String, Object>> mapList, LinkedHashMap<String, Object> fieldsByPriority) {
         int numFields = fieldsByPriority.size();
         String[] fieldNames = new String[numFields];
-        Object[] fieldValues = new String[numFields];
+        Object[] fieldValues = new Object[numFields];
         int index = 0;
         for (Map.Entry<String, Object> entry : fieldsByPriority.entrySet()) {
             fieldNames[index] = entry.getKey();
@@ -303,9 +324,7 @@ public class CollectionUtilities {
     @SuppressWarnings("unchecked")
     public static void mergeNestedMap(Map<Object, Object> baseMap, Map<Object, Object> overrideMap, boolean overrideEmpty) {
         if (baseMap == null || overrideMap == null) return;
-        Iterator<Map.Entry<Object, Object>> mapIter = overrideMap.entrySet().iterator();
-        while (mapIter.hasNext()) {
-            Map.Entry entry = mapIter.next();
+        for (Map.Entry<Object, Object> entry : overrideMap.entrySet()) {
             Object key = entry.getKey();
             Object value = entry.getValue();
             if (baseMap.containsKey(key)) {
@@ -344,14 +363,16 @@ public class CollectionUtilities {
         }
     }
 
+    public final static Collection<Object> singleNullCollection;
+    static {
+        singleNullCollection = new ArrayList<>();
+        singleNullCollection.add(null);
+    }
     /** Removes entries with a null value from the Map, returns the passed in Map for convenience (does not clone before removes!). */
     @SuppressWarnings("unchecked")
     public static Map removeNullsFromMap(Map theMap) {
-        Iterator<Map.Entry> iterator = theMap.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry entry = iterator.next();
-            if (entry.getValue() == null) iterator.remove();
-        }
+        if (theMap == null) return null;
+        theMap.values().removeAll(singleNullCollection);
         return theMap;
     }
 
