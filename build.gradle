@@ -46,7 +46,7 @@ def getComponentTestTasks() {
 
 task clean(type: Delete) { delete file(warName); delete file(execTempDir) }
 task cleanTempDir(type: Delete) { delete file(execTempDir) }
-task cleanDb << { if (!file(moquiRuntime).exists()) return; delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties'); delete file(moquiRuntime+'/db/h2') }
+task cleanDb { doLast { if (!file(moquiRuntime).exists()) return; delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties'); delete file(moquiRuntime+'/db/h2') } }
 task cleanOrientDb(type: Delete) { delete file(moquiRuntime+'/db/orientdb/databases') }
 task cleanElasticSearch(type: Delete) { delete file(moquiRuntime+'/elasticsearch/data') }
 task cleanLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/log', include: '*') }
@@ -197,7 +197,7 @@ task reloadSave {
 
 // ========== deploy tasks ==========
 
-task deployTomcat << {
+task deployTomcat { doLast {
     // remove runtime directory, may have been added for logs/etc
     delete file(tomcatHome + '/runtime')
     // remove ROOT directory and war to avoid conflicts
@@ -205,7 +205,7 @@ task deployTomcat << {
     delete file(tomcatHome + '/webapps/ROOT.war')
     // copy the war file to ROOT.war
     copy { from file(warName); into file(tomcatHome + '/webapps'); rename(warName, 'ROOT.war') }
-}
+} }
 
 task addRuntime {
     description "Create a moqui-plus-runtime.war file with the Moqui WAR and the runtime directory embedded in it"
@@ -244,10 +244,10 @@ task addRuntime {
 }
 
 // don't use this task directly, use addRuntimeTomcat which calls this
-task deployTomcatRuntime << {
+task deployTomcatRuntime { doLast {
     delete file(tomcatHome + '/runtime'); delete file(tomcatHome + '/webapps/ROOT'); delete file(tomcatHome + '/webapps/ROOT.war')
     copy { from file(plusRuntimeName); into file(tomcatHome + '/webapps'); rename(plusRuntimeName, 'ROOT.war') }
-}
+} }
 task addRuntimeTomcat {
     dependsOn addRuntime
     dependsOn deployTomcatRuntime
