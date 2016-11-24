@@ -324,7 +324,7 @@ public class AggregationUtil {
 
     private Object getField(String fieldName, ContextStack context, Object curObject, boolean curIsMap) {
         Object value = context.getByString(fieldName);
-        if (ObjectUtilities.isEmpty(value) && !curIsMap) {
+        if (curObject != null && !curIsMap && ObjectUtilities.isEmpty(value)) {
             // try Groovy getAt for property access
             try {
                 value = DefaultGroovyMethods.getAt(curObject, fieldName);
