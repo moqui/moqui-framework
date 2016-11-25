@@ -19,8 +19,6 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.TransactionCache
-import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.EntityConditionImplBase
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.ListCondition
@@ -71,7 +69,7 @@ class EntityFacadeImpl implements EntityFacade {
      * available value and the second is the highest value reserved/cached in the bank. */
     final Cache<String, long[]> entitySequenceBankCache
     protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
-    protected final Lock locationLoadLock = new ReentrantLock()
+    protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
     protected final HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final HashMap<String, String> entityGroupNameMap = new HashMap<>()

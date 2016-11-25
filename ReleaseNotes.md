@@ -3,8 +3,7 @@
 
 ## Release 2.0.0 - 24 Nov 2016
 
-Moqui Framework 2.0.0 is a major new feature and bug fix release, with
-various non backward compatible API and other changes.
+Moqui Framework 2.0.0 is a major new feature and bug fix release, with various non backward compatible API and other changes.
 
 This is the first release since 1.0.0 with significant and non backwards compatible changes to the framework API. Various deprecated
 methods have been removed. The Cache Facade now uses the standard javax.cache interfaces and the Service Facade now uses standard 
