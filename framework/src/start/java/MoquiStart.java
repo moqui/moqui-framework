@@ -53,11 +53,13 @@ public class MoquiStart {
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
+            /* nice for debugging, messy otherwise:
             System.out.println("Internal Class Path Jars:");
             for (JarFile jf: moquiStartLoader.jarFileList) {
                 String fn = jf.getName();
                 System.out.println(fn.contains("moqui_temp") ? fn.substring(fn.indexOf("moqui_temp")) : fn);
             }
+            */
             System.out.println("------------------------------------------------");
             System.out.println("Current runtime directory (moqui.runtime): " + System.getProperty("moqui.runtime"));
             System.out.println("Current configuration file (moqui.conf): " + System.getProperty("moqui.conf"));
@@ -126,7 +128,7 @@ public class MoquiStart {
         if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
-            Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
+            // Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false);
 
             String overrideConf = argMap.get("conf");
@@ -149,10 +151,12 @@ public class MoquiStart {
         // Get a start loader with loadWebInf=false since the container will load those we don't want to here (would be on classpath twice)
         StartClassLoader moquiStartLoader = new StartClassLoader(reportJarsUnused);
         Thread.currentThread().setContextClassLoader(moquiStartLoader);
-        // NOTE: using shutdown hook to close files only:
-        Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader);
-        shutdownHook.setDaemon(true);
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+        // NOTE: not using MoquiShutdown hook any more, let Jetty stop everything
+        //   may need to add back for jar file close, cleaner delete on exit
+        // Thread shutdownHook = new MoquiShutdown(null, null, moquiStartLoader);
+        // shutdownHook.setDaemon(true);
+        // Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         initSystemProperties(moquiStartLoader, true);
 
@@ -179,9 +183,17 @@ public class MoquiStart {
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
+            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+
             Class<?> connectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ConnectionFactory");
             Class<?> connectionFactoryArrayClass = Array.newInstance(connectionFactoryClass, 1).getClass();
             Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
+
+            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
+            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
+
+            Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
+            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
 
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
@@ -197,12 +209,12 @@ public class MoquiStart {
             serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
             // WebApp
-            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
             Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm() + "/WEB-INF/web.xml");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
+            webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
             if (isInWar) {
                 webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
                 webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
@@ -214,14 +226,10 @@ public class MoquiStart {
             if (reportJarsUnused) webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
 
             // WebSocket
-            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
-            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
             Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
             webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
 
             // GzipHandler
-            Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
-            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
             Object gzipHandler = gzipHandlerClass.getConstructor().newInstance();
             // use defaults, should include all except certain excludes:
             // gzipHandlerClass.getMethod("setIncludedMimeTypes", String[].class).invoke(gzipHandler, new Object[] { new String[] {"text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript"} });
@@ -233,6 +241,10 @@ public class MoquiStart {
             int minThreads = (int) sizedThreadPoolClass.getMethod("getMinThreads").invoke(threadPool);
             int maxThreads = (int) sizedThreadPoolClass.getMethod("getMaxThreads").invoke(threadPool);
             System.out.println("Jetty min threads " + minThreads + ", max threads " + maxThreads);
+
+            // Tell Jetty to stop on JVM shutdown
+            serverClass.getMethod("setStopAtShutdown", boolean.class).invoke(server, true);
+            serverClass.getMethod("setStopTimeout", long.class).invoke(server, 30000L);
 
             // Start
             serverClass.getMethod("start").invoke(server);

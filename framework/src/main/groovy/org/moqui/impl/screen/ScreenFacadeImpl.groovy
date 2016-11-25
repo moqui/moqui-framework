@@ -16,7 +16,7 @@ package org.moqui.impl.screen
 import freemarker.template.Template
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
-import org.moqui.context.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.screen.ScreenFacade
 import org.moqui.screen.ScreenRender
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -118,11 +118,20 @@ public class ScreenFacadeImpl implements ScreenFacade {
         if (screenLocationCache.containsKey(location)) return true
 
         try {
-            ScreenDefinition checkSd = getScreenDefinition(location)
-            return (checkSd != null)
+            // we checked the screenLocationCache above, so now do a quick file parse to see if it is a XML file with 'screen' root
+            //     element; this is faster and more reliable when a screen is not loaded, screen doesn't have to be fully valid
+            //     which is important as with the old approach if there was an error parsing or compiling the screen it was a false
+            //     negative and the screen source would be sent in response
+            ResourceReference screenRr = ecfi.resourceFacade.getLocationReference(location)
+            MNode screenNode = MNode.parseRootOnly(screenRr)
+            return screenNode != null && "screen".equals(screenNode.getName())
+
+            // old approach
+            // ScreenDefinition checkSd = getScreenDefinition(location)
+            // return (checkSd != null)
         } catch (Throwable t) {
             // ignore the error, just checking to see if it is a screen
-            if (logger.isInfoEnabled()) logger.info("Error when checking to see if [${location}] is a XML Screen: ${t.toString()}")
+            if (logger.isInfoEnabled()) logger.info("Error when checking to see if [${location}] is a XML Screen: ${t.toString()}", t)
             return false
         }
     }
@@ -176,9 +185,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         }
 
         MNode screenNode = MNode.parse(screenRr)
-        if (screenNode == null) {
-            throw new IllegalArgumentException("Cound not find definition for screen location ${location}")
-        }
+        if (screenNode == null) throw new IllegalArgumentException("Cound not find definition for screen location ${location}")
 
         sd = new ScreenDefinition(this, screenNode, location)
         // logger.warn("========= loaded screen [${location}] supports LM ${screenRr.supportsLastModified()}, LM: ${screenRr.getLastModified()}")
@@ -311,6 +318,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         throw new BaseException("Could not find root screen for host: ${host}")
     }
 
+    /** Called from ArtifactStats screen */
     List<ScreenInfo> getScreenInfoList(String rootLocation, int levels) {
         ScreenInfo rootInfo = new ScreenInfo(getScreenDefinition(rootLocation), null, null, 0)
         List<ScreenInfo> infoList = []
@@ -354,7 +362,8 @@ public class ScreenFacadeImpl implements ScreenFacade {
             sections = sd.sectionByName.size()
             transitions = sd.transitionByName.size()
             for (TransitionItem ti in sd.transitionByName.values()) if (ti.hasActionsOrSingleService()) transitionsWithActions++
-            isNonPlaceholder = forms || sections || transitions
+            isNonPlaceholder = forms > 0 || sections > 0 || transitions > 3
+            // if (isNonPlaceholder) logger.info("Screen ${name} forms ${forms} sections ${sections} transitions ${transitions}")
 
             // trickle up totals
             ScreenInfo curParent = parentInfo

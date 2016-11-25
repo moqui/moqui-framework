@@ -14,23 +14,25 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.reference.ClasspathResourceReference
+import org.moqui.resource.ClasspathResourceReference
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.*
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.RestClient
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
 import javax.mail.internet.MimeMessage
 import java.util.concurrent.*
+import java.util.concurrent.locks.ReentrantLock
 
 @CompileStatic
 class ServiceFacadeImpl implements ServiceFacade {
@@ -39,6 +41,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     public final ExecutionContextFactoryImpl ecfi
 
     protected final Cache<String, ServiceDefinition> serviceLocationCache
+    protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
     protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
@@ -55,7 +58,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     ServiceFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        serviceLocationCache = ecfi.getCacheFacade().getCache("service.location", String.class, ServiceDefinition.class)
+        serviceLocationCache = ecfi.cacheFacade.getCache("service.location", String.class, ServiceDefinition.class)
 
         // load Service ECA rules
         loadSecaRulesAll()
@@ -100,10 +103,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
 
-    void postInit() {
-        // no longer used, was used to start Quartz Scheduler
-    }
-
     void warmCache()  {
         logger.info("Warming cache for all service definitions")
         long startTime = System.currentTimeMillis()
@@ -146,11 +145,10 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     ServiceDefinition getServiceDefinition(String serviceName) {
+        if (serviceName == null) return null
         ServiceDefinition sd = (ServiceDefinition) serviceLocationCache.get(serviceName)
         if (sd != null) return sd
 
-        // at this point sd is null, so if contains key we know the service doesn't exist
-        if (serviceLocationCache.containsKey(serviceName)) return null
 
         // now try some acrobatics to find the service, these take longer to run hence trying to avoid
         String path = ServiceDefinition.getPathFromName(serviceName)
@@ -159,33 +157,49 @@ class ServiceFacadeImpl implements ServiceFacade {
         // logger.warn("Getting service definition for [${serviceName}], path=[${path}] verb=[${verb}] noun=[${noun}]")
 
         String cacheKey = makeCacheKey(path, verb, noun)
-        sd = (ServiceDefinition) serviceLocationCache.get(cacheKey)
-        if (sd != null) return sd
-        if (serviceLocationCache.containsKey(cacheKey)) return null
+        boolean cacheKeySame = serviceName.equals(cacheKey)
+        if (!cacheKeySame) {
+            sd = (ServiceDefinition) serviceLocationCache.get(cacheKey)
+            if (sd != null) return sd
+        }
+
+        // at this point sd is null (from serviceName and cacheKey), so if contains key we know the service doesn't exist; do in lock to avoid reload issues
+        locationLoadLock.lock()
+        try {
+            if (serviceLocationCache.containsKey(serviceName)) return (ServiceDefinition) serviceLocationCache.get(serviceName)
+            if (!cacheKeySame && serviceLocationCache.containsKey(cacheKey)) return (ServiceDefinition) serviceLocationCache.get(cacheKey)
+        } finally {
+            locationLoadLock.unlock()
+        }
 
         return makeServiceDefinition(serviceName, path, verb, noun)
     }
 
-    protected synchronized ServiceDefinition makeServiceDefinition(String origServiceName, String path, String verb, String noun) {
-        String cacheKey = makeCacheKey(path, verb, noun)
-        if (serviceLocationCache.containsKey(cacheKey)) {
-            // NOTE: this could be null if it's a known non-existing service
-            return (ServiceDefinition) serviceLocationCache.get(cacheKey)
-        }
+    protected ServiceDefinition makeServiceDefinition(String origServiceName, String path, String verb, String noun) {
+        locationLoadLock.lock()
+        try {
+            String cacheKey = makeCacheKey(path, verb, noun)
+            if (serviceLocationCache.containsKey(cacheKey)) {
+                // NOTE: this could be null if it's a known non-existing service
+                return (ServiceDefinition) serviceLocationCache.get(cacheKey)
+            }
 
-        MNode serviceNode = findServiceNode(path, verb, noun)
-        if (serviceNode == null) {
-            // NOTE: don't throw an exception for service not found (this is where we know there is no def), let service caller handle that
-            // Put null in the cache to remember the non-existing service
-            serviceLocationCache.put(cacheKey, null)
-            if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, null)
-            return null
-        }
+            MNode serviceNode = findServiceNode(path, verb, noun)
+            if (serviceNode == null) {
+                // NOTE: don't throw an exception for service not found (this is where we know there is no def), let service caller handle that
+                // Put null in the cache to remember the non-existing service
+                serviceLocationCache.put(cacheKey, null)
+                if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, null)
+                return null
+            }
 
-        ServiceDefinition sd = new ServiceDefinition(this, path, serviceNode)
-        serviceLocationCache.put(cacheKey, sd)
-        if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, sd)
-        return sd
+            ServiceDefinition sd = new ServiceDefinition(this, path, serviceNode)
+            serviceLocationCache.put(cacheKey, sd)
+            if (!origServiceName.equals(cacheKey)) serviceLocationCache.put(origServiceName, sd)
+            return sd
+        } finally {
+            locationLoadLock.unlock()
+        }
     }
 
     protected static String makeCacheKey(String path, String verb, String noun) {
@@ -218,7 +232,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
         // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
         if (serviceNode == null) {
-            ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation, ecfi)
+            ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation)
             if (serviceComponentRr.supportsExists() && serviceComponentRr.exists)
                 serviceNode = findServiceNode(serviceComponentRr, verb, noun)
         }
@@ -277,7 +291,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             String name = lastDotIndex == -1 ? serviceName : serviceName.substring(0, lastDotIndex)
             Map curInfo = serviceInfoMap.get(name)
             if (curInfo) {
-                StupidUtilities.addToBigDecimalInMap("services", 1.0, curInfo)
+                CollectionUtilities.addToBigDecimalInMap("services", 1.0, curInfo)
             } else {
                 serviceInfoMap.put(name, [name:name, services:1])
             }
@@ -350,7 +364,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             ServiceEcaRule ser = new ServiceEcaRule(ecfi, secaNode, rr.location)
             String serviceName = ser.serviceName
             // remove the hash if there is one to more consistently match the service name
-            serviceName = StupidJavaUtilities.removeChar(serviceName, (char) '#')
+            serviceName = StringUtilities.removeChar(serviceName, (char) '#')
             List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
             if (lst == null) {
                 lst = new ArrayList<>()
@@ -440,7 +454,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     @Override
-    RestClient rest() { return new RestClientImpl(ecfi) }
+    RestClient rest() { return new RestClient() }
 
     @Override
     void registerCallback(String serviceName, ServiceCallback serviceCallback) {

@@ -16,15 +16,22 @@ package org.moqui.impl.entity
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseException
-import org.moqui.context.ResourceReference
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.condition.FieldValueCondition
+import org.moqui.impl.entity.condition.ListCondition
+import org.moqui.resource.ResourceReference
 import org.moqui.entity.*
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -62,7 +69,7 @@ class EntityFacadeImpl implements EntityFacade {
      * available value and the second is the highest value reserved/cached in the bank. */
     final Cache<String, long[]> entitySequenceBankCache
     protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
-    protected final Lock locationLoadLock = new ReentrantLock()
+    protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
     protected final HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final HashMap<String, String> entityGroupNameMap = new HashMap<>()
@@ -111,10 +118,10 @@ class EntityFacadeImpl implements EntityFacade {
         databaseTzLcCalendar = Calendar.getInstance(databaseTimeZone, databaseLocale)
 
         // init entity meta-data
-        entityDefinitionCache = ecfi.getCacheFacade().getCache("entity.definition")
-        entityLocationSingleCache = ecfi.getCacheFacade().getCache("entity.location")
+        entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition")
+        entityLocationSingleCache = ecfi.cacheFacade.getCache("entity.location")
         // NOTE: don't try to load entity locations before constructor is complete; this.loadAllEntityLocations()
-        entitySequenceBankCache = ecfi.getCacheFacade().getCache("entity.sequence.bank")
+        entitySequenceBankCache = ecfi.cacheFacade.getCache("entity.sequence.bank")
 
         // init connection pool (DataSource) for each group
         initAllDatasources()
@@ -518,23 +525,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    protected Map<String, MNode> entityFileRootMap = new HashMap<>()
-    protected MNode getEntityFileRoot(ResourceReference entityRr) {
-        MNode existingNode = entityFileRootMap.get(entityRr.getLocation())
-        if (existingNode != null && existingNode.attribute("_loadedTime")) {
-            long loadedTime = existingNode.attribute("_loadedTime") as Long
-            long lastModified = entityRr.getLastModified()
-            if (lastModified > loadedTime) existingNode = null
-        }
-        if (existingNode == null) {
-            MNode entityRoot = MNode.parse(entityRr)
-            entityRoot.attributes.put("_loadedTime", entityRr.getLastModified() as String)
-            entityFileRootMap.put(entityRr.getLocation(), entityRoot)
-            return entityRoot
-        } else {
-            return existingNode
-        }
-    }
+    protected static MNode getEntityFileRoot(ResourceReference entityRr) { return MNode.parse(entityRr) }
 
     int loadAllEntityDefinitions() {
         int entityCount = 0
@@ -973,8 +964,8 @@ class EntityFacadeImpl implements EntityFacade {
             String name = lastDotIndex == -1 ? entityName : entityName.substring(0, lastDotIndex)
             Map curInfo = entityInfoMap.get(name)
             if (curInfo) {
-                if (isView) StupidUtilities.addToBigDecimalInMap("viewEntities", 1.0, curInfo)
-                else StupidUtilities.addToBigDecimalInMap("entities", 1.0, curInfo)
+                if (isView) CollectionUtilities.addToBigDecimalInMap("viewEntities", 1.0, curInfo)
+                else CollectionUtilities.addToBigDecimalInMap("entities", 1.0, curInfo)
             } else {
                 entityInfoMap.put(name, [name:name, entities:(isView ? 0 : 1), viewEntities:(isView ? 1 : 0)])
             }
@@ -1045,7 +1036,7 @@ class EntityFacadeImpl implements EntityFacade {
                     isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
         }
 
-        if (orderByField != null && !orderByField.isEmpty()) StupidUtilities.orderMapList(eil, [orderByField])
+        if (orderByField != null && !orderByField.isEmpty()) CollectionUtilities.orderMapList(eil, [orderByField])
         return eil
     }
 
@@ -1107,7 +1098,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
         }
 
-        if (orderByField) StupidUtilities.orderMapList(efl, [orderByField])
+        if (orderByField) CollectionUtilities.orderMapList(efl, [orderByField])
         return efl
     }
 
@@ -1299,7 +1290,7 @@ class EntityFacadeImpl implements EntityFacade {
             MNode defaultParametersNode = sfiNode.first("default-parameters")
             String inputFieldsMapName = sfiNode.attribute("input-fields-map")
             Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
-            ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("default-order-by"), paginate)
+            ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate)
         }
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
@@ -1325,6 +1316,160 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         return ef
+    }
+
+    /** Simple, fast find by primary key; doesn't filter find based on authz; doesn't use TransactionCache
+     * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
+    EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
+        ExecutionContextImpl ec = ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
+        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
+        try {
+            EntityDefinition ed = getEntityDefinition(entityName)
+            if (ed == null) throw new EntityException("Entity not found with name ${entityName}")
+            EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
+            FieldInfo[] pkFieldInfoArray = entityInfo.pkFieldInfoArray
+
+            if (ed.isViewEntity || !entityInfo.isEntityDatasourceFactoryImpl) {
+                if (logger.infoEnabled) logger.info("fastFindOne used with entity ${entityName} which is view entity (${ed.isViewEntity}) or not from EntityDatasourceFactoryImpl (${entityInfo.isEntityDatasourceFactoryImpl})")
+                EntityFind ef = find(entityName)
+                if (useCache) ef.useCache(true)
+                if (disableAuthz) ef.disableAuthz()
+                for (int i = 0; i < pkFieldInfoArray.length; i++) {
+                    FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+                    Object fieldValue = values[i]
+                    ef.condition(fi.name, fieldValue)
+                }
+                return ef.one()
+            }
+
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
+            // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+
+            try {
+                boolean doCache = useCache != null ? (useCache.booleanValue() ? !entityInfo.neverCache : false) : "true".equals(entityInfo.useCache)
+
+                boolean hasEmptyPk = false
+                int pkSize = pkFieldInfoArray.length
+                if (values.length != pkSize) throw new EntityException("Cannot do fastFindOne for entity ${entityName} with ${pkSize} primary key fields and ${values.length} values")
+                EntityConditionImplBase whereCondition = (EntityConditionImplBase) null
+                if (pkSize == 1) {
+                    Object fieldValue = values[0]
+                    if (ObjectUtilities.isEmpty(fieldValue)) {
+                        hasEmptyPk = true
+                    } else if (doCache) {
+                        FieldInfo fi = (FieldInfo) pkFieldInfoArray[0]
+                        whereCondition = new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue)
+                    }
+                } else {
+                    ListCondition listCond = doCache ? new ListCondition(null, EntityCondition.AND) : (ListCondition) null
+                    for (int i = 0; i < pkSize; i++) {
+                        Object fieldValue = values[i]
+                        if (ObjectUtilities.isEmpty(fieldValue)) {
+                            hasEmptyPk = true
+                            break
+                        }
+                        if (doCache) {
+                            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+                            listCond.addCondition(new FieldValueCondition(fi.conditionField, EntityCondition.EQUALS, fieldValue))
+                        }
+                    }
+                    if (doCache) whereCondition = listCond
+                }
+                // if any PK fields are null, for whatever reason in calling code, the result is null so no need to send to DB or cache or anything
+                if (hasEmptyPk) return (EntityValue) null
+
+                Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
+                        ed.getCacheOne(entityCache) : (Cache<EntityCondition, EntityValueBase>) null
+                EntityValueBase cacheHit = doCache ? (EntityValueBase) entityOneCache.get(whereCondition) : (EntityValueBase) null
+
+                EntityValueBase newEntityValue
+                if (cacheHit != null) {
+                    if (cacheHit instanceof EntityCache.EmptyRecord) newEntityValue = (EntityValueBase) null
+                    else newEntityValue = cacheHit
+                } else {
+                    newEntityValue = fastFindOneExtended(ed, values)
+                    // put it in whether null or not (already know cacheHit is null)
+                    if (doCache) entityCache.putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
+                }
+
+                return newEntityValue
+            } finally {
+                // pop the ArtifactExecutionInfo
+                aefi.pop(aei)
+            }
+        } finally {
+            if (enableAuthz) aefi.enableAuthz()
+        }
+    }
+    public EntityValueBase fastFindOneExtended(EntityDefinition ed, Object... values) throws EntityException {
+        // table doesn't exist, just return null
+        if (!ed.tableExistsDbMetaOnly()) return null
+
+        FieldInfo[] fieldInfoArray = ed.entityInfo.allFieldInfoArray
+        FieldInfo[] pkFieldInfoArray = ed.entityInfo.pkFieldInfoArray
+        int pkSize = pkFieldInfoArray.length
+
+        final StringBuilder sqlTopLevel = new StringBuilder(500)
+        sqlTopLevel.append("SELECT ").append(ed.entityInfo.allFieldsSqlSelect)
+
+        // FROM Clause
+        sqlTopLevel.append(" FROM ")
+        sqlTopLevel.append(ed.getFullTableName())
+
+        // WHERE clause; whereCondition will always be FieldValueCondition or ListCondition with FieldValueCondition
+        sqlTopLevel.append(" WHERE ")
+        for (int i = 0; i < pkSize; i++) {
+            FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+            // Object fieldValue = values[i]
+            if (i > 0) sqlTopLevel.append(" AND ")
+            sqlTopLevel.append(fi.getFullColumnName()).append(" = ?")
+        }
+
+        String finalSql = sqlTopLevel.toString()
+
+        // run the SQL now that it is built
+        EntityValueBase newEntityValue = (EntityValueBase) null
+        Connection connection = (Connection) null
+        PreparedStatement ps = (PreparedStatement) null
+        ResultSet rs = (ResultSet) null
+        try {
+            connection = getConnection(ed.getEntityGroupName())
+            ps = connection.prepareStatement(finalSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
+            for (int i = 0; i < pkSize; i++) {
+                FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
+                Object fieldValue = values[i]
+                fi.setPreparedStatementValue(ps, i + 1, fieldValue, ed, this);
+            }
+
+            boolean queryStats = getQueryStats()
+            long beforeQuery = queryStats ? System.nanoTime() : 0
+            rs = ps.executeQuery()
+            if (queryStats) saveQueryStats(ed, finalSql, System.nanoTime() - beforeQuery, false)
+
+            if (rs.next()) {
+                newEntityValue = new EntityValueImpl(ed, this)
+                HashMap<String, Object> valueMap = newEntityValue.getValueMap()
+                int size = fieldInfoArray.length;
+                for (int i = 0; i < size; i++) {
+                    FieldInfo fi = fieldInfoArray[i];
+                    if (fi == null) break;
+                    fi.getResultSetValue(rs, i + 1, valueMap, this)
+                }
+            }
+        } catch (SQLException e) {
+            throw new EntityException("Error finding value", e);
+        } finally {
+            try {
+                if (ps != null) ps.close()
+                if (rs != null) rs.close()
+                if (connection != null) connection.close();
+            } catch (SQLException sqle) { throw new EntityException("Error finding value", sqle); }
+        }
+
+        return newEntityValue;
     }
 
     final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
@@ -1365,7 +1510,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (localPath.size() > 0) {
             for (String pkFieldName in firstEd.getPkFieldNames()) {
                 String pkValue = localPath.remove(0)
-                if (!StupidJavaUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
+                if (!ObjectUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
                 if (localPath.size() == 0) break
             }
         }
@@ -1394,7 +1539,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (parameters.containsKey(pkFieldName)) continue
 
                     String pkValue = localPath.remove(0)
-                    if (!StupidJavaUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
+                    if (!ObjectUtilities.isEmpty(pkValue)) parameters.put(pkFieldName, pkValue)
                     if (localPath.size() == 0) break
                 }
             }
@@ -1421,7 +1566,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             } else {
                 // otherwise do a list find
-                EntityFind ef = find(lastEd.fullEntityName).searchFormMap(parameters, null, null, false)
+                EntityFind ef = find(lastEd.fullEntityName).searchFormMap(parameters, null, null, null, false)
                 // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
                 if (!ef.getLimit()) ef.limit(100)
 
@@ -1479,13 +1624,13 @@ class EntityFacadeImpl implements EntityFacade {
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             Object relParmObj = value.get(relInfo.shortAlias)
             String relKey = null
-            if (relParmObj != null && !StupidJavaUtilities.isEmpty(relParmObj)) {
+            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
                 relKey = relInfo.shortAlias
             } else {
                 relParmObj = value.get(relInfo.relationshipName)
                 if (relParmObj) relKey = relInfo.relationshipName
             }
-            if (relParmObj != null && !StupidJavaUtilities.isEmpty(relParmObj)) {
+            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
                 if (relParmObj instanceof Map) {
                     // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
                     //     allow them to be left out of related records
@@ -1743,7 +1888,7 @@ class EntityFacadeImpl implements EntityFacade {
             } else {
                 org.w3c.dom.NodeList seList = element.getElementsByTagName(fieldName)
                 Element subElement = seList.getLength() > 0 ? (Element) seList.item(0) : null
-                if (subElement) newValue.setString(fieldName, StupidUtilities.elementValue(subElement))
+                if (subElement) newValue.setString(fieldName, StringUtilities.elementValue(subElement))
             }
         }
 
@@ -1868,7 +2013,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (hasSqlFilter && !qsi.sql.matches("(?i).*" + sqlFilter + ".*")) continue
             qsl.add(qsi.makeDisplayMap())
         }
-        if (orderByField) StupidUtilities.orderMapList(qsl, [orderByField])
+        if (orderByField) CollectionUtilities.orderMapList(qsl, [orderByField])
         return qsl
     }
     void clearQueryStats() { queryStatsInfoMap.clear() }

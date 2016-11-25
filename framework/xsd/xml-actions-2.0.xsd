@@ -420,8 +420,9 @@ along with this software (see the LICENSE.md file). If not, see
                     ec.web.parameters map if the web facade is available, otherwise the current context (ec.context).</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="default-order-by" type="xs:string">
-                <xs:annotation><xs:documentation>If no orderByField parameter, order by this.</xs:documentation></xs:annotation>
-            </xs:attribute>
+                <xs:annotation><xs:documentation>If no orderByField parameter, order by this.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="skip-fields" type="xs:string">
+                <xs:annotation><xs:documentation>Comma separate list of entity field names to skip when processing input fields</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="paginate" type="xs:string" default="true">
                 <xs:annotation><xs:documentation>Indicate if this find should set pagination options even if there are
                     no pageSize and pageIndex parameters. Also adds a context field called "${entity-find.@list}Count"

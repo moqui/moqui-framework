@@ -1,22 +1,61 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.0.0 - TBD
+## Release 2.0.0 - 24 Nov 2016
 
-Moqui Framework 2.0.0 is a major new feature and bug fix release, with
-various non backward compatible API and other changes.
+Moqui Framework 2.0.0 is a major new feature and bug fix release, with various non backward compatible API and other changes.
 
-This version is not yet released. The notes below are for the changes
-currently in place in the source repository. If you plan to go into
-production in the near future (before this version is released) it is
-better to use the last released version (1.6.2) as 2.0.0 contains
-significant changes.
+This is the first release since 1.0.0 with significant and non backwards compatible changes to the framework API. Various deprecated
+methods have been removed. The Cache Facade now uses the standard javax.cache interfaces and the Service Facade now uses standard 
+java.util.concurrent interfaces for async and scheduled services. Ehcache and Quartz Scheduler have been replaced by direct, 
+efficient interfaces implementations.
+
+This release includes significant improvements in configuration and with the new ToolFactory functionality is more modular with
+more internals exposed through interfaces and extendable through components. Larger and less universally used tool are now in 
+separate components including Apache Camel, Apache FOP, ElasticSearch, JBoss KIE and Drools, and OrientDB.
+
+Multi-server instances are far better supported by using Hazelcast for distributed entity cache invalidation, notifications,
+caching, background service execution, and for web session replication. The moqui-hazelcast component is pre-configured to enable
+all of this functionality in its MoquiConf.xml file. To use add the component and add a hazelcast.xml file to the classpath with
+settings for your cluster (auto-discover details, etc).
+
+Moqui now scales up better with performance improvements, concurrency fixes, and Hazelcast support (through interfaces other 
+distributed system libraries like Apache Ignite could also be used). Moqui also now scales down better with improved memory 
+efficiency and through more modular tools much smaller runtime footprints are possible.
+
+The multi-tenant functionality has been removed and replaced with the multi-instance approach. There is now a Dockerfile included
+with the recommended approach to run Moqui in Docker containers and Docker Compose files for various scenarios including an
+automatic reverse proxy using nginx-proxy. There are now service interfaces and screens in the System application for managing
+multiple Moqui instances from a master instance. Instances with their own database can be automatically provisioned using 
+configurable services, with initial support for Docker containers and MySQL databases. Provisioning services will be added over time
+to support other instance hosts and databases, and you can write your own for whatever infrastructure you prefer to use.
+
+To support WebSocket a more recent Servlet API the embedded servlet container is now Jetty 9 instead of Winstone. When running 
+behind a proxy such as nginx or httpd running in the embedded mode (executable WAR file) is now adequate for production use.
+
+If you are upgrading from an earlier version of Moqui Framework please read all notes about Non Backward Compatible Changes. Code,
+configuration, and database meta data changes may be necessary depending on which features of the framework you are using.
+
+In this version Moqui Framework starts and runs faster, uses less memory, is more flexible, configuration is easier, and there are
+new and better ways to deploy and manage multiple instances. A decent machine ($1800 USD Linux workstation, i7-6800K 6 core CPU) 
+generated around 350 screens per second with an average response time under 200ms. This was running Moqui and MySQL on the same 
+machine with a JMeter script running on a separate machine doing a 23 step order to ship/bill process that included 2 reports 
+(one MySQL based, one ElasticSearch based) and all the GL posting, etc. The load simulated entering and shipping (by internal users) 
+around 1000 orders/minute which would support thousands of concurrent internal or ecommerce users. On larger server hardware and 
+with some lower level tuning (this was on stock/default Linux, Java 8, and MySQL 5.7 settings) a single machine could handle 
+significantly more traffic.  
+
+With the latest framework code and the new Hazelcast plugin Moqui supports high performance clusters to handle massive loads. The 
+most significant limit is now database performance as we need a transactional SQL database for this sort of business process 
+(with locking on inventory reservations and issuances, GL posting, etc as currently implemented in Mantle USL).
+
+Enjoy!
 
 ### Non Backward Compatible Changes
 
 - Java JDK 8 now required (Java 7 no longer supported)
 - Now requires Servlet Container supporting the Servlet 3.1 specification
-- No longer using Winstone embedded web server, now using Jetty
+- No longer using Winstone embedded web server, now using Jetty 9
 - Multi-Tenant Functionality Removed
   - ExecutionContext.getTenant() and getTenantId() removed
   - UserFacade.loginUser() third parameter (tenantId) removed
@@ -116,7 +155,7 @@ significant changes.
 - Now using Jetty embedded for the executable WAR instead of Winstone
   - using Jetty 9 which requires Java 8
   - now internally using Servlet API 3.1.0
-- Various library updates, cleanup of classes found in multiple jar files (ElasticSearch JarHell checks pass; nice in general)
+- Many library updates, cleanup of classes found in multiple jar files (ElasticSearch JarHell checks pass; nice in general)
 - Configuration
   - Added default-property element to set Java System properties from the configuration file
   - Added Groovy string expansion to various configuration attributes
@@ -229,10 +268,18 @@ significant changes.
   - significant macro cleanups and improvements
   - csv render macros now improved to support more screen elements, more intelligently handle links (only include anchor/text), etc
   - text render macros now use fixed width output (number of characters) along with new field attributes to specify print settings
-- New /status now a transition instead of a screen and return JSON with more server status information
+  - added field.@aggregate attribute for use in form-list with options to aggregate field values across multiple results or
+    display fields in a sub-list under a row with the common fields for the group of rows
+  - added form-single.@owner-form attribute to skip HTML form element and add the HTML form attribute to fields so they are owned
+    by a different form elsewhere in the web page
+- The /status path now a transition instead of a screen and returns JSON with more server status information
+- XML Actions now statically import all the old StupidUtilities methods so 'StupidUtilities.' is no longer needed, shouldn't be used
+- StupidUtilities and StupidJavaUtilities reorganized into the new ObjectUtilities, CollectionUtilities, and StringUtilities
+  classes in the moqui.util package (in the moqui-util project)
 
 ### Bug Fixes
 
+- Fixed issues with clean shutdown running with the embedded Servlet container and with gradle test
 - Fixed issue with REST and other requests using various HTTP request methods that were not handled, MoquiServlet now uses the
   HttpServlet.service() method instead of the various do*() methods
 - Fixed issue with REST and other JSON request body parameters where single entry lists were unwrapped to just the entry
@@ -443,19 +490,18 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
-- field.@aggregate: min, max, sum, avg, count, group-by, sub-list; default is group-by, if all are group-by no aggregation done
-- field.@show-total if sub-list show in sub-list, otherwise add bottom row with current list totals
+- Option for transition to only mount if all response URLs for screen paths exist
+
+- Saved form-list Finds
+  - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
+  - allow different aggregate/show-total/etc options in select-columns, more complex but makes sense?
+  - add form-list presets in xml file, like saved finds but perhaps more options? allow different aggregate settings in presets?
 
 - form-list data prep, more self-contained
-  - form-list.entity-find element support instead of form-list.@list attribute
-  - form-list.service-call
-  - also more general form-list.actions element?
+  - X form-list.entity-find element support instead of form-list.@list attribute
+  - _ form-list.service-call
+  - _ also more general form-list.actions element?
 - form-single.entity-find-one element support, maybe form-single.actions too
-- form-list reporting like features
-  - field attribute to show total (for current page only...)
-  - field attribute for grouping
-    - aggregation functions (like sum) and option to show in nested table (full width cell with columns for nested fields)
-    - if any set with function or nest all others are 'group by' fields
 
 - Instance Provisioning and Management
   - external instance management
@@ -469,8 +515,6 @@ Gradle tasks.
       - https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket
       - https://docs.docker.com/engine/security/https/
       - https://docs.docker.com/engine/reference/api/docker_remote_api/
-
-- Option for transition to only mount if all response URLs for screen paths exist
 
 - Support incremental (add/subtract) updates in EntityValue.update() or a variation of it; deterministic DB style
 - Support seek for faster pagination like jOOQ: https://blog.jooq.org/2013/10/26/faster-sql-paging-with-jooq-using-the-seek-method/
@@ -501,9 +545,6 @@ Gradle tasks.
 - Try Caffeine JCache at https://github.com/ben-manes/caffeine
   - do in moqui-caffeine tool component
   - add multiple threads to SpeedTest.xml?
-
-- Saved form-list Finds
-  - Save settings for a user or group to share (i.e. associate with userId or userGroupId). Allow for any group a user is in.
 
 - WebSocket Notifications
   - Increment message, event, task count labels in header?

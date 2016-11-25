@@ -19,18 +19,21 @@ import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
-
+import org.codehaus.groovy.control.CompilationUnit
+import org.codehaus.groovy.control.CompilerConfiguration
+import org.codehaus.groovy.tools.GroovyClass
 import org.moqui.BaseException
 import org.moqui.Moqui
 import org.moqui.context.*
 import org.moqui.context.ArtifactExecutionInfo.ArtifactType
 import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidClassLoader
-import org.moqui.impl.StupidUtilities
+import org.moqui.util.CollectionUtilities
+import org.moqui.util.MClassLoader
 import org.moqui.impl.actions.XmlAction
-import org.moqui.impl.context.reference.UrlResourceReference
+import org.moqui.resource.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactStatsInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactHitInfo
@@ -41,14 +44,19 @@ import org.moqui.impl.webapp.NotificationWebSocketListener
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
 import org.moqui.util.MNode
+import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
 import org.moqui.util.SimpleTopic
+import org.moqui.util.StringUtilities
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.annotation.Nonnull
 import javax.servlet.ServletContext
+import javax.servlet.http.HttpServletRequest
 import javax.websocket.server.ServerContainer
+import java.lang.management.ManagementFactory
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -73,16 +81,21 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private boolean destroyed = false
     
     protected String runtimePath
-    @SuppressWarnings("GrFinalVariableAccess")
-    protected final String runtimeConfPath
-    @SuppressWarnings("GrFinalVariableAccess")
-    protected final MNode confXmlRoot
+    @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath
+    @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot
     protected MNode serverStatsNode
     protected String moquiVersion = ""
-
-    protected StupidClassLoader stupidClassLoader
-    protected GroovyClassLoader groovyClassLoader
     protected InetAddress localhostAddress = null
+
+    protected MClassLoader moquiClassLoader
+    protected GroovyClassLoader groovyClassLoader
+    protected CompilerConfiguration groovyCompilerConf
+    // NOTE: this is experimental, don't set to true! still issues with unique class names, etc
+    // also issue with how to support recompile of actions on change, could just use for expressions but that only helps so much
+    // maybe some way to load from disk only if timestamp newer for XmlActions and GroovyScriptRunner
+    // this could be driven by setting in Moqui Conf XML file
+    // also need to clean out runtime/script-classes in gradle cleanAll
+    protected boolean groovyCompileCacheToDisk = false
 
     protected LinkedHashMap<String, ComponentInfo> componentInfoMap = new LinkedHashMap<>()
     public final ThreadLocal<ExecutionContextImpl> activeContext = new ThreadLocal<>()
@@ -113,24 +126,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
 
     // ======== Permanent Delegated Facades ========
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final CacheFacadeImpl cacheFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final LoggerFacadeImpl loggerFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ResourceFacadeImpl resourceFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final TransactionFacadeImpl transactionFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final EntityFacadeImpl entityFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ServiceFacadeImpl serviceFacade
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ScreenFacadeImpl screenFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final CacheFacadeImpl cacheFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final ResourceFacadeImpl resourceFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final TransactionFacadeImpl transactionFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final EntityFacadeImpl entityFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
     /** The main worker pool for services, running async closures and runnables, etc */
-    @SuppressWarnings("GrFinalVariableAccess")
-    public final ExecutorService workerPool
+    @SuppressWarnings("GrFinalVariableAccess") public final ExecutorService workerPool
     /** An executor for the scheduled job runner */
     public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
 
@@ -266,11 +271,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
-    }
-
-    @Override
-    void postInit() {
-        this.serviceFacade.postInit()
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
@@ -429,7 +429,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
             toolFactoryAttrsList.add(toolFactoryNode.getAttributes())
         }
-        StupidUtilities.orderMapList(toolFactoryAttrsList as List<Map>, ["init-priority", "class"])
+        CollectionUtilities.orderMapList(toolFactoryAttrsList as List<Map>, ["init-priority", "class"])
         for (Map<String, String> toolFactoryAttrs in toolFactoryAttrsList) {
             String tfClass = toolFactoryAttrs.get("class")
             logger.info("Loading ToolFactory with class: ${tfClass}")
@@ -445,7 +445,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     private void postFacadeInit() {
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
-        // load entity defs
+        // load entity definitions
         logger.info("Loading entity definitions")
         long entityStartTime = System.currentTimeMillis()
         entityFacade.loadAllEntityLocations()
@@ -477,6 +477,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // Warm cache on start if configured to do so
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
+
+        // all config loaded, save memory by clearing the parsed MNode cache, especially for production mode
+        MNode.clearParsedNodeCache()
+        // bunch of junk in memory, trigger gc (to happen soon, when JVM decides, not immediate)
+        System.gc()
     }
 
     void warmCache() {
@@ -487,21 +492,32 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Setup the cached ClassLoader, this should init in the main thread so we can set it properly */
     private void initClassLoader() {
-        long startTime = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis()
+        MClassLoader.addCommonClass("org.moqui.entity.EntityValue", EntityValue.class)
+        MClassLoader.addCommonClass("EntityValue", EntityValue.class)
+        MClassLoader.addCommonClass("org.moqui.entity.EntityList", EntityList.class)
+        MClassLoader.addCommonClass("EntityList", EntityList.class)
+
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
-        stupidClassLoader = new StupidClassLoader(pcl)
-        groovyClassLoader = new GroovyClassLoader(stupidClassLoader)
+        moquiClassLoader = new MClassLoader(pcl)
+        groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
+
+        File scriptClassesDir = new File(runtimePath + "/script-classes")
+        scriptClassesDir.mkdirs()
+        if (groovyCompileCacheToDisk) moquiClassLoader.addClassesDirectory(scriptClassesDir)
+        groovyCompilerConf = new CompilerConfiguration()
+        groovyCompilerConf.setTargetDirectory(scriptClassesDir)
 
         // add runtime/classes jar files to the class loader
         File runtimeClassesFile = new File(runtimePath + "/classes")
         if (runtimeClassesFile.exists()) {
-            stupidClassLoader.addClassesDirectory(runtimeClassesFile)
+            moquiClassLoader.addClassesDirectory(runtimeClassesFile)
         }
         // add runtime/lib jar files to the class loader
         File runtimeLibFile = new File(runtimePath + "/lib")
         if (runtimeLibFile.exists()) for (File jarFile: runtimeLibFile.listFiles()) {
             if (jarFile.getName().endsWith(".jar")) {
-                stupidClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
+                moquiClassLoader.addJarFile(new JarFile(jarFile), jarFile.toURI().toURL())
                 logger.info("Added JAR from runtime/lib: ${jarFile.getName()}")
             }
         }
@@ -510,7 +526,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ComponentInfo ci in componentInfoMap.values()) {
             ResourceReference classesRr = ci.componentRr.getChild("classes")
             if (classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
-                stupidClassLoader.addClassesDirectory(new File(classesRr.getUri()))
+                moquiClassLoader.addClassesDirectory(new File(classesRr.getUri()))
             }
 
             ResourceReference libRr = ci.componentRr.getChild("lib")
@@ -519,7 +535,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 for (ResourceReference jarRr: libRr.getDirectoryEntries()) {
                     if (jarRr.fileName.endsWith(".jar")) {
                         try {
-                            stupidClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
+                            moquiClassLoader.addJarFile(new JarFile(new File(jarRr.getUrl().getPath())), jarRr.getUrl())
                             jarsLoaded.add(jarRr.getFileName())
                         } catch (Exception e) {
                             logger.error("Could not load JAR from component ${ci.name}: ${jarRr.getLocation()}: ${e.toString()}")
@@ -531,7 +547,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // clear not found info just in case anything was falsely added
-        stupidClassLoader.clearNotFoundInfo()
+        moquiClassLoader.clearNotFoundInfo()
         // set as context classloader
         Thread.currentThread().setContextClassLoader(groovyClassLoader)
 
@@ -539,8 +555,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
-    @Override
-    boolean checkEmptyDb() {
+    @Override boolean checkEmptyDb() {
         String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
         if (!emptyDbLoad || emptyDbLoad == 'none') return false
 
@@ -577,8 +592,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    @Override
-    synchronized void destroy() {
+    @Override synchronized void destroy() {
         if (destroyed) {
             logger.warn("Not destroying ExecutionContextFactory, already destroyed (or destroying)")
             return
@@ -600,10 +614,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         } finally { if (enableAuthz) aefi.enableAuthz() }
         logger.info("ArtifactHitBins stored")
 
-        // shutdown scheduled executor pool
-        try {
-        } catch (Throwable t) { logger.error("Error in scheduledExecutor shutdown", t) }
-
         // shutdown scheduled executor and worker pools
         try {
             scheduledExecutor.shutdown()
@@ -623,6 +633,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Collections.reverse(toolFactoryList)
         for (ToolFactory tf in toolFactoryList) {
             logger.info("Destroying ToolFactory: ${tf.getName()}")
+            // NOTE: also calling System.out.println because log4j gets often gets closed before this completes
+            System.out.println("Destroying ToolFactory: ${tf.getName()}")
             try {
                 tf.destroy()
             } catch (Throwable t) {
@@ -636,14 +648,24 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (this.transactionFacade != null) this.transactionFacade.destroy()
         if (this.cacheFacade != null) this.cacheFacade.destroy()
         logger.info("Facades destroyed")
+        System.out.println("Facades destroyed")
+
+        for (ToolFactory tf in toolFactoryList) {
+            try {
+                tf.postFacadeDestroy()
+            } catch (Throwable t) {
+                logger.error("Error in post-facade destroy of ToolFactory ${tf.getName()}", t)
+            }
+        }
 
         activeContext.remove()
-    }
-    @Override
-    boolean isDestroyed() { return destroyed }
 
-    @Override
-    protected void finalize() throws Throwable {
+        // use System.out directly for this as logger may already be stopped
+        System.out.println("Moqui ExecutionContextFactory Destroyed")
+    }
+    @Override boolean isDestroyed() { return destroyed }
+
+    @Override protected void finalize() throws Throwable {
         try {
             if (!this.destroyed) {
                 this.destroy()
@@ -657,16 +679,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Trigger ECF destroy and re-init in another thread, after short wait */
     void triggerDynamicReInit() {
-        Thread riThread = Thread.start("EcfiReInit", {
+        Thread.start("EcfiReInit", {
             sleep(2000) // wait 2 seconds
             Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
         })
     }
 
-    @Override
-    @Nonnull String getRuntimePath() { return runtimePath }
-    @Override
-    @Nonnull String getMoquiVersion() { return moquiVersion }
+    @Override @Nonnull String getRuntimePath() { return runtimePath }
+    @Override @Nonnull String getMoquiVersion() { return moquiVersion }
     MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
@@ -676,8 +696,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     InetAddress getLocalhostAddress() { return localhostAddress }
 
-    @Override
-    void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
+    @Override void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
         nml.init(this)
         registeredNotificationMessageListeners.add(nml)
     }
@@ -728,7 +747,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return hcm
     }
     // NOTE: may not be used
-    static String getRandomSalt() { return StupidUtilities.getRandomString(8) }
+    static String getRandomSalt() { return StringUtilities.getRandomString(8) }
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
@@ -748,14 +767,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return (loginKeyNode.attribute("expire-hours") ?: "144") as int
     }
 
-    // ========== Getters ==========
+    // ====================================================
+    // ========== Main Interface Implementations ==========
+    // ====================================================
 
-    CacheFacadeImpl getCacheFacade() { return this.cacheFacade }
-
-    // ========== Interface Implementations ==========
-
-    @Override
-    @Nonnull ExecutionContext getExecutionContext() { return getEci() }
+    @Override @Nonnull ExecutionContext getExecutionContext() { return getEci() }
     ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
         ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
@@ -796,18 +812,144 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return toolFactory.getInstance(parameters)
     }
 
-    /*
-    @Deprecated
-    void initComponent(String location) {
-        ComponentInfo componentInfo = new ComponentInfo(location, this)
-        // check dependencies
-        if (componentInfo.dependsOnNames) for (String dependsOnName in componentInfo.dependsOnNames) {
-            if (!componentInfoMap.containsKey(dependsOnName))
-                throw new IllegalArgumentException("Component [${componentInfo.name}] depends on component [${dependsOnName}] which is not initialized")
-        }
-        addComponent(componentInfo)
+    @Override @Nonnull LinkedHashMap<String, String> getComponentBaseLocations() {
+        LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
+        for (ComponentInfo componentInfo in componentInfoMap.values()) compLocMap.put(componentInfo.name, componentInfo.location)
+        return compLocMap
     }
-    */
+
+    @Override @Nonnull L10nFacade getL10n() { getEci().l10nFacade }
+    @Override @Nonnull ResourceFacade getResource() { resourceFacade }
+    @Override @Nonnull LoggerFacade getLogger() { loggerFacade }
+    @Override @Nonnull CacheFacade getCache() { cacheFacade }
+    @Override @Nonnull TransactionFacade getTransaction() { transactionFacade }
+    @Override @Nonnull EntityFacade getEntity() { entityFacade }
+    @Override @Nonnull ServiceFacade getService() { serviceFacade }
+    @Override @Nonnull ScreenFacade getScreen() { screenFacade }
+
+    @Override @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
+    @Override @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
+
+    synchronized Class compileGroovy(String script, String className) {
+        boolean hasClassName = className != null && !className.isEmpty()
+        if (groovyCompileCacheToDisk && hasClassName) {
+            // if the className already exists just return it
+            try {
+                Class existingClass = groovyClassLoader.loadClass(className)
+                if (existingClass != null) return existingClass
+            } catch (ClassNotFoundException e) { /* ignore */ }
+
+            CompilationUnit compileUnit = new CompilationUnit(groovyCompilerConf, null, groovyClassLoader)
+            compileUnit.addSource(className, script)
+            compileUnit.compile() // just through Phases.CLASS_GENERATION?
+
+            List compiledClasses = compileUnit.getClasses()
+            if (compiledClasses.size() > 1) logger.warn("WARNING: compiled groovy class ${className} got ${compiledClasses.size()} classes")
+            Class returnClass = null
+            for (Object compiledClass in compiledClasses) {
+                GroovyClass groovyClass = (GroovyClass) compiledClass
+                String compiledName = groovyClass.getName()
+                byte[] compiledBytes = groovyClass.getBytes()
+                // NOTE: this is the same step we'd use when getting bytes from disk
+                Class curClass = null
+                try { curClass = groovyClassLoader.loadClass(compiledName) } catch (ClassNotFoundException e) { /* ignore */ }
+                if (curClass == null) curClass = groovyClassLoader.defineClass(compiledName, compiledBytes)
+                if (compiledName.equals(className)) {
+                    returnClass = curClass
+                } else {
+                    logger.warn("Got compiled groovy class with name ${compiledName} not same as original class name ${className}")
+                }
+            }
+
+            if (returnClass == null) logger.error("No errors in groovy compilation but got null Class for ${className}")
+            return returnClass
+        } else {
+            // the simple approach, groovy compiles internally and don't save to disk/etc
+            return hasClassName ? groovyClassLoader.parseClass(script, className) : groovyClassLoader.parseClass(script)
+        }
+    }
+
+    @Override @Nonnull ServletContext getServletContext() { internalServletContext }
+    @Override @Nonnull ServerContainer getServerContainer() { internalServerContainer }
+    @Override void initServletContext(ServletContext sc) {
+        internalServletContext = sc
+        internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+    }
+
+
+    Map<String, Object> getStatusMap() {
+        def memoryMXBean = ManagementFactory.getMemoryMXBean()
+        def heapMemoryUsage = memoryMXBean.getHeapMemoryUsage()
+        def nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage()
+
+        def runtimeFile = new File(runtimePath)
+
+        def osMXBean = ManagementFactory.getOperatingSystemMXBean()
+        def runtimeMXBean = ManagementFactory.getRuntimeMXBean()
+        def uptimeHours = runtimeMXBean.getUptime() / (1000*60*60)
+        def startTimestamp = new Timestamp(runtimeMXBean.getStartTime())
+
+        def gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans()
+        def gcCount = 0
+        def gcTime = 0
+        for (def gcMXBean in gcMXBeans) {
+            gcCount += gcMXBean.getCollectionCount()
+            gcTime += gcMXBean.getCollectionTime()
+        }
+        def jitMXBean = ManagementFactory.getCompilationMXBean()
+        def classMXBean = ManagementFactory.getClassLoadingMXBean()
+
+        def threadMXBean = ManagementFactory.getThreadMXBean()
+
+        BigDecimal loadAvg = new BigDecimal(osMXBean.getSystemLoadAverage()).setScale(2, BigDecimal.ROUND_HALF_UP)
+        int processors = osMXBean.getAvailableProcessors()
+        BigDecimal loadPercent = ((loadAvg / processors) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        long heapUsed = heapMemoryUsage.getUsed()
+        long heapMax = heapMemoryUsage.getMax()
+        BigDecimal heapPercent = ((heapUsed / heapMax) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        long diskFreeSpace = runtimeFile.getFreeSpace()
+        long diskTotalSpace = runtimeFile.getTotalSpace()
+        BigDecimal diskPercent = (((diskTotalSpace - diskFreeSpace) / diskTotalSpace) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+
+        HttpServletRequest request = getEci().getWeb()?.getRequest()
+        Map<String, Object> statusMap = [ MoquiFramework:moquiVersion,
+            Utilization: [LoadPercent:loadPercent, HeapPercent:heapPercent, DiskPercent:diskPercent],
+            Web: [ LocalAddr:request?.getLocalAddr(), LocalPort:request?.getLocalPort(), LocalName:request?.getLocalName(),
+                     ServerName:request?.getServerName(), ServerPort:request?.getServerPort() ],
+            Heap: [ Used:(heapUsed/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Max:(heapMax/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            NonHeap: [ Used:(nonHeapMemoryUsage.getUsed()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                         Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            Disk: [ Free:(diskFreeSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
+                      Total:(diskTotalSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            System: [ Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(),
+                        OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion() ],
+            JavaRuntime: [ SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(),
+                             VmVersion:runtimeMXBean.getVmVersion(), Start:startTimestamp, UptimeHours:uptimeHours ],
+            JavaStats: [ GcCount:gcCount, GcTimeSeconds:gcTime/1000, JIT:jitMXBean.getName(), CompileTimeSeconds:jitMXBean.getTotalCompilationTime()/1000,
+                           ClassesLoaded:classMXBean.getLoadedClassCount(), ClassesTotalLoaded:classMXBean.getTotalLoadedClassCount(),
+                           ClassesUnloaded:classMXBean.getUnloadedClassCount(), ThreadCount:threadMXBean.getThreadCount(),
+                           PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>,
+            DataSources: entityFacade.getDataSourcesInfo()
+        ]
+        return statusMap
+    }
+
+    // ==========================================
+    // ========== Component Management ==========
+    // ==========================================
+
+    // called in System dashboard
+    List<Map<String, Object>> getComponentInfoList() {
+        List<Map<String, Object>> infoList = new ArrayList<>(componentInfoMap.size())
+        for (ComponentInfo ci in componentInfoMap.values())
+            infoList.add([name:ci.name, location:ci.location, version:ci.version, dependsOnNames:ci.dependsOnNames] as Map<String, Object>)
+        return infoList
+    }
 
     protected void checkSortDependentComponents() {
         // we have an issue here where not all dependencies are declared, most are implied by component load order
@@ -909,18 +1051,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             return name
         }
     }
-    protected ResourceReference getResourceReference(String location) {
-        // TODO: somehow support other resource location types
+    protected static ResourceReference getResourceReference(String location) {
+        // NOTE: somehow support other resource location types?
         // the ResourceFacade inits after components are loaded (so it is aware of initial components), so we can't get ResourceReferences from it
-        ResourceReference rr = new UrlResourceReference()
-        rr.init(location, this)
-        return rr
+        return new UrlResourceReference().init(location)
     }
 
     static class ComponentInfo {
         ExecutionContextFactoryImpl ecfi
-        String name
-        String location
+        String name, location, version
         ResourceReference componentRr
         Set<String> dependsOnNames = new LinkedHashSet<String>()
         ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
@@ -963,7 +1102,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                                 dir.mkdir()
                             } else {
                                 OutputStream os = new FileOutputStream(filePath)
-                                StupidUtilities.copyStream(zipIn, os)
+                                ObjectUtilities.copyStream(zipIn, os)
                             }
                             zipIn.closeEntry()
                             entry = zipIn.getNextEntry()
@@ -985,8 +1124,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 location = ecfi.runtimePath + '/' + location
                 lastSlashIndex = location.lastIndexOf('/')
             }
-            // set the default component name
+            // set the default component name, version
             name = location.substring(lastSlashIndex+1)
+            version = "unknown"
 
             // make sure directory exists
             componentRr = ecfi.getResourceReference(location)
@@ -996,19 +1136,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // see if there is a component.xml file, if so use that as the componentNode instead of origNode
             ResourceReference compXmlRr = componentRr.getChild("component.xml")
-            MNode componentNode
-            if (compXmlRr.getExists()) {
-                componentNode = MNode.parse(compXmlRr)
-            } else {
-                componentNode = origNode
-            }
-
+            MNode componentNode = compXmlRr.getExists() ? MNode.parse(compXmlRr) : origNode
             if (componentNode != null) {
                 String nameAttr = componentNode.attribute("name")
                 if (nameAttr) name = nameAttr
-                if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on")) {
+                String versionAttr = componentNode.attribute("version")
+                if (versionAttr) version = SystemBinding.expand(versionAttr)
+                if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on"))
                     dependsOnNames.add(dependsOnNode.attribute("name"))
-                }
             }
         }
 
@@ -1016,62 +1151,33 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             List<String> dependsOnList = []
             for (String dependsOnName in dependsOnNames) {
                 ComponentInfo depCompInfo = ecfi.componentInfoMap.get(dependsOnName)
-                if (depCompInfo == null)
-                    throw new IllegalArgumentException("Component ${name} depends on component ${dependsOnName} which is not initialized; try running 'gradle getDepends'")
+                if (depCompInfo == null) throw new IllegalArgumentException("Component ${name} depends on component ${dependsOnName} which is not initialized; try running 'gradle getDepends'")
                 List<String> childDepList = depCompInfo.getRecursiveDependencies()
-                for (String childDep in childDepList)
-                    if (!dependsOnList.contains(childDep)) dependsOnList.add(childDep)
-
+                for (String childDep in childDepList) if (!dependsOnList.contains(childDep)) dependsOnList.add(childDep)
                 if (!dependsOnList.contains(dependsOnName)) dependsOnList.add(dependsOnName)
             }
             return dependsOnList
         }
     }
 
-    // void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
-
-    @Override
-    @Nonnull LinkedHashMap<String, String> getComponentBaseLocations() {
-        LinkedHashMap<String, String> compLocMap = new LinkedHashMap<String, String>()
-        for (ComponentInfo componentInfo in componentInfoMap.values()) {
-            compLocMap.put(componentInfo.name, componentInfo.location)
+    /*
+    @Deprecated
+    void initComponent(String location) {
+        ComponentInfo componentInfo = new ComponentInfo(location, this)
+        // check dependencies
+        if (componentInfo.dependsOnNames) for (String dependsOnName in componentInfo.dependsOnNames) {
+            if (!componentInfoMap.containsKey(dependsOnName))
+                throw new IllegalArgumentException("Component [${componentInfo.name}] depends on component [${dependsOnName}] which is not initialized")
         }
-        return compLocMap
+        addComponent(componentInfo)
     }
+    void destroyComponent(String componentName) throws BaseException { componentInfoMap.remove(componentName) }
+    */
 
-    @Override
-    @Nonnull L10nFacade getL10n() { getEci().l10nFacade }
-    @Override
-    @Nonnull ResourceFacade getResource() { resourceFacade }
-    @Override
-    @Nonnull LoggerFacade getLogger() { loggerFacade }
-    @Override
-    @Nonnull CacheFacade getCache() { cacheFacade }
-    @Override
-    @Nonnull TransactionFacade getTransaction() { transactionFacade }
-    @Override
-    @Nonnull EntityFacade getEntity() { entityFacade }
-    @Override
-    @Nonnull ServiceFacade getService() { serviceFacade }
-    @Override
-    @Nonnull ScreenFacade getScreen() { screenFacade }
 
-    @Override
-    @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
-    @Override
-    @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
-
-    @Override
-    @Nonnull ServletContext getServletContext() { internalServletContext }
-    @Override
-    @Nonnull ServerContainer getServerContainer() { internalServerContainer }
-    @Override
-    void initServletContext(ServletContext sc) {
-        internalServletContext = sc
-        internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
-    }
-
+    // ==========================================
     // ========== Server Stat Tracking ==========
+    // ==========================================
 
     protected MNode getArtifactStatsNode(String artifactType, String artifactSubType) {
         // find artifact-stats node by type AND sub-type, if not found find by just the type
@@ -1146,8 +1252,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         final static int maxCreates = 1000
         final ExecutionContextFactoryImpl ecfi
         DeferredHitInfoFlush(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi }
-        @Override
-        synchronized void run() {
+        @Override synchronized void run() {
             ExecutionContextImpl eci = ecfi.getEci()
             eci.artifactExecutionFacade.disableAuthz()
             try {
@@ -1231,7 +1336,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
     }
 
+    // ========================================================
     // ========== Configuration File Merging Methods ==========
+    // ========================================================
 
     protected static void mergeConfigNodes(MNode baseNode, MNode overrideNode) {
         baseNode.mergeChildrenByKey(overrideNode, "default-property", "name", null)
@@ -1477,6 +1584,5 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    @Override
-    String toString() { return "ExecutionContextFactory" }
+    @Override String toString() { return "ExecutionContextFactory " + moquiVersion }
 }

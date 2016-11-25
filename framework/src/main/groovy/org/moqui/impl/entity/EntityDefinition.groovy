@@ -15,9 +15,9 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityFind
-import org.moqui.impl.StupidJavaUtilities
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
+import org.moqui.util.ObjectUtilities
 
 import javax.cache.Cache
 import java.sql.Timestamp
@@ -67,7 +67,7 @@ public class EntityDefinition {
     private List<MNode> expandedRelationshipList = null
     // this is kept separately for quick access to relationships by name or short-alias
     private Map<String, RelationshipInfo> relationshipInfoMap = null
-    private List<RelationshipInfo> relationshipInfoList = null
+    private ArrayList<RelationshipInfo> relationshipInfoList = null
     private boolean hasReverseRelationships = false
     private Map<String, MasterDefinition> masterDefinitionMap = null
 
@@ -428,9 +428,9 @@ public class EntityDefinition {
     ArrayList<String> getPkFieldNames() { return pkFieldNameList }
     ArrayList<String> getNonPkFieldNames() { return nonPkFieldNameList }
     ArrayList<String> getAllFieldNames() { return allFieldNameList }
-    boolean isField(String fieldName) { return getFieldInfo(fieldName) != null }
+    boolean isField(String fieldName) { return fieldInfoMap.containsKey(fieldName) }
     boolean isPkField(String fieldName) {
-        FieldInfo fieldInfo = getFieldInfo(fieldName)
+        FieldInfo fieldInfo = fieldInfoMap.get(fieldName)
         if (fieldInfo == null) return false
         return fieldInfo.isPk
     }
@@ -442,7 +442,7 @@ public class EntityDefinition {
         for (int i = 0; i < size; i++) {
             String fieldName = (String) fieldNameList.get(i)
             Object fieldValue = fields.get(fieldName)
-            if (StupidJavaUtilities.isEmpty(fieldValue)) return false
+            if (ObjectUtilities.isEmpty(fieldValue)) return false
         }
         return true
     }
@@ -459,7 +459,6 @@ public class EntityDefinition {
 
     ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk) {
         ArrayList<String> baseList
-        // common case, do it fast
         if (includePk) {
             if (includeNonPk) baseList = getAllFieldNames()
             else baseList = getPkFieldNames()
@@ -491,16 +490,7 @@ public class EntityDefinition {
     }
 
     MNode getFieldNode(String fieldName) { return (MNode) fieldNodeMap.get(fieldName) }
-    FieldInfo getFieldInfo(String fieldName) {
-        // the FieldInfo cast here looks funny, but avoids Groovy using a slow castToType call
-        FieldInfo fi = (FieldInfo) fieldInfoMap.get(fieldName)
-        if (fi != null) return fi
-        MNode fieldNode = getFieldNode(fieldName)
-        if (fieldNode == null) return null
-        fi = new FieldInfo(this, fieldNode)
-        fieldInfoMap.put(fieldName, fi)
-        return fi
-    }
+    FieldInfo getFieldInfo(String fieldName) { return (FieldInfo) fieldInfoMap.get(fieldName) }
 
     static Map<String, String> getRelationshipExpandedKeyMapInternal(MNode relationship, EntityDefinition relEd) {
         Map<String, String> eKeyMap = [:]
@@ -546,7 +536,7 @@ public class EntityDefinition {
     }
 
     RelationshipInfo getRelationshipInfo(String relationshipName) {
-        if (!relationshipName) return null
+        if (relationshipName == null || relationshipName.isEmpty()) return null
         return getRelationshipInfoMap().get(relationshipName)
     }
     Map<String, RelationshipInfo> getRelationshipInfoMap() {
@@ -568,12 +558,12 @@ public class EntityDefinition {
         relationshipInfoMap = relInfoMap
     }
 
-    List<RelationshipInfo> getRelationshipsInfo(boolean dependentsOnly) {
+    ArrayList<RelationshipInfo> getRelationshipsInfo(boolean dependentsOnly) {
         if (relationshipInfoList == null) makeRelInfoList()
 
         if (!dependentsOnly) return new ArrayList(relationshipInfoList)
         // just get dependents
-        List<RelationshipInfo> infoListCopy = []
+        ArrayList<RelationshipInfo> infoListCopy = new ArrayList<>()
         for (RelationshipInfo info in relationshipInfoList) if (info.dependent) infoListCopy.add(info)
         return infoListCopy
     }
@@ -586,7 +576,7 @@ public class EntityDefinition {
             this.expandedRelationshipList = this.internalEntityNode.children("relationship")
         }
 
-        List<RelationshipInfo> infoList = []
+        ArrayList<RelationshipInfo> infoList = new ArrayList<>()
         for (MNode relNode in this.expandedRelationshipList) {
             RelationshipInfo relInfo = new RelationshipInfo(relNode, this, efi)
             infoList.add(relInfo)
@@ -767,22 +757,22 @@ public class EntityDefinition {
         if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new HashMap<String, Map>()
         Map<String, String> mePkFieldToAliasNameMap = (Map<String, String>) mePkFieldToAliasNameMapMap.get(entityAlias)
 
-        //logger.warn("TOREMOVE 1 getMePkFieldToAliasNameMap entityAlias=${entityAlias} cached value=${mePkFieldToAliasNameMap}; entityNode=${entityNode}")
         if (mePkFieldToAliasNameMap != null) return mePkFieldToAliasNameMap
 
         mePkFieldToAliasNameMap = new HashMap<String, String>()
 
         // do a reverse map on member-entity pk fields to view-entity aliases
         MNode memberEntityNode = memberEntityAliasMap.get(entityAlias)
-        //logger.warn("TOREMOVE 2 getMePkFieldToAliasNameMap entityAlias=${entityAlias} memberEntityNode=${memberEntityNode}")
         EntityDefinition med = this.efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
-        List<String> pkFieldNames = med.getPkFieldNames()
-        for (String pkName in pkFieldNames) {
+        ArrayList<String> pkFieldNames = med.getPkFieldNames()
+        int pkFieldNamesSize = pkFieldNames.size()
+        for (int pkIdx = 0; pkIdx < pkFieldNamesSize; pkIdx++) {
+            String pkName = (String) pkFieldNames.get(pkIdx)
+
             MNode matchingAliasNode = entityNode.children("alias").find({
                 it.attribute("entity-alias") == memberEntityNode.attribute("entity-alias") &&
                 (it.attribute("field") == pkName || (!it.attribute("field") && it.attribute("name") == pkName)) })
-            //logger.warn("TOREMOVE 3 getMePkFieldToAliasNameMap entityAlias=${entityAlias} for pkName=${pkName}, matchingAliasNode=${matchingAliasNode}")
-            if (matchingAliasNode) {
+            if (matchingAliasNode != null) {
                 // found an alias Node
                 mePkFieldToAliasNameMap.put(pkName, matchingAliasNode.attribute("name"))
                 continue
@@ -793,15 +783,21 @@ public class EntityDefinition {
             // first try the current member-entity
             if (memberEntityNode.attribute("join-from-alias") && memberEntityNode.hasChild("key-map")) {
                 boolean foundOne = false
-                for (MNode keyMapNode in memberEntityNode.children("key-map")) {
-                    //logger.warn("TOREMOVE 4 getMePkFieldToAliasNameMap entityAlias=${entityAlias} for pkName=${pkName}, keyMapNode=${keyMapNode}")
-                    String relatedField = keyMapNode.attribute("related") ?: keyMapNode.attribute("related-field-name") ?: keyMapNode.attribute("field-name")
-                    if (relatedField == pkName) {
+                ArrayList<MNode> keyMapList = memberEntityNode.children("key-map")
+                for (MNode keyMapNode in keyMapList) {
+                    String relatedField = keyMapNode.attribute("related") ?: keyMapNode.attribute("related-field-name")
+                    if (relatedField == null || relatedField.isEmpty()) {
+                        if (keyMapList.size() == 1 && pkFieldNamesSize == 1) {
+                            relatedField = pkName
+                        } else {
+                            relatedField = keyMapNode.attribute("field-name")
+                        }
+                    }
+                    if (pkName.equals(relatedField)) {
                         String relatedPkName = keyMapNode.attribute("field-name")
                         MNode relatedMatchingAliasNode = entityNode.children("alias").find({
                             it.attribute("entity-alias") == memberEntityNode.attribute("join-from-alias") &&
                             (it.attribute("field") == relatedPkName || (!it.attribute("field") && it.attribute("name") == relatedPkName)) })
-                        //logger.warn("TOREMOVE 5 getMePkFieldToAliasNameMap entityAlias=${entityAlias} for pkName=${pkName}, relatedAlias=${memberEntityNode.'@join-from-alias'}, relatedPkName=${relatedPkName}, relatedMatchingAliasNode=${relatedMatchingAliasNode}")
                         if (relatedMatchingAliasNode) {
                             mePkFieldToAliasNameMap.put(pkName, relatedMatchingAliasNode.attribute("name"))
                             foundOne = true
@@ -814,7 +810,7 @@ public class EntityDefinition {
 
             // then go through all other member-entity that might relate back to this one
             for (MNode relatedMeNode in entityNode.children("member-entity")) {
-                if (relatedMeNode.attribute("join-from-alias") == memberEntityNode.attribute("entity-alias") && relatedMeNode.hasChild("key-map")) {
+                if (relatedMeNode.attribute("join-from-alias") == entityAlias && relatedMeNode.hasChild("key-map")) {
                     boolean foundOne = false
                     for (MNode keyMapNode in relatedMeNode.children("key-map")) {
                         if (keyMapNode.attribute("field-name") == pkName) {
@@ -836,8 +832,10 @@ public class EntityDefinition {
         }
 
         if (pkFieldNames.size() != mePkFieldToAliasNameMap.size()) {
-            logger.warn("Not all primary-key fields in view-entity [${fullEntityName}] for member-entity [${memberEntityNode.attribute("entity-name")}], skipping cache reverse-association, and note that if this record is updated the cache won't automatically clear; pkFieldNames=${pkFieldNames}; partial mePkFieldToAliasNameMap=${mePkFieldToAliasNameMap}")
+            logger.warn("Not all primary-key fields in view-entity [${fullEntityName}] for member-entity [${entityAlias}:${memberEntityNode.attribute("entity-name")}], skipping cache reverse-association, and note that if this record is updated the cache won't automatically clear; pkFieldNames=${pkFieldNames}; partial mePkFieldToAliasNameMap=${mePkFieldToAliasNameMap}")
         }
+
+        mePkFieldToAliasNameMapMap.put(entityAlias, mePkFieldToAliasNameMap)
 
         return mePkFieldToAliasNameMap
     }

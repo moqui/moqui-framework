@@ -52,7 +52,7 @@ class EntityCache {
 
     EntityCache(EntityFacadeImpl efi) {
         this.efi = efi
-        this.cfi = efi.ecfi.getCacheFacade()
+        this.cfi = efi.ecfi.cacheFacade
 
         oneBfCache = cfi.getCache("entity.record.one_bf")
 
@@ -80,15 +80,13 @@ class EntityCache {
             this.evb = evb
         }
 
-        @Override
-        void writeExternal(ObjectOutput out) throws IOException {
+        @Override void writeExternal(ObjectOutput out) throws IOException {
             out.writeBoolean(isCreate)
             // NOTE: this would be faster but can't because don't know which impl of the abstract class was used: evb.writeExternal(out)
             out.writeObject(evb)
         }
 
-        @Override
-        void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+        @Override void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
             isCreate = objectInput.readBoolean()
             evb = (EntityValueBase) objectInput.readObject()
         }
@@ -489,19 +487,14 @@ class EntityCache {
             hashCodeVal = entityName.hashCode() + ec.hashCode()
         }
 
-        @Override
-        int hashCode() { return hashCodeVal }
-        @Override
-        boolean equals(Object obj) {
+        @Override int hashCode() { return hashCodeVal }
+        @Override boolean equals(Object obj) {
             if (obj.getClass() != ViewRaKey.class) return false
             ViewRaKey that = (ViewRaKey) obj
             if (!entityName.equals(that.entityName)) return false
             if (!ec.equals(that.ec)) return false
             return true
         }
-        @Override
-        String toString() { return entityName + '(' + ec.toString() + ')' }
+        @Override String toString() { return entityName + '(' + ec.toString() + ')' }
     }
-
-
 }

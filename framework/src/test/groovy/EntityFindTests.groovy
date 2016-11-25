@@ -99,7 +99,7 @@ class EntityFindTests extends Specification {
     @Unroll
     def "find TestEntity by searchFormMap (#inputsMap #resultId)"() {
         expect:
-        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").searchFormMap(inputsMap, null, "", false).one()
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").searchFormMap(inputsMap, null, null, "", false).one()
         resultId ? testEntity != null && testEntity.testId == resultId : testEntity == null
 
         where:

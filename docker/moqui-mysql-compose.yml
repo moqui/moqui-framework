@@ -6,7 +6,7 @@ services:
     command: conf=conf/MoquiProductionConf.xml
     restart: unless-stopped
     links:
-     - mysql-moqui
+     - moqui-database
     ports:
      - 8080:8080
     volumes:
@@ -20,15 +20,15 @@ services:
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
      - entity_ds_db_conf=mysql
-     - entity_ds_host=mysql-moqui
+     - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
      - entity_ds_user=moqui
      - entity_ds_password=moqui
 
-  mysql-moqui:
+  moqui-database:
     image: mysql:5.7
-    container_name: mysql-moqui
+    container_name: moqui-database
     restart: always
     # uncomment this to expose the port for use outside other containers
     # ports:

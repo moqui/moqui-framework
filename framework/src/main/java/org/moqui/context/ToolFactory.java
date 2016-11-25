@@ -18,14 +18,19 @@ package org.moqui.context;
 public interface ToolFactory<V> {
     /** Return a name that the factory will be available under through the ExecutionContextFactory.getToolFactory()
      * method and instances will be available under through the ExecutionContextFactory.getTool() method. */
-    String getName();
+    default String getName() {
+        String className = this.getClass().getSimpleName();
+        int tfIndex = className.indexOf("ToolFactory");
+        if (tfIndex > 0) className = className.substring(0, tfIndex);
+        return className;
+    }
 
     /** Initialize the underlying tool and if the instance is a singleton also the instance. */
-    void init(ExecutionContextFactory ecf);
+    default void init(ExecutionContextFactory ecf) { }
 
     /** Rarely used, initialize before Moqui Facades are initialized; useful for tools that ResourceReference,
      * ScriptRunner, TemplateRenderer, ServiceRunner, etc implementations depend on. */
-    void preFacadeInit(ExecutionContextFactory ecf);
+    default void preFacadeInit(ExecutionContextFactory ecf) { }
 
     /** Called by ExecutionContextFactory.getTool() to get an instance object for this tool.
      * May be created for each call or a singleton.
@@ -34,6 +39,9 @@ public interface ToolFactory<V> {
      */
     V getInstance(Object... parameters);
 
-    /** Called on destroy/shutdown of Moqui to destroy (shutdown, close, etc) the underlying tool */
-    void destroy();
+    /** Called on destroy/shutdown of Moqui to destroy (shutdown, close, etc) the underlying tool. */
+    default void destroy() { }
+
+    /** Rarely used, like destroy() but runs after the facades are destroyed. */
+    default void postFacadeDestroy() { }
 }

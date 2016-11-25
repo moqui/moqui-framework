@@ -21,7 +21,7 @@
     <default-property name="entity_ds_password" value="sa"/>
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
-        <tool-factory class="org.moqui.jcache.MCacheToolFactory" init-priority="03" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
         <!-- <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/> -->
         <!-- H2 Database ToolFactory - if h2 database active runs the H2 server for external access (local only depending on conf) -->
@@ -90,7 +90,7 @@
         <cache name="resource.markdown.location" value-type="String" type="local"/>
         <cache name="resource.text.location" value-type="String" type="local"/>
 
-        <cache name="resource.reference.location" value-type="org.moqui.context.ResourceReference"/>
+        <cache name="resource.reference.location" value-type="org.moqui.resource.ResourceReference"/>
 
         <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String"/>
 
@@ -178,15 +178,15 @@
     </transaction-facade>
 
     <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl">
-        <!-- resource reference class needs to implement the org.moqui.context.ResourceReference interface -->
-        <resource-reference scheme="http" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="https" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="file" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="ftp" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="jar" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="bundleresource" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="wsjar" class="org.moqui.impl.context.reference.UrlResourceReference"/>
-        <resource-reference scheme="classpath" class="org.moqui.impl.context.reference.ClasspathResourceReference"/>
+        <!-- resource reference class needs to implement the org.moqui.resource.ResourceReference interface -->
+        <resource-reference scheme="http" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="https" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="file" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="ftp" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="jar" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="bundleresource" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="wsjar" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="classpath" class="org.moqui.resource.ClasspathResourceReference"/>
         <resource-reference scheme="component" class="org.moqui.impl.context.reference.ComponentResourceReference"/>
         <resource-reference scheme="content" class="org.moqui.impl.context.reference.ContentResourceReference"/>
         <resource-reference scheme="dbresource" class="org.moqui.impl.context.reference.DbResourceReference"/>
@@ -224,8 +224,6 @@
                             macro-template-location="template/screen-macro/DefaultScreenMacros.html.ftl"/>
         <screen-text-output type="text" mime-type="text/plain"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
-        <screen-text-output type="ts" mime-type="text/x-typescript" always-standalone="true" skip-actions="true"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.ts.ftl"/>
         <screen-text-output type="xml" mime-type="text/xml"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
         <screen-text-output type="xsl-fo" mime-type="text/xml" always-standalone="true"

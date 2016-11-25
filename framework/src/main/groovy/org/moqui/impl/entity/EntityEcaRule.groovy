@@ -46,7 +46,7 @@ class EntityEcaRule {
         }
         // prep actions
         if (eecaNode.hasChild("actions")) {
-            actions = new XmlAction(ecfi, eecaNode.first("actions"), location + ".actions")
+            actions = new XmlAction(ecfi, eecaNode.first("actions"), null) // was location + ".actions" but not unique!
         }
     }
 

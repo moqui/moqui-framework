@@ -18,10 +18,10 @@ import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityDatasourceFactory;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityNotFoundException;
-import org.moqui.impl.StupidJavaUtilities;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
 
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,7 +220,7 @@ public class EntityJavaUtil {
 
         public final FieldInfo[] pkFieldInfoArray, nonPkFieldInfoArray, allFieldInfoArray;
         final FieldInfo lastUpdatedStampInfo;
-        final String allFieldsSqlSelect;
+        public final String allFieldsSqlSelect;
         final Map<String, String> pkFieldDefaults, nonPkFieldDefaults;
 
 
@@ -451,11 +451,7 @@ public class EntityJavaUtil {
                         }
                     } else if (src.containsKey(fieldName)) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
-                        if (value != null && isCharSequence) {
-                            dest.putNoCheck(fieldName, null);
-                        } else {
-                            dest.putNoCheck(fieldName, value);
-                        }
+                        dest.putNoCheck(fieldName, null);
                     }
                 }
             }
@@ -545,7 +541,7 @@ public class EntityJavaUtil {
             Map<String, Object> targetParameterMap = new HashMap<>();
             for (Map.Entry<String, String> keyEntry: keyMap.entrySet()) {
                 Object value = valueSource.get(keyEntry.getKey());
-                if (!StupidJavaUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
+                if (!ObjectUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
             }
             return targetParameterMap;
         }

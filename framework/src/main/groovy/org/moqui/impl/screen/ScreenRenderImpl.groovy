@@ -24,10 +24,10 @@ import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
-import org.moqui.impl.StupidJavaUtilities
-import org.moqui.impl.StupidUtilities
-import org.moqui.impl.StupidWebUtilities
+import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.ResourceFacadeImpl
@@ -39,11 +39,12 @@ import org.moqui.impl.screen.ScreenDefinition.ResponseItem
 import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenForm.FormInstance
 import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
-import org.moqui.impl.util.FtlNodeWrapper
 import org.moqui.screen.ScreenRender
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
-
+import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -297,7 +298,7 @@ class ScreenRenderImpl implements ScreenRender {
                 String queryString = request.getQueryString()
 
                 // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
-                Map<String, Object> pathInfoParameterMap = StupidWebUtilities.getPathInfoParameterMap(request.getRequestURI())
+                Map<String, Object> pathInfoParameterMap = WebUtilities.getPathInfoParameterMap(request.getRequestURI())
                 if (!targetTransition.isReadOnly() && (
                         (!request.isSecure() && webappInfo.httpsEnabled) ||
                         (queryString != null && queryString.length() > 0) ||
@@ -470,7 +471,7 @@ class ScreenRenderImpl implements ScreenRender {
                         Map parms = new HashMap()
                         if (web.requestParameters != null) parms.putAll(web.requestParameters)
                         if (web.requestAttributes != null) parms.putAll(web.requestAttributes)
-                        responseMap.put("currentParameters", StupidJavaUtilities.unwrapMap(parms))
+                        responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
 
                         // add screen path, parameters from fullUrl
                         responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
@@ -508,7 +509,7 @@ class ScreenRenderImpl implements ScreenRender {
             // strip template extension(s) to avoid problems with trying to find content types based on them
             String fileContentType = sfi.ecfi.resourceFacade.getContentType(tr != null ? tr.stripTemplateExtension(fileName) : fileName)
 
-            boolean isBinary = tr == null && sfi.ecfi.resourceFacade.isBinaryContentType(fileContentType)
+            boolean isBinary = tr == null && ResourceReference.isBinaryContentType(fileContentType)
             // if (isTraceEnabled) logger.trace("Content type for screen sub-content filename [${fileName}] is [${fileContentType}], default [${this.outputContentType}], is binary? ${isBinary}")
 
             if (isBinary) {
@@ -523,7 +524,7 @@ class ScreenRenderImpl implements ScreenRender {
                     try {
                         is = fileResourceRef.openStream()
                         OutputStream os = response.outputStream
-                        int totalLen = StupidUtilities.copyStream(is, os)
+                        int totalLen = ObjectUtilities.copyStream(is, os)
 
                         if (screenUrlInfo.targetScreen.screenNode.attribute("track-artifact-hit") != "false") {
                             sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
@@ -641,7 +642,7 @@ class ScreenRenderImpl implements ScreenRender {
 
                 String filename = ec.context.saveFilename as String
                 if (filename) {
-                    String utfFilename = StupidUtilities.encodeAsciiFilename(filename)
+                    String utfFilename = StringUtilities.encodeAsciiFilename(filename)
                     response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
                 }
             }
@@ -921,27 +922,10 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    String startFormListRow(FormInstance formInstance, Object listEntry, int index, boolean hasNext) {
-        ec.context.push()
-        formInstance.runFormListRowActions(this, listEntry, index, hasNext)
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-    String endFormListRow() {
-        ec.context.pop()
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-    static String safeCloseList(Object listObject) {
-        if (listObject instanceof EntityListIterator) ((EntityListIterator) listObject).close()
-        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
-        return ""
-    }
-
-    FtlNodeWrapper getFtlFormNode(String formName) {
+    MNode getFormNode(String formName) {
         FormInstance fi = getFormInstance(formName)
         if (fi == null) return null
-        return fi.getFtlFormNode()
+        return fi.getFormNode()
     }
     FormInstance getFormInstance(String formName) {
         ScreenDefinition sd = getActiveScreenDef()
@@ -1059,19 +1043,13 @@ class ScreenRenderImpl implements ScreenRender {
     UrlInstance buildUrl(String subscreenPath) {
         return buildUrlInfo(subscreenPath).getInstance(this, null)
     }
-
     UrlInstance buildUrl(ScreenDefinition fromSd, ArrayList<String> fromPathList, String subscreenPathOrig) {
         String subscreenPath = subscreenPathOrig?.contains("\${") ? ec.resource.expand(subscreenPathOrig, "") : subscreenPathOrig
         ScreenUrlInfo ui = ScreenUrlInfo.getScreenUrlInfo(this, fromSd, fromPathList, subscreenPath, null)
         return ui.getInstance(this, null)
     }
 
-    UrlInstance makeUrlByType(String origUrl, String urlType, FtlNodeWrapper parameterParentNodeWrapper,
-                                String expandTransitionUrlString) {
-        return makeUrlByTypeGroovyNode(origUrl, urlType, parameterParentNodeWrapper?.getMNode(), expandTransitionUrlString)
-    }
-    UrlInstance makeUrlByTypeGroovyNode(String origUrl, String urlType, MNode parameterParentNode,
-                                String expandTransitionUrlString) {
+    UrlInstance makeUrlByType(String origUrl, String urlType, MNode parameterParentNode, String expandTransitionUrlString) {
         Boolean expandTransitionUrl = expandTransitionUrlString != null ? "true".equals(expandTransitionUrlString) : null
         /* TODO handle urlType=content: A content location (without the content://). URL will be one that can access that content. */
         ScreenUrlInfo suInfo
@@ -1115,8 +1093,7 @@ class ScreenRenderImpl implements ScreenRender {
             return ""
         }
     }
-    String setInContext(FtlNodeWrapper setNodeWrapper) {
-        MNode setNode = setNodeWrapper.getMNode()
+    String setInContext(MNode setNode) {
         ((ResourceFacadeImpl) ec.resource).setInContext(setNode.attribute("field"),
                 setNode.attribute("from"), setNode.attribute("value"),
                 setNode.attribute("default-value"), setNode.attribute("type"),
@@ -1127,9 +1104,8 @@ class ScreenRenderImpl implements ScreenRender {
     String popContext() { ec.getContext().pop(); return "" }
 
     /** Call this at the beginning of a form-single. Always call popContext() at the end of the form! */
-    String pushSingleFormMapContext(FtlNodeWrapper formNodeWrapper) {
+    String pushSingleFormMapContext(MNode formNode) {
         ContextStack cs = ec.getContext()
-        MNode formNode = formNodeWrapper.getMNode()
         String mapName = formNode.attribute("map") ?: "fieldValues"
         Map valueMap = (Map) cs.getByString(mapName)
 
@@ -1140,9 +1116,50 @@ class ScreenRenderImpl implements ScreenRender {
 
         return ""
     }
-    String getFieldValueString(FtlNodeWrapper widgetNodeWrapper) {
-        FtlNodeWrapper fieldNodeWrapper = widgetNodeWrapper.parentNodeWrapper.parentNodeWrapper
-        MNode widgetNode = widgetNodeWrapper.getMNode()
+    String startFormListRow(ScreenForm.FormListRenderInfo listRenderInfo, Object listEntry, int index, boolean hasNext) {
+        ec.contextStack.push()
+
+        if (listEntry instanceof Map) {
+            ec.contextStack.putAll((Map) listEntry)
+        } else {
+            throw new IllegalArgumentException("Found form-list ${listRenderInfo.getFormNode().attribute('name')} list entry that is not a Map, is a ${listEntry.class.name} which should never happen after running list through list pre-processor")
+        }
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    String endFormListRow() {
+        ec.contextStack.pop()
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    String startFormListSubRow(ScreenForm.FormListRenderInfo listRenderInfo, Object subListEntry, int index, boolean hasNext) {
+        ec.contextStack.push()
+        MNode formNode = listRenderInfo.formNode
+        if (subListEntry instanceof Map) {
+            ec.contextStack.putAll((Map) subListEntry)
+        } else {
+            throw new IllegalArgumentException("Found form-list ${listRenderInfo.getFormNode().attribute('name')} sub-list entry that is not a Map, is a ${subListEntry.class.name} which should never happen after running list through list pre-processor")
+        }
+        String listStr = formNode.attribute('list')
+        ec.contextStack.put(listStr + "_sub_index", index)
+        ec.contextStack.put(listStr + "_sub_has_next", hasNext)
+        ec.contextStack.put(listStr + "_sub_entry", subListEntry)
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    String endFormListSubRow() {
+        ec.contextStack.pop()
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+    static String safeCloseList(Object listObject) {
+        if (listObject instanceof EntityListIterator) ((EntityListIterator) listObject).close()
+        // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
+        return ""
+    }
+
+    String getFieldValueString(MNode widgetNode) {
+        MNode fieldNodeWrapper = widgetNode.parent.parent
         String defaultValue = widgetNode.attribute("default-value")
         if (defaultValue == null) defaultValue = ""
         String format = widgetNode.attribute("format")
@@ -1154,47 +1171,42 @@ class ScreenRenderImpl implements ScreenRender {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
         if (obj instanceof String) return (String) obj
-        String strValue = ec.l10n.format(obj, format)
+        String strValue = ec.l10nFacade.format(obj, format)
         return strValue
     }
-    String getFieldValueString(FtlNodeWrapper fieldNodeWrapper, String defaultValue, String format) {
+    String getFieldValueString(MNode fieldNodeWrapper, String defaultValue, String format) {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
         if (obj instanceof String) return (String) obj
-        String strValue = ec.l10n.format(obj, format)
+        String strValue = ec.l10nFacade.format(obj, format)
         return strValue
     }
-    String getFieldValuePlainString(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
+    String getFieldValuePlainString(MNode fieldNodeWrapper, String defaultValue) {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
-        if (StupidJavaUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
-            return ec.getResource().expand(defaultValue, "")
-        return StupidJavaUtilities.toPlainString(obj)
-        // NOTE: this approach causes problems with currency fields, but kills the string expand for default-value... a better approach?
-        //return obj ? obj.toString() : (defaultValue ? ec.getResource().expand(defaultValue, null) : "")
+        if (ObjectUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
+            return ec.resourceFacade.expandNoL10n(defaultValue, "")
+        return ObjectUtilities.toPlainString(obj)
     }
 
-    Object getFieldValue(FtlNodeWrapper fieldNodeWrapper, String defaultValue) {
-        MNode fieldNode = fieldNodeWrapper.getMNode()
-
-        String fromAttr = fieldNode.attribute("from")
-        if (fromAttr == null || fromAttr.isEmpty()) fromAttr = fieldNode.attribute("entry-name")
-        if (fromAttr != null && fromAttr.length() > 0) return ec.resourceFacade.expression(fromAttr, null)
-
+    Object getFieldValue(MNode fieldNode, String defaultValue) {
         String fieldName = fieldNode.attribute("name")
         Object value = null
 
-        // if this is an error situation try parameters first, otherwise try parameters last
-        Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
-        if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute("name"))) {
-            value = errorParameters.get(fieldName)
-            if (!StupidJavaUtilities.isEmpty(value)) return value
-        }
-
         MNode formNode = fieldNode.parent
-        boolean isFormList = "form-list".equals(formNode.name)
-        boolean isFormSingle = !isFormList && "form-single".equals(formNode.name)
-        if (isFormSingle) {
+        if ("form-single".equals(formNode.name)) {
+            // if this is an error situation try error parameters first
+            Map<String, Object> errorParameters = ec.getWeb()?.getErrorParameters()
+            if (errorParameters != null && (errorParameters.moquiFormName == fieldNode.parent.attribute("name"))) {
+                value = errorParameters.get(fieldName)
+                if (!ObjectUtilities.isEmpty(value)) return value
+            }
+
+            // NOTE: field.@from attribute is handled for form-list in pre-processing done by AggregationUtil
+            String fromAttr = fieldNode.attribute("from")
+            if (fromAttr == null || fromAttr.isEmpty()) fromAttr = fieldNode.attribute("entry-name")
+            if (fromAttr != null && fromAttr.length() > 0) return ec.resourceFacade.expression(fromAttr, null)
+
             String mapAttr = formNode.attribute("map")
             String mapName = mapAttr != null && mapAttr.length() > 0 ? mapAttr : "fieldValues"
             Map valueMap = (Map) ec.resource.expression(mapName, "")
@@ -1213,57 +1225,36 @@ class ScreenRenderImpl implements ScreenRender {
                     if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
                 }
             }
-        } else if (isFormList) {
-            String listEntryAttr = formNode.attribute("list-entry")
-            if (listEntryAttr != null && listEntryAttr.length() > 0) {
-                // use some Groovy goodness to get an object property, only do if this is NOT a Map (that is handled by
-                //     putting all Map entries in the context for each row)
-                Object entryObj = ec.getContext().getByString(listEntryAttr)
-                if (entryObj != null && !(entryObj instanceof Map)) {
-                    if (entryObj instanceof Map) {
-                        value = ((Map) entryObj).get(fieldName)
-                    } else {
-                        try {
-                            value = entryObj.getAt(fieldName)
-                        } catch (MissingPropertyException e) {
-                            // ignore exception, we know this may not be a real property of the object
-                            if (isTraceEnabled) logger.trace("Field ${fieldName} is not a property of list-entry ${listEntryAttr} in form ${formNode.attribute("name")}: ${e.toString()}")
-                        }
-                    }
-                }
-            }
         }
 
         // the value == null check here isn't necessary but is the most common case so
-        if (value == null || StupidJavaUtilities.isEmpty(value)) {
-            value = ec.getContext().getByString(fieldName)
-            if (!StupidJavaUtilities.isEmpty(value)) return value
+        if (value == null || ObjectUtilities.isEmpty(value)) {
+            value = ec.contextStack.getByString(fieldName)
+            if (!ObjectUtilities.isEmpty(value)) return value
         } else {
             return value
         }
-        // this isn't needed since the parameters are copied to the context: if (!isError && isWebAndSameForm && !value) value = ec.getWeb().parameters.get(fieldName)
 
         String defaultStr = ec.getResource().expand(defaultValue, null)
         if (defaultStr != null && defaultStr.length() > 0) return defaultStr
         return value
     }
-    String getFieldValueClass(FtlNodeWrapper fieldNodeWrapper) {
+    String getFieldValueClass(MNode fieldNodeWrapper) {
         Object fieldValue = getFieldValue(fieldNodeWrapper, null)
         return fieldValue != null ? fieldValue.getClass().getSimpleName() : "String"
     }
 
-    String getFieldEntityValue(FtlNodeWrapper widgetNodeWrapper) {
-        MNode widgetNode = widgetNodeWrapper.getMNode()
-        FtlNodeWrapper fieldNodeWrapper = (FtlNodeWrapper) widgetNodeWrapper.parentNode.parentNode
-        Object fieldValue = getFieldValue(fieldNodeWrapper, "")
+    String getFieldEntityValue(MNode widgetNode) {
+        MNode fieldNode = widgetNode.parent.parent
+        Object fieldValue = getFieldValue(fieldNode, "")
         if (fieldValue == null) return getDefaultText(widgetNode)
         String entityName = widgetNode.attribute("entity-name")
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName)
 
         // find the entity value
         String keyFieldName = widgetNode.attribute("key-field-name")
-        if (!keyFieldName) keyFieldName = widgetNode.attribute("entity-key-name")
-        if (!keyFieldName) keyFieldName = ed.getPkFieldNames().get(0)
+        if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = widgetNode.attribute("entity-key-name")
+        if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = ed.getPkFieldNames().get(0)
         String useCache = widgetNode.attribute("use-cache") ?: widgetNode.attribute("entity-use-cache") ?: "true"
         EntityValue ev = ec.entity.find(entityName).condition(keyFieldName, fieldValue)
                 .useCache(useCache == "true").one()
@@ -1295,8 +1286,8 @@ class ScreenRenderImpl implements ScreenRender {
         }
     }
 
-    LinkedHashMap<String, String> getFieldOptions(FtlNodeWrapper widgetNodeWrapper) {
-        return ScreenForm.getFieldOptions(widgetNodeWrapper.getMNode(), ec)
+    LinkedHashMap<String, String> getFieldOptions(MNode widgetNode) {
+        return ScreenForm.getFieldOptions(widgetNode, ec)
     }
 
     boolean isInCurrentScreenPath(List<String> pathNameList) {
@@ -1344,15 +1335,12 @@ class ScreenRenderImpl implements ScreenRender {
         // if no setting default to STT_INTERNAL
         if (stteId == null) stteId = "STT_INTERNAL"
 
-        EntityFacade entityFacade = sfi.ecfi.entityFacade
+        EntityFacadeImpl entityFacade = sfi.ecfi.entityFacade
         // see if there is a user setting for the theme
-        String themeId = entityFacade.find("moqui.security.UserScreenTheme")
-                .condition("userId", ec.userFacade.userId).condition("screenThemeTypeEnumId", stteId)
-                .useCache(true).disableAuthz().one()?.screenThemeId
+        String themeId = entityFacade.fastFindOne("moqui.security.UserScreenTheme", true, true, ec.userFacade.userId, stteId)?.screenThemeId
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {
-            EntityValue themeTypeEnum = entityFacade.find("moqui.basic.Enumeration")
-                    .condition("enumId", stteId).useCache(true).disableAuthz().one()
+            EntityValue themeTypeEnum = entityFacade.fastFindOne("moqui.basic.Enumeration", true, true, stteId)
             if (themeTypeEnum?.enumCode) themeId = themeTypeEnum.enumCode
         }
         // theme with "DEFAULT" in the ID

@@ -57,7 +57,7 @@ services:
      # - webapp_https_port=443
      # - webapp_https_enabled=true
 
-  mysql-moqui:
+  moqui-database:
     image: mysql:5.7
     container_name: moqui-database
     restart: unless-stopped

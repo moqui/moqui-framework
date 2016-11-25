@@ -116,7 +116,7 @@ public interface EntityFind extends java.io.Serializable {
      */
     EntityFind searchFormInputs(String inputFieldsMapName, String defaultOrderBy, boolean alwaysPaginate);
     EntityFind searchFormMap(Map <String, Object> inputFieldsMap, Map<String, Object> defaultParameters,
-                             String defaultOrderBy, boolean alwaysPaginate);
+                             String skipFields, String defaultOrderBy, boolean alwaysPaginate);
 
     // ======================== General/Common Options ========================
 
