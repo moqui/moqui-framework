@@ -318,6 +318,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         throw new BaseException("Could not find root screen for host: ${host}")
     }
 
+    /** Called from ArtifactStats screen */
     List<ScreenInfo> getScreenInfoList(String rootLocation, int levels) {
         ScreenInfo rootInfo = new ScreenInfo(getScreenDefinition(rootLocation), null, null, 0)
         List<ScreenInfo> infoList = []
@@ -361,7 +362,8 @@ public class ScreenFacadeImpl implements ScreenFacade {
             sections = sd.sectionByName.size()
             transitions = sd.transitionByName.size()
             for (TransitionItem ti in sd.transitionByName.values()) if (ti.hasActionsOrSingleService()) transitionsWithActions++
-            isNonPlaceholder = forms || sections || transitions
+            isNonPlaceholder = forms > 0 || sections > 0 || transitions > 3
+            // if (isNonPlaceholder) logger.info("Screen ${name} forms ${forms} sections ${sections} transitions ${transitions}")
 
             // trickle up totals
             ScreenInfo curParent = parentInfo
