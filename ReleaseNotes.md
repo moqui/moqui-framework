@@ -1,6 +1,15 @@
 
 # Moqui Framework Release Notes
 
+## Release 2.0.1 - Not Yet Released
+
+Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
+
+### New Features
+
+### Bug Fixes
+
+
 ## Release 2.0.0 - 24 Nov 2016
 
 Moqui Framework 2.0.0 is a major new feature and bug fix release, with various non backward compatible API and other changes.
