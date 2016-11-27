@@ -22,6 +22,7 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.service.ServiceCallJob
+import org.moqui.service.ServiceCallSync
 import org.moqui.service.ServiceException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -35,12 +36,13 @@ import java.util.concurrent.TimeoutException
 
 @CompileStatic
 class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
-    protected final static Logger logger = LoggerFactory.getLogger(ServiceCallAsyncImpl.class)
+    protected final static Logger logger = LoggerFactory.getLogger(ServiceCallJobImpl.class)
 
     private String jobName
     private EntityValue serviceJob
     private Future<Map<String, Object>> runFuture = (Future) null
     private String withJobRunId = (String) null
+    private Timestamp lastRunTime = (Timestamp) null
     private boolean clearLock = false
 
     ServiceCallJobImpl(String jobName, ServiceFacadeImpl sfi) {
@@ -67,8 +69,9 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
     @Override
     ServiceCallJob parameter(String name, Object value) { parameters.put(name, value); return this }
 
-    ServiceCallJob withJobRunId(String jobRunId) { withJobRunId = jobRunId; return this }
-    ServiceCallJob clearLock() { clearLock = true; return this }
+    ServiceCallJobImpl withJobRunId(String jobRunId) { withJobRunId = jobRunId; return this }
+    ServiceCallJobImpl withLastRunTime(Timestamp lastRunTime) { this.lastRunTime = lastRunTime; return this }
+    ServiceCallJobImpl clearLock() { clearLock = true; return this }
 
     @Override
     String run() throws ServiceException {
@@ -89,7 +92,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         }
 
         // run it
-        ServiceJobCallable callable = new ServiceJobCallable(eci, serviceJob, jobRunId, clearLock, parameters)
+        ServiceJobCallable callable = new ServiceJobCallable(eci, serviceJob, jobRunId, lastRunTime, clearLock, parameters)
         if (sfi.distributedExecutorService == null || serviceJob.localOnly == 'Y') {
             runFuture = ecfi.workerPool.submit(callable)
         } else {
@@ -130,13 +133,15 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         String threadUsername, currentUserId
         String jobName, jobDescription, serviceName, topic, jobRunId
         Map<String, Object> parameters
+        Timestamp lastRunTime = (Timestamp) null
         boolean clearLock
         int transactionTimeout
 
         // default constructor for deserialization only!
         ServiceJobCallable() { }
 
-        ServiceJobCallable(ExecutionContextImpl eci, Map<String, Object> serviceJob, String jobRunId, boolean clearLock, Map<String, Object> parameters) {
+        ServiceJobCallable(ExecutionContextImpl eci, Map<String, Object> serviceJob, String jobRunId, Timestamp lastRunTime,
+                           boolean clearLock, Map<String, Object> parameters) {
             ecfi = eci.ecfi
             threadUsername = eci.userFacade.username
             currentUserId = eci.userFacade.userId
@@ -146,6 +151,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             topic = (String) serviceJob.topic
             transactionTimeout = (serviceJob.transactionTimeout ?: 1800) as int
             this.jobRunId = jobRunId
+            this.lastRunTime = lastRunTime
             this.clearLock = clearLock
             this.parameters = new HashMap<>(parameters)
         }
@@ -159,6 +165,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             out.writeUTF(serviceName) // never null
             out.writeObject(topic) // might be null
             out.writeUTF(jobRunId) // never null
+            out.writeObject(lastRunTime) // might be null
             out.writeBoolean(clearLock)
             out.writeInt(transactionTimeout)
             out.writeObject(parameters)
@@ -172,6 +179,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             serviceName = objectInput.readUTF()
             topic = (String) objectInput.readObject()
             jobRunId = objectInput.readUTF()
+            lastRunTime = (Timestamp) objectInput.readObject()
             clearLock = objectInput.readBoolean()
             transactionTimeout = objectInput.readInt()
             parameters = (Map<String, Object>) objectInput.readObject()
@@ -200,9 +208,17 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                             startTime:threadEci.user.nowTimestamp] as Map<String, Object>)
                         .disableAuthz().call()
 
+                if (lastRunTime != (Object) null) parameters.put("lastRunTime", lastRunTime)
+
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> results = ecfi.serviceFacade.sync().name(serviceName).parameters(parameters)
-                        .transactionTimeout(transactionTimeout).disableAuthz().call()
+                Map<String, Object> results = (Map<String, Object>) null
+                try {
+                    results = ecfi.serviceFacade.sync().name(serviceName).parameters(parameters)
+                            .transactionTimeout(transactionTimeout).disableAuthz().call()
+                } catch (Throwable t) {
+                    logger.error("Error in service job call", t)
+                    threadEci.messageFacade.addError(t.toString())
+                }
 
                 // set endTime, results, messages, errors on ServiceJobRun
                 String resultString = JsonOutput.toJson(results)
@@ -218,9 +234,12 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
                 // clear the ServiceJobRunLock if there is one
                 if (clearLock) {
-                    ecfi.serviceFacade.sync().name("update", "moqui.service.job.ServiceJobRunLock")
+                    ServiceCallSync scs = ecfi.serviceFacade.sync().name("update", "moqui.service.job.ServiceJobRunLock")
                             .parameter("jobName", jobName).parameter("jobRunId", null)
-                            .disableAuthz().call()
+                            .disableAuthz()
+                    // if there was an error set lastRunTime to previous
+                    if (hasError) scs.parameter("lastRunTime", lastRunTime)
+                    scs.call()
                 }
 
                 // NOTE: no need to run async or separate thread, is in separate TX because no wrapping TX for these service calls
@@ -252,8 +271,8 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
                 return results
             } catch (Throwable t) {
-                logger.error("Error in async service", t)
-                throw t
+                logger.error("Error in service job handling", t)
+                // better to not throw? seems to cause issue with scheduler: throw t
             } finally {
                 if (threadEci != null) threadEci.destroy()
             }
