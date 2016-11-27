@@ -7,8 +7,12 @@ Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
 
 ### New Features
 
+- Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
+  the last run time without an error
+
 ### Bug Fixes
 
+- Improved exception (throwable) handling for service jobs, now handled like other errors and don't break the scheduler
 
 ## Release 2.0.0 - 24 Nov 2016
 
