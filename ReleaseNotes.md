@@ -9,6 +9,7 @@ Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
 
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
   the last run time without an error
+- view-entity now supports member-entity with entity-condition and no key-map for more flexible join expressions
 
 ### Bug Fixes
 
