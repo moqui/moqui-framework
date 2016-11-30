@@ -52,6 +52,8 @@
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="moqui-graphql" group="shendepu" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="moqui-react-ssr" group="shendepu" version="" branch="master" repository="github"/><!-- no releases -->
 
     <!-- Component Sets -->
     <component-set name="framework" components="example,moqui-camel,moqui-elasticsearch,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
