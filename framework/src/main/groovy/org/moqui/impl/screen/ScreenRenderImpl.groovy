@@ -1163,7 +1163,7 @@ class ScreenRenderImpl implements ScreenRender {
         String defaultValue = widgetNode.attribute("default-value")
         if (defaultValue == null) defaultValue = ""
         String format = widgetNode.attribute("format")
-        if ("text".equals(renderMode)) {
+        if ("text".equals(renderMode) || "csv".equals(renderMode)) {
             String textFormat = widgetNode.attribute("text-format")
             if (textFormat != null && !textFormat.isEmpty()) format = textFormat
         }
