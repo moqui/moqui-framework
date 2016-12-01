@@ -1035,6 +1035,7 @@ class ScreenForm {
         private ArrayList<MNode> hiddenFieldList = (ArrayList<MNode>) null
         private ArrayList<String> hiddenFieldNameList = (ArrayList<String>) null
         private ArrayList<ArrayList<MNode>> formListColInfoList = (ArrayList<ArrayList<MNode>>) null
+        private boolean hasFieldHideAttrs = false
 
         boolean hasAggregate = false
         private String[] aggregateGroupFields = (String[]) null
@@ -1067,10 +1068,11 @@ class ScreenForm {
                 allFieldNames.add(fieldName)
 
                 if (isListForm) {
-                    if (isListFieldHidden(fieldNode)) {
+                    if (isListFieldHiddenWidget(fieldNode)) {
                         hiddenFieldList.add(fieldNode)
                         if (!hiddenFieldNameList.contains(fieldName)) hiddenFieldNameList.add(fieldName)
                     }
+                    if (fieldNode.attribute("hide")) hasFieldHideAttrs = true
 
                     boolean isShowTotal = "true".equals(fieldNode.attribute("show-total"))
                     if (isShowTotal) {
@@ -1227,10 +1229,6 @@ class ScreenForm {
             if (headerField == null) return false
             return headerField.hasChild("submit")
         }
-        boolean isListFieldHidden(MNode fieldNode) {
-            if (isListFieldHiddenAttr(fieldNode)) return true
-            return isListFieldHiddenWidget(fieldNode)
-        }
 
         private boolean isListFieldHiddenAttr(MNode fieldNode) {
             String hideAttr = fieldNode.attribute("hide")
@@ -1239,7 +1237,6 @@ class ScreenForm {
             }
             return false
         }
-
         private static boolean isListFieldHiddenWidget(MNode fieldNode) {
             // if default-field or any conditional-field don't have hidden or ignored elements then it's not hidden
             MNode defaultField = fieldNode.first("default-field")
@@ -1308,7 +1305,7 @@ class ScreenForm {
                         MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
                         if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${screenForm.location}")
                         // skip hidden fields, they are handled separately
-                        if (isListFieldHidden(fieldNode)) continue
+                        if (isListFieldHiddenWidget(fieldNode)) continue
 
                         colFieldNodes.add(fieldNode)
                     }
@@ -1320,7 +1317,7 @@ class ScreenForm {
                 for (int i = 0; i < afnSize; i++) {
                     MNode fieldNode = (MNode) allFieldNodes.get(i)
                     // skip hidden fields, they are handled separately
-                    if (isListFieldHidden(fieldNode)) continue
+                    if (isListFieldHiddenWidget(fieldNode)) continue
 
                     ArrayList<MNode> singleFieldColList = new ArrayList<>()
                     singleFieldColList.add(fieldNode)
@@ -1355,7 +1352,7 @@ class ScreenForm {
                 MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
                 if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${location}")
                 // skip hidden fields, they are handled separately
-                if (isListFieldHidden(fieldNode)) continue
+                if (isListFieldHiddenWidget(fieldNode)) continue
 
                 tempFieldsInFormListColumns.add(fieldName)
                 colFieldNodes.add(fieldNode)
@@ -1426,7 +1423,7 @@ class ScreenForm {
         }
     }
     @CompileStatic
-    public static class FormListRenderInfo {
+    static class FormListRenderInfo {
         private final FormInstance formInstance
         private final ScreenForm screenForm
         private ExecutionContextFactoryImpl ecfi
@@ -1441,16 +1438,33 @@ class ScreenForm {
             ecfi = formInstance.ecfi
             // NOTE: this can be different for each form rendering depending on user settings
             allColInfo = formInstance.getFormListColumnInfo()
+            if (formInstance.hasFieldHideAttrs) {
+                int tempAciSize = allColInfo.size()
+                ArrayList<ArrayList<MNode>> newColInfo = new ArrayList<>(tempAciSize)
+                for (int oi = 0; oi < tempAciSize; oi++) {
+                    ArrayList<MNode> innerList = (ArrayList<MNode>) allColInfo.get(oi)
+                    if (innerList == null) continue
+                    int innerSize = innerList.size()
+                    ArrayList<MNode> newInnerList = new ArrayList<>(innerSize)
+                    for (int ii = 0; ii < innerSize; ii++) {
+                        MNode fieldNode = (MNode) innerList.get(ii)
+                        if (!formInstance.isListFieldHiddenAttr(fieldNode)) newInnerList.add(fieldNode)
+                    }
+                    if (newInnerList.size() > 0) newColInfo.add(newInnerList)
+                }
+                allColInfo = newColInfo
+            }
+
             // make a set of fields actually displayed
             displayedFieldSet = new LinkedHashSet<>()
             int outerSize = allColInfo.size()
             for (int oi = 0; oi < outerSize; oi++) {
                 ArrayList<MNode> innerList = (ArrayList<MNode>) allColInfo.get(oi)
-                if (innerList == null) continue
+                if (innerList == null) { logger.warn("Null column field list at index ${oi} in form ${screenForm.location}"); continue }
                 int innerSize = innerList.size()
                 for (int ii = 0; ii < innerSize; ii++) {
-                    MNode ftlNode = (MNode) innerList.get(ii)
-                    if (ftlNode != null) displayedFieldSet.add(ftlNode.attribute("name"))
+                    MNode fieldNode = (MNode) innerList.get(ii)
+                    if (fieldNode != null) displayedFieldSet.add(fieldNode.attribute("name"))
                 }
             }
 
@@ -1619,10 +1633,10 @@ class ScreenForm {
             for (int i = 0; i < afnSize; i++) {
                 MNode fieldNode = (MNode) allFieldNodes.get(i)
                 // skip hidden fields, they are handled separately
-                if (formInstance.isListFieldHidden(fieldNode)) continue
+                if (formInstance.isListFieldHiddenWidget(fieldNode) ||
+                        (formInstance.hasFieldHideAttrs && formInstance.isListFieldHiddenAttr(fieldNode))) continue
                 String fieldName = fieldNode.attribute("name")
-                if (!displayedFieldSet.contains(fieldName))
-                    colFieldNodes.add(formInstance.fieldNodeMap.get(fieldName))
+                if (!displayedFieldSet.contains(fieldName)) colFieldNodes.add(formInstance.fieldNodeMap.get(fieldName))
             }
 
             return colFieldNodes
@@ -1633,7 +1647,7 @@ class ScreenForm {
             ArrayList<Integer> charWidths = new ArrayList<>(numCols)
             for (int i = 0; i < numCols; i++) charWidths.add(null)
             if (originalLineWidth == 0) originalLineWidth = 132
-            int lineWidth = originalLineWidth;
+            int lineWidth = originalLineWidth
             // leave room for 1 space between each column
             lineWidth -= (numCols - 1)
 
