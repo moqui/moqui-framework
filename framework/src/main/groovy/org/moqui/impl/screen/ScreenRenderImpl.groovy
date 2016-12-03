@@ -1366,7 +1366,8 @@ class ScreenRenderImpl implements ScreenRender {
         ArrayList<String> values = new ArrayList<>(strListSize)
         for (int i = 0; i < strListSize; i++) {
             EntityValue str = (EntityValue) strList.get(i)
-            values.add((String) str.getNoCheckSimple("resourceValue"))
+            String resourceValue = (String) str.getNoCheckSimple("resourceValue")
+            if (resourceValue != null && !resourceValue.isEmpty()) values.add(resourceValue)
         }
 
         curThemeValuesByType.put(resourceTypeEnumId, values)
