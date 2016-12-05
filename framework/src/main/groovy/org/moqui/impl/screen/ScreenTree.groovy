@@ -22,6 +22,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ScreenTree {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenTree.class)
 
@@ -49,7 +50,6 @@ class ScreenTree {
             subNodeList.add(new TreeSubNode(this, treeSubNodeNode, location + ".subnode." + treeSubNodeNode.attribute("node-name")))
     }
 
-    @CompileStatic
     void sendSubNodeJson() {
         // NOTE: This method is very specific to jstree
 
@@ -77,7 +77,6 @@ class ScreenTree {
         eci.getWeb().sendJsonResponse(outputNodeList)
     }
 
-    @CompileStatic
     List<Map> getChildNodes(List<TreeSubNode> currentSubNodeList, ExecutionContextImpl eci, ContextStack cs) {
         List<Map> outputNodeList = []
 

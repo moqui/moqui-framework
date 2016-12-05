@@ -668,9 +668,9 @@ class ScreenDefinition {
             // NOTE: use the View authz action to leave it open, ie require minimal authz; restrictions are often more
             //    in the services/etc if/when needed, or specific transitions can have authz settings
             String requireAuthentication = (String) parentScreen.screenNode.attribute('require-authentication')
-            ArtifactExecutionInfo aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
                     ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, sri.outputContentType)
-            ec.artifactExecutionFacade.pushInternal(aei, (!requireAuthentication || requireAuthentication == "true"))
+            ec.artifactExecutionFacade.pushInternal(aei, (!requireAuthentication || "true".equals(requireAuthentication)))
 
             boolean loggedInAnonymous = false
             if (requireAuthentication == "anonymous-all") {
@@ -858,7 +858,7 @@ class ScreenDefinition {
             for (ParameterItem pi in parameterMap.values()) ep.put(pi.getName(), pi.getValue(ec))
             if (parameterMapNameGroovy != null) {
                 Object pm = InvokerHelper.createScript(parameterMapNameGroovy, ec.getContextBinding()).run()
-                if (pm && pm instanceof Map) ep.putAll(pm)
+                if (pm && pm instanceof Map) ep.putAll((Map) pm)
             }
             // logger.warn("========== Expanded response map to url [${url}] to: ${ep}; parameterMap=${parameterMap}; parameterMapNameGroovy=[${parameterMapNameGroovy}]")
             return ep

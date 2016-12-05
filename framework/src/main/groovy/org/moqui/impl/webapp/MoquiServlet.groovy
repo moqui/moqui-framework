@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory
 class MoquiServlet extends HttpServlet {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiServlet.class)
 
-    MoquiServlet() { super(); }
+    MoquiServlet() { super() }
 
     @Override
     void init(ServletConfig config) throws ServletException {

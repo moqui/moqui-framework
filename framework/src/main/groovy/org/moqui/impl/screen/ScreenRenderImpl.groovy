@@ -20,7 +20,6 @@ import org.moqui.BaseException
 import org.moqui.context.*
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityException
-import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
