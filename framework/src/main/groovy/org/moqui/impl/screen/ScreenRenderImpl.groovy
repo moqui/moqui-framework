@@ -1424,17 +1424,31 @@ class ScreenRenderImpl implements ScreenRender {
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
                 if (!screenUrlInstance.isPermitted()) continue
 
+                String urlWithParams = screenPath
+                ScreenDefinition screenDef = screenUrlInstance.sui.targetScreen
+                if (screenDef.hasRequired) {
+                    Map<String, String> parmMap = screenUrlInstance.getParameterMap()
+                    boolean parmMissing = false
+                    for (ScreenDefinition.ParameterItem pi in screenDef.getParameterMap().values()) {
+                        String parmValue = parmMap.get(pi.name)
+                        if (parmValue == null || parmValue.isEmpty()) { parmMissing = true; break }
+                    }
+                    if (parmMissing) continue
+                    urlWithParams += '?' + screenUrlInstance.getParameterString()
+                }
+
                 String image = screenUrlInstance.sui.menuImage
                 String imageType = screenUrlInstance.sui.menuImageType
                 if (image != null && image.length() > 0 && (imageType == null || imageType.length() == 0 || "url-screen".equals(imageType)))
                     image = buildUrl(image).url
 
                 subscreensList.add([name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
-                                    path:screenPath, image:image, imageType:imageType,
+                                    path:screenPath, urlWithParams:urlWithParams, image:image, imageType:imageType,
                                     active:(nextItem == subscreensItem.name), disableLink:screenUrlInstance.disableLink])
             }
 
-            menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList, path:currentPath.toString()])
+            menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList,
+                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu()])
         }
 
         String lastPathItem = (String) extraPath.get(extraPathSize - 1)

@@ -37,6 +37,8 @@ import org.slf4j.LoggerFactory
 @CompileStatic
 class ScreenDefinition {
     private final static Logger logger = LoggerFactory.getLogger(ScreenDefinition.class)
+    private final static Set<String> scanWidgetNames = new HashSet<String>(
+            ['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree', 'subscreens-panel', 'subscreens-menu'])
 
     @SuppressWarnings("GrFinalVariableAccess") protected final ScreenFacadeImpl sfi
     @SuppressWarnings("GrFinalVariableAccess") protected final MNode screenNode
@@ -49,6 +51,7 @@ class ScreenDefinition {
     Long sourceLastModified = null
 
     protected Map<String, ParameterItem> parameterByName = new HashMap<>()
+    protected boolean hasRequired = false
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
     protected Map<String, SubscreensItem> subscreensByName = new HashMap<>()
     protected ArrayList<SubscreensItem> subscreensItemsSorted = null
@@ -61,6 +64,7 @@ class ScreenDefinition {
     protected Map<String, ScreenForm> formByName = new HashMap<>()
     protected Map<String, ScreenTree> treeByName = new HashMap<>()
     protected final Set<String> dependsOnScreenLocations = new HashSet<>()
+    protected boolean hasTabMenu = false
 
     protected Map<String, ResourceReference> subContentRefByPath = new HashMap()
     protected Map<String, String> macroTemplateByRenderMode = null
@@ -83,8 +87,11 @@ class ScreenDefinition {
         standalone = screenNode.attribute('standalone') == "true"
 
         // parameter
-        for (MNode parameterNode in screenNode.children("parameter"))
-            parameterByName.put(parameterNode.attribute("name"), new ParameterItem(parameterNode, location, ecfi))
+        for (MNode parameterNode in screenNode.children("parameter")) {
+            ParameterItem parmItem = new ParameterItem(parameterNode, location, ecfi)
+            parameterByName.put(parameterNode.attribute("name"), parmItem)
+            if (parmItem.required) hasRequired = true
+        }
         // prep always-actions
         if (screenNode.hasChild("always-actions"))
             alwaysActions = new XmlAction(ecfi, screenNode.first("always-actions"), location + ".always_actions")
@@ -124,9 +131,8 @@ class ScreenDefinition {
         // get the root section
         rootSection = new ScreenSection(ecfi, screenNode, location + ".screen")
 
-        if (rootSection && rootSection.widgets) {
-            Map<String, ArrayList<MNode>> descMap = rootSection.widgets.widgetsNode.descendants(
-                    new HashSet<String>(['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree']))
+        if (rootSection != null && rootSection.widgets != null) {
+            Map<String, ArrayList<MNode>> descMap = rootSection.widgets.widgetsNode.descendants(scanWidgetNames)
             // get all of the other sections by name
             for (MNode sectionNode in descMap.get('section'))
                 sectionByName.put(sectionNode.attribute("name"), new ScreenSection(ecfi, sectionNode, "${location}.section\$${sectionNode.attribute("name")}"))
@@ -149,6 +155,16 @@ class ScreenDefinition {
             // get all trees by name
             for (MNode treeNode in descMap.get('tree'))
                 treeByName.put(treeNode.attribute("name"), new ScreenTree(ecfi, this, treeNode, "${location}.tree\$${treeNode.attribute("name")}"))
+
+            // see if any subscreens-panel or subscreens-menu elements are type=tab (or empty type, defaults to tab)
+            for (MNode menuNode in descMap.get("subscreens-panel")) {
+                String type = menuNode.attribute("type")
+                if (type == null || type.isEmpty() || "tab".equals(type)) { hasTabMenu = true; break }
+            }
+            if (!hasTabMenu) for (MNode menuNode in descMap.get("subscreens-menu")) {
+                String type = menuNode.attribute("type")
+                if (type == null || type.isEmpty() || "tab".equals(type)) { hasTabMenu = true; break }
+            }
         }
 
         if (logger.isTraceEnabled()) logger.trace("Loaded screen at [${location}] in [${(System.currentTimeMillis()-startTime)/1000}] seconds")
@@ -279,11 +295,8 @@ class ScreenDefinition {
     }
 
     Map<String, ParameterItem> getParameterMap() { return parameterByName }
-    boolean hasRequiredParameters() {
-        boolean hasRequired = false
-        for (ParameterItem pi in parameterByName.values()) if (pi.required) { hasRequired = true; break }
-        return hasRequired
-    }
+    boolean hasRequiredParameters() { return hasRequired }
+    boolean hasTabMenu() { return hasTabMenu }
 
     boolean hasTransition(String name) {
         for (TransitionItem curTi in transitionByName.values()) if (curTi.name == name) return true
