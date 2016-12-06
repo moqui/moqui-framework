@@ -51,7 +51,7 @@ class ScreenDefinition {
     protected Map<String, ParameterItem> parameterByName = new HashMap<>()
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
     protected Map<String, SubscreensItem> subscreensByName = new HashMap<>()
-    protected List<SubscreensItem> subscreensItemsSorted = null
+    protected ArrayList<SubscreensItem> subscreensItemsSorted = null
 
     protected XmlAction alwaysActions = null
     protected XmlAction preActions = null
@@ -254,7 +254,7 @@ class ScreenDefinition {
     boolean isStandalone() { return standalone }
 
     String getDefaultMenuName() {
-        return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, sfi.ecfi);
+        return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, sfi.ecfi)
     }
     static String getPrettyMenuName(String menuName, String location, ExecutionContextFactoryImpl ecfi) {
         if (menuName == null || menuName.isEmpty()) {
@@ -408,7 +408,7 @@ class ScreenDefinition {
         return locList
     }
 
-    List<SubscreensItem> getSubscreensItemsSorted() {
+    ArrayList<SubscreensItem> getSubscreensItemsSorted() {
         if (subscreensItemsSorted != null) return subscreensItemsSorted
         List<SubscreensItem> newList = new ArrayList(subscreensByName.size())
         if (subscreensByName.size() == 0) return newList
@@ -417,11 +417,13 @@ class ScreenDefinition {
         return subscreensItemsSorted = newList
     }
 
-    List<SubscreensItem> getMenuSubscreensItems() {
-        List<SubscreensItem> allItems = getSubscreensItemsSorted()
-        List<SubscreensItem> filteredList = new ArrayList(allItems.size())
+    ArrayList<SubscreensItem> getMenuSubscreensItems() {
+        ArrayList<SubscreensItem> allItems = getSubscreensItemsSorted()
+        int allItemSize = allItems.size()
+        ArrayList<SubscreensItem> filteredList = new ArrayList(allItemSize)
 
-        for (SubscreensItem si in allItems) {
+        for (int i = 0; i < allItemSize; i++) {
+            SubscreensItem si = (SubscreensItem) allItems.get(i)
             // check the menu include flag
             if (!si.menuInclude) continue
             // valid in current context? (user group, etc)
@@ -727,8 +729,8 @@ class ScreenDefinition {
     static class ActionsTransitionItem extends TransitionItem {
         ActionsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
-            name = "actions"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
-            transitionNode = null; beginTransaction = true; readOnly = true; requireSessionToken = false;
+            name = "actions"; method = "any"; location = "${parentScreen.location}.transition\$${name}"
+            transitionNode = null; beginTransaction = true; readOnly = true; requireSessionToken = false
             defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
 
@@ -757,8 +759,8 @@ class ScreenDefinition {
     static class FormSelectColumnsTransitionItem extends TransitionItem {
         FormSelectColumnsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
-            name = "formSelectColumns"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
-            transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false;
+            name = "formSelectColumns"; method = "any"; location = "${parentScreen.location}.transition\$${name}"
+            transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false
             defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
 
@@ -777,8 +779,8 @@ class ScreenDefinition {
 
         FormSavedFindsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
-            name = "formSaveFind"; method = "any"; location = "${parentScreen.location}.transition\$${name}";
-            transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false;
+            name = "formSaveFind"; method = "any"; location = "${parentScreen.location}.transition\$${name}"
+            transitionNode = null; beginTransaction = true; readOnly = false; requireSessionToken = false
             defaultResponse = new ResponseItem(new MNode("default-response", [url:"."]), this, parentScreen)
             noneResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
         }
@@ -793,7 +795,7 @@ class ScreenDefinition {
             // remove last path element, is transition name and we just want the screen this is from
             curFpnl.remove(curFpnl.size() - 1)
 
-            ScreenUrlInfo fwdUrlInfo = ScreenUrlInfo.getScreenUrlInfo(sri, null, curFpnl, null, null)
+            ScreenUrlInfo fwdUrlInfo = ScreenUrlInfo.getScreenUrlInfo(sri, null, curFpnl, null, 0)
             ScreenUrlInfo.UrlInstance fwdInstance = fwdUrlInfo.getInstance(sri, null)
 
             Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
@@ -935,9 +937,9 @@ class ScreenDefinition {
 
     @CompileStatic
     static class SubscreensItemComparator implements Comparator<SubscreensItem> {
-        public SubscreensItemComparator() { }
+        SubscreensItemComparator() { }
         @Override
-        public int compare(SubscreensItem ssi1, SubscreensItem ssi2) {
+        int compare(SubscreensItem ssi1, SubscreensItem ssi2) {
             // order by index, null index first
             if (ssi1.menuIndex == null && ssi2.menuIndex != null) return -1
             if (ssi1.menuIndex != null && ssi2.menuIndex == null) return 1

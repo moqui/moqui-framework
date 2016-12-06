@@ -83,7 +83,8 @@ class ScreenUrlInfo {
     /** The list of screens to render, starting with the root screen OR the last standalone screen if applicable */
     ArrayList<ScreenDefinition> screenRenderDefList = new ArrayList<ScreenDefinition>()
     int renderPathDifference = 0
-    boolean lastStandalone = false
+    /** positive lastStandalone means how many to include from the end back, negative how many path elements to skip from the beginning */
+    int lastStandalone = 0
 
     /** The last screen found in the path list */
     ScreenDefinition targetScreen = (ScreenDefinition) null
@@ -112,7 +113,7 @@ class ScreenUrlInfo {
     }
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
-                                          ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
+                                          ArrayList<String> fpnl, String subscreenPath, int lastStandalone) {
         Cache<String, ScreenUrlInfo> screenUrlCache = sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromScreenDef, fpnl, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
@@ -124,7 +125,7 @@ class ScreenUrlInfo {
     }
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
-                                          String subscreenPath, Boolean lastStandalone) {
+                                          String subscreenPath, int lastStandalone) {
         ScreenDefinition rootSd = sri.getRootScreenDef()
         ScreenDefinition fromSd = fromScreenDef
         ArrayList<String> fromPathList = fpnl
@@ -150,13 +151,13 @@ class ScreenUrlInfo {
         String pathInfo = request.getPathInfo()
         ArrayList<String> screenPath = new ArrayList<>()
         if (pathInfo != null) screenPath.addAll(Arrays.asList(pathInfo.split("/")))
-        return getScreenUrlInfo(sfi, rootScreenDef, rootScreenDef, screenPath, null, null)
+        return getScreenUrlInfo(sfi, rootScreenDef, rootScreenDef, screenPath, null, 0)
 
     }
 
     final static char slashChar = (char) '/'
     static String makeCacheKey(ScreenDefinition rootSd, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
-                               String subscreenPath, Boolean lastStandalone) {
+                               String subscreenPath, int lastStandalone) {
         StringBuilder sb = new StringBuilder()
         // shouldn't be too many root screens, so the screen name (filename) should be sufficiently unique and much shorter
         sb.append(rootSd.getScreenName()).append(":")
@@ -173,7 +174,7 @@ class ScreenUrlInfo {
             }
         }
         if (hasSsp) sb.append(subscreenPath)
-        if (lastStandalone != null && lastStandalone.booleanValue()) sb.append(":LS")
+        sb.append(":").append(lastStandalone)
 
         // logger.warn("======= makeCacheKey subscreenPath=${subscreenPath}, fpnl=${fpnl}\n key=${sb}")
         return sb.toString()
@@ -188,14 +189,14 @@ class ScreenUrlInfo {
     }
 
     ScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
-                  ArrayList<String> fpnl, String subscreenPath, Boolean lastStandalone) {
+                  ArrayList<String> fpnl, String subscreenPath, int lastStandalone) {
         this.sfi = sfi
         this.ecfi = sfi.getEcfi()
         this.rootSd = rootSd
         fromSd = fromScreenDef
         fromPathList = fpnl
         fromScreenPath = subscreenPath ?: ""
-        this.lastStandalone = lastStandalone != null ? lastStandalone : false
+        this.lastStandalone = lastStandalone
 
         initUrl()
     }
@@ -398,9 +399,9 @@ class ScreenUrlInfo {
         extraPathNameList = new ArrayList<String>(fullPathNameList)
         for (int i = 0; i < fullPathNameList.size(); i++) {
             String pathName = (String) fullPathNameList.get(i)
-            ScreenDefinition.SubscreensItem nextSi = lastSd.getSubscreensItem(pathName)
+            ScreenDefinition.SubscreensItem curSi = lastSd.getSubscreensItem(pathName)
 
-            if (nextSi == null || !sfi.isScreen(nextSi.getLocation())) {
+            if (curSi == null || !sfi.isScreen(curSi.getLocation())) {
                 // handle case where last one may be a transition name, and not a subscreen name
                 if (lastSd.hasTransition(pathName)) {
                     // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
@@ -427,17 +428,17 @@ class ScreenUrlInfo {
                     String extension = pathName.substring(dotIndex + 1)
                     String pathNamePreDot = pathName.substring(0, dotIndex)
                     if (sfi.isRenderModeValid(extension)) {
-                        nextSi = lastSd.getSubscreensItem(pathNamePreDot)
-                        if (nextSi != null) {
+                        curSi = lastSd.getSubscreensItem(pathNamePreDot)
+                        if (curSi != null) {
                             targetScreenRenderMode = extension
-                            if (sfi.isRenderModeAlwaysStandalone(extension)) lastStandalone = true
+                            if (sfi.isRenderModeAlwaysStandalone(extension)) lastStandalone = 1
                             fullPathNameList.set(i, pathNamePreDot)
                             pathName = pathNamePreDot
                         }
                     }
 
                     // is there an extension beyond a transition name?
-                    if (nextSi == null && lastSd.hasTransition(pathNamePreDot)) {
+                    if (curSi == null && lastSd.hasTransition(pathNamePreDot)) {
                         // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
                         extraPathNameList.remove(0)
                         targetTransitionActualName = pathNamePreDot
@@ -449,7 +450,7 @@ class ScreenUrlInfo {
                 }
 
                 // next SubscreenItem still not found?
-                if (nextSi == null) {
+                if (curSi == null) {
                     if (lastSd.screenNode.attribute('allow-extra-path') == "true") {
                         // call it good
                         break
@@ -463,9 +464,9 @@ class ScreenUrlInfo {
                 }
             }
 
-            String nextLoc = nextSi.getLocation()
-            ScreenDefinition nextSd = sfi.getScreenDefinition(nextLoc)
-            if (nextSd == null) {
+            String nextLoc = curSi.getLocation()
+            ScreenDefinition curSd = sfi.getScreenDefinition(nextLoc)
+            if (curSd == null) {
                 targetExists = false
                 notExistsLastSd = lastSd
                 notExistsLastName = pathName
@@ -474,18 +475,23 @@ class ScreenUrlInfo {
                 // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, pathName, nextLoc, new Exception("Screen subscreen or transition not found here"))
             }
 
-            if (nextSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
-            if (nextSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
-            if (nextSd.getSubscreensNode()?.attribute('always-use-full-path') == "true") alwaysUseFullPath = true
+            if (curSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
+            if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
+            if (curSd.getSubscreensNode()?.attribute('always-use-full-path') == "true") alwaysUseFullPath = true
 
             // if standalone, clear out screenRenderDefList before adding this to it
-            if (nextSd.isStandalone() || this.lastStandalone) {
+            if (curSd.isStandalone()) {
                 renderPathDifference += screenRenderDefList.size()
                 screenRenderDefList.clear()
+            } else {
+                while (this.lastStandalone < 0 && -lastStandalone > renderPathDifference && screenRenderDefList.size() > 0) {
+                    renderPathDifference++
+                    screenRenderDefList.remove(0)
+                }
             }
-            screenRenderDefList.add(nextSd)
-            screenPathDefList.add(nextSd)
-            lastSd = nextSd
+            screenRenderDefList.add(curSd)
+            screenPathDefList.add(curSd)
+            lastSd = curSd
             // add this to the list of path names to use for transition redirect
             preTransitionPathNameList.add(pathName)
 
@@ -554,25 +560,31 @@ class ScreenUrlInfo {
                 return
                 // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, subscreenName, null, new Exception("Screen subscreen or transition not found here"))
             }
-            ScreenDefinition nextSd = sfi.getScreenDefinition(nextLoc)
-            if (nextSd == null) {
+            ScreenDefinition curSd = sfi.getScreenDefinition(nextLoc)
+            if (curSd == null) {
                 targetExists = false
                 return
                 // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, subscreenName, nextLoc, new Exception("Screen subscreen or transition not found here"))
             }
 
-            if (nextSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
-            if (nextSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
+            if (curSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
+            if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
 
             // if standalone, clear out screenRenderDefList before adding this to it
-            if (nextSd.isStandalone() || this.lastStandalone) {
+            if (curSd.isStandalone()) {
                 renderPathDifference += screenRenderDefList.size()
                 screenRenderDefList.clear()
+            } else {
+                while (this.lastStandalone < 0 && -lastStandalone > renderPathDifference && screenRenderDefList.size() > 0) {
+                    renderPathDifference++
+                    screenRenderDefList.remove(0)
+                }
             }
-            screenRenderDefList.add(nextSd)
 
-            screenPathDefList.add(nextSd)
-            lastSd = nextSd
+            screenRenderDefList.add(curSd)
+            screenPathDefList.add(curSd)
+            lastSd = curSd
+
             // for use in URL writing and such add the subscreenName we found to the main path name list
             fullPathNameList.add(subscreenName)
             // add this to the list of path names to use for transition redirect, just in case a default is a transition
@@ -582,6 +594,11 @@ class ScreenUrlInfo {
         }
 
         this.targetScreen = lastSd
+
+        if (lastStandalone > 0) {
+            // remove all but lastStandalone items from screenRenderDefList
+            while (screenRenderDefList.size() > lastStandalone) screenRenderDefList.remove(0)
+        }
 
         // screenRenderDefList now in place, look for menu-image and menu-image-type of last in list
         int renderListSize = screenRenderDefList.size()
@@ -724,6 +741,18 @@ class ScreenUrlInfo {
         return cleanList
     }
 
+    static int parseLastStandalone(String lastStandalone, int defLs) {
+        if (lastStandalone == null || lastStandalone.length() == 0) return defLs
+        if (lastStandalone.startsWith("t")) return 1
+        if (lastStandalone.startsWith("f")) return 0
+        try {
+            return Integer.parseInt(lastStandalone)
+        } catch (Exception e) {
+            if (logger.isTraceEnabled()) logger.trace("Error parsing lastStandalone value ${lastStandalone}, default to 0 for no lastStandalone")
+            return 0
+        }
+    }
+
     @CompileStatic
     static class UrlInstance {
         ScreenUrlInfo sui
@@ -781,8 +810,7 @@ class ScreenUrlInfo {
                 String expandedUrl = ti.defaultResponse.url
                 if (expandedUrl.contains('${')) expandedUrl = ec.resourceFacade.expand(expandedUrl, "")
                 ScreenUrlInfo aliasUrlInfo = getScreenUrlInfo(sri.sfi, sui.rootSd, sui.fromSd,
-                        sui.preTransitionPathNameList, expandedUrl,
-                        (sui.lastStandalone || "true".equals(transitionAliasParameters.lastStandalone)))
+                        sui.preTransitionPathNameList, expandedUrl, parseLastStandalone((String) transitionAliasParameters.lastStandalone, sui.lastStandalone))
 
                 // logger.warn("Made transition alias: ${aliasUrlInfo.toString()}")
                 sui = aliasUrlInfo
@@ -796,7 +824,7 @@ class ScreenUrlInfo {
         String getUrlWithParams() {
             String ps = getParameterString()
             String url = getUrl()
-            if (ps != null && ps.length() > 0) url = url.concat("?").concat(ps)
+            if (ps.length() > 0) url = url.concat("?").concat(ps)
             return url
         }
 

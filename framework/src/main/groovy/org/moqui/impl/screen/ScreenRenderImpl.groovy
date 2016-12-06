@@ -241,7 +241,7 @@ class ScreenRenderImpl implements ScreenRender {
         WebFacade web = ec.getWeb()
         String lastStandalone = web != null ? web.requestParameters.lastStandalone : null
         screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
-                "true".equals(lastStandalone))
+                ScreenUrlInfo.parseLastStandalone(lastStandalone, 0))
 
         // if the target of the url doesn't exist throw exception
         screenUrlInfo.checkExists()
@@ -773,7 +773,7 @@ class ScreenRenderImpl implements ScreenRender {
                 if (loginPathAttr) loginPath = loginPathAttr
             }
 
-            if (screenUrlInfo.isLastStandalone() || screenUrlInstance.getTargetTransition() != null) {
+            if (screenUrlInfo.lastStandalone != 0 || screenUrlInstance.getTargetTransition() != null) {
                 // respond with 401 and the login screen instead of a redirect; JS client libraries handle this much better
                 ArrayList<String> pathElements = new ArrayList(Arrays.asList(loginPath.split("/")))
                 if (loginPath.startsWith("/")) {
@@ -789,7 +789,7 @@ class ScreenRenderImpl implements ScreenRender {
                 return false
             } else {
                 // now prepare and send the redirect
-                ScreenUrlInfo suInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, new ArrayList<String>(), loginPath, false)
+                ScreenUrlInfo suInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, new ArrayList<String>(), loginPath, 0)
                 UrlInstance urlInstance = suInfo.getInstance(this, false)
                 response.sendRedirect(urlInstance.url)
                 return false
@@ -1034,7 +1034,7 @@ class ScreenRenderImpl implements ScreenRender {
             // logger.warn("========== DID NOT find cached ScreenUrlInfo ${key}")
         }
 
-        ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(this, null, null, subscreenPath, null)
+        ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(this, null, null, subscreenPath, 0)
         subscreenUrlInfos.put(key, sui)
         return sui
     }
@@ -1044,7 +1044,7 @@ class ScreenRenderImpl implements ScreenRender {
     }
     UrlInstance buildUrl(ScreenDefinition fromSd, ArrayList<String> fromPathList, String subscreenPathOrig) {
         String subscreenPath = subscreenPathOrig?.contains("\${") ? ec.resource.expand(subscreenPathOrig, "") : subscreenPathOrig
-        ScreenUrlInfo ui = ScreenUrlInfo.getScreenUrlInfo(this, fromSd, fromPathList, subscreenPath, null)
+        ScreenUrlInfo ui = ScreenUrlInfo.getScreenUrlInfo(this, fromSd, fromPathList, subscreenPath, 0)
         return ui.getInstance(this, null)
     }
 
@@ -1392,5 +1392,60 @@ class ScreenRenderImpl implements ScreenRender {
 
         curThemeIconByText.put(text, iconClass)
         return iconClass
+    }
+
+    List<Map> getMenuData(ArrayList<String> pathNameList) {
+        ScreenUrlInfo fullUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, pathNameList, null, 0)
+        if (!fullUrlInfo.targetExists) {
+            ec.web.response.sendError(404, "Screen not found for path ${pathNameList}")
+            return null
+        }
+        ArrayList<String> extraPath = fullUrlInfo.fullPathNameList
+        int extraPathSize = extraPath.size()
+
+        StringBuilder currentPath = new StringBuilder()
+        List<Map> menuDataList = new LinkedList<>()
+        ScreenDefinition curScreen = rootScreenDef
+
+        for (int i = 0; i < (extraPathSize - 1); i++) {
+            String pathItem = (String) extraPath.get(i)
+            String nextItem = (String) extraPath.get(i+1)
+            currentPath.append('/').append(pathItem)
+
+            SubscreensItem curSsi = curScreen.getSubscreensItem(pathItem)
+            curScreen = ec.screenFacade.getScreenDefinition(curSsi.location)
+
+            List<Map> subscreensList = new LinkedList<>()
+            ArrayList<SubscreensItem> menuItems = curScreen.getMenuSubscreensItems()
+            int menuItemsSize = menuItems.size()
+            for (int j = 0; j < menuItemsSize; j++) {
+                SubscreensItem subscreensItem = (SubscreensItem) menuItems.get(j)
+                String screenPath = new StringBuilder(currentPath).append('/').append(subscreensItem.name).toString()
+                UrlInstance screenUrlInstance = buildUrl(screenPath)
+                if (!screenUrlInstance.isPermitted()) continue
+
+                String image = screenUrlInstance.sui.menuImage
+                String imageType = screenUrlInstance.sui.menuImageType
+                if (image != null && image.length() > 0 && (imageType == null || imageType.length() == 0 || "url-screen".equals(imageType)))
+                    image = buildUrl(image).url
+
+                subscreensList.add([name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
+                                    path:screenPath, image:image, imageType:imageType,
+                                    active:(nextItem == subscreensItem.name), disableLink:screenUrlInstance.disableLink])
+            }
+
+            menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList, path:currentPath.toString()])
+        }
+
+        String lastPathItem = (String) extraPath.get(extraPathSize - 1)
+        UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
+        currentPath.append('/').append(lastPathItem)
+        String lastPath = currentPath.toString()
+        String paramString = fullUrlInstance.getParameterString()
+        if (paramString.length() > 0) currentPath.append('?').append(paramString)
+        menuDataList.add([name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
+                          urlWithParams:currentPath.toString()])
+
+        return menuDataList
     }
 }

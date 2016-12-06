@@ -451,7 +451,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
                 String expandedUrl = ri.url
                 if (expandedUrl.contains('${')) expandedUrl = ecfi.getResource().expand(expandedUrl, "")
                 ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(ecfi.screenFacade, si.rootInfo.sd,
-                        si.sd, si.screenPath, expandedUrl, null)
+                        si.sd, si.screenPath, expandedUrl, 0)
                 if (sui.targetScreen == null) continue
                 String targetScreenPath = screenPathToString(sui.getPreTransitionPathNameList())
                 responseScreenPathSet.add(targetScreenPath)
