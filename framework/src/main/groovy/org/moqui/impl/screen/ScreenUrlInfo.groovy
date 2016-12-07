@@ -827,6 +827,9 @@ class ScreenUrlInfo {
             if (ps.length() > 0) path = path.concat("?").concat(ps)
             return path
         }
+        // now redundant with getPath() but left in place for backward compatibility
+        String getScreenPath() { return sui.getUrlWithBase("") }
+
         String getUrl() { return sui.getUrlWithBase(sui.getBaseUrl(sri)) }
         String getUrlWithParams() {
             String ps = getParameterString()
