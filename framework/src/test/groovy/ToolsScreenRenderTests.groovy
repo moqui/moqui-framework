@@ -54,7 +54,7 @@ class ToolsScreenRenderTests extends Specification {
     @Unroll
     def "render tools screen #screenPath (#containsText1, #containsText2)"() {
         setup:
-        ScreenTestRender str = screenTest.render(screenPath, null, null)
+        ScreenTestRender str = screenTest.render(screenPath, [lastStandalone:"-2"], null)
         // logger.info("Rendered ${screenPath} in ${str.getRenderTime()}ms")
         boolean contains1 = containsText1 ? str.assertContains(containsText1) : true
         boolean contains2 = containsText2 ? str.assertContains(containsText2) : true
@@ -121,7 +121,7 @@ class ToolsScreenRenderTests extends Specification {
                 [dbViewEntityName: 'UomDbView', packageName: 'test.basic', isDataView: 'Y'], null)
         logger.info("Called FindDbView/create in ${createStr.getRenderTime()}ms")
 
-        ScreenTestRender fdvStr = screenTest.render("DataView/FindDbView", null, null)
+        ScreenTestRender fdvStr = screenTest.render("DataView/FindDbView", [lastStandalone:"-2"], null)
         logger.info("Rendered DataView/FindDbView in ${fdvStr.getRenderTime()}ms, ${fdvStr.output?.length()} characters")
 
         ScreenTestRender setMeStr = screenTest.render("DataView/EditDbView/setMasterEntity",
@@ -134,7 +134,7 @@ class ToolsScreenRenderTests extends Specification {
                  dbViewEntityName_2: 'UomDbView', field_2: 'UomType#moqui.basic.Enumeration.enumTypeId'], null)
         logger.info("Called EditDbView/setMasterFields in ${setMfStr.getRenderTime()}ms")
 
-        ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=UomDbView&orderByField=description", null, null)
+        ScreenTestRender vdvStr = screenTest.render("DataView/ViewDbView?dbViewEntityName=UomDbView&orderByField=description", [lastStandalone:"-2"], null)
         logger.info("Rendered DataView/FindDbView in ${vdvStr.getRenderTime()}ms, ${vdvStr.output?.length()} characters")
 
         then:
