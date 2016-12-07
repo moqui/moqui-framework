@@ -791,7 +791,11 @@ class ScreenUrlInfo {
             List<String> currentPathNameList = new ArrayList<String>(sri.screenUrlInfo.fullPathNameList)
             return sui.getInCurrentScreenPath(currentPathNameList)
         }
-        boolean isScreenUrl() { return sui.targetScreen != null }
+        boolean isScreenUrl() {
+            if (curTargetTransition != null && curTargetTransition.defaultResponse != null &&
+                    "plain".equals(curTargetTransition.defaultResponse.urlType)) return false
+            return sui.targetScreen != null
+        }
 
         void expandTransitionAliasUrl() {
             TransitionItem ti = getTargetTransition()
