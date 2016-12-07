@@ -791,6 +791,7 @@ class ScreenUrlInfo {
             List<String> currentPathNameList = new ArrayList<String>(sri.screenUrlInfo.fullPathNameList)
             return sui.getInCurrentScreenPath(currentPathNameList)
         }
+        boolean isScreenUrl() { return sui.targetScreen != null }
 
         void expandTransitionAliasUrl() {
             TransitionItem ti = getTargetTransition()
@@ -819,7 +820,13 @@ class ScreenUrlInfo {
         }
         Map getTransitionAliasParameters() { return transitionAliasParameters }
 
-        String getScreenPath() { return sui.getUrlWithBase("") }
+        String getPath() { return sui.getUrlWithBase("") }
+        String getPathWithParams() {
+            String ps = getParameterString()
+            String path = getPath()
+            if (ps.length() > 0) path = path.concat("?").concat(ps)
+            return path
+        }
         String getUrl() { return sui.getUrlWithBase(sui.getBaseUrl(sri)) }
         String getUrlWithParams() {
             String ps = getParameterString()
