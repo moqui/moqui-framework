@@ -610,7 +610,7 @@ class ScreenForm {
                 subFieldNode.append("display", null)
             } else {
                 if (oneRelNode != null) {
-                    addEntityFieldDropDown(oneRelNode, subFieldNode, relatedEd, relKeyField, "chosen-wider")
+                    addEntityFieldDropDown(oneRelNode, subFieldNode, relatedEd, relKeyField, "")
                 } else {
                     if (efType.startsWith("number-") || efType.startsWith("currency-")) {
                         subFieldNode.append("text-line", [size:"10"])
@@ -629,7 +629,7 @@ class ScreenForm {
                 subFieldNode.append("range-find", null)
             } else {
                 if (oneRelNode != null) {
-                    addEntityFieldDropDown(oneRelNode, subFieldNode, relatedEd, relKeyField, "chosen-wider")
+                    addEntityFieldDropDown(oneRelNode, subFieldNode, relatedEd, relKeyField, "")
                 } else {
                     subFieldNode.append("text-find", null)
                 }
