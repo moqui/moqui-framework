@@ -1453,12 +1453,17 @@ class ScreenRenderImpl implements ScreenRender {
 
         String lastPathItem = (String) extraPath.get(extraPathSize - 1)
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
+        fullUrlInstance.addParameters(ec.web.getRequestParameters())
         currentPath.append('/').append(lastPathItem)
         String lastPath = currentPath.toString()
         String paramString = fullUrlInstance.getParameterString()
         if (paramString.length() > 0) currentPath.append('?').append(paramString)
+        String lastImage = fullUrlInfo.menuImage
+        String lastImageType = fullUrlInfo.menuImageType
+        if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
+            lastImage = buildUrl(lastImage).url
         menuDataList.add([name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
-                          urlWithParams:currentPath.toString()])
+                          urlWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType])
 
         return menuDataList
     }
