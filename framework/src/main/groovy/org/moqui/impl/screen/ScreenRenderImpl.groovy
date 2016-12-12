@@ -453,7 +453,7 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
 
-                    if ("json".equals(screenUrlInfo.targetTransitionExtension)) {
+                    if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
                         Map<String, Object> responseMap = new HashMap<>()
                         // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
                         // add all plain object data from session?
@@ -475,6 +475,7 @@ class ScreenRenderImpl implements ScreenRender {
                         // add screen path, parameters from fullUrl
                         responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
                         responseMap.put("screenParameters", fullUrl.getParameterMap())
+                        responseMap.put("screenUrl", fullUrl.getPathWithParams())
 
                         web.sendJsonResponse(responseMap)
                     } else {
