@@ -595,9 +595,10 @@ class ScreenUrlInfo {
 
         this.targetScreen = lastSd
 
-        if (lastStandalone > 0) {
-            // remove all but lastStandalone items from screenRenderDefList
-            while (screenRenderDefList.size() > lastStandalone) screenRenderDefList.remove(0)
+        // remove all but lastStandalone items from screenRenderDefList
+        if (lastStandalone > 0) while (screenRenderDefList.size() > lastStandalone) {
+            renderPathDifference++
+            screenRenderDefList.remove(0)
         }
 
         // screenRenderDefList now in place, look for menu-image and menu-image-type of last in list
