@@ -77,7 +77,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.screen.form.FormResponse" value-field="formResponse"/>
             <set field="formNode" from="ec.screen.getFormNode(formResponse.formLocation)"/>
-            <iterate list="formNode.field" entry="fieldNode">
+            <iterate list="formNode.children('field')" entry="fieldNode">
                 <set field="fieldName" from="fieldNode.attribute('name')"/>
                 <if condition="responseMap.containsKey(fieldName)">
                     <entity-find-one entity-name="moqui.screen.form.FormResponseAnswer" value-field="answer">

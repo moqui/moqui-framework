@@ -97,7 +97,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         if (jobRunnerRate > 0L) {
             jobRunner = new ScheduledJobRunner(ecfi)
             // wait 60 seconds before first run to make sure all is loaded and we're past an initial activity burst
-            ecfi.scheduledExecutor.scheduleAtFixedRate(jobRunner, 60, jobRunnerRate, TimeUnit.SECONDS)
+            ecfi.scheduledExecutor.scheduleAtFixedRate(jobRunner, 120, jobRunnerRate, TimeUnit.SECONDS)
         } else {
             jobRunner = null
         }

@@ -506,7 +506,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="tab"/>
                     <xs:enumeration value="popup"/>
-                    <xs:enumeration value="popup-tree"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="id" type="xs:string" use="required"/>

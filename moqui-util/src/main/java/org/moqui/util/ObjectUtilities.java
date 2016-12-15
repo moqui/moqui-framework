@@ -123,7 +123,6 @@ public class ObjectUtilities {
     @SuppressWarnings("unchecked")
     public static boolean compare(Object field, final String operator, final String value, Object toField, String format, final String type) {
         if (isEmpty(toField)) toField = value;
-        if (field == null) throw new IllegalArgumentException("Cannot compare null value");
 
         // FUTURE handle type conversion with format for Date, Time, Timestamp
         // if (format) { }
@@ -132,23 +131,33 @@ public class ObjectUtilities {
         toField = basicConvert(toField, type);
 
         boolean result;
-        if ("less".equals(operator)) { result = (makeComparable(field).compareTo(makeComparable(toField)) < 0); }
-        else if ("greater".equals(operator)) { result = (makeComparable(field).compareTo(makeComparable(toField)) > 0); }
-        else if ("less-equals".equals(operator)) { result = (makeComparable(field).compareTo(makeComparable(toField)) <= 0); }
-        else if ("greater-equals".equals(operator)) { result = (makeComparable(field).compareTo(makeComparable(toField)) >= 0); }
-        else if ("contains".equals(operator)) { result = field.toString().contains(toField.toString()); }
-        else if ("not-contains".equals(operator)) { result = !field.toString().contains(toField.toString()); }
+        if ("less".equals(operator)) { result = compareObj(field, toField) < 0; }
+        else if ("greater".equals(operator)) { result = compareObj(field, toField) > 0; }
+        else if ("less-equals".equals(operator)) { result = compareObj(field, toField) <= 0; }
+        else if ("greater-equals".equals(operator)) { result = compareObj(field, toField) >= 0; }
+        else if ("contains".equals(operator)) { result = Objects.toString(field).contains(Objects.toString(toField)); }
+        else if ("not-contains".equals(operator)) { result = !Objects.toString(field).contains(Objects.toString(toField)); }
         else if ("empty".equals(operator)) { result = isEmpty(field); }
         else if ("not-empty".equals(operator)) { result = !isEmpty(field); }
-        else if ("matches".equals(operator)) { result = field.toString().matches(toField.toString()); }
-        else if ("not-matches".equals(operator)) { result = !field.toString().matches(toField.toString()); }
-        else if ("not-equals".equals(operator)) { result = !field.equals(toField); }
-        else { result = field.equals(toField); }
+        else if ("matches".equals(operator)) { result = Objects.toString(field).matches(toField.toString()); }
+        else if ("not-matches".equals(operator)) { result = !Objects.toString(field).matches(toField.toString()); }
+        else if ("not-equals".equals(operator)) { result = !Objects.equals(field, toField); }
+        else { result = Objects.equals(field, toField); }
 
         if (logger.isTraceEnabled()) logger.trace("Compare result [" + result + "] for field [" + field + "] operator [" + operator + "] value [" + value + "] toField [" + toField + "] type [" + type + "]");
         return result;
     }
 
+    @SuppressWarnings("unchecked")
+    public static int compareObj(Object field1, Object field2) {
+        if (field1 == null) {
+            if (field2 == null) return 0;
+            else return 1;
+        }
+        Comparable comp1 = makeComparable(field1);
+        Comparable comp2 = makeComparable(field2);
+        return comp1.compareTo(comp2);
+    }
     public static Comparable makeComparable(final Object obj) {
         if (obj == null) return null;
         if (obj instanceof Comparable) return (Comparable) obj;
