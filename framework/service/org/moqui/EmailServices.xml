@@ -35,6 +35,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Defines input parameters matching what is available when an Email ECA rule is called.</description>
         <in-parameters>
             <parameter name="emailServerId"/>
+            <parameter name="emailMessageId"/>
             <parameter name="message" type="javax.mail.internet.MimeMessage"/>
             <parameter name="fields" type="Map">
                 <parameter name="toList" type="List" allow-html="any"/>

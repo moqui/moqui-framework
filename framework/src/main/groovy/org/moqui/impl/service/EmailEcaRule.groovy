@@ -35,6 +35,7 @@ class EmailEcaRule {
 
     protected XmlAction condition = null
     protected XmlAction actions = null
+    protected boolean storeAttachment = false
 
     EmailEcaRule(ExecutionContextFactoryImpl ecfi, MNode emecaNode, String location) {
         this.emecaNode = emecaNode
@@ -48,6 +49,10 @@ class EmailEcaRule {
         // prep actions
         if (emecaNode.hasChild("actions")) {
             actions = new XmlAction(ecfi, emecaNode.first("actions"), location + ".actions")
+
+            //if (emecaNode.first("actions").attributes.containsKey("storeAttachment")) {
+                storeAttachment = emecaNode.first("actions").attribute("storeAttachment").toBoolean()
+            //}
         }
     }
 
@@ -56,6 +61,11 @@ class EmailEcaRule {
     void runIfMatches(MimeMessage message, String emailServerId, ExecutionContextImpl ec) {
 
         try {
+            // run the condition and if passes run the actions
+            boolean conditionPassed = true
+            if (condition) conditionPassed = condition.checkCondition(ec)
+            // logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
+
             ec.context.push()
 
             ec.context.put("emailServerId", emailServerId)
@@ -81,7 +91,8 @@ class EmailEcaRule {
             fields.put("sentDate", message.getSentDate() ? new Timestamp(message.getSentDate().getTime()) : null)
             fields.put("receivedDate", message.getReceivedDate() ? new Timestamp(message.getReceivedDate().getTime()) : null)
 
-            ec.context.put("bodyPartList", makeBodyPartList(message))
+            List<Map> bodyPartList = makeBodyPartList(message)
+            ec.context.put("bodyPartList", bodyPartList)
 
             Map<String, Object> headers = [:]
             ec.context.put("headers", headers)
@@ -107,13 +118,30 @@ class EmailEcaRule {
             flags.recent = message.isSet(Flags.Flag.RECENT)
             flags.seen = message.isSet(Flags.Flag.SEEN)
 
-            // run the condition and if passes run the actions
-            boolean conditionPassed = true
-            if (condition) conditionPassed = condition.checkCondition(ec)
-            // logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
+            //create message & attachments
+            if (conditionPassed) {
+                //ec.logger.info("[TASK] create#EmailMessage")
+                Map outMap = ec.serviceFacade.sync().name("create#moqui.basic.email.EmailMessage")
+                        .parameters([sentDate:fields.sentDate, receivedDate:fields.receivedDate, statusId:'ES_RECEIVED',
+                                     subject:fields.subject, body:bodyPartList[0].contentText,
+                                     fromAddress:fields.from, toAddresses:fields.toList?.toString(),
+                                     ccAddresses:fields.ccList?.toString(), bccAddresses:fields.bccList?.toString(),
+                                     messageId:message.getMessageID(), emailServerId:emailServerId])
+                        .disableAuthz().call()
+
+                //push email message id to context
+                ec.context.put("emailMessageId", outMap.emailMessageId.toString())
+
+                if (storeAttachment) {
+                    //extract content
+                    extractAttachment(message, ec, outMap.emailMessageId.toString())
+                }
+            }
+
             if (conditionPassed) {
                 if (actions) actions.run(ec)
             }
+
         } finally {
             ec.context.pop()
         }
@@ -139,5 +167,27 @@ class EmailEcaRule {
             bodyPartList.add(bpMap)
         }
         return bodyPartList
+    }
+
+    void extractAttachment(Part part, ExecutionContextImpl ec, String emailMessageId) {
+        Object content = part.getContent()
+        if (content instanceof Multipart) {
+            Multipart mpContent = (Multipart) content
+            int count = mpContent.getCount()
+            for (int i = 0; i < count; i++) {
+                BodyPart bp = mpContent.getBodyPart(i)
+                extractAttachment(bp, ec, emailMessageId)
+            }
+        } else if (content instanceof InputStream) {
+            InputStream is = (InputStream) content
+            byte[] result = IOUtils.toByteArray(is)
+
+            //ec.logger.info("[TASK] create#ContentFromByte")
+
+            //only PDF
+            ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
+                    .parameters([emailMessageId:emailMessageId,contentFileByte:result,filename:part.getFileName()])
+                    .disableAuthz().call()
+        }
     }
 }
