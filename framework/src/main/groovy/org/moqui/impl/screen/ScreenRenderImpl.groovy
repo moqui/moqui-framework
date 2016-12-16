@@ -1414,6 +1414,8 @@ class ScreenRenderImpl implements ScreenRender {
             currentPath.append('/').append(pathItem)
 
             SubscreensItem curSsi = curScreen.getSubscreensItem(pathItem)
+            // already checked for exists above, path may have extra path elements beyond the screen so allow it
+            if (curSsi == null) break;
             curScreen = ec.screenFacade.getScreenDefinition(curSsi.location)
 
             List<Map> subscreensList = new LinkedList<>()
