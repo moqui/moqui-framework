@@ -184,6 +184,37 @@ class ScreenRenderImpl implements ScreenRender {
             if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
         }
     }
+    boolean sendJsonRedirect(UrlInstance fullUrl) {
+        if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
+            Map<String, Object> responseMap = new HashMap<>()
+            // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
+            // add all plain object data from session?
+            if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+            if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
+            if (ec.message.getValidationErrors().size() > 0) {
+                List<ValidationError> valErrorList = ec.message.getValidationErrors()
+                int valErrorListSize = valErrorList.size()
+                ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
+                for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
+                responseMap.put("validationErrors", valErrMapList)
+            }
+
+            Map parms = new HashMap()
+            if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
+            if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
+            responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
+
+            // add screen path, parameters from fullUrl
+            responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
+            responseMap.put("screenParameters", fullUrl.getParameterMap())
+            responseMap.put("screenUrl", fullUrl.getPathWithParams())
+
+            ec.web.sendJsonResponse(responseMap)
+            return true
+        } else {
+            return false
+        }
+    }
 
     protected ResponseItem recursiveRunTransition(Iterator<ScreenDefinition> sdIterator, boolean runPreActions) {
         ScreenDefinition sd = sdIterator.next()
@@ -453,32 +484,7 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
 
-                    if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
-                        Map<String, Object> responseMap = new HashMap<>()
-                        // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
-                        // add all plain object data from session?
-                        if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
-                        if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
-                        if (ec.message.getValidationErrors().size() > 0) {
-                            List<ValidationError> valErrorList = ec.message.getValidationErrors()
-                            int valErrorListSize = valErrorList.size()
-                            ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
-                            for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
-                            responseMap.put("validationErrors", valErrMapList)
-                        }
-
-                        Map parms = new HashMap()
-                        if (web.requestParameters != null) parms.putAll(web.requestParameters)
-                        if (web.requestAttributes != null) parms.putAll(web.requestAttributes)
-                        responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
-
-                        // add screen path, parameters from fullUrl
-                        responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
-                        responseMap.put("screenParameters", fullUrl.getParameterMap())
-                        responseMap.put("screenUrl", fullUrl.getPathWithParams())
-
-                        web.sendJsonResponse(responseMap)
-                    } else {
+                    if (!sendJsonRedirect(fullUrl)) {
                         String fullUrlString = fullUrl.getMinimalPathUrlWithParams()
                         if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)

@@ -782,7 +782,8 @@ class ScreenDefinition {
             ScreenUrlInfo.UrlInstance redirectUrl = sri.buildUrl(sri.rootScreenDef, sri.screenUrlInfo.preTransitionPathNameList, ".")
             redirectUrl.addParameters(sri.getCurrentScreenUrl().getParameterMap()).removeParameter("columnsTree")
                     .removeParameter("formLocation").removeParameter("ResetColumns").removeParameter("SaveColumns")
-            sri.sendRedirectAndStopRender(redirectUrl.getUrlWithParams())
+
+            if (!sri.sendJsonRedirect(redirectUrl)) sri.response.sendRedirect(redirectUrl.getUrlWithParams())
             return defaultResponse
         }
     }
@@ -814,7 +815,7 @@ class ScreenDefinition {
             Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
             fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
 
-            sri.response.sendRedirect(fwdInstance.getUrlWithParams())
+            if (!sri.sendJsonRedirect(fwdInstance)) sri.response.sendRedirect(fwdInstance.getUrlWithParams())
             return noneResponse
         }
     }
