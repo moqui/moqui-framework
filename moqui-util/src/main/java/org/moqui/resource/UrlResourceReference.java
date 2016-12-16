@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -150,7 +151,6 @@ public class UrlResourceReference extends ResourceReference {
         } else {
             throw new IllegalArgumentException("Children not supported for resource with protocol [" + locationUrl.getProtocol() + "]");
         }
-
     }
 
     @Override public boolean supportsExists() { return isFileProtocol || exists != null; }
@@ -166,7 +166,6 @@ public class UrlResourceReference extends ResourceReference {
             final URL url = locationUrl;
             throw new IllegalArgumentException("Exists not supported for resource with protocol [" + (url == null ? null : url.getProtocol()) + "]");
         }
-
     }
 
     @Override public boolean supportsLastModified() { return isFileProtocol; }
@@ -193,7 +192,7 @@ public class UrlResourceReference extends ResourceReference {
         if (!curFile.getParentFile().exists()) curFile.getParentFile().mkdirs();
         // now write the text to the file and close it
         try {
-            FileWriter fw = new FileWriter(curFile);
+            Writer fw = new OutputStreamWriter(new FileOutputStream(curFile), StandardCharsets.UTF_8);
             fw.write(text);
             fw.close();
             this.exists = null;
@@ -227,13 +226,8 @@ public class UrlResourceReference extends ResourceReference {
             throw new IllegalArgumentException("No location specified, not moving resource at " + getLocation());
         ResourceReference newRr = createNew(newLocation);
 
-        if (!newRr.getUrl().getProtocol().equals("file"))
-            throw new IllegalArgumentException("Location [" + newLocation + "] is not a file location, not moving resource at " + getLocation());
-        if (!isFileProtocol) {
-            final URL url = locationUrl;
-            throw new IllegalArgumentException("Move not supported for resource [" + locationUrl + "] with protocol [" + (locationUrl == null ? null : locationUrl.getProtocol()) + "]");
-        }
-
+        if (!newRr.getUrl().getProtocol().equals("file")) throw new IllegalArgumentException("Location [" + newLocation + "] is not a file location, not moving resource at " + getLocation());
+        if (!isFileProtocol) throw new IllegalArgumentException("Move not supported for resource [" + locationUrl + "] with protocol [" + (locationUrl == null ? null : locationUrl.getProtocol()) + "]");
 
         File curFile = getFile();
         if (!curFile.exists()) return;
