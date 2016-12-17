@@ -781,6 +781,30 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if (screenUrlInfo.lastStandalone != 0 || screenUrlInstance.getTargetTransition() != null) {
+                if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
+                    Map<String, Object> responseMap = new HashMap<>()
+                    // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
+                    // add all plain object data from session?
+                    if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+                    if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
+                    if (ec.message.getValidationErrors().size() > 0) {
+                        List<ValidationError> valErrorList = ec.message.getValidationErrors()
+                        int valErrorListSize = valErrorList.size()
+                        ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
+                        for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
+                        responseMap.put("validationErrors", valErrMapList)
+                    }
+
+                    Map parms = new HashMap()
+                    if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
+                    if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
+                    responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
+
+                    if (response != null) response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)
+                    ec.web.sendJsonResponse(responseMap)
+                    return false
+                }
+
                 // respond with 401 and the login screen instead of a redirect; JS client libraries handle this much better
                 ArrayList<String> pathElements = new ArrayList(Arrays.asList(loginPath.split("/")))
                 if (loginPath.startsWith("/")) {
@@ -791,8 +815,8 @@ class ScreenRenderImpl implements ScreenRender {
                 }
                 // reset screenUrlInfo and call this again to start over with the new target
                 screenUrlInfo = null
-                internalRender()
                 if (response != null) response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)
+                internalRender()
                 return false
             } else {
                 // now prepare and send the redirect
