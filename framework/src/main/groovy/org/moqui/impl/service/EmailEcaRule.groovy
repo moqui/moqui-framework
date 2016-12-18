@@ -49,11 +49,10 @@ class EmailEcaRule {
         // prep actions
         if (emecaNode.hasChild("actions")) {
             actions = new XmlAction(ecfi, emecaNode.first("actions"), location + ".actions")
-
-            //if (emecaNode.first("actions").attributes.containsKey("storeAttachment")) {
-                storeAttachment = emecaNode.first("actions").attribute("storeAttachment").toBoolean()
-            //}
         }
+
+        //store attachment attribute
+        storeAttachment = emecaNode.attribute("store-attachment").toBoolean()
     }
 
     // Node getEmecaNode() { return emecaNode }
@@ -182,12 +181,28 @@ class EmailEcaRule {
             InputStream is = (InputStream) content
             byte[] result = IOUtils.toByteArray(is)
 
-            //ec.logger.info("[TASK] create#ContentFromByte")
+            //only PDF and JPG
+            def filenameFull = part.getFileName();
+            def fileExtensionType = filenameFull.tokenize('.')[1].toLowerCase()
+            Boolean doRunExtraction = false
 
-            //only PDF
-            ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
-                    .parameters([emailMessageId:emailMessageId,contentFileByte:result,filename:part.getFileName()])
-                    .disableAuthz().call()
+            switch (fileExtensionType) {
+                case 'pdf':
+                    doRunExtraction = true
+                    break
+                case 'jpg':
+                    doRunExtraction = true
+                    break
+                default:
+                    doRunExtraction = false
+                    break
+            }
+
+            if (doRunExtraction) {
+                ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
+                        .parameters([emailMessageId:emailMessageId,contentFileByte:result,filename:part.getFileName()])
+                        .disableAuthz().call()
+            }
         }
     }
 }
