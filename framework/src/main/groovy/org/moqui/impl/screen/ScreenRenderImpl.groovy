@@ -781,10 +781,18 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if (screenUrlInfo.lastStandalone != 0 || screenUrlInstance.getTargetTransition() != null) {
-                if (response != null) response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)
+                // just send a 401 response, should always be for data submit, content rendering, JS AJAX requests, etc
+                if (response != null) response.sendError(401, "Authentication required")
+                return false
 
-                ArrayList<String> pathElements = new ArrayList(Arrays.asList(loginPath.split("/")))
-                if (!loginPath.startsWith("/")) pathElements.addAll(0, screenUrlInfo.preTransitionPathNameList)
+                /* TODO: remove all of this, we don't need it
+                ArrayList<String> pathElements = new ArrayList<>()
+                if (!loginPath.startsWith("/")) {
+                    pathElements.addAll(screenUrlInfo.preTransitionPathNameList)
+                    pathElements.addAll(Arrays.asList(loginPath.split("/")))
+                } else {
+                    pathElements.addAll(Arrays.asList(loginPath.substring(1).split("/")))
+                }
 
                 // BEGIN what used to be only for requests for a json response
                 Map<String, Object> responseMap = new HashMap<>()
@@ -800,12 +808,15 @@ class ScreenRenderImpl implements ScreenRender {
 
                 Map parms = new HashMap()
                 if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
-                if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
+                // if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
                 responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
 
                 responseMap.put("redirectUrl", '/' + pathElements.join('/'))
+                // logger.warn("Sending JSON no authc response: ${responseMap}")
                 ec.web.sendJsonResponse(responseMap)
+
                 // END what used to be only for requests for a json response
+                */
 
                 /* better to always send a JSON response as above instead of sometimes sending the Login screen, other that status response usually ignored anyway
                 if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
@@ -1433,11 +1444,12 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     List<Map> getMenuData(ArrayList<String> pathNameList) {
+        if (!ec.user.userId) { ec.web.response.sendError(401, "Authentication required"); return null }
         ScreenUrlInfo fullUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, pathNameList, null, 0)
-        if (!fullUrlInfo.targetExists) {
-            ec.web.response.sendError(404, "Screen not found for path ${pathNameList}")
-            return null
-        }
+        if (!fullUrlInfo.targetExists) { ec.web.response.sendError(404, "Screen not found for path ${pathNameList}"); return null }
+        UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
+        if (!fullUrlInstance.isPermitted()) { ec.web.response.sendError(403, "View not permitted for path ${pathNameList}"); return null }
+
         ArrayList<String> extraPath = fullUrlInfo.fullPathNameList
         int extraPathSize = extraPath.size()
 
@@ -1492,7 +1504,6 @@ class ScreenRenderImpl implements ScreenRender {
         }
 
         String lastPathItem = (String) extraPath.get(extraPathSize - 1)
-        UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
         fullUrlInstance.addParameters(ec.web.getRequestParameters())
         currentPath.append('/').append(lastPathItem)
         String lastPath = currentPath.toString()
