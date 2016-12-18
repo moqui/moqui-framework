@@ -786,6 +786,7 @@ class ScreenUrlInfo {
             return curTargetTransition
         }
         boolean getHasActions() { getTargetTransition() != null && getTargetTransition().actions }
+        boolean isReadOnly() { getTargetTransition() == null || getTargetTransition().isReadOnly() }
         boolean getDisableLink() { return !sui.targetExists || (getTargetTransition() != null && !getTargetTransition().checkCondition(ec)) || !sui.isPermitted(ec) }
         boolean isPermitted() { return sui.isPermitted(ec) }
         boolean getInCurrentScreenPath() {
@@ -794,7 +795,7 @@ class ScreenUrlInfo {
         }
         boolean isScreenUrl() {
             if (curTargetTransition != null && curTargetTransition.defaultResponse != null &&
-                    "plain".equals(curTargetTransition.defaultResponse.urlType)) return false
+                    ("plain".equals(curTargetTransition.defaultResponse.urlType) || "none".equals(curTargetTransition.defaultResponse.type))) return false
             return sui.targetScreen != null
         }
 
