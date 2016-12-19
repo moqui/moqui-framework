@@ -61,10 +61,6 @@ class EmailEcaRule {
 
         try {
             // run the condition and if passes run the actions
-            boolean conditionPassed = true
-            if (condition) conditionPassed = condition.checkCondition(ec)
-            // logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
-
             ec.context.push()
 
             ec.context.put("emailServerId", emailServerId)
@@ -117,6 +113,10 @@ class EmailEcaRule {
             flags.recent = message.isSet(Flags.Flag.RECENT)
             flags.seen = message.isSet(Flags.Flag.SEEN)
 
+            boolean conditionPassed = true
+            if (condition) conditionPassed = condition.checkCondition(ec)
+            //logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
+
             //create message & attachments
             if (conditionPassed) {
                 //ec.logger.info("[TASK] create#EmailMessage")
@@ -135,12 +135,10 @@ class EmailEcaRule {
                     //extract content
                     extractAttachment(message, ec, outMap.emailMessageId.toString())
                 }
-            }
 
-            if (conditionPassed) {
+                //run actions
                 if (actions) actions.run(ec)
             }
-
         } finally {
             ec.context.pop()
         }
