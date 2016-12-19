@@ -228,6 +228,9 @@
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
         <screen-text-output type="xsl-fo" mime-type="text/xml" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
+        <!-- vuet is a custom extension for Vue JS component templates (extended HTML) -->
+        <screen-text-output type="vuet" mime-type="text/html" always-standalone="true"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.vuet.ftl"/>
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="60">

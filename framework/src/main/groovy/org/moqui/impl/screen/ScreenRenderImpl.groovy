@@ -1476,7 +1476,7 @@ class ScreenRenderImpl implements ScreenRender {
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
                 if (!screenUrlInstance.isPermitted()) continue
 
-                String urlWithParams = screenPath
+                String pathWithParams = screenPath
                 ScreenDefinition screenDef = screenUrlInstance.sui.targetScreen
                 if (screenDef.hasRequired) {
                     Map<String, String> parmMap = screenUrlInstance.getParameterMap()
@@ -1486,7 +1486,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (parmValue == null || parmValue.isEmpty()) { parmMissing = true; break }
                     }
                     if (parmMissing) continue
-                    urlWithParams += '?' + screenUrlInstance.getParameterString()
+                    pathWithParams += '?' + screenUrlInstance.getParameterString()
                 }
 
                 String image = screenUrlInstance.sui.menuImage
@@ -1495,7 +1495,7 @@ class ScreenRenderImpl implements ScreenRender {
                     image = buildUrl(image).url
 
                 subscreensList.add([name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
-                                    path:screenPath, urlWithParams:urlWithParams, image:image, imageType:imageType,
+                                    path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType,
                                     active:(nextItem == subscreensItem.name), disableLink:screenUrlInstance.disableLink])
             }
 
@@ -1514,7 +1514,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
             lastImage = buildUrl(lastImage).url
         menuDataList.add([name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
-                          urlWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType])
+                          pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType])
 
         return menuDataList
     }
