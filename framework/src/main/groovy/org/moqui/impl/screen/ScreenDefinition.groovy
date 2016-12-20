@@ -592,7 +592,6 @@ class ScreenDefinition {
             method = transitionNode.attribute("method") ?: "any"
             location = "${parentScreen.location}.transition\$${StringUtilities.cleanStringForJavaName(name)}"
             beginTransaction = transitionNode.attribute("begin-transaction") != "false"
-            readOnly = transitionNode.attribute("read-only") == "true"
             requireSessionToken = transitionNode.attribute("require-session-token") != "false"
 
             ExecutionContextFactoryImpl ecfi = parentScreen.sfi.ecfi
@@ -622,6 +621,8 @@ class ScreenDefinition {
             } else if (transitionNode.hasChild("actions")) {
                 actions = new XmlAction(parentScreen.sfi.ecfi, transitionNode.first("actions"), location + ".actions")
             }
+
+            readOnly = actions == null || transitionNode.attribute("read-only") == "true"
 
             // conditional-response*
             for (MNode condResponseNode in transitionNode.children("conditional-response"))
@@ -782,7 +783,8 @@ class ScreenDefinition {
             ScreenUrlInfo.UrlInstance redirectUrl = sri.buildUrl(sri.rootScreenDef, sri.screenUrlInfo.preTransitionPathNameList, ".")
             redirectUrl.addParameters(sri.getCurrentScreenUrl().getParameterMap()).removeParameter("columnsTree")
                     .removeParameter("formLocation").removeParameter("ResetColumns").removeParameter("SaveColumns")
-            sri.sendRedirectAndStopRender(redirectUrl.getUrlWithParams())
+
+            if (!sri.sendJsonRedirect(redirectUrl)) sri.response.sendRedirect(redirectUrl.getUrlWithParams())
             return defaultResponse
         }
     }
@@ -814,7 +816,7 @@ class ScreenDefinition {
             Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
             fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
 
-            sri.response.sendRedirect(fwdInstance.getUrlWithParams())
+            if (!sri.sendJsonRedirect(fwdInstance)) sri.response.sendRedirect(fwdInstance.getUrlWithParams())
             return noneResponse
         }
     }

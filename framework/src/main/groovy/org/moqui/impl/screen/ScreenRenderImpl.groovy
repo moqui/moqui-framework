@@ -184,6 +184,37 @@ class ScreenRenderImpl implements ScreenRender {
             if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
         }
     }
+    boolean sendJsonRedirect(UrlInstance fullUrl) {
+        if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
+            Map<String, Object> responseMap = new HashMap<>()
+            // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
+            // add all plain object data from session?
+            if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+            if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
+            if (ec.message.getValidationErrors().size() > 0) {
+                List<ValidationError> valErrorList = ec.message.getValidationErrors()
+                int valErrorListSize = valErrorList.size()
+                ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
+                for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
+                responseMap.put("validationErrors", valErrMapList)
+            }
+
+            Map parms = new HashMap()
+            if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
+            if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
+            responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
+
+            // add screen path, parameters from fullUrl
+            responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
+            responseMap.put("screenParameters", fullUrl.getParameterMap())
+            responseMap.put("screenUrl", fullUrl.getPathWithParams())
+
+            ec.web.sendJsonResponse(responseMap)
+            return true
+        } else {
+            return false
+        }
+    }
 
     protected ResponseItem recursiveRunTransition(Iterator<ScreenDefinition> sdIterator, boolean runPreActions) {
         ScreenDefinition sd = sdIterator.next()
@@ -453,32 +484,7 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
 
-                    if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
-                        Map<String, Object> responseMap = new HashMap<>()
-                        // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
-                        // add all plain object data from session?
-                        if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
-                        if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
-                        if (ec.message.getValidationErrors().size() > 0) {
-                            List<ValidationError> valErrorList = ec.message.getValidationErrors()
-                            int valErrorListSize = valErrorList.size()
-                            ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
-                            for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
-                            responseMap.put("validationErrors", valErrMapList)
-                        }
-
-                        Map parms = new HashMap()
-                        if (web.requestParameters != null) parms.putAll(web.requestParameters)
-                        if (web.requestAttributes != null) parms.putAll(web.requestAttributes)
-                        responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
-
-                        // add screen path, parameters from fullUrl
-                        responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
-                        responseMap.put("screenParameters", fullUrl.getParameterMap())
-                        responseMap.put("screenUrl", fullUrl.getPathWithParams())
-
-                        web.sendJsonResponse(responseMap)
-                    } else {
+                    if (!sendJsonRedirect(fullUrl)) {
                         String fullUrlString = fullUrl.getMinimalPathUrlWithParams()
                         if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
@@ -775,18 +781,54 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if (screenUrlInfo.lastStandalone != 0 || screenUrlInstance.getTargetTransition() != null) {
-                // respond with 401 and the login screen instead of a redirect; JS client libraries handle this much better
-                ArrayList<String> pathElements = new ArrayList(Arrays.asList(loginPath.split("/")))
-                if (loginPath.startsWith("/")) {
-                    this.originalScreenPathNameList = pathElements
+                // just send a 401 response, should always be for data submit, content rendering, JS AJAX requests, etc
+                if (response != null) response.sendError(401, "Authentication required")
+                return false
+
+                /* TODO: remove all of this, we don't need it
+                ArrayList<String> pathElements = new ArrayList<>()
+                if (!loginPath.startsWith("/")) {
+                    pathElements.addAll(screenUrlInfo.preTransitionPathNameList)
+                    pathElements.addAll(Arrays.asList(loginPath.split("/")))
                 } else {
-                    this.originalScreenPathNameList = screenUrlInfo.preTransitionPathNameList
-                    this.originalScreenPathNameList.addAll(pathElements)
+                    pathElements.addAll(Arrays.asList(loginPath.substring(1).split("/")))
                 }
-                // reset screenUrlInfo and call this again to start over with the new target
-                screenUrlInfo = null
-                internalRender()
-                if (response != null) response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)
+
+                // BEGIN what used to be only for requests for a json response
+                Map<String, Object> responseMap = new HashMap<>()
+                if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+                if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
+                if (ec.message.getValidationErrors().size() > 0) {
+                    List<ValidationError> valErrorList = ec.message.getValidationErrors()
+                    int valErrorListSize = valErrorList.size()
+                    ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
+                    for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
+                    responseMap.put("validationErrors", valErrMapList)
+                }
+
+                Map parms = new HashMap()
+                if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
+                // if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
+                responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
+
+                responseMap.put("redirectUrl", '/' + pathElements.join('/'))
+                // logger.warn("Sending JSON no authc response: ${responseMap}")
+                ec.web.sendJsonResponse(responseMap)
+
+                // END what used to be only for requests for a json response
+                */
+
+                /* better to always send a JSON response as above instead of sometimes sending the Login screen, other that status response usually ignored anyway
+                if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
+                } else {
+                    // respond with 401 and the login screen instead of a redirect; JS client libraries handle this much better
+                    this.originalScreenPathNameList = pathElements
+                    // reset screenUrlInfo and call this again to start over with the new target
+                    screenUrlInfo = null
+                    internalRender()
+                }
+                */
+
                 return false
             } else {
                 // now prepare and send the redirect
@@ -1306,6 +1348,12 @@ class ScreenRenderImpl implements ScreenRender {
         }
         return false
     }
+    boolean isAnchorLink(MNode linkNode, UrlInstance urlInstance) {
+        String linkType = linkNode.attribute("link-type")
+        String urlType = linkNode.attribute("url-type")
+        return ("anchor".equals(linkType) || "anchor-button".equals(linkType)) || ((!linkType || "auto".equals(linkType)) &&
+                ((urlType && !urlType.equals("transition")) || (urlInstance.isReadOnly())))
+    }
 
     UrlInstance getCurrentScreenUrl() { return screenUrlInstance }
     URI getBaseLinkUri() {
@@ -1396,11 +1444,12 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     List<Map> getMenuData(ArrayList<String> pathNameList) {
+        if (!ec.user.userId) { ec.web.response.sendError(401, "Authentication required"); return null }
         ScreenUrlInfo fullUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, pathNameList, null, 0)
-        if (!fullUrlInfo.targetExists) {
-            ec.web.response.sendError(404, "Screen not found for path ${pathNameList}")
-            return null
-        }
+        if (!fullUrlInfo.targetExists) { ec.web.response.sendError(404, "Screen not found for path ${pathNameList}"); return null }
+        UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
+        if (!fullUrlInstance.isPermitted()) { ec.web.response.sendError(403, "View not permitted for path ${pathNameList}"); return null }
+
         ArrayList<String> extraPath = fullUrlInfo.fullPathNameList
         int extraPathSize = extraPath.size()
 
@@ -1414,6 +1463,8 @@ class ScreenRenderImpl implements ScreenRender {
             currentPath.append('/').append(pathItem)
 
             SubscreensItem curSsi = curScreen.getSubscreensItem(pathItem)
+            // already checked for exists above, path may have extra path elements beyond the screen so allow it
+            if (curSsi == null) break;
             curScreen = ec.screenFacade.getScreenDefinition(curSsi.location)
 
             List<Map> subscreensList = new LinkedList<>()
@@ -1425,7 +1476,7 @@ class ScreenRenderImpl implements ScreenRender {
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
                 if (!screenUrlInstance.isPermitted()) continue
 
-                String urlWithParams = screenPath
+                String pathWithParams = screenPath
                 ScreenDefinition screenDef = screenUrlInstance.sui.targetScreen
                 if (screenDef.hasRequired) {
                     Map<String, String> parmMap = screenUrlInstance.getParameterMap()
@@ -1435,7 +1486,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (parmValue == null || parmValue.isEmpty()) { parmMissing = true; break }
                     }
                     if (parmMissing) continue
-                    urlWithParams += '?' + screenUrlInstance.getParameterString()
+                    pathWithParams += '?' + screenUrlInstance.getParameterString()
                 }
 
                 String image = screenUrlInstance.sui.menuImage
@@ -1444,7 +1495,7 @@ class ScreenRenderImpl implements ScreenRender {
                     image = buildUrl(image).url
 
                 subscreensList.add([name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
-                                    path:screenPath, urlWithParams:urlWithParams, image:image, imageType:imageType,
+                                    path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType,
                                     active:(nextItem == subscreensItem.name), disableLink:screenUrlInstance.disableLink])
             }
 
@@ -1453,7 +1504,6 @@ class ScreenRenderImpl implements ScreenRender {
         }
 
         String lastPathItem = (String) extraPath.get(extraPathSize - 1)
-        UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
         fullUrlInstance.addParameters(ec.web.getRequestParameters())
         currentPath.append('/').append(lastPathItem)
         String lastPath = currentPath.toString()
@@ -1464,7 +1514,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
             lastImage = buildUrl(lastImage).url
         menuDataList.add([name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
-                          urlWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType])
+                          pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType])
 
         return menuDataList
     }
