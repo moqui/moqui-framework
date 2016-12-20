@@ -418,6 +418,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (savedUrl != null && savedUrl.length() > 0) {
                         url = savedUrl
                         wfi.removeScreenLastParameters(isScreenLast)
+                        // logger.warn("going to screen-last from screen last path ${url}")
                     } else {
                         // try screen history when no last was saved
                         List<Map> historyList = wfi.getScreenHistory()
@@ -425,9 +426,11 @@ class ScreenRenderImpl implements ScreenRender {
                         if (historyMap != null) {
                             url = isScreenLast ? historyMap.url : historyMap.urlNoParams
                             urlType = "plain"
+                            // logger.warn("going to screen-last from screen history ${url}")
                         } else {
                             // if no saved URL, just go to root/default; avoid getting stuck on Login screen, etc
                             url = savedUrl ?: "/"
+                            // logger.warn("going to screen-last no last path or history to going to root")
                         }
                     }
                 }
@@ -681,15 +684,22 @@ class ScreenRenderImpl implements ScreenRender {
                 }
             }
 
-            // run pre-actions for just the screens that will be rendered
+            ArrayList<ScreenDefinition> preActionSds
+            if (screenUrlInfo.targetScreenRenderMode != null && sfi.isRenderModeAlwaysStandalone(screenUrlInfo.targetScreenRenderMode) &&
+                    screenUrlInfo.screenPathDefList.size() > 2) {
+                // special case for render modes that are always standalone: run pre-actions for all screens in path except first 2 (generally webroot, apps)
+                preActionSds = new ArrayList<>(screenUrlInfo.screenPathDefList.subList(2, screenUrlInfo.screenPathDefList.size()))
+            } else {
+                // run pre-actions for just the screens that will be rendered
+                preActionSds = screenUrlInfo.screenRenderDefList
+            }
             boolean hasPreActions = false
-            for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) if (sd.preActions != null) {
-                hasPreActions = true; break
+            int preActionSdSize = preActionSds.size()
+            for (int i = 0; i < preActionSdSize; i++) {
+                ScreenDefinition sd = (ScreenDefinition) preActionSds.get(i)
+                if (sd.preActions != null) { hasPreActions = true; break }
             }
-            if (hasPreActions) {
-                Iterator<ScreenDefinition> screenDefIterator = screenUrlInfo.screenRenderDefList.iterator()
-                recursiveRunActions(screenDefIterator, false, true)
-            }
+            if (hasPreActions) recursiveRunActions(preActionSds.iterator(), false, true)
 
             // if dontDoRender then quit now; this should be set during always-actions or pre-actions
             if (dontDoRender) {
@@ -767,7 +777,8 @@ class ScreenRenderImpl implements ScreenRender {
             // save the request as a save-last to use after login
             if (wfi != null && screenUrlInfo.fileResourceRef == null) {
                 StringBuilder screenPath = new StringBuilder()
-                for (String pn in originalScreenPathNameList) screenPath.append("/").append(pn)
+                for (String pn in originalScreenPathNameList) if (pn) screenPath.append("/").append(pn)
+                // logger.warn("saving screen last: ${screenPath.toString()}")
                 wfi.saveScreenLastInfo(screenPath.toString(), null)
                 // save messages in session before redirecting so they can be displayed on the next screen
                 wfi.saveMessagesToSession()

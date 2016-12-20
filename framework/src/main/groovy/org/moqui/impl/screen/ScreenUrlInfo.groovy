@@ -407,7 +407,6 @@ class ScreenUrlInfo {
                     // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
                     extraPathNameList.remove(0)
                     targetTransitionActualName = pathName
-
                     // break out; a transition means we're at the end
                     break
                 }
@@ -422,7 +421,6 @@ class ScreenUrlInfo {
                 }
 
                 int dotIndex = pathName.indexOf('.')
-
                 if (dotIndex > 0) {
                     // is there an extension with a render-mode added to the screen name?
                     String extension = pathName.substring(dotIndex + 1)
