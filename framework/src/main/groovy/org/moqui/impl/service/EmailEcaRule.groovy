@@ -180,21 +180,27 @@ class EmailEcaRule {
             byte[] result = IOUtils.toByteArray(is)
 
             //only PDF and JPG
-            def filenameFull = part.getFileName();
-            def fileExtensionType = filenameFull.tokenize('.')[1].toLowerCase()
-            Boolean doRunExtraction = false
+            def contentTypeSpec = part.getContentType();
+            Boolean doRunExtraction;
 
-            switch (fileExtensionType) {
-                case 'pdf':
+            if (contentTypeSpec.startsWith('application/pdf;')) {
+                doRunExtraction = true
+            } else if (contentTypeSpec.startsWith('image/jpeg;')) {
+                doRunExtraction = true
+            }
+
+            //logger.info("part.getContentType() = " + part.getContentType())
+            /*switch (contentTypeSpec.toLowerCase()) {
+                case 'application/pdf':
                     doRunExtraction = true
                     break
-                case 'jpg':
+                case 'image/jpeg':
                     doRunExtraction = true
                     break
                 default:
                     doRunExtraction = false
                     break
-            }
+            }*/
 
             if (doRunExtraction) {
                 ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
