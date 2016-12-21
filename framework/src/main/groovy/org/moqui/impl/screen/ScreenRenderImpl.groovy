@@ -1500,7 +1500,8 @@ class ScreenRenderImpl implements ScreenRender {
                 }
                 // if there is a parameter missing skip the subscreen
                 if (parmMissing) continue
-                pathWithParams += '?' + screenUrlInstance.getParameterString()
+                String parmString = screenUrlInstance.getParameterString()
+                if (!parmString.isEmpty()) pathWithParams += ('?' + parmString)
 
                 String image = screenUrlInstance.sui.menuImage
                 String imageType = screenUrlInstance.sui.menuImageType
