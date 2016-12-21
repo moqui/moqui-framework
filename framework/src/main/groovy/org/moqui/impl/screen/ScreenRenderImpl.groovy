@@ -469,7 +469,7 @@ class ScreenRenderImpl implements ScreenRender {
                     Map savedParameters = wfi?.getSavedParameters()
                     UrlInstance.copySpecialParameters(savedParameters, fullUrl.getOtherParameterMap())
                     // screen parameters
-                    Map<String, ScreenDefinition.ParameterItem> parameterItemMap = fullUrl.sui.getTargetScreen()?.getParameterMap()
+                    Map<String, ScreenDefinition.ParameterItem> parameterItemMap = fullUrl.sui.pathParameterItems
                     if (isScreenLast && savedParameters != null && savedParameters.size() > 0 &&
                             parameterItemMap != null && parameterItemMap.size() > 0) {
                         for (String parmName in parameterItemMap.keySet()) {
@@ -712,7 +712,9 @@ class ScreenRenderImpl implements ScreenRender {
 
             if (!sfi.isRenderModeSkipActions(renderMode)) for (ScreenDefinition sd in screenUrlInfo.screenRenderDefList) {
                 for (ScreenDefinition.ParameterItem pi in sd.getParameterMap().values()) {
-                    if (pi.required && ec.context.getByString(pi.name) == null) {
+                    if (!pi.required) continue
+                    Object parmValue = ec.context.getByString(pi.name)
+                    if (ObjectUtilities.isEmpty(parmValue)) {
                         ec.message.addError(ec.resource.expand("Required parameter missing (${pi.name})","",[pi:pi]))
                         logger.warn("Tried to render screen [${sd.getLocation()}] without required parameter [${pi.name}], error message added and adding to stop list to not render")
                         stopRenderScreenLocations.add(sd.getLocation())
@@ -1486,19 +1488,19 @@ class ScreenRenderImpl implements ScreenRender {
                 String screenPath = new StringBuilder(currentPath).append('/').append(subscreensItem.name).toString()
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
                 if (!screenUrlInstance.isPermitted()) continue
-
+                // build this subscreen's pathWithParams
                 String pathWithParams = screenPath
-                ScreenDefinition screenDef = screenUrlInstance.sui.targetScreen
-                if (screenDef.hasRequired) {
-                    Map<String, String> parmMap = screenUrlInstance.getParameterMap()
-                    boolean parmMissing = false
-                    for (ScreenDefinition.ParameterItem pi in screenDef.getParameterMap().values()) {
-                        String parmValue = parmMap.get(pi.name)
-                        if (parmValue == null || parmValue.isEmpty()) { parmMissing = true; break }
-                    }
-                    if (parmMissing) continue
-                    pathWithParams += '?' + screenUrlInstance.getParameterString()
+                Map<String, String> parmMap = screenUrlInstance.getParameterMap()
+                // check for missing required parameters
+                boolean parmMissing = false
+                for (ScreenDefinition.ParameterItem pi in screenUrlInstance.sui.pathParameterItems.values()) {
+                    if (!pi.required) continue
+                    String parmValue = parmMap.get(pi.name)
+                    if (parmValue == null || parmValue.isEmpty()) { parmMissing = true; break }
                 }
+                // if there is a parameter missing skip the subscreen
+                if (parmMissing) continue
+                pathWithParams += '?' + screenUrlInstance.getParameterString()
 
                 String image = screenUrlInstance.sui.menuImage
                 String imageType = screenUrlInstance.sui.menuImageType
