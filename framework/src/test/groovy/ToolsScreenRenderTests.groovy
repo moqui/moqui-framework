@@ -105,7 +105,7 @@ class ToolsScreenRenderTests extends Specification {
         "Service/ServiceReference?serviceName=UserServices" |
                 "org.moqui.impl.UserServices.create#UserAccount" | "Service Detail"
         "Service/ServiceDetail?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
-                "moqui.security.UserAccount.username" | """ec.service.sync().name("create#moqui.security.UserAccount")"""
+                "moqui.security.UserAccount.username" | """ec.service.sync().name(&quot;create#moqui.security.UserAccount&quot;)"""
         "Service/ServiceRun?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
                 "User Full Name" | "Cron String"
         // run the service, then make sure it ran
