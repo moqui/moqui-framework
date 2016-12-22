@@ -86,6 +86,8 @@ class ScreenUrlInfo {
     /** positive lastStandalone means how many to include from the end back, negative how many path elements to skip from the beginning */
     int lastStandalone = 0
 
+    HashMap<String, ParameterItem> pathParameterItems = new HashMap<>()
+
     /** The last screen found in the path list */
     ScreenDefinition targetScreen = (ScreenDefinition) null
     String targetScreenRenderMode = (String) null
@@ -477,6 +479,9 @@ class ScreenUrlInfo {
             if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
             if (curSd.getSubscreensNode()?.attribute('always-use-full-path') == "true") alwaysUseFullPath = true
 
+            for (ParameterItem pi in curSd.getParameterMap().values())
+                if (!pathParameterItems.containsKey(pi.name)) pathParameterItems.put(pi.name, pi)
+
             // if standalone, clear out screenRenderDefList before adding this to it
             if (curSd.isStandalone()) {
                 renderPathDifference += screenRenderDefList.size()
@@ -856,13 +861,12 @@ class ScreenUrlInfo {
             if (allParameterMap != null) return allParameterMap
 
             allParameterMap = new HashMap<>()
-            // get default parameters for the target screen
-            if (sui.targetScreen != null) {
-                for (ParameterItem pi in (Collection<ParameterItem>) sui.targetScreen.getParameterMap().values()) {
-                    Object value = pi.getValue(ec)
-                    String valueStr = ObjectUtilities.toPlainString(value)
-                    if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
-                }
+            // get default parameters for the screens in the path
+
+            for (ParameterItem pi in (Collection<ParameterItem>) sui.pathParameterItems.values()) {
+                Object value = pi.getValue(ec)
+                String valueStr = ObjectUtilities.toPlainString(value)
+                if (valueStr != null && valueStr.length() > 0) allParameterMap.put(pi.name, valueStr)
             }
 
             TransitionItem targetTrans = getTargetTransition()
