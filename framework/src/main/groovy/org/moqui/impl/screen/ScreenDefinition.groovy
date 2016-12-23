@@ -48,6 +48,7 @@ class ScreenDefinition {
     @SuppressWarnings("GrFinalVariableAccess") protected final String screenName
     @SuppressWarnings("GrFinalVariableAccess") final long screenLoadedTime
     protected boolean standalone = false
+    protected boolean allowExtraPath = false
     Long sourceLastModified = null
 
     protected Map<String, ParameterItem> parameterByName = new HashMap<>()
@@ -84,7 +85,8 @@ class ScreenDefinition {
         String filename = location.contains("/") ? location.substring(location.lastIndexOf("/")+1) : location
         screenName = filename.contains(".") ? filename.substring(0, filename.indexOf(".")) : filename
 
-        standalone = screenNode.attribute('standalone') == "true"
+        standalone = "true".equals(screenNode.attribute('standalone'))
+        allowExtraPath = "true".equals(screenNode.attribute('allow-extra-path'))
 
         // parameter
         for (MNode parameterNode in screenNode.children("parameter")) {
@@ -394,10 +396,7 @@ class ScreenDefinition {
             no extra path elements; allowing extra path elements causes problems only solvable by first searching without
             allowing extra path elements, then searching the full tree for all possible paths that include extra elements
             and choosing the maximal match (highest number of original sparse path elements matching actual screens)
-        if (screenNode."@allow-extra-path" == "true") {
-            // call it good
-            return remainingPathNameList
-        }
+        if (allowExtraPath) { return remainingPathNameList }
         */
 
         // nothing found, return null by default

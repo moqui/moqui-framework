@@ -1463,16 +1463,22 @@ class ScreenRenderImpl implements ScreenRender {
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
         if (!fullUrlInstance.isPermitted()) { ec.web.response.sendError(403, "View not permitted for path ${pathNameList}"); return null }
 
-        ArrayList<String> extraPath = fullUrlInfo.fullPathNameList
-        int extraPathSize = extraPath.size()
+        ArrayList<String> fullPathList = fullUrlInfo.fullPathNameList
+        int fullPathSize = fullPathList.size()
+        ArrayList<String> extraPathList = fullUrlInfo.extraPathNameList
+        int extraPathSize = extraPathList != null ? extraPathList.size() : 0
+        if (extraPathSize > 0) {
+            fullPathSize -= extraPathSize
+            fullPathList = new ArrayList<>(fullPathList.subList(0, fullPathSize))
+        }
 
         StringBuilder currentPath = new StringBuilder()
         List<Map> menuDataList = new LinkedList<>()
         ScreenDefinition curScreen = rootScreenDef
 
-        for (int i = 0; i < (extraPathSize - 1); i++) {
-            String pathItem = (String) extraPath.get(i)
-            String nextItem = (String) extraPath.get(i+1)
+        for (int i = 0; i < (fullPathSize - 1); i++) {
+            String pathItem = (String) fullPathList.get(i)
+            String nextItem = (String) fullPathList.get(i+1)
             currentPath.append('/').append(pathItem)
 
             SubscreensItem curSsi = curScreen.getSubscreensItem(pathItem)
@@ -1517,7 +1523,7 @@ class ScreenRenderImpl implements ScreenRender {
                               path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu()])
         }
 
-        String lastPathItem = (String) extraPath.get(extraPathSize - 1)
+        String lastPathItem = (String) fullPathList.get(fullPathSize - 1)
         fullUrlInstance.addParameters(ec.web.getRequestParameters())
         currentPath.append('/').append(lastPathItem)
         String lastPath = currentPath.toString()
@@ -1528,7 +1534,8 @@ class ScreenRenderImpl implements ScreenRender {
         if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
             lastImage = buildUrl(lastImage).url
         menuDataList.add([name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
-                          pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType])
+                          pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType,
+                          extraPathList:extraPathList])
 
         return menuDataList
     }

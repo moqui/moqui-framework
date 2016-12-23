@@ -451,7 +451,7 @@ class ScreenUrlInfo {
 
                 // next SubscreenItem still not found?
                 if (curSi == null) {
-                    if (lastSd.screenNode.attribute('allow-extra-path') == "true") {
+                    if (lastSd.allowExtraPath) {
                         // call it good
                         break
                     }
