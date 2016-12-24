@@ -125,14 +125,16 @@ class ScreenTree {
                     }
 
                     boolean noParam = tn.linkNode.attribute("url-noparam") == "true"
-                    String urlText = noParam ? urlInstance.getUrl() : urlInstance.getUrlWithParams()
-                    if (tn.linkNode.attribute("dynamic-load-id")) {
-                        String loadId = tn.linkNode.attribute("dynamic-load-id")
+                    String urlText = noParam ? urlInstance.getPath() : urlInstance.getPathWithParams()
+                    String hrefText = urlText
+                    String loadId = tn.linkNode.attribute("dynamic-load-id")
+                    if (loadId) {
                         // NOTE: the void(0) is needed for Firefox and other browsers that render the result of the JS expression
-                        urlText = "javascript:{\$('#${loadId}').load('${urlText}'); void(0);}"
+                        hrefText = "javascript:{\$('#${loadId}').load('${urlText}'); void(0);}"
                     }
 
-                    Map<String, Object> subNodeMap = [id:id, text:text, a_attr:[href:urlText],
+                    // NOTE: passing href as either URL or JS to load (for static rendering with jstree), plus plain loadId and urlText for more dynamic stuff
+                    Map<String, Object> subNodeMap = [id:id, text:text, a_attr:[href:hrefText, loadId:loadId, urlText:urlText],
                             li_attr:["treeNodeName":tn.treeNodeNode.attribute("name")]] as Map<String, Object>
                     if (((String) cs.get("treeOpenPath"))?.startsWith(id)) {
                         subNodeMap.state = [opened:true, selected:(cs.get("treeOpenPath") == id)] as Map<String, Object>
