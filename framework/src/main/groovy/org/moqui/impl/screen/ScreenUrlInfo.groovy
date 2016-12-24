@@ -855,6 +855,7 @@ class ScreenUrlInfo {
             return url
         }
 
+        String getScreenOnlyPath() { return sui.getScreenPathUrlWithBase("") }
         String getScreenPathUrl() { return sui.getScreenPathUrlWithBase(sui.getBaseUrl(sri)) }
 
         Map<String, String> getParameterMap() {
