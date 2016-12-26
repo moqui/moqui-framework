@@ -39,6 +39,8 @@ class ScreenDefinition {
     private final static Logger logger = LoggerFactory.getLogger(ScreenDefinition.class)
     private final static Set<String> scanWidgetNames = new HashSet<String>(
             ['section', 'section-iterate', 'section-include', 'form-single', 'form-list', 'tree', 'subscreens-panel', 'subscreens-menu'])
+    private final static Set<String> screenStaticWidgetNames = new HashSet<String>(
+            ['subscreens-panel', 'subscreens-menu', 'subscreens-active'])
 
     @SuppressWarnings("GrFinalVariableAccess") protected final ScreenFacadeImpl sfi
     @SuppressWarnings("GrFinalVariableAccess") protected final MNode screenNode
@@ -49,6 +51,7 @@ class ScreenDefinition {
     @SuppressWarnings("GrFinalVariableAccess") final long screenLoadedTime
     protected boolean standalone = false
     protected boolean allowExtraPath = false
+    protected Set<String> serverStatic = null
     Long sourceLastModified = null
 
     protected Map<String, ParameterItem> parameterByName = new HashMap<>()
@@ -85,8 +88,10 @@ class ScreenDefinition {
         String filename = location.contains("/") ? location.substring(location.lastIndexOf("/")+1) : location
         screenName = filename.contains(".") ? filename.substring(0, filename.indexOf(".")) : filename
 
-        standalone = "true".equals(screenNode.attribute('standalone'))
-        allowExtraPath = "true".equals(screenNode.attribute('allow-extra-path'))
+        standalone = "true".equals(screenNode.attribute("standalone"))
+        allowExtraPath = "true".equals(screenNode.attribute("allow-extra-path"))
+        String serverStaticStr = screenNode.attribute("server-static")
+        if (serverStaticStr) serverStatic = new HashSet(Arrays.asList(serverStaticStr.split(",")))
 
         // parameter
         for (MNode parameterNode in screenNode.children("parameter")) {
@@ -166,6 +171,16 @@ class ScreenDefinition {
             if (!hasTabMenu) for (MNode menuNode in descMap.get("subscreens-menu")) {
                 String type = menuNode.attribute("type")
                 if (type == null || type.isEmpty() || "tab".equals(type)) { hasTabMenu = true; break }
+            }
+
+            if (serverStatic == null) {
+                // if there are no elements except subscreens-panel, subscreens-active, and subscreens-menu then set serverStatic to all
+                boolean otherElements = false
+                MNode widgetsNode = rootSection.widgets.widgetsNode
+                if (!"widgets".equals(widgetsNode.getName())) widgetsNode = widgetsNode.first("widgets")
+                for (MNode child in widgetsNode.getChildren()) {
+                    if (!screenStaticWidgetNames.contains(child.getName())) {otherElements = true; break } }
+                if (!otherElements) serverStatic = new HashSet<>(['all'])
             }
         }
 
@@ -270,6 +285,7 @@ class ScreenDefinition {
 
     String getScreenName() { return screenName }
     boolean isStandalone() { return standalone }
+    boolean isServerStatic(String renderMode) { return serverStatic != null && (serverStatic.contains('all') || serverStatic.contains(renderMode)) }
 
     String getDefaultMenuName() {
         return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, sfi.ecfi)

@@ -631,6 +631,11 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     void doActualRender() {
+        if (screenUrlInfo.targetScreen.isServerStatic(renderMode)) {
+            if (response != null) response.addHeader("X-Server-Static", "true")
+            // TODO: consider server caching of rendered screen, this is the place to do it
+        }
+
         boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(null) : false
         try {
             // run always-actions for all screens in path
@@ -1463,6 +1468,7 @@ class ScreenRenderImpl implements ScreenRender {
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
         if (!fullUrlInstance.isPermitted()) { ec.web.response.sendError(403, "View not permitted for path ${pathNameList}"); return null }
 
+        String renderMode = fullUrlInfo.getTargetScreenRenderMode() ?: ec.web.requestParameters.renderMode ?: 'vuet'
         ArrayList<String> fullPathList = fullUrlInfo.fullPathNameList
         int fullPathSize = fullPathList.size()
         ArrayList<String> extraPathList = fullUrlInfo.extraPathNameList
@@ -1493,13 +1499,14 @@ class ScreenRenderImpl implements ScreenRender {
                 SubscreensItem subscreensItem = (SubscreensItem) menuItems.get(j)
                 String screenPath = new StringBuilder(currentPath).append('/').append(subscreensItem.name).toString()
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
+                ScreenUrlInfo sui = screenUrlInstance.sui
                 if (!screenUrlInstance.isPermitted()) continue
                 // build this subscreen's pathWithParams
-                String pathWithParams = screenPath
+                String pathWithParams = "/" + sui.preTransitionPathNameList.join("/")
                 Map<String, String> parmMap = screenUrlInstance.getParameterMap()
                 // check for missing required parameters
                 boolean parmMissing = false
-                for (ScreenDefinition.ParameterItem pi in screenUrlInstance.sui.pathParameterItems.values()) {
+                for (ScreenDefinition.ParameterItem pi in sui.pathParameterItems.values()) {
                     if (!pi.required) continue
                     String parmValue = parmMap.get(pi.name)
                     if (parmValue == null || parmValue.isEmpty()) { parmMissing = true; break }
@@ -1509,18 +1516,19 @@ class ScreenRenderImpl implements ScreenRender {
                 String parmString = screenUrlInstance.getParameterString()
                 if (!parmString.isEmpty()) pathWithParams += ('?' + parmString)
 
-                String image = screenUrlInstance.sui.menuImage
-                String imageType = screenUrlInstance.sui.menuImageType
+                String image = sui.menuImage
+                String imageType = sui.menuImageType
                 if (image != null && image.length() > 0 && (imageType == null || imageType.length() == 0 || "url-screen".equals(imageType)))
                     image = buildUrl(image).url
 
                 subscreensList.add([name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
                                     path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType,
-                                    active:(nextItem == subscreensItem.name), disableLink:screenUrlInstance.disableLink])
+                                    active:(nextItem == subscreensItem.name), disableLink:screenUrlInstance.disableLink,
+                                    screenStatic:sui.targetScreen.isServerStatic(renderMode)])
             }
 
             menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList,
-                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu()])
+                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu(), screenStatic:curScreen.isServerStatic(renderMode)])
         }
 
         String lastPathItem = (String) fullPathList.get(fullPathSize - 1)
@@ -1535,7 +1543,7 @@ class ScreenRenderImpl implements ScreenRender {
             lastImage = buildUrl(lastImage).url
         menuDataList.add([name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
                           pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType,
-                          extraPathList:extraPathList])
+                          extraPathList:extraPathList, screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)])
 
         return menuDataList
     }
