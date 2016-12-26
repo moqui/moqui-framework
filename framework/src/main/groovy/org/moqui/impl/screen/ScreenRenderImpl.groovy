@@ -632,7 +632,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     void doActualRender() {
         if (screenUrlInfo.targetScreen.isServerStatic(renderMode)) {
-            if (response != null) response.addHeader("X-Server-Static", "true")
+            if (response != null) response.addHeader("Cache-Control", "max-age=3600, must-revalidate, private")
             // TODO: consider server caching of rendered screen, this is the place to do it
         }
 
