@@ -89,6 +89,12 @@ class ScreenForm {
         }
     }
 
+    boolean isDisplayOnly() {
+        ContextStack cs = ecfi.getEci().contextStack
+        return cs.getByString("formDisplayOnly") == "true" || cs.getByString("formDisplayOnly_${formName}") == "true"
+    }
+    boolean hasDataPrep() { return entityFindNode != null }
+
     void initForm(MNode baseFormNode, MNode newFormNode) {
         // if there is an extends, put that in first (everything else overrides it)
         if (baseFormNode.attribute("extends")) {
@@ -338,11 +344,6 @@ class ScreenForm {
         }
 
         return dbFormNode
-    }
-
-    boolean isDisplayOnly() {
-        ContextStack cs = ecfi.getEci().contextStack
-        return cs.getByString("formDisplayOnly") == "true" || cs.getByString("formDisplayOnly_${formName}") == "true"
     }
 
     /** This is the main method for using an XML Form, the rendering is done based on the Node returned. */
@@ -1146,11 +1147,12 @@ class ScreenForm {
             }
         }
 
-        MNode getFormNode() { return formNode }
-        MNode getFieldNode(String fieldName) { return fieldNodeMap.get(fieldName) }
-        String getFormLocation() { return screenForm.location }
-        FormListRenderInfo makeFormListRenderInfo() { return new FormListRenderInfo(this) }
-        boolean isUpload() { return isUploadForm }
+        MNode getFormNode() { formNode }
+        MNode getFieldNode(String fieldName) { fieldNodeMap.get(fieldName) }
+        String getFormLocation() { screenForm.location }
+        FormListRenderInfo makeFormListRenderInfo() { new FormListRenderInfo(this) }
+        boolean isUpload() { isUploadForm }
+        boolean isList() { isListForm }
 
         MNode getFieldValidateNode(String fieldName) {
             MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)

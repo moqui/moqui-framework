@@ -821,7 +821,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element maxOccurs="unbounded" ref="tree-sub-node"/>
             </xs:sequence>
             <xs:attribute type="xs:string" name="name" use="required"/>
-            <xs:attribute type="xs:string" name="transition" default="getTreeSubNodes"/>
+            <xs:attribute type="xs:string" name="transition">
+                <xs:annotation><xs:documentation>If not specified uses actions/${tree.@name}</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute type="xs:string" name="open-path" use="optional"/>
             <!-- <xs:attribute type="xs:string" name="open-depth" default="0"/> -->
         </xs:complexType>

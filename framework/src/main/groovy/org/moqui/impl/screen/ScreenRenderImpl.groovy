@@ -261,6 +261,9 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     protected void internalRender() {
+        // make sure this (sri) is in the context before running actions or rendering screens
+        ec.context.put("sri", this)
+
         long renderStartTime = System.currentTimeMillis()
 
         rootScreenDef = sfi.getScreenDefinition(rootScreenLocation)
@@ -630,9 +633,6 @@ class ScreenRenderImpl implements ScreenRender {
     void doActualRender() {
         boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(null) : false
         try {
-            // make sure this (sri) is in the context before running actions
-            ec.context.put("sri", this)
-
             // run always-actions for all screens in path
             boolean hasAlwaysActions = false
             for (ScreenDefinition sd in screenUrlInfo.screenPathDefList) if (sd.alwaysActions != null) {
@@ -840,9 +840,9 @@ class ScreenRenderImpl implements ScreenRender {
                     screenUrlInfo = null
                     internalRender()
                 }
-                */
 
                 return false
+                */
             } else {
                 // now prepare and send the redirect
                 ScreenUrlInfo suInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, new ArrayList<String>(), loginPath, 0)

@@ -451,10 +451,8 @@ class ScreenUrlInfo {
 
                 // next SubscreenItem still not found?
                 if (curSi == null) {
-                    if (lastSd.allowExtraPath) {
-                        // call it good
-                        break
-                    }
+                    // call it good
+                    if (lastSd.allowExtraPath) break
 
                     targetExists = false
                     notExistsLastSd = lastSd

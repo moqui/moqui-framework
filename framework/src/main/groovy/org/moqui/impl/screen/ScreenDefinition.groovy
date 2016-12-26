@@ -750,18 +750,42 @@ class ScreenDefinition {
         // NOTE: runs pre-actions too, see sri.recursiveRunTransition() call in sri.internalRender()
         ResponseItem run(ScreenRenderImpl sri) {
             ExecutionContextImpl ec = sri.ec
+            ec.contextStack.put("sri", sri)
             WebFacade wf = ec.getWeb()
             if (wf == null) throw new BaseException("Cannot run actions transition outside of a web request")
 
-            // run actions (if there are any)
-            XmlAction actions = parentScreen.rootSection.actions
-            if (actions != null) {
-                ec.contextStack.put("sri", sri)
-                actions.run(ec)
-                // use entire ec.context to get values from always-actions and pre-actions
-                wf.sendJsonResponse(ContextJavaUtil.unwrapMap(ec.contextStack))
+            ArrayList<String> extraPathList = sri.screenUrlInfo.extraPathNameList
+            if (extraPathList != null && extraPathList.size() > 0) {
+                String partName = (String) extraPathList.get(0)
+                // is it a form or tree?
+                ScreenForm form = parentScreen.formByName.get(partName)
+                if (form != null) {
+                    if (!form.hasDataPrep()) throw new BaseException("Found form ${partName} in screen ${parentScreen.getScreenName()} but it does not have its own data preparation")
+                    ScreenForm.FormInstance formInstance = form.getFormInstance()
+                    if (formInstance.isList()) {
+                        ScreenForm.FormListRenderInfo renderInfo = formInstance.makeFormListRenderInfo()
+                        Object listObj = renderInfo.getListObject(true)
+                        wf.sendJsonResponse(listObj)
+                    }
+                    // TODO: else support form-single data prep once something is added
+                } else {
+                    ScreenTree tree = parentScreen.treeByName.get(partName)
+                    if (tree != null) {
+                        tree.sendSubNodeJson()
+                    } else {
+                        throw new BaseException("Could not find form or tree named ${partName} in screen ${parentScreen.getScreenName()} so cannot run its actions")
+                    }
+                }
             } else {
-                wf.sendJsonResponse(new HashMap())
+                // run actions (if there are any)
+                XmlAction actions = parentScreen.rootSection.actions
+                if (actions != null) {
+                    actions.run(ec)
+                    // use entire ec.context to get values from always-actions and pre-actions
+                    wf.sendJsonResponse(ContextJavaUtil.unwrapMap(ec.contextStack))
+                } else {
+                    wf.sendJsonResponse(new HashMap())
+                }
             }
 
             return defaultResponse
