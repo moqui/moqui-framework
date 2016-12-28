@@ -1549,9 +1549,8 @@ class ScreenRenderImpl implements ScreenRender {
         if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
             lastImage = buildUrl(lastImage).url
         Map lastMap = [name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
-                       pathWithParams:currentPath.toString(), image:lastImage]
+                       pathWithParams:currentPath.toString(), image:lastImage, extraPathList:extraPathList]
         if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
-        if (extraPathList) lastMap.extraPathList = extraPathList
         menuDataList.add(lastMap)
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
 
