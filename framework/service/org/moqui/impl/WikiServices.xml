@@ -52,12 +52,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition-object field="[wikiSpaceId:wikiSpaceId, pagePath:(pagePath ?: null)]"/>
             </entity-find>
             <set field="wikiPage" from="wikiPageList?.getAt(0)"/>
-            <!--
-            <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" cache="true">
-                <field-map field-name="wikiSpaceId"/>
-                <field-map field-name="pagePath" from="pagePath ?: null"/>
-            </entity-find-one>
-            -->
 
             <!-- <log message="===== get#WikiPageId createIfMissing=${createIfMissing}, wikiSpaceId=${wikiSpaceId}, pagePath=${pagePath}, wikiPage: ${wikiPage}"/> -->
             <if condition="!wikiPage &amp;&amp; createIfMissing"><then>
@@ -114,32 +108,22 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <if condition="!wikiSpaceId"><return error="true" message="Cannot get wiki page info without wikiSpaceId parameter or URL path element"/></if>
-
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
-
             <if condition="!wikiSpace"><return error="true" message="Could not find wiki space with ID [${wikiSpaceId}]"/></if>
 
             <!-- NOTE: WikiPage record may not exist, but don't create one on get/view only -->
-            <if condition="!wikiPage">
-                <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context" out-map="context"/>
-            </if>
+            <if condition="!wikiPage"><service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context" out-map="context"/></if>
 
             <!-- check restrictView for space and page -->
             <if condition="wikiSpace.restrictView == 'Y'">
                 <entity-find entity-name="moqui.resource.wiki.WikiSpaceUser" list="wsuList">
-                    <econdition-object field="[wikiSpaceId:wikiSpaceId, userId:ec.user.userId, allowView:'Y']"/>
-                </entity-find>
-                <if condition="!wsuList">
-                    <return error="true" message="Wiki Space [${wikiSpaceId}] has restricted view and user ${ec.user.username} [${ec.user.userId}] is not allowed."/>
-                </if>
+                    <econdition-object field="[wikiSpaceId:wikiSpaceId, userId:ec.user.userId, allowView:'Y']"/></entity-find>
+                <if condition="!wsuList"><return error="true" message="Wiki Space [${wikiSpaceId}] has restricted view and user ${ec.user.username} [${ec.user.userId}] is not allowed."/></if>
             </if>
             <if condition="wikiPage?.restrictView == 'Y'">
                 <entity-find entity-name="moqui.resource.wiki.WikiPageUser" list="wpuList">
-                    <econdition-object field="[wikiPageId:wikiPageId, userId:ec.user.userId, allowView:'Y']"/>
-                </entity-find>
-                <if condition="!wpuList">
-                    <return error="true" message="Wiki Page [${wikiSpaceId}/${pagePath}] has restricted view and user ${ec.user.username} [${ec.user.userId}] is not allowed."/>
-                </if>
+                    <econdition-object field="[wikiPageId:wikiPageId, userId:ec.user.userId, allowView:'Y']"/></entity-find>
+                <if condition="!wpuList"><return error="true" message="Wiki Page [${wikiSpaceId}/${pagePath}] has restricted view and user ${ec.user.username} [${ec.user.userId}] is not allowed."/></if>
             </if>
 
             <!-- get the ResourceReferences -->
@@ -157,22 +141,18 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="parentPath" from="pathForParentPath?.contains('/') ? pathForParentPath.substring(0, pathForParentPath.lastIndexOf('/')) : ''"/>
 
             <!-- now have the real parentPath and pageName, make the full/normalized pagePath -->
-            <set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/>
+            <if condition="parentPath || pageName != wikiSpaceId">
+                <set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
 
             <script><![CDATA[
                 breadcrumbNameList = []
                 breadcrumbMapList = []
                 List<String> parentPathList = parentPath.split('/')
-
                 int listIndex = 0
                 for (String parentPathName in parentPathList) {
                     if (!parentPathName) continue
                     String curPath = ""
-                    for (int i = 0; i <= listIndex; i++) {
-                        if (curPath) curPath += "/"
-                        curPath += parentPathList[i]
-                    }
-
+                    for (int i = 0; i <= listIndex; i++) { if (curPath) { curPath += "/" }; curPath += parentPathList[i] }
                     breadcrumbNameList.add(parentPathName)
                     breadcrumbMapList.add([pageName:parentPathName, pagePath:curPath])
                     listIndex++
