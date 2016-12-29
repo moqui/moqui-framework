@@ -21,10 +21,10 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <runtime name="moqui-runtime" group="moqui" version="1.6.2" branch="master" repository="github"/>
+    <runtime name="moqui-runtime" group="moqui" version="2.0.0" branch="master" repository="github"/>
 
     <!-- Example Component -->
-    <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
+    <component name="example" group="moqui" version="2.0.0" branch="master" repository="github"/>
 
     <!-- Moqui Tool Components -->
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master" repository="github"/>
@@ -37,20 +37,23 @@
     <component name="moqui-wikitext" group="moqui" version="1.0.0" branch="master" repository="github"/>
 
     <!-- Mantle Components -->
-    <component name="mantle-udm" group="moqui" version="1.0.1" branch="master" repository="github"/>
-    <component name="mantle-usl" group="moqui" version="1.0.1" branch="master" repository="github"/>
-    <component name="mantle-edi" group="moqui" version="1.0.0" branch="master" repository="github"/>
-    <component name="AuthorizeDotNet" group="moqui" version="1.0.0" branch="master" repository="github"/>
+    <component name="mantle-udm" group="moqui" version="1.1.0" branch="master" repository="github"/>
+    <component name="mantle-usl" group="moqui" version="1.1.0" branch="master" repository="github"/>
+    <component name="mantle-edi" group="moqui" version="1.1.0" branch="master" repository="github"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.1.0" branch="master" repository="github"/>
+
     <component name="mantle-ubpl" group="moqui" version="" branch="master" repository="github"/><!-- no releases -->
     <component name="mantle-oagis" group="moqui" version="" branch="master" repository="github"/><!-- no releases -->
-    <component name="SimpleScreens" group="moqui" version="1.0.2" branch="master" repository="github"/>
 
     <!-- Moqui Applications -->
-    <component name="HiveMind" group="moqui" version="1.1.5" branch="master" repository="github"/>
-    <component name="PopCommerce" group="moqui" version="1.0.3" branch="master" repository="github"/>
+    <component name="SimpleScreens" group="moqui" version="1.1.0" branch="master" repository="github"/>
+    <component name="HiveMind" group="moqui" version="1.2.0" branch="master" repository="github"/>
+    <component name="PopCommerce" group="moqui" version="1.1.0" branch="master" repository="github"/>
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="moqui-graphql" group="shendepu" version="" branch="master" repository="github"/><!-- no releases -->
+    <component name="moqui-react-ssr" group="shendepu" version="" branch="master" repository="github"/><!-- no releases -->
 
     <!-- Component Sets -->
     <component-set name="framework" components="example,moqui-camel,moqui-elasticsearch,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>

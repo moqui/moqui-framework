@@ -54,7 +54,7 @@ class SystemScreenRenderTests extends Specification {
     @Unroll
     def "render system screen #screenPath (#containsText1, #containsText2)"() {
         setup:
-        ScreenTestRender str = screenTest.render(screenPath, null, null)
+        ScreenTestRender str = screenTest.render(screenPath, [lastStandalone:"-2"], null)
         // logger.info("Rendered ${screenPath} in ${str.getRenderTime()}ms")
         boolean contains1 = containsText1 ? str.assertContains(containsText1) : true
         boolean contains2 = containsText2 ? str.assertContains(containsText2) : true

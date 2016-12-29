@@ -131,25 +131,25 @@ public class MCache<K, V> implements Cache<K, V> {
 
     @Override
     public V get(K key) {
-        MEntry<K, V> entry = getEntryInternal(key, null, null, System.currentTimeMillis());
+        MEntry<K, V> entry = getEntryInternal(key, null, null, 0);
         if (entry == null) return null;
         return entry.value;
     }
     public V get(K key, ExpiryPolicy policy) {
-        MEntry<K, V> entry = getEntryInternal(key, policy, null, System.currentTimeMillis());
+        MEntry<K, V> entry = getEntryInternal(key, policy, null, 0);
         if (entry == null) return null;
         return entry.value;
     }
     /** Get with expire if the entry's last updated time is before the expireBeforeTime.
      * Useful when last updated time of a resource is known to see if the cached entry is out of date. */
     public V get(K key, long expireBeforeTime) {
-        MEntry<K, V> entry = getEntryInternal(key, null, expireBeforeTime, System.currentTimeMillis());
+        MEntry<K, V> entry = getEntryInternal(key, null, expireBeforeTime, 0);
         if (entry == null) return null;
         return entry.value;
     }
     /** Get an entry, if it is in the cache and not expired, otherwise returns null. The policy can be null to use cache's policy. */
     public MEntry<K, V> getEntry(final K key, final ExpiryPolicy policy) {
-        return getEntryInternal(key, policy, null, System.currentTimeMillis());
+        return getEntryInternal(key, policy, null, 0);
     }
     /** Simple entry get, doesn't check if expired. */
     public MEntry<K, V> getEntryNoCheck(K key) {
@@ -170,12 +170,14 @@ public class MCache<K, V> implements Cache<K, V> {
 
         if (entry != null) {
             if (policy != null) {
+                if (currentTime == 0) currentTime = System.currentTimeMillis();
                 if (entry.isExpired(currentTime, policy)) {
                     entryStore.remove(key);
                     entry = null;
                     if (statsEnabled) stats.countExpire();
                 }
             } else if (hasExpiry) {
+                if (currentTime == 0) currentTime = System.currentTimeMillis();
                 if (entry.isExpired(currentTime, accessDuration, creationDuration, updateDuration)) {
                     entryStore.remove(key);
                     entry = null;
@@ -191,7 +193,11 @@ public class MCache<K, V> implements Cache<K, V> {
 
             if (entry != null) {
                 if (statsEnabled) { stats.gets++; stats.hits++; }
-                entry.accessCount++; if (currentTime > entry.lastAccessTime) entry.lastAccessTime = currentTime;
+                entry.accessCount++;
+                // at this point if an ad-hoc policy is used or hasExpiry == true currentTime will be set, otherwise will be 0
+                // meaning we don't need to track the lastAccessTime (only thing we need System.currentTimeMillis() for)
+                // if (currentTime == 0) currentTime = System.currentTimeMillis();
+                if (currentTime > entry.lastAccessTime) entry.lastAccessTime = currentTime;
             } else {
                 if (statsEnabled) { stats.gets++; stats.misses++; }
             }
@@ -324,7 +330,7 @@ public class MCache<K, V> implements Cache<K, V> {
     @Override
     public V getAndRemove(K key) {
         // get entry, count hit/miss
-        MEntry<K, V> entry = getEntryInternal(key, null, null, System.currentTimeMillis());
+        MEntry<K, V> entry = getEntryInternal(key, null, null, 0);
         if (entry != null) {
             V oldValue = entry.value;
             entryStore.remove(key);

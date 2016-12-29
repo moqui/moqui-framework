@@ -62,8 +62,8 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return ecfiTransient
     }
     EntityValue getNotificationTopic() {
-        if (notificationTopic == null && topic) notificationTopic = ecfi.entityFacade
-                .find("moqui.security.user.NotificationTopic").condition("topic", topic).useCache(true).disableAuthz().one()
+        if (notificationTopic == null && topic != null && !topic.isEmpty())
+            notificationTopic = ecfi.entityFacade.fastFindOne("moqui.security.user.NotificationTopic", true, true, topic)
         return notificationTopic
     }
 

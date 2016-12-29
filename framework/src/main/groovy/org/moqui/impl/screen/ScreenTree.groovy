@@ -22,6 +22,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+@CompileStatic
 class ScreenTree {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenTree.class)
 
@@ -49,7 +50,6 @@ class ScreenTree {
             subNodeList.add(new TreeSubNode(this, treeSubNodeNode, location + ".subnode." + treeSubNodeNode.attribute("node-name")))
     }
 
-    @CompileStatic
     void sendSubNodeJson() {
         // NOTE: This method is very specific to jstree
 
@@ -77,7 +77,6 @@ class ScreenTree {
         eci.getWeb().sendJsonResponse(outputNodeList)
     }
 
-    @CompileStatic
     List<Map> getChildNodes(List<TreeSubNode> currentSubNodeList, ExecutionContextImpl eci, ContextStack cs) {
         List<Map> outputNodeList = []
 
@@ -112,7 +111,7 @@ class ScreenTree {
                     String id = eci.getResource().expand((String) tn.linkNode.attribute("id"), tn.location + ".id")
                     String text = eci.getResource().expand((String) tn.linkNode.attribute("text"), tn.location + ".text")
                     ScreenUrlInfo.UrlInstance urlInstance = ((ScreenRenderImpl) cs.get("sri"))
-                            .makeUrlByTypeGroovyNode((String) tn.linkNode.attribute("url"), (String) tn.linkNode.attribute("url-type") ?: "transition",
+                            .makeUrlByType((String) tn.linkNode.attribute("url"), (String) tn.linkNode.attribute("url-type") ?: "transition",
                                 tn.linkNode, (String) tn.linkNode.attribute("expand-transition-url") ?: "true")
 
                     // now get children to check if has some, and if in treeOpenPath include them
@@ -126,14 +125,16 @@ class ScreenTree {
                     }
 
                     boolean noParam = tn.linkNode.attribute("url-noparam") == "true"
-                    String urlText = noParam ? urlInstance.getUrl() : urlInstance.getUrlWithParams()
-                    if (tn.linkNode.attribute("dynamic-load-id")) {
-                        String loadId = tn.linkNode.attribute("dynamic-load-id")
+                    String urlText = noParam ? urlInstance.getPath() : urlInstance.getPathWithParams()
+                    String hrefText = urlText
+                    String loadId = tn.linkNode.attribute("dynamic-load-id")
+                    if (loadId) {
                         // NOTE: the void(0) is needed for Firefox and other browsers that render the result of the JS expression
-                        urlText = "javascript:{\$('#${loadId}').load('${urlText}'); void(0);}"
+                        hrefText = "javascript:{\$('#${loadId}').load('${urlText}'); void(0);}"
                     }
 
-                    Map<String, Object> subNodeMap = [id:id, text:text, a_attr:[href:urlText],
+                    // NOTE: passing href as either URL or JS to load (for static rendering with jstree), plus plain loadId and urlText for more dynamic stuff
+                    Map<String, Object> subNodeMap = [id:id, text:text, a_attr:[href:hrefText, loadId:loadId, urlText:urlText],
                             li_attr:["treeNodeName":tn.treeNodeNode.attribute("name")]] as Map<String, Object>
                     if (((String) cs.get("treeOpenPath"))?.startsWith(id)) {
                         subNodeMap.state = [opened:true, selected:(cs.get("treeOpenPath") == id)] as Map<String, Object>

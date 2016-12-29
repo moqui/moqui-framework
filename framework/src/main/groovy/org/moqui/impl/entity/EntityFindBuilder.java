@@ -295,12 +295,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 localBuilder.append(" ").append(entityAlias).append(" ON ");
 
                 ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map");
-                if (keyMaps == null || keyMaps.size() == 0) {
+                ArrayList<MNode> entityConditionList = relatedMemberEntityNode.children("entity-condition");
+                if ((keyMaps == null || keyMaps.size() == 0) && (entityConditionList == null || entityConditionList.size() == 0)) {
                     throw new IllegalArgumentException("No member-entity/join key-maps found for the " + joinFromAlias +
                             " and the " + entityAlias + " member-entities of the " + localEntityDefinition.fullEntityName + " view-entity.");
                 }
 
-                int keyMapsSize = keyMaps.size();
+                int keyMapsSize = keyMaps != null ? keyMaps.size() : 0;
                 for (int i = 0; i < keyMapsSize; i++) {
                     MNode keyMap = keyMaps.get(i);
                     if (i > 0) localBuilder.append(" AND ");
@@ -329,12 +330,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     // localBuilder.append(sanitizeColumnName(relatedLinkEntityDefinition.getColumnName(relatedFieldName, false)))
                 }
 
-                ArrayList<MNode> entityConditionList = relatedMemberEntityNode.children("entity-condition");
                 if (entityConditionList != null && entityConditionList.size() > 0) {
                     // add any additional manual conditions for the member-entity view link here
                     MNode entityCondition = entityConditionList.get(0);
                     EntityConditionImplBase linkEcib = localEntityDefinition.makeViewListCondition(entityCondition);
-                    localBuilder.append(" AND ");
+                    if (keyMapsSize > 0) localBuilder.append(" AND ");
                     linkEcib.makeSqlWhere(this);
                 }
 
@@ -484,8 +484,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
     @Override
     public PreparedStatement makePreparedStatement() {
-        if (connection == null)
-            throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
+        if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
         finalSql = sqlTopLevel.toString();
         // if (this.mainEntityDefinition.entityName.equals("Foo")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
         if (isDebugEnabled) logger.debug("making find PreparedStatement for SQL: " + finalSql);

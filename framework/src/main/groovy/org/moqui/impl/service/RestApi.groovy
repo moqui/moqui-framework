@@ -18,7 +18,7 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
-import org.moqui.context.ResourceReference
+import org.moqui.resource.ResourceReference
 import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -40,14 +40,12 @@ import javax.servlet.http.HttpServletResponse
 class RestApi {
     protected final static Logger logger = LoggerFactory.getLogger(RestApi.class)
 
-    @SuppressWarnings("GrFinalVariableAccess")
-    protected final ExecutionContextFactoryImpl ecfi
-    @SuppressWarnings("GrFinalVariableAccess")
-    final MCache<String, ResourceNode> rootResourceCache
+    @SuppressWarnings("GrFinalVariableAccess") protected final ExecutionContextFactoryImpl ecfi
+    @SuppressWarnings("GrFinalVariableAccess") final MCache<String, ResourceNode> rootResourceCache
 
     RestApi(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-        rootResourceCache = ecfi.getCacheFacade().getLocalCache("service.rest.api")
+        rootResourceCache = ecfi.cacheFacade.getLocalCache("service.rest.api")
         loadRootResourceNode(null)
     }
 
@@ -356,14 +354,14 @@ class RestApi {
 
             try {
                 if (operation == 'one') {
-                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     if (masterName) {
                         return new RestResult(ef.oneMaster(masterName), null)
                     } else {
                         return new RestResult(ef.one(), null)
                     }
                 } else if (operation == 'list') {
-                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
                     if (!ef.getLimit()) ef.limit(100)
 
@@ -383,7 +381,7 @@ class RestApi {
                         return new RestResult(ef.list(), headers)
                     }
                 } else if (operation == 'count') {
-                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, false)
+                    EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     long count = ef.count()
                     Map<String, Object> headers = ['X-Total-Count':count] as Map<String, Object>
                     return new RestResult([count:count], headers)

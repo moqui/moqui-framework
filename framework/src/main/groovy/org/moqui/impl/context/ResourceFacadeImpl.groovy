@@ -17,7 +17,7 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseException
 import org.moqui.context.*
-import org.moqui.impl.StupidUtilities
+import org.moqui.impl.context.reference.BaseResourceReference
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
@@ -26,11 +26,13 @@ import org.moqui.jcache.MCache
 import org.moqui.util.ContextBinding
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
+import org.moqui.resource.ResourceReference
+import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.activation.DataSource
-import javax.activation.MimetypesFileTypeMap
 import javax.cache.Cache
 import javax.jcr.Repository
 import javax.jcr.RepositoryFactory
@@ -50,8 +52,6 @@ import javax.xml.transform.stream.StreamSource
 @CompileStatic
 public class ResourceFacadeImpl implements ResourceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
-
-    protected final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap()
 
     protected final ExecutionContextFactoryImpl ecfi
 
@@ -85,9 +85,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
         xmlActionsScriptRunner = new XmlActionsScriptRunner()
         xmlActionsScriptRunner.init(ecfi)
 
-        textLocationCache = ecfi.getCacheFacade().getCache("resource.text.location", String.class, String.class)
-        // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.getCacheFacade().getCache("resource.groovy.expression")
-        resourceReferenceByLocation = ecfi.getCacheFacade().getCache("resource.reference.location", String.class, ResourceReference.class)
+        textLocationCache = ecfi.cacheFacade.getCache("resource.text.location", String.class, String.class)
+        // a plain HashMap is faster and just fine here: scriptGroovyExpressionCache = ecfi.cacheFacade.getCache("resource.groovy.expression")
+        resourceReferenceByLocation = ecfi.cacheFacade.getCache("resource.reference.location", String.class, ResourceReference.class)
 
         MNode resourceFacadeNode = ecfi.confXmlRoot.first("resource-facade")
 
@@ -109,7 +109,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
         for (String ext in templateRenderers.keySet()) {
             templateRendererExtensions.add(ext)
-            templateRendererExtensionsDots.add(StupidUtilities.countChars(ext, (char) '.'))
+            templateRendererExtensionsDots.add(ObjectUtilities.countChars(ext, (char) '.'))
         }
 
         // Setup script runners
@@ -207,8 +207,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return newSession
     }
 
-    @Override
-    ResourceReference getLocationReference(String location) {
+    @Override ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
         ResourceReference cachedRr = resourceReferenceByLocation.get(location)
@@ -216,10 +215,14 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         String scheme = getLocationScheme(location)
         Class rrClass = resourceReferenceClasses.get(scheme)
-        if (!rrClass) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
+        if (rrClass == null) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
 
         ResourceReference rr = (ResourceReference) rrClass.newInstance()
-        rr.init(location, ecfi)
+        if (rr instanceof BaseResourceReference) {
+            ((BaseResourceReference) rr).init(location, ecfi)
+        } else {
+            rr.init(location)
+        }
         resourceReferenceByLocation.put(location, rr)
         return rr
     }
@@ -235,15 +238,13 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return scheme
     }
 
-    @Override
-    InputStream getLocationStream(String location) {
+    @Override InputStream getLocationStream(String location) {
         ResourceReference rr = getLocationReference(location)
         if (rr == null) return null
         return rr.openStream()
     }
 
-    @Override
-    String getLocationText(String location, boolean cache) {
+    @Override String getLocationText(String location, boolean cache) {
         ResourceReference textRr = getLocationReference(location)
         if (textRr == null) {
             logger.info("Cound not get resource reference for location [${location}], returning empty location text String")
@@ -264,13 +265,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
         InputStream locStream = textRr.openStream()
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
-        String text = StupidUtilities.getStreamText(locStream)
+        String text = ObjectUtilities.getStreamText(locStream)
         if (cache) textLocationCache.put(location, text)
         return text
     }
 
-    @Override
-    DataSource getLocationDataSource(String location) {
+    @Override DataSource getLocationDataSource(String location) {
         ResourceReference fileResourceRef = getLocationReference(location)
 
         TemplateRenderer tr = getTemplateRendererByLocation(fileResourceRef.location)
@@ -279,7 +279,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // strip template extension(s) to avoid problems with trying to find content types based on them
         String fileContentType = getContentType(tr != null ? tr.stripTemplateExtension(fileName) : fileName)
 
-        boolean isBinary = isBinaryContentType(fileContentType)
+        boolean isBinary = ResourceReference.isBinaryContentType(fileContentType)
 
         if (isBinary) {
             return new ByteArrayDataSource(fileResourceRef.openStream(), fileContentType)
@@ -297,8 +297,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override
-    void template(String location, Writer writer) {
+    @Override void template(String location, Writer writer) {
         TemplateRenderer tr = getTemplateRendererByLocation(location)
         if (tr != null) {
             tr.render(location, writer)
@@ -345,8 +344,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         return tr
     }
 
-    @Override
-    Object script(String location, String method) {
+    @Override Object script(String location, String method) {
         ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
         ScriptRunner sr = scriptRunners.get(extension)
@@ -357,14 +355,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
             // see if the extension is known
             ScriptEngine engine = scriptEngineManager.getEngineByExtension(extension)
             if (engine == null) throw new IllegalArgumentException("Cannot run script [${location}], unknown extension (not in Moqui Conf file, and unkown to Java ScriptEngineManager).")
-
-            return JavaxScriptRunner.bindAndRun(location, ec, engine,
-                    ecfi.getCacheFacade().getCache("resource.script${extension}.location"))
+            return JavaxScriptRunner.bindAndRun(location, ec, engine, ecfi.cacheFacade.getCache("resource.script${extension}.location"))
         }
-
     }
-    @Override
-    Object script(String location, String method, Map additionalContext) {
+    @Override Object script(String location, String method, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -391,12 +385,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
     Object getValueFromContext(String from, String value, String defaultValue, String type) {
         def tempValue = from ? expression(from, "") : expand(value, "", null, false)
         if (!tempValue && defaultValue) tempValue = expand(defaultValue, "", null, false)
-        if (type) tempValue = StupidUtilities.basicConvert(tempValue, type)
+        if (type) tempValue = ObjectUtilities.basicConvert(tempValue, type)
         return tempValue
     }
 
-    @Override
-    boolean condition(String expression, String debugLocation) {
+    @Override boolean condition(String expression, String debugLocation) {
         return conditionInternal(expression, debugLocation, ecfi.getEci())
     }
     protected boolean conditionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
@@ -410,8 +403,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             throw new IllegalArgumentException("Error in condition [${expression}] from [${debugLocation}]", e)
         }
     }
-    @Override
-    boolean condition(String expression, String debugLocation, Map additionalContext) {
+    @Override boolean condition(String expression, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -428,10 +420,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override
-    Object expression(String expression, String debugLocation) {
-        return expressionInternal(expression, debugLocation, ecfi.getEci())
-    }
+    @Override Object expression(String expression, String debugLocation) {
+        return expressionInternal(expression, debugLocation, ecfi.getEci()) }
     protected Object expressionInternal(String expression, String debugLocation, ExecutionContextImpl ec) {
         if (expression == null || expression.isEmpty()) return null
         try {
@@ -443,8 +433,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
         }
     }
-    @Override
-    Object expression(String expr, String debugLocation, Map additionalContext) {
+    @Override Object expression(String expr, String debugLocation, Map additionalContext) {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
@@ -462,17 +451,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
 
-    @Override
-    String expandNoL10n(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, false) }
-    @Override
-    String expand(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, true) }
-    @Override
-    String expand(String inputString, String debugLocation, Map additionalContext) {
-        return expand(inputString, debugLocation, additionalContext, true)
-    }
-
-    @Override
-    String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
+    @Override String expandNoL10n(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, false) }
+    @Override String expand(String inputString, String debugLocation) { return expand(inputString, debugLocation, null, true) }
+    @Override String expand(String inputString, String debugLocation, Map additionalContext) {
+        return expand(inputString, debugLocation, additionalContext, true) }
+    @Override String expand(String inputString, String debugLocation, Map additionalContext, boolean localize) {
         if (inputString == null) return ""
         int inputStringLength = inputString.length()
         if (inputStringLength == 0) return ""
@@ -524,12 +507,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         Script script = (Script) curScriptByExpr.get(expression)
         if (script == null) {
-            Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
-            if (groovyClass == null) {
-                groovyClass = ecfi.getGroovyClassLoader().parseClass(expression)
-                scriptGroovyExpressionCache.put(expression, groovyClass)
-            }
-            script = InvokerHelper.createScript(groovyClass, curBinding)
+            script = InvokerHelper.createScript(getGroovyClass(expression), curBinding)
             curScriptByExpr.put(expression, script)
         } else {
             script.setBinding(curBinding)
@@ -537,62 +515,18 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         return script
     }
-
-    static String stripLocationPrefix(String location) {
-        if (!location) return ""
-
-        // first remove colon (:) and everything before it
-        StringBuilder strippedLocation = new StringBuilder(location)
-        int colonIndex = strippedLocation.indexOf(":")
-        if (colonIndex == 0) {
-            strippedLocation.deleteCharAt(0)
-        } else if (colonIndex > 0) {
-            strippedLocation.delete(0, colonIndex+1)
+    Class getGroovyClass(String expression) {
+        if (expression == null || expression.isEmpty()) return null
+        Class groovyClass = (Class) scriptGroovyExpressionCache.get(expression)
+        if (groovyClass == null) {
+            groovyClass = ecfi.compileGroovy(expression, StringUtilities.getExpressionClassName(expression))
+            scriptGroovyExpressionCache.put(expression, groovyClass)
+            // logger.warn("class ${groovyClass.getName()} parsed expression ${expression}")
         }
-
-        // delete all leading forward slashes
-        while (strippedLocation.length() > 0 && strippedLocation.charAt(0) == (char) '/') strippedLocation.deleteCharAt(0)
-
-        return strippedLocation.toString()
+        return groovyClass
     }
 
-    static String getLocationPrefix(String location) {
-        if (!location) return ""
-
-        if (location.contains("://")) {
-            return location.substring(0, location.indexOf(":")) + "://"
-        } else if (location.contains(":")) {
-            return location.substring(0, location.indexOf(":")) + ":"
-        } else {
-            return ""
-        }
-    }
-
-    @Override
-    String getContentType(String filename) {
-        // need to check this, or type mapper handles it fine? || !filename.contains(".")
-        if (filename == null || filename.length() == 0) return null
-        String type = mimetypesFileTypeMap.getContentType(filename)
-        // strip any parameters, ie after the ;
-        int semicolonIndex = type.indexOf(";")
-        if (semicolonIndex >= 0) type = type.substring(0, semicolonIndex)
-        return type
-    }
-
-    static boolean isBinaryContentType(String contentType) {
-        if (contentType == null || contentType.length() == 0) return false
-        if (contentType.startsWith("text/")) return false
-        // aside from text/*, a few notable exceptions:
-        if ("application/javascript".equals(contentType)) return false
-        if ("application/json".equals(contentType)) return false
-        if (contentType.endsWith("+json")) return false
-        if ("application/rtf".equals(contentType)) return false
-        if (contentType.startsWith("application/xml")) return false
-        if (contentType.endsWith("+xml")) return false
-        if (contentType.startsWith("application/yaml")) return false
-        if (contentType.endsWith("+yaml")) return false
-        return true
-    }
+    @Override String getContentType(String filename) { return ResourceReference.getContentType(filename) }
 
     @Override
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
@@ -606,7 +540,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
         final org.xml.sax.ContentHandler contentHandler = xslFoHandlerFactory.getInstance(out, contentType)
 
-        // There's a ThreadLocal memory leak in XANLANJ, reported in 2005 but still not fixed in 2016
+        // There's a ThreadLocal memory leak in XALANJ, reported in 2005 but still not fixed in 2016
         // The memory it prevent GC depend on the fo file size and the thread pool size. So use a separate thread to workaround.
         // https://issues.apache.org/jira/browse/XALANJ-2195
         BaseException transformException = null

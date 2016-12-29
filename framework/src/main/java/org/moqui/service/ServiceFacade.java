@@ -13,6 +13,8 @@
  */
 package org.moqui.service;
 
+import org.moqui.util.RestClient;
+
 import java.util.Map;
 
 /** ServiceFacade Interface */

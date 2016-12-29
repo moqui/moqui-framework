@@ -1,0 +1,67 @@
+/*
+ * This software is in the public domain under CC0 1.0 Universal plus a
+ * Grant of Patent License.
+ *
+ * To the extent possible under law, the author(s) have dedicated all
+ * copyright and related and neighboring rights to this software to the
+ * public domain worldwide. This software is distributed without any
+ * warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication
+ * along with this software (see the LICENSE.md file). If not, see
+ * <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
+// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+
+version = '1.0.1'
+
+apply plugin: 'java'
+// to run gradle-versions-plugin use "gradle dependencyUpdates"
+apply plugin: 'com.github.ben-manes.versions'
+// uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
+// apply plugin: 'net.ltgt.errorprone'
+buildscript {
+    repositories {
+        jcenter()
+        // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0'
+        // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
+    }
+}
+dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
+    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
+    if (rejected) selection.reject('Release candidate')
+} } }
+
+// NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
+repositories {
+    jcenter() // http://jcenter.bintray.com
+}
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+archivesBaseName = 'moqui-util'
+
+dependencies {
+    compileOnly 'com.google.code.findbugs:annotations:3.0.1'
+    // JCache, Servlet APIs
+    compile 'javax.cache:cache-api:1.0.0'
+    compile 'javax.servlet:javax.servlet-api:3.1.0'
+    // SLF4J
+    compile 'org.slf4j:slf4j-api:1.7.22'
+    // Freemarker
+    compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
+    // Groovy
+    compile 'org.codehaus.groovy:groovy:2.4.7' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.7' // Apache 2.0
+    // Jetty HTTP Client
+    compile 'org.eclipse.jetty:jetty-client:9.4.0.v20161208' // Apache 2.0
+}
+
+jar {
+    manifest { attributes 'Implementation-Title': 'Moqui Utilities', 'Implementation-Version': version, 'Implementation-Vendor': 'Moqui Ecosystem' }
+    from sourceSets.main.output
+}

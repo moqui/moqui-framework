@@ -12,8 +12,11 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+
+import org.junit.AfterClass
 import org.junit.runner.RunWith
 import org.junit.runners.Suite
+import org.moqui.Moqui
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses([ CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityNoSqlCrud.class,
@@ -21,4 +24,8 @@ import org.junit.runners.Suite
         ServiceCrudImplicit.class, ServiceFacadeTests.class, TransactionFacadeTests.class, UserFacadeTests.class,
         SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
 class MoquiSuite {
+    @AfterClass
+    public static void destroyMoqui() {
+        Moqui.destroyActiveExecutionContextFactory();
+    }
 }

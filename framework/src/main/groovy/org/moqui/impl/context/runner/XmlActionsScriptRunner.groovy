@@ -38,7 +38,7 @@ class XmlActionsScriptRunner implements ScriptRunner {
 
     ScriptRunner init(ExecutionContextFactory ecf) {
         this.ecfi = (ExecutionContextFactoryImpl) ecf
-        this.scriptXmlActionLocationCache = ecfi.getCacheFacade().getCache("resource.xml-actions.location", String.class, XmlAction.class)
+        this.scriptXmlActionLocationCache = ecfi.cacheFacade.getCache("resource.xml-actions.location", String.class, XmlAction.class)
         return this
     }
 
@@ -80,7 +80,7 @@ class XmlActionsScriptRunner implements ScriptRunner {
         } catch (Exception e) {
             logger.error("Error while initializing XMLActions template at [${templateLocation}]", e)
         } finally {
-            if (templateReader) templateReader.close()
+            if (templateReader != null) templateReader.close()
         }
         xmlActionsTemplate = newTemplate
     }

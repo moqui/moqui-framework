@@ -16,15 +16,14 @@ package org.moqui.impl.context
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.EntityCondition
-import org.moqui.impl.StupidUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
 
 import javax.websocket.server.HandshakeRequest
-import java.security.SecureRandom
 import java.sql.Timestamp
 import javax.servlet.http.Cookie
 import javax.servlet.http.HttpServletRequest
@@ -281,8 +280,9 @@ class UserFacadeImpl implements UserFacade {
     TimeZone getTimeZone() { return currentInfo.tzCache }
 
     Calendar getCalendarSafe() {
-        return Calendar.getInstance(currentInfo.tzCache ?: TimeZone.getDefault(),
-                currentInfo.localeCache ?: (request ? request.getLocale() : Locale.getDefault()))
+        return Calendar.getInstance(currentInfo.tzCache != null ? currentInfo.tzCache : TimeZone.getDefault(),
+                currentInfo.localeCache != null ? currentInfo.localeCache :
+                        (request != null ? request.getLocale() : Locale.getDefault()))
     }
 
     @Override
@@ -326,8 +326,7 @@ class UserFacadeImpl implements UserFacade {
     }
 
     String getPreference(String preferenceKey, String userId) {
-        EntityValue up = eci.getEntity().find("moqui.security.UserPreference").condition("userId", userId)
-                .condition("preferenceKey", preferenceKey).useCache(true).disableAuthz().one()
+        EntityValue up = eci.entityFacade.fastFindOne("moqui.security.UserPreference", true, true, userId, preferenceKey)
         if (up == null) {
             // try UserGroupPreference
             EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
@@ -387,11 +386,23 @@ class UserFacadeImpl implements UserFacade {
             fromCal.add(Calendar.WEEK_OF_YEAR, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.WEEK_OF_YEAR, 1)
+        } else if (period == "7d") {
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 7)
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, 7)
+            // have last 7d also include today (like 30d)
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
         } else if (period == "month") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             fromCal.add(Calendar.MONTH, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.MONTH, 1)
+        } else if (period == "30d") {
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 30)
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, 30)
+            // have last 30d also include today to make it a more useful default
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
         } else if (period == "year") {
             fromCal.set(Calendar.DAY_OF_YEAR, fromCal.getActualMinimum(Calendar.DAY_OF_YEAR))
             fromCal.add(Calendar.YEAR, offset)
@@ -528,7 +539,7 @@ class UserFacadeImpl implements UserFacade {
         if (!userId) throw new IllegalStateException("No active user, cannot get login key")
 
         // generate login key
-        String loginKey = StupidUtilities.getRandomString(40)
+        String loginKey = StringUtilities.getRandomString(40)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())
@@ -562,8 +573,8 @@ class UserFacadeImpl implements UserFacade {
     boolean hasPermission(String userPermissionId) { return hasPermissionById(getUserId(), userPermissionId, getNowTimestamp(), eci) }
 
     static boolean hasPermission(String username, String userPermissionId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
-        EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).disableAuthz().one()
-        if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
+        EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
+        if (ua == null) ua = eci.entityFacade.find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
         if (ua == null) return false
         hasPermissionById((String) ua.userId, userPermissionId, whenTimestamp, eci)
     }
@@ -580,8 +591,8 @@ class UserFacadeImpl implements UserFacade {
     boolean isInGroup(String userGroupId) { return isInGroup(getUserId(), userGroupId, getNowTimestamp(), eci) }
 
     static boolean isInGroup(String username, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
-        EntityValue ua = eci.getEntity().find("moqui.security.UserAccount").condition("userId", username).useCache(true).disableAuthz().one()
-        if (ua == null) ua = eci.getEntity().find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
+        EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
+        if (ua == null) ua = eci.entityFacade.find("moqui.security.UserAccount").condition("username", username).useCache(true).disableAuthz().one()
         return isInGroupById((String) ua?.userId, userGroupId, whenTimestamp, eci)
     }
     static boolean isInGroupById(String userId, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
@@ -661,9 +672,8 @@ class UserFacadeImpl implements UserFacade {
 
     @Override
     EntityValue getVisit() {
-        if (!visitId) return null
-        EntityValue vst = eci.getEntity().find("moqui.server.Visit").condition("visitId", visitId).useCache(true).disableAuthz().one()
-        return vst
+        if (visitId == null || visitId.isEmpty()) return null
+        return eci.entityFacade.fastFindOne("moqui.server.Visit", true, true, visitId)
     }
 
     // ========== UserInfo ==========

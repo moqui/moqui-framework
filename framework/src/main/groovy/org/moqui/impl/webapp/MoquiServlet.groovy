@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory
 class MoquiServlet extends HttpServlet {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiServlet.class)
 
-    MoquiServlet() { super(); }
+    MoquiServlet() { super() }
 
     @Override
     void init(ServletConfig config) throws ServletException {
@@ -119,7 +119,7 @@ class MoquiServlet extends HttpServlet {
 
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
             String message, Throwable origThrowable, ExecutionContextFactoryImpl ecfi, String moquiWebappName) {
-        if (ecfi == null) {
+        if (ecfi == null || "application/json".equals(request.getHeader("Accept"))) {
             response.sendError(errorCode, message)
             return
         }

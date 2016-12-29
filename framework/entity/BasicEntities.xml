@@ -61,6 +61,23 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
+    <entity entity-name="EnumGroupMember" package="moqui.basic" use="configuration" cache="true">
+        <field name="enumGroupEnumId" type="id" is-pk="true"/>
+        <field name="enumId" type="id" is-pk="true"/>
+        <relationship type="one" title="EnumGroup" related="moqui.basic.Enumeration">
+            <key-map field-name="enumGroupEnumId"/></relationship>
+        <relationship type="one" related="moqui.basic.Enumeration"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Enumeration Group" enumTypeId="EnumGroup"/>
+        </seed-data>
+    </entity>
+    <view-entity entity-name="EnumAndGroup" package="moqui.basic" cache="true">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="EGM" entity-name="moqui.basic.EnumGroupMember" join-from-alias="ENUM">
+            <key-map field-name="enumId"/></member-entity>
+        <alias-all entity-alias="ENUM"/>
+        <alias-all entity-alias="EGM"/>
+    </view-entity>
 
     <!-- ========== Geo ========== -->
     <entity entity-name="Geo" package="moqui.basic" use="configuration" short-alias="geos" cache="true">
@@ -326,6 +343,24 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="uomId"/></member-entity>
         <alias-all entity-alias="UOMC"/>
         <alias-all entity-alias="UOMFR"><exclude field="uomId"/></alias-all>
+    </view-entity>
+
+    <entity entity-name="UomGroupMember" package="moqui.basic" use="configuration" cache="true">
+        <field name="uomGroupEnumId" type="id" is-pk="true"/>
+        <field name="uomId" type="id" is-pk="true"/>
+        <relationship type="one" title="UomGroup" related="moqui.basic.Enumeration">
+            <key-map field-name="uomGroupEnumId"/></relationship>
+        <relationship type="one" related="moqui.basic.Uom"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="UOM Group" enumTypeId="UomGroup"/>
+        </seed-data>
+    </entity>
+    <view-entity entity-name="UomAndGroup" package="moqui.basic" cache="true">
+        <member-entity entity-alias="UOM" entity-name="moqui.basic.Uom"/>
+        <member-entity entity-alias="UGM" entity-name="moqui.basic.UomGroupMember" join-from-alias="UOM">
+            <key-map field-name="uomId"/></member-entity>
+        <alias-all entity-alias="UOM"/>
+        <alias-all entity-alias="UGM"/>
     </view-entity>
 
     <!-- ========================================================= -->

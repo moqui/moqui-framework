@@ -16,10 +16,10 @@ package org.moqui.impl.service;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Whitelist;
-import org.moqui.impl.StupidClassLoader;
-import org.moqui.impl.StupidUtilities;
+import org.moqui.util.MClassLoader;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
+import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +81,7 @@ public class ParameterInfo {
         String typeAttr = parameterNode.attribute("type");
         type = typeAttr == null || typeAttr.isEmpty() ? "String" : typeAttr;
         parmType = typeEnumByString.get(type);
-        parmClass = StupidClassLoader.commonJavaClassesMap.get(type);
+        parmClass = MClassLoader.getCommonClass(type);
 
         format = parameterNode.attribute("format");
         entityName = parameterNode.attribute("entity-name");
@@ -113,13 +113,17 @@ public class ParameterInfo {
             parmNameList.add(name);
         }
         int parmNameListSize = parmNameList.size();
-        childParameterInfoArray = new ParameterInfo[parmNameListSize];
         boolean childHasDefault = false;
-        for (int i = 0; i < parmNameListSize; i++) {
-            String parmName = parmNameList.get(i);
-            ParameterInfo pi = childParameterInfoMap.get(parmName);
-            childParameterInfoArray[i] = pi;
-            if (pi.thisOrChildHasDefault) childHasDefault = true;
+        if (parmNameListSize > 0) {
+            childParameterInfoArray = new ParameterInfo[parmNameListSize];
+            for (int i = 0; i < parmNameListSize; i++) {
+                String parmName = parmNameList.get(i);
+                ParameterInfo pi = childParameterInfoMap.get(parmName);
+                childParameterInfoArray[i] = pi;
+                if (pi.thisOrChildHasDefault) childHasDefault = true;
+            }
+        } else {
+            childParameterInfoArray = null;
         }
         thisOrChildHasDefault = hasDefault || childHasDefault;
 
@@ -140,7 +144,7 @@ public class ParameterInfo {
         // no need to check for null, only called with parameterValue not empty
         // if (parameterValue == null) return null;
         // no need to check for type match, only called when types don't match
-        // if (StupidJavaUtilities.isInstanceOf(parameterValue, type)) {
+        // if (ObjectUtilities.isInstanceOf(parameterValue, type)) {
 
         // do type conversion if possible
         Object converted = null;
@@ -216,7 +220,7 @@ public class ParameterInfo {
 
         // fallback to a really simple type conversion
         // TODO: how to detect conversion failed to add validation error?
-        if (converted == null && !isEmptyString) converted = StupidUtilities.basicConvert(parameterValue, type);
+        if (converted == null && !isEmptyString) converted = ObjectUtilities.basicConvert(parameterValue, type);
 
         return converted;
     }
@@ -245,32 +249,36 @@ public class ParameterInfo {
 
     private static Document.OutputSettings outputSettings = new Document.OutputSettings().charset("UTF-8").prettyPrint(true).indentAmount(4);
     private String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterValue, ExecutionContextImpl eci) {
-        int indexOfEscape = -1;
+        // NOTE DEJ20161114 Jsoup.clean() does not have a way to tell us if anything was filtered, so to avoid reformatting other
+        //     text this method now only calls Jsoup if a '<' is found
+        // int indexOfEscape = -1;
         int indexOfLessThan = -1;
         char[] valueCharArray = parameterValue.toCharArray();
         int valueLength = valueCharArray.length;
         for (int i = 0; i < valueLength; i++) {
             char curChar = valueCharArray[i];
-            if (curChar == '%' || curChar == '&') {
+            /* if (curChar == '%' || curChar == '&') {
                 indexOfEscape = i;
                 if (indexOfLessThan >= 0) break;
-            } else if (curChar == '<') {
+            } else */
+            if (curChar == '<') {
                 indexOfLessThan = i;
-                if (indexOfEscape >= 0) break;
+                // if (indexOfEscape >= 0) break;
             }
         }
-        if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
+        // if (indexOfEscape < 0 && indexOfLessThan < 0) return null;
 
-        if (allowSafe) {
-            return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
-        } else {
-            // check for "<"; this will protect against HTML/JavaScript injection
-            if (indexOfLessThan >= 0) {
+        if (indexOfLessThan >= 0) {
+            if (allowSafe) {
+                return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
+            } else {
+                // check for "<"; this will protect against HTML/JavaScript injection
                 eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
             }
-            // nothing changed, return null
-            return null;
         }
+
+        // nothing changed, return null
+        return null;
     }
     /*
     Old OWASP HTML Sanitizer code (removed because heavy, depends on Guava):
