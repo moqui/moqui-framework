@@ -84,6 +84,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Header Logo URL" enumId="STRT_HEADER_LOGO" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Header Title" enumId="STRT_HEADER_TITLE" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Header Navbar Item" enumId="STRT_HEADER_NAVBAR_ITEM" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Header Navbar Component" enumId="STRT_HEADER_NAVBAR_COMP" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Footer Item" enumId="STRT_FOOTER_ITEM" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="HTML Body CSS Class" enumId="STRT_BODY_CLASS" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Theme Preview Screenshot" enumId="STRT_SCREENSHOT" enumTypeId="ScreenThemeResourceType"/>

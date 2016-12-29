@@ -103,13 +103,14 @@ class ScheduledJobRunner implements Runnable {
                 String jobRunId
                 EntityValue serviceJobRun
                 EntityValue serviceJobRunLock
+                Timestamp lastRunTime
                 // get a lock, see if another instance is running the job
                 // now we need to run in a transaction; note that this is running in a executor service thread, no tx should ever be in place
                 boolean beganTransaction = ecfi.transaction.begin(null)
                 try {
                     serviceJobRunLock = efi.find("moqui.service.job.ServiceJobRunLock")
                             .condition("jobName", jobName).forUpdate(true).one()
-                    Timestamp lastRunTime = (Timestamp) serviceJobRunLock?.lastRunTime
+                    lastRunTime = (Timestamp) serviceJobRunLock?.lastRunTime
                     ZonedDateTime lastRunDt = (lastRunTime != (Timestamp) null) ?
                             ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastRunTime.getTime()), now.getZone()) : null
                     if (serviceJobRunLock != null && serviceJobRunLock.jobRunId != null && lastRunDt != null) {
@@ -128,7 +129,7 @@ class ScheduledJobRunner implements Runnable {
                     }
 
                     // calculate time it should have run last
-                    String cronExpression = serviceJob.cronExpression
+                    String cronExpression = (String) serviceJob.getNoCheckSimple("cronExpression")
                     ExecutionTime executionTime = getExecutionTime(cronExpression)
                     ZonedDateTime lastSchedule = executionTime.lastExecution(now)
                     if (lastRunDt != null) {
@@ -142,12 +143,10 @@ class ScheduledJobRunner implements Runnable {
                     jobRunId = (String) serviceJobRun.getNoCheckSimple("jobRunId")
 
                     if (serviceJobRunLock == null) {
-                        serviceJobRunLock = efi.makeValue("moqui.service.job.ServiceJobRunLock")
-                                .set("jobName", jobName).set("jobRunId", jobRunId)
-                                .set("lastRunTime", nowTimestamp).create()
+                        serviceJobRunLock = efi.makeValue("moqui.service.job.ServiceJobRunLock").set("jobName", jobName)
+                                .set("jobRunId", jobRunId).set("lastRunTime", nowTimestamp).create()
                     } else {
-                        serviceJobRunLock.set("jobRunId", jobRunId)
-                                .set("lastRunTime", nowTimestamp).update()
+                        serviceJobRunLock.set("jobRunId", jobRunId).set("lastRunTime", nowTimestamp).update()
                     }
 
                     logger.info("Running job ${jobName} run ${jobRunId} (last run ${lastRunTime}, schedule ${lastSchedule})")
@@ -165,6 +164,7 @@ class ScheduledJobRunner implements Runnable {
                 ServiceCallJobImpl serviceCallJob = new ServiceCallJobImpl(jobName, ecfi.serviceFacade)
                 // use the job run we created
                 serviceCallJob.withJobRunId(jobRunId)
+                serviceCallJob.withLastRunTime(lastRunTime)
                 // clear the lock when finished
                 serviceCallJob.clearLock()
                 // run it, will run async

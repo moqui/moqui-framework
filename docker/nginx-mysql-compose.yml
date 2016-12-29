@@ -23,7 +23,7 @@ services:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       # - /path/to/certs:/etc/nginx/certs
 
-  mysql-moqui:
+  moqui-database:
     image: mysql:5.7
     container_name: moqui-database
     restart: unless-stopped

@@ -150,7 +150,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // get the MoquiInit.properties file
         Properties moquiInitProperties = new Properties()
         URL initProps = this.class.getClassLoader().getResource("MoquiInit.properties")
-        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
+        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close() }
 
         // if there is a system property use that, otherwise from the properties file
         runtimePath = System.getProperty("moqui.runtime")
@@ -634,7 +634,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ToolFactory tf in toolFactoryList) {
             logger.info("Destroying ToolFactory: ${tf.getName()}")
             // NOTE: also calling System.out.println because log4j gets often gets closed before this completes
-            System.out.println("Destroying ToolFactory: ${tf.getName()}")
+            // System.out.println("Destroying ToolFactory: ${tf.getName()}")
             try {
                 tf.destroy()
             } catch (Throwable t) {
@@ -892,7 +892,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         def gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans()
         def gcCount = 0
         def gcTime = 0
-        for (def gcMXBean in gcMXBeans) {
+        for (gcMXBean in gcMXBeans) {
             gcCount += gcMXBean.getCollectionCount()
             gcTime += gcMXBean.getCollectionTime()
         }
@@ -989,7 +989,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // now create a new Map and replace the original
-        Map<String, ComponentInfo> newMap = new LinkedHashMap<String, ComponentInfo>()
+        LinkedHashMap<String, ComponentInfo> newMap = new LinkedHashMap<String, ComponentInfo>()
         for (String sortedName in sortedNames) newMap.put(sortedName, componentInfoMap.get(sortedName))
         componentInfoMap = newMap
     }
@@ -1078,11 +1078,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // support component zip files, expand now and replace name and location
             if (location.endsWith(".zip")) {
-                ResourceReference zipRr = ecfi.getResourceReference(location)
+                ResourceReference zipRr = getResourceReference(location)
                 if (!zipRr.supportsExists()) throw new IllegalArgumentException("Could component location ${location} does not support exists, cannot use as a component location")
                 // make sure corresponding directory does not exist
                 String locNoZip = stripVersionFromName(location.substring(0, location.length() - 4))
-                ResourceReference noZipRr = ecfi.getResourceReference(locNoZip)
+                ResourceReference noZipRr = getResourceReference(locNoZip)
                 if (zipRr.getExists() && !noZipRr.getExists()) {
                     // NOTE: could use getPath() instead of toExternalForm().substring(5) for file specific URLs, will work on Windows?
                     String zipPath = zipRr.getUrl().toExternalForm().substring(5)
@@ -1095,7 +1095,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                         ZipEntry entry = zipIn.getNextEntry()
                         // iterates over entries in the zip file
                         while (entry != null) {
-                            ResourceReference entryRr = ecfi.getResourceReference(targetDirLocation + '/' + entry.getName())
+                            ResourceReference entryRr = getResourceReference(targetDirLocation + '/' + entry.getName())
                             String filePath = entryRr.getUrl().toExternalForm().substring(5)
                             if (entry.isDirectory()) {
                                 File dir = new File(filePath)
@@ -1129,7 +1129,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             version = "unknown"
 
             // make sure directory exists
-            componentRr = ecfi.getResourceReference(location)
+            componentRr = getResourceReference(location)
             if (!componentRr.supportsExists()) throw new IllegalArgumentException("Could component location ${location} does not support exists, cannot use as a component location")
             if (!componentRr.getExists()) throw new IllegalArgumentException("Could not find component directory at: ${location}")
             if (!componentRr.isDirectory()) throw new IllegalArgumentException("Component location is not a directory: ${location}")

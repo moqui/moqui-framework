@@ -77,11 +77,9 @@ class MoquiContextListener implements ServletContextListener {
                 String filterName = filterNode.attribute("name")
                 try {
                     Filter filter = (Filter) Thread.currentThread().getContextClassLoader().loadClass(filterNode.attribute("class")).newInstance()
-                    MapFilterConfig filterConfig = new MapFilterConfig(filterName, sc)
-                    for (MNode initParamNode in filterNode.children("init-param"))
-                        filterConfig.setParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
-                    filter.init(filterConfig)
                     FilterRegistration.Dynamic filterReg = sc.addFilter(filterName, filter)
+                    for (MNode initParamNode in filterNode.children("init-param"))
+                        filterReg.setInitParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
 
                     EnumSet<DispatcherType> dispatcherTypes = EnumSet.noneOf(DispatcherType.class)
                     for (MNode dispatcherNode in filterNode.children("dispatcher"))

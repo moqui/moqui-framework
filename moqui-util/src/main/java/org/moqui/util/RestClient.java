@@ -204,7 +204,7 @@ public class RestClient {
         return new RestResponse(this, response);
     }
 
-    private static class RestResponse {
+    public static class RestResponse {
         private RestClient rci;
         protected ContentResponse response;
         protected byte[] bytes = null;
@@ -291,7 +291,7 @@ public class RestClient {
         }
     }
 
-    private static class UriBuilder {
+    public static class UriBuilder {
         private RestClient rci;
         private String protocol = "http";
         private String host = (String) null;

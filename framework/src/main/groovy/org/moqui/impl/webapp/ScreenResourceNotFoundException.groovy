@@ -13,23 +13,23 @@
  */
 package org.moqui.impl.webapp
 
-import groovy.transform.CompileStatic;
-import org.moqui.impl.screen.ScreenDefinition;
+import groovy.transform.CompileStatic
+import org.moqui.impl.screen.ScreenDefinition
 
 @CompileStatic
-public class ScreenResourceNotFoundException extends RuntimeException {
-    ScreenDefinition rootSd;
-    List<String> fullPathNameList;
-    ScreenDefinition lastSd;
-    String pathFromLastScreen;
-    String resourceLocation;
-    public ScreenResourceNotFoundException(ScreenDefinition rootSd, List<String> fullPathNameList,
+class ScreenResourceNotFoundException extends RuntimeException {
+    ScreenDefinition rootSd
+    List<String> fullPathNameList
+    ScreenDefinition lastSd
+    String pathFromLastScreen
+    String resourceLocation
+    ScreenResourceNotFoundException(ScreenDefinition rootSd, List<String> fullPathNameList,
                                            ScreenDefinition lastSd, String pathFromLastScreen, String resourceLocation,
                                            Exception cause) {
         super("Could not find subscreen or transition or file/content [" + pathFromLastScreen +
                 (resourceLocation ? ":" + resourceLocation : "") + "] under screen [" +
-                lastSd.getLocation() + "] while finding url for path " + fullPathNameList + " under from screen [" +
-                rootSd.getLocation() + "]", cause)
+                lastSd?.getLocation() + "] while finding url for path " + fullPathNameList + " under from screen [" +
+                rootSd?.getLocation() + "]", cause)
         this.rootSd = rootSd
         this.fullPathNameList = fullPathNameList
         this.lastSd = lastSd

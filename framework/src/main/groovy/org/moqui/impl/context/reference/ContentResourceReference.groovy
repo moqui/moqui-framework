@@ -14,13 +14,13 @@
 package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.ObjectUtilities
 
 import javax.jcr.NodeIterator
 import javax.jcr.Session
 import javax.jcr.Property
 
-import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
 import org.moqui.impl.context.ResourceFacadeImpl
 
@@ -40,7 +40,7 @@ class ContentResourceReference extends BaseResourceReference {
 
     ContentResourceReference() { }
     
-    @Override ResourceReference init(String location, ExecutionContextFactory ecf) {
+    @Override ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
 
         this.location = location
@@ -52,7 +52,7 @@ class ContentResourceReference extends BaseResourceReference {
         return this
     }
 
-    ResourceReference init(String repositoryName, javax.jcr.Node node, ExecutionContextFactory ecf) {
+    ResourceReference init(String repositoryName, javax.jcr.Node node, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
 
         this.repositoryName = repositoryName

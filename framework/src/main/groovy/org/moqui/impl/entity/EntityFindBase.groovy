@@ -244,7 +244,14 @@ abstract class EntityFindBase implements EntityFind {
         EntityConditionImplBase singleCond = (EntityConditionImplBase) null
         if (singleCondField != null) {
             if (samSize > 0) logger.warn("simpleAndMap size ${samSize} and singleCondField not null!")
-            ConditionField cf = localEd != null ? localEd.getFieldInfo(singleCondField).conditionField : new ConditionField(singleCondField)
+            ConditionField cf
+            if (localEd != null) {
+                FieldInfo fi = localEd.getFieldInfo(singleCondField)
+                if (fi == null) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
+                cf = fi.conditionField
+            } else {
+                cf = new ConditionField(singleCondField)
+            }
             singleCond = new FieldValueCondition(cf, EntityCondition.EQUALS, singleCondValue)
         }
         // special case, frequent operation: find by single key
@@ -257,7 +264,14 @@ abstract class EntityFindBase implements EntityFind {
         if (samSize > 0) {
             // create a ListCondition from the Map to allow for combination (simplification) with other conditions
             for (Map.Entry<String, Object> samEntry in simpleAndMap.entrySet()) {
-                ConditionField cf = localEd != null ? localEd.getFieldInfo((String) samEntry.key).conditionField : new ConditionField((String) samEntry.key)
+                ConditionField cf
+                if (localEd != null) {
+                    FieldInfo fi = localEd.getFieldInfo((String) samEntry.getKey())
+                    if (fi == null) throw new EntityException("Error in find, field ${samEntry.getKey()} does not exist in entity ${localEd.getFullEntityName()}")
+                    cf = fi.conditionField
+                } else {
+                    cf = new ConditionField((String) samEntry.key)
+                }
                 condList.add(new FieldValueCondition(cf, EntityCondition.EQUALS, samEntry.value))
             }
         }

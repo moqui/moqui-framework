@@ -46,17 +46,7 @@ return;
     if (true) {
         <#if handleResult>def call_service_result = </#if>ec.service.<#if .node.@async?has_content && .node.@async != "false">async()<#else>sync()</#if>.name("${.node.@name}")<#if .node["@async"]?if_exists == "distribute">.distribute(true)</#if><#if .node["@multi"]?if_exists == "true">.multi(true)</#if><#if .node["@multi"]?if_exists == "parameter">.multi(ec.web?.requestParameters?._isMulti == "true")</#if><#if .node["@transaction"]?has_content><#if .node["@transaction"] == "ignore">.ignoreTransaction(true)<#elseif .node["@transaction"] == "force-new" || .node["@transaction"] == "force-cache">.requireNewTransaction(true)</#if><#if .node["@transaction"] == "cache" || .node["@transaction"] == "force-cache">.useTransactionCache(true)<#else>.useTransactionCache(false)</#if></#if>
             <#if .node["@in-map"]?if_exists == "true">.parameters(context)<#elseif .node["@in-map"]?has_content && .node["@in-map"] != "false">.parameters(${.node["@in-map"]})</#if><#list .node["field-map"] as fieldMap>.parameter("${fieldMap["@field-name"]}",<#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list>.call()
-        <#if handleResult>
-            <#if outAapAddToExisting>
-            if (${.node["@out-map"]} != null) {
-                if (call_service_result) ${.node["@out-map"]}.putAll(call_service_result)
-            } else {
-            </#if>
-                ${.node["@out-map"]} = call_service_result
-            <#if outAapAddToExisting>
-            }
-            </#if>
-        </#if>
+        <#if handleResult><#if outAapAddToExisting>if (${.node["@out-map"]} != null) { if (call_service_result) ${.node["@out-map"]}.putAll(call_service_result) } else {</#if> ${.node["@out-map"]} = call_service_result <#if outAapAddToExisting>}</#if></#if>
         <#if (.node["@web-send-json-response"]?if_exists == "true")>
         ec.web.sendJsonResponse(call_service_result)
         <#elseif (.node["@web-send-json-response"]?has_content && .node["@web-send-json-response"] != "false")>
@@ -69,7 +59,7 @@ return;
         }
         <#else>
         if (ec.message.hasError()) return
-        </#if>
+        </#if><#t>
     }
 </#macro>
 
@@ -125,11 +115,7 @@ return;
     if (true) {
         org.moqui.entity.EntityValue find_one_result = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if>
                 <#if autoFieldMap?has_content><#if autoFieldMap == "true">.condition(context)<#elseif autoFieldMap != "false">.condition(${autoFieldMap})</#if><#elseif !.node["field-map"]?has_content>.condition(context)</#if><#list .node["field-map"] as fieldMap>.condition("${fieldMap["@field-name"]}", <#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>.one()
-        if (${.node["@value-field"]} instanceof Map && !(${.node["@value-field"]} instanceof org.moqui.entity.EntityValue)) {
-            if (find_one_result) ${.node["@value-field"]}.putAll(find_one_result)
-        } else {
-            ${.node["@value-field"]} = find_one_result
-        }
+        if (${.node["@value-field"]} instanceof Map && !(${.node["@value-field"]} instanceof org.moqui.entity.EntityValue)) { if (find_one_result) ${.node["@value-field"]}.putAll(find_one_result) } else { ${.node["@value-field"]} = find_one_result }
     }
 </#macro>
 <#macro "entity-find">
@@ -179,11 +165,7 @@ return;
         <#if !useCache>
             ${listName}Count = ${listName}_xafind.count()
             ${listName}PageIndex = ${listName}_xafind.pageIndex
-            if (${listName}_xafind.limit == null) {
-                ${listName}PageSize = ${listName}Count
-            } else {
-                ${listName}PageSize = ${listName}_xafind.pageSize
-            }
+            if (${listName}_xafind.limit == null) { ${listName}PageSize = ${listName}Count } else { ${listName}PageSize = ${listName}_xafind.pageSize }
         </#if>
         ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
         ${listName}PageRangeLow = ${listName}PageIndex * ${listName}PageSize + 1

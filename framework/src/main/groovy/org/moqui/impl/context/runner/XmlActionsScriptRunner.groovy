@@ -80,7 +80,7 @@ class XmlActionsScriptRunner implements ScriptRunner {
         } catch (Exception e) {
             logger.error("Error while initializing XMLActions template at [${templateLocation}]", e)
         } finally {
-            if (templateReader) templateReader.close()
+            if (templateReader != null) templateReader.close()
         }
         xmlActionsTemplate = newTemplate
     }
