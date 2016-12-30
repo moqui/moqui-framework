@@ -1484,6 +1484,16 @@ class ScreenRenderImpl implements ScreenRender {
         List<Map> menuDataList = new LinkedList<>()
         ScreenDefinition curScreen = rootScreenDef
 
+        // special case for render modes that are always standalone: run pre-actions for all screens in path except first 2 (generally webroot, apps)
+        ArrayList<ScreenDefinition> preActionSds = new ArrayList<>(fullUrlInfo.screenPathDefList.subList(2, fullUrlInfo.screenPathDefList.size()))
+        boolean hasPreActions = false
+        int preActionSdSize = preActionSds.size()
+        for (int i = 0; i < preActionSdSize; i++) {
+            ScreenDefinition sd = (ScreenDefinition) preActionSds.get(i)
+            if (sd.preActions != null) { hasPreActions = true; break }
+        }
+        if (hasPreActions) recursiveRunActions(preActionSds.iterator(), false, true)
+
         for (int i = 0; i < (fullPathSize - 1); i++) {
             String pathItem = (String) fullPathList.get(i)
             String nextItem = (String) fullPathList.get(i+1)
@@ -1548,7 +1558,9 @@ class ScreenRenderImpl implements ScreenRender {
         String lastImageType = fullUrlInfo.menuImageType
         if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
             lastImage = buildUrl(lastImage).url
-        Map lastMap = [name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
+        String lastTitle = fullUrlInfo.targetScreen.getDefaultMenuName()
+        if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
+        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath,
                        pathWithParams:currentPath.toString(), image:lastImage, extraPathList:extraPathList]
         if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
         menuDataList.add(lastMap)
