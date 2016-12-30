@@ -1470,7 +1470,7 @@ class ScreenRenderImpl implements ScreenRender {
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
         if (!fullUrlInstance.isPermitted()) { ec.web.response.sendError(403, "View not permitted for path ${pathNameList}"); return null }
 
-        String renderMode = fullUrlInfo.getTargetScreenRenderMode() ?: ec.web.requestParameters.renderMode ?: 'vuet'
+        // String renderMode = fullUrlInfo.getTargetScreenRenderMode() ?: ec.web.requestParameters.renderMode ?: 'vuet'
         ArrayList<String> fullPathList = fullUrlInfo.fullPathNameList
         int fullPathSize = fullPathList.size()
         ArrayList<String> extraPathList = fullUrlInfo.extraPathNameList

@@ -1025,6 +1025,7 @@ class ScreenForm {
         private ExecutionContextFactoryImpl ecfi
         private MNode formNode
         private boolean isListForm
+        protected Set<String> serverStatic = null
 
         private ArrayList<MNode> allFieldNodes
         private ArrayList<String> allFieldNames
@@ -1050,6 +1051,10 @@ class ScreenForm {
             ecfi = screenForm.ecfi
             formNode = screenForm.getOrCreateFormNode()
             isListForm = "form-list".equals(formNode.getName())
+
+            String serverStaticStr = formNode.attribute("server-static")
+            if (serverStaticStr) serverStatic = new HashSet(Arrays.asList(serverStaticStr.split(",")))
+            else serverStatic = screenForm.sd.serverStatic
 
             allFieldNodes = formNode.children("field")
             int afnSize = allFieldNodes.size()
@@ -1153,6 +1158,7 @@ class ScreenForm {
         FormListRenderInfo makeFormListRenderInfo() { new FormListRenderInfo(this) }
         boolean isUpload() { isUploadForm }
         boolean isList() { isListForm }
+        boolean isServerStatic(String renderMode) { return serverStatic != null && (serverStatic.contains('all') || serverStatic.contains(renderMode)) }
 
         MNode getFieldValidateNode(String fieldName) {
             MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
