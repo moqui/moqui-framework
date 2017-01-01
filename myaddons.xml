@@ -17,7 +17,7 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <runtime name="moqui-runtime" group="mrovnanik" version="1.6.2" branch="develop" repository="github-ssh"/>
+    <runtime name="moqui-runtime" group="mrovnanik" version="2.0.0" branch="main_develop" repository="github-ssh"/>
 
     <!-- Example Component -->
     <component name="example" group="moqui" version="1.6.2" branch="master" repository="github"/>
