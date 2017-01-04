@@ -540,8 +540,6 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="id" type="xs:string" use="required"/>
             <xs:attribute name="title" type="xs:string"/>
-            <xs:attribute name="menu-width" type="xs:string"/>
-            <xs:attribute name="dynamic" type="boolean" default="false"/>
             <xs:attribute name="header-menus-id" type="xs:string" default="header-menus"/>
         </xs:complexType>
     </xs:element>
@@ -712,10 +710,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="panel-footer" minOccurs="0"/>
             </xs:sequence>
             <xs:attribute name="id" type="xs:string"/>
-            <xs:attribute name="dynamic" default="false" type="boolean"><xs:annotation><xs:documentation>
-                When true uses a dynamic layout, by default with jQuery Layout (see http://layout.jquery-dev.net/).
-                When false (default) uses a static HTML/CSS layout.
-            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:attributeGroup name="attlist.panel.header-footer">

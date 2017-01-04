@@ -473,11 +473,13 @@ class ScreenRenderImpl implements ScreenRender {
                     UrlInstance.copySpecialParameters(savedParameters, fullUrl.getOtherParameterMap())
                     // screen parameters
                     Map<String, ScreenDefinition.ParameterItem> parameterItemMap = fullUrl.sui.pathParameterItems
-                    if (isScreenLast && savedParameters != null && savedParameters.size() > 0 &&
-                            parameterItemMap != null && parameterItemMap.size() > 0) {
-                        for (String parmName in parameterItemMap.keySet()) {
-                            if (savedParameters.get(parmName))
-                                fullUrl.addParameter(parmName, savedParameters.get(parmName))
+                    if (isScreenLast && savedParameters != null && savedParameters.size() > 0) {
+                        if (parameterItemMap != null && parameterItemMap.size() > 0) {
+                            for (String parmName in parameterItemMap.keySet()) {
+                                if (savedParameters.get(parmName)) fullUrl.addParameter(parmName, savedParameters.get(parmName))
+                            }
+                        } else {
+                            fullUrl.addParameters(savedParameters)
                         }
                     }
                     // transition parameters
@@ -491,7 +493,7 @@ class ScreenRenderImpl implements ScreenRender {
                     }
 
                     if (!sendJsonRedirect(fullUrl)) {
-                        String fullUrlString = fullUrl.getMinimalPathUrlWithParams()
+                        String fullUrlString = fullUrl.getUrlWithParams()
                         if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
                     }
@@ -1468,7 +1470,7 @@ class ScreenRenderImpl implements ScreenRender {
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
         if (!fullUrlInstance.isPermitted()) { ec.web.response.sendError(403, "View not permitted for path ${pathNameList}"); return null }
 
-        String renderMode = fullUrlInfo.getTargetScreenRenderMode() ?: ec.web.requestParameters.renderMode ?: 'vuet'
+        // String renderMode = fullUrlInfo.getTargetScreenRenderMode() ?: ec.web.requestParameters.renderMode ?: 'vuet'
         ArrayList<String> fullPathList = fullUrlInfo.fullPathNameList
         int fullPathSize = fullPathList.size()
         ArrayList<String> extraPathList = fullUrlInfo.extraPathNameList
@@ -1481,6 +1483,16 @@ class ScreenRenderImpl implements ScreenRender {
         StringBuilder currentPath = new StringBuilder()
         List<Map> menuDataList = new LinkedList<>()
         ScreenDefinition curScreen = rootScreenDef
+
+        // special case for render modes that are always standalone: run pre-actions for all screens in path except first 2 (generally webroot, apps)
+        ArrayList<ScreenDefinition> preActionSds = new ArrayList<>(fullUrlInfo.screenPathDefList.subList(2, fullUrlInfo.screenPathDefList.size()))
+        boolean hasPreActions = false
+        int preActionSdSize = preActionSds.size()
+        for (int i = 0; i < preActionSdSize; i++) {
+            ScreenDefinition sd = (ScreenDefinition) preActionSds.get(i)
+            if (sd.preActions != null) { hasPreActions = true; break }
+        }
+        if (hasPreActions) recursiveRunActions(preActionSds.iterator(), false, true)
 
         for (int i = 0; i < (fullPathSize - 1); i++) {
             String pathItem = (String) fullPathList.get(i)
@@ -1519,16 +1531,21 @@ class ScreenRenderImpl implements ScreenRender {
                 String image = sui.menuImage
                 String imageType = sui.menuImageType
                 if (image != null && image.length() > 0 && (imageType == null || imageType.length() == 0 || "url-screen".equals(imageType)))
-                    image = buildUrl(image).url
+                    image = buildUrl(image).path
 
-                subscreensList.add([name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
-                                    path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType,
-                                    active:(nextItem == subscreensItem.name), disableLink:screenUrlInstance.disableLink,
-                                    screenStatic:sui.targetScreen.isServerStatic(renderMode)])
+                boolean active = (nextItem == subscreensItem.name)
+                Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
+                               path:screenPath, pathWithParams:pathWithParams, image:image]
+                if ("icon".equals(imageType)) itemMap.imageType = "icon"
+                if (active) itemMap.active = true
+                if (screenUrlInstance.disableLink) itemMap.disableLink = true
+                subscreensList.add(itemMap)
+                // not needed: screenStatic:sui.targetScreen.isServerStatic(renderMode)
             }
 
             menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList,
-                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu(), screenStatic:curScreen.isServerStatic(renderMode)])
+                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu()])
+            // not needed: screenStatic:curScreen.isServerStatic(renderMode)
         }
 
         String lastPathItem = (String) fullPathList.get(fullPathSize - 1)
@@ -1541,10 +1558,15 @@ class ScreenRenderImpl implements ScreenRender {
         String lastImageType = fullUrlInfo.menuImageType
         if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
             lastImage = buildUrl(lastImage).url
-        menuDataList.add([name:lastPathItem, title:fullUrlInfo.targetScreen.getDefaultMenuName(), path:lastPath,
-                          pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType,
-                          extraPathList:extraPathList, screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)])
+        String lastTitle = fullUrlInfo.targetScreen.getDefaultMenuName()
+        if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
+        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath,
+                       pathWithParams:currentPath.toString(), image:lastImage, extraPathList:extraPathList]
+        if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
+        menuDataList.add(lastMap)
+        // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
 
+        // for (Map info in menuDataList) logger.warn("menu data item: ${info}")
         return menuDataList
     }
 }
