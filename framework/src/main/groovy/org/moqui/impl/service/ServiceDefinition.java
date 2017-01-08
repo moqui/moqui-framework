@@ -19,9 +19,12 @@ import org.apache.commons.validator.routines.UrlValidator;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 import org.moqui.context.ArtifactExecutionInfo;
+import org.moqui.entity.EntityList;
+import org.moqui.entity.EntityValue;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.entity.EntityDefinition;
+import org.moqui.util.CollectionUtilities;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
@@ -794,5 +797,42 @@ public class ServiceDefinition {
         map.put("view", ArtifactExecutionInfo.AUTHZA_VIEW);
         map.put("find", ArtifactExecutionInfo.AUTHZA_VIEW);
         verbAuthzActionEnumMap = map;
+    }
+
+    public static void nestedRemoveNullsFromResultMap(Map<String, Object> result) {
+        Iterator<Map.Entry<String, Object>> iter = result.entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<String, Object> entry = iter.next();
+            Object value = entry.getValue();
+            if (value == null) { iter.remove(); continue; }
+            if (value instanceof EntityValue) {
+                entry.setValue(CollectionUtilities.removeNullsFromMap(((EntityValue) value).getMap()));
+            } else if (value instanceof EntityList) {
+                entry.setValue(((EntityList) value).getValueMapList());
+            } else if (value instanceof Collection) {
+                boolean foundEv = false;
+                Collection valCol = (Collection) value;
+                for (Object colEntry : valCol) {
+                    if (colEntry instanceof EntityValue) {
+                        foundEv = true;
+                    } else if (colEntry instanceof Map) {
+                        CollectionUtilities.removeNullsFromMap((Map) colEntry);
+                    } else {
+                        break;
+                    }
+                }
+                if (foundEv) {
+                    ArrayList newCol = new ArrayList(valCol.size());
+                    for (Object colEntry : valCol) {
+                        if (colEntry instanceof EntityValue) {
+                            newCol.add(CollectionUtilities.removeNullsFromMap(((EntityValue) colEntry).getMap()));
+                        } else {
+                            newCol.add(colEntry);
+                        }
+                    }
+                    entry.setValue(newCol);
+                }
+            }
+        }
     }
 }
