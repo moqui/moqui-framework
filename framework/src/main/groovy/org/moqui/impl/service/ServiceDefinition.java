@@ -799,6 +799,7 @@ public class ServiceDefinition {
         verbAuthzActionEnumMap = map;
     }
 
+    @SuppressWarnings("unchecked")
     public static void nestedRemoveNullsFromResultMap(Map<String, Object> result) {
         Iterator<Map.Entry<String, Object>> iter = result.entrySet().iterator();
         while (iter.hasNext()) {
