@@ -149,16 +149,18 @@ public class EntityQueryBuilder {
         connection = null;
     }
 
-    /* this is no longer used, causes problems, but might be useful at some point
+    public static String[] sanitizeChars = {".", "(", ")", "+", "-", "*", "/", "<", ">", "=", "!", " "};
     public static String sanitizeColumnName(String colName) {
-        String interim = colName.replace(".", "_").replace("(", "_").replace(")", "_").replace("+", "_").replace(" ", "");
-        while (interim.charAt(0) == '_') interim = interim.substring(1);
-        while (interim.charAt(interim.length() - 1) == '_')
-            interim = interim.substring(0, interim.length() - 1);
-        while (interim.contains("__")) interim = interim.replace("__", "_");
-        return interim;
+        StringBuilder interim = new StringBuilder(colName);
+        for (int i = 0; i < sanitizeChars.length; i++) {
+            int idx; String sanChar = sanitizeChars[i];
+            while ((idx = interim.indexOf(sanChar)) >= 0) interim.setCharAt(idx, '_');
+        }
+        while (interim.charAt(0) == '_') interim.deleteCharAt(0);
+        while (interim.charAt(interim.length() - 1) == '_') interim.deleteCharAt(interim.length() - 1);
+        int duIdx; while ((duIdx = interim.indexOf("__")) >= 0) interim.deleteCharAt(duIdx);
+        return interim.toString();
     }
-    */
 
     void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
         fieldInfo.setPreparedStatementValue(this.ps, index, value, this.mainEntityDefinition, this.efi);
@@ -174,7 +176,7 @@ public class EntityQueryBuilder {
         }
     }
 
-    public void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
+    public void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray, boolean addUniqueAs) {
         int size = fieldInfoArray.length;
         if (size > 0) {
             if (fieldOptionsArray == null && mainEntityDefinition.entityInfo.allFieldInfoArray.length == size) {
@@ -201,7 +203,7 @@ public class EntityQueryBuilder {
                 sqlTopLevel.append(fullColName);
                 if (appendCloseParen) sqlTopLevel.append(")");
                 // H2 (and perhaps other DBs?) require a unique name for each selected column, even if not used elsewhere; seems like a bug...
-                if (fullColName.contains(".")) sqlTopLevel.append(" AS ").append(fullColName.replace(".", "_"));
+                if (addUniqueAs && fullColName.contains(".")) sqlTopLevel.append(" AS ").append(sanitizeColumnName(fullColName));
             }
 
         } else {
@@ -209,7 +211,5 @@ public class EntityQueryBuilder {
         }
     }
 
-    public final EntityDefinition getMainEntityDefinition() {
-        return mainEntityDefinition;
-    }
+    public final EntityDefinition getMainEntityDefinition() { return mainEntityDefinition; }
 }

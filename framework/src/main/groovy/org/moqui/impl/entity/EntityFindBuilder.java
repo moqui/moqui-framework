@@ -78,7 +78,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         if (isGroupBy || (isDistinct && fiaLength > 0)) {
             sqlTopLevel.append("COUNT(*) FROM (SELECT ");
             if (isDistinct) sqlTopLevel.append("DISTINCT ");
-            makeSqlSelectFields(fieldInfoArray, fieldOptionsArray);
+            makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, true);
             // NOTE: this will be closed by closeCountSubSelect()
         } else {
             if (isDistinct) {

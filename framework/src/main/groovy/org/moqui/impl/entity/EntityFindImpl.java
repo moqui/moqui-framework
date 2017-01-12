@@ -56,7 +56,7 @@ public class EntityFindImpl extends EntityFindBase {
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
 
         // SELECT fields
-        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray);
+        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, false);
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoArray);
 
@@ -122,7 +122,7 @@ public class EntityFindImpl extends EntityFindBase {
         if (getDistinct()) efb.makeDistinct();
 
         // select fields
-        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray);
+        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, false);
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoArray);
 
