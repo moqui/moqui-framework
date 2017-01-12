@@ -214,9 +214,13 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public void runAsync(@Nonnull Closure closure) { runInWorkerThread(closure); }
-    public void runInWorkerThread(@Nonnull Closure closure) {
+    public void runAsync(@Nonnull Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure);
+        ecfi.workerPool.submit(runnable);
+    }
+    /** Uses the ECFI constructor for ThreadPoolRunnable so does NOT use the current ECI in the separate thread */
+    public void runInWorkerThread(@Nonnull Closure closure) {
+        ThreadPoolRunnable runnable = new ThreadPoolRunnable(ecfi, closure);
         ecfi.workerPool.submit(runnable);
     }
 
@@ -242,22 +246,23 @@ public class ExecutionContextImpl implements ExecutionContext {
         private ExecutionContextImpl threadEci;
         private ExecutionContextFactoryImpl ecfi;
         private Closure closure;
-
+        /** With this constructor (passing ECI) the ECI is used in the separate thread */
         public ThreadPoolRunnable(ExecutionContextImpl eci, Closure closure) {
             threadEci = eci;
             ecfi = eci.ecfi;
             this.closure = closure;
         }
 
+        /** With this constructor (passing ECFI) a new ECI is created for the separate thread */
         public ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, Closure closure) {
             this.ecfi = ecfi;
-            threadEci = ecfi.getEci();
+            threadEci = null;
             this.closure = closure;
         }
 
         @Override
         public void run() {
-            ecfi.useExecutionContextInThread(threadEci);
+            if (threadEci != null) ecfi.useExecutionContextInThread(threadEci);
             try {
                 closure.call();
             } catch (Throwable t) {
