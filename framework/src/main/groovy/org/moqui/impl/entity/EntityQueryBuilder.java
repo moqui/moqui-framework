@@ -197,8 +197,11 @@ public class EntityQueryBuilder {
                         appendCloseParen = true;
                     }
                 }
-                sqlTopLevel.append(fi.getFullColumnName());
+                String fullColName = fi.getFullColumnName();
+                sqlTopLevel.append(fullColName);
                 if (appendCloseParen) sqlTopLevel.append(")");
+                // H2 (and perhaps other DBs?) require a unique name for each selected column, even if not used elsewhere; seems like a bug...
+                if (fullColName.contains(".")) sqlTopLevel.append(" AS ").append(fullColName.replace(".", "_"));
             }
 
         } else {

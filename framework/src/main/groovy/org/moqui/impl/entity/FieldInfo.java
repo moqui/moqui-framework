@@ -543,4 +543,6 @@ public class FieldInfo {
             throw new EntityException("Error while setting value for field " + entityName + "." + name + ": " + e.toString(), e);
         }
     }
+
+    @Override public String toString() { return name; }
 }
