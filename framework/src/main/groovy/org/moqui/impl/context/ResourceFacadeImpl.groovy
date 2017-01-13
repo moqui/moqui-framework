@@ -50,7 +50,7 @@ import javax.xml.transform.sax.SAXResult
 import javax.xml.transform.stream.StreamSource
 
 @CompileStatic
-public class ResourceFacadeImpl implements ResourceFacade {
+class ResourceFacadeImpl implements ResourceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
 
     protected final ExecutionContextFactoryImpl ecfi
@@ -71,7 +71,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>()
     protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>()
     protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager()
-    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory = null
+    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory
 
     protected final Map<String, Repository> contentRepositories = new HashMap<>()
     protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<Map<String, Session>>()
@@ -134,6 +134,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
             } else {
                 logger.warn("Could not find xsl-fo-handler-factory with name ${resourceFacadeNode.attribute("xsl-fo-handler-factory")}")
             }
+        } else {
+            xslFoHandlerFactory = null
         }
 
         // Setup content repositories
@@ -253,7 +255,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         if (cache) {
             String cachedText
             if (textLocationCache instanceof MCache) {
-                MCache<String, String> mCache = (MCache) textLocationCache;
+                MCache<String, String> mCache = (MCache) textLocationCache
                 // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
                 //     updated time is older/less than rr.lastModified)
                 cachedText = (String) mCache.get(location, textRr.getLastModified())
@@ -371,7 +373,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
             return script(location, method)
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -416,7 +418,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
             return conditionInternal(expression, debugLocation, ec)
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -446,7 +448,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
             return expressionInternal(expr, debugLocation, ec)
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -492,7 +494,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 throw new IllegalArgumentException("Error in string expression [${expression}] from ${debugLocation}", e)
             }
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -544,15 +546,11 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // The memory it prevent GC depend on the fo file size and the thread pool size. So use a separate thread to workaround.
         // https://issues.apache.org/jira/browse/XALANJ-2195
         BaseException transformException = null
-        Thread transThread = new Thread("XSL-FO Transform") {
-            @Override public void run() {
-                try {
-                    transformer.transform(xslFoSrc, new SAXResult(contentHandler))
-                } catch (Throwable t) {
-                    transformException = new BaseException("Error transforming XSL-FO to ${contentType}", t)
-                }
-            }
-        }
+        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi.getEci(), {
+            try { transformer.transform(xslFoSrc, new SAXResult(contentHandler)) }
+            catch (Throwable t) { transformException = new BaseException("Error transforming XSL-FO to ${contentType}", t) }
+        })
+        Thread transThread = new Thread(runnable)
         transThread.start()
         transThread.join()
         if (transformException != null) throw transformException
@@ -563,12 +561,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
         protected ExecutionContextFactoryImpl ecfi
         protected URIResolver defaultResolver
 
-        public LocalResolver(ExecutionContextFactoryImpl ecfi, URIResolver defaultResolver) {
+        LocalResolver(ExecutionContextFactoryImpl ecfi, URIResolver defaultResolver) {
             this.ecfi = ecfi
             this.defaultResolver = defaultResolver
         }
 
-        public Source resolve(String href, String base) {
+        Source resolve(String href, String base) {
             // try plain href
             ResourceReference rr = ecfi.resourceFacade.getLocationReference(href)
 

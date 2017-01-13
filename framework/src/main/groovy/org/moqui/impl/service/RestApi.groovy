@@ -18,6 +18,7 @@ import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityValue
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
@@ -28,6 +29,7 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.util.RestSchemaUtil
 import org.moqui.jcache.MCache
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 import org.moqui.util.SystemBinding
 import org.slf4j.Logger
@@ -236,6 +238,7 @@ class RestApi {
 
             try {
                 Map result = ec.getService().sync().name(serviceName).parameters(ec.context).call()
+                ServiceDefinition.nestedRemoveNullsFromResultMap(result)
                 return new RestResult(result, null)
             } finally {
                 if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
@@ -358,7 +361,8 @@ class RestApi {
                     if (masterName) {
                         return new RestResult(ef.oneMaster(masterName), null)
                     } else {
-                        return new RestResult(ef.one(), null)
+                        EntityValue val = ef.one()
+                        return new RestResult(val != null ? CollectionUtilities.removeNullsFromMap(val.getMap()) : null, null)
                     }
                 } else if (operation == 'list') {
                     EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
@@ -378,7 +382,7 @@ class RestApi {
                     if (masterName) {
                         return new RestResult(ef.listMaster(masterName), headers)
                     } else {
-                        return new RestResult(ef.list(), headers)
+                        return new RestResult(ef.list().getValueMapList(), headers)
                     }
                 } else if (operation == 'count') {
                     EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)

@@ -214,10 +214,14 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public void runAsync(@Nonnull Closure closure) { runInWorkerThread(closure); }
-    public void runInWorkerThread(@Nonnull Closure closure) {
+    public void runAsync(@Nonnull Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure);
-        ecfi.workerPool.execute(runnable);
+        ecfi.workerPool.submit(runnable);
+    }
+    /** Uses the ECFI constructor for ThreadPoolRunnable so does NOT use the current ECI in the separate thread */
+    public void runInWorkerThread(@Nonnull Closure closure) {
+        ThreadPoolRunnable runnable = new ThreadPoolRunnable(ecfi, closure);
+        ecfi.workerPool.submit(runnable);
     }
 
     @Override
@@ -239,43 +243,35 @@ public class ExecutionContextImpl implements ExecutionContext {
     public String toString() { return "ExecutionContext"; }
 
     public static class ThreadPoolRunnable implements Runnable {
+        private ExecutionContextImpl threadEci;
         private ExecutionContextFactoryImpl ecfi;
-        private String threadUsername;
         private Closure closure;
-
+        /** With this constructor (passing ECI) the ECI is used in the separate thread */
         public ThreadPoolRunnable(ExecutionContextImpl eci, Closure closure) {
+            threadEci = eci;
             ecfi = eci.ecfi;
-            threadUsername = eci.userFacade.getUsername();
             this.closure = closure;
         }
 
-        public ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, String username, Closure closure) {
+        /** With this constructor (passing ECFI) a new ECI is created for the separate thread */
+        public ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, Closure closure) {
             this.ecfi = ecfi;
-            threadUsername = username;
+            threadEci = null;
             this.closure = closure;
         }
 
         @Override
         public void run() {
-            ExecutionContextImpl threadEci = null;
+            if (threadEci != null) ecfi.useExecutionContextInThread(threadEci);
             try {
-                threadEci = ecfi.getEci();
-                if (threadUsername != null && threadUsername.length() > 0)
-                    threadEci.userFacade.internalLoginUser(threadUsername);
                 closure.call();
             } catch (Throwable t) {
                 loggerDirect.error("Error in EC thread pool runner", t);
-            } finally {
-                if (threadEci != null) threadEci.destroy();
             }
         }
 
         public ExecutionContextFactoryImpl getEcfi() { return ecfi; }
         public void setEcfi(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi; }
-
-        public String getThreadUsername() { return threadUsername; }
-        public void setThreadUsername(String threadUsername) { this.threadUsername = threadUsername; }
-
         public Closure getClosure() { return closure; }
         public void setClosure(Closure closure) { this.closure = closure; }
     }

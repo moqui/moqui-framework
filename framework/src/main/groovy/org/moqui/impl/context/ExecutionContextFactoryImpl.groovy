@@ -714,7 +714,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** This is called when message received from topic (possibly distributed) */
     void notifyNotificationMessageListeners(NotificationMessageImpl nmi) {
         // process notifications in the worker thread pool
-        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(this, null, {
+        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(this, {
             int nmlSize = registeredNotificationMessageListeners.size()
             for (int i = 0; i < nmlSize; i++) {
                 NotificationMessageListener nml = (NotificationMessageListener) registeredNotificationMessageListeners.get(i)

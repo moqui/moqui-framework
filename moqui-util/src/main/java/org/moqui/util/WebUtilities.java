@@ -104,7 +104,9 @@ public class WebUtilities {
                 if (valLength == 0) {
                     reqParmMap.put(entry.getKey(), null);
                 } else if (valLength == 1) {
-                    reqParmMap.put(entry.getKey(), valArray[0]);
+                    String singleVal = valArray[0];
+                    if ("\u00a0".equals(singleVal)) reqParmMap.put(entry.getKey(), null);
+                    else reqParmMap.put(entry.getKey(), singleVal);
                 } else {
                     reqParmMap.put(entry.getKey(), Arrays.asList(valArray));
                 }

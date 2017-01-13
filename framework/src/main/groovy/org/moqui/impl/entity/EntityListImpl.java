@@ -59,8 +59,7 @@ public class EntityListImpl implements EntityList {
         return efiTransient;
     }
 
-    @Override
-    public EntityValue getFirst() { return valueList != null && valueList.size() > 0 ? valueList.get(0) : null; }
+    @Override public EntityValue getFirst() { return valueList != null && valueList.size() > 0 ? valueList.get(0) : null; }
 
     @Override
     public EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment) {
@@ -112,11 +111,7 @@ public class EntityListImpl implements EntityList {
         return filterByDate(fromDateName, thruDateName, moment);
     }
 
-    @Override
-    public EntityList filterByAnd(Map<String, Object> fields) {
-        return filterByAnd(fields, true);
-    }
-
+    @Override public EntityList filterByAnd(Map<String, Object> fields) { return filterByAnd(fields, true); }
     @Override
     public EntityList filterByAnd(Map<String, Object> fields, Boolean include) {
         if (fromCache) return this.cloneList().filterByAnd(fields, include);
@@ -198,10 +193,7 @@ public class EntityListImpl implements EntityList {
         return newList;
     }
 
-    @Override
-    public EntityList removeByAnd(Map<String, Object> fields) {
-        return filterByAnd(fields, false);
-    }
+    @Override public EntityList removeByAnd(Map<String, Object> fields) { return filterByAnd(fields, false); }
 
     @Override
     public EntityList filterByCondition(EntityCondition condition, Boolean include) {
@@ -271,15 +263,11 @@ public class EntityListImpl implements EntityList {
 
     }
 
-    @Override
-    public Integer getOffset() { return this.offset; }
-    @Override
-    public Integer getLimit() { return this.limit; }
+    @Override public Integer getOffset() { return this.offset; }
+    @Override public Integer getLimit() { return this.limit; }
 
-    @Override
-    public int getPageIndex() { return (offset != null ? offset : 0) / getPageSize(); }
-    @Override
-    public int getPageSize() { return limit != null ? limit : 20; }
+    @Override public int getPageIndex() { return (offset != null ? offset : 0) / getPageSize(); }
+    @Override public int getPageSize() { return limit != null ? limit : 20; }
 
     @Override
     public EntityList orderByFields(List<String> fieldNames) {
@@ -368,9 +356,19 @@ public class EntityListImpl implements EntityList {
     }
 
     @Override
-    public Object clone() {
-        return this.cloneList();
+    public ArrayList<Map<String, Object>> getValueMapList() {
+        int elSize = valueList.size();
+        ArrayList<Map<String, Object>> al = new ArrayList<>(elSize);
+        for (int i = 0; i < elSize; i++) {
+            EntityValue ev = valueList.get(i);
+            Map<String, Object> evMap = ev.getMap();
+            CollectionUtilities.removeNullsFromMap(evMap);
+            al.add(evMap);
+        }
+        return al;
     }
+
+    @Override public Object clone() { return this.cloneList(); }
 
     @Override
     public EntityList cloneList() {
@@ -396,32 +394,14 @@ public class EntityListImpl implements EntityList {
         for (EntityValue ev : valueList) if (ev instanceof EntityValueBase) ((EntityValueBase) ev).setFromCache();
     }
 
-    @Override
-    public boolean isFromCache() {
-        return fromCache;
-    }
+    @Override public boolean isFromCache() { return fromCache; }
+    @Override public int size() { return valueList.size(); }
+    @Override public boolean isEmpty() { return valueList.isEmpty(); }
+    @Override public boolean contains(Object o) { return valueList.contains(o); }
+    @Override public Object[] toArray() { return valueList.toArray(); }
 
-    @Override
-    public int size() {
-        return valueList.size();
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return valueList.isEmpty();
-    }
-
-    @Override
-    public boolean contains(Object o) {
-        return valueList.contains(o);
-    }
-
-    @Override
-    public Object[] toArray() { return valueList.toArray(); }
-
-    @Override
     @SuppressWarnings("SuspiciousToArrayCall")
-    public <T> T[] toArray(T[] ts) { return valueList.toArray(ts); }
+    @Override public <T> T[] toArray(T[] ts) { return valueList.toArray(ts); }
 
     @Override
     public boolean add(EntityValue e) {
@@ -435,10 +415,7 @@ public class EntityListImpl implements EntityList {
         return valueList.remove(o);
     }
 
-    @Override
-    public boolean containsAll(Collection<?> objects) {
-        return valueList.containsAll(objects);
-    }
+    @Override public boolean containsAll(Collection<?> objects) { return valueList.containsAll(objects); }
 
     @Override
     public boolean addAll(Collection<? extends EntityValue> es) {
@@ -470,10 +447,7 @@ public class EntityListImpl implements EntityList {
         valueList.clear();
     }
 
-    @Override
-    public EntityValue get(int i) {
-        return valueList.get(i);
-    }
+    @Override public EntityValue get(int i) { return valueList.get(i); }
 
     @Override
     public EntityValue set(int i, EntityValue e) {
@@ -493,35 +467,12 @@ public class EntityListImpl implements EntityList {
         return valueList.remove(i);
     }
 
-    @Override
-    public int indexOf(Object o) {
-        return valueList.indexOf(o);
-    }
-
-    @Override
-    public int lastIndexOf(Object o) {
-        return valueList.lastIndexOf(o);
-    }
-
-    @Override
-    public ListIterator<EntityValue> listIterator() {
-        return valueList.listIterator();
-    }
-
-    @Override
-    public ListIterator<EntityValue> listIterator(int i) {
-        return valueList.listIterator(i);
-    }
-
-    @Override
-    public List<EntityValue> subList(int start, int end) {
-        return valueList.subList(start, end);
-    }
-
-    @Override
-    public String toString() {
-        return valueList.toString();
-    }
+    @Override public int indexOf(Object o) { return valueList.indexOf(o); }
+    @Override public int lastIndexOf(Object o) { return valueList.lastIndexOf(o); }
+    @Override public ListIterator<EntityValue> listIterator() { return valueList.listIterator(); }
+    @Override public ListIterator<EntityValue> listIterator(int i) { return valueList.listIterator(i); }
+    @Override public List<EntityValue> subList(int start, int end) { return valueList.subList(start, end); }
+    @Override public String toString() { return valueList.toString(); }
 
     @SuppressWarnings("unused")
     public static class EmptyEntityList implements EntityList {
@@ -564,114 +515,59 @@ public class EntityListImpl implements EntityList {
         @Override public EntityList filterByLimit(String inputFieldsMapName, boolean alwaysPaginate) {
             return this;
         }
-        @Override public Integer getOffset() {
-            return this.offset;
-        }
-        @Override public Integer getLimit() {
-            return this.limit;
-        }
+        @Override public Integer getOffset() { return this.offset; }
+        @Override public Integer getLimit() { return this.limit; }
         @Override public int getPageIndex() { return (offset != null ? offset : 0) / getPageSize(); }
         @Override public int getPageSize() { return limit != null ? limit : 20; }
-        @Override public EntityList orderByFields(List<String> fieldNames) {
-            return this;
-        }
-        @Override public int indexMatching(Map valueMap) {
-            return -1;
-        }
+        @Override public EntityList orderByFields(List<String> fieldNames) { return this; }
+        @Override public int indexMatching(Map valueMap) { return -1; }
         @Override public void move(int fromIndex, int toIndex) {
             throw new IllegalArgumentException("EmptyEntityList does not support move"); }
         @Override public EntityList addIfMissing(EntityValue value) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
         @Override public EntityList addAllIfMissing(EntityList el) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
-        @Override public Iterator<EntityValue> iterator() {
-            return emptyIterator;
-        }
-        @Override public Object clone() {
-            return this.cloneList();
-        }
-        @Override public int writeXmlText(Writer writer, String prefix, int dependentLevels) {
-            return 0;
-        }
-        @Override public List<Map<String, Object>> getPlainValueList(int dependentLevels) {
-            return new ArrayList<>();
-        }
-        @Override public List<Map<String, Object>> getMasterValueList(String name) {
-            return new ArrayList<>();
-        }
-        @Override public EntityList cloneList() {
-            return this;
-        }
+        @Override public Iterator<EntityValue> iterator() { return emptyIterator; }
+        @Override public Object clone() { return this.cloneList(); }
+        @Override public int writeXmlText(Writer writer, String prefix, int dependentLevels) { return 0; }
+        @Override public List<Map<String, Object>> getPlainValueList(int dependentLevels) { return new ArrayList<>(); }
+        @Override public List<Map<String, Object>> getMasterValueList(String name) { return new ArrayList<>(); }
+        @Override public ArrayList<Map<String, Object>> getValueMapList() { return new ArrayList<>(); }
+        @Override public EntityList cloneList() { return this; }
         @Override public void setFromCache() { }
-        @Override public boolean isFromCache() {
-            return false;
-        }
-        @Override public int size() {
-            return 0;
-        }
-        @Override public boolean isEmpty() {
-            return true;
-        }
-        @Override public boolean contains(Object o) {
-            return false;
-        }
+        @Override public boolean isFromCache() { return false; }
+        @Override public int size() { return 0; }
+        @Override public boolean isEmpty() { return true; }
+        @Override public boolean contains(Object o) { return false; }
         @SuppressWarnings("unchecked")
-        @Override public Object[] toArray() {
-            return new Object[0];
-        }
+        @Override public Object[] toArray() { return new Object[0]; }
         @SuppressWarnings("unchecked")
         @Override public <T> T[] toArray(T[] ts) { return ((T[]) new EntityValue[0]); }
         @Override public boolean add(EntityValue e) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
-        @Override public boolean remove(Object o) {
-            return false;
-        }
-        @Override public boolean containsAll(Collection<?> objects) {
-            return false;
-        }
+        @Override public boolean remove(Object o) { return false; }
+        @Override public boolean containsAll(Collection<?> objects) { return false; }
         @Override public boolean addAll(Collection<? extends EntityValue> es) {
             throw new IllegalArgumentException("EmptyEntityList does not support addAll"); }
         @Override public boolean addAll(int i, Collection<? extends EntityValue> es) {
             throw new IllegalArgumentException("EmptyEntityList does not support addAll"); }
-        @Override public boolean removeAll(Collection<?> objects) {
-            return false;
-        }
-        @Override public boolean retainAll(Collection<?> objects) {
-            return false;
-        }
+        @Override public boolean removeAll(Collection<?> objects) { return false; }
+        @Override public boolean retainAll(Collection<?> objects) { return false; }
         @Override public void clear() { }
-        @Override public EntityValue get(int i) {
-            return null;
-        }
+        @Override public EntityValue get(int i) { return null; }
         @Override public EntityValue set(int i, EntityValue e) {
             throw new IllegalArgumentException("EmptyEntityList does not support set"); }
         @Override public void add(int i, EntityValue e) {
             throw new IllegalArgumentException("EmptyEntityList does not support add"); }
-        @Override public EntityValue remove(int i) {
-            return null;
-        }
-        @Override public int indexOf(Object o) {
-            return -1;
-        }
-        @Override public int lastIndexOf(Object o) {
-            return -1;
-        }
-        @Override public ListIterator<EntityValue> listIterator() {
-            return emptyIterator;
-        }
-        @Override public ListIterator<EntityValue> listIterator(int i) {
-            return emptyIterator;
-        }
-        @Override public List<EntityValue> subList(int start, int end) {
-            return this;
-        }
-        @Override public String toString() {
-            return "[]";
-        }
+        @Override public EntityValue remove(int i) { return null; }
+        @Override public int indexOf(Object o) { return -1; }
+        @Override public int lastIndexOf(Object o) { return -1; }
+        @Override public ListIterator<EntityValue> listIterator() { return emptyIterator; }
+        @Override public ListIterator<EntityValue> listIterator(int i) { return emptyIterator; }
+        @Override public List<EntityValue> subList(int start, int end) { return this; }
+        @Override public String toString() { return "[]"; }
 
-        public static ListIterator getEmptyIterator() {
-            return emptyIterator;
-        }
+        public static ListIterator getEmptyIterator() { return emptyIterator; }
         private static final ListIterator<EntityValue> emptyIterator = new LinkedList<EntityValue>().listIterator();
         protected Integer offset = null;
         protected Integer limit = null;

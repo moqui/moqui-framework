@@ -503,10 +503,10 @@ abstract class EntityFindBase implements EntityFind {
         if (fieldToSelect.contains(",")) {
             for (String ftsPart in fieldToSelect.split(",")) {
                 String selectName = ftsPart.trim()
-                if (getEntityDef().isField(selectName)) fieldsToSelect.add(selectName)
+                if (getEntityDef().isField(selectName) && !fieldsToSelect.contains(selectName)) fieldsToSelect.add(selectName)
             }
         } else {
-            if (getEntityDef().isField(fieldToSelect)) fieldsToSelect.add(fieldToSelect)
+            if (getEntityDef().isField(fieldToSelect) && !fieldsToSelect.contains(fieldToSelect)) fieldsToSelect.add(fieldToSelect)
         }
         return this
     }
@@ -945,7 +945,7 @@ abstract class EntityFindBase implements EntityFind {
                     String orderByField = (String) orderByExpanded.get(i)
                     //EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByField)
                     //localFts.add(foo.fieldName)
-                    fieldsToSelect.add(orderByField)
+                    if (!fieldsToSelect.contains(orderByField)) fieldsToSelect.add(orderByField)
                 }
             }
 
@@ -1045,24 +1045,29 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     EntityListIterator iterator() throws EntityException {
         ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
-            return iteratorInternal(ec)
+            EntityDefinition ed = getEntityDef()
+
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "iterator")
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            try {
+                return iteratorInternal(ec, ed)
+            } finally {
+                aefi.pop(aei)
+            }
         } finally {
             if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
-    protected EntityListIterator iteratorInternal(ExecutionContextImpl ec) throws EntityException {
-        EntityDefinition ed = getEntityDef()
+    protected EntityListIterator iteratorInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
-
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "iterator")
-        aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", true)
@@ -1088,7 +1093,7 @@ abstract class EntityFindBase implements EntityFind {
             for (String orderByField in orderByExpanded) {
                 //EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByField)
                 //fieldsToSelect.add(foo.fieldName)
-                fieldsToSelect.add(orderByField)
+                if (!fieldsToSelect.contains(orderByField)) fieldsToSelect.add(orderByField)
             }
         }
 
@@ -1152,8 +1157,6 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", false)
-        // pop the ArtifactExecutionInfo, also counts artifact hit
-        aefi.pop(aei)
 
         return eli
     }
@@ -1165,22 +1168,27 @@ abstract class EntityFindBase implements EntityFind {
     @Override
     long count() throws EntityException {
         ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
-            return countInternal(ec)
+            EntityDefinition ed = getEntityDef()
+
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            try {
+                return countInternal(ec, ed)
+            } finally {
+                aefi.pop(aei)
+            }
         } finally {
             if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
-    protected long countInternal(ExecutionContextImpl ec) throws EntityException {
-        EntityDefinition ed = getEntityDef()
+    protected long countInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
-
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipView)
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", true)
@@ -1229,6 +1237,7 @@ abstract class EntityFindBase implements EntityFind {
                 }
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
             }
+            // logger.warn("fieldsToSelect: ${fieldsToSelect} fieldInfoArray: ${fieldInfoArray}")
 
             if (isViewEntity) {
                 MNode entityConditionNode = ed.entityConditionNode
@@ -1253,8 +1262,6 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", false)
-        // pop the ArtifactExecutionInfo, also counts artifact hit
-        aefi.pop(aei)
 
         return count
     }
