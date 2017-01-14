@@ -29,10 +29,13 @@ import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.WebFacadeImpl
+import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import javax.servlet.http.HttpServletResponse
 
 @CompileStatic
 class ScreenDefinition {
@@ -287,9 +290,7 @@ class ScreenDefinition {
     boolean isStandalone() { return standalone }
     boolean isServerStatic(String renderMode) { return serverStatic != null && (serverStatic.contains('all') || serverStatic.contains(renderMode)) }
 
-    String getDefaultMenuName() {
-        return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, sfi.ecfi)
-    }
+    String getDefaultMenuName() { return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, sfi.ecfi) }
     static String getPrettyMenuName(String menuName, String location, ExecutionContextFactoryImpl ecfi) {
         if (menuName == null || menuName.isEmpty()) {
             String filename = location.substring(location.lastIndexOf("/")+1, location.length()-4)
@@ -557,15 +558,10 @@ class ScreenDefinition {
         String getName() { return name }
         Object getValue(ExecutionContext ec) {
             Object value = null
-            if (fromFieldGroovy != null) {
-                value = InvokerHelper.createScript(fromFieldGroovy, ec.contextBinding).run()
-            }
+            if (fromFieldGroovy != null) { value = InvokerHelper.createScript(fromFieldGroovy, ec.contextBinding).run() }
             if (value == null) {
-                if (valueGroovy != null) {
-                    value = InvokerHelper.createScript(valueGroovy, ec.contextBinding).run()
-                } else {
-                    value = valueString
-                }
+                if (valueGroovy != null) { value = InvokerHelper.createScript(valueGroovy, ec.contextBinding).run() }
+                else { value = valueString }
             }
             if (value == null) value = ec.context.getByString(name)
             if (value == null && ec.web != null) value = ec.web.parameters.get(name)
@@ -596,9 +592,7 @@ class ScreenDefinition {
         protected boolean readOnly = false
         protected boolean requireSessionToken = true
 
-        protected TransitionItem(ScreenDefinition parentScreen) {
-            this.parentScreen = parentScreen
-        }
+        protected TransitionItem(ScreenDefinition parentScreen) { this.parentScreen = parentScreen }
 
         TransitionItem(MNode transitionNode, ScreenDefinition parentScreen) {
             this.parentScreen = parentScreen
@@ -766,7 +760,8 @@ class ScreenDefinition {
         // NOTE: runs pre-actions too, see sri.recursiveRunTransition() call in sri.internalRender()
         ResponseItem run(ScreenRenderImpl sri) {
             ExecutionContextImpl ec = sri.ec
-            ec.contextStack.put("sri", sri)
+            ContextStack context = ec.contextStack
+            context.put("sri", sri)
             WebFacade wf = ec.getWeb()
             if (wf == null) throw new BaseException("Cannot run actions transition outside of a web request")
 
@@ -781,6 +776,18 @@ class ScreenDefinition {
                     if (formInstance.isList()) {
                         ScreenForm.FormListRenderInfo renderInfo = formInstance.makeFormListRenderInfo()
                         Object listObj = renderInfo.getListObject(true)
+
+                        HttpServletResponse response = wf.response
+                        String listName = formInstance.formNode.attribute("list")
+                        if (context.get(listName.concat("Count")) != null) {
+                            response.addIntHeader('X-Total-Count', context.get(listName.concat("Count")) as int)
+                            response.addIntHeader('X-Page-Index', context.get(listName.concat("PageIndex")) as int)
+                            response.addIntHeader('X-Page-Size', context.get(listName.concat("PageSize")) as int)
+                            response.addIntHeader('X-Page-Max-Index', context.get(listName.concat("PageMaxIndex")) as int)
+                            response.addIntHeader('X-Page-Range-Low', context.get(listName.concat("PageRangeLow")) as int)
+                            response.addIntHeader('X-Page-Range-High', context.get(listName.concat("PageRangeHigh")) as int)
+                        }
+
                         wf.sendJsonResponse(listObj)
                     }
                     // TODO: else support form-single data prep once something is added
@@ -798,7 +805,7 @@ class ScreenDefinition {
                 if (actions != null) {
                     actions.run(ec)
                     // use entire ec.context to get values from always-actions and pre-actions
-                    wf.sendJsonResponse(ContextJavaUtil.unwrapMap(ec.contextStack))
+                    wf.sendJsonResponse(ContextJavaUtil.unwrapMap(context))
                 } else {
                     wf.sendJsonResponse(new HashMap())
                 }

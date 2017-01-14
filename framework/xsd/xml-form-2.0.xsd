@@ -127,6 +127,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="background-message" type="xs:string">
                 <xs:annotation><xs:documentation>After the form is submitted in the background show this message in a dialog.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="server-static" type="xs:string">
+                <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -225,6 +228,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="dynamic" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal
                     definition will be built up each time it is used instead of only when first referred to.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="server-static" type="xs:string">
+                <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>

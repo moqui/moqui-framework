@@ -15,6 +15,7 @@ Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
 
 - Improved exception (throwable) handling for service jobs, now handled like other errors and don't break the scheduler
 - Fixed field.@hide attribute not working with runtime conditions, now evaluated each time a form-list is rendered
+- Fixed long standing issue with distinct counts and limited selected fields, now uses a distinct sub-select under a count select 
 
 ## Release 2.0.0 - 24 Nov 2016
 

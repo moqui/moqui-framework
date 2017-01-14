@@ -795,7 +795,7 @@ class ScreenUrlInfo {
             return sui.getInCurrentScreenPath(currentPathNameList)
         }
         boolean isScreenUrl() {
-            if (curTargetTransition != null && curTargetTransition.defaultResponse != null &&
+            if (getTargetTransition() != null && curTargetTransition.defaultResponse != null &&
                     ("plain".equals(curTargetTransition.defaultResponse.urlType) || "none".equals(curTargetTransition.defaultResponse.type))) return false
             return sui.targetScreen != null
         }
