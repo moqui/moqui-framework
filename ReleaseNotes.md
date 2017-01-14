@@ -505,6 +505,14 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
+- PDF, Office, etc document indexing for wiki attachments (using Apache Tika)
+- Wiki page version history with full content history diff, etc; store just differences, lib for that?
+  - display version compare with http://www.mergely.com/
+  - https://code.google.com/archive/p/java-diff-utils/
+    - compile group: 'com.googlecode.java-diff-utils', name: 'diffutils', version: '1.3.0'
+  - https://bitbucket.org/cowwoc/google-diff-match-patch/
+    - compile group: 'org.bitbucket.cowwoc', name: 'diff-match-patch', version: '1.1'
+
 - Option for transition to only mount if all response URLs for screen paths exist
 
 - Saved form-list Finds
