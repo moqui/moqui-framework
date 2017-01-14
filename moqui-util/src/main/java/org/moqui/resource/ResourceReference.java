@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.sql.Timestamp;
 import java.util.*;
 
 public abstract class ResourceReference implements Serializable {
@@ -236,7 +237,6 @@ public abstract class ResourceReference implements Serializable {
                     newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc));
                 childRef = createNew(newDirectoryLoc + "/" + relativePath);
             }
-
         } else {
             // put it in the cache before returning, but don't cache the literal reference
             getSubContentRefByPath().put(relativePath, childRef);
@@ -314,9 +314,7 @@ public abstract class ResourceReference implements Serializable {
                 ResourceReference subRef = internalFindChildDir(childRef, childDirName);
                 if (subRef != null) return subRef;
             }
-
         }
-
         return null;
     }
 
@@ -333,7 +331,6 @@ public abstract class ResourceReference implements Serializable {
             if (childRef.isFile() && (childRef.getFileName().equals(childFilename) || childRef.getFileName().startsWith(childFilename + "."))) {
                 return childRef;
             }
-
         }
 
         for (ResourceReference childRef : childEntries) {
@@ -341,9 +338,7 @@ public abstract class ResourceReference implements Serializable {
                 ResourceReference subRef = internalFindChildFile(childRef, childFilename);
                 if (subRef != null) return subRef;
             }
-
         }
-
         return null;
     }
 
@@ -436,7 +431,6 @@ public abstract class ResourceReference implements Serializable {
     }
     public static String stripLocationPrefix(String location) {
         if (location == null || location.isEmpty()) return "";
-
         // first remove colon (:) and everything before it
         StringBuilder strippedLocation = new StringBuilder(location);
         int colonIndex = strippedLocation.indexOf(":");
@@ -445,20 +439,51 @@ public abstract class ResourceReference implements Serializable {
         } else if (colonIndex > 0) {
             strippedLocation.delete(0, colonIndex+1);
         }
-
         // delete all leading forward slashes
         while (strippedLocation.length() > 0 && strippedLocation.charAt(0) == '/') strippedLocation.deleteCharAt(0);
         return strippedLocation.toString();
     }
     public static String getLocationPrefix(String location) {
         if (location == null || location.isEmpty()) return "";
-
         if (location.contains("://")) {
             return location.substring(0, location.indexOf(":")) + "://";
         } else if (location.contains(":")) {
             return location.substring(0, location.indexOf(":")) + ":";
         } else {
             return "";
+        }
+    }
+
+    public boolean supportsVersion() { return false; }
+    public Version getVersion(String versionName) { return null; }
+    public Version getRootVersion() { return null; }
+    public ArrayList<Version> getVersionHistory() { return new ArrayList<>(); }
+    public ArrayList<Version> getNextVersions(String versionName) { return new ArrayList<>(); }
+    public InputStream openStream(String versionName) { return null; }
+    public String getText(String versionName) { return null; }
+
+    public static class Version {
+        private final ResourceReference ref;
+        private final String versionName, previousVersionName, userId;
+        private final Timestamp versionDate;
+        public Version(ResourceReference ref, String versionName, String previousVersionName, String userId, Timestamp versionDate) {
+            this.ref = ref; this.versionName = versionName; this.previousVersionName = previousVersionName;
+            this.userId = userId; this.versionDate = versionDate;
+        }
+        public ResourceReference getRef() { return ref; }
+        public String getVersionName() { return versionName; }
+        public String getPreviousVersionName() { return previousVersionName; }
+        public Version getPreviousVersion() { return ref.getVersion(previousVersionName); }
+        public ArrayList<Version> getNextVersions() { return ref.getNextVersions(versionName); }
+        public String getUserId() { return userId; }
+        public Timestamp getVersionDate() { return versionDate; }
+        public InputStream openStream() { return ref.openStream(versionName); }
+        public String getText() { return ref.getText(versionName); }
+        public Map<String, Object> getMap() {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("versionName", versionName); map.put("previousVersionName", previousVersionName);
+            map.put("userId", userId); map.put("versionDate", versionDate);
+            return map;
         }
     }
 }

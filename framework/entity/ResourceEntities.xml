@@ -29,8 +29,21 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="DbResourceFile" package="moqui.resource" use="nontransactional">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="mimeType" type="text-medium"/>
+        <field name="versionName" type="text-short"/>
+        <field name="rootVersionName" type="text-short"/>
         <field name="fileData" type="binary-very-long"/>
         <relationship type="one" related="moqui.resource.DbResource"/>
+    </entity>
+    <entity entity-name="DbResourceFileHistory" package="moqui.resource" use="nontransactional">
+        <field name="resourceId" type="id" is-pk="true"/>
+        <field name="versionName" type="text-short" is-pk="true"/>
+        <field name="previousVersionName" type="text-short"/>
+        <field name="versionDate" type="date-time"/>
+        <field name="userId" type="id"/>
+        <field name="isDiff" type="text-indicator"/>
+        <field name="fileData" type="binary-very-long"/>
+        <relationship type="one" related="moqui.resource.DbResourceFile"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
 
     <!-- ========================================================= -->
@@ -58,7 +71,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="oldPagePath" type="text-medium"/>
         <field name="userId" type="id"/>
         <field name="changeDateTime" type="date-time"/>
-        <!-- TODO: add rev data for pages in JCR -->
+        <field name="versionName" type="text-short"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
