@@ -18,6 +18,7 @@ import org.moqui.BaseException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.resource.ResourceReference
+// NOTE: IDE says this isn't needed but compiler requires it
 import org.moqui.resource.ResourceReference.Version
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
@@ -338,14 +339,24 @@ class DbResourceReference extends BaseResourceReference {
         return verList
     }
     @Override InputStream openStream(String versionName) {
-        EntityValue dbrfHistory = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
-                .condition("versionName", versionName).useCache(false).one()
+        if (versionName == null) return null
+        EntityValue dbrfHistory = getDbResourceFileHistory(versionName)
         if (dbrfHistory == null) return null
         if ("Y".equals(dbrfHistory.isDiff)) {
-            // TODO
+            // TODO if current version get full text from dbrf otherwise reconstruct from root merging in diffs as needed up to versionName
             return null
         } else {
-            return dbrfHistory.getSerialBlob("fileData")?.getBinaryStream()
+            SerialBlob fileData = dbrfHistory.getSerialBlob("fileData")
+            if (fileData != null) {
+                return fileData.getBinaryStream()
+            } else {
+                // may be the current version with no fileData value in dbrfHistory
+                EntityValue dbrf = getDbResourceFile()
+                if (dbrf == null || !versionName.equals(dbrf.versionName)) return null
+                fileData = dbrf.getSerialBlob("fileData")
+                if (fileData == null) return null
+                return fileData.getBinaryStream()
+            }
         }
     }
     @Override String getText(String versionName) { return ObjectUtilities.getStreamText(openStream(versionName)) }
@@ -381,5 +392,12 @@ class DbResourceReference extends BaseResourceReference {
         if (resourceId == null) return null
         // don't cache this, can be big and will be cached below this as text if needed
         return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFile", false, false, resourceId)
+    }
+    EntityValue getDbResourceFileHistory(String versionName) {
+        if (versionName == null) return null
+        String resourceId = getDbResourceId()
+        if (resourceId == null) return null
+        // don't cache this, can be big and will be cached below this as text if needed
+        return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFileHistory", false, false, resourceId, versionName)
     }
 }
