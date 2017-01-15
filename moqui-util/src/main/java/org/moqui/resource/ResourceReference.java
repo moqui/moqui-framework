@@ -456,6 +456,7 @@ public abstract class ResourceReference implements Serializable {
 
     public boolean supportsVersion() { return false; }
     public Version getVersion(String versionName) { return null; }
+    public Version getCurrentVersion() { return null; }
     public Version getRootVersion() { return null; }
     public ArrayList<Version> getVersionHistory() { return new ArrayList<>(); }
     public ArrayList<Version> getNextVersions(String versionName) { return new ArrayList<>(); }

@@ -16,7 +16,9 @@ package org.moqui.impl.context.reference
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.resource.ResourceReference
+import org.moqui.resource.ResourceReference.Version
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
 import org.moqui.util.ObjectUtilities
@@ -24,6 +26,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.sql.rowset.serial.SerialBlob
+import java.nio.charset.StandardCharsets
+import java.sql.Timestamp
 
 @CompileStatic
 class DbResourceReference extends BaseResourceReference {
@@ -49,9 +53,9 @@ class DbResourceReference extends BaseResourceReference {
     }
 
     @Override ResourceReference createNew(String location) {
-        DbResourceReference resRef = new DbResourceReference();
-        resRef.init(location, ecf);
-        return resRef;
+        DbResourceReference resRef = new DbResourceReference()
+        resRef.init(location, ecf)
+        return resRef
     }
     @Override String getLocation() { location }
 
@@ -126,7 +130,8 @@ class DbResourceReference extends BaseResourceReference {
 
     @Override boolean supportsWrite() { true }
     @Override void putText(String text) {
-        SerialBlob sblob = text ? new SerialBlob(text.getBytes()) : null
+        // TODO: use diff from last version for text
+        SerialBlob sblob = text ? new SerialBlob(text.getBytes(StandardCharsets.UTF_8)) : null
         this.putObject(sblob)
     }
     @Override void putStream(InputStream stream) {
@@ -139,10 +144,8 @@ class DbResourceReference extends BaseResourceReference {
 
     protected void putObject(Object fileObj) {
         EntityValue dbrf = getDbResourceFile()
-
         if (dbrf != null) {
-            ecf.service.sync().name("update", "moqui.resource.DbResourceFile")
-                    .parameters([resourceId:dbrf.resourceId, fileData:fileObj]).call()
+            makeNextVersion(dbrf, fileObj)
         } else {
             // first make sure the directory exists that this is in
             List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
@@ -164,18 +167,42 @@ class DbResourceReference extends BaseResourceReference {
                     .useCache(false).list().getFirst()
             if (existingValue != null) {
                 resourceId = existingValue.resourceId
-                ecf.service.sync().name("update", "moqui.resource.DbResourceFile")
-                        .parameters([resourceId:resourceId, fileData:fileObj]).call()
+                dbrf = getDbResourceFile()
+                makeNextVersion(dbrf, fileObj)
             } else {
                 // now write the DbResource and DbResourceFile records
                 Map createDbrResult = ecf.service.sync().name("create", "moqui.resource.DbResource")
                         .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"Y"]).call()
-                ecf.service.sync().name("create", "moqui.resource.DbResourceFile")
-                        .parameters([resourceId:createDbrResult.resourceId, mimeType:getContentType(), fileData:fileObj]).call()
-                // clear out the local reference to the old file record
                 resourceId = createDbrResult.resourceId
+                String versionName = "01"
+                ecf.service.sync().name("create", "moqui.resource.DbResourceFile")
+                        .parameters([resourceId:resourceId, mimeType:getContentType(), versionName:versionName,
+                                     rootVersionName:versionName, fileData:fileObj]).call()
+                ExecutionContextImpl eci = ecf.getEci()
+                ecf.service.sync().name("create", "moqui.resource.DbResourceFileHistory")
+                        .parameters([resourceId:resourceId, versionDate:eci.userFacade.nowTimestamp, userId:eci.userFacade.userId,
+                                     isDiff:"N"]).call() // NOTE: no fileData, for non-diff only past versions
             }
         }
+    }
+    protected void makeNextVersion(EntityValue dbrf, Object newFileObj) {
+        String currentVersionName = dbrf.versionName
+        if (currentVersionName != null && !currentVersionName.isEmpty()) {
+            EntityValue currentDbrfHistory = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
+                    .condition("versionName", currentVersionName).useCache(false).one()
+            currentDbrfHistory.set("fileData", dbrf.fileData)
+            currentDbrfHistory.update()
+        }
+        ExecutionContextImpl eci = ecf.getEci()
+        Map createOut = ecf.service.sync().name("create", "moqui.resource.DbResourceFileHistory")
+                .parameters([resourceId:resourceId, previousVersionName:currentVersionName,
+                             versionDate:eci.userFacade.nowTimestamp, userId:eci.userFacade.userId,
+                             isDiff:"N"]).call()  // NOTE: no fileData, for non-diff only past versions
+        String newVersionName = createOut.versionName
+        if (!dbrf.rootVersionName) dbrf.rootVersionName = currentVersionName ?: newVersionName
+        dbrf.versionName = newVersionName
+        dbrf.fileData = newFileObj
+        dbrf.update()
     }
     String findDirectoryId(List<String> pathList, boolean create) {
         String finalParentResourceId = null
@@ -267,13 +294,74 @@ class DbResourceReference extends BaseResourceReference {
         return true
     }
 
+    @Override boolean supportsVersion() { return true }
+    @Override Version getVersion(String versionName) {
+        String resourceId = getDbResourceId()
+        if (resourceId == null) return null
+        return makeVersion(ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
+                .condition("versionName", versionName).useCache(false).one())
+    }
+    @Override Version getCurrentVersion() {
+        EntityValue dbrf = getDbResourceFile()
+        if (dbrf == null) return null
+        return getVersion((String) dbrf.versionName)
+    }
+    @Override Version getRootVersion() {
+        EntityValue dbrf = getDbResourceFile()
+        if (dbrf == null) return null
+        return getVersion((String) dbrf.rootVersionName)
+    }
+    @Override ArrayList<Version> getVersionHistory() {
+        String resourceId = getDbResourceId()
+        if (resourceId == null) return new ArrayList<>()
+        EntityList dbrfHistoryList = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
+                .condition("resourceId", resourceId).useCache(false).list()
+        int dbrfHistorySize = dbrfHistoryList.size()
+        ArrayList<Version> verList = new ArrayList<>(dbrfHistorySize)
+        for (int i = 0; i < dbrfHistorySize; i++) {
+            EntityValue dbrfHistory = dbrfHistoryList.get(i)
+            verList.add(makeVersion(dbrfHistory))
+        }
+        return verList
+    }
+    @Override ArrayList<Version> getNextVersions(String versionName) {
+        String resourceId = getDbResourceId()
+        if (resourceId == null) return new ArrayList<>()
+        EntityList dbrfHistoryList = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
+                .condition("resourceId", resourceId).condition("previousVersionName", versionName).useCache(false).list()
+        int dbrfHistorySize = dbrfHistoryList.size()
+        ArrayList<Version> verList = new ArrayList<>(dbrfHistorySize)
+        for (int i = 0; i < dbrfHistorySize; i++) {
+            EntityValue dbrfHistory = dbrfHistoryList.get(i)
+            verList.add(makeVersion(dbrfHistory))
+        }
+        return verList
+    }
+    @Override InputStream openStream(String versionName) {
+        EntityValue dbrfHistory = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
+                .condition("versionName", versionName).useCache(false).one()
+        if (dbrfHistory == null) return null
+        if ("Y".equals(dbrfHistory.isDiff)) {
+            // TODO
+            return null
+        } else {
+            return dbrfHistory.getSerialBlob("fileData")?.getBinaryStream()
+        }
+    }
+    @Override String getText(String versionName) { return ObjectUtilities.getStreamText(openStream(versionName)) }
+
+    Version makeVersion(EntityValue dbrfHistory) {
+        if (dbrfHistory == null) return null
+        return new Version(this, (String) dbrfHistory.versionName, (String) dbrfHistory.previousVersionName,
+                (String) dbrfHistory.userId, (Timestamp) dbrfHistory.versionDate)
+    }
     String getDbResourceId() {
         if (resourceId != null) return resourceId
 
         List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
         String lastResourceId = null
         for (String filename in filenameList) {
-            EntityValue curDbr = ecf.entity.find("moqui.resource.DbResource").condition("parentResourceId", lastResourceId)
+            EntityValue curDbr = ecf.entityFacade.find("moqui.resource.DbResource").condition("parentResourceId", lastResourceId)
                     .condition("filename", filename).useCache(true).one()
             if (curDbr == null) return null
             lastResourceId = curDbr.resourceId
