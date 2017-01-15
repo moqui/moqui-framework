@@ -201,6 +201,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="encodedPagePath"/>
         </out-parameters>
         <actions>
+            <!-- <log level="warn" message="update#WikiPage wikiSpaceId=${wikiSpaceId} pageName=${pageName} parentPath=${parentPath}"/> -->
             <if condition="pageName == wikiSpaceId"><set field="pageName" from="null"/></if>
             <if condition="parentPath == wikiSpaceId"><set field="parentPath" from="null"/></if>
             <if condition="!pagePath"><set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
