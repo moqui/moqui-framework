@@ -72,6 +72,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="pagePath"/>
             <parameter name="wikiPageId"/>
             <parameter name="extraPathNameList" type="List"/>
+            <parameter name="historySeqId"/>
+            <parameter name="versionName"/>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiSpaceId"/>
@@ -80,6 +82,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="wikiSpace" type="org.moqui.entity.EntityValue"/>
             <parameter name="wikiType"/>
             <parameter name="pageReference" type="org.moqui.content.ResourceReference"/>
+            <parameter name="versionName"/>
+            <parameter name="currentVersionName"/>
             <parameter name="attachmentList" type="List"><parameter name="attachmentInfo" type="Map">
                 <parameter name="filename"/><parameter name="contentType"/><parameter name="lastModified" type="Long"/>
             </parameter></parameter>
@@ -143,6 +147,16 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- now have the real parentPath and pageName, make the full/normalized pagePath -->
             <if condition="parentPath || pageName != wikiSpaceId">
                 <set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
+
+            <set field="currentVersionName" from="pageReference?.currentVersion?.versionName"/>
+            <if condition="!versionName">
+                <if condition="historySeqId &amp;&amp; wikiPageId"><then>
+                    <entity-find-one entity-name="moqui.resource.wiki.WikiPageHistory" value-field="wikiPageHistory"/>
+                    <set field="versionName" from="wikiPageHistory?.versionName"/>
+                </then><else>
+                    <set field="versionName" from="currentVersionName"/>
+                </else></if>
+            </if>
 
             <script><![CDATA[
                 breadcrumbNameList = []

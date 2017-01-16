@@ -212,6 +212,10 @@ class ResourceFacadeImpl implements ResourceFacade {
     @Override ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
+        // version ignored for this call, just strip it
+        int hashIdx = location.indexOf("#")
+        if (hashIdx > 0) location = location.substring(0, hashIdx)
+
         ResourceReference cachedRr = resourceReferenceByLocation.get(location)
         if (cachedRr != null) return cachedRr
 
@@ -241,17 +245,29 @@ class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override InputStream getLocationStream(String location) {
+        int hashIdx = location.indexOf("#")
+        String versionName = null
+        if (hashIdx > 0) {
+            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1)
+            location = location.substring(0, hashIdx)
+        }
+
         ResourceReference rr = getLocationReference(location)
         if (rr == null) return null
-        return rr.openStream()
+        return rr.openStream(versionName)
     }
 
     @Override String getLocationText(String location, boolean cache) {
+        int hashIdx = location.indexOf("#")
+        String versionName = (hashIdx > 0 && (hashIdx+1) < location.length()) ? location.substring(hashIdx+1) : null
+
         ResourceReference textRr = getLocationReference(location)
         if (textRr == null) {
             logger.info("Cound not get resource reference for location [${location}], returning empty location text String")
             return ""
         }
+        // don't cache when getting by version
+        if (versionName != null) cache = false
         if (cache) {
             String cachedText
             if (textLocationCache instanceof MCache) {
@@ -265,16 +281,23 @@ class ResourceFacadeImpl implements ResourceFacade {
             }
             if (cachedText != null) return cachedText
         }
-        InputStream locStream = textRr.openStream()
+        InputStream locStream = textRr.openStream(versionName)
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
         String text = ObjectUtilities.getStreamText(locStream)
         if (cache) textLocationCache.put(location, text)
+        // logger.warn("==== getLocationText at ${location} version ${versionName} text ${text.length() > 100 ? text.substring(0, 100) : text}")
         return text
     }
 
     @Override DataSource getLocationDataSource(String location) {
-        ResourceReference fileResourceRef = getLocationReference(location)
+        int hashIdx = location.indexOf("#")
+        String versionName = null
+        if (hashIdx > 0) {
+            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1)
+            location = location.substring(0, hashIdx)
+        }
 
+        ResourceReference fileResourceRef = getLocationReference(location)
         TemplateRenderer tr = getTemplateRendererByLocation(fileResourceRef.location)
 
         String fileName = fileResourceRef.fileName
@@ -284,22 +307,26 @@ class ResourceFacadeImpl implements ResourceFacade {
         boolean isBinary = ResourceReference.isBinaryContentType(fileContentType)
 
         if (isBinary) {
-            return new ByteArrayDataSource(fileResourceRef.openStream(), fileContentType)
+            return new ByteArrayDataSource(fileResourceRef.openStream(versionName), fileContentType)
         } else {
             // not a binary object (hopefully), get the text and pass it over
             if (tr != null) {
+                // NOTE: version ignored here
                 StringWriter sw = new StringWriter()
                 tr.render(fileResourceRef.location, sw)
                 return new ByteArrayDataSource(sw.toString(), fileContentType)
             } else {
                 // no renderer found, just grab the text (cached) and throw it to the writer
-                String text = getLocationText(fileResourceRef.location, true)
+                String textLoc = fileResourceRef.location
+                if (versionName != null && !versionName.isEmpty()) textLoc = textLoc.concat("#").concat(versionName)
+                String text = getLocationText(textLoc, true)
                 return new ByteArrayDataSource(text, fileContentType)
             }
         }
     }
 
     @Override void template(String location, Writer writer) {
+        // NOTE: let version fall through to tr.render() and getLocationText()
         TemplateRenderer tr = getTemplateRendererByLocation(location)
         if (tr != null) {
             tr.render(location, writer)
@@ -312,6 +339,9 @@ class ResourceFacadeImpl implements ResourceFacade {
 
     static final Set<String> binaryExtensions = new HashSet<>(["png", "jpg", "jpeg", "gif", "pdf", "doc", "docx", "xsl", "xslx"])
     TemplateRenderer getTemplateRendererByLocation(String location) {
+        int hashIdx = location.indexOf("#")
+        if (hashIdx > 0) location = location.substring(0, hashIdx)
+
         // match against extension for template renderer, with as many dots that match as possible (most specific match)
         int lastSlashIndex = location.lastIndexOf("/")
         int dotIndex = location.indexOf(".", lastSlashIndex)
@@ -347,6 +377,10 @@ class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override Object script(String location, String method) {
+        int hashIdx = location.indexOf("#")
+        if (hashIdx > 0) location = location.substring(0, hashIdx)
+        // NOTE: version ignored here
+
         ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
         ScriptRunner sr = scriptRunners.get(extension)

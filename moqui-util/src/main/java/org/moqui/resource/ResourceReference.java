@@ -460,8 +460,8 @@ public abstract class ResourceReference implements Serializable {
     public Version getRootVersion() { return null; }
     public ArrayList<Version> getVersionHistory() { return new ArrayList<>(); }
     public ArrayList<Version> getNextVersions(String versionName) { return new ArrayList<>(); }
-    public InputStream openStream(String versionName) { return null; }
-    public String getText(String versionName) { return null; }
+    public InputStream openStream(String versionName) { return openStream(); }
+    public String getText(String versionName) { return getText(); }
 
     public static class Version {
         private final ResourceReference ref;

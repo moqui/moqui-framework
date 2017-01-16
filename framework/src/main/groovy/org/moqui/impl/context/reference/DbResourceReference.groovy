@@ -339,7 +339,7 @@ class DbResourceReference extends BaseResourceReference {
         return verList
     }
     @Override InputStream openStream(String versionName) {
-        if (versionName == null) return null
+        if (versionName == null || versionName.isEmpty()) return openStream()
         EntityValue dbrfHistory = getDbResourceFileHistory(versionName)
         if (dbrfHistory == null) return null
         if ("Y".equals(dbrfHistory.isDiff)) {

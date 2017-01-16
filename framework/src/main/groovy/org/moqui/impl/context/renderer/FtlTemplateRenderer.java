@@ -65,28 +65,33 @@ public class FtlTemplateRenderer implements TemplateRenderer {
 
     @SuppressWarnings("unchecked")
     private Template getFtlTemplateByLocation(final String location) {
-        Template theTemplate;
-        if (templateFtlLocationCache instanceof MCache) {
-            MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
-            ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
-            // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
-            //     updated time is older/less than rr.lastModified)
-            long lastModified = rr != null ? rr.getLastModified() : 0L;
-            theTemplate = mCache.get(location, lastModified);
-        } else {
-            // TODO: doesn't support on the fly reloading without cache expire/clear!
-            theTemplate = templateFtlLocationCache.get(location);
+        boolean hasVersion = location.indexOf("#") > 0;
+        Template theTemplate = null;
+        if (!hasVersion) {
+            if (templateFtlLocationCache instanceof MCache) {
+                MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
+                ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
+                // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
+                //     updated time is older/less than rr.lastModified)
+                long lastModified = rr != null ? rr.getLastModified() : 0L;
+                theTemplate = mCache.get(location, lastModified);
+            } else {
+                // TODO: doesn't support on the fly reloading without cache expire/clear!
+                theTemplate = templateFtlLocationCache.get(location);
+            }
         }
-        if (theTemplate == null) theTemplate = makeTemplate(location);
+        if (theTemplate == null) theTemplate = makeTemplate(location, hasVersion);
         if (theTemplate == null) throw new IllegalArgumentException("Could not find template at " + location);
         return theTemplate;
     }
 
-    private Template makeTemplate(final String location) {
-        Template theTemplate = templateFtlLocationCache.get(location);
-        if (theTemplate != null) return theTemplate;
+    private Template makeTemplate(final String location, boolean hasVersion) {
+        if (!hasVersion) {
+            Template theTemplate = templateFtlLocationCache.get(location);
+            if (theTemplate != null) return theTemplate;
+        }
 
-        Template newTemplate = null;
+        Template newTemplate;
         Reader templateReader = null;
         try {
             templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location), "UTF-8");
@@ -100,8 +105,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             }
         }
 
-        //
-        templateFtlLocationCache.put(location, newTemplate);
+        if (!hasVersion) templateFtlLocationCache.put(location, newTemplate);
         return newTemplate;
     }
 

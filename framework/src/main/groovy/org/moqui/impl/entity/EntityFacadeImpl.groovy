@@ -1634,8 +1634,9 @@ class EntityFacadeImpl implements EntityFacade {
                 if (relParmObj instanceof Map) {
                     // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
                     //     allow them to be left out of related records
-                    relParmObj.putAll(pkMap)
-                    addValuesFromPlainMapRecursive(relInfo.relatedEd, relParmObj, valueList)
+                    Map relParmMap = (Map) relParmObj
+                    relParmMap.putAll(pkMap)
+                    addValuesFromPlainMapRecursive(relInfo.relatedEd, relParmMap, valueList)
                 } else if (relParmObj instanceof List) {
                     for (Object relParmEntry in relParmObj) {
                         if (relParmEntry instanceof Map) {
@@ -1856,7 +1857,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupName}] because it has no DataSource")
         Connection newCon
         if (ds instanceof XADataSource) {
-            newCon = tfi.enlistConnection(ds.getXAConnection())
+            newCon = tfi.enlistConnection(((XADataSource) ds).getXAConnection())
         } else {
             newCon = ds.getConnection()
         }
