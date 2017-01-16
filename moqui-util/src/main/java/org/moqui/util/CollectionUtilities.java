@@ -38,7 +38,13 @@ public class CollectionUtilities {
     }
 
     public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues) {
-        if (theList == null || theList.size() == 0 || fieldValues == null) return;
+        filterMapList(theList, fieldValues, false);
+    }
+    /** Filter theList (of Map) using fieldValues; if exclude=true remove matching items, else keep only matching items */
+    public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues, boolean exclude) {
+        if (theList == null || fieldValues == null) return;
+        int listSize = theList.size();
+        if (listSize == 0) return;
         int numFields = fieldValues.size();
         if (numFields == 0) return;
 
@@ -51,27 +57,32 @@ public class CollectionUtilities {
             index++;
         }
 
-        Iterator<Map> theIterator = theList.iterator();
-        while (theIterator.hasNext()) {
-            Map curMap = theIterator.next();
-            for (int i = 0; i < numFields; i++) {
-                String fieldName = fieldNameArray[i];
-                Object curObj = curMap.get(fieldName);
-                Object compareObj = fieldValueArray[i];
-
-                if (compareObj == null) {
-                    if (curObj != null) {
-                        theIterator.remove();
-                        break;
-                    }
-                } else {
-                    if (!compareObj.equals(curObj)) {
-                        theIterator.remove();
-                        break;
-                    }
-                }
+        if (theList instanceof RandomAccess) {
+            for (int li = 0; li < listSize; ) {
+                Map curMap = theList.get(li);
+                if (checkRemove(curMap, fieldNameArray, fieldValueArray, numFields, exclude)) {
+                    theList.remove(li);
+                    listSize--;
+                } else { li++; }
+            }
+        } else {
+            Iterator<Map> theIterator = theList.iterator();
+            while (theIterator.hasNext()) {
+                Map curMap = theIterator.next();
+                if (checkRemove(curMap, fieldNameArray, fieldValueArray, numFields, exclude)) theIterator.remove();
             }
         }
+    }
+    private static boolean checkRemove(Map curMap, String[] fieldNameArray, Object[] fieldValueArray, int numFields, boolean exclude) {
+        boolean remove = exclude;
+        for (int i = 0; i < numFields; i++) {
+            String fieldName = fieldNameArray[i];
+            Object compareObj = fieldValueArray[i];
+            Object curObj = curMap.get(fieldName);
+            if (compareObj == null) { if (curObj != null) { remove = !exclude; break; } }
+            else { if (!compareObj.equals(curObj)) { remove = !exclude; break; } }
+        }
+        return remove;
     }
 
     public static void filterMapListByDate(List<Map> theList, String fromDateName, String thruDateName, Timestamp compareStamp) {
