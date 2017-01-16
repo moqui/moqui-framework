@@ -236,15 +236,23 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <log message="pagePath=${pagePath}, pageReference=${pageReference}"/> -->
 
             <!-- do the update, then the move if applicable -->
-            <script>pageReference.putText(pageText)</script>
+            <set field="versionName" from="null"/>
+            <script>
+                pageReference.putText(pageText)
+                if (pageReference.supportsVersion()) {
+                    def version = pageReference.getCurrentVersion()
+                    versionName = version.versionName
+                }
+            </script>
 
-            <set field="wikiPageHistoryMap" from="[wikiPageId:wikiPageId, userId:ec.user.userId, changeDateTime:ec.user.nowTimestamp]"/>
+            <set field="wikiPageHistoryMap" from="[wikiPageId:wikiPageId, userId:ec.user.userId, changeDateTime:ec.user.nowTimestamp, versionName:versionName]"/>
 
             <!-- move the page if applicable -->
-            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : ''"/>
+            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : null"/>
             <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.lastIndexOf('/')+1) : pagePath"/>
             <!-- TODO: support change of wikiType too -->
             <if condition="pageName &amp;&amp; (origParentPath != parentPath || origPageName != pageName)">
+                <log level="info" message="update#WikiPage path pageName=${pageName} origPageName=${origPageName} parentPath=${parentPath} origParentPath=${origParentPath}"/>
                 <!-- move the page file -->
                 <set field="rootPageDirRef" from="rootPageRef.findMatchingDirectory()"/>
                 <set field="newPageLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}.${wikiType}"/>
@@ -302,7 +310,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="get" noun="WikiSpacePages">
-        <in-parameters><parameter name="wikiSpaceId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="wikiSpaceId" required="true"/>
+            <parameter name="currentPagePath"><description>If specified all pages starting with this path will be excluded</description></parameter>
+        </in-parameters>
         <out-parameters>
             <parameter name="allChildFileFlatList" type="List"><parameter name="childInfo" type="Map">
                 <parameter name="path"/><parameter name="name"/><parameter name="location"/></parameter></parameter>
@@ -314,10 +325,23 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
             <set field="rootPageDirRef" from="rootPageRef.findMatchingDirectory()"/>
             <!-- walk the entire tree of pages under the space root and add them to the flat list and the tree of pages -->
-            <set field="allChildFileFlatList" from="[[path:'', name:'Root Page', location:rootPageRef.getLocation()]]"/>
-            <set field="rootChildResourceList" from="[]"/>
+            <set field="allChildFileFlatList" from="new ArrayList()"/>
+            <script>allChildFileFlatList.add([path:'', name:'Root Page', location:rootPageRef.getLocation()])</script>
+            <set field="rootChildResourceList" from="new ArrayList()"/>
             <script>rootPageDirRef.walkChildTree(allChildFileFlatList, rootChildResourceList)</script>
 
+            <if condition="currentPagePath">
+                <script><![CDATA[
+                    // don't use this, want to remove any that start with currentPagePath, not just equal it: filterMapList(allChildFileFlatList, [path:pagePath], true)
+                    int allChildFileFlatSize = allChildFileFlatList.size()
+                    for (int i = 0; i < allChildFileFlatSize; ) {
+                        Map allChildFileFlat = (Map) allChildFileFlatList.get(i)
+                        if (allChildFileFlat.path.startsWith(currentPagePath)) { allChildFileFlatList.remove(i); allChildFileFlatSize-- }
+                        else { i++ }
+                    }
+                ]]></script>
+                <script>filterMapList(rootChildResourceList, [path:currentPagePath], true)</script>
+            </if>
             <!-- <iterate list="allChildFileFlatList" entry="allChildFileFlat">
                 <log level="warn" message="============= allChildFileFlat=${allChildFileFlat}"/>
             </iterate>
