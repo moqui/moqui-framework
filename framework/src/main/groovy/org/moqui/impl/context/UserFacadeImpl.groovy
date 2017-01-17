@@ -185,8 +185,9 @@ class UserFacadeImpl implements UserFacade {
                 parameters.serverHostName = address?.getHostName() ?: "localhost"
 
                 // handle proxy original address, if exists
-                if (request.getHeader("X-Forwarded-For")) {
-                    parameters.clientIpAddress = request.getHeader("X-Forwarded-For")
+                String forwardedFor = request.getHeader("X-Forwarded-For")
+                if (forwardedFor != null && !forwardedFor.isEmpty()) {
+                    parameters.clientIpAddress = forwardedFor.split(",")[0].trim()
                 } else {
                     parameters.clientIpAddress = request.getRemoteAddr()
                 }
