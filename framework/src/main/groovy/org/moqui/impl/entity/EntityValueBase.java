@@ -582,14 +582,10 @@ public abstract class EntityValueBase implements EntityValue {
 
                 Object value = get(fieldName);
                 Object oldValue = oldValues != null ? oldValues.get(fieldName) : null;
-
                 if (isUpdate) {
                     // if isUpdate but old value == new value, then it hasn't been updated, so skip it
-                    if (value == null) {
-                        if (oldValue == null) continue;
-                    } else {
-                        if (value.equals(oldValue)) continue;
-                    }
+                    if (value == null) { if (oldValue == null) continue; }
+                    else { if (value.equals(oldValue)) continue; }
                 } else {
                     // if it's a create and there is no value don't log a change
                     if (value == null) continue;
@@ -597,12 +593,21 @@ public abstract class EntityValueBase implements EntityValue {
 
                 // don't skip for this, if a field was reset then we want to record that: if (!value) continue
 
+                // check for a changeReason
+                String changeReason = null;
+                Object changeReasonObj = ec.contextStack.getByString(fieldName.concat("_changeReason"));
+                if (changeReasonObj != null) {
+                    changeReason = changeReasonObj.toString();
+                    if (changeReason.isEmpty()) changeReason = null;
+                }
+
                 String stackNameString = ec.artifactExecutionFacade.getStackNameString();
                 if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
                 parms.put("changedFieldName", fieldName);
                 parms.put("newValueText", ObjectUtilities.toPlainString(value));
+                if (changeReason != null) parms.put("changeReason", changeReason);
                 parms.put("changedDate", nowTimestamp);
                 parms.put("changedByUserId", ec.getUser().getUserId());
                 parms.put("changedInVisitId", ec.getUser().getVisitId());
