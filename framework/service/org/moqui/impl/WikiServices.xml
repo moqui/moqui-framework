@@ -36,6 +36,37 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="get" noun="PublishedWikiPageText">
+        <in-parameters>
+            <parameter name="wikiSpaceId" required="true"/>
+            <parameter name="pagePath"/><!-- not required because for root page will be empty -->
+            <parameter name="versionName"><description>Meant for testing, get this version instead of published</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="wikiPageId"/>
+            <parameter name="publishedVersionName"/>
+            <parameter name="versionName"/>
+            <parameter name="pageLocation"/>
+            <parameter name="pageText"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true">
+                <field-map field-name="wikiSpaceId"/></entity-find-one>
+            <if condition="wikiSpace == null"><return message="No space found with ID ${wikiSpaceId}"/></if>
+
+            <entity-find entity-name="moqui.resource.wiki.WikiPage" list="wikiPageList" cache="true">
+                <econdition field-name="wikiSpaceId"/><econdition field-name="pagePath" from="pagePath ?: null"/></entity-find>
+            <set field="wikiPage" from="wikiPageList ? wikiPageList[0] : null"/>
+            <if condition="wikiPage == null"><return message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
+
+            <set field="publishedVersionName" from="wikiPage.publishedVersionName"/>
+            <set field="versionName" from="versionName ?: publishedVersionName"/>
+            <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
+            <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
+            <set field="pageLocation" from="pageReference.location"/>
+            <set field="pageText" from="pageReference.getText(versionName)"/>
+        </actions>
+    </service>
     <service verb="get" noun="WikiPageId">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
@@ -49,9 +80,8 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find entity-name="moqui.resource.wiki.WikiPage" list="wikiPageList" cache="true">
-                <econdition-object field="[wikiSpaceId:wikiSpaceId, pagePath:(pagePath ?: null)]"/>
-            </entity-find>
-            <set field="wikiPage" from="wikiPageList?.getAt(0)"/>
+                <econdition field-name="wikiSpaceId"/><econdition field-name="pagePath" from="pagePath ?: null"/></entity-find>
+            <set field="wikiPage" from="wikiPageList ? wikiPageList[0] : null"/>
 
             <!-- <log message="===== get#WikiPageId createIfMissing=${createIfMissing}, wikiSpaceId=${wikiSpaceId}, pagePath=${pagePath}, wikiPage: ${wikiPage}"/> -->
             <if condition="!wikiPage &amp;&amp; createIfMissing"><then>
@@ -84,6 +114,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="pageReference" type="org.moqui.content.ResourceReference"/>
             <parameter name="versionName"/>
             <parameter name="currentVersionName"/>
+            <parameter name="publishedVersionName"/>
             <parameter name="attachmentList" type="List"><parameter name="attachmentInfo" type="Map">
                 <parameter name="filename"/><parameter name="contentType"/><parameter name="lastModified" type="Long"/>
             </parameter></parameter>
@@ -148,6 +179,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="parentPath || pageName != wikiSpaceId">
                 <set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
 
+            <!-- version information -->
             <set field="currentVersionName" from="pageReference?.currentVersion?.versionName"/>
             <if condition="!versionName">
                 <if condition="historySeqId &amp;&amp; wikiPageId"><then>
@@ -157,6 +189,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="versionName" from="currentVersionName"/>
                 </else></if>
             </if>
+            <set field="publishedVersionName" from="wikiPage?.publishedVersionName ?: currentVersionName"/>
 
             <script><![CDATA[
                 breadcrumbNameList = []
