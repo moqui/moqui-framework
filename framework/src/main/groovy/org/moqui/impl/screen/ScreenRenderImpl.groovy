@@ -112,33 +112,17 @@ class ScreenRenderImpl implements ScreenRender {
     ScreenUrlInfo getScreenUrlInfo() { return screenUrlInfo }
     UrlInstance getScreenUrlInstance() { return screenUrlInstance }
 
-    @Override
-    ScreenRender rootScreen(String rsLocation) { rootScreenLocation = rsLocation; return this }
-
+    @Override ScreenRender rootScreen(String rsLocation) { rootScreenLocation = rsLocation; return this }
     ScreenRender rootScreenFromHost(String host) { return rootScreen(sfi.rootScreenFromHost(host, webappName)) }
-
-    @Override
-    ScreenRender screenPath(List<String> screenNameList) { originalScreenPathNameList.addAll(screenNameList); return this }
-
-    @Override
-    ScreenRender renderMode(String renderMode) { this.renderMode = renderMode; return this }
-
+    @Override ScreenRender screenPath(List<String> screenNameList) { originalScreenPathNameList.addAll(screenNameList); return this }
+    @Override ScreenRender renderMode(String renderMode) { this.renderMode = renderMode; return this }
     String getRenderMode() { return renderMode }
 
-    @Override
-    ScreenRender encoding(String characterEncoding) { this.characterEncoding = characterEncoding;  return this }
-
-    @Override
-    ScreenRender macroTemplate(String mtl) { this.macroTemplateLocation = mtl; return this }
-
-    @Override
-    ScreenRender baseLinkUrl(String blu) { this.baseLinkUrl = blu; return this }
-
-    @Override
-    ScreenRender servletContextPath(String scp) { this.servletContextPath = scp; return this }
-
-    @Override
-    ScreenRender webappName(String wan) { this.webappName = wan; return this }
+    @Override ScreenRender encoding(String characterEncoding) { this.characterEncoding = characterEncoding;  return this }
+    @Override ScreenRender macroTemplate(String mtl) { this.macroTemplateLocation = mtl; return this }
+    @Override ScreenRender baseLinkUrl(String blu) { this.baseLinkUrl = blu; return this }
+    @Override ScreenRender servletContextPath(String scp) { this.servletContextPath = scp; return this }
+    @Override ScreenRender webappName(String wan) { this.webappName = wan; return this }
 
     @Override
     void render(HttpServletRequest request, HttpServletResponse response) {
