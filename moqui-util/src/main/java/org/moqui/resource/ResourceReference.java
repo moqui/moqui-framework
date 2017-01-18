@@ -189,36 +189,20 @@ public abstract class ResourceReference implements Serializable {
             ResourceReference theFile = createNew(fileLoc.toString());
             if (theFile.getExists() && theFile.isFile()) childRef = theFile;
 
-            // logger.warn("============= finding child resource path [${relativePath}] childRef 1 [${childRef}]")
-            /* this approach is no longer needed; the more flexible approach below will handle this and more:
-            if (childRef == null) {
-                // try adding known extensions
-                for (String extToTry in ecf.resource.templateRenderers.keySet()) {
-                    if (childRef != null) break
-                    theFile = createNew(fileLoc.toString() + extToTry)
-                    if (theFile.exists && theFile.isFile()) childRef = theFile
-                    // logger.warn("============= finding child resource path [${relativePath}] fileLoc [${fileLoc}] extToTry [${extToTry}] childRef [${theFile}]")
-                }
-            }
-            */
-
-            // logger.warn("============= finding child resource path [${relativePath}] childRef 2 [${childRef}]")
+            // logger.warn("============= finding child resource path [${relativePath}] childRef [${childRef}]")
             if (childRef == null) {
                 // didn't find it at a literal path, try searching for it in all subdirectories
                 int lastSlashIdx = relativePath.lastIndexOf("/");
                 String directoryPath = lastSlashIdx > 0 ? relativePath.substring(0, lastSlashIdx) : "";
                 String childFilename = lastSlashIdx >= 0 ? relativePath.substring(lastSlashIdx + 1) : relativePath;
-
                 // first find the most matching directory
                 ResourceReference childDirectoryRef = directoryRef.findChildDirectory(directoryPath);
-
                 // recursively walk the directory tree and find the childFilename
                 childRef = internalFindChildFile(childDirectoryRef, childFilename);
                 // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}] childFilename [${childFilename}] childRef [${childRef}]")
             }
 
             // logger.warn("============= finding child resource path [${relativePath}] childRef 3 [${childRef}]")
-
             if (childRef != null) childRef.childOfResource = directoryRef;
         }
 
@@ -228,7 +212,6 @@ public abstract class ResourceReference implements Serializable {
             if (directoryRef.getExists()) {
                 childRef = createNew(directoryRef.getLocation() + "/" + relativePath);
                 childRef.childOfResource = directoryRef;
-
             } else {
                 String newDirectoryLoc = getLocation();
                 // pop off the extension, everything past the first dot after the last slash
@@ -254,7 +237,6 @@ public abstract class ResourceReference implements Serializable {
             throw new BaseException("Not looking for child file at " + relativePath + " under space root page " +
                     getLocation() + " because exists, isFile, etc are not supported");
         }
-
 
         // check the cache first
         ResourceReference childRef = getSubContentRefByPath().get(relativePath);
