@@ -73,6 +73,11 @@ class MoquiFopServlet extends HttpServlet {
                     .rootScreenFromHost(request.getServerName()).screenPath(pathInfo.split("/") as List)
             xslFoText = sr.render()
 
+            if (ec.message.hasError()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ec.message.errorsString)
+                return
+            }
+
             // logger.warn("======== XSL-FO content:\n${xslFoText}")
             if (logger.traceEnabled) logger.trace("XSL-FO content:\n${xslFoText}")
 
