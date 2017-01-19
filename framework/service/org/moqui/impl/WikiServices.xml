@@ -37,10 +37,12 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="get" noun="PublishedWikiPageText">
+        <description>Get the published version of a wiki page by its space and path. If there is no published version behaves as if no page was found.</description>
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="pagePath"/><!-- not required because for root page will be empty -->
-            <parameter name="versionName"><description>Meant for testing, get this version instead of published</description></parameter>
+            <parameter name="versionName"><description>Meant for testing, get this version instead of published.
+                To eliminate exposure of non-published versions explicitly set this to null.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiPageId"/>
@@ -52,18 +54,23 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true">
                 <field-map field-name="wikiSpaceId"/></entity-find-one>
-            <if condition="wikiSpace == null"><return message="No space found with ID ${wikiSpaceId}"/></if>
+            <if condition="wikiSpace == null"><return error="true" message="No space found with ID ${wikiSpaceId}"/></if>
 
             <entity-find entity-name="moqui.resource.wiki.WikiPage" list="wikiPageList" cache="true">
                 <econdition field-name="wikiSpaceId"/><econdition field-name="pagePath" from="pagePath ?: null"/></entity-find>
             <set field="wikiPage" from="wikiPageList ? wikiPageList[0] : null"/>
-            <if condition="wikiPage == null"><return message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
+            <if condition="wikiPage == null"><return error="true" message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
 
             <set field="publishedVersionName" from="wikiPage.publishedVersionName"/>
             <set field="versionName" from="versionName ?: publishedVersionName"/>
+            <!-- if no version specified and no publishedVersionName the act like the page doesn't exist -->
+            <if condition="!versionName"><return error="true" message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
+
             <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
             <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
             <set field="pageLocation" from="pageReference.location"/>
+
+            <set field="wikiPageId" from="wikiPage.wikiPageId"/>
             <set field="pageText" from="pageReference.getText(versionName)"/>
         </actions>
     </service>
