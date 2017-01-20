@@ -196,6 +196,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="acroFormLocation" type="text-medium"/>
         <field name="printFontSize" type="text-short"/>
         <field name="printFontFamily" type="text-short"/>
+        <field name="printContainerWidth" type="text-short"/>
         <field name="printContainerHeight" type="text-short"/>
         <field name="printRepeatCount" type="number-integer"/>
         <field name="printRepeatNewPage" type="text-indicator"/>
@@ -216,6 +217,7 @@ along with this software (see the LICENSE.md file). If not, see
             always stored as plain text FormResponseAnswer</description></field>
         <field name="layoutSequenceNum" type="number-integer"/>
 
+        <field name="printPageNumber" type="number-integer"><description>Defaults to 1, ie one page/section for all fields if nothing higher than 1 is specified.</description></field>
         <field name="printTop" type="text-short"/>
         <field name="printLeft" type="text-short"/>
         <field name="printBottom" type="text-short"/>
