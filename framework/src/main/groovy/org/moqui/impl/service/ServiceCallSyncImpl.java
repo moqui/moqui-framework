@@ -33,33 +33,21 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     public ServiceCallSyncImpl(ServiceFacadeImpl sfi) { super(sfi); }
 
-    @Override
-    public ServiceCallSync name(String serviceName) { serviceNameInternal(serviceName); return this; }
-    @Override
-    public ServiceCallSync name(String v, String n) { serviceNameInternal(null, v, n); return this; }
-    @Override
-    public ServiceCallSync name(String p, String v, String n) { serviceNameInternal(p, v, n); return this; }
+    @Override public ServiceCallSync name(String serviceName) { serviceNameInternal(serviceName); return this; }
+    @Override public ServiceCallSync name(String v, String n) { serviceNameInternal(null, v, n); return this; }
+    @Override public ServiceCallSync name(String p, String v, String n) { serviceNameInternal(p, v, n); return this; }
 
-    @Override
-    public ServiceCallSync parameters(Map<String, ?> map) { if (map != null) parameters.putAll(map); return this; }
-    @Override
-    public ServiceCallSync parameter(String name, Object value) { parameters.put(name, value); return this; }
+    @Override public ServiceCallSync parameters(Map<String, ?> map) { if (map != null) parameters.putAll(map); return this; }
+    @Override public ServiceCallSync parameter(String name, Object value) { parameters.put(name, value); return this; }
 
-    @Override
-    public ServiceCallSync ignoreTransaction(boolean it) { this.ignoreTransaction = it; return this; }
-    @Override
-    public ServiceCallSync requireNewTransaction(boolean rnt) { this.requireNewTransaction = rnt; return this; }
-    @Override
-    public ServiceCallSync useTransactionCache(boolean utc) { this.useTransactionCache = utc; return this; }
-    @Override
-    public ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this; }
+    @Override public ServiceCallSync ignoreTransaction(boolean it) { this.ignoreTransaction = it; return this; }
+    @Override public ServiceCallSync requireNewTransaction(boolean rnt) { this.requireNewTransaction = rnt; return this; }
+    @Override public ServiceCallSync useTransactionCache(boolean utc) { this.useTransactionCache = utc; return this; }
+    @Override public ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this; }
 
-    @Override
-    public ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this; }
-    @Override
-    public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
-    @Override
-    public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
+    @Override public ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this; }
+    @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
+    @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
 
     @Override
     public Map<String, Object> call() {
