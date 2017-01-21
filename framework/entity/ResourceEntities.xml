@@ -106,6 +106,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="decoratorScreenLocation" type="text-medium"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
+        <field name="allowAnyHtml" type="text-indicator"/>
     </entity>
     <entity entity-name="WikiSpaceUser" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiSpaceId" type="id" is-pk="true"/>
