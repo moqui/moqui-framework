@@ -702,14 +702,18 @@ class WebFacadeImpl implements WebFacade {
     }
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
         ResourceReference rr = eci.resource.getLocationReference(location)
-        if (rr == null) throw new IllegalArgumentException("Resource not found at: ${location}")
-        response.setContentType(rr.contentType)
+        if (rr == null) {
+            logger.warn("Sending not found response, resource not found at: ${location}")
+            response.sendError(HttpServletResponse.SC_NOT_FOUND)
+            return
+        }
+        String contentType = rr.getContentType()
+        if (contentType) response.setContentType(contentType)
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
         } else {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
-        String contentType = rr.getContentType()
         if (!contentType || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
             try {
