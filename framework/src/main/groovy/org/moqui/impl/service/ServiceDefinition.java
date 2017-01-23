@@ -796,6 +796,7 @@ public class ServiceDefinition {
         map.put("delete", ArtifactExecutionInfo.AUTHZA_DELETE);
         map.put("view", ArtifactExecutionInfo.AUTHZA_VIEW);
         map.put("find", ArtifactExecutionInfo.AUTHZA_VIEW);
+        map.put("get", ArtifactExecutionInfo.AUTHZA_VIEW);
         verbAuthzActionEnumMap = map;
     }
 

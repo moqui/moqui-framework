@@ -37,10 +37,12 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="get" noun="PublishedWikiPageText">
+        <description>Get the published version of a wiki page by its space and path. If there is no published version behaves as if no page was found.</description>
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="pagePath"/><!-- not required because for root page will be empty -->
-            <parameter name="versionName"><description>Meant for testing, get this version instead of published</description></parameter>
+            <parameter name="versionName"><description>Meant for testing, get this version instead of published.
+                To eliminate exposure of non-published versions explicitly set this to null.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiPageId"/>
@@ -61,12 +63,25 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="publishedVersionName" from="wikiPage.publishedVersionName"/>
             <set field="versionName" from="versionName ?: publishedVersionName"/>
+            <!-- if no version specified and no publishedVersionName the act like the page doesn't exist -->
+            <if condition="!versionName"><return message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
+
             <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
             <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
             <set field="pageLocation" from="pageReference.location"/>
+
+            <set field="wikiPageId" from="wikiPage.wikiPageId"/>
             <set field="pageText" from="pageReference.getText(versionName)"/>
         </actions>
     </service>
+    <service verb="set" noun="PublishedVersion">
+        <in-parameters>
+            <parameter name="wikiPageId" required="true"/>
+            <parameter name="publishedVersionName"/>
+        </in-parameters>
+        <actions><service-call name="update#moqui.resource.wiki.WikiPage" in-map="context"/></actions>
+    </service>
+
     <service verb="get" noun="WikiPageId">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
@@ -189,7 +204,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="versionName" from="currentVersionName"/>
                 </else></if>
             </if>
-            <set field="publishedVersionName" from="wikiPage?.publishedVersionName ?: currentVersionName"/>
+            <set field="publishedVersionName" from="wikiPage?.publishedVersionName"/>
 
             <script><![CDATA[
                 breadcrumbNameList = []
@@ -241,7 +256,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="pageName" required="true">
                 <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description></parameter>
             <parameter name="wikiType" default-value="md"/>
-            <parameter name="pageText" allow-html="safe"/>
+            <parameter name="pageText" allow-html="any"><description>If WikiSpace.allowAnyHtml = Y will be stored as-is, otherwise filtered like parameter.allow-html=safe.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="pagePath"/>
@@ -282,13 +297,19 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <!-- <log message="pagePath=${pagePath}, pageReference=${pageReference}"/> -->
 
+            <!-- unless WikiSpace.allowAnyHtml = Y filter the HTML -->
+            <if condition="wikiSpace.allowAnyHtml != 'Y'">
+                <script>pageText = org.jsoup.Jsoup.clean(pageText, "", org.jsoup.safety.Whitelist.relaxed(), org.moqui.impl.service.ParameterInfo.outputSettings)</script>
+            </if>
+
             <!-- do the update, then the move if applicable -->
+            <set field="updatedPage" from="false"/>
             <set field="versionName" from="null"/>
             <script>
-                pageReference.putText(pageText)
-                if (pageReference.supportsVersion()) {
-                    def version = pageReference.getCurrentVersion()
-                    versionName = version.versionName
+                if (pageText != pageReference.getText()) {
+                    pageReference.putText(pageText)
+                    if (pageReference.supportsVersion()) versionName = pageReference.getCurrentVersion()?.versionName
+                    updatedPage = true
                 }
             </script>
 
@@ -316,12 +337,15 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="pagePath" value="${parentPath ? parentPath+'/' : ''}${pageName?:''}"/>
                 
                 <!-- save the new pagePath on the WikiPage record -->
-                <set field="wikiPageForUpdate" from="wikiPage.cloneValue()"/>
-                <set field="wikiPageForUpdate.pagePath" from="pagePath"/>
-                <entity-update value-field="wikiPageForUpdate"/>
+                <if condition="pagePath != wikiPage.pagePath">
+                    <set field="wikiPageForUpdate" from="wikiPage.cloneValue()"/>
+                    <set field="wikiPageForUpdate.pagePath" from="pagePath"/>
+                    <entity-update value-field="wikiPageForUpdate"/>
+                    <set field="updatedPage" from="true"/>
+                </if>
             </if>
 
-            <service-call name="create#moqui.resource.wiki.WikiPageHistory" in-map="wikiPageHistoryMap"/>
+            <if condition="updatedPage"><service-call name="create#moqui.resource.wiki.WikiPageHistory" in-map="wikiPageHistoryMap"/></if>
 
             <script>
                 List pathElementList = pagePath.split('/') as List

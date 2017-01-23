@@ -18,11 +18,14 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.resource -->
     <!-- ========================================================= -->
 
-    <entity entity-name="DbResource" package="moqui.resource" use="nontransactional">
+    <entity entity-name="DbResource" package="moqui.resource" use="nontransactional" short-alias="dbResources">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="parentResourceId" type="id"/>
         <field name="filename" type="text-medium"/>
         <field name="isFile" type="text-indicator"/>
+        <relationship type="one-nofk" related="moqui.resource.DbResourceFile" short-alias="file" mutable="true"/>
+        <relationship type="many" related="moqui.resource.DbResourceFileHistory" short-alias="histories">
+            <key-map field-name="resourceId"/></relationship>
         <index name="DB_RES_PARENT"><index-field name="parentResourceId"/></index>
         <index name="DB_RES_PAR_FN" unique="true"><index-field name="parentResourceId"/><index-field name="filename"/></index>
     </entity>
@@ -32,7 +35,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="versionName" type="text-short"/>
         <field name="rootVersionName" type="text-short"/>
         <field name="fileData" type="binary-very-long"/>
-        <relationship type="one" related="moqui.resource.DbResource"/>
+        <relationship type="one" related="moqui.resource.DbResource" short-alias="dbResource"/>
+        <relationship type="many" related="moqui.resource.DbResourceFileHistory" short-alias="histories">
+            <key-map field-name="resourceId"/></relationship>
     </entity>
     <entity entity-name="DbResourceFileHistory" package="moqui.resource" use="nontransactional">
         <field name="resourceId" type="id" is-pk="true"/>
@@ -101,6 +106,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="decoratorScreenLocation" type="text-medium"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
+        <field name="allowAnyHtml" type="text-indicator"/>
     </entity>
     <entity entity-name="WikiSpaceUser" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiSpaceId" type="id" is-pk="true"/>

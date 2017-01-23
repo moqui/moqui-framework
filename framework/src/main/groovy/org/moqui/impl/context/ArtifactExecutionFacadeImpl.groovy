@@ -38,7 +38,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @CompileStatic
-public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
+class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
     protected ExecutionContextImpl eci
@@ -365,7 +365,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             } else {
                 StringBuilder warning = new StringBuilder()
                 warning.append("User [${userId}] is not authorized for ${aeii.getTypeDescription()} [${aeii.getName()}] because of a deny record [type:${artifactTypeEnum.name()},action:${aeii.getActionEnum().name()}], here is the current artifact stack:")
-                for (def warnAei in this.stack) warning.append("\n").append(warnAei.toString())
+                for (warnAei in this.stack) warning.append("\n").append(warnAei.toString())
                 logger.warn(warning.toString())
 
                 eci.getService().sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
@@ -410,7 +410,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             if (logger.isDebugEnabled()) {
                 StringBuilder warning = new StringBuilder()
                 warning.append("User [${userId}] is not authorized for ${aeii.getTypeDescription()} [${aeii.getName()}] because of no allow record [type:${artifactTypeEnum.name()},action:${aeii.getActionEnum().name()}]\nlastAeii=[${lastAeii}]\nHere is the artifact stack:")
-                for (def warnAei in this.stack) warning.append("\n").append(warnAei)
+                for (warnAei in this.stack) warning.append("\n").append(warnAei)
                 logger.debug(warning.toString())
             }
 
