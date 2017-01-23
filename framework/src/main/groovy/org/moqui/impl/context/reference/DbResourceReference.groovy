@@ -288,7 +288,12 @@ class DbResourceReference extends BaseResourceReference {
         if (dbr == null) return false
         if (dbr.isFile == "Y") {
             EntityValue dbrf = getDbResourceFile()
-            if (dbrf != null) dbrf.delete()
+            if (dbrf != null) {
+                // first delete history records
+                dbrf.deleteRelated("histories")
+                // then delete the file
+                dbrf.delete()
+            }
         }
         dbr.delete()
         resourceId = null
