@@ -1082,6 +1082,19 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="max-tags" type="xs:positiveInteger"/>
             <xs:attribute name="default-more-sign" type="xs:string"/>
             <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tags-display-for-arrays" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+            <xs:attribute name="list-name" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="file-tags-display" substitutionGroup="SubFields">
