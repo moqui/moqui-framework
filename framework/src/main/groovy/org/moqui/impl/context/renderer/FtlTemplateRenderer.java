@@ -125,6 +125,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         newConfig.setTemplateExceptionHandler(new MoquiTemplateExceptionHandler());
         newConfig.setLogTemplateExceptions(false);
         newConfig.setWhitespaceStripping(true);
+        newConfig.setDefaultEncoding("UTF-8");
         return newConfig;
     }
 
@@ -187,8 +188,6 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             } catch (IOException e) {
                 throw new TemplateException("Failed to print error message. Cause: " + e, env);
             }
-
         }
-
     }
 }

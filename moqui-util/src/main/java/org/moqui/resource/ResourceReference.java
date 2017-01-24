@@ -107,6 +107,7 @@ public abstract class ResourceReference implements Serializable {
         String fn = getFileName();
         return fn != null && fn.length() > 0 ? getContentType(fn) : null;
     }
+    public boolean isBinary() { return isBinaryContentType(getContentType()); }
 
     /** Get the parent directory, null if it is the root (no parent). */
     public ResourceReference getParent() {

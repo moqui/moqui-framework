@@ -263,7 +263,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="encodedPagePath"/>
         </out-parameters>
         <actions>
-            <!-- <log level="warn" message="update#WikiPage wikiSpaceId=${wikiSpaceId} pageName=${pageName} parentPath=${parentPath}"/> -->
+            <!-- <log level="warn" message="update#WikiPage wikiSpaceId=${wikiSpaceId} pageName=${pageName} parentPath=[${parentPath}]"/> -->
             <if condition="pageName == wikiSpaceId"><set field="pageName" from="null"/></if>
             <if condition="parentPath == wikiSpaceId"><set field="parentPath" from="null"/></if>
             <if condition="!pagePath"><set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
@@ -298,7 +298,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <log message="pagePath=${pagePath}, pageReference=${pageReference}"/> -->
 
             <!-- unless WikiSpace.allowAnyHtml = Y filter the HTML -->
-            <if condition="wikiSpace.allowAnyHtml != 'Y'">
+            <if condition="wikiSpace.allowAnyHtml != 'Y' &amp;&amp; wikiType == 'html'">
                 <script>pageText = org.jsoup.Jsoup.clean(pageText, "", org.jsoup.safety.Whitelist.relaxed(), org.moqui.impl.service.ParameterInfo.outputSettings)</script>
             </if>
 

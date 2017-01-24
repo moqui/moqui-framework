@@ -321,7 +321,7 @@ class DbResourceReference extends BaseResourceReference {
         String resourceId = getDbResourceId()
         if (resourceId == null) return new ArrayList<>()
         EntityList dbrfHistoryList = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
-                .condition("resourceId", resourceId).useCache(false).list()
+                .condition("resourceId", resourceId).orderBy("-versionDate").useCache(false).list()
         int dbrfHistorySize = dbrfHistoryList.size()
         ArrayList<Version> verList = new ArrayList<>(dbrfHistorySize)
         for (int i = 0; i < dbrfHistorySize; i++) {

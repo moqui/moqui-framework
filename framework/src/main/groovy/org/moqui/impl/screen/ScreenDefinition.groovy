@@ -722,6 +722,7 @@ class ScreenDefinition {
 
                 // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
                 ec.contextStack.put("sri", sri)
+                // logger.warn("Running transition ${name} context: ${ec.contextStack.toString()}")
                 if (actions != null) actions.run(ec)
 
                 ResponseItem ri = null
