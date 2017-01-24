@@ -178,6 +178,8 @@ class WebFacadeImpl implements WebFacade {
     /** Apache Commons FileUpload does not support string array so when using multiple select and there's a duplicate
      * fieldName convert value to an array list when fieldName is already in multipart parameters. */
     private void addValueToMultipartParameterMap(String key, Object value) {
+        // change &nbsp; (\u00a0) to null, used as a placeholder when empty string doesn't work
+        if ("\u00a0".equals(value)) value = null
         Object previousValue = multiPartParameters.put(key, value)
         if (previousValue != null) {
             List<Object> valueList = new ArrayList<>()

@@ -21,6 +21,7 @@ import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpSession;
@@ -105,6 +106,7 @@ public class WebUtilities {
                     reqParmMap.put(entry.getKey(), null);
                 } else if (valLength == 1) {
                     String singleVal = valArray[0];
+                    // change &nbsp; (\u00a0) to null, used as a placeholder when empty string doesn't work
                     if ("\u00a0".equals(singleVal)) reqParmMap.put(entry.getKey(), null);
                     else reqParmMap.put(entry.getKey(), singleVal);
                 } else {
@@ -221,7 +223,7 @@ public class WebUtilities {
         @Override public void removeAttribute(String name) { scxt.removeAttribute(name); }
     }
 
-    protected static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("javax.servlet.context.tempdir",
+    static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("javax.servlet.context.tempdir",
             "org.apache.catalina.jsp_classpath", "org.apache.commons.fileupload.servlet.FileCleanerCleanup.FileCleaningTracker"));
     public static class AttributeContainerMap implements Map<String, Object> {
         private AttributeContainer cont;
@@ -252,10 +254,7 @@ public class WebUtilities {
             return false;
         }
 
-        public Object get(Object o) {
-            return cont.getAttribute((String) o);
-        }
-
+        public Object get(Object o) { return cont.getAttribute((String) o); }
         public Object put(String s, Object o) {
             Object orig = cont.getAttribute(s);
             cont.setAttribute(s, o);
@@ -283,7 +282,7 @@ public class WebUtilities {
             }
         }
 
-        public Set<String> keySet() {
+        public @Nonnull Set<String> keySet() {
             Set<String> ks = new HashSet<>();
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -292,8 +291,7 @@ public class WebUtilities {
             }
             return ks;
         }
-
-        public Collection<Object> values() {
+        public @Nonnull Collection<Object> values() {
             List<Object> values = new LinkedList<>();
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -302,8 +300,7 @@ public class WebUtilities {
             }
             return values;
         }
-
-        public Set<Entry<String, Object>> entrySet() {
+        public @Nonnull Set<Entry<String, Object>> entrySet() {
             Set<Entry<String, Object>> es = new HashSet<>();
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -345,18 +342,16 @@ public class WebUtilities {
         public Object get(Object o) { return (o == null && !supportsNull) ? null : canonicalizeValue(mp.get(o)); }
         public Object put(String k, Object v) { return canonicalizeValue(mp.put(k, v)); }
         public Object remove(Object o) { return (o == null && !supportsNull) ? null : canonicalizeValue(mp.remove(o)); }
-        public void putAll(Map<? extends String, ? extends Object> map) {
-            mp.putAll(map);
-        }
+        public void putAll(Map<? extends String, ? extends Object> map) { mp.putAll(map); }
         public void clear() { mp.clear(); }
 
-        public Set<String> keySet() { return mp.keySet(); }
-        public Collection<Object> values() {
+        public @Nonnull Set<String> keySet() { return mp.keySet(); }
+        public @Nonnull Collection<Object> values() {
             List<Object> values = new ArrayList<>(mp.size());
             for (Object orig : mp.values()) values.add(canonicalizeValue(orig));
             return values;
         }
-        public Set<Entry<String, Object>> entrySet() {
+        public @Nonnull Set<Entry<String, Object>> entrySet() {
             Set<Entry<String, Object>> es = new HashSet<>();
             for (Object entryObj : mp.entrySet()) {
                 Entry entry = (Entry) entryObj;
