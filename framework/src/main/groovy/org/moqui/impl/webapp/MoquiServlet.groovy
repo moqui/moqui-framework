@@ -119,7 +119,7 @@ class MoquiServlet extends HttpServlet {
 
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
             String message, Throwable origThrowable, ExecutionContextFactoryImpl ecfi, String moquiWebappName) {
-        if (ecfi == null || "application/json".equals(request.getHeader("Accept"))) {
+        if (ecfi == null || request.getHeader("Accept")?.contains("application/json")) {
             response.sendError(errorCode, message)
             return
         }
