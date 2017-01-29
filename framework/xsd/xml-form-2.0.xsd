@@ -1088,6 +1088,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="label-field" type="xs:string" default="label">
                 <xs:annotation><xs:documentation>The field in the result that represents the label for the option.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="depends-optional" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Set to true to get options even if a depends-on field is empty.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="depends-on">
