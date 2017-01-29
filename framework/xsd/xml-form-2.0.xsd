@@ -436,18 +436,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="type" default="span">
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="p"/>
-                    <xs:enumeration value="pre"/>
-                    <xs:enumeration value="code"/>
-                    <xs:enumeration value="div"/>
-                    <xs:enumeration value="span"/>
-                    <xs:enumeration value="strong"/>
-                    <xs:enumeration value="i"/>
-                    <xs:enumeration value="h1"/>
-                    <xs:enumeration value="h2"/>
-                    <xs:enumeration value="h3"/>
-                    <xs:enumeration value="h4"/>
-                    <xs:enumeration value="h5"/>
-                    <xs:enumeration value="h6"/>
+                    <xs:enumeration value="pre"/><xs:enumeration value="code"/>
+                    <xs:enumeration value="div"/><xs:enumeration value="span"/>
+                    <xs:enumeration value="strong"/><xs:enumeration value="i"/>
+                    <xs:enumeration value="h1"/><xs:enumeration value="h2"/><xs:enumeration value="h3"/>
+                    <xs:enumeration value="h4"/><xs:enumeration value="h5"/><xs:enumeration value="h6"/>
+                    <xs:enumeration value="dt"/><xs:enumeration value="dd"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="id" type="xs:string"/>
@@ -480,16 +474,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="text" type="xs:string" use="required"/>
             <xs:attribute name="type" default="span">
                 <xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="p"/>
-                    <xs:enumeration value="pre"/>
-                    <xs:enumeration value="span"/>
-                    <xs:enumeration value="div"/>
-                    <xs:enumeration value="strong"/>
-                    <xs:enumeration value="h1"/>
-                    <xs:enumeration value="h2"/>
-                    <xs:enumeration value="h3"/>
-                    <xs:enumeration value="h4"/>
-                    <xs:enumeration value="h5"/>
+                    <xs:enumeration value="p"/><xs:enumeration value="pre"/>
+                    <xs:enumeration value="span"/><xs:enumeration value="div"/><xs:enumeration value="strong"/>
+                    <xs:enumeration value="h1"/><xs:enumeration value="h2"/><xs:enumeration value="h3"/>
+                    <xs:enumeration value="h4"/><xs:enumeration value="h5"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="widget-type" default="textarea">
