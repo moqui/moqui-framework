@@ -768,6 +768,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="button-text" type="xs:string" use="required"/>
             <xs:attribute name="width" type="xs:string" default="760"/>
             <xs:attribute name="height" type="xs:string" default="600"/>
+            <xs:attribute name="condition" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dynamic-dialog" substitutionGroup="StandaloneFields">
@@ -782,6 +783,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="transition" type="xs:string" use="required"/>
             <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
                 names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="condition" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dynamic-container" substitutionGroup="StandaloneFields">
