@@ -169,7 +169,7 @@ class ScreenRenderImpl implements ScreenRender {
         }
     }
     boolean sendJsonRedirect(UrlInstance fullUrl) {
-        if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
+        if ("json".equals(screenUrlInfo.targetTransitionExtension) || request?.getHeader("Accept")?.contains("application/json")) {
             Map<String, Object> responseMap = new HashMap<>()
             // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
             // add all plain object data from session?
@@ -823,7 +823,7 @@ class ScreenRenderImpl implements ScreenRender {
                 */
 
                 /* better to always send a JSON response as above instead of sometimes sending the Login screen, other that status response usually ignored anyway
-                if ("json".equals(screenUrlInfo.targetTransitionExtension) || "application/json".equals(request?.getHeader("Accept"))) {
+                if ("json".equals(screenUrlInfo.targetTransitionExtension) || request?.getHeader("Accept")?.contains("application/json")) {
                 } else {
                     // respond with 401 and the login screen instead of a redirect; JS client libraries handle this much better
                     this.originalScreenPathNameList = pathElements
