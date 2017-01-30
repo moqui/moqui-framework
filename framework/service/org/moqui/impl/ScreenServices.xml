@@ -20,6 +20,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="responseMap" type="Map"/>
             <parameter name="dbForm" type="Map"/>
             <parameter name="dbFormFieldList" type="List"/>
+            <parameter name="dbFormFieldPages" type="Integer"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.screen.form.FormResponse" value-field="formResponse"/>
@@ -30,6 +31,11 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="formId" from="formResponse.formId"/>
                     <order-by field-name="layoutSequenceNum"/>
                 </entity-find>
+                <set field="dbFormFieldPages" from="1"/>
+                <iterate list="dbFormFieldList" entry="dbFormField">
+                    <set field="printPageNumber" from="dbFormField.printPageNumber ?: 1"/>
+                    <if condition="printPageNumber &gt; dbFormFieldPages"><set field="dbFormFieldPages" from="printPageNumber"/></if>
+                </iterate>
             </if>
             <script>context.putAll(formResponse)</script>
             <entity-find entity-name="moqui.screen.form.FormResponseAnswer" list="answerList">
