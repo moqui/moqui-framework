@@ -180,7 +180,7 @@ class EmailEcaRule {
             byte[] result = IOUtils.toByteArray(is)
 
             //only PDF and JPG
-            def contentTypeSpec = part.getContentType();
+            def contentTypeSpec = part.getContentType().toLowerCase();
             Boolean doRunExtraction;
 
             if (contentTypeSpec.startsWith('application/pdf;')) {
