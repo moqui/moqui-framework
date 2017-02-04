@@ -214,14 +214,10 @@ class MoquiContextListener implements ServletContextListener {
             this.sc = sc
         }
         void setParameter(String name, String value) { parameters.put(name, value) }
-        @Override
-        String getFilterName() { return name }
-        @Override
-        ServletContext getServletContext() { return sc }
-        @Override
-        String getInitParameter(String name) { return parameters.get(name) }
-        @Override
-        Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
+        @Override String getFilterName() { return name }
+        @Override ServletContext getServletContext() { return sc }
+        @Override String getInitParameter(String name) { return parameters.get(name) }
+        @Override Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
     }
     static class MapServletConfig implements ServletConfig {
         private String name
@@ -232,14 +228,10 @@ class MoquiContextListener implements ServletContextListener {
             this.sc = sc
         }
         void setParameter(String name, String value) { parameters.put(name, value) }
-        @Override
-        String getServletName() { return name }
-        @Override
-        ServletContext getServletContext() { return sc }
-        @Override
-        String getInitParameter(String name) { return parameters.get(name) }
-        @Override
-        Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
+        @Override String getServletName() { return name }
+        @Override ServletContext getServletContext() { return sc }
+        @Override String getInitParameter(String name) { return parameters.get(name) }
+        @Override Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
     }
     static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
         // for a good explanation of javax.websocket details related to this see:
@@ -258,7 +250,7 @@ class MoquiContextListener implements ServletContextListener {
         }
 
         @Override
-        public void modifyHandshake(ServerEndpointConfig config, HandshakeRequest request, HandshakeResponse response) {
+        void modifyHandshake(ServerEndpointConfig config, HandshakeRequest request, HandshakeResponse response) {
             config.getUserProperties().put("handshakeRequest", request)
             config.getUserProperties().put("httpSession", request.getHttpSession())
             config.getUserProperties().put("executionContextFactory", ecfi)

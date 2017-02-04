@@ -56,6 +56,12 @@ class MoquiServlet extends HttpServlet {
             return
         }
 
+        if ("Upgrade".equals(request.getHeader("Connection")) || "websocket".equals(request.getHeader("Upgrade"))) {
+            logger.warn("Got request for Connection:Upgrade or Upgrade:websocket which should have been handled by servlet container, returning error")
+            response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED)
+            return
+        }
+
         if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
         long startTime = System.currentTimeMillis()
         String pathInfo = request.getPathInfo()
@@ -75,7 +81,7 @@ class MoquiServlet extends HttpServlet {
             ec.initWebFacade(webappName, request, response)
             ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
-            ScreenRenderImpl sri = (ScreenRenderImpl) ec.screenFacade.makeRender()
+            ScreenRenderImpl sri = (ScreenRenderImpl) ec.screenFacade.makeRender().saveHistory(true)
             sri.render(request, response)
         } catch (AuthenticationRequiredException e) {
             logger.warn("Web Unauthorized (no authc): " + e.message)

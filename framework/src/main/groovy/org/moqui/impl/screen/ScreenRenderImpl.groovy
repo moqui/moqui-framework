@@ -90,6 +90,7 @@ class ScreenRenderImpl implements ScreenRender {
     protected Writer scriptWriter = (Writer) null
 
     protected boolean dontDoRender = false
+    protected boolean saveHistory = false
 
     protected Map<String, FormInstance> screenFormCache = new HashMap<>()
     protected String curThemeId = (String) null
@@ -123,6 +124,7 @@ class ScreenRenderImpl implements ScreenRender {
     @Override ScreenRender baseLinkUrl(String blu) { this.baseLinkUrl = blu; return this }
     @Override ScreenRender servletContextPath(String scp) { this.servletContextPath = scp; return this }
     @Override ScreenRender webappName(String wan) { this.webappName = wan; return this }
+    @Override ScreenRender saveHistory(boolean sh) { this.saveHistory = sh; return this }
 
     @Override
     void render(HttpServletRequest request, HttpServletResponse response) {
@@ -728,7 +730,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             // save the screen history
-            if (screenUrlInfo.targetExists) {
+            if (saveHistory && screenUrlInfo.targetExists) {
                 WebFacade webFacade = ec.getWeb()
                 if (webFacade != null && webFacade instanceof WebFacadeImpl) ((WebFacadeImpl) webFacade).saveScreenHistory(screenUrlInstance)
             }
