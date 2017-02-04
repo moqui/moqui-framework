@@ -52,7 +52,9 @@ try {
         if (emailTemplate.bccAddresses) bccAddresses = bccAddresses + "," + emailTemplate.bccAddresses
     } else { bccAddresses = emailTemplate.bccAddresses }
 
-    // prepare the subject
+    // prepare the fromAddress, fromName, subject
+    String fromAddress = ec.resource.expand((String) emailTemplate.fromAddress, "")
+    String fromName = ec.resource.expand((String) emailTemplate.fromName, "")
     String subject = ec.resource.expand((String) emailTemplate.subject, "")
 
     // prepare the html message
@@ -70,7 +72,7 @@ try {
     // NOTE: can do anything with: purposeEnumId, toUserId?
     if (createEmailMessage) {
         Map cemParms = [sentDate:ec.user.nowTimestamp, statusId:"ES_READY", subject:subject, body:bodyHtml,
-                        fromAddress:emailTemplate.fromAddress, toAddresses:toAddresses,
+                        fromAddress:fromAddress, toAddresses:toAddresses,
                         ccAddresses:ccAddresses, bccAddresses:bccAddresses,
                         contentType:"text/html", emailTemplateId:emailTemplateId, emailServerId:emailTemplate.emailServerId,
                         fromUserId:ec.user?.userId]
@@ -83,14 +85,15 @@ try {
     emailServer = emailTemplate."moqui.basic.email.EmailServer"
 
     // check a couple of required fields
-    if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate [${emailTemplateId}]',''))
-    if (emailServer && !emailServer.smtpHost)
-        ec.message.addError(ec.resource.expand('SMTP Host is empty for EmailServer [${emailServer.emailServerId}]',''))
-    if (emailTemplate && !emailTemplate.fromAddress)
-        ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate [${emailTemplateId}]',''))
+    if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate ${emailTemplateId}',''))
+    if (emailTemplate && !fromAddress) ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate ${emailTemplateId}',''))
     if (ec.message.hasError()) {
         logger.info("Error sending email: ${ec.message.getErrorsString()}\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         if (emailMessageId) logger.info("Email with error saved as Readyin EmailMessage [${emailMessageId}]")
+        return
+    }
+    if (emailServer && !emailServer.smtpHost) {
+        logger.warn("SMTP Host is empty for EmailServer [${emailServer.emailServerId}], not sending email:\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         return
     }
 
@@ -118,19 +121,19 @@ try {
     email.setSubject(subject)
 
     // set from, reply to, bounce addresses
-    email.setFrom((String) emailTemplate.fromAddress, (String) emailTemplate.fromName)
+    email.setFrom(fromAddress, fromName)
     if (emailTemplate.replyToAddresses) {
         def rtList = ((String) emailTemplate.replyToAddresses).split(",")
-        for (def address in rtList) email.addReplyTo(address.trim())
+        for (address in rtList) email.addReplyTo(address.trim())
     }
     if (emailTemplate.bounceAddress) email.setBounceAddress((String) emailTemplate.bounceAddress)
 
     // set to, cc, bcc addresses
     def toList = ((String) toAddresses).split(",")
-    for (def toAddress in toList) email.addTo(toAddress.trim())
+    for (toAddress in toList) email.addTo(toAddress.trim())
     if (ccAddresses) {
         def ccList = ((String) ccAddresses).split(",")
-        for (def ccAddress in ccList) email.addCc(ccAddress.trim())
+        for (ccAddress in ccList) email.addCc(ccAddress.trim())
     }
     if (bccAddresses) {
         def bccList = ((String) bccAddresses).split(",")
@@ -143,7 +146,7 @@ try {
     if (bodyText) email.setTextMsg(bodyText)
     //email.setTextMsg("Your email client does not support HTML messages")
 
-    for (def emailTemplateAttachment in emailTemplateAttachmentList) {
+    for (emailTemplateAttachment in emailTemplateAttachmentList) {
         if (emailTemplateAttachment.screenRenderMode) {
             def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
                     .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
