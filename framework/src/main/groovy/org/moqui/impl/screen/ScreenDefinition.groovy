@@ -655,14 +655,15 @@ class ScreenDefinition {
 
         boolean checkCondition(ExecutionContextImpl ec) { return condition ? condition.checkCondition(ec) : true }
 
-        void setAllParameters(List<String> extraPathNameList, ExecutionContext ec) {
+        void setAllParameters(List<String> extraPathNameList, ExecutionContextImpl ec) {
             // get the path parameters
             if (extraPathNameList && getPathParameterList()) {
                 List<String> pathParameterList = getPathParameterList()
                 int i = 0
                 for (String extraPathName in extraPathNameList) {
                     if (pathParameterList.size() > i) {
-                        if (ec.getWeb()) ((WebFacadeImpl) ec.getWeb()).addDeclaredPathParameter(pathParameterList.get(i), extraPathName)
+                        // logger.warn("extraPathName ${extraPathName} i ${i} name ${pathParameterList.get(i)}")
+                        if (ec.webImpl != null) ec.webImpl.addDeclaredPathParameter(pathParameterList.get(i), extraPathName)
                         ec.getContext().put(pathParameterList.get(i), extraPathName)
                         i++
                     } else {
@@ -672,16 +673,16 @@ class ScreenDefinition {
             }
 
             // put parameters in the context
-            if (ec.getWeb()) {
+            if (ec.getWeb() != null) {
                 // screen parameters
                 for (ParameterItem pi in parentScreen.getParameterMap().values()) {
                     Object value = pi.getValue(ec)
-                    if (value != null) ec.getContext().put(pi.getName(), value)
+                    if (value != null) ec.contextStack.put(pi.getName(), value)
                 }
                 // transition parameters
                 for (ParameterItem pi in parameterByName.values()) {
                     Object value = pi.getValue(ec)
-                    if (value != null) ec.getContext().put(pi.getName(), value)
+                    if (value != null) ec.contextStack.put(pi.getName(), value)
                 }
             }
         }
@@ -915,7 +916,7 @@ class ScreenDefinition {
         boolean getSaveCurrentScreen() { return saveCurrentScreen }
         boolean getSaveParameters() { return saveParameters }
 
-        Map expandParameters(List<String> extraPathNameList, ExecutionContext ec) {
+        Map expandParameters(List<String> extraPathNameList, ExecutionContextImpl ec) {
             transitionItem.setAllParameters(extraPathNameList, ec)
 
             Map ep = new HashMap()
