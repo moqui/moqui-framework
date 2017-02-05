@@ -52,10 +52,10 @@ try {
         if (emailTemplate.bccAddresses) bccAddresses = bccAddresses + "," + emailTemplate.bccAddresses
     } else { bccAddresses = emailTemplate.bccAddresses }
 
-    // prepare the fromAddress, fromName, subject
-    String fromAddress = ec.resource.expand((String) emailTemplate.fromAddress, "")
-    String fromName = ec.resource.expand((String) emailTemplate.fromName, "")
-    String subject = ec.resource.expand((String) emailTemplate.subject, "")
+    // prepare the fromAddress, fromName, subject; no type or def so that they go into the context for templates
+    fromAddress = ec.resource.expand((String) emailTemplate.fromAddress, "")
+    fromName = ec.resource.expand((String) emailTemplate.fromName, "")
+    subject = ec.resource.expand((String) emailTemplate.subject, "")
 
     // prepare the html message
     def bodyRender = ec.screen.makeRender().rootScreen((String) emailTemplate.bodyScreenLocation)
