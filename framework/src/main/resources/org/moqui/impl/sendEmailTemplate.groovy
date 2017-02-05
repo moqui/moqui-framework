@@ -57,6 +57,19 @@ try {
     fromName = ec.resource.expand((String) emailTemplate.fromName, "")
     subject = ec.resource.expand((String) emailTemplate.subject, "")
 
+    // create an moqui.basic.email.EmailMessage record with info about this sent message
+    // NOTE: can do anything with? purposeEnumId
+    if (createEmailMessage) {
+        Map cemParms = [statusId:"ES_DRAFT", subject:subject,
+                        fromAddress:fromAddress, toAddresses:toAddresses, ccAddresses:ccAddresses, bccAddresses:bccAddresses,
+                        contentType:"text/html", emailTypeEnumId:emailTypeEnumId,
+                        emailTemplateId:emailTemplateId, emailServerId:emailTemplate.emailServerId,
+                        fromUserId:(fromUserId ?: ec.user?.userId), toUserId:toUserId]
+        Map cemResults = ec.service.sync().name("create", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                .parameters(cemParms).disableAuthz().call()
+        emailMessageId = cemResults.emailMessageId
+    }
+
     // prepare the html message
     def bodyRender = ec.screen.makeRender().rootScreen((String) emailTemplate.bodyScreenLocation)
             .webappName((String) emailTemplate.webappName).renderMode("html")
@@ -68,17 +81,10 @@ try {
             .webappName((String) emailTemplate.webappName).renderMode("text")
     String bodyText = bodyTextRender.render()
 
-    // create an moqui.basic.email.EmailMessage record with info about this sent message
-    // NOTE: can do anything with: purposeEnumId, toUserId?
-    if (createEmailMessage) {
-        Map cemParms = [sentDate:ec.user.nowTimestamp, statusId:"ES_READY", subject:subject, body:bodyHtml,
-                        fromAddress:fromAddress, toAddresses:toAddresses,
-                        ccAddresses:ccAddresses, bccAddresses:bccAddresses,
-                        contentType:"text/html", emailTemplateId:emailTemplateId, emailServerId:emailTemplate.emailServerId,
-                        fromUserId:ec.user?.userId]
-        Map cemResults = ec.service.sync().name("create", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
-                .parameters(cemParms).disableAuthz().call()
-        emailMessageId = cemResults.emailMessageId
+    if (emailMessageId) {
+        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                .parameters([emailMessageId:emailMessageId, statusId:"ES_READY", body:bodyHtml])
+                .disableAuthz().call()
     }
 
     def emailTemplateAttachmentList = emailTemplate."moqui.basic.email.EmailTemplateAttachment"
@@ -89,7 +95,7 @@ try {
     if (emailTemplate && !fromAddress) ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate ${emailTemplateId}',''))
     if (ec.message.hasError()) {
         logger.info("Error sending email: ${ec.message.getErrorsString()}\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
-        if (emailMessageId) logger.info("Email with error saved as Readyin EmailMessage [${emailMessageId}]")
+        if (emailMessageId) logger.info("Email with error saved as Ready in EmailMessage [${emailMessageId}]")
         return
     }
     if (emailServer && !emailServer.smtpHost) {
@@ -180,8 +186,9 @@ try {
     messageId = email.send()
 
     if (emailMessageId) {
-        ec.service.sync().name("update", "moqui.basic.email.EmailMessage")
-                .parameters([emailMessageId:emailMessageId, statusId:"ES_SENT", messageId:messageId]).disableAuthz().call()
+        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
+                .disableAuthz().call()
     }
 
     return
