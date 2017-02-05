@@ -23,6 +23,7 @@ import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
 import org.moqui.context.*
 import org.moqui.entity.EntityNotFoundException
+import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
@@ -990,6 +991,36 @@ class WebFacadeImpl implements WebFacade {
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
         session.setAttribute("moqui.error.parameters", parms)
+    }
+
+    static byte[] trackingPng = [(byte)0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,0x00,0x00,0x00,
+                                 0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,(byte)0xC4,(byte)0x89,0x00,0x00,0x00,0x0B,
+                                 0x49,0x44,0x41,0x54,0x78,(byte)0xDA,0x63,0x60,0x00,0x02,0x00,0x00,0x05,0x00,0x01,(byte)0xE9,(byte)0xFA,
+                                 (byte)0xDC,(byte)0xD8,0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,(byte)0xAE,0x42,0x60,(byte)0x82]
+    void viewEmailMessage() {
+        // first send the empty image
+        response.setContentType('image/png')
+        response.addHeader("Content-Disposition", "inline")
+        OutputStream os = response.outputStream
+        try { os.write(trackingPng) } finally { os.close() }
+        // mark the message viewed
+        try {
+            String emailMessageId = eci.contextStack.get("emailMessageId")
+            if (emailMessageId != null && !emailMessageId.isEmpty()) {
+                int dotIndex = emailMessageId.indexOf(".")
+                if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
+                EntityValue emailMessage = eci.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId)
+                        .disableAuthz().one()
+                if (emailMessage == null) {
+                    logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
+                } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
+                    eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
+                            .parameter("statusId", "ES_VIEWED").disableAuthz().call()
+                }
+            }
+        } catch (Throwable t) {
+            logger.error("Error marking EmailMessage viewed", t)
+        }
     }
 
     protected DiskFileItemFactory makeDiskFileItemFactory() {
