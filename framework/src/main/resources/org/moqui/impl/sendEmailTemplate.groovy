@@ -83,7 +83,7 @@ try {
 
     if (emailMessageId) {
         ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
-                .parameters([emailMessageId:emailMessageId, statusId:"ES_READY", body:bodyHtml])
+                .parameters([emailMessageId:emailMessageId, statusId:"ES_READY", body:bodyHtml, bodyText:bodyText])
                 .disableAuthz().call()
     }
 
@@ -99,7 +99,8 @@ try {
         return
     }
     if (emailServer && !emailServer.smtpHost) {
-        logger.warn("SMTP Host is empty for EmailServer [${emailServer.emailServerId}], not sending email:\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
+        logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email ${emailMessageId} template ${emailTemplateId}")
+        // logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email:\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         return
     }
 

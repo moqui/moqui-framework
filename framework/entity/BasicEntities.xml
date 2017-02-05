@@ -379,6 +379,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="receivedDate" type="date-time"/>
         <field name="subject" type="text-medium"/>
         <field name="body" type="text-very-long"/>
+        <field name="bodyText" type="text-very-long"><description>The plain text variation of the body</description></field>
         <!-- Removed because unused and causes row size to be too long (in MySQL, others?): <field name="note" type="text-long"/> -->
         <field name="headersString" type="text-very-long"/>
         <field name="fromAddress" type="text-medium"/>
