@@ -1015,7 +1015,7 @@ class WebFacadeImpl implements WebFacade {
                     logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
                 } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
                     eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
-                            .parameter("statusId", "ES_VIEWED").disableAuthz().call()
+                            .parameter("statusId", "ES_VIEWED").parameter("receivedDate", eci.user.nowTimestamp).disableAuthz().call()
                 }
             }
         } catch (Throwable t) {
