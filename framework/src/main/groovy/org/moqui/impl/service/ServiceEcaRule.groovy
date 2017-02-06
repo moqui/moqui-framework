@@ -122,7 +122,7 @@ class ServiceEcaRule {
             TransactionManager tm = ecfi.transactionFacade.getTransactionManager()
             if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
 
-            Transaction tx = tm.getTransaction();
+            Transaction tx = tm.getTransaction()
             if (tx == null) throw new XAException(XAException.XAER_NOTA)
 
             this.tx = tx
@@ -142,22 +142,19 @@ class ServiceEcaRule {
         }
 
         void runInThreadAndTx() {
-            Thread thread = new Thread() {
-                @Override
-                public void run() {
-                    boolean beganTransaction = ecfi.transactionFacade.begin(null)
-                    try {
-                        sec.standaloneRun(parameters, results, ecfi.getEci())
-                    } catch (Throwable t) {
-                        logger.error("Error running Service TX ECA rule", t)
-                        ecfi.transactionFacade.rollback(beganTransaction, "Error running Service TX ECA rule", t)
-                    } finally {
-                        if (beganTransaction && ecfi.transactionFacade.isTransactionInPlace())
-                            ecfi.transactionFacade.commit()
-                    }
+            ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi, {
+                boolean beganTransaction = ecfi.transactionFacade.begin(null)
+                try {
+                    sec.standaloneRun(parameters, results, ecfi.getEci())
+                } catch (Throwable t) {
+                    logger.error("Error running Service TX ECA rule", t)
+                    ecfi.transactionFacade.rollback(beganTransaction, "Error running Service TX ECA rule", t)
+                } finally {
+                    if (beganTransaction && ecfi.transactionFacade.isTransactionInPlace())
+                        ecfi.transactionFacade.commit()
                 }
-            };
-            thread.start();
+            })
+            ecfi.workerPool.submit(runnable)
         }
     }
 }

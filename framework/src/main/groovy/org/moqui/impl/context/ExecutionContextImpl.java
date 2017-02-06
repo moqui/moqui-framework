@@ -104,56 +104,36 @@ public class ExecutionContextImpl implements ExecutionContext {
     Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
     public Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache; }
 
-    @Override
-    public @Nonnull ExecutionContextFactory getFactory() { return ecfi; }
+    @Override public @Nonnull ExecutionContextFactory getFactory() { return ecfi; }
 
-    @Override
-    public @Nonnull ContextStack getContext() { return contextStack; }
-    @Override
-    public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
-    @Override
-    public @Nonnull ContextBinding getContextBinding() { return contextBindingInternal; }
+    @Override public @Nonnull ContextStack getContext() { return contextStack; }
+    @Override public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
+    @Override public @Nonnull ContextBinding getContextBinding() { return contextBindingInternal; }
 
     @Override
     public <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters) {
         return ecfi.getTool(toolName, instanceClass, parameters);
     }
 
-    @Override
-    public @Nullable WebFacade getWeb() { return webFacade; }
+    @Override public @Nullable WebFacade getWeb() { return webFacade; }
     public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
 
-    @Override
-    public @Nonnull UserFacade getUser() { return userFacade; }
-    @Override
-    public @Nonnull MessageFacade getMessage() { return messageFacade; }
-    @Override
-    public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
-    @Override
-    public @Nonnull L10nFacade getL10n() { return l10nFacade; }
-    @Override
-    public @Nonnull ResourceFacade getResource() { return resourceFacade; }
-    @Override
-    public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
-    @Override
-    public @Nonnull CacheFacade getCache() { return cacheFacade; }
-    @Override
-    public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
+    @Override public @Nonnull UserFacade getUser() { return userFacade; }
+    @Override public @Nonnull MessageFacade getMessage() { return messageFacade; }
+    @Override public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
+    @Override public @Nonnull L10nFacade getL10n() { return l10nFacade; }
+    @Override public @Nonnull ResourceFacade getResource() { return resourceFacade; }
+    @Override public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
+    @Override public @Nonnull CacheFacade getCache() { return cacheFacade; }
+    @Override public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
 
-    @Override
-    public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
+    @Override public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
     public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 
-    @Override
-    public @Nonnull ServiceFacade getService() { return serviceFacade; }
+    @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
+    @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
 
-    @Override
-    public @Nonnull ScreenFacade getScreen() { return screenFacade; }
-
-    @Override
-    public @Nonnull NotificationMessage makeNotificationMessage() {
-        return new NotificationMessageImpl(ecfi);
-    }
+    @Override public @Nonnull NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(ecfi); }
 
     @Override
     public @Nonnull List<NotificationMessage> getNotificationMessages(@Nullable String topic) {
@@ -194,9 +174,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl WebFacade initialized");
     }
 
-    /**
-     * Meant to be used to set a test stub that implements the WebFacade interface
-     */
+    /** Meant to be used to set a test stub that implements the WebFacade interface */
     public void setWebFacade(WebFacade wf) {
         webFacade = wf;
         if (wf instanceof WebFacadeImpl) webFacadeImpl = (WebFacadeImpl) wf;
@@ -235,12 +213,12 @@ public class ExecutionContextImpl implements ExecutionContext {
         ecfi.resourceFacade.destroyAllInThread();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
+        ecfi.activeContextMap.remove(Thread.currentThread().getId());
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
     }
 
-    @Override
-    public String toString() { return "ExecutionContext"; }
+    @Override public String toString() { return "ExecutionContext"; }
 
     public static class ThreadPoolRunnable implements Runnable {
         private ExecutionContextImpl threadEci;
@@ -266,7 +244,9 @@ public class ExecutionContextImpl implements ExecutionContext {
             try {
                 closure.call();
             } catch (Throwable t) {
-                loggerDirect.error("Error in EC thread pool runner", t);
+                loggerDirect.error("Error in EC worker Runnable", t);
+            } finally {
+                if (threadEci == null) ecfi.destroyActiveExecutionContext();
             }
         }
 

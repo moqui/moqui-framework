@@ -99,7 +99,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
         LinkedList<TxStackInfo> txStackInfoList = txStackInfoListThread.get()
         if (txStackInfoList) {
-            int numSuspended = 0;
+            int numSuspended = 0
             for (TxStackInfo txStackInfo in txStackInfoList) {
                 Transaction tx = txStackInfo.suspendedTx
                 if (tx != null) {
@@ -274,27 +274,27 @@ class TransactionFacadeImpl implements TransactionFacade {
          */
         switch (statusInt) {
             case Status.STATUS_ACTIVE:
-                return "Active (${statusInt})";
+                return "Active (${statusInt})"
             case Status.STATUS_COMMITTED:
-                return "Committed (${statusInt})";
+                return "Committed (${statusInt})"
             case Status.STATUS_COMMITTING:
-                return "Committing (${statusInt})";
+                return "Committing (${statusInt})"
             case Status.STATUS_MARKED_ROLLBACK:
-                return "Marked Rollback-Only (${statusInt})";
+                return "Marked Rollback-Only (${statusInt})"
             case Status.STATUS_NO_TRANSACTION:
-                return "No Transaction (${statusInt})";
+                return "No Transaction (${statusInt})"
             case Status.STATUS_PREPARED:
-                return "Prepared (${statusInt})";
+                return "Prepared (${statusInt})"
             case Status.STATUS_PREPARING:
-                return "Preparing (${statusInt})";
+                return "Preparing (${statusInt})"
             case Status.STATUS_ROLLEDBACK:
-                return "Rolledback (${statusInt})";
+                return "Rolledback (${statusInt})"
             case Status.STATUS_ROLLING_BACK:
-                return "Rolling Back (${statusInt})";
+                return "Rolling Back (${statusInt})"
             case Status.STATUS_UNKNOWN:
-                return "Status Unknown (${statusInt})";
+                return "Status Unknown (${statusInt})"
             default:
-                return "Not a valid status code (${statusInt})";
+                return "Not a valid status code (${statusInt})"
         }
     }
 
@@ -366,7 +366,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     void commit() {
         TxStackInfo txStackInfo = getTxStackInfo()
         try {
-            int status = ut.getStatus();
+            int status = ut.getStatus()
             // logger.warn("================ commit TX, currentStatus=${status}")
 
             txStackInfo.closeTxConnections()
@@ -568,7 +568,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (isTraceEnabled) {
                 StringBuilder infoString = new StringBuilder()
                 infoString.append("Initializing TX cache at:")
-                for (def infoAei in ecfi.getEci().artifactExecutionFacade.getStack()) infoString.append(infoAei.getName())
+                for (infoAei in ecfi.getEci().artifactExecutionFacade.getStack()) infoString.append(infoAei.getName())
                 logger.trace(infoString.toString())
             // } else if (logger.isInfoEnabled()) {
             //     logger.info("Initializing TX cache in ${ecfi.getEci().getArtifactExecutionImpl().peek()?.getName()}")
@@ -653,7 +653,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         MNode serverJndi = this.ecfi.getConfXmlRoot().first("transaction-facade").first("server-jndi")
 
         try {
-            InitialContext ic;
+            InitialContext ic
             if (serverJndi != null) {
                 Hashtable<String, Object> h = new Hashtable<String, Object>()
                 h.put(Context.INITIAL_CONTEXT_FACTORY, serverJndi.attribute("initial-context-factory"))
