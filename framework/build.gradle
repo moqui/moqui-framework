@@ -63,10 +63,10 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.7' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.7' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.4.7' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.4.7' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.4.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.4.8' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.14'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -82,7 +82,7 @@ dependencies {
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.2'
+    compile 'org.apache.httpcomponents:httpclient:4.5.3'
 
     // ========== Libraries from jcenter ==========
 
@@ -117,12 +117,8 @@ dependencies {
     // H2 Database
     compile 'com.h2database:h2:1.4.193' // MPL 2.0, EPL 1.0
 
-    // Apache HTTP Components
-    // compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
-    // compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
-
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.0.v20161208' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.1.v20170120' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
@@ -177,14 +173,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.0.v20161208' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.0.v20161208' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.0.v20161208' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.0.v20161208') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.0.v20161208') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.0.v20161208') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.1.v20170120' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.1.v20170120' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.1.v20170120' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.1.v20170120') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.1.v20170120') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.1.v20170120') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.0.v20161208') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.1.v20170120') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
