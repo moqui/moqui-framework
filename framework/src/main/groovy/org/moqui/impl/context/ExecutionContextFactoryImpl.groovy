@@ -374,7 +374,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
         int count = 0
-        while (count < retryLimit && !workerPool.isTerminated() && workerPool.getQueue().size() > 0) {
+        while (count < retryLimit && workerPool.getQueue().size() > 0) {
             Thread.sleep(100)
             count++
         }
