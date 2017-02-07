@@ -149,7 +149,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Has fields for the various options in search-form-inputs/searchFormInputs()/searchFormMap()</description>
         <field name="formListFindId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-short" is-pk="true"/>
-        <field name="fieldValue" type="text-short"/>
+        <field name="fieldValue" type="text-medium"/>
         <field name="fieldOperator" type="text-short"/>
         <field name="fieldNot" type="text-indicator"/>
         <field name="fieldIgnoreCase" type="text-indicator"/>
