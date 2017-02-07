@@ -77,38 +77,44 @@ class MoquiServlet extends HttpServlet {
          *         .rootScreenFromHost(request.getServerName()).screenPath(pathInfo.split("/") as List)
          */
 
+        ScreenRenderImpl sri = null
         try {
             ec.initWebFacade(webappName, request, response)
             ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
-            ScreenRenderImpl sri = (ScreenRenderImpl) ec.screenFacade.makeRender().saveHistory(true)
+            sri = (ScreenRenderImpl) ec.screenFacade.makeRender().saveHistory(true)
             sri.render(request, response)
         } catch (AuthenticationRequiredException e) {
             logger.warn("Web Unauthorized (no authc): " + e.message)
-            sendErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized", e.message, e, ecfi, webappName)
+            sendErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized", e.message, e, ecfi, webappName, sri)
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             // See ScreenRenderImpl.checkWebappSettings for authc and SC_UNAUTHORIZED handling
             logger.warn("Web Access Forbidden (no authz): " + e.message)
-            sendErrorResponse(request, response, HttpServletResponse.SC_FORBIDDEN, "forbidden", e.message, e, ecfi, webappName)
+            sendErrorResponse(request, response, HttpServletResponse.SC_FORBIDDEN, "forbidden", e.message, e, ecfi, webappName, sri)
         } catch (ScreenResourceNotFoundException e) {
             logger.warn("Web Resource Not Found: " + e.message)
-            sendErrorResponse(request, response, HttpServletResponse.SC_NOT_FOUND, "not-found", e.message, e, ecfi, webappName)
+            sendErrorResponse(request, response, HttpServletResponse.SC_NOT_FOUND, "not-found", e.message, e, ecfi, webappName, sri)
         } catch (ArtifactTarpitException e) {
             logger.warn("Web Too Many Requests (tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
-            sendErrorResponse(request, response, 429, "too-many", e.message, e, ecfi, webappName)
+            sendErrorResponse(request, response, 429, "too-many", e.message, e, ecfi, webappName, sri)
         } catch (Throwable t) {
             if (ec.message.hasError()) {
                 String errorsString = ec.message.errorsString
                 logger.error(errorsString, t)
-                sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error",
-                        errorsString, t, ecfi, webappName)
+                if ("true".equals(request.getAttribute("moqui.login.error"))) {
+                    sendErrorResponse(request, response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized",
+                            errorsString, t, ecfi, webappName, sri)
+                } else {
+                    sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error",
+                            errorsString, t, ecfi, webappName, sri)
+                }
             } else {
                 logger.error("Internal error processing request: " + t.message, t)
                 sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error",
-                        t.message, t, ecfi, webappName)
+                        t.message, t, ecfi, webappName, sri)
             }
         } finally {
             // make sure everything is cleaned up
@@ -124,8 +130,9 @@ class MoquiServlet extends HttpServlet {
     }
 
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
-            String message, Throwable origThrowable, ExecutionContextFactoryImpl ecfi, String moquiWebappName) {
-        if (ecfi == null || request.getHeader("Accept")?.contains("application/json")) {
+            String message, Throwable origThrowable, ExecutionContextFactoryImpl ecfi, String moquiWebappName, ScreenRenderImpl sri) {
+        String acceptHeader = request.getHeader("Accept")
+        if (ecfi == null || (sri?.screenUrlInfo?.targetTransitionActualName) || (acceptHeader && !acceptHeader.contains("text/html"))) {
             response.sendError(errorCode, message)
             return
         }
