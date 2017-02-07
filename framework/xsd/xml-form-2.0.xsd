@@ -1110,6 +1110,27 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="econ-general-docs-tags-display" substitutionGroup="SubFields">
         <xs:annotation><xs:documentation>Economy general docs display, customized.</xs:documentation></xs:annotation>
     </xs:element>
+    <xs:element name="company-id-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+            <xs:attribute name="map-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="contact-info-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="map-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
 
     <!-- ================== Field Sub-Sub-Elements ==================== -->
     <xs:element name="entity-options">
