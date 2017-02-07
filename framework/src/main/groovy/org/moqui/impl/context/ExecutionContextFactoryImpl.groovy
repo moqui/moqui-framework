@@ -374,12 +374,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
         int count = 0
-        while (count < retryLimit && workerPool.getQueue().size() > 0) {
+        logger.warn("Wait for workerPool empty: queue size ${workerPool.getQueue().size()} active ${workerPool.getActiveCount()}")
+        while (count < retryLimit && (workerPool.getQueue().size() > 0 || workerPool.getActiveCount() > 0)) {
             Thread.sleep(100)
             count++
         }
-        int afterSize = workerPool.getQueue().size()
-        if (afterSize > 0) logger.warn("After ${retryLimit} 100ms waits worker pool queue size is still ${afterSize}")
+        int afterSize = workerPool.getQueue().size() + workerPool.getActiveCount()
+        if (afterSize > 0) logger.warn("After ${retryLimit} 100ms waits worker pool size is still ${afterSize}")
         return afterSize == 0
     }
 
