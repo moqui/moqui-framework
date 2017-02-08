@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
@@ -767,7 +768,7 @@ abstract class EntityFindBase implements EntityFind {
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result unless it's a read only tx cache
-                if (forUpdate && !txCache.isTxCreate(txcValue)) {
+                if (forUpdate && !txCache.isKnownLocked(txcValue) && !txCache.isTxCreate(txcValue)) {
                     EntityValueBase fuDbValue = oneExtended(isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition, fieldInfoArray, fieldOptionsArray)
                     if (txCache.isReadOnly()) {
                         // is read only tx cache so use the value from the DB
@@ -789,7 +790,7 @@ abstract class EntityFindBase implements EntityFind {
                                 if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
                                         .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
                             }
-                            logger.warn("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
+                            logger.warn("Did for update query on ${ed.getFullEntityName()} and result did not match value in transaction cache: \n${fieldDiffBuilder}", new BaseException("location"))
                         }
                         newEntityValue = txcValue
                     }
@@ -810,7 +811,7 @@ abstract class EntityFindBase implements EntityFind {
             newEntityValue = oneExtended(isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition, fieldInfoArray, fieldOptionsArray)
 
             // it didn't come from the txCache so put it there
-            if (txCache != null) txCache.onePut(newEntityValue)
+            if (txCache != null) txCache.onePut(newEntityValue, forUpdate)
 
             // put it in whether null or not (already know cacheHit is null)
             if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)

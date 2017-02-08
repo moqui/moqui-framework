@@ -125,7 +125,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         haveMadeValue = true;
 
         // if txCache in place always put in cache for future reference (onePut handles any stale from DB issues too)
-        if (txCache != null) txCache.onePut(newEntityValue);
+        if (txCache != null) txCache.onePut(newEntityValue, false);
 
         return newEntityValue;
     }

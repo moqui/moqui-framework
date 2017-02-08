@@ -1451,7 +1451,7 @@ public abstract class EntityValueBase implements EntityValue {
             // call the abstract method
             if (!retVal) {
                 retVal = this.refreshExtended();
-                if (retVal && curTxCache != null) curTxCache.onePut(this);
+                if (retVal && curTxCache != null) curTxCache.onePut(this, false);
             }
 
             // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", false);
