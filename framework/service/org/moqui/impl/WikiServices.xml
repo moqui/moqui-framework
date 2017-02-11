@@ -421,6 +421,16 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <!-- org.moqui.impl.WikiServices.index#WikiSpacePages moved to org.moqui.search.SearchServices.index#WikiSpacePages -->
+    <service verb="get" noun="WikiPageManualDocumentData" authenticate="anonymous-view">
+        <implements service="org.moqui.EntityServices.add#ManualDocumentData"/>
+        <actions>
+            <!-- primaryEntityValue is a WikiPage entity value, fields will be in the root document Map -->
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="wikiPageInfo"
+                    in-map="[wikiSpaceId:document.wikiSpaceId, pagePath:document.pagePath]"/>
+            <!-- TODO: add attachments too (for indexing)? -->
+            <set field="document.content" from="ec.resource.getLocationText(wikiPageInfo.pageLocation, false)"/>
+        </actions>
+    </service>
 
     <service verb="get" noun="UserWikiSpaces">
         <in-parameters><parameter name="userId"/></in-parameters>
