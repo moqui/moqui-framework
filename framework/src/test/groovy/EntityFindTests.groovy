@@ -228,4 +228,13 @@ class EntityFindTests extends Specification {
         after.typeDescription == "Country2"
         reset.typeDescription == "Country"
     }
+
+    def "no cache with for update"() {
+        when:
+        // do query on Geo which has cache=true, with for-update it should not use the cache
+        EntityValue geo = ec.entity.find("moqui.basic.Geo").condition("geoId", "USA").forUpdate(true).one()
+
+        then:
+        geo.isMutable()
+    }
 }

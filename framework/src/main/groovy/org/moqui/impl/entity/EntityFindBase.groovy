@@ -608,6 +608,7 @@ abstract class EntityFindBase implements EntityFind {
         if (dynamicView != null) return false
         if (havingEntityCondition != null) return false
         if (limit != null || offset != null) return false
+        if (forUpdate) return false
         if (useCache != null) {
             boolean useCacheLocal = useCache.booleanValue()
             if (!useCacheLocal) return false
