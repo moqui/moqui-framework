@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
@@ -398,6 +399,7 @@ class TransactionCache implements Synchronization {
         try {
             int writeInfoListSize = writeInfoList.size()
             if (writeInfoListSize > 0) {
+                // logger.error("Tx cache flush at", new BaseException("txc flush"))
                 EntityFacadeImpl efi = ecfi.entityFacade
 
                 long startTime = System.currentTimeMillis()

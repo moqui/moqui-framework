@@ -56,9 +56,9 @@ public abstract class EntityValueBase implements EntityValue {
     private transient TransactionCache txCacheInternal = null;
     private transient EntityDefinition entityDefinitionTransient = null;
 
-    private transient Map<String, Object> dbValueMap = null;
+    private transient HashMap<String, Object> dbValueMap = null;
+    private transient HashMap<String, Object> oldDbValueMap = null;
     private transient Map<String, Object> internalPkMap = null;
-    private transient Map<String, Object> oldDbValueMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
 
     private transient boolean modified = false;
@@ -73,7 +73,6 @@ public abstract class EntityValueBase implements EntityValue {
         efiTransient = efip;
         entityName = ed.fullEntityName;
         entityDefinitionTransient = ed;
-        // NOTE: not serializing modified, mutable, isFromDb... if it is a copy we don't care if it gets modified, etc
     }
 
     @Override public void writeExternal(ObjectOutput out) throws IOException {
@@ -106,13 +105,14 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     public HashMap<String, Object> getValueMap() { return valueMapInternal; }
-    protected Map<String, Object> getDbValueMap() { return dbValueMap; }
+    protected HashMap<String, Object> getDbValueMap() { return dbValueMap; }
 
     protected void setDbValueMap(Map<String, Object> map) {
         dbValueMap = new HashMap<>();
         FieldInfo[] nonPkFields = getEntityDefinition().entityInfo.nonPkFieldInfoArray;
         for (int i = 0; i < nonPkFields.length; i++) {
             FieldInfo fi = nonPkFields[i];
+            if (!map.containsKey(fi.name)) continue;
             Object curValue = map.get(fi.name);
             dbValueMap.put(fi.name, curValue);
             if (!valueMapInternal.containsKey(fi.name)) valueMapInternal.put(fi.name, curValue);
@@ -350,19 +350,11 @@ public abstract class EntityValueBase implements EntityValue {
             Object thisValue = valueMapInternal.get(pkField);
             Object thatValue = evbValue.get(pkField);
             if (thisValue == null) {
-                if (thatValue != null) {
-                    allMatch = false;
-                    break;
-                }
+                if (thatValue != null) { allMatch = false; break; }
             } else {
-                if (!thisValue.equals(thatValue)) {
-                    allMatch = false;
-                    break;
-                }
-
+                if (!thisValue.equals(thatValue)) { allMatch = false; break; }
             }
         }
-
         return allMatch;
     }
 
@@ -1064,7 +1056,7 @@ public abstract class EntityValueBase implements EntityValue {
             } else {
                 if (!curValue.equals(value)) {
                     modified = true;
-                    if (dbValueMap == null) dbValueMap = new LinkedHashMap<>();
+                    if (dbValueMap == null) dbValueMap = new HashMap<>();
                     dbValueMap.put(name, curValue);
                 }
             }
@@ -1157,6 +1149,7 @@ public abstract class EntityValueBase implements EntityValue {
                 if (newVal != null) valueMapInternal.put(fieldName, newVal);
             } finally {
                 ec.getContext().pop();
+                if (dbValueMap != null) ec.getContext().pop();
             }
         }
     }
@@ -1332,6 +1325,7 @@ public abstract class EntityValueBase implements EntityValue {
             if (curTxCache == null || !curTxCache.update(this)) {
                 // no TX cache update, etc: ready to do actual update
                 updateExtended(pkFieldArray, nonPkFieldArray, null);
+                // if ("OrderHeader".equals(ed.getEntityName()) && "55500".equals(valueMapInternal.get("orderId"))) logger.warn("Called updateExtended order " + this.valueMapInternal.toString());
             }
 
             // clear the entity cache

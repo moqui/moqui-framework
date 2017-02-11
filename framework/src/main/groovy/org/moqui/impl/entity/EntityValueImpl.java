@@ -39,7 +39,8 @@ public class EntityValueImpl extends EntityValueBase {
     public EntityValue cloneValue() {
         EntityValueImpl newObj = new EntityValueImpl(getEntityDefinition(), getEntityFacadeImpl());
         newObj.getValueMap().putAll(getValueMap());
-        if (getDbValueMap() != null) newObj.setDbValueMap(new HashMap<>(getDbValueMap()));
+        HashMap<String, Object> dbValueMap = getDbValueMap();
+        if (dbValueMap != null) newObj.setDbValueMap(dbValueMap);
         // don't set mutable (default to mutable even if original was not) or modified (start out not modified)
         return newObj;
     }
