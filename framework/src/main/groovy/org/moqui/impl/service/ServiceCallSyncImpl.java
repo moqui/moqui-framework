@@ -69,6 +69,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 // run all service calls in a single transaction for multi form submits, ie all succeed or fail together
                 boolean beganTransaction = eci.transactionFacade.begin(null);
                 try {
+                    Map<String, Object> result = new HashMap<>();
                     for (int i = 0; ; i++) {
                         if (("true".equals(parameters.get("_useRowSubmit")) || "true".equals(parameters.get("_useRowSubmit_" + i)))
                                 && !"true".equals(parameters.get("_rowSubmit_" + i))) continue;
@@ -84,17 +85,22 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                         // now that we have checked the per-row parameters, add in others available
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = inParameterNames.get(paramIndex);
-                            if (ObjectUtilities.isEmpty(currentParms.get(ipn)) && !ObjectUtilities.isEmpty(parameters.get(ipn)))
+                            if (!ObjectUtilities.isEmpty(currentParms.get(ipn))) continue;
+                            if (!ObjectUtilities.isEmpty(parameters.get(ipn))) {
                                 currentParms.put(ipn, parameters.get(ipn));
+                            } else if (!ObjectUtilities.isEmpty(result.get(ipn))) {
+                                currentParms.put(ipn, result.get(ipn));
+                            }
                         }
 
-                        // call the service, ignore the result...
-                        callSingle(currentParms, sd, eci);
+                        // call the service
+                        Map<String, Object> singleResult = callSingle(currentParms, sd, eci);
+                        if (singleResult != null) result.putAll(singleResult);
                         // ... and break if there are any errors
                         if (eci.messageFacade.hasError()) break;
                     }
 
-                    return new HashMap<>();
+                    return result;
                 } catch (Throwable t) {
                     eci.transactionFacade.rollback(beganTransaction, "Uncaught error running service " + serviceName + " in multi mode", t);
                     throw t;
