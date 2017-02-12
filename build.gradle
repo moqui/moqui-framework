@@ -415,7 +415,7 @@ File getComponent(String compName, String type, Node addons, Node myaddons, Set 
 File downloadComponent(String targetDirPath, String type, Node component, Node addons, Node myaddons) {
     String compName = component.'@name'
 
-    String repositoryName = (component.'@repository' ?: 'github')
+    String repositoryName = (component.'@repository' ?: myaddons?.'@default-repository' ?: addons.'@default-repository' ?: 'github')
     Node repository = myaddons != null ? (Node) myaddons.repository.find({ it."@name" == repositoryName }) : null
     if (repository == null) repository = (Node) addons.repository.find({ it."@name" == repositoryName })
     if (repository == null) throw new InvalidUserDataException("Repository ${repositoryName} not found in myaddons.xml or addons.xml")
