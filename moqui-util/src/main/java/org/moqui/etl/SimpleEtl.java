@@ -104,27 +104,30 @@ public class SimpleEtl {
      * @throws StopException if thrown extraction should stop and return
      */
     public boolean processEntry(Entry extractEntry) throws StopException {
+        if (extractEntry == null) return false;
         extractCount++;
         ArrayList<Entry> loadEntries = new ArrayList<>();
 
         if (internalConfig != null && internalConfig.hasTransformers) {
-            boolean skip = internalConfig.runTransformers(this, extractEntry, loadEntries);
-            if (skip) {
+            EntryTransform entryTransform = new EntryTransform(extractEntry);
+            internalConfig.runTransformers(this, entryTransform, loadEntries);
+            if (entryTransform.loadCurrent != null ? entryTransform.loadCurrent :
+                    entryTransform.newEntries == null || entryTransform.newEntries.size() == 0) {
+                loadEntries.add(0, entryTransform.entry);
+            } else if (entryTransform.newEntries.size() == 0) {
                 skipCount++;
                 return false;
             }
+        } else {
+            loadEntries.add(extractEntry);
         }
 
         int loadEntriesSize = loadEntries.size();
-        if (loadEntriesSize == 0) {
-            loadEntries.add(extractEntry);
-            loadEntriesSize = 1;
-        }
-        loadCount += loadEntriesSize;
         for (int i = 0; i < loadEntriesSize; i++) {
             Entry loadEntry = loadEntries.get(i);
             try {
                 loader.load(loadEntry);
+                loadCount++;
             } catch (Throwable t) {
                 loadErrors.add(new EtlError(loadEntry, t));
                 if (stopOnError) throw new StopException(t);
@@ -157,44 +160,40 @@ public class SimpleEtl {
         }
 
         // returns true to skip the entry (or remove from load list)
-        boolean runTransformers(SimpleEtl etl, Entry curEntry, ArrayList<Entry> loadEntries) throws StopException {
-            if (curEntry == null) return true;
+        void runTransformers(SimpleEtl etl, EntryTransform entryTransform, ArrayList<Entry> loadEntries) throws StopException {
             for (int i = 0; i < anyTransformerSize; i++) {
-                boolean skip = transformEntry(etl, anyTransformers.get(i), curEntry, loadEntries);
-                if (skip) return true;
+                transformEntry(etl, anyTransformers.get(i), entryTransform);
             }
-            String curType = curEntry.getEtlType();
+            String curType = entryTransform.entry.getEtlType();
             if (curType != null && !curType.isEmpty()) {
                 ArrayList<Transformer> curTypeTrans = typeTransformers.get(curType);
                 int curTypeTransSize = curTypeTrans != null ? curTypeTrans.size() : 0;
                 for (int i = 0; i < curTypeTransSize; i++) {
-                    boolean skip = transformEntry(etl, curTypeTrans.get(i), curEntry, loadEntries);
-                    if (skip) return true;
+                    transformEntry(etl, curTypeTrans.get(i), entryTransform);
                 }
             }
-            return false;
+            // handle new entries, run transforms then add to load list if not skipped
+            int newEntriesSize = entryTransform.newEntries != null ? entryTransform.newEntries.size() : 0;
+            for (int i = 0; i < newEntriesSize; i++) {
+                Entry newEntry = entryTransform.newEntries.get(i);
+                if (newEntry == null) continue;
+
+                EntryTransform newTransform = new EntryTransform(newEntry);
+                runTransformers(etl, newTransform, loadEntries);
+                if (newTransform.loadCurrent != null ? newTransform.loadCurrent : newTransform.newEntries == null || newTransform.newEntries.size() == 0) {
+                    loadEntries.add(newEntry);
+                }
+            }
         }
         // internal method, returns true to skip entry (or remove from load list)
-        boolean transformEntry(SimpleEtl etl, Transformer transformer, Entry entry, ArrayList<Entry> loadEntries) throws StopException {
+        void transformEntry(SimpleEtl etl, Transformer transformer, EntryTransform entryTransform) throws StopException {
             try {
-                if (transformer.filter(entry)) return true;
-                ArrayList<Entry> newEntries = transformer.transform(entry);
-                if (newEntries != null) {
-                    // handle new entries, run transforms then add to load list if not skipped
-                    int newEntriesSize = newEntries.size();
-                    for (int i = 0; i < newEntriesSize; i++) {
-                        Entry newEntry = newEntries.get(i);
-                        if (newEntry == null) continue;
-                        boolean skip = runTransformers(etl, newEntry, loadEntries);
-                        if (!skip) loadEntries.add(newEntry);
-                    }
-                }
+                transformer.transform(entryTransform);
             } catch (Throwable t) {
-                etl.transformErrors.add(new EtlError(entry, t));
+                etl.transformErrors.add(new EtlError(entryTransform.entry, t));
                 if (etl.stopOnError) throw new StopException(t);
-                return true;
+                entryTransform.loadCurrent(false);
             }
-            return false;
         }
 
         void copyFrom(TransformConfiguration conf) {
@@ -229,18 +228,32 @@ public class SimpleEtl {
         @Override public Map<String, Object> getEtlValues() { return values; }
         // TODO: add equals and hash overrides
     }
+    public static class EntryTransform {
+        final Entry entry;
+        ArrayList<Entry> newEntries = null;
+        Boolean loadCurrent = null;
+        EntryTransform(Entry entry) { this.entry = entry; }
+        /** Get the current entry to get type and get/put values as needed */
+        public Entry getEntry() { return entry; }
+        /** By default the current entry is loaded only if no new entries are added; set to false to not load even if no entries are
+         * added (filter); set to true to load even if no new entries are added */
+        public EntryTransform loadCurrent(boolean load) { loadCurrent = load; return this; }
+        /** Add a new entry to be transformed and if not filtered then loaded */
+        public EntryTransform addEntry(Entry newEntry) {
+            if (newEntries == null) newEntries = new ArrayList<>();
+            newEntries.add(newEntry);
+            return this;
+        }
+    }
 
     public interface Extractor {
         /** Called once to start processing, should call etl.processEntry() for each entry and close itself once finished */
         void extract(SimpleEtl etl) throws Exception;
     }
-    /** Stateless ETL entry transformer and filter */
+    /** Stateless ETL entry transformer and filter interface */
     public interface Transformer {
-        /** Return true to skip the record. This method must be implemented so always return false to skip filtering. */
-        boolean filter(Entry entry);
-        /** Transform the entry as needed (modify passed entry) and/or optionally return an ArrayList with one or more new entries;
-         * To skip transform (filter only) just return null */
-        ArrayList<Entry> transform(Entry entry) throws Exception;
+        /** Call methods on EntryTransform to add new entries (generally with different types), modify the current entry's values, or filter the entry. */
+        void transform(EntryTransform entryTransform) throws Exception;
     }
     public interface Loader {
         /** Called before SimpleEtl processing begins */

@@ -1873,7 +1873,11 @@ class EntityFacadeImpl implements EntityFacade {
     static class EtlLoader implements SimpleEtl.Loader {
         private boolean beganTransaction = false
         private EntityFacadeImpl efi
+        private boolean useTryInsert = false, dummyFks = false
         EtlLoader(EntityFacadeImpl efi) { this.efi = efi }
+        EtlLoader useTryInsert() { useTryInsert = true; return this }
+        EtlLoader dummyFks() { dummyFks = true; return this }
+
         @Override void init(Integer timeout) {
             if (!efi.ecfi.transactionFacade.isTransactionActive()) beganTransaction = efi.ecfi.transactionFacade.begin(timeout)
         }
@@ -1885,9 +1889,34 @@ class EntityFacadeImpl implements EntityFacade {
             }
             EntityDefinition ed = efi.getEntityDefinition(entityName)
             if (ed == null) throw new BaseException("Could not find entity ${entityName}")
-            Map<String, Object> results = new HashMap()
-            EntityAutoServiceRunner.storeEntity(efi.ecfi.getEci(), ed, entry.getEtlValues(), results, null)
-            if (results.size() > 0) entry.getEtlValues().putAll(results)
+            // NOTE: the following uses the same pattern as EntityDataLoaderImpl.LoadValueHandler
+            if (dummyFks || useTryInsert) {
+                EntityValue curValue = ed.makeEntityValue()
+                curValue.setAll(entry.getEtlValues())
+                if (useTryInsert) {
+                    try {
+                        curValue.create()
+                    } catch (EntityException e) {
+                        if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${e.toString()})")
+                        boolean noFksMissing = true
+                        if (dummyFks) noFksMissing = curValue.checkFks(true)
+                        // retry, then if this fails we have a real error so let the exception fall through
+                        // if there were no FKs missing then just do an update, if there were that may have been the error so createOrUpdate
+                        if (noFksMissing) {
+                            curValue.update()
+                        } else {
+                            curValue.createOrUpdate()
+                        }
+                    }
+                } else {
+                    if (dummyFks) curValue.checkFks(true)
+                    curValue.createOrUpdate()
+                }
+            } else {
+                Map<String, Object> results = new HashMap()
+                EntityAutoServiceRunner.storeEntity(efi.ecfi.getEci(), ed, entry.getEtlValues(), results, null)
+                if (results.size() > 0) entry.getEtlValues().putAll(results)
+            }
         }
         @Override void complete(SimpleEtl etl) {
             if (etl.hasError()) {
@@ -1897,7 +1926,6 @@ class EntityFacadeImpl implements EntityFacade {
             }
         }
     }
-
 
     @Override
     EntityValue makeValue(Element element) {
