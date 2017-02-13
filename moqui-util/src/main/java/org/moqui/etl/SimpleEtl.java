@@ -29,6 +29,8 @@ public class SimpleEtl {
     private boolean stopOnError = false;
     private Integer timeout = 3600; // default to one hour
 
+    private int extractCount = 0, skipCount = 0, loadCount = 0;
+
     public SimpleEtl(@Nonnull Extractor extractor, @Nonnull Loader loader) {
         this.extractor = extractor;
         this.loader = loader;
@@ -81,6 +83,10 @@ public class SimpleEtl {
 
     public SimpleEtl addMessage(String msg) { this.messages.add(msg); return this; }
     public List<String> getMessages() { return Collections.unmodifiableList(messages); }
+    public int getExtractCount() { return extractCount; }
+    public int getSkipCount() { return skipCount; }
+    public int getLoadCount() { return loadCount; }
+
     public Exception getExtractException() { return extractException; }
     public List<EtlError> getTransformErrors() { return Collections.unmodifiableList(transformErrors); }
     public List<EtlError> getLoadErrors() { return Collections.unmodifiableList(loadErrors); }
@@ -98,11 +104,15 @@ public class SimpleEtl {
      * @throws StopException if thrown extraction should stop and return
      */
     public boolean processEntry(Entry extractEntry) throws StopException {
+        extractCount++;
         ArrayList<Entry> loadEntries = new ArrayList<>();
 
         if (internalConfig != null && internalConfig.hasTransformers) {
             boolean skip = internalConfig.runTransformers(this, extractEntry, loadEntries);
-            if (skip) return false;
+            if (skip) {
+                skipCount++;
+                return false;
+            }
         }
 
         int loadEntriesSize = loadEntries.size();
@@ -110,6 +120,7 @@ public class SimpleEtl {
             loadEntries.add(extractEntry);
             loadEntriesSize = 1;
         }
+        loadCount += loadEntriesSize;
         for (int i = 0; i < loadEntriesSize; i++) {
             Entry loadEntry = loadEntries.get(i);
             try {
@@ -211,8 +222,8 @@ public class SimpleEtl {
         Map<String, Object> getEtlValues();
     }
     public static class SimpleEntry implements Entry {
-        private final String type;
-        private final Map<String, Object> values;
+        public final String type;
+        public final Map<String, Object> values;
         public SimpleEntry(String type, Map<String, Object> values) { this.type = type; this.values = values; }
         @Override public String getEtlType() { return type; }
         @Override public Map<String, Object> getEtlValues() { return values; }
