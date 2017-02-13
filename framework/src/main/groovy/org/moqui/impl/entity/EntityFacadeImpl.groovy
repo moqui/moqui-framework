@@ -17,11 +17,13 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.etl.SimpleEtl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.EntityConditionImplBase
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.ListCondition
+import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.*
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
@@ -1244,8 +1246,7 @@ class EntityFacadeImpl implements EntityFacade {
         return dsiList
     }
 
-    @Override
-    EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
+    @Override EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
     EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
 
     @Override
@@ -1865,11 +1866,38 @@ class EntityFacadeImpl implements EntityFacade {
         return newCon
     }
 
-    @Override
-    EntityDataLoader makeDataLoader() { return new EntityDataLoaderImpl(this) }
+    @Override EntityDataLoader makeDataLoader() { return new EntityDataLoaderImpl(this) }
+    @Override EntityDataWriter makeDataWriter() { return new EntityDataWriterImpl(this) }
 
-    @Override
-    EntityDataWriter makeDataWriter() { return new EntityDataWriterImpl(this) }
+    @Override SimpleEtl.Loader makeEtlLoader() { return new EtlLoader(this) }
+    static class EtlLoader implements SimpleEtl.Loader {
+        private boolean beganTransaction = false
+        private EntityFacadeImpl efi
+        EtlLoader(EntityFacadeImpl efi) { this.efi = efi }
+        @Override void init(Integer timeout) {
+            if (!efi.ecfi.transactionFacade.isTransactionActive()) beganTransaction = efi.ecfi.transactionFacade.begin(timeout)
+        }
+        @Override void load(SimpleEtl.Entry entry) throws Exception {
+            String entityName = entry.getEtlType()
+            if (efi.isEntityDefined(entityName)) {
+                logger.info("Tried to load ETL entry with invalid entity name " + entityName)
+                return
+            }
+            EntityDefinition ed = efi.getEntityDefinition(entityName)
+            if (ed == null) throw new BaseException("Could not find entity ${entityName}")
+            Map<String, Object> results = new HashMap()
+            EntityAutoServiceRunner.storeEntity(efi.ecfi.getEci(), ed, entry.getEtlValues(), results, null)
+            if (results.size() > 0) entry.getEtlValues().putAll(results)
+        }
+        @Override void complete(SimpleEtl etl) {
+            if (etl.hasError()) {
+                efi.ecfi.transactionFacade.rollback(beganTransaction, "Error in ETL load", etl.getSingleErrorCause())
+            } else if (beganTransaction) {
+                efi.ecfi.transactionFacade.commit()
+            }
+        }
+    }
+
 
     @Override
     EntityValue makeValue(Element element) {

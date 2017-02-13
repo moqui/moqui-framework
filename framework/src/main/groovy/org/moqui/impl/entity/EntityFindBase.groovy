@@ -17,6 +17,8 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
+import org.moqui.etl.SimpleEtl
+import org.moqui.etl.SimpleEtl.StopException
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -1344,5 +1346,20 @@ abstract class EntityFindBase implements EntityFind {
             if (eli != null) eli.close()
         }
         return totalDeleted
+    }
+
+    @Override
+    void extract(SimpleEtl etl) {
+        EntityListIterator eli = iterator()
+        try {
+            EntityValue ev
+            while ((ev = eli.next()) != null) {
+                etl.processEntry(ev)
+            }
+        } catch (StopException e) {
+            logger.warn("EntityFind extract stopped on: " + (e.getCause()?.toString() ?: e.toString()))
+        } finally {
+            eli.close()
+        }
     }
 }

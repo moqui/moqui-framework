@@ -445,12 +445,13 @@ class TransactionFacadeImpl implements TransactionFacade {
             int status = getStatus()
             if (status != Status.STATUS_NO_TRANSACTION) {
                 if (status != Status.STATUS_MARKED_ROLLBACK) {
+                    Exception rbLocation = new BaseException("Set rollback only location")
                     logger.warn("Transaction set rollback only. The rollback was originally caused by: ${causeMessage}", causeThrowable)
-                    logger.warn("Transaction set rollback only for [${causeMessage}]. Here is the current location: ", new BaseException("Set rollback only location"))
+                    logger.warn("Transaction set rollback only for [${causeMessage}]. Here is the current location: ", rbLocation)
 
                     ut.setRollbackOnly()
                     // do this after setRollbackOnly so it only tracks it if rollback-only was actually set
-                    getTxStackInfo().rollbackOnlyInfo = new RollbackInfo(causeMessage, causeThrowable, new Exception("Set rollback-only location"))
+                    getTxStackInfo().rollbackOnlyInfo = new RollbackInfo(causeMessage, causeThrowable, rbLocation)
                 }
             } else {
                 logger.warn("Rollback only not set on current transaction, status is STATUS_NO_TRANSACTION")

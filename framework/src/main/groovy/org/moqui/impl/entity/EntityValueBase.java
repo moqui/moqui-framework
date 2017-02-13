@@ -1458,6 +1458,9 @@ public abstract class EntityValueBase implements EntityValue {
     }
     public abstract boolean refreshExtended();
 
+    @Override public String getEtlType() { return entityName; }
+    @Override public Map<String, Object> getEtlValues() { return valueMapInternal; }
+
     private static class EntityFieldEntry implements Entry<String, Object> {
         protected FieldInfo fi;
         EntityValueBase evb;
