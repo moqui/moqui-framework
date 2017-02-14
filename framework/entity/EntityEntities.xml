@@ -113,15 +113,42 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="dataDocumentId"/></relationship>
         <relationship type="many" related="moqui.entity.feed.DataFeedDocument" short-alias="feeds">
             <key-map field-name="dataDocumentId"/></relationship>
+        <relationship type="one-nofk" related="moqui.entity.document.DataDocumentIndexSetting" short-alias="indexSetting">
+            <key-map field-name="indexName"/></relationship>
+
         <master>
             <detail relationship="fields"/><detail relationship="relAliases"/>
             <detail relationship="conditions"/><detail relationship="links"/>
             <detail relationship="feeds"><detail relationship="feed"/></detail>
         </master>
     </entity>
+    <entity entity-name="DataDocumentIndexSetting" package="moqui.entity.document" use="configuration">
+        <field name="indexName" type="text-medium" is-pk="true"/>
+        <field name="settings" type="text-long"><description>The setting should be in JSON format. e.g.
+            {
+              "analysis": {
+                "analyzer": {
+                  "my_analyzer": {
+                    "tokenizer": "keyword",
+                    "char_filter": ["my_char_filter"]
+                  }
+                },
+                "char_filter": {
+                  "my_char_filter": {
+                    "type": "html_strip",
+                    "escaped_tags": ["b"]
+                  }
+                }
+              }
+            }
+        </description></field>
+
+        <relationship type="many" related="moqui.entity.document.DataDocument"/>
+    </entity>
     <entity entity-name="DataDocumentField" package="moqui.entity.document" use="configuration">
-        <field name="dataDocumentId" type="id" is-pk="true"/>
-        <field name="fieldPath" type="text-medium" is-pk="true"><description>String formatted like
+        <field name="dataDocumentFieldId" type="id" is-pk="true"/>
+        <field name="dataDocumentId" type="id"/>
+        <field name="fieldPath" type="text-medium"><description>String formatted like
             "RelationshipName:RelationshipName:fieldName" with zero or more relationship names. If there is no
             relationship name the field is on the primary entity. More than one relationship names means follow that
             path of relationships to get to the field. For DataFeed to work properly all relationship names should
@@ -131,6 +158,15 @@ along with this software (see the LICENSE.md file). If not, see
             (ie final part of fieldPath only). Defaults to final part of fieldPath. Must be unique within the document
             and can be used in EntityCondition passed into the EntityFacade.findDataDocuments() method.</description></field>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
+        <relationship type="many" related="moqui.entity.document.DataDocumentFieldMapping" short-alias="mappings">
+            <key-map field-name="dataDocumentFieldId"/></relationship>
+    </entity>
+    <entity entity-name="DataDocumentFieldMapping" package="moqui.entity.document" use="configuration">
+        <field name="dataDocumentFieldId" type="id" is-pk="true"/>
+        <field name="mappingParameter" type="text-short" is-pk="true"/>
+        <field name="mappingValue" type="text-medium" not-null="true"/>
+
+        <relationship type="one" related="moqui.entity.document.DataDocumentField"/>
     </entity>
     <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
         <field name="dataDocumentId" type="id" is-pk="true"/>
