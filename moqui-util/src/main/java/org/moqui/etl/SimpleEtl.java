@@ -30,6 +30,7 @@ public class SimpleEtl {
     private Integer timeout = 3600; // default to one hour
 
     private int extractCount = 0, skipCount = 0, loadCount = 0;
+    private long startTime = 0, endTime = 0;
 
     public SimpleEtl(@Nonnull Extractor extractor, @Nonnull Loader loader) {
         this.extractor = extractor;
@@ -55,6 +56,12 @@ public class SimpleEtl {
         internalConfig.copyFrom(config);
         return this;
     }
+    /** Use an external configuration as-is. Overrides any previous addTransformer() and addConfiguration() calls.
+     * Any calls to addTransformer() and addConfiguration() will modify this configuration. */
+    public SimpleEtl setConfiguration(TransformConfiguration config) {
+        internalConfig = config;
+        return this;
+    }
     /** Call this to set stop on error flag */
     public SimpleEtl stopOnError() { this.stopOnError = true; return this; }
     /** Set timeout in seconds; passed to Loader.init() for transactions, etc */
@@ -62,6 +69,7 @@ public class SimpleEtl {
 
     /** Call this to process the ETL */
     public SimpleEtl process() {
+        startTime = System.currentTimeMillis();
         // initialize loader
         loader.init(timeout);
 
@@ -73,6 +81,7 @@ public class SimpleEtl {
         } finally {
             // close the loader
             loader.complete(this);
+            endTime = System.currentTimeMillis();
         }
 
         return this;
@@ -86,6 +95,7 @@ public class SimpleEtl {
     public int getExtractCount() { return extractCount; }
     public int getSkipCount() { return skipCount; }
     public int getLoadCount() { return loadCount; }
+    public long getRunTime() { return endTime - startTime; }
 
     public Exception getExtractException() { return extractException; }
     public List<EtlError> getTransformErrors() { return Collections.unmodifiableList(transformErrors); }
@@ -114,7 +124,7 @@ public class SimpleEtl {
             if (entryTransform.loadCurrent != null ? entryTransform.loadCurrent :
                     entryTransform.newEntries == null || entryTransform.newEntries.size() == 0) {
                 loadEntries.add(0, entryTransform.entry);
-            } else if (entryTransform.newEntries.size() == 0) {
+            } else if (entryTransform.newEntries == null || entryTransform.newEntries.size() == 0) {
                 skipCount++;
                 return false;
             }
@@ -140,7 +150,7 @@ public class SimpleEtl {
     public static class TransformConfiguration {
         private ArrayList<Transformer> anyTransformers = new ArrayList<>();
         private int anyTransformerSize = 0;
-        private HashMap<String, ArrayList<Transformer>> typeTransformers = new HashMap<>();
+        private LinkedHashMap<String, ArrayList<Transformer>> typeTransformers = new LinkedHashMap<>();
         boolean hasTransformers = false;
 
         public TransformConfiguration() { }

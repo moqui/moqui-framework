@@ -107,6 +107,12 @@ public class FlatXmlExtractor implements SimpleEtl.Extractor {
         public void endElement(String ns, String localName, String qName) {
             if (stopParse) return;
 
+            if (curEntry == null) {
+                // should be the root element in a flat record file
+                if (rootName != null && rootName.equals(qName)) rootName = null;
+                return;
+            }
+
             if (curTextName != null) {
                 curEntry.values.put(curTextName, curText.toString());
                 curTextName = null;

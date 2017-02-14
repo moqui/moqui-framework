@@ -1883,7 +1883,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
         @Override void load(SimpleEtl.Entry entry) throws Exception {
             String entityName = entry.getEtlType()
-            if (efi.isEntityDefined(entityName)) {
+            if (!efi.isEntityDefined(entityName)) {
                 logger.info("Tried to load ETL entry with invalid entity name " + entityName)
                 return
             }
