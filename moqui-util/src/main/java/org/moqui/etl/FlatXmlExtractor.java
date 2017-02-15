@@ -125,6 +125,7 @@ public class FlatXmlExtractor implements SimpleEtl.Extractor {
             try {
                 extractor.etl.processEntry(curEntry);
             } catch (SimpleEtl.StopException e) {
+                logger.warn("Got StopException", e);
                 stopParse = true;
             }
 
