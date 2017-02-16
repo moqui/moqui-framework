@@ -412,6 +412,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="mol" description="Mole - Substance (molecule)" uomId="OTH_mol" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="RPM" description="Revolutions Per Minute" uomId="OTH_RPM" uomTypeEnumId="UT_OTHER_MEASURE"/>
 
+    <moqui.basic.Uom abbreviation="ct" description="Count" uomId="OTH_ct" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="ea" description="Each/Piece" uomId="OTH_ea" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="pp" description="Per Person" uomId="OTH_pp" uomTypeEnumId="UT_OTHER_MEASURE"/>
 </entity-facade-xml>
