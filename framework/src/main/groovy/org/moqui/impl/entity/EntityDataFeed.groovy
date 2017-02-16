@@ -426,12 +426,12 @@ class EntityDataFeed {
         }
     }
 
-    public static class FeedRunnable implements Runnable {
+    static class FeedRunnable implements Runnable {
         private ExecutionContextFactoryImpl ecfi
         private EntityDataFeed edf
         private EntityList feedValues
         private Set<String> allDataDocumentIds
-        public FeedRunnable(ExecutionContextFactoryImpl ecfi, EntityDataFeed edf, EntityList feedValues, Set<String> allDataDocumentIds) {
+        FeedRunnable(ExecutionContextFactoryImpl ecfi, EntityDataFeed edf, EntityList feedValues, Set<String> allDataDocumentIds) {
             this.ecfi = ecfi
             this.edf = edf
             this.allDataDocumentIds = allDataDocumentIds
@@ -439,8 +439,8 @@ class EntityDataFeed {
         }
 
         @Override
-        public void run() {
-            boolean beganTransaction = ecfi.transactionFacade.begin(null)
+        void run() {
+            boolean beganTransaction = ecfi.transactionFacade.begin(600)
             try {
                 if (logger.isTraceEnabled()) logger.trace("Doing DataFeed with allDataDocumentIds: ${allDataDocumentIds}, feedValues: ${feedValues}")
 
