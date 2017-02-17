@@ -759,6 +759,7 @@ public abstract class EntityValueBase implements EntityValue {
                     if (newValue.containsPrimaryKey()) {
                         newValue.checkFks(true);
                         newValue.create();
+                        logger.warn("Created dummy " + newValue.getEntityName() + " PK " + newValue.getPrimaryKeys());
                     }
                 } else {
                     return false;
@@ -1117,7 +1118,8 @@ public abstract class EntityValueBase implements EntityValue {
     @Override public abstract EntityValue cloneValue();
     public abstract EntityValue cloneDbValue(boolean getOld);
 
-    private boolean doDataFeed() {
+    private boolean doDataFeed(ExecutionContextImpl ec) {
+        if (ec.artifactExecutionFacade.entityDataFeedDisabled()) return false;
         // skip ArtifactHitBin, causes funny recursion
         return !"moqui.server.ArtifactHitBin".equals(entityName);
     }
@@ -1181,7 +1183,7 @@ public abstract class EntityValueBase implements EntityValue {
             efi.runEecaRules(entityName, this, "create", true);
 
             // do this before the db change so modified flag isn't cleared
-            if (doDataFeed()) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMapInternal, null);
+            if (doDataFeed(ec)) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMapInternal, null);
 
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
             TransactionCache curTxCache = getTxCache(ecfi);
@@ -1242,7 +1244,7 @@ public abstract class EntityValueBase implements EntityValue {
         if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, true);
 
         // if there is one or more DataFeed configs associated with this entity get info about them
-        boolean curDataFeed = doDataFeed();
+        boolean curDataFeed = doDataFeed(ec);
         if (curDataFeed) {
             ArrayList<EntityDataFeed.DocumentEntityInfo> entityInfoList = efi.getEntityDataFeed().getDataFeedEntityInfoList(entityName);
             if (entityInfoList.size() == 0) curDataFeed = false;

@@ -1902,11 +1902,8 @@ class EntityFacadeImpl implements EntityFacade {
                         if (dummyFks) noFksMissing = curValue.checkFks(true)
                         // retry, then if this fails we have a real error so let the exception fall through
                         // if there were no FKs missing then just do an update, if there were that may have been the error so createOrUpdate
-                        if (noFksMissing) {
-                            curValue.update()
-                        } else {
-                            curValue.createOrUpdate()
-                        }
+                        if (noFksMissing) { curValue.update() }
+                        else { curValue.createOrUpdate() }
                     }
                 } else {
                     if (dummyFks) curValue.checkFks(true)
