@@ -15,6 +15,7 @@ package org.moqui.impl.entity;
 
 import org.moqui.entity.*;
 import org.moqui.impl.context.TransactionCache;
+import org.moqui.util.CollectionUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,8 +23,8 @@ import java.io.Writer;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
 public class EntityListIteratorImpl implements EntityListIterator {
     protected static final Logger logger = LoggerFactory.getLogger(EntityListIteratorImpl.class);
@@ -31,17 +32,17 @@ public class EntityListIteratorImpl implements EntityListIterator {
     private final TransactionCache txCache;
     protected final Connection con;
     private final ResultSet rs;
+    private final ArrayList<EntityValueBase> txcList;
     private final EntityDefinition entityDefinition;
     protected final FieldInfo[] fieldInfoArray;
     private final int fieldInfoListSize;
-    private EntityCondition queryCondition = null;
-    protected List<String> orderByFields = null;
+    private final CollectionUtilities.MapOrderByComparator orderByComparator;
     /** This is needed to determine if the ResultSet is empty as cheaply as possible. */
     private boolean haveMadeValue = false;
     protected boolean closed = false;
 
     public EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition, FieldInfo[] fieldInfoArray,
-                                  EntityFacadeImpl efi, TransactionCache txCache) {
+                                  EntityFacadeImpl efi, TransactionCache txCache, EntityCondition queryCondition, ArrayList<String> obf) {
         this.efi = efi;
         this.con = con;
         this.rs = rs;
@@ -49,18 +50,25 @@ public class EntityListIteratorImpl implements EntityListIterator {
         fieldInfoListSize = fieldInfoArray.length;
         this.fieldInfoArray = fieldInfoArray;
         this.txCache = txCache;
+        if (txCache != null && queryCondition != null) {
+            if (obf != null && obf.size() > 0) { orderByComparator = new CollectionUtilities.MapOrderByComparator(obf); }
+            else { orderByComparator = null; }
+            // add all created values (updated and deleted values will be handled by the next() method
+            ArrayList<EntityValueBase> cvList = txCache.getCreatedValueList(entityDefinition.getFullEntityName(), queryCondition);
+            if (cvList.size() > 0) {
+                txcList = cvList;
+                // update the order if we know the order by field list
+                if (orderByComparator != null) txcList.sort(orderByComparator);
+            } else {
+                txcList = null;
+            }
+        } else {
+            txcList = null;
+            orderByComparator = null;
+        }
     }
 
-    public void setQueryCondition(EntityCondition ec) {
-        this.queryCondition = ec;
-    }
-
-    public void setOrderByFields(List<String> obf) {
-        this.orderByFields = obf;
-    }
-
-    @Override
-    public void close() {
+    @Override public void close() {
         if (this.closed) {
             logger.warn("EntityListIterator for entity [" + this.entityDefinition.getFullEntityName() + "] is already closed, not closing again");
         } else {
@@ -68,7 +76,6 @@ public class EntityListIteratorImpl implements EntityListIterator {
                 try { rs.close(); }
                 catch (SQLException e) { throw new EntityException("Could not close ResultSet in EntityListIterator", e); }
             }
-
             if (con != null) {
                 try { con.close(); }
                 catch (SQLException e) { throw new EntityException("Could not close Connection in EntityListIterator", e); }
@@ -87,32 +94,25 @@ public class EntityListIteratorImpl implements EntityListIterator {
 
     }
 
-    @Override
-    public void afterLast() {
+    @Override public void afterLast() {
         try { rs.afterLast(); }
         catch (SQLException e) { throw new EntityException("Error moving EntityListIterator to afterLast", e); }
     }
-
-    @Override
-    public void beforeFirst() {
+    @Override public void beforeFirst() {
         try { rs.beforeFirst(); }
         catch (SQLException e) { throw new EntityException("Error moving EntityListIterator to beforeFirst", e); }
     }
 
-    @Override
-    public boolean last() {
+    @Override public boolean last() {
         try { return rs.last(); }
         catch (SQLException e) { throw new EntityException("Error moving EntityListIterator to last", e); }
     }
-
-    @Override
-    public boolean first() {
+    @Override public boolean first() {
         try { return rs.first(); }
         catch (SQLException e) { throw new EntityException("Error moving EntityListIterator to first", e); }
     }
 
-    @Override
-    public EntityValue currentEntityValue() { return currentEntityValueBase(); }
+    @Override public EntityValue currentEntityValue() { return currentEntityValueBase(); }
 
     public EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
@@ -130,26 +130,20 @@ public class EntityListIteratorImpl implements EntityListIterator {
         return newEntityValue;
     }
 
-    @Override
-    public int currentIndex() {
+    @Override public int currentIndex() {
         try { return rs.getRow(); }
         catch (SQLException e) { throw new EntityException("Error getting current index", e); }
     }
-
-    @Override
-    public boolean absolute(final int rowNum) {
+    @Override public boolean absolute(final int rowNum) {
         try { return rs.absolute(rowNum); }
         catch (SQLException e) { throw new EntityException("Error going to absolute row number " + rowNum, e); }
     }
-
-    @Override
-    public boolean relative(final int rows) {
+    @Override public boolean relative(final int rows) {
         try { return rs.relative(rows); }
         catch (SQLException e) { throw new EntityException("Error moving relative rows " + rows, e); }
     }
 
-    @Override
-    public boolean hasNext() {
+    @Override public boolean hasNext() {
         try {
             if (rs.isLast() || rs.isAfterLast()) {
                 return false;
@@ -161,9 +155,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
             throw new EntityException("Error while checking to see if there is a next result", e);
         }
     }
-
-    @Override
-    public boolean hasPrevious() {
+    @Override public boolean hasPrevious() {
         try {
             if (rs.isFirst() || rs.isBeforeFirst()) {
                 return false;
@@ -176,8 +168,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         }
     }
 
-    @Override
-    public EntityValue next() {
+    @Override public EntityValue next() {
         try {
             if (rs.next()) {
                 EntityValueBase evb = currentEntityValueBase();
@@ -195,12 +186,9 @@ public class EntityListIteratorImpl implements EntityListIterator {
             throw new EntityException("Error getting next result", e);
         }
     }
+    @Override public int nextIndex() { return currentIndex() + 1; }
 
-    @Override
-    public int nextIndex() { return currentIndex() + 1; }
-
-    @Override
-    public EntityValue previous() {
+    @Override public EntityValue previous() {
         try {
             if (rs.previous()) {
                 EntityValueBase evb = (EntityValueBase) currentEntityValue();
@@ -217,9 +205,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
             throw new EntityException("Error getting previous result", e);
         }
     }
-
-    @Override
-    public int previousIndex() { return currentIndex() - 1; }
+    @Override public int previousIndex() { return currentIndex() - 1; }
 
     @Override
     public void setFetchSize(int rows) {
@@ -237,12 +223,11 @@ public class EntityListIteratorImpl implements EntityListIterator {
             EntityValue value;
             while ((value = next()) != null)  list.add(value);
 
-            if (txCache != null && queryCondition != null) {
+            if (txcList != null) {
                 // add all created values (updated and deleted values will be handled by the next() method
-                List<EntityValueBase> cvList = txCache.getCreatedValueList(entityDefinition.getFullEntityName(), queryCondition);
-                list.addAll(cvList);
+                list.addAll(txcList);
                 // update the order if we know the order by field list
-                if (orderByFields != null && cvList.size() > 0) list.orderByFields(orderByFields);
+                if (orderByComparator != null) list.sort(orderByComparator);
             }
 
             return list;

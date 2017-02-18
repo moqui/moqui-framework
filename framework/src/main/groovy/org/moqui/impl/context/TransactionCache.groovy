@@ -58,6 +58,7 @@ class TransactionCache implements Synchronization {
     TransactionCache(ExecutionContextFactoryImpl ecfi, boolean readOnly) {
         this.ecfi = ecfi
         this.readOnly = readOnly
+        logger.warn("New tx cache")
     }
 
     boolean isReadOnly() { return readOnly }
@@ -199,6 +200,7 @@ class TransactionCache implements Synchronization {
     boolean delete(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return false
+        logger.warn("txc delete ${key}")
 
         if (!readOnly) {
             EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
@@ -386,8 +388,8 @@ class TransactionCache implements Synchronization {
         }
         return currentEwi.writeMode
     }
-    List<EntityValueBase> getCreatedValueList(String entityName, EntityCondition ec) {
-        List<EntityValueBase> valueList = []
+    ArrayList<EntityValueBase> getCreatedValueList(String entityName, EntityCondition ec) {
+        ArrayList<EntityValueBase> valueList = new ArrayList<>()
         Map<Map, EntityValueBase> createMap = getCreateByEntityMap(entityName)
         if (createMap == null || createMap.size() == 0) return valueList
         for (EntityValueBase evb in createMap.values()) if (ec.mapMatches(evb)) valueList.add(evb)

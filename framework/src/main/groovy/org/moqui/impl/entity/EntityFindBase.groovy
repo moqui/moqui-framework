@@ -998,9 +998,6 @@ abstract class EntityFindBase implements EntityFind {
             // call the abstract method
             EntityListIterator eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded,
                     fieldInfoArray, fieldOptionsArray)
-            // these are used by the TransactionCache methods to augment the resulting list and maintain the sort order
-            eli.setQueryCondition(queryWhereCondition)
-            eli.setOrderByFields(orderByExpanded)
 
             MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
             if (limit != null && databaseNode != null && "cursor".equals(databaseNode.attribute("offset-style"))) {
@@ -1147,8 +1144,6 @@ abstract class EntityFindBase implements EntityFind {
 
         // call the abstract method
         EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray)
-        eli.setQueryCondition(whereCondition)
-        eli.setOrderByFields(orderByExpanded)
 
         // NOTE: if we are doing offset/limit with a cursor no good way to limit results, but we'll at least jump to the offset
         MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())

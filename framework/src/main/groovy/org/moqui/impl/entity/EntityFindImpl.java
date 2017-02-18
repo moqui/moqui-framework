@@ -116,7 +116,7 @@ public class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = this.getEntityDef();
 
         // table doesn't exist, just return empty ELI
-        if (!ed.tableExistsDbMetaOnly()) return new EntityListIteratorWrapper(new ArrayList<EntityValue>(), ed, efi);
+        if (!ed.tableExistsDbMetaOnly()) return new EntityListIteratorWrapper(new ArrayList<>(), ed, efi, null, null);
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
         if (getDistinct()) efb.makeDistinct();
@@ -160,7 +160,7 @@ public class EntityFindImpl extends EntityFindBase {
             efb.setPreparedStatementValues();
 
             ResultSet rs = efb.executeQuery();
-            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, txCache);
+            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, txCache, whereCondition, orderByExpanded);
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll();
         } catch (EntityException e) {

@@ -18,42 +18,42 @@ import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityListIterator;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.TransactionCache;
+import org.moqui.util.CollectionUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.List;
 
 class EntityListIteratorWrapper implements EntityListIterator {
     protected static final Logger logger = LoggerFactory.getLogger(EntityListIteratorWrapper.class);
     protected EntityFacadeImpl efi;
-    private final TransactionCache txCache;
-    protected List<EntityValue> valueList;
+    private List<EntityValue> valueList;
     private int internalIndex = -1;
     private EntityDefinition entityDefinition;
-    // private ArrayList<String> fieldsSelected;
-    private EntityCondition queryCondition = null;
-    protected List<String> orderByFields = null;
-    /**
-     * This is needed to determine if the ResultSet is empty as cheaply as possible.
-     */
+    /** This is needed to determine if the ResultSet is empty as cheaply as possible. */
     private boolean haveMadeValue = false;
     protected boolean closed = false;
 
-    EntityListIteratorWrapper(List<EntityValue> valueList, EntityDefinition entityDefinition, EntityFacadeImpl efi) {
+    EntityListIteratorWrapper(List<EntityValue> valueList, EntityDefinition entityDefinition, EntityFacadeImpl efi,
+                              EntityCondition queryCondition, ArrayList<String> obf) {
         this.efi = efi;
         this.valueList = valueList;
         this.entityDefinition = entityDefinition;
-        // this.fieldsSelected = fieldsSelected;
-        this.txCache = efi.ecfi.transactionFacade.getTransactionCache();
+        TransactionCache txCache = efi.ecfi.transactionFacade.getTransactionCache();
+        if (txCache != null && queryCondition != null) {
+            // add all created values (updated and deleted values will be handled by the next() method
+            ArrayList<EntityValueBase> txcList = txCache.getCreatedValueList(entityDefinition.getFullEntityName(), queryCondition);
+            if (txcList.size() > 0) {
+                valueList.addAll(txcList);
+                // update the order if we know the order by field list
+                if (obf != null && obf.size() > 0) valueList.sort(new CollectionUtilities.MapOrderByComparator(obf));
+            }
+        }
     }
 
-    public void setQueryCondition(EntityCondition ec) { this.queryCondition = ec; }
-
-    public void setOrderByFields(List<String> obf) { this.orderByFields = obf; }
-
-    @Override
-    public void close() {
+    @Override public void close() {
         if (this.closed) {
             logger.warn("EntityListIterator for entity " + entityDefinition.fullEntityName + " is already closed, not closing again");
         } else {
@@ -61,91 +61,63 @@ class EntityListIteratorWrapper implements EntityListIterator {
         }
     }
 
-    @Override
-    public void afterLast() { this.internalIndex = valueList.size(); }
-    @Override
-    public void beforeFirst() { internalIndex = -1; }
-    @Override
-    public boolean last() {
+    @Override public void afterLast() { this.internalIndex = valueList.size(); }
+    @Override public void beforeFirst() { internalIndex = -1; }
+    @Override public boolean last() {
         internalIndex = (valueList.size() - 1);
         return true;
     }
-    @Override
-    public boolean first() {
+    @Override public boolean first() {
         internalIndex = 0;
         return true;
     }
 
-    @Override
-    public EntityValue currentEntityValue() {
+    @Override public EntityValue currentEntityValue() {
         this.haveMadeValue = true;
         return valueList.get(internalIndex);
     }
-    @Override
-    public int currentIndex() { return internalIndex; }
+    @Override public int currentIndex() { return internalIndex; }
 
-    @Override
-    public boolean absolute(int rowNum) {
+    @Override public boolean absolute(int rowNum) {
         internalIndex = rowNum;
         return !(internalIndex < 0 || internalIndex >= valueList.size());
     }
-    @Override
-    public boolean relative(int rows) {
+    @Override public boolean relative(int rows) {
         internalIndex += rows;
         return !(internalIndex < 0 || internalIndex >= valueList.size());
     }
 
-    @Override
-    public boolean hasNext() { return internalIndex < (valueList.size() - 1); }
-    @Override
-    public boolean hasPrevious() { return internalIndex > 0; }
+    @Override public boolean hasNext() { return internalIndex < (valueList.size() - 1); }
+    @Override public boolean hasPrevious() { return internalIndex > 0; }
 
-    @Override
-    public EntityValue next() {
+    @Override public EntityValue next() {
         internalIndex++;
         if (internalIndex >= valueList.size()) return null;
         return currentEntityValue();
     }
+    @Override public int nextIndex() { return internalIndex + 1; }
 
-    @Override
-    public int nextIndex() { return internalIndex + 1; }
-
-    @Override
-    public EntityValue previous() {
+    @Override public EntityValue previous() {
         internalIndex--;
         if (internalIndex < 0) return null;
         return currentEntityValue();
     }
+    @Override public int previousIndex() { return internalIndex - 1; }
 
-    @Override
-    public int previousIndex() { return internalIndex - 1; }
+    @Override public void setFetchSize(int rows) {/* do nothing, just ignore */}
 
-    @Override
-    public void setFetchSize(int rows) {/* do nothing, just ignore */}
-
-    @Override
-    public EntityList getCompleteList(boolean closeAfter) {
+    @Override public EntityList getCompleteList(boolean closeAfter) {
         try {
             EntityList list = new EntityListImpl(efi);
             EntityValue value;
             while ((value = this.next()) != null) list.add(value);
-
-            if (txCache != null && queryCondition != null) {
-                // add all created values (updated and deleted values will be handled by the next() method
-                List<EntityValueBase> cvList = txCache.getCreatedValueList(entityDefinition.getFullEntityName(), queryCondition);
-                list.addAll(cvList);
-                // update the order if we know the order by field list
-                if (orderByFields != null && cvList.size() > 0) list.orderByFields(orderByFields);
-            }
-
             return list;
         } finally {
             if (closeAfter) close();
         }
     }
 
-    @Override
-    public EntityList getPartialList(int offset, int limit, boolean closeAfter) {
+    @Override public EntityList getPartialList(int offset, int limit, boolean closeAfter) {
         try {
             EntityList list = new EntityListImpl(this.efi);
             if (limit == 0) return list;
@@ -172,8 +144,7 @@ class EntityListIteratorWrapper implements EntityListIterator {
         }
     }
 
-    @Override
-    public int writeXmlText(Writer writer, String prefix, int dependentLevels) {
+    @Override public int writeXmlText(Writer writer, String prefix, int dependentLevels) {
         int recordsWritten = 0;
         if (haveMadeValue && internalIndex != -1) internalIndex = -1;
         EntityValue value;
@@ -181,8 +152,7 @@ class EntityListIteratorWrapper implements EntityListIterator {
         return recordsWritten;
     }
 
-    @Override
-    public int writeXmlTextMaster(Writer writer, String prefix, String masterName) {
+    @Override public int writeXmlTextMaster(Writer writer, String prefix, String masterName) {
         int recordsWritten = 0;
         if (haveMadeValue && internalIndex != -1) internalIndex = -1;
         EntityValue value;
@@ -190,35 +160,30 @@ class EntityListIteratorWrapper implements EntityListIterator {
         return recordsWritten;
     }
 
-    @Override
-    public void remove() {
+    @Override public void remove() {
         throw new IllegalArgumentException("EntityListIteratorWrapper.remove() not currently supported");
         // TODO implement this
         // TODO: call EECAs
         // TODO: notify cache clear
     }
 
-    @Override
-    public void set(EntityValue e) {
+    @Override public void set(EntityValue e) {
         throw new IllegalArgumentException("EntityListIteratorWrapper.set() not currently supported");
         // TODO implement this
         // TODO: call EECAs
         // TODO: notify cache clear
     }
 
-    @Override
-    public void add(EntityValue e) {
+    @Override public void add(EntityValue e) {
         throw new IllegalArgumentException("EntityListIteratorWrapper.add() not currently supported");
         // TODO implement this
     }
 
-    @Override
-    protected void finalize() throws Throwable {
+    @Override protected void finalize() throws Throwable {
         if (!closed) {
             this.close();
             logger.error("EntityListIteratorWrapper not closed for entity " + entityDefinition.fullEntityName + ", caught in finalize()");
         }
-
         super.finalize();
     }
 }
