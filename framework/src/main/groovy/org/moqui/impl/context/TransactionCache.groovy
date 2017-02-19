@@ -200,7 +200,7 @@ class TransactionCache implements Synchronization {
     boolean delete(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return false
-        logger.warn("txc delete ${key}")
+        // logger.warn("txc delete ${key}")
 
         if (!readOnly) {
             EntityWriteInfo currentEwi = firstWriteInfoMap.get(key)

@@ -259,8 +259,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
             while ((value = next()) != null) list.add(value);
 
             if (txcList != null) {
-                // add all created values (updated and deleted values will be handled by the next() method
-                list.addAll(txcList);
+                // all created, updated, and deleted values will be handled by the next() method
                 // update the order if we know the order by field list
                 if (orderByComparator != null) list.sort(orderByComparator);
             }
