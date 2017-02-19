@@ -28,7 +28,6 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.moqui.util.StringUtilities
@@ -62,6 +61,7 @@ class ScreenDefinition {
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
     protected Map<String, SubscreensItem> subscreensByName = new HashMap<>()
     protected ArrayList<SubscreensItem> subscreensItemsSorted = null
+    protected String defaultSubscreensItem = null
 
     protected XmlAction alwaysActions = null
     protected XmlAction preActions = null
@@ -125,6 +125,7 @@ class ScreenDefinition {
         if (!transitionByName.containsKey("formSaveFind")) transitionByName.put("formSaveFind", new FormSavedFindsTransitionItem(this))
 
         // subscreens
+        defaultSubscreensItem = subscreensNode?.attribute("default-item")
         populateSubscreens()
 
         // macro-template - go through entire list and set all found, basically we want the last one if there are more than one
@@ -276,13 +277,14 @@ class ScreenDefinition {
         for (EntityValue subscreensItem in subscreensItemList) {
             SubscreensItem si = new SubscreensItem(subscreensItem, this)
             subscreensByName.put(si.name, si)
+            if ("Y".equals(subscreensItem.makeDefault)) defaultSubscreensItem = si.name
             if (logger.traceEnabled) logger.trace("Added database subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
         }
     }
 
     MNode getScreenNode() { return screenNode }
     MNode getSubscreensNode() { return subscreensNode }
-    String getDefaultSubscreensItem() { return subscreensNode?.attribute('default-item') }
+    String getDefaultSubscreensItem() { return defaultSubscreensItem }
     MNode getWebSettingsNode() { return webSettingsNode }
     String getLocation() { return location }
 
