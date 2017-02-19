@@ -53,7 +53,7 @@ class TransactionCache implements Synchronization {
     private Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
     private Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
     private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50)
-    private LinkedHashMap<String, Map<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<String, Map<Map, EntityValueBase>>()
+    private LinkedHashMap<String, LinkedHashMap<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<>()
 
     TransactionCache(ExecutionContextFactoryImpl ecfi, boolean readOnly) {
         this.ecfi = ecfi
@@ -69,10 +69,10 @@ class TransactionCache implements Synchronization {
     }
     void makeWriteThrough() { readOnly = false }
 
-    Map<Map, EntityValueBase> getCreateByEntityMap(String entityName) {
-        Map createMap = createByEntityRef.get(entityName)
+    LinkedHashMap<Map, EntityValueBase> getCreateByEntityMap(String entityName) {
+        LinkedHashMap<Map, EntityValueBase> createMap = createByEntityRef.get(entityName)
         if (createMap == null) {
-            createMap = [:]
+            createMap = new LinkedHashMap<>()
             createByEntityRef.put(entityName, createMap)
         }
         return createMap
@@ -203,8 +203,21 @@ class TransactionCache implements Synchronization {
         logger.warn("txc delete ${key}")
 
         if (!readOnly) {
-            EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
-            addWriteInfo(key, newEwi)
+            EntityWriteInfo currentEwi = firstWriteInfoMap.get(key)
+            if (currentEwi != null && currentEwi.writeMode == WriteMode.CREATE) {
+                // if was created in TX cache but never written to DB just clear all changes
+                firstWriteInfoMap.remove(key)
+                lastWriteInfoMap.remove(key)
+                for (int i = 0; i < writeInfoList.size(); ) {
+                    EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
+                    if (key.equals(makeKey(ewi.evb))) { writeInfoList.remove(i) }
+                    else { i++ }
+                }
+                getCreateByEntityMap(evb.getEntityName()).remove(evb.getPrimaryKeys())
+            } else {
+                EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
+                addWriteInfo(key, newEwi)
+            }
         }
 
         // remove from readCache if needed
@@ -391,7 +404,7 @@ class TransactionCache implements Synchronization {
     ArrayList<EntityValueBase> getCreatedValueList(String entityName, EntityCondition ec) {
         ArrayList<EntityValueBase> valueList = new ArrayList<>()
         Map<Map, EntityValueBase> createMap = getCreateByEntityMap(entityName)
-        if (createMap == null || createMap.size() == 0) return valueList
+        if (createMap.size() == 0) return valueList
         for (EntityValueBase evb in createMap.values()) if (ec.mapMatches(evb)) valueList.add(evb)
         return valueList
     }

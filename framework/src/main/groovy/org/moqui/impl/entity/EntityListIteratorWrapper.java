@@ -63,14 +63,8 @@ class EntityListIteratorWrapper implements EntityListIterator {
 
     @Override public void afterLast() { this.internalIndex = valueList.size(); }
     @Override public void beforeFirst() { internalIndex = -1; }
-    @Override public boolean last() {
-        internalIndex = (valueList.size() - 1);
-        return true;
-    }
-    @Override public boolean first() {
-        internalIndex = 0;
-        return true;
-    }
+    @Override public boolean last() { internalIndex = (valueList.size() - 1); return true; }
+    @Override public boolean first() { internalIndex = 0; return true; }
 
     @Override public EntityValue currentEntityValue() {
         this.haveMadeValue = true;
@@ -91,6 +85,7 @@ class EntityListIteratorWrapper implements EntityListIterator {
     @Override public boolean hasPrevious() { return internalIndex > 0; }
 
     @Override public EntityValue next() {
+        if (internalIndex >= valueList.size()) return null;
         internalIndex++;
         if (internalIndex >= valueList.size()) return null;
         return currentEntityValue();
@@ -98,6 +93,7 @@ class EntityListIteratorWrapper implements EntityListIterator {
     @Override public int nextIndex() { return internalIndex + 1; }
 
     @Override public EntityValue previous() {
+        if (internalIndex < 0) return null;
         internalIndex--;
         if (internalIndex < 0) return null;
         return currentEntityValue();
