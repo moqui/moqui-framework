@@ -163,7 +163,7 @@ public class EntityValueImpl extends EntityValueBase {
                 String txName = "[could not get]";
                 try {
                     txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString();
-                } catch (Exception txe) { logger.warn("Error getting transaction name: " + txe.toString()); }
+                } catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
                 throw new EntityException("Error in update of " + this.toString() + " tx " + txName + " con " + eqb.connection.toString(), e);
             } finally {
                 try { eqb.closeAll(); }

@@ -1896,14 +1896,22 @@ class EntityFacadeImpl implements EntityFacade {
                 if (useTryInsert) {
                     try {
                         curValue.create()
-                    } catch (EntityException e) {
-                        if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${e.toString()})")
+                    } catch (EntityException ce) {
+                        if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${ce.toString()})")
                         boolean noFksMissing = true
                         if (dummyFks) noFksMissing = curValue.checkFks(true)
                         // retry, then if this fails we have a real error so let the exception fall through
                         // if there were no FKs missing then just do an update, if there were that may have been the error so createOrUpdate
-                        if (noFksMissing) { curValue.update() }
-                        else { curValue.createOrUpdate() }
+                        if (noFksMissing) {
+                            try {
+                                curValue.update()
+                            } catch (EntityException ue) {
+                                logger.error("Error in update after attempt to create (tryInsert), here is the create error: ", ce)
+                                throw ue
+                            }
+                        } else {
+                            curValue.createOrUpdate()
+                        }
                     }
                 } else {
                     if (dummyFks) curValue.checkFks(true)
