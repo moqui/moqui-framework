@@ -17,6 +17,8 @@ See the moqui-runtime release notes for more details.
   the last run time without an error
 - Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - view-entity now supports member-entity with entity-condition and no key-map for more flexible join expressions
+- TransactionCache now handles more situations like using EntityListIterator.next() calls and not just getCompleteList(), and 
+  deletes through the tx cache are more cleanly handled for records created through the tx cache
 - ResourceReference support for versions in supported implementations, initially DbResourceReference
 - ResourceFacade locations now support a version suffix following a hash
 - Improved wiki services to track version along with underlying ResourceReference

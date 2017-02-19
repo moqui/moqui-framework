@@ -14,7 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
@@ -58,7 +57,6 @@ class TransactionCache implements Synchronization {
     TransactionCache(ExecutionContextFactoryImpl ecfi, boolean readOnly) {
         this.ecfi = ecfi
         this.readOnly = readOnly
-        logger.warn("New tx cache")
     }
 
     boolean isReadOnly() { return readOnly }
@@ -465,8 +463,6 @@ class TransactionCache implements Synchronization {
         }
     }
 
-    @Override
-    void beforeCompletion() { flushCache(true) }
-    @Override
-    void afterCompletion(int i) { }
+    @Override void beforeCompletion() { flushCache(true) }
+    @Override void afterCompletion(int i) { }
 }
