@@ -130,6 +130,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fieldNameAlias" type="text-medium"><description>Alias to put in document output for field name
             (ie final part of fieldPath only). Defaults to final part of fieldPath. Must be unique within the document
             and can be used in EntityCondition passed into the EntityFacade.findDataDocuments() method.</description></field>
+        <field name="esDataTypes" type="text-medium"><description>Additional elasticsearch field data types in field mapping
+            when build index, See more https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html.
+            It may be single or multiple additional data types (separate by comma), and field name will be field.type,
+            e.g. field.keyword</description></field>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
