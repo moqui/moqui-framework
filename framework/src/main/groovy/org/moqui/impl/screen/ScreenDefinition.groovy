@@ -877,7 +877,7 @@ class ScreenDefinition {
         protected TransitionItem transitionItem
         protected ScreenDefinition parentScreen
         protected XmlAction condition = null
-        protected Map<String, ParameterItem> parameterMap = new HashMap()
+        protected Map<String, ParameterItem> parameterMap = new HashMap<>()
 
         protected String type
         protected String url

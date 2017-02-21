@@ -107,8 +107,16 @@ public class WebUtilities {
                 } else if (valLength == 1) {
                     String singleVal = valArray[0];
                     // change &nbsp; (\u00a0) to null, used as a placeholder when empty string doesn't work
-                    if ("\u00a0".equals(singleVal)) reqParmMap.put(entry.getKey(), null);
-                    else reqParmMap.put(entry.getKey(), singleVal);
+                    if ("\u00a0".equals(singleVal)) {
+                        reqParmMap.put(entry.getKey(), null);
+                    } else {
+                        if (singleVal.contains(",")) {
+                            // for some reason with multiple parameters of the same name they are put into a comma separated string (found in Jetty, happens in others?)
+                            reqParmMap.put(entry.getKey(), Arrays.asList(singleVal.split(",")));
+                        } else {
+                            reqParmMap.put(entry.getKey(), singleVal);
+                        }
+                    }
                 } else {
                     reqParmMap.put(entry.getKey(), Arrays.asList(valArray));
                 }

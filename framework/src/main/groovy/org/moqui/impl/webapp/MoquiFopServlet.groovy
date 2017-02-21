@@ -65,7 +65,7 @@ class MoquiFopServlet extends HttpServlet {
         ec.initWebFacade(moquiWebappName, request, response)
         ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
-        String filename = ec.web.parameters.get("filename") as String
+        String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
 
         String xslFoText = null
         try {
