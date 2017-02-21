@@ -811,7 +811,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Thread currentThread = Thread.currentThread()
         if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${currentThread.id}:${currentThread.name}]")
         if (!currentThread.getContextClassLoader().is(groovyClassLoader)) currentThread.setContextClassLoader(groovyClassLoader)
-        ec = new ExecutionContextImpl(this)
+        ec = new ExecutionContextImpl(this, currentThread)
         this.activeContext.set(ec)
         this.activeContextMap.put(currentThread.id, ec)
         return ec

@@ -17,12 +17,9 @@ import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.NotificationMessage
 import org.moqui.context.NotificationMessageListener
-import org.moqui.entity.EntityListIterator
-import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import java.sql.Timestamp
 import java.util.concurrent.ConcurrentHashMap
 
 @CompileStatic

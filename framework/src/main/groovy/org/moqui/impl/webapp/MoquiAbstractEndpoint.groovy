@@ -38,7 +38,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
     private final static Logger logger = LoggerFactory.getLogger(MoquiAbstractEndpoint.class)
 
     private ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) null
-    private ExecutionContextImpl eci = (ExecutionContextImpl) null
     private Session session = (Session) null
     private HttpSession httpSession = (HttpSession) null
     private HandshakeRequest handshakeRequest = (HandshakeRequest) null
@@ -47,7 +46,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
 
     MoquiAbstractEndpoint() { super() }
 
-    ExecutionContextImpl getEc() { return eci }
     ExecutionContextFactoryImpl getEcf() { return ecfi }
     HttpSession getHttpSession() { return httpSession }
     Session getSession() { return session }
@@ -60,7 +58,7 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         ecfi = (ExecutionContextFactoryImpl) config.userProperties.get("executionContextFactory")
         handshakeRequest = (HandshakeRequest) config.userProperties.get("handshakeRequest")
         httpSession = handshakeRequest != null ? (HttpSession) handshakeRequest.getHttpSession() : (HttpSession) config.userProperties.get("httpSession")
-        eci = ecfi.getEci()
+        ExecutionContextImpl eci = ecfi.getEci()
         if (handshakeRequest != null) {
             eci.userFacade.initFromHandshakeRequest(handshakeRequest)
         } else if (httpSession != null) {
@@ -96,10 +94,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         this.httpSession = null
         this.handshakeRequest = null
         this.ecfi = null
-        if (eci != null) {
-            eci.destroy()
-            eci = null
-        }
         if (logger.isTraceEnabled()) logger.trace("Closed WebSocket Session ${session.getId()}: ${closeReason.reasonPhrase}")
     }
 

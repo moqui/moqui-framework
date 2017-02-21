@@ -112,7 +112,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>findAllFieldsNestedMap("userId", document, userIdSet)</script>
                 <script>findAllFieldsNestedMap("fromUserId", document, userIdSet)</script>
                 <script>findAllFieldsNestedMap("toUserId", document, userIdSet)</script>
-                <if condition="!userIdSet"><continue/></if>
+                <if condition="!userIdSet">
+                    <log level="info" message="Not sending ${document._type} DataDocument notification, no userIds found"/>
+                    <continue/>
+                </if>
 
                 <script><![CDATA[
                     def nm = ec.makeNotificationMessage()

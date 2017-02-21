@@ -67,20 +67,14 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return notificationTopic
     }
 
-    @Override
-    NotificationMessage userId(String userId) { userIdSet.add(userId); return this }
-    @Override
-    NotificationMessage userIds(Set<String> userIds) { userIdSet.addAll(userIds); return this }
-    @Override
-    Set<String> getUserIds() { userIdSet }
+    @Override NotificationMessage userId(String userId) { userIdSet.add(userId); return this }
+    @Override NotificationMessage userIds(Set<String> userIds) { userIdSet.addAll(userIds); return this }
+    @Override Set<String> getUserIds() { userIdSet }
 
-    @Override
-    NotificationMessage userGroupId(String userGroupId) { this.userGroupId = userGroupId; return this }
-    @Override
-    String getUserGroupId() { userGroupId }
+    @Override NotificationMessage userGroupId(String userGroupId) { this.userGroupId = userGroupId; return this }
+    @Override String getUserGroupId() { userGroupId }
 
-    @Override
-    Set<String> getNotifyUserIds() {
+    @Override Set<String> getNotifyUserIds() {
         Set<String> notifyUserIds = new HashSet<>()
         Set<String> checkedUserIds = new HashSet<>()
         EntityFacade ef = ecfi.entityFacade
@@ -129,32 +123,24 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return notifyUser
     }
 
-    @Override
-    NotificationMessage topic(String topic) { this.topic = topic; notificationTopic = null; return this }
-    @Override
-    String getTopic() { topic }
+    @Override NotificationMessage topic(String topic) { this.topic = topic; notificationTopic = null; return this }
+    @Override String getTopic() { topic }
 
-    @Override
-    NotificationMessage message(String messageJson) { this.messageJson = messageJson; messageMap = null; return this }
-    @Override
-    NotificationMessage message(Map message) { this.messageMap = Collections.unmodifiableMap(message); messageJson = null; return this }
-    @Override
-    String getMessageJson() {
+    @Override NotificationMessage message(String messageJson) { this.messageJson = messageJson; messageMap = null; return this }
+    @Override NotificationMessage message(Map message) { this.messageMap = Collections.unmodifiableMap(message); messageJson = null; return this }
+    @Override String getMessageJson() {
         if (messageJson == null && messageMap != null)
             messageJson = JsonOutput.toJson(messageMap)
         return messageJson
     }
-    @Override
-    Map<String, Object> getMessageMap() {
+    @Override Map<String, Object> getMessageMap() {
         if (messageMap == null && messageJson != null)
             messageMap = Collections.unmodifiableMap((Map<String, Object>) new JsonSlurper().parseText(messageJson))
         return messageMap
     }
 
-    @Override
-    NotificationMessage title(String title) { titleTemplate = title; return this }
-    @Override
-    String getTitle() {
+    @Override NotificationMessage title(String title) { titleTemplate = title; return this }
+    @Override String getTitle() {
         if (titleText == null) {
             if (titleTemplate) {
                 titleText = ecfi.resource.expand(titleTemplate, "", getMessageMap(), true)
@@ -172,10 +158,8 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return titleText
     }
 
-    @Override
-    NotificationMessage link(String link) { linkTemplate = link; return this }
-    @Override
-    String getLink() {
+    @Override NotificationMessage link(String link) { linkTemplate = link; return this }
+    @Override String getLink() {
         if (linkText == null) {
             if (linkTemplate) {
                 linkText = ecfi.resource.expand(linkTemplate, "", getMessageMap(), true)
@@ -188,12 +172,9 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return linkText
     }
 
-    @Override
-    NotificationMessage type(NotificationType type) { this.type = type; return this }
-    @Override
-    NotificationMessage type(String type) { this.type = NotificationType.valueOf(type); return this }
-    @Override
-    String getType() {
+    @Override NotificationMessage type(NotificationType type) { this.type = type; return this }
+    @Override NotificationMessage type(String type) { this.type = NotificationType.valueOf(type); return this }
+    @Override String getType() {
         if (type != null) {
             return type.name()
         } else {
@@ -206,10 +187,8 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
     }
 
-    @Override
-    NotificationMessage showAlert(boolean show) { showAlert = show; return this }
-    @Override
-    boolean isShowAlert() {
+    @Override NotificationMessage showAlert(boolean show) { showAlert = show; return this }
+    @Override boolean isShowAlert() {
         if (showAlert != null) {
             return showAlert.booleanValue()
         } else {
@@ -222,10 +201,8 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
     }
 
-    @Override
-    NotificationMessage persistOnSend(boolean persist) { persistOnSend = persist; return this }
-    @Override
-    boolean isPersistOnSend() {
+    @Override NotificationMessage persistOnSend(boolean persist) { persistOnSend = persist; return this }
+    @Override boolean isPersistOnSend() {
         if (persistOnSend != null) {
             return persistOnSend.booleanValue()
         } else {
@@ -238,13 +215,11 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
     }
 
-    @Override
-    NotificationMessage send(boolean persist) {
+    @Override NotificationMessage send(boolean persist) {
         persistOnSend = persist
         return send()
     }
-    @Override
-    NotificationMessage send() {
+    @Override NotificationMessage send() {
         if (isPersistOnSend()) {
             sentDate = new Timestamp(System.currentTimeMillis())
             // a little trick so that this is available in the closure
@@ -274,12 +249,10 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return this
     }
 
-    @Override
-    String getNotificationMessageId() { return notificationMessageId }
+    @Override String getNotificationMessageId() { return notificationMessageId }
     void setNotificationMessageId(String id) { notificationMessageId = id }
 
-    @Override
-    NotificationMessage markSent(String userId) {
+    @Override NotificationMessage markSent(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
         if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message sent")
@@ -298,8 +271,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
         return this
     }
-    @Override
-    NotificationMessage markViewed(String userId) {
+    @Override NotificationMessage markViewed(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
         if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message received")
@@ -323,11 +295,9 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
     }
 
-    @Override
-    Map<String, Object> getWrappedMessageMap() { [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId,
+    @Override Map<String, Object> getWrappedMessageMap() { [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId,
             message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert()] }
-    @Override
-    String getWrappedMessageJson() { JsonOutput.toJson(getWrappedMessageMap()) }
+    @Override String getWrappedMessageJson() { JsonOutput.toJson(getWrappedMessageMap()) }
 
     void populateFromValue(EntityValue nmbu) {
         this.notificationMessageId = nmbu.notificationMessageId
@@ -345,8 +315,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         for (EntityValue nmu in nmuList) userIdSet.add((String) nmu.userId)
     }
 
-    @Override
-    void writeExternal(ObjectOutput out) throws IOException {
+    @Override void writeExternal(ObjectOutput out) throws IOException {
         // NOTE: lots of writeObject because values are nullable
         out.writeObject(userIdSet)
         out.writeObject(userGroupId)
@@ -360,9 +329,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         out.writeObject(showAlert)
         out.writeObject(persistOnSend)
     }
-
-    @Override
-    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+    @Override void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         userIdSet = (Set<String>) objectInput.readObject()
         userGroupId = (String) objectInput.readObject()
         topic = objectInput.readUTF()
