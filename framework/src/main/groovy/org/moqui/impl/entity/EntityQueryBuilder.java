@@ -149,7 +149,7 @@ public class EntityQueryBuilder {
         connection = null;
     }
 
-    public static String[] sanitizeChars = {".", "(", ")", "+", "-", "*", "/", "<", ">", "=", "!", " "};
+    public static String[] sanitizeChars = {".", "(", ")", "+", "-", "*", "/", "<", ">", "=", "!", " ", "'", "%"};
     public static String sanitizeColumnName(String colName) {
         StringBuilder interim = new StringBuilder(colName);
         for (int i = 0; i < sanitizeChars.length; i++) {
