@@ -59,25 +59,31 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         handshakeRequest = (HandshakeRequest) config.userProperties.get("handshakeRequest")
         httpSession = handshakeRequest != null ? (HttpSession) handshakeRequest.getHttpSession() : (HttpSession) config.userProperties.get("httpSession")
         ExecutionContextImpl eci = ecfi.getEci()
-        if (handshakeRequest != null) {
-            eci.userFacade.initFromHandshakeRequest(handshakeRequest)
-        } else if (httpSession != null) {
-            eci.userFacade.initFromHttpSession(httpSession)
-        } else {
-            logger.warn("No HandshakeRequest or HttpSession found opening WebSocket Session ${session.id}, not logging in user")
+        try {
+            if (handshakeRequest != null) {
+                eci.userFacade.initFromHandshakeRequest(handshakeRequest)
+            } else if (httpSession != null) {
+                eci.userFacade.initFromHttpSession(httpSession)
+            } else {
+                logger.warn("No HandshakeRequest or HttpSession found opening WebSocket Session ${session.id}, not logging in user")
+            }
+
+
+            userId = eci.user.userId
+            username = eci.user.username
+
+            Long timeout = (Long) config.userProperties.get("maxIdleTimeout")
+            if (timeout != null && session.getMaxIdleTimeout() > 0 && session.getMaxIdleTimeout() < timeout)
+                session.setMaxIdleTimeout(timeout)
+
+            session.addMessageHandler(this)
+
+            if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), timeout: ${session.getMaxIdleTimeout()}ms")
+        } finally {
+            if (eci != null) {
+                eci.destroy()
+            }
         }
-
-        userId = eci.user.userId
-        username = eci.user.username
-
-        Long timeout = (Long) config.userProperties.get("maxIdleTimeout")
-        if (timeout != null && session.getMaxIdleTimeout() > 0 && session.getMaxIdleTimeout() < timeout)
-            session.setMaxIdleTimeout(timeout)
-
-        session.addMessageHandler(this)
-
-        if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), timeout: ${session.getMaxIdleTimeout()}ms")
-
         /*
         logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, username: ${session.getUserPrincipal()?.getName()}, config props: ${config.userProperties}")
         for (String attrName in httpSession.getAttributeNames())
