@@ -796,7 +796,8 @@ class ScreenUrlInfo {
         }
         boolean isScreenUrl() {
             if (getTargetTransition() != null && curTargetTransition.defaultResponse != null &&
-                    ("plain".equals(curTargetTransition.defaultResponse.urlType) || "none".equals(curTargetTransition.defaultResponse.type))) return false
+                    ("plain".equals(curTargetTransition.defaultResponse.urlType) || "none".equals(curTargetTransition.defaultResponse.type) ||
+                            curTargetTransition.defaultResponse.parameterMap.containsKey("renderMode"))) return false
             return sui.targetScreen != null
         }
 

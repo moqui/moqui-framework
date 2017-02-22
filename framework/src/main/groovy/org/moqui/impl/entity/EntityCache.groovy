@@ -378,6 +378,10 @@ class EntityCache {
                     MNode memberEntityNode = (MNode) memberEntityList.get(i)
                     Map<String, String> mePkFieldToAliasNameMap = ed.getMePkFieldToAliasNameMap(memberEntityNode.attribute('entity-alias'))
 
+                    if (mePkFieldToAliasNameMap.isEmpty()) {
+                        logger.warn("for view-entity ${entityName}, member-entity ${memberEntityNode.attribute('@entity-name')}, got empty PK field to alias map")
+                        continue
+                    }
                     // create EntityCondition with pk fields
                     // store with main ec with view-entity name in a RA cache for view entities for the member-entity name
                     // with cache key of member-entity PK EntityCondition obj
@@ -420,6 +424,10 @@ class EntityCache {
                 MNode memberEntityNode = (MNode) memberEntityList.get(j)
                 Map<String, String> mePkFieldToAliasNameMap = ed.getMePkFieldToAliasNameMap(memberEntityNode.attribute('entity-alias'))
 
+                if (mePkFieldToAliasNameMap.isEmpty()) {
+                    logger.warn("for view-entity ${entityName}, member-entity ${memberEntityNode.attribute('@entity-name')}, got empty PK field to alias map")
+                    continue
+                }
                 // logger.warn("TOREMOVE for view-entity ${entityName}, member-entity ${memberEntityNode.'@entity-name'}, got PK field to alias map: ${mePkFieldToAliasNameMap}")
 
                 // create EntityCondition with pk fields

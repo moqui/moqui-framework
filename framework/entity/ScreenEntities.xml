@@ -30,12 +30,13 @@ along with this software (see the LICENSE.md file). If not, see
                 screen.default-menu-title attribute and the subscreens-item.menu-title attribute.</description>
         </field>
         <field name="menuIndex" type="number-integer">
-            <description>Insert this item in subscreens menu at this index (1-based).</description>
-        </field>
+            <description>Insert this item in subscreens menu at this index (1-based).</description></field>
         <field name="menuInclude" type="text-indicator">
             <description>Defaults to Y. Set to N to not include in the menu for the subscreens. This can be used to hide
                 subscreens from the directory structure or even explicitly declared in the Screen XML file.</description>
         </field>
+        <field name="makeDefault" type="text-indicator">
+            <description>If Y will be set at the default subscreen (replacing screen.subscreens.@default-item)</description></field>
         <relationship type="one" related="moqui.security.UserGroup"/>
     </entity>
     <entity entity-name="SubscreensDefault" package="moqui.screen" use="configuration" cache="true">

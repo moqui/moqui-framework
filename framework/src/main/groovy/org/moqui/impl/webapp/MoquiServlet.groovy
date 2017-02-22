@@ -68,6 +68,11 @@ class MoquiServlet extends HttpServlet {
 
         if (logger.traceEnabled) logger.trace("Start request to [${pathInfo}] at time [${startTime}] in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
 
+        ExecutionContextImpl activeEc = ecfi.activeContext.get()
+        if (activeEc != null && activeEc.forThreadId != Thread.currentThread().id) {
+            logger.warn("In MoquiServlet.service there is already an ExecutionContext (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
+            ecfi.destroyActiveExecutionContext()
+        }
         ExecutionContextImpl ec = ecfi.getEci()
 
         /** NOTE to set render settings manually do something like this, but it is not necessary to set these things

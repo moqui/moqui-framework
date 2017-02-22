@@ -38,7 +38,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
     private final static Logger logger = LoggerFactory.getLogger(MoquiAbstractEndpoint.class)
 
     private ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) null
-    private ExecutionContextImpl eci = (ExecutionContextImpl) null
     private Session session = (Session) null
     private HttpSession httpSession = (HttpSession) null
     private HandshakeRequest handshakeRequest = (HandshakeRequest) null
@@ -47,7 +46,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
 
     MoquiAbstractEndpoint() { super() }
 
-    ExecutionContextImpl getEc() { return eci }
     ExecutionContextFactoryImpl getEcf() { return ecfi }
     HttpSession getHttpSession() { return httpSession }
     Session getSession() { return session }
@@ -60,26 +58,32 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         ecfi = (ExecutionContextFactoryImpl) config.userProperties.get("executionContextFactory")
         handshakeRequest = (HandshakeRequest) config.userProperties.get("handshakeRequest")
         httpSession = handshakeRequest != null ? (HttpSession) handshakeRequest.getHttpSession() : (HttpSession) config.userProperties.get("httpSession")
-        eci = ecfi.getEci()
-        if (handshakeRequest != null) {
-            eci.userFacade.initFromHandshakeRequest(handshakeRequest)
-        } else if (httpSession != null) {
-            eci.userFacade.initFromHttpSession(httpSession)
-        } else {
-            logger.warn("No HandshakeRequest or HttpSession found opening WebSocket Session ${session.id}, not logging in user")
+        ExecutionContextImpl eci = ecfi.getEci()
+        try {
+            if (handshakeRequest != null) {
+                eci.userFacade.initFromHandshakeRequest(handshakeRequest)
+            } else if (httpSession != null) {
+                eci.userFacade.initFromHttpSession(httpSession)
+            } else {
+                logger.warn("No HandshakeRequest or HttpSession found opening WebSocket Session ${session.id}, not logging in user")
+            }
+
+
+            userId = eci.user.userId
+            username = eci.user.username
+
+            Long timeout = (Long) config.userProperties.get("maxIdleTimeout")
+            if (timeout != null && session.getMaxIdleTimeout() > 0 && session.getMaxIdleTimeout() < timeout)
+                session.setMaxIdleTimeout(timeout)
+
+            session.addMessageHandler(this)
+
+            if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), timeout: ${session.getMaxIdleTimeout()}ms")
+        } finally {
+            if (eci != null) {
+                eci.destroy()
+            }
         }
-
-        userId = eci.user.userId
-        username = eci.user.username
-
-        Long timeout = (Long) config.userProperties.get("maxIdleTimeout")
-        if (timeout != null && session.getMaxIdleTimeout() > 0 && session.getMaxIdleTimeout() < timeout)
-            session.setMaxIdleTimeout(timeout)
-
-        session.addMessageHandler(this)
-
-        if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), timeout: ${session.getMaxIdleTimeout()}ms")
-
         /*
         logger.info("Opened WebSocket Session ${session.getId()}, parameters: ${session.getRequestParameterMap()}, username: ${session.getUserPrincipal()?.getName()}, config props: ${config.userProperties}")
         for (String attrName in httpSession.getAttributeNames())
@@ -96,10 +100,6 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         this.httpSession = null
         this.handshakeRequest = null
         this.ecfi = null
-        if (eci != null) {
-            eci.destroy()
-            eci = null
-        }
         if (logger.isTraceEnabled()) logger.trace("Closed WebSocket Session ${session.getId()}: ${closeReason.reasonPhrase}")
     }
 

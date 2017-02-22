@@ -14,6 +14,7 @@
 package org.moqui.impl.context;
 
 import groovy.lang.Closure;
+import org.moqui.BaseException;
 import org.moqui.context.*;
 import org.moqui.entity.EntityFacade;
 import org.moqui.entity.EntityFind;
@@ -65,11 +66,18 @@ public class ExecutionContextImpl implements ExecutionContext {
     private Cache<String, String> l10nMessageCache;
     private Cache<String, ArrayList> tarpitHitCache;
 
-    public ExecutionContextImpl(ExecutionContextFactoryImpl ecfi) {
+    public final String forThreadName;
+    public final long forThreadId;
+    // public final Exception createLoc;
+
+    public ExecutionContextImpl(ExecutionContextFactoryImpl ecfi, Thread forThread) {
         this.ecfi = ecfi;
         // NOTE: no WebFacade init here, wait for call in to do that
         // put reference to this in the context root
         contextStack.put("ec", this);
+        forThreadName = forThread.getName();
+        forThreadId = forThread.getId();
+        // createLoc = new BaseException("ec create");
 
         activeEntityFacade = ecfi.entityFacade;
         userFacade = new UserFacadeImpl(this);

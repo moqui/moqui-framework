@@ -14,8 +14,6 @@
 package org.moqui.entity;
 
 import java.io.Writer;
-import java.util.Iterator;
-import java.util.List;
 import java.util.ListIterator;
 
 /**
@@ -23,11 +21,6 @@ import java.util.ListIterator;
  */
 @SuppressWarnings("unused")
 public interface EntityListIterator extends ListIterator<EntityValue> {
-
-    /** Entity Facade calls this method to tell the ELI additional information for dealing with TX cache, etc */
-    void setQueryCondition(EntityCondition ec);
-    /** Entity Facade calls this method to tell the ELI additional information for dealing with TX cache, etc */
-    void setOrderByFields(List<String> obf);
 
     /** Close the underlying ResultSet and Connection. This must ALWAYS be called when done with an EntityListIterator. */
     void close() throws EntityException;
@@ -74,14 +67,12 @@ public interface EntityListIterator extends ListIterator<EntityValue> {
      *      while ((nextValue = (EntityValue) eli.next()) != null) { ... }
      *
      */
-    @Override
-    boolean hasNext();
+    @Override boolean hasNext();
 
     /** PLEASE NOTE: Because of the nature of the JDBC ResultSet interface this method can be very inefficient; it is
      * much better to just use previous() until it returns null.
      */
-    @Override
-    boolean hasPrevious();
+    @Override boolean hasPrevious();
 
     /** Moves the cursor to the next position and returns the EntityValue object for that position; if there is no next,
      * returns null.
@@ -92,22 +83,18 @@ public interface EntityListIterator extends ListIterator<EntityValue> {
      *      while ((nextValue = (EntityValue) eli.next()) != null) { ... }
      *
      */
-    @Override
-    EntityValue next();
+    @Override EntityValue next();
 
     /** Returns the index of the next result, but does not guarantee that there will be a next result */
-    @Override
-    int nextIndex();
+    @Override int nextIndex();
 
     /** Moves the cursor to the previous position and returns the EntityValue object for that position; if there is no
      * previous, returns null.
      */
-    @Override
-    EntityValue previous();
+    @Override EntityValue previous();
 
     /** Returns the index of the previous result, but does not guarantee that there will be a previous result */
-    @Override
-    int previousIndex();
+    @Override int previousIndex();
 
     void setFetchSize(int rows) throws EntityException;
 

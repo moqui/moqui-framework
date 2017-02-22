@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.moqui.BaseException;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
@@ -162,7 +163,7 @@ public class EntityValueImpl extends EntityValueBase {
                 String txName = "[could not get]";
                 try {
                     txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString();
-                } catch (Exception txe) { logger.warn("Error getting transaction name: " + txe.toString()); }
+                } catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
                 throw new EntityException("Error in update of " + this.toString() + " tx " + txName + " con " + eqb.connection.toString(), e);
             } finally {
                 try { eqb.closeAll(); }
@@ -203,8 +204,7 @@ public class EntityValueImpl extends EntityValueBase {
                 else eqb.makeConnection();
                 eqb.makePreparedStatement();
                 eqb.setPreparedStatementValues();
-                if (eqb.executeUpdate() == 0)
-                    logger.info("Tried to delete a value that does not exist " + this.toString());
+                if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString(), new BaseException("location"));
             } catch (Exception e) {
                 throw new EntityException("Error in delete of " + this.toString(), e);
             } finally {

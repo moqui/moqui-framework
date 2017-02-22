@@ -1688,7 +1688,7 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiArray, this, null)
+            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiArray, this, null, null, null)
             return eli
         } catch (SQLException e) {
             throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)
@@ -1896,14 +1896,19 @@ class EntityFacadeImpl implements EntityFacade {
                 if (useTryInsert) {
                     try {
                         curValue.create()
-                    } catch (EntityException e) {
-                        if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${e.toString()})")
+                    } catch (EntityException ce) {
+                        if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${ce.toString()})")
                         boolean noFksMissing = true
                         if (dummyFks) noFksMissing = curValue.checkFks(true)
                         // retry, then if this fails we have a real error so let the exception fall through
                         // if there were no FKs missing then just do an update, if there were that may have been the error so createOrUpdate
                         if (noFksMissing) {
-                            curValue.update()
+                            try {
+                                curValue.update()
+                            } catch (EntityException ue) {
+                                logger.error("Error in update after attempt to create (tryInsert), here is the create error: ", ce)
+                                throw ue
+                            }
                         } else {
                             curValue.createOrUpdate()
                         }

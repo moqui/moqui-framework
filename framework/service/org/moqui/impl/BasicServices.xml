@@ -30,7 +30,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="geoTypeEnumId" ignore-if-empty="true"/>
                     <order-by field-name="geoName"/>
                 </entity-find>
-                <script>for (def geo in geoList) resultList.add([geoId:geo.toGeoId, label:"${geo.geoName}"])</script>
+                <script>for (geo in geoList) resultList.add([geoId:geo.toGeoId, label:(geo.geoCodeAlpha2 ? geo.geoCodeAlpha2 + ' - ' : '') + geo.geoName,
+                        geoName:geo.geoName, geoCodeAlpha2:geo.geoCodeAlpha2])</script>
             </if>
         </actions>
     </service>
